@@ -471,6 +471,7 @@ class CronsStub:
     @_typing.overload
     def __new__(cls, channel: _aio.Channel) -> CronsAsyncStub: ...
     Create: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CreateCronRequest, _core_api_pb2.Cron]
+    Get: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.GetCronRequest, _core_api_pb2.Cron]
     Patch: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.PatchCronRequest, _core_api_pb2.Cron]
     Delete: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.DeleteCronRequest, _empty_pb2.Empty]
     Search: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SearchCronsRequest, _core_api_pb2.SearchCronsResponse]
@@ -482,6 +483,7 @@ class CronsStub:
 class CronsAsyncStub(CronsStub):
     def __init__(self, channel: _aio.Channel) -> None: ...
     Create: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CreateCronRequest, _core_api_pb2.Cron]  # type: ignore[assignment]
+    Get: _aio.UnaryUnaryMultiCallable[_core_api_pb2.GetCronRequest, _core_api_pb2.Cron]  # type: ignore[assignment]
     Patch: _aio.UnaryUnaryMultiCallable[_core_api_pb2.PatchCronRequest, _core_api_pb2.Cron]  # type: ignore[assignment]
     Delete: _aio.UnaryUnaryMultiCallable[_core_api_pb2.DeleteCronRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     Search: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SearchCronsRequest, _core_api_pb2.SearchCronsResponse]  # type: ignore[assignment]
@@ -494,6 +496,13 @@ class CronsServicer(metaclass=_abc_1.ABCMeta):
     def Create(
         self,
         request: _core_api_pb2.CreateCronRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.Cron, _abc.Awaitable[_core_api_pb2.Cron]]: ...
+
+    @_abc_1.abstractmethod
+    def Get(
+        self,
+        request: _core_api_pb2.GetCronRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_core_api_pb2.Cron, _abc.Awaitable[_core_api_pb2.Cron]]: ...
 

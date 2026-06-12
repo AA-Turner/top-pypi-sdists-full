@@ -49,6 +49,7 @@ from bty.web import (
     _db,
     _models,
     _release_mgr,
+    _security,
     _settings_store,
     _ui,
     _withcache,
@@ -68,8 +69,9 @@ from bty.web._events import (
 )
 from bty.web._events_log import acknowledge_event as _acknowledge_event
 from bty.web._events_log import list_events as _list_events
-from bty.web._events_log import normalize_ip as _normalize_ip
 from bty.web._events_log import record as _log_event
+from bty.web._reqctx import client_ip as _client_ip
+from bty.web._reqctx import normalise_mac as _normalise_mac
 
 # Session cookie max-age. Sliding TTL on the browser side; Starlette's
 # SessionMiddleware refreshes the cookie on each authed response, so
@@ -1064,9 +1066,26 @@ def create_app(
         cache_decision: dict[str, Any] | None = None
         if policy in ("bty-flash-always", "bty-flash-once") and ref:
             target_disk_serial = machine.get("target_disk_serial")
-            image_name = _flash_target_for_ref(str(ref))
+            # One DB connection for the whole flash-plan resolution: the
+            # catalog binding (name/format/src/resolved_src) plus the
+            # withcache lookup, rather than an open-per-field on this hot
+            # path. is_cached's network HEAD stays OUTSIDE the connection.
+            with _db.open_db(state_path) as conn:
+                _b = conn.execute(
+                    "SELECT name, format, src, resolved_src FROM catalog_entries "
+                    "WHERE bty_image_ref = ?",
+                    (str(ref),),
+                ).fetchone()
+                image_name = str(_b["name"]) if _b and _b["name"] else None
+                fmt = str(_b["format"]) if _b and _b["format"] else None
+                src = str(_b["src"]) if _b and _b["src"] else None
+                resolved_src = str(_b["resolved_src"]) if _b and _b["resolved_src"] else None
+                withcache_url = (
+                    _settings_store.resolve_withcache_url(conn)
+                    if image_name is not None and target_disk_serial and resolved_src
+                    else None
+                )
             if image_name is not None and target_disk_serial:
-                fmt = _flash_format_for_ref(str(ref))
                 # The client detects image format from the URL name's
                 # extension. An oras title ("nosi fedora-sysdev (x86_64,
                 # rolling)") has none, so the flash gets rejected as
@@ -1080,34 +1099,53 @@ def create_app(
                 else:
                     url_name = image_name
                 image_name_encoded = urllib.parse.quote(url_name, safe="")
-                # ORAS catalog entries still flow through bty-web's /images
-                # proxy (oras blob fetch needs the bearer token bty-web
-                # holds; withcache speaks plain HTTP).
+                # Default fallback: bty-web's /images proxy. Used for
+                # oras catalog entries when withcache is unconfigured or
+                # cold (bty-web does the oras dance + stream-proxies the
+                # bytes), and as the catch-all for any catalog row whose
+                # ``resolved_src`` is NULL (legacy schema / failed import).
+                # An https origin is reset back to its direct URL just
+                # below; oras stays on the proxy by design (the live env
+                # can't carry a fresh OCI bearer per fetch).
                 image_url = f"{base}/images/{ref}/{image_name_encoded}"
-                src = _flash_src_for_ref(str(ref))
-                if src and src.startswith(("http://", "https://")):
-                    # HTTPS source: bty-web is out of the bytes path. Prefer a
-                    # configured withcache when it already holds the blob (the
-                    # is_cached HEAD also warms withcache's auto-fetch for the
-                    # next boot). Otherwise hand the live env the origin URL
-                    # directly -- withcache 404s on a miss anyway, so going
-                    # through it on cold cache would just fail.
-                    with _db.open_db(state_path) as conn:
-                        withcache_url = _settings_store.resolve_withcache_url(conn)
-                    if withcache_url and _withcache.is_cached(withcache_url, src):
-                        image_url = _withcache.blob_url(withcache_url, src)
+                is_oras = src is not None and src.startswith("oras://")
+                if resolved_src is not None:
+                    # New unified path: a canonical plain-HTTPS URL the
+                    # catalog row stored at import time (or the same URL
+                    # as ``src`` for an http(s) entry). Mint a fresh
+                    # OCI bearer for oras-resolved entries so withcache
+                    # 0.4.0+ can forward it into the background fetch
+                    # worker; HTTPS entries probe anonymously.
+                    head_headers: dict[str, str] | None = None
+                    if is_oras:
+                        try:
+                            ref_oras = _oras.parse_ref(str(src))
+                            token = _oras.fetch_anonymous_token(ref_oras.host, ref_oras.repository)
+                            head_headers = {"Authorization": f"Bearer {token}"}
+                        except _oras.OrasError:
+                            head_headers = None
+                    if withcache_url and _withcache.is_cached(
+                        withcache_url, resolved_src, headers=head_headers
+                    ):
+                        image_url = _withcache.blob_url(withcache_url, resolved_src)
                         cache_hit = True
-                    else:
-                        image_url = src
+                    elif not is_oras:
+                        # Cold cache / no cache for an https origin: let the
+                        # live env fetch direct, bty-web is out of the bytes
+                        # path. For oras the default `/images/{ref}` proxy
+                        # stays in place (live env has no bearer).
+                        image_url = resolved_src
                         cache_hit = False
-                    # Record the decision so the operator can see, in
-                    # /ui/events + the log, whether the boot streamed
-                    # from withcache or origin (and whether a configured
-                    # cache is even being consulted).
+                    else:
+                        cache_hit = False
                     cache_decision = {
                         "configured": bool(withcache_url),
                         "hit": cache_hit if withcache_url else None,
-                        "served_from": "withcache" if cache_hit else "origin",
+                        "served_from": (
+                            "withcache"
+                            if cache_hit
+                            else ("origin" if not is_oras else "bty-web-proxy")
+                        ),
                     }
                 plan = {
                     "mode": "flash",
@@ -1343,12 +1381,13 @@ def create_app(
         return state.to_dict()
 
     # ---------- backups -----------------------------------------
-    # Mirrors the /catalog/downloads + /catalog/hashes + /boot/releases
-    # shape: GET lists the active jobs (queued + running + recent
-    # terminal states, same as the other managers' raw list); POST
-    # enqueues; DELETE cancels by backup_id. ``/ui/backups`` filters
-    # to queued + running only -- terminal rows evict from the UI on
-    # completion, and history lives in the events log.
+    # Mirrors the /boot/releases shape (the only other worker-pool
+    # manager left after the v0.40 catalog/download + hash cleanup):
+    # GET lists active jobs (queued + running + recent terminal
+    # states); POST enqueues; DELETE cancels by backup_id.
+    # ``/ui/backups`` filters to queued + running only; terminal
+    # rows evict from the UI on completion, and history lives in
+    # the events log.
 
     @app.get("/workers/backups", dependencies=[Depends(require_auth)])
     async def list_backups() -> dict[str, Any]:
@@ -1652,32 +1691,9 @@ def create_app(
             return None
         return str(row["name"])
 
-    def _flash_format_for_ref(ref: str) -> str | None:
-        """The catalog entry's stored ``format`` for a ref, or None.
-
-        The flash plan passes this to the client: the image URL's name
-        segment can be a descriptive title (e.g. an oras image's
-        ``nosi fedora-sysdev (x86_64, rolling)``) with no file
-        extension, so the client can't detect the format from the URL
-        alone and would reject the flash as "format not recognised".
-        """
-        with _db.open_db(state_path) as conn:
-            row = conn.execute(
-                "SELECT format FROM catalog_entries WHERE bty_image_ref = ?",
-                (ref,),
-            ).fetchone()
-        return str(row["format"]) if row and row["format"] else None
-
-    def _flash_src_for_ref(ref: str) -> str | None:
-        """The catalog entry's origin ``src`` for a ref, or None. Used to build
-        the withcache serve URL, since withcache keys on the origin URL, not on
-        bty's ``/images`` URL."""
-        with _db.open_db(state_path) as conn:
-            row = conn.execute(
-                "SELECT src FROM catalog_entries WHERE bty_image_ref = ?",
-                (ref,),
-            ).fetchone()
-        return str(row["src"]) if row and row["src"] else None
+    # The flash plan resolves name/format/src in one query inline (see
+    # pxe_plan); ``_flash_target_for_ref`` is kept as a single-field
+    # helper because the iPXE ``/pxe`` handler needs only the name.
 
     @app.api_route(
         "/images/{key}",
@@ -2167,9 +2183,10 @@ def create_app(
     async def upload_boot_artifact(name: str, request: Request) -> dict[str, object]:
         """Stream-upload a live-env artifact into the boot dir.
 
-        Same shape as ``PUT /images/{name}`` - the live trio
-        (vmlinuz / initrd / squashfs) goes here so the iPXE chain
-        finds it via the open ``GET /boot/{name}`` route.
+        The live trio (vmlinuz / initrd / squashfs) lands here so the
+        iPXE chain finds it via the open ``GET /boot/{name}`` route.
+        Body is capped at ``cfg.tuning.max_upload_bytes`` and the name
+        is checked against path traversal via ``_safe_path``.
         """
         return await _stream_upload(request, resolved_boot_root, name)
 
@@ -2362,12 +2379,13 @@ def create_app(
                 try:
                     conn.execute(
                         "INSERT INTO catalog_entries "
-                        "(bty_image_ref, src, disk_image_sha, name, sha_url, "
+                        "(bty_image_ref, src, resolved_src, disk_image_sha, name, sha_url, "
                         "format, size_bytes, description, added_at) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             bty_image_ref,
                             body.image_url,
+                            resolved.blob_url,
                             sha256,
                             name,
                             None,
@@ -2468,11 +2486,12 @@ def create_app(
             try:
                 conn.execute(
                     "INSERT INTO catalog_entries "
-                    "(bty_image_ref, src, disk_image_sha, name, sha_url, "
+                    "(bty_image_ref, src, resolved_src, disk_image_sha, name, sha_url, "
                     "format, size_bytes, description, added_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         bty_image_ref,
+                        body.image_url,
                         body.image_url,
                         sha256,
                         name,
@@ -2523,8 +2542,8 @@ def create_app(
     def list_catalog_entries() -> list[dict[str, Any]]:
         with _db.open_db(state_path) as conn:
             rows = conn.execute(
-                "SELECT bty_image_ref, src, disk_image_sha, name, sha_url, format, size_bytes, "
-                "description, added_at "
+                "SELECT bty_image_ref, src, resolved_src, disk_image_sha, name, sha_url, "
+                "format, size_bytes, description, added_at "
                 "FROM catalog_entries ORDER BY added_at"
             ).fetchall()
         return [dict(row) for row in rows]
@@ -2579,10 +2598,11 @@ def create_app(
         through :func:`bty.catalog.load_source` so the same client-
         side fetcher ``bty`` uses applies here.
 
-        **Metadata-only**. Bytes are NOT fetched at import time; each
-        imported entry surfaces in ``/images`` as ``cached=False``.
-        The operator's "Fetch" button (or ``POST /catalog/downloads``)
-        materialises bytes on demand.
+        **Metadata-only**. Bytes are NOT fetched at import time. From
+        v0.40 the catalog-Download manager + the per-entry Fetch
+        button are gone; bytes materialise on demand at flash time
+        via the withcache warm-fetch path (oras + https) or bty-web's
+        own ``/images/{ref}`` proxy on a cold cache.
 
         Per-entry behaviour:
 
@@ -2656,16 +2676,26 @@ def create_app(
                 sha = entry.sha256
                 fmt = entry.format
                 size_bytes = entry.size_bytes
-                if sha is None and entry.src.startswith("oras://"):
+                # Default: a plain HTTPS catalog entry is fetchable as-is;
+                # oras entries need a manifest walk to produce the canonical
+                # registry blob URL, and a ``file://`` entry has no URL
+                # withcache or the PXE plan would ever talk to (the local
+                # path is the path).
+                resolved_src: str | None = (
+                    entry.src if entry.src.startswith(("http://", "https://")) else None
+                )
+                if entry.src.startswith("oras://"):
                     # Best-effort oras resolution: try to pin sha + size
-                    # from the registry manifest. On failure (offline /
-                    # registry unreachable / private registry needing
-                    # auth) we still insert the entry, just without
-                    # the sha+size pre-filled. The row is bindable via
-                    # ``bty_image_ref`` even without sha, and the first
-                    # cache-fetch will populate ``disk_image_sha`` then.
-                    # Strict-fail mode would refuse offline imports
-                    # which is operator-hostile for sealed environments.
+                    # AND populate ``resolved_src`` with the canonical
+                    # registry blob URL so withcache (which is oras-blind)
+                    # can warm against it. On failure (offline / registry
+                    # unreachable / private registry needing auth) we still
+                    # insert the entry, just without ``resolved_src`` /
+                    # sha / size pre-filled. The row is bindable via
+                    # ``bty_image_ref`` even without sha, and a later
+                    # ``Check`` / re-import will fill in what's missing.
+                    # Strict-fail mode would refuse offline imports which
+                    # is operator-hostile for sealed environments.
                     try:
                         resolved = _oras.resolve_ref(entry.src)
                     except _oras.OrasError as exc:
@@ -2673,7 +2703,9 @@ def create_app(
                             {"name": entry.name, "error": f"oras (kept without sha): {exc}"}
                         )
                     else:
-                        sha = resolved.digest.removeprefix("sha256:")
+                        resolved_src = resolved.blob_url
+                        if sha is None:
+                            sha = resolved.digest.removeprefix("sha256:")
                         if size_bytes is None:
                             size_bytes = resolved.size
                 try:
@@ -2684,12 +2716,13 @@ def create_app(
                 try:
                     conn.execute(
                         "INSERT INTO catalog_entries "
-                        "(bty_image_ref, src, disk_image_sha, name, sha_url, "
+                        "(bty_image_ref, src, resolved_src, disk_image_sha, name, sha_url, "
                         "format, size_bytes, description, added_at) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             bty_image_ref,
                             entry.src,
+                            resolved_src,
                             sha,
                             entry.name,
                             None,
@@ -2966,20 +2999,6 @@ def create_app(
 # ---------- helpers -----------------------------------------------------------
 
 
-def _normalise_mac(raw: str) -> str:
-    """Return a canonical lower-case ``aa:bb:cc:dd:ee:ff`` MAC, or 400."""
-    cleaned = raw.lower().replace("-", ":")
-    parts = cleaned.split(":")
-    if len(parts) != 6 or any(
-        len(p) != 2 or any(c not in "0123456789abcdef" for c in p) for p in parts
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"invalid MAC: {raw!r}",
-        )
-    return cleaned
-
-
 def _row_to_machine(row: sqlite3.Row) -> _models.Machine:
     """Decode a sqlite3.Row into a ``_models.Machine``.
 
@@ -3070,35 +3089,6 @@ def _request_origin(request: Request) -> str:
     return f"{scheme}://{_request_host(request)}"
 
 
-def _client_ip(request: Request) -> str | None:
-    """Return the request's client IP, normalised for storage.
-
-    Wraps ``request.client.host`` in ``_events_log.normalize_ip``
-    so a v4-mapped-v6 address (``::ffff:192.168.1.5`` -- the form
-    Starlette returns when bty-web binds on ``::`` and a v4 client
-    connects) collapses to the bare v4 form. Without this, the
-    same client shows up as two distinct rows in the audit log.
-
-    When ``[server] trusted_proxy`` is set (env override
-    ``BTY_SERVER_TRUSTED_PROXY``), the leftmost ``X-Forwarded-For``
-    entry takes precedence so audit rows reflect the real client
-    IP rather than the reverse-proxy's loopback. Off by default
-    because the header is client-spoofable: only enable it when
-    bty-web is configured behind a proxy that strips inbound X-F-F.
-    """
-    from bty.web._config import cfg as _cfg
-
-    if _cfg().server.trusted_proxy:
-        xff = request.headers.get("x-forwarded-for")
-        if xff:
-            # X-F-F is a comma-separated chain (proxy-near-client
-            # first); the leftmost entry is the originating client.
-            first = xff.split(",", 1)[0].strip()
-            if first:
-                return _normalize_ip(first)
-    return _normalize_ip(request.client.host if request.client else None)
-
-
 def _seed_boot_dir(boot_root: Path) -> None:
     """Seed ``boot_root`` with baked bootstrap artifacts on startup.
 
@@ -3144,12 +3134,16 @@ def _safe_path(root: Path, name: str) -> Path:
     Rejects names with slashes, ``..``, NULs, etc. Caller decides
     what to do with the resolved path (404 vs. open-for-write).
     """
-    if not name or "/" in name or "\\" in name or "\x00" in name or name in {".", ".."}:
+    # Single-source the "is this a bare basename?" rule via _security;
+    # keep this endpoint's own wording so the message stays stable.
+    try:
+        _security.validate_basename(name)
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"invalid name {name!r}: must be a bare filename "
             "(no '/', '\\', '..', or NUL bytes)",
-        )
+        ) from exc
     candidate = (root / name).resolve()
     try:
         candidate.relative_to(root.resolve())

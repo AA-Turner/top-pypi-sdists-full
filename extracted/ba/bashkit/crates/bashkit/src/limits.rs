@@ -93,10 +93,30 @@ pub struct ExecutionLimits {
     /// Default: 32
     pub max_subst_depth: usize,
 
+    // THREAT[TM-DOS-092]: Nested `( ... )` subshells keep saved call-stack
+    // clones and CoW state snapshots alive until unwind. Bound nesting so large
+    // positional parameters/state cannot be multiplied up to max_ast_depth.
+    /// Maximum explicit subshell nesting depth.
+    /// Default: 32
+    pub max_subshell_depth: usize,
+
     /// Maximum persistent custom file descriptors opened via `exec N>file`,
     /// `exec N<file`, or fd duplication. Standard fds 0/1/2 do not count.
     /// Default: 1024
     pub max_file_descriptors: usize,
+
+    /// Maximum command history entries retained per Bash instance.
+    /// Default: 1,000
+    pub max_history_entries: usize,
+
+    /// Maximum retained command history bytes per Bash instance.
+    /// Counts command and cwd strings, including loaded persisted history.
+    /// Default: 1MB (1,048,576 bytes)
+    pub max_history_bytes: usize,
+
+    /// Maximum bytes formatted by the `history` builtin in one call.
+    /// Default: 1MB (1,048,576 bytes)
+    pub max_history_output_bytes: usize,
 
     /// Whether to capture the final environment state in ExecResult.
     /// Default: false (opt-in to avoid cloning cost when not needed)
@@ -118,7 +138,11 @@ impl Default for ExecutionLimits {
             max_stdout_bytes: 1_048_576, // 1MB
             max_stderr_bytes: 1_048_576, // 1MB
             max_subst_depth: 32,
+            max_subshell_depth: 32,
             max_file_descriptors: 1024,
+            max_history_entries: 1_000,
+            max_history_bytes: 1_048_576,        // 1MB
+            max_history_output_bytes: 1_048_576, // 1MB
             capture_final_env: false,
         }
     }
@@ -146,44 +170,37 @@ impl ExecutionLimits {
             timeout: Duration::from_secs(u64::MAX / 2), // effectively no timeout
             max_stdout_bytes: 10_485_760,               // 10 MB
             max_stderr_bytes: 10_485_760,               // 10 MB
+            max_history_output_bytes: 10_485_760,       // 10 MB
             ..Self::default()
         }
     }
 
     /// Set maximum command count.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that disables command execution.
     pub fn max_commands(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_commands = count;
-        }
+        self.max_commands = count;
         self
     }
 
     /// Set maximum loop iterations (per-loop).
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents loop iteration.
     pub fn max_loop_iterations(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_loop_iterations = count;
-        }
+        self.max_loop_iterations = count;
         self
     }
 
     /// Set maximum total loop iterations (across all nested/sequential loops).
     /// Prevents TM-DOS-018 nested loop multiplication.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents loop iteration.
     pub fn max_total_loop_iterations(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_total_loop_iterations = count;
-        }
+        self.max_total_loop_iterations = count;
         self
     }
 
     /// Set maximum function depth.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents function calls.
     pub fn max_function_depth(mut self, depth: usize) -> Self {
-        if depth > 0 {
-            self.max_function_depth = depth;
-        }
+        self.max_function_depth = depth;
         self
     }
 
@@ -200,65 +217,79 @@ impl ExecutionLimits {
     }
 
     /// Set maximum input script size in bytes.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that rejects non-empty scripts.
     pub fn max_input_bytes(mut self, bytes: usize) -> Self {
-        if bytes > 0 {
-            self.max_input_bytes = bytes;
-        }
+        self.max_input_bytes = bytes;
         self
     }
 
     /// Set maximum AST nesting depth.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict parser limit.
     pub fn max_ast_depth(mut self, depth: usize) -> Self {
-        if depth > 0 {
-            self.max_ast_depth = depth;
-        }
+        self.max_ast_depth = depth;
         self
     }
 
     /// Set maximum parser operations.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict parser fuel limit.
     pub fn max_parser_operations(mut self, ops: usize) -> Self {
-        if ops > 0 {
-            self.max_parser_operations = ops;
-        }
+        self.max_parser_operations = ops;
         self
     }
 
     /// Set maximum stdout capture size in bytes.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that captures no stdout.
     pub fn max_stdout_bytes(mut self, bytes: usize) -> Self {
-        if bytes > 0 {
-            self.max_stdout_bytes = bytes;
-        }
+        self.max_stdout_bytes = bytes;
         self
     }
 
     /// Set maximum stderr capture size in bytes.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that captures no stderr.
     pub fn max_stderr_bytes(mut self, bytes: usize) -> Self {
-        if bytes > 0 {
-            self.max_stderr_bytes = bytes;
-        }
+        self.max_stderr_bytes = bytes;
         self
     }
 
     /// Set maximum command substitution nesting depth.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents command substitution.
     pub fn max_subst_depth(mut self, depth: usize) -> Self {
-        if depth > 0 {
-            self.max_subst_depth = depth;
-        }
+        self.max_subst_depth = depth;
+        self
+    }
+
+    /// Set maximum explicit subshell nesting depth.
+    /// A value of 0 is a valid strict limit that prevents explicit subshells.
+    pub fn max_subshell_depth(mut self, depth: usize) -> Self {
+        self.max_subshell_depth = depth;
         self
     }
 
     /// Set maximum persistent custom file descriptors.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents custom descriptors.
     pub fn max_file_descriptors(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_file_descriptors = count;
-        }
+        self.max_file_descriptors = count;
+        self
+    }
+
+    /// Set maximum retained history entries.
+    /// Passing 0 disables history retention.
+    pub fn max_history_entries(mut self, count: usize) -> Self {
+        self.max_history_entries = count;
+        self
+    }
+
+    /// Set maximum retained history bytes.
+    /// Passing 0 disables history retention.
+    pub fn max_history_bytes(mut self, bytes: usize) -> Self {
+        self.max_history_bytes = bytes;
+        self
+    }
+
+    /// Set maximum `history` builtin output bytes.
+    /// Passing 0 makes `history` output empty.
+    pub fn max_history_output_bytes(mut self, bytes: usize) -> Self {
+        self.max_history_output_bytes = bytes;
         self
     }
 
@@ -311,20 +342,16 @@ impl SessionLimits {
     }
 
     /// Set maximum total commands across all exec() calls.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that disables command execution.
     pub fn max_total_commands(mut self, count: u64) -> Self {
-        if count > 0 {
-            self.max_total_commands = count;
-        }
+        self.max_total_commands = count;
         self
     }
 
     /// Set maximum number of exec() invocations.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that disables exec() calls.
     pub fn max_exec_calls(mut self, count: u64) -> Self {
-        if count > 0 {
-            self.max_exec_calls = count;
-        }
+        self.max_exec_calls = count;
         self
     }
 
@@ -357,6 +384,9 @@ pub struct ExecutionCounters {
     /// Current command substitution nesting depth.
     pub subst_depth: usize,
 
+    /// Current explicit subshell nesting depth.
+    pub subshell_depth: usize,
+
     // THREAT[TM-DOS-059]: Session-level cumulative counters.
     // These persist across exec() calls (never reset by reset_for_execution).
     /// Total commands across all exec() calls in this session.
@@ -379,10 +409,11 @@ impl ExecutionCounters {
         self.commands = 0;
         self.loop_iterations.clear();
         self.total_loop_iterations = 0;
-        // function_depth and subst_depth should already be 0 between exec() calls,
-        // but reset defensively to avoid stuck state
+        // function_depth/subst_depth/subshell_depth should already be 0 between
+        // exec() calls, but reset defensively to avoid stuck state.
         self.function_depth = 0;
         self.subst_depth = 0;
+        self.subshell_depth = 0;
     }
 
     /// Increment command counter, returns error if limit exceeded
@@ -409,8 +440,8 @@ impl ExecutionCounters {
             Ok(())
         });
 
-        self.commands += 1;
-        self.session_commands += 1;
+        self.commands = self.commands.saturating_add(1);
+        self.session_commands = self.session_commands.saturating_add(1);
         if self.commands > limits.max_commands {
             return Err(LimitExceeded::MaxCommands(limits.max_commands));
         }
@@ -437,7 +468,7 @@ impl ExecutionCounters {
 
     /// Increment exec call counter for session tracking.
     pub fn tick_exec_call(&mut self) {
-        self.session_exec_calls += 1;
+        self.session_exec_calls = self.session_exec_calls.saturating_add(1);
     }
 
     /// Increment loop iteration counter, returns error if limit exceeded
@@ -548,6 +579,22 @@ impl ExecutionCounters {
     pub fn pop_subst(&mut self) {
         self.subst_depth = self.subst_depth.saturating_sub(1);
     }
+
+    /// Push explicit subshell, returns error if depth exceeded.
+    /// THREAT[TM-DOS-092]: Explicit subshells keep parent snapshots alive, so
+    /// nesting must be bounded separately from parser AST depth.
+    pub fn push_subshell(&mut self, limits: &ExecutionLimits) -> Result<(), LimitExceeded> {
+        if self.subshell_depth >= limits.max_subshell_depth {
+            return Err(LimitExceeded::MaxSubshellDepth(limits.max_subshell_depth));
+        }
+        self.subshell_depth += 1;
+        Ok(())
+    }
+
+    /// Pop explicit subshell.
+    pub fn pop_subshell(&mut self) {
+        self.subshell_depth = self.subshell_depth.saturating_sub(1);
+    }
 }
 
 /// Error returned when a resource limit is exceeded
@@ -567,6 +614,9 @@ pub enum LimitExceeded {
 
     #[error("maximum command substitution depth exceeded ({0})")]
     MaxSubstDepth(usize),
+
+    #[error("maximum subshell depth exceeded ({0})")]
+    MaxSubshellDepth(usize),
 
     #[error("maximum file descriptors exceeded ({0})")]
     MaxFileDescriptors(usize),
@@ -648,47 +698,37 @@ impl MemoryLimits {
     }
 
     /// Set maximum variable count.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents variables.
     pub fn max_variable_count(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_variable_count = count;
-        }
+        self.max_variable_count = count;
         self
     }
 
     /// Set maximum total variable bytes.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents variable storage.
     pub fn max_total_variable_bytes(mut self, bytes: usize) -> Self {
-        if bytes > 0 {
-            self.max_total_variable_bytes = bytes;
-        }
+        self.max_total_variable_bytes = bytes;
         self
     }
 
     /// Set maximum array entries.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents array entries.
     pub fn max_array_entries(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_array_entries = count;
-        }
+        self.max_array_entries = count;
         self
     }
 
     /// Set maximum function count.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents function definitions.
     pub fn max_function_count(mut self, count: usize) -> Self {
-        if count > 0 {
-            self.max_function_count = count;
-        }
+        self.max_function_count = count;
         self
     }
 
     /// Set maximum function body bytes.
-    /// Passing 0 is treated as "use default" (no-op) to prevent misconfiguration.
+    /// A value of 0 is a valid strict limit that prevents function bodies.
     pub fn max_function_body_bytes(mut self, bytes: usize) -> Self {
-        if bytes > 0 {
-            self.max_function_body_bytes = bytes;
-        }
+        self.max_function_body_bytes = bytes;
         self
     }
 
@@ -808,7 +848,11 @@ impl MemoryBudget {
                 limits.max_function_count
             )));
         }
-        let new_bytes = self.function_body_bytes + body_bytes - old_body_bytes;
+        // saturating_sub mirrors record_function_insert: if accounting ever
+        // drifts so old_body_bytes exceeds the running total (e.g. after a
+        // snapshot restore recomputes sizes differently), the check must not
+        // underflow-panic.
+        let new_bytes = (self.function_body_bytes + body_bytes).saturating_sub(old_body_bytes);
         if new_bytes > limits.max_function_body_bytes {
             return Err(LimitExceeded::Memory(format!(
                 "function body byte limit ({}) exceeded",
@@ -891,6 +935,11 @@ mod tests {
         assert_eq!(limits.max_parser_operations, 100_000);
         assert_eq!(limits.max_stdout_bytes, 1_048_576);
         assert_eq!(limits.max_stderr_bytes, 1_048_576);
+        assert_eq!(limits.max_subst_depth, 32);
+        assert_eq!(limits.max_subshell_depth, 32);
+        assert_eq!(limits.max_history_entries, 1_000);
+        assert_eq!(limits.max_history_bytes, 1_048_576);
+        assert_eq!(limits.max_history_output_bytes, 1_048_576);
         assert!(!limits.capture_final_env);
     }
 
@@ -922,6 +971,31 @@ mod tests {
             counters.tick_command(&limits),
             Err(LimitExceeded::MaxCommands(5))
         ));
+    }
+
+    #[test]
+    fn test_command_counter_saturates_on_overflow() {
+        let limits = ExecutionLimits::new().max_commands(5);
+        let mut counters = ExecutionCounters::new();
+        counters.commands = usize::MAX;
+        counters.session_commands = u64::MAX;
+
+        assert!(matches!(
+            counters.tick_command(&limits),
+            Err(LimitExceeded::MaxCommands(5))
+        ));
+        assert_eq!(counters.commands, usize::MAX);
+        assert_eq!(counters.session_commands, u64::MAX);
+    }
+
+    #[test]
+    fn test_exec_counter_saturates_on_overflow() {
+        let mut counters = ExecutionCounters::new();
+        counters.session_exec_calls = u64::MAX;
+
+        counters.tick_exec_call();
+
+        assert_eq!(counters.session_exec_calls, u64::MAX);
     }
 
     #[test]
@@ -1019,6 +1093,22 @@ mod tests {
     }
 
     #[test]
+    fn test_subshell_depth() {
+        let limits = ExecutionLimits::new().max_subshell_depth(2);
+        let mut counters = ExecutionCounters::new();
+
+        assert!(counters.push_subshell(&limits).is_ok());
+        assert!(counters.push_subshell(&limits).is_ok());
+        assert!(matches!(
+            counters.push_subshell(&limits),
+            Err(LimitExceeded::MaxSubshellDepth(2))
+        ));
+
+        counters.pop_subshell();
+        assert!(counters.push_subshell(&limits).is_ok());
+    }
+
+    #[test]
     fn test_reset_for_execution() {
         let limits = ExecutionLimits::new().max_commands(5);
         let mut counters = ExecutionCounters::new();
@@ -1033,6 +1123,8 @@ mod tests {
         counters.loop_iterations = vec![42];
         counters.total_loop_iterations = 999;
         counters.function_depth = 3;
+        counters.subst_depth = 2;
+        counters.subshell_depth = 2;
 
         // Reset should restore all counters
         counters.reset_for_execution();
@@ -1040,15 +1132,16 @@ mod tests {
         assert!(counters.loop_iterations.is_empty());
         assert_eq!(counters.total_loop_iterations, 0);
         assert_eq!(counters.function_depth, 0);
+        assert_eq!(counters.subst_depth, 0);
+        assert_eq!(counters.subshell_depth, 0);
 
         // Should be able to tick commands again
         assert!(counters.tick_command(&limits).is_ok());
     }
 
     #[test]
-    fn test_zero_limit_uses_default() {
-        let defaults = ExecutionLimits::default();
-        let limits = ExecutionLimits::default()
+    fn test_zero_limit_is_strict_policy() {
+        let limits = ExecutionLimits::cli()
             .max_commands(0)
             .max_loop_iterations(0)
             .max_total_loop_iterations(0)
@@ -1059,22 +1152,21 @@ mod tests {
             .max_stdout_bytes(0)
             .max_stderr_bytes(0)
             .max_subst_depth(0)
+            .max_subshell_depth(0)
             .max_file_descriptors(0);
 
-        assert_eq!(limits.max_commands, defaults.max_commands);
-        assert_eq!(limits.max_loop_iterations, defaults.max_loop_iterations);
-        assert_eq!(
-            limits.max_total_loop_iterations,
-            defaults.max_total_loop_iterations
-        );
-        assert_eq!(limits.max_function_depth, defaults.max_function_depth);
-        assert_eq!(limits.max_input_bytes, defaults.max_input_bytes);
-        assert_eq!(limits.max_ast_depth, defaults.max_ast_depth);
-        assert_eq!(limits.max_parser_operations, defaults.max_parser_operations);
-        assert_eq!(limits.max_stdout_bytes, defaults.max_stdout_bytes);
-        assert_eq!(limits.max_stderr_bytes, defaults.max_stderr_bytes);
-        assert_eq!(limits.max_subst_depth, defaults.max_subst_depth);
-        assert_eq!(limits.max_file_descriptors, defaults.max_file_descriptors);
+        assert_eq!(limits.max_commands, 0);
+        assert_eq!(limits.max_loop_iterations, 0);
+        assert_eq!(limits.max_total_loop_iterations, 0);
+        assert_eq!(limits.max_function_depth, 0);
+        assert_eq!(limits.max_input_bytes, 0);
+        assert_eq!(limits.max_ast_depth, 0);
+        assert_eq!(limits.max_parser_operations, 0);
+        assert_eq!(limits.max_stdout_bytes, 0);
+        assert_eq!(limits.max_stderr_bytes, 0);
+        assert_eq!(limits.max_subst_depth, 0);
+        assert_eq!(limits.max_subshell_depth, 0);
+        assert_eq!(limits.max_file_descriptors, 0);
     }
 
     #[test]
@@ -1090,6 +1182,7 @@ mod tests {
             .max_stdout_bytes(2048)
             .max_stderr_bytes(4096)
             .max_subst_depth(8)
+            .max_subshell_depth(6)
             .max_file_descriptors(16);
 
         assert_eq!(limits.max_commands, 5);
@@ -1102,40 +1195,33 @@ mod tests {
         assert_eq!(limits.max_stdout_bytes, 2048);
         assert_eq!(limits.max_stderr_bytes, 4096);
         assert_eq!(limits.max_subst_depth, 8);
+        assert_eq!(limits.max_subshell_depth, 6);
         assert_eq!(limits.max_file_descriptors, 16);
     }
 
     #[test]
-    fn test_session_limits_zero_uses_default() {
-        let defaults = SessionLimits::default();
-        let limits = SessionLimits::default()
+    fn test_session_limits_zero_is_strict_policy() {
+        let limits = SessionLimits::unlimited()
             .max_total_commands(0)
             .max_exec_calls(0);
 
-        assert_eq!(limits.max_total_commands, defaults.max_total_commands);
-        assert_eq!(limits.max_exec_calls, defaults.max_exec_calls);
+        assert_eq!(limits.max_total_commands, 0);
+        assert_eq!(limits.max_exec_calls, 0);
     }
 
     #[test]
-    fn test_memory_limits_zero_uses_default() {
-        let defaults = MemoryLimits::default();
-        let limits = MemoryLimits::default()
+    fn test_memory_limits_zero_is_strict_policy() {
+        let limits = MemoryLimits::unlimited()
             .max_variable_count(0)
             .max_total_variable_bytes(0)
             .max_array_entries(0)
             .max_function_count(0)
             .max_function_body_bytes(0);
 
-        assert_eq!(limits.max_variable_count, defaults.max_variable_count);
-        assert_eq!(
-            limits.max_total_variable_bytes,
-            defaults.max_total_variable_bytes
-        );
-        assert_eq!(limits.max_array_entries, defaults.max_array_entries);
-        assert_eq!(limits.max_function_count, defaults.max_function_count);
-        assert_eq!(
-            limits.max_function_body_bytes,
-            defaults.max_function_body_bytes
-        );
+        assert_eq!(limits.max_variable_count, 0);
+        assert_eq!(limits.max_total_variable_bytes, 0);
+        assert_eq!(limits.max_array_entries, 0);
+        assert_eq!(limits.max_function_count, 0);
+        assert_eq!(limits.max_function_body_bytes, 0);
     }
 }

@@ -3300,6 +3300,30 @@ class DeleteCronRequest(_message.Message):
 Global___DeleteCronRequest: _TypeAlias = DeleteCronRequest  # noqa: Y015
 
 @_typing.final
+class GetCronRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    CRON_ID_FIELD_NUMBER: _builtins.int
+    FILTERS_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def cron_id(self) -> Global___UUID: ...
+    @_builtins.property
+    def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
+    def __init__(
+        self,
+        *,
+        cron_id: Global___UUID | None = ...,
+        filters: _abc.Iterable[Global___AuthFilter] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["cron_id", b"cron_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["cron_id", b"cron_id", "filters", b"filters"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetCronRequest: _TypeAlias = GetCronRequest  # noqa: Y015
+
+@_typing.final
 class SearchCronsRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 

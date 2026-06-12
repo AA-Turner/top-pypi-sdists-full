@@ -15,6 +15,7 @@
 #
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import math
@@ -36,8 +37,8 @@ from typing import (
 
 from hopsworks_common import constants
 from hsfs.core.type_systems import (
-    cast_column_to_offline_type,
-    cast_column_to_online_type,
+    _cast_column_to_offline_type,
+    _cast_column_to_online_type,
 )
 
 
@@ -55,15 +56,15 @@ from hopsworks_common import client
 from hopsworks_common.client.exceptions import FeatureStoreException
 from hopsworks_common.core import inode
 from hopsworks_common.core.constants import HAS_POLARS, polars_not_installed_message
-from hopsworks_common.core.type_systems import create_extended_type
-from hopsworks_common.decorators import uses_great_expectations, uses_polars
-from hopsworks_common.util import generate_fully_qualified_feature_name
+from hopsworks_common.core.type_systems import _create_extended_type
+from hopsworks_common.decorators import _uses_great_expectations, _uses_polars
+from hopsworks_common.util import _generate_fully_qualified_feature_name
 from hsfs import (
-    engine,
     feature,
     feature_view,
     util,
 )
+from hsfs import feature_group as fg_mod
 from hsfs import storage_connector as sc
 from hsfs.constructor import query
 from hsfs.constructor.fs_query import FsQuery
@@ -83,6 +84,7 @@ from hsfs.core import (
     transformation_function_engine,
 )
 from hsfs.core.constants import (
+    GE_MAJOR,
     HAS_AIOMYSQL,
     HAS_GREAT_EXPECTATIONS,
     HAS_NUMPY,
@@ -111,7 +113,7 @@ if HAS_SQLALCHEMY:
     from sqlalchemy import sql
 
 if HAS_PANDAS:
-    from hsfs.core.type_systems import convert_pandas_dtype_to_offline_type
+    from hsfs.core.type_systems import _convert_pandas_dtype_to_offline_type
 
 if HAS_POLARS:
     import polars as pl
@@ -135,7 +137,7 @@ class Engine:
         self._mysql_online_fs_engine = None
         _logger.info("Python Engine initialized.")
 
-    def sql(
+    def _sql(
         self,
         sql_query: str,
         feature_store: str,
@@ -155,12 +157,12 @@ class Engine:
             )
         return self._jdbc(sql_query, online_conn, dataframe_type, read_options, schema)
 
-    def is_flyingduck_query_supported(
+    def _is_flyingduck_query_supported(
         self, query: query.Query, read_options: dict[str, Any] | None = None
     ) -> bool:
         from hsfs.core import arrow_flight_client
 
-        return arrow_flight_client.is_query_supported(query, read_options or {})
+        return arrow_flight_client._is_query_supported(query, read_options or {})
 
     def _validate_dataframe_type(self, dataframe_type: str):
         if not isinstance(dataframe_type, str) or dataframe_type.lower() not in [
@@ -174,7 +176,7 @@ class Engine:
                 f'dataframe_type : {dataframe_type} not supported. Possible values are "default", "pandas", "polars", "numpy" or "python"'
             )
 
-    def extract_logging_metadata(
+    def _extract_logging_metadata(
         self,
         untransformed_features: pd.DataFrame | pl.DataFrame,
         transformed_features: pd.DataFrame | pl.DataFrame,
@@ -203,13 +205,13 @@ class Engine:
         """
         # Get the fully qualified names for the event time and serving keys.
         # This required since the since Hopsworks returns primary keys and event time as fully qualified names, if they are not explicitly selected in the feature view query.
-        fully_qualified_root_fg_event_time = generate_fully_qualified_feature_name(
+        fully_qualified_root_fg_event_time = _generate_fully_qualified_feature_name(
             feature_view.query._left_feature_group,
             feature_view.query._left_feature_group.event_time,
         )
 
         fully_qualified_serving_key_mapper = {
-            generate_fully_qualified_feature_name(
+            _generate_fully_qualified_feature_name(
                 key._feature_group, key.feature_name
             ): key.feature_name
             for key in feature_view.serving_keys
@@ -257,10 +259,10 @@ class Engine:
             dropped_columns.extend(feature_view._fully_qualified_primary_keys)
 
         if dropped_columns:
-            untransformed_features = self.drop_columns(
+            untransformed_features = self._drop_columns(
                 untransformed_features, drop_cols=dropped_columns
             )
-            transformed_features = self.drop_columns(
+            transformed_features = self._drop_columns(
                 transformed_features, drop_cols=dropped_columns
             )
 
@@ -278,7 +280,7 @@ class Engine:
             transformed_features if transformed else untransformed_features
         )
 
-        extended_type = create_extended_type(type(batch_dataframe))
+        extended_type = _create_extended_type(type(batch_dataframe))
         batch_dataframe = extended_type(batch_dataframe)
         batch_dataframe.hopsworks_logging_metadata = logging_meta_data
 
@@ -295,9 +297,9 @@ class Engine:
         if isinstance(sql_query, FsQuery):
             from hsfs.core import arrow_flight_client
 
-            result_df = util.run_with_loading_animation(
+            result_df = util._run_with_loading_animation(
                 "Reading data from Hopsworks, using Hopsworks Feature Query Service",
-                arrow_flight_client.get_instance().read_query,
+                arrow_flight_client._get_instance()._read_query,
                 sql_query,
                 arrow_flight_config or {},
                 dataframe_type,
@@ -307,7 +309,7 @@ class Engine:
                 "Reading data with Hive is not supported when using hopsworks client version >= 4.0"
             )
         if schema:
-            result_df = Engine.cast_columns(result_df, schema)
+            result_df = Engine._cast_columns(result_df, schema)
         return self._return_dataframe_type(result_df, dataframe_type)
 
     def _jdbc(
@@ -320,7 +322,7 @@ class Engine:
     ) -> pd.DataFrame | pl.DataFrame:
         self._validate_dataframe_type(dataframe_type)
         if self._mysql_online_fs_engine is None:
-            self._mysql_online_fs_engine = util_sql.create_mysql_engine(
+            self._mysql_online_fs_engine = util_sql._create_mysql_engine(
                 connector,
                 (
                     client._is_external()
@@ -338,10 +340,10 @@ class Engine:
             else:
                 result_df = pd.read_sql(sql_query, mysql_conn)
             if schema:
-                result_df = Engine.cast_columns(result_df, schema, online=True)
+                result_df = Engine._cast_columns(result_df, schema, online=True)
         return self._return_dataframe_type(result_df, dataframe_type)
 
-    def read(
+    def _read(
         self,
         storage_connector: sc.StorageConnector,
         data_format: str,
@@ -393,7 +395,7 @@ class Engine:
             f"{data_format} training dataset format is not supported to read as pandas dataframe."
         )
 
-    @uses_polars
+    @_uses_polars
     def _read_polars(
         self, data_format: Literal["csv", "tsv", "parquet"], obj: Any
     ) -> pl.DataFrame:
@@ -477,9 +479,9 @@ class Engine:
     ) -> pd.DataFrame | pl.DataFrame:
         from hsfs.core import arrow_flight_client
 
-        if arrow_flight_client.is_data_format_supported(data_format, read_options):
+        if arrow_flight_client._is_data_format_supported(data_format, read_options):
             arrow_flight_config = read_options.get("arrow_flight_config")
-            return arrow_flight_client.get_instance().read_path(
+            return arrow_flight_client._get_instance()._read_path(
                 path,
                 arrow_flight_config,
                 dataframe_type=dataframe_type,
@@ -549,12 +551,12 @@ class Engine:
                         df_list.append(self._read_pandas(data_format, obj["Body"]))
         return df_list
 
-    def read_options(
+    def _read_options(
         self, data_format: str | None, provided_options: dict[str, Any] | None
     ) -> dict[str, Any]:
         return provided_options or {}
 
-    def read_stream(
+    def _read_stream(
         self,
         storage_connector: sc.StorageConnector,
         message_format: Any,
@@ -566,7 +568,7 @@ class Engine:
             "Streaming Sources are not supported for pure Python Environments."
         )
 
-    def show(
+    def _show(
         self,
         sql_query: str,
         feature_store: str,
@@ -574,11 +576,11 @@ class Engine:
         online_conn: sc.JdbcConnector,
         read_options: dict[str, Any] | None = None,
     ) -> pd.DataFrame | pl.DataFrame:
-        return self.sql(
+        return self._sql(
             sql_query, feature_store, online_conn, "default", read_options or {}
         ).head(n)
 
-    def read_vector_db(
+    def _read_vector_db(
         self,
         feature_group: hsfs.feature_group.FeatureGroup,
         n: int = None,
@@ -588,8 +590,8 @@ class Engine:
         dataframe_type = dataframe_type.lower()
         self._validate_dataframe_type(dataframe_type)
 
-        results = VectorDbClient.read_feature_group(feature_group, n, filter=filter)
-        feature_names = [f.name for f in feature_group.features]
+        results = VectorDbClient._read_feature_group(feature_group, n, filter=filter)
+        feature_names = [f.name for f in feature_group.columns]
         if dataframe_type == "polars":
             if not HAS_POLARS:
                 raise ModuleNotFoundError(polars_not_installed_message)
@@ -598,13 +600,13 @@ class Engine:
             df = pd.DataFrame(results, columns=feature_names, index=None)
         return self._return_dataframe_type(df, dataframe_type)
 
-    def register_external_temporary_table(
+    def _register_external_temporary_table(
         self, external_fg: ExternalFeatureGroup, alias: str
     ) -> None:
         # No op to avoid query failure
         pass
 
-    def register_delta_temporary_table(
+    def _register_delta_temporary_table(
         self,
         delta_fg_alias,
         feature_store_id,
@@ -615,7 +617,7 @@ class Engine:
         # No op to avoid query failure
         pass
 
-    def register_hudi_temporary_table(
+    def _register_hudi_temporary_table(
         self,
         hudi_fg_alias: hsfs.constructor.hudi_feature_group_alias.HudiFeatureGroupAlias,
         feature_store_id: int,
@@ -632,7 +634,7 @@ class Engine:
                 "environment with Spark Engine."
             )
 
-    def profile_by_spark(
+    def _profile_by_spark(
         self,
         metadata_instance: FeatureGroup
         | ExternalFeatureGroup
@@ -642,15 +644,15 @@ class Engine:
         stat_api = statistics_api.StatisticsApi(
             metadata_instance.feature_store_id, metadata_instance.ENTITY_TYPE
         )
-        job = stat_api.compute(metadata_instance)
+        job = stat_api._compute(metadata_instance)
         print(
-            f"Statistics Job started successfully, you can follow the progress at \n{util.get_job_url(job.href)}"
+            f"Statistics Job started successfully, you can follow the progress at \n{util._get_job_url(job.href)}"
         )
 
         job._wait_for_job()
         return job
 
-    def profile(
+    def _profile(
         self,
         df: pd.DataFrame | pl.DataFrame,
         relevant_columns: list[str],
@@ -691,13 +693,34 @@ class Engine:
                     )
                     df[field.name] = df[field.name].astype(str)
 
+        # complex columns — pandas describe() hangs on unhashable types; identify upfront
+        complex_cols = {
+            field.name
+            for field in arrow_schema
+            if (
+                pa.types.is_list(field.type)
+                or pa.types.is_large_list(field.type)
+                or pa.types.is_fixed_size_list(field.type)
+                or pa.types.is_struct(field.type)
+                or pa.types.is_map(field.type)
+            )
+        }
         if relevant_columns is None or len(relevant_columns) == 0:
-            stats = df.describe().to_dict()
             relevant_columns = df.columns
+            describe_cols = [col for col in relevant_columns if col not in complex_cols]
+            stats = df[describe_cols].describe().to_dict() if describe_cols else {}
         else:
-            target_cols = [col for col in df.columns if col in relevant_columns]
+            target_cols = [
+                col
+                for col in df.columns
+                if col in relevant_columns and col not in complex_cols
+            ]
             _logger.debug(f"Target columns for describe: {target_cols}")
-            stats = df[target_cols].describe().to_dict()
+            stats = df[target_cols].describe().to_dict() if target_cols else {}
+        # pre-populate empty stats for complex columns so describe() is never called on them
+        for col in complex_cols:
+            if col in relevant_columns:
+                stats[col] = {}
         _logger.debug(f"Column stats computed via describe for: {stats.keys()}")
         # df.describe() does not compute stats for all col types (e.g., string)
         # we need to compute stats for the rest of the cols iteratively
@@ -717,17 +740,26 @@ class Engine:
                 stats[col] = {}
         final_stats = []
         for col in relevant_columns:
+            # Polars 1.36+ ``DataFrame.describe().to_dict()`` returns each
+            # column as a ``pl.Series`` rather than a Python list. The old
+            # ``isinstance(stats[col], list)`` guard fell through for Series,
+            # leaving the raw Series in place; downstream code then evaluated
+            # ``"count" in stat`` which routes through ``pl.Series.__contains__``
+            # and raises ``InvalidOperationError``. Accept both shapes.
             if HAS_POLARS and (
                 isinstance(df, (pl.DataFrame, pl.dataframe.frame.DataFrame))
+                and not isinstance(stats[col], dict)
             ):
-                stats[col] = dict(zip(stats["statistic"], stats[col]))
+                stats[col] = dict(zip(stats["statistic"], stats[col], strict=False))
             # set data type
             arrow_type = arrow_schema.field(col).type
             if (
                 pa.types.is_null(arrow_type)
                 or pa.types.is_list(arrow_type)
                 or pa.types.is_large_list(arrow_type)
+                or pa.types.is_fixed_size_list(arrow_type)
                 or pa.types.is_struct(arrow_type)
+                or pa.types.is_map(arrow_type)
                 or PYARROW_HOPSWORKS_DTYPE_MAPPING.get(arrow_type, None)
                 in ["timestamp", "date", "binary", "string"]
             ):
@@ -804,15 +836,15 @@ class Engine:
 
         return content_dict
 
-    def validate(
+    def _validate(
         self, dataframe: pd.DataFrame, expectations: Any, log_activity: bool = True
     ) -> None:
         raise NotImplementedError(
             "Deequ data validation is only available with Spark Engine. Use validate_with_great_expectations"
         )
 
-    @uses_great_expectations
-    def validate_with_great_expectations(
+    @_uses_great_expectations
+    def _validate_with_great_expectations(
         self,
         dataframe: pl.DataFrame | pd.DataFrame,
         expectation_suite: great_expectations.core.ExpectationSuite,
@@ -831,14 +863,26 @@ class Engine:
             dataframe = dataframe.to_pandas()
         if ge_validate_kwargs is None:
             ge_validate_kwargs = {}
+        if GE_MAJOR == 1:
+            # GE 1.x removed from_pandas; use the get_context + dataframe asset chain.
+            context = great_expectations.get_context(mode="ephemeral")
+            data_source = context.data_sources.add_pandas("hopsworks_pandas")
+            asset = data_source.add_dataframe_asset("hopsworks_asset")
+            batch_definition = asset.add_batch_definition_whole_dataframe(
+                "hopsworks_batch"
+            )
+            batch = batch_definition.get_batch(
+                batch_parameters={"dataframe": dataframe}
+            )
+            return batch.validate(expectation_suite, **ge_validate_kwargs)
         return great_expectations.from_pandas(
             dataframe, expectation_suite=expectation_suite
         ).validate(**ge_validate_kwargs)
 
-    def set_job_group(self, group_id: str, description: str | None) -> None:
+    def _set_job_group(self, group_id: str, description: str | None) -> None:
         pass
 
-    def convert_to_default_dataframe(
+    def _convert_to_default_dataframe(
         self, dataframe: pd.DataFrame | pl.DataFrame | pl.dataframe.frame.DataFrame
     ) -> pd.DataFrame | None:
         if isinstance(dataframe, pd.DataFrame) or (
@@ -873,7 +917,7 @@ class Engine:
                     stacklevel=1,
                 )
             dataframe_copy.columns = [
-                util.autofix_feature_name(x) for x in dataframe_copy.columns
+                util._autofix_feature_name(x) for x in dataframe_copy.columns
             ]
 
             # convert timestamps with timezone to UTC
@@ -882,9 +926,18 @@ class Engine:
                     dataframe_copy[col].dtype, pd.core.dtypes.dtypes.DatetimeTZDtype
                 ):
                     dataframe_copy[col] = dataframe_copy[col].dt.tz_convert(None)
-                elif HAS_POLARS and isinstance(dataframe_copy[col].dtype, pl.Datetime):
+                elif (
+                    HAS_POLARS
+                    and isinstance(dataframe_copy[col].dtype, pl.Datetime)
+                    and dataframe_copy[col].dtype.time_zone is not None
+                ):
+                    # cast to tz-naive Datetime; this converts the wall-clock to UTC
+                    # first, mirroring pandas' dt.tz_convert(None). Plain
+                    # dt.replace_time_zone(None) would just drop the tz and leave
+                    # the wall-clock time, silently producing different values for
+                    # non-UTC zones than the pandas branch above.
                     dataframe_copy = dataframe_copy.with_columns(
-                        pl.col(col).dt.replace_time_zone(None)
+                        pl.col(col).cast(pl.Datetime(time_zone=None))
                     )
             return dataframe_copy
         if dataframe == "spine":
@@ -895,7 +948,7 @@ class Engine:
             f"The provided dataframe has type: {type(dataframe)}"
         )
 
-    def parse_schema_feature_group(
+    def _parse_schema_feature_group(
         self,
         dataframe: pd.DataFrame | pl.DataFrame,
         time_travel_format: str | None = None,
@@ -916,20 +969,20 @@ class Engine:
         features = []
         for i in range(len(arrow_schema.names)):
             feat_name = arrow_schema.names[i]
-            name = util.autofix_feature_name(feat_name)
+            name = util._autofix_feature_name(feat_name)
             try:
                 pd_type = arrow_schema.field(feat_name).type
                 if pa.types.is_null(pd_type) and feature_type_map.get(name):
                     converted_type = feature_type_map.get(name)
                 else:
-                    converted_type = convert_pandas_dtype_to_offline_type(pd_type)
+                    converted_type = _convert_pandas_dtype_to_offline_type(pd_type)
             except ValueError as e:
                 raise FeatureStoreException(f"Feature '{name}': {str(e)}") from e
             features.append(feature.Feature(name, converted_type))
 
         return features
 
-    def parse_schema_training_dataset(
+    def _parse_schema_training_dataset(
         self, dataframe: pd.DataFrame | pl.DataFrame
     ) -> list[feature.Feature]:
         raise NotImplementedError(
@@ -963,107 +1016,68 @@ class Engine:
             f"Unsupported dataframe type for arrow conversion: {type(dataframe)}"
         )
 
-    def _check_duplicate_records(self, dataset, feature_group_instance):
-        """Check for duplicate records within primary_key, event_time and partition_key columns.
+    def _mark_online_rows(
+        self,
+        feature_group: FeatureGroup,
+        dataframe: pd.DataFrame | pl.DataFrame,
+    ) -> list[bool]:
+        """Return a per-row boolean list indicating which rows should be written to online storage.
 
-        Raises FeatureStoreException if duplicates are found.
-
-        Parameters:
-        -----------
-        dataset : Union[pd.DataFrame, pl.DataFrame]
-            The dataset to check for duplicates
-        feature_group_instance : FeatureGroup
-            The feature group instance containing primary_key, event_time and partition_key
+        For TTL-enabled feature groups, rows whose event time has already expired
+        are marked False.
+        For non-TTL feature groups, only the last occurrence per primary key is
+        marked True; earlier duplicates are marked False.
         """
-        # Get the unique key columns to check (primary_key + event_time + partition_key)
-        key_columns = set(feature_group_instance.primary_key)
+        event_time = feature_group.event_time
+        pk_cols = feature_group.primary_key
 
-        if not key_columns:
-            # No keys to check, skip validation
-            return
+        if not pk_cols:
+            return [True] * len(dataframe)
 
-        if feature_group_instance.event_time:
-            key_columns.add(feature_group_instance.event_time)
-
-        if feature_group_instance.partition_key:
-            key_columns.update(feature_group_instance.partition_key)
-
-        # Verify all key columns exist against the original dataframe — no conversion needed.
-        if isinstance(dataset, pd.DataFrame) or (
-            HAS_POLARS and isinstance(dataset, pl.DataFrame)
-        ):
-            available_columns = list(dataset.columns)
+        if HAS_POLARS and isinstance(dataframe, pl.DataFrame):
+            if feature_group.ttl_enabled and feature_group.ttl:
+                if event_time:
+                    threshold = datetime.now(tz=timezone.utc) - timedelta(
+                        seconds=feature_group.ttl
+                    )
+                    # cast (rather than dt.replace_time_zone("UTC")) so that
+                    # tz-aware columns convert to the UTC instant; replace_time_zone
+                    # only relabels and would silently misclassify rows from non-UTC
+                    # zones. Naive datetimes are interpreted as UTC, mirroring the
+                    # pandas branch's pd.to_datetime(..., utc=True).
+                    return (
+                        dataframe[event_time]
+                        .cast(pl.Datetime(time_zone="UTC"))
+                        .gt(threshold)
+                        .to_list()
+                    )
+                return [True] * len(dataframe)
+            df = dataframe.with_row_index("__row_idx__")
+            order_col = event_time if event_time else "__row_idx__"
+            max_idx = df.group_by(pk_cols).agg(
+                pl.col("__row_idx__").sort_by(order_col).last().alias("__max_idx__")
+            )
+            df = df.join(max_idx, on=pk_cols, how="left")
+            return (df["__row_idx__"] == df["__max_idx__"]).to_list()
+        if feature_group.ttl_enabled and feature_group.ttl:
+            if event_time:
+                threshold = datetime.now(tz=timezone.utc) - timedelta(
+                    seconds=feature_group.ttl
+                )
+                return (
+                    pd.to_datetime(dataframe[event_time], utc=True) > threshold
+                ).tolist()
+            return [True] * len(dataframe)
+        df = dataframe.reset_index(drop=True)
+        if event_time:
+            max_idx = df.groupby(pk_cols, sort=False)[event_time].idxmax()
         else:
-            available_columns = list(self._to_arrow_table(dataset).column_names)
+            max_idx = df.groupby(pk_cols, sort=False).tail(1).index
+        flags = pd.Series(False, index=df.index)
+        flags.loc[max_idx] = True
+        return flags.tolist()
 
-        missing_columns = [col for col in key_columns if col not in available_columns]
-        if missing_columns:
-            raise FeatureStoreException(
-                f"Key columns {missing_columns} are missing from the dataset. "
-                f"Available columns: {available_columns}"
-            )
-
-        import pyarrow as pa
-        import pyarrow.compute as pc
-
-        # Convert only the key columns to Arrow — avoids transcoding all feature columns
-        # (including costly numpy-U → UTF-8 re-encoding) for a check that only needs keys.
-        if isinstance(dataset, pd.DataFrame):
-            key_table = pa.Table.from_pandas(
-                dataset[list(key_columns)], preserve_index=False
-            )
-        elif HAS_POLARS and isinstance(dataset, pl.DataFrame):
-            key_table = dataset.select(key_columns).to_arrow()
-        else:
-            key_table = self._to_arrow_table(dataset).select(key_columns)
-
-        # Check for duplicates using PyArrow group_by
-        # Group by key columns and count occurrences
-        grouped = key_table.group_by(key_columns).aggregate(
-            [
-                # The aggregation tuple structure: ([], function_name, FunctionOptions)
-                ([], "count_all", pc.CountOptions(mode="all"))
-            ]
-        )
-
-        # Filter groups with count > 1 (duplicates)
-        duplicate_groups = grouped.filter(pc.greater(grouped["count_all"], 1))
-
-        duplicate_count = len(duplicate_groups)
-
-        if duplicate_count > 0:
-            # Get total number of duplicate rows (sum of counts - 1 for each duplicate group)
-            # Since count includes the first occurrence, duplicates = count - 1 per group
-            total_duplicate_rows = (
-                sum(duplicate_groups["count_all"].to_pylist()) - duplicate_count
-            )
-
-            # Get sample duplicate records for error message
-            # Take first 10 duplicate groups and get their key values
-            sample_groups = duplicate_groups.slice(0, min(10, duplicate_count))
-
-            # Build sample string showing the duplicate key combinations
-            sample_rows = []
-            for i in range(len(sample_groups)):
-                row_dict = {}
-                for col in key_columns:
-                    row_dict[col] = sample_groups[col][i].as_py()
-                row_dict["count_all"] = sample_groups["count_all"][i].as_py()
-                sample_rows.append(str(row_dict))
-
-            sample_str = "\n".join(sample_rows)
-
-            raise FeatureStoreException(
-                FeatureStoreException.DUPLICATE_RECORD_ERROR_MESSAGE
-                + f"\nDataset contains {total_duplicate_rows} duplicate record(s) within "
-                f"primary_key ({feature_group_instance.primary_key}), "
-                f"event_time ({feature_group_instance.event_time}) and "
-                f"partition_key ({feature_group_instance.partition_key}). "
-                f"Found {duplicate_count} duplicate group(s). "
-                f"Sample duplicate key combinations:\n{sample_str}"
-            )
-
-    def save_dataframe(
+    def _save_dataframe(
         self,
         feature_group: FeatureGroup,
         dataframe: pd.DataFrame | pl.DataFrame,
@@ -1075,37 +1089,47 @@ class Engine:
         validation_id: int | None = None,
     ) -> job.Job | None:
         if (
-            # Only `FeatureGroup` class has time_travel_format property
-            isinstance(feature_group, FeatureGroup)
+            not isinstance(feature_group, fg_mod.ExternalFeatureGroup)
+            and feature_group.stream
+        ):
+            # Streaming feature groups require the same data to be written on online and offline storage
+            return self._run_materialization_job(
+                feature_group,
+                dataframe,
+                offline_write_options,
+                None,  # doesnt support storage parameter
+            )
+
+        inserted = False
+        if (
+            storage in [None, "offline"]
+            and not isinstance(feature_group, fg_mod.ExternalFeatureGroup)
             and feature_group.time_travel_format == "DELTA"
         ):
-            self._check_duplicate_records(dataframe, feature_group)
-            _logger.debug("No duplicate records found. Proceeding with Delta write.")
-
-        if (
-            hasattr(feature_group, "EXTERNAL_FEATURE_GROUP")
-            and feature_group.online_enabled
-        ) or feature_group.stream:
-            return self._write_dataframe_kafka(
-                feature_group, dataframe, offline_write_options
+            # ExternalFeatureGroups have no offline storage, so offline writes are skipped.
+            delta_engine_instance = delta_engine.DeltaEngine(
+                feature_store_id=feature_group.feature_store_id,
+                feature_store_name=feature_group.feature_store_name,
+                feature_group=feature_group,
+                spark_context=None,
+                spark_session=None,
             )
-        if engine.get_type() == "python":
-            if feature_group.time_travel_format == "DELTA":
-                delta_engine_instance = delta_engine.DeltaEngine(
-                    feature_store_id=feature_group.feature_store_id,
-                    feature_store_name=feature_group.feature_store_name,
-                    feature_group=feature_group,
-                    spark_context=None,
-                    spark_session=None,
-                )
-                delta_engine_instance.save_delta_fg(
-                    dataframe,
-                    write_options=offline_write_options,
-                    validation_id=validation_id,
-                )
-        else:
+            delta_engine_instance._save_delta_fg(
+                dataframe,
+                write_options=offline_write_options,
+                validation_id=validation_id,
+                operation=operation,
+            )
+            inserted = True
+        if storage in [None, "online"] and feature_group.online_enabled:
+            self._write_dataframe_kafka(
+                feature_group, dataframe, offline_write_options, storage
+            )
+            inserted = True
+
+        if not inserted:
             # for backwards compatibility
-            return self.legacy_save_dataframe(
+            return self._legacy_save_dataframe(
                 feature_group,
                 dataframe,
                 operation,
@@ -1117,7 +1141,7 @@ class Engine:
             )
         return None
 
-    def legacy_save_dataframe(
+    def _legacy_save_dataframe(
         self,
         feature_group: FeatureGroup,
         dataframe: pd.DataFrame | pl.DataFrame,
@@ -1134,7 +1158,7 @@ class Engine:
         # Setup job for ingestion
         # Configure Hopsworks ingestion job
         print("Configuring ingestion job...")
-        ingestion_job = self._feature_group_api.ingestion(feature_group, app_options)
+        ingestion_job = self._feature_group_api._ingestion(feature_group, app_options)
 
         # Upload dataframe into Hopsworks
         print("Uploading Pandas dataframe...")
@@ -1150,7 +1174,7 @@ class Engine:
 
         return ingestion_job.job
 
-    def get_training_data(
+    def _get_training_data(
         self,
         training_dataset_obj: TrainingDataset,
         feature_view_obj: feature_view.FeatureView,
@@ -1196,14 +1220,14 @@ class Engine:
             )
         df = query_obj.read(read_options=read_options, dataframe_type=dataframe_type)
         # if training_dataset_version is None:
-        transformation_function_engine.TransformationFunctionEngine.compute_and_set_feature_statistics(
+        transformation_function_engine.TransformationFunctionEngine._compute_and_set_feature_statistics(
             training_dataset_obj, feature_view_obj, df
         )
         # else:
-        #    transformation_function_engine.TransformationFunctionEngine.get_and_set_feature_statistics(
+        #    transformation_function_engine.TransformationFunctionEngine._get_and_set_feature_statistics(
         #        training_dataset_obj, feature_view_obj, training_dataset_version
         #    )
-        return transformation_function_engine.TransformationFunctionEngine.apply_transformation_functions(
+        return transformation_function_engine.TransformationFunctionEngine._apply_transformation_functions(
             transformation_functions=feature_view_obj.transformation_functions,
             data=df,
             online=False,
@@ -1211,7 +1235,7 @@ class Engine:
             request_parameters=None,
         )
 
-    def split_labels(
+    def _split_labels(
         self,
         df: pd.DataFrame | pl.DataFrame,
         labels: list[str],
@@ -1219,14 +1243,19 @@ class Engine:
     ) -> tuple[pd.DataFrame | pl.DataFrame, pd.DataFrame | pl.DataFrame | None]:
         if labels:
             labels_df = df[labels]
-            df_new = df.drop(columns=labels)
+            if HAS_POLARS and isinstance(
+                df, (pl.DataFrame, pl.dataframe.frame.DataFrame)
+            ):
+                df_new = df.drop(labels)
+            else:
+                df_new = df.drop(columns=labels)
             return (
                 self._return_dataframe_type(df_new, dataframe_type),
                 self._return_dataframe_type(labels_df, dataframe_type),
             )
         return self._return_dataframe_type(df, dataframe_type), None
 
-    def drop_columns(
+    def _drop_columns(
         self, df: pd.DataFrame | pl.DataFrame, drop_cols: list[str]
     ) -> pd.DataFrame | pl.DataFrame:
         if HAS_POLARS and (
@@ -1319,17 +1348,17 @@ class Engine:
 
         # TODO : Currently statistics always computed since in memory training dataset retrieved is not consistent
         # if training_dataset_version is None:
-        transformation_function_engine.TransformationFunctionEngine.compute_and_set_feature_statistics(
+        transformation_function_engine.TransformationFunctionEngine._compute_and_set_feature_statistics(
             training_dataset_obj, feature_view_obj, result_dfs
         )
         # else:
-        #    transformation_function_engine.TransformationFunctionEngine.get_and_set_feature_statistics(
+        #    transformation_function_engine.TransformationFunctionEngine._get_and_set_feature_statistics(
         #        training_dataset_obj, feature_view_obj, training_dataset_version
         #    )
         # and the apply them
         for split_name in result_dfs:
             result_dfs[split_name] = (
-                transformation_function_engine.TransformationFunctionEngine.apply_transformation_functions(
+                transformation_function_engine.TransformationFunctionEngine._apply_transformation_functions(
                     transformation_functions=feature_view_obj.transformation_functions,
                     data=result_dfs.get(split_name),
                     online=False,
@@ -1396,7 +1425,7 @@ class Engine:
                 result_df = df[
                     [
                         split.start_time
-                        <= util.convert_event_time_to_timestamp(t)
+                        <= util._convert_event_time_to_timestamp(t)
                         < split.end_time
                         for t in df[event_time]
                     ]
@@ -1409,7 +1438,7 @@ class Engine:
             result_dfs[split.name] = result_df
         return result_dfs
 
-    def write_training_dataset(
+    def _write_training_dataset(
         self,
         training_dataset: TrainingDataset,
         dataset: query.Query | pd.DataFrame | pl.DataFrame,
@@ -1433,7 +1462,7 @@ class Engine:
 
         if (
             arrow_flight_client_imported
-            and arrow_flight_client.is_query_supported(dataset, user_write_options)
+            and arrow_flight_client._is_query_supported(dataset, user_write_options)
             and len(training_dataset.splits) == 0
             and feature_view_obj
             and len(feature_view_obj.transformation_functions) == 0
@@ -1441,9 +1470,9 @@ class Engine:
             and not transformation_context
         ):
             query_obj, _ = dataset._prep_read(False, user_write_options)
-            return util.run_with_loading_animation(
+            return util._run_with_loading_animation(
                 "Materializing data to Hopsworks, using Hopsworks Feature Query Service",
-                arrow_flight_client.get_instance().create_training_dataset,
+                arrow_flight_client._get_instance()._create_training_dataset,
                 feature_view_obj,
                 training_dataset,
                 query_obj,
@@ -1469,7 +1498,7 @@ class Engine:
 
         if feature_view_obj:
             fv_api = feature_view_api.FeatureViewApi(feature_view_obj.featurestore_id)
-            td_job = fv_api.compute_training_dataset(
+            td_job = fv_api._compute_training_dataset(
                 feature_view_obj.name,
                 feature_view_obj.version,
                 training_dataset.version,
@@ -1479,9 +1508,9 @@ class Engine:
             td_api = training_dataset_api.TrainingDatasetApi(
                 training_dataset.feature_store_id
             )
-            td_job = td_api.compute(training_dataset, td_app_conf)
+            td_job = td_api._compute(training_dataset, td_app_conf)
         print(
-            f"Training dataset job started successfully, you can follow the progress at \n{util.get_job_url(td_job.href)}"
+            f"Training dataset job started successfully, you can follow the progress at \n{util._get_job_url(td_job.href)}"
         )
 
         td_job._wait_for_job(
@@ -1518,12 +1547,12 @@ class Engine:
             f"Dataframe type `{dataframe_type}` not supported on this platform."
         )
 
-    def is_spark_dataframe(
+    def _is_spark_dataframe(
         self, dataframe: pd.DataFrame | pl.DataFrame
     ) -> Literal[False]:
         return False
 
-    def save_stream_dataframe(
+    def _save_stream_dataframe(
         self,
         feature_group: FeatureGroup | ExternalFeatureGroup,
         dataframe: pd.DataFrame | pl.DataFrame,
@@ -1537,10 +1566,10 @@ class Engine:
             "Stream ingestion is not available on Python environments, because it requires Spark as engine."
         )
 
-    def update_table_schema(
+    def _update_table_schema(
         self, feature_group: FeatureGroup | ExternalFeatureGroup
     ) -> None:
-        _job = self._feature_group_api.update_table_schema(feature_group)
+        _job = self._feature_group_api._update_table_schema(feature_group)
         _job._wait_for_job(await_termination=True)
 
     def _get_app_options(
@@ -1565,7 +1594,7 @@ class Engine:
             spark_job_configuration=spark_job_configuration,
         )
 
-    def add_file(self, file: str | None, distribute=True) -> str | None:
+    def _add_file(self, file: str | None, distribute=True) -> str | None:
         if not file:
             return file
 
@@ -1576,7 +1605,7 @@ class Engine:
         local_file = os.path.join("/tmp", os.path.basename(file))
         if not os.path.exists(local_file):
             content_stream = self._dataset_api.read_content(
-                file, util.get_dataset_type(file)
+                file, util._get_dataset_type(file)
             )
             bytesio_object = BytesIO(content_stream.content)
             # Write the stuff
@@ -1584,7 +1613,7 @@ class Engine:
                 f.write(bytesio_object.getbuffer())
         return local_file
 
-    def shallow_copy_dataframe(
+    def _shallow_copy_dataframe(
         self, dataframe: pd.DataFrame | pl.DataFrame
     ) -> pd.DataFrame | pl.DataFrame:
         if HAS_POLARS and (
@@ -1597,7 +1626,7 @@ class Engine:
             f"Dataframe type {type(dataframe)} not supported in the Python engine."
         )
 
-    def apply_udf_on_dataframe(
+    def _apply_udf_on_dataframe(
         self,
         udf: HopsworksUdf,
         dataframe: pd.DataFrame | pl.DataFrame,
@@ -1614,7 +1643,7 @@ class Engine:
             The dataframe with the UDF applied.
         """
         if (
-            udf.execution_mode.get_current_execution_mode(online=online)
+            udf.execution_mode._get_current_execution_mode(online=online)
             == UDFExecutionMode.PANDAS
         ):
             return self._apply_pandas_udf(
@@ -1642,7 +1671,7 @@ class Engine:
         Raises:
             hopsworks.client.exceptions.FeatureStoreException: If any of the features mentioned in the transformation function is not present in the Feature View.
         """
-        udf = hopsworks_udf.get_udf(online=online)
+        udf = hopsworks_udf._get_udf(online=online)
         if isinstance(dataframe, pd.DataFrame):
             if len(hopsworks_udf.return_types) > 1:
                 dataframe[hopsworks_udf.output_column_names] = dataframe.apply(
@@ -1684,6 +1713,7 @@ class Engine:
                         zip(
                             transformed_features.columns,
                             hopsworks_udf.output_column_names,
+                            strict=False,
                         )
                     )
                 )
@@ -1720,41 +1750,23 @@ class Engine:
             else:
                 dataframe = dataframe.to_pandas(use_pyarrow_extension_array=False)
 
+        features = [dataframe[f] for f in hopsworks_udf.transformation_features]
+        # Index is set to the input dataframe index so that pandas would merge the new columns without reordering them.
+        output = hopsworks_udf._get_udf(online=online)(*features)
+        output_names = hopsworks_udf.output_column_names
         if len(hopsworks_udf.return_types) > 1:
-            dataframe[hopsworks_udf.output_column_names] = hopsworks_udf.get_udf(
-                online=online
-            )(
-                *(
-                    [
-                        dataframe[feature]
-                        for feature in hopsworks_udf.transformation_features
-                    ]
-                )
-            ).set_index(
-                dataframe.index
-            )  # Index is set to the input dataframe index so that pandas would merge the new columns without reordering them.
+            dataframe[output_names] = output.set_index(dataframe.index)
         else:
-            dataframe[hopsworks_udf.output_column_names[0]] = hopsworks_udf.get_udf(
-                online=online
-            )(
-                *(
-                    [
-                        dataframe[feature]
-                        for feature in hopsworks_udf.transformation_features
-                    ]
-                )
-            ).set_axis(
-                dataframe.index
-            )  # Index is set to the input dataframe index so that pandas would merge the new column without reordering it.
-            if hopsworks_udf.output_column_names[0] in dataframe.columns:
+            dataframe[output_names[0]] = output.set_axis(dataframe.index)
+            if output_names[0] in dataframe.columns:
                 # Overwriting features also reordering dataframe to move overwritten column to the end of the dataframe
                 cols = dataframe.columns.tolist()
-                cols.append(cols.pop(cols.index(hopsworks_udf.output_column_names[0])))
+                cols.append(cols.pop(cols.index(output_names[0])))
                 dataframe = dataframe[cols]
         return dataframe
 
     @staticmethod
-    def get_unique_values(
+    def _get_unique_values(
         feature_dataframe: pd.DataFrame | pl.DataFrame, feature_name: str
     ) -> np.ndarray:
         return feature_dataframe[feature_name].unique()
@@ -1764,29 +1776,43 @@ class Engine:
         feature_group: FeatureGroup | ExternalFeatureGroup,
         dataframe: pd.DataFrame | pl.DataFrame,
         offline_write_options: dict[str, Any],
-    ) -> job.Job | None:
-        initial_check_point = ""
-        producer, headers, feature_writers, writer = kafka_engine.init_kafka_resources(
+        storage: str | None,
+    ) -> None:
+        # Compute per-row online flags before building the Avro schema so the
+        # marker never enters the writer and avoids column name mangling.
+        online_flags = None
+        if (
+            feature_group.online_enabled
+            and storage in [None, "online"]
+            and offline_write_options.get("online_ingestion_options", {}).get(
+                "mark_online_rows", True
+            )
+        ):
+            online_flags = self._mark_online_rows(feature_group, dataframe)
+
+        if offline_write_options.get("online_ingestion_options", {}).get(
+            "disable_online_ingestion_count", False
+        ):
+            n_rows = None
+        elif online_flags is not None and storage == "online":
+            # we will only produce rows marked for online ingestion, so count those for accurate progress bar and Kafka producer configuration
+            n_rows = sum(online_flags)
+        else:
+            # if we are writing to offline or not marking online rows, all rows will be produced, so count the entire dataframe
+            n_rows = len(dataframe)
+
+        producer, headers, feature_writers, writer = kafka_engine._get_kafka_resources(
             feature_group,
             offline_write_options,
-            num_entries=None
-            if offline_write_options.get("disable_online_ingestion_count", False)
-            else len(dataframe),
+            num_entries=n_rows,
         )
 
-        if not feature_group._multi_part_insert:
-            # set initial_check_point to the current offset
-            initial_check_point = kafka_engine.kafka_get_offsets(
-                topic_name=feature_group._online_topic_name,
-                feature_store_id=feature_group.feature_store_id,
+        acked, progress_bar = (
+            kafka_engine._build_ack_callback_and_optional_progress_bar(
+                n_rows=n_rows,
+                is_multi_part_insert=feature_group._multi_part_insert,
                 offline_write_options=offline_write_options,
-                high=True,
             )
-
-        acked, progress_bar = kafka_engine.build_ack_callback_and_optional_progress_bar(
-            n_rows=dataframe.shape[0],
-            is_multi_part_insert=feature_group._multi_part_insert,
-            offline_write_options=offline_write_options,
         )
 
         if isinstance(dataframe, pd.DataFrame):
@@ -1795,22 +1821,38 @@ class Engine:
             row_iterator = dataframe.iter_rows(named=True)
 
         # loop over rows
-        for row in row_iterator:
+        for row, online_flag in zip(
+            row_iterator,
+            online_flags if online_flags is not None else itertools.repeat(None),
+            strict=False,
+        ):
             if isinstance(dataframe, pd.DataFrame):
-                # itertuples returns Python NamedTyple, to be able to serialize it using
-                # avro, create copy of row only by converting to dict, which preserves datatypes
+                # itertuples returns Python NamedTuple; convert to dict to serialize via Avro
                 row = row._asdict()
-            encoded_row = kafka_engine.encode_row(feature_writers, writer, row)
+
+            # Set per-row storage header based on the online flag when present.
+            row_headers = headers
+            if online_flag is not None:
+                if not online_flag and storage == "online":
+                    # Online-only write — skip rows not destined for online store.
+                    continue
+                # b"1" = ingest online, b"0" = offline only
+                row_headers = {
+                    **headers,
+                    "storage": b"1" if online_flag else b"0",
+                }
+
+            encoded_row = kafka_engine._encode_row(feature_writers, writer, row)
 
             # assemble key
             key = "".join([str(row[pk]) for pk in sorted(feature_group.primary_key)])
 
-            kafka_engine.kafka_produce(
+            kafka_engine._kafka_produce(
                 producer=producer,
                 key=key,
                 encoded_row=encoded_row,
                 topic_name=feature_group._online_topic_name,
-                headers=headers,
+                headers=row_headers,
                 acked=acked,
                 debug_kafka=offline_write_options.get("debug_kafka", False),
             )
@@ -1820,6 +1862,36 @@ class Engine:
             producer.flush()
             del producer
             progress_bar.close()
+
+        # wait for online ingestion
+        if feature_group.online_enabled and offline_write_options.get(
+            "wait_for_online_ingestion", False
+        ):
+            feature_group.get_latest_online_ingestion().wait_for_completion(
+                options=offline_write_options.get("online_ingestion_options", {})
+            )
+
+    def _run_materialization_job(
+        self,
+        feature_group: FeatureGroup | ExternalFeatureGroup,
+        dataframe: pd.DataFrame | pl.DataFrame,
+        offline_write_options: dict[str, Any],
+        storage: str | None,
+    ) -> job.Job | None:
+        initial_check_point = ""
+
+        if not feature_group._multi_part_insert:
+            # set initial_check_point to the current offset
+            initial_check_point = kafka_engine._kafka_get_offsets(
+                topic_name=feature_group._online_topic_name,
+                feature_store_id=feature_group.feature_store_id,
+                offline_write_options=offline_write_options,
+                high=True,
+            )
+
+        self._write_dataframe_kafka(
+            feature_group, dataframe, offline_write_options, storage
+        )
 
         # start materialization job if not an external feature group, otherwise return None
         if isinstance(feature_group, ExternalFeatureGroup):
@@ -1833,7 +1905,7 @@ class Engine:
                     stacklevel=1,
                 )
             # set the initial_check_point to the lowest offset (it was not set previously due to topic not existing)
-            initial_check_point = kafka_engine.kafka_get_offsets(
+            initial_check_point = kafka_engine._kafka_get_offsets(
                 topic_name=feature_group._online_topic_name,
                 feature_store_id=feature_group.feature_store_id,
                 offline_write_options=offline_write_options,
@@ -1884,31 +1956,25 @@ class Engine:
                 await_termination=offline_write_options.get("wait_for_job", False),
             )
 
-        # wait for online ingestion
-        if feature_group.online_enabled and offline_write_options.get(
-            "wait_for_online_ingestion", False
-        ):
-            feature_group.get_latest_online_ingestion().wait_for_completion(
-                options=offline_write_options.get("online_ingestion_options", {})
-            )
-
         return feature_group.materialization_job
 
     @staticmethod
-    def cast_columns(
+    def _cast_columns(
         df: pd.DataFrame, schema: list[feature.Feature], online: bool = False
     ) -> pd.DataFrame:
         for _feat in schema:
             if not online:
-                df[_feat.name] = cast_column_to_offline_type(df[_feat.name], _feat.type)
+                df[_feat.name] = _cast_column_to_offline_type(
+                    df[_feat.name], _feat.type
+                )
             else:
-                df[_feat.name] = cast_column_to_online_type(
+                df[_feat.name] = _cast_column_to_online_type(
                     df[_feat.name], _feat.online_type
                 )
         return df
 
     @staticmethod
-    def is_connector_type_supported(connector_type: str) -> bool:
+    def _is_connector_type_supported(connector_type: str) -> bool:
         return connector_type in [
             sc.StorageConnector.HOPSFS,
             sc.StorageConnector.S3,
@@ -1995,7 +2061,7 @@ class Engine:
         )
 
     @staticmethod
-    def get_logging_metadata(
+    def _get_logging_metadata(
         size=None,
         td_col_name: str | None = None,
         time_col_name: str | None = None,
@@ -2030,7 +2096,7 @@ class Engine:
                 metadata[k] = v[0]
         return metadata
 
-    def get_feature_logging_df(
+    def _get_feature_logging_df(
         self,
         logging_data: pd.DataFrame
         | pl.DataFrame
@@ -2280,7 +2346,7 @@ class Engine:
             )
 
         # Add meta data columns
-        logging_metadata = Engine.get_logging_metadata(
+        logging_metadata = Engine._get_logging_metadata(
             size=len(logging_df),
             td_col_name=td_col_name,
             time_col_name=time_col_name,
@@ -2307,7 +2373,7 @@ class Engine:
         # Cast columns to the correct types
         for f in logging_feature_group_features:
             if f.name in logging_df.columns:
-                logging_df[f.name] = cast_column_to_offline_type(
+                logging_df[f.name] = _cast_column_to_offline_type(
                     logging_df[f.name], f.type
                 )
 
@@ -2335,7 +2401,7 @@ class Engine:
             missing_logging_features,
         )
 
-    def get_feature_logging_list(
+    def _get_feature_logging_list(
         self,
         logging_data: pd.DataFrame
         | pl.DataFrame
@@ -2487,7 +2553,7 @@ class Engine:
             ]
         ):
             logging_data, additional_logging_features, missing_logging_features = (
-                self.get_feature_logging_df(
+                self._get_feature_logging_df(
                     logging_data=logging_data,
                     logging_feature_group_features=logging_feature_group_features,
                     logging_feature_group_feature_names=logging_feature_group_feature_names,
@@ -2598,14 +2664,16 @@ class Engine:
 
             if log_vectors is None:
                 log_vectors = [
-                    dict(zip(feature_names, row)) if not isinstance(row, dict) else row
+                    dict(zip(feature_names, row, strict=False))
+                    if not isinstance(row, dict)
+                    else row
                     for row in data
                 ]
             # If one of the logging components has only one row and the other has multiple rows, we repeat the single row to match the length of the other component.
             elif len(data) == 1:
                 for log_vector in log_vectors:
                     log_vector.update(
-                        dict(zip(feature_names, data[0]))
+                        dict(zip(feature_names, data[0], strict=False))
                         if not isinstance(data[0], dict)
                         else data[0]
                     )
@@ -2615,9 +2683,9 @@ class Engine:
                         f"Length of `{log_component_name}` provided do not match other arguments. Please check the logging data to make sure that all arguments have the same length."
                     )
             else:
-                for log_vector, row in zip(log_vectors, data):
+                for log_vector, row in zip(log_vectors, data, strict=False):
                     log_vector.update(
-                        dict(zip(feature_names, row))
+                        dict(zip(feature_names, row, strict=False))
                         if not isinstance(row, dict)
                         else row
                     )
@@ -2638,7 +2706,7 @@ class Engine:
             # Get any request parameters that the user passed explicitly.
             if request_parameter_data is not None:
                 request_parameter_data = [
-                    dict(zip(request_parameter_names, row))
+                    dict(zip(request_parameter_names, row, strict=False))
                     if not isinstance(row, dict)
                     else row
                     for row in request_parameter_data
@@ -2647,7 +2715,9 @@ class Engine:
                 request_parameter_data = [{} for _ in range(len(log_vectors))]
 
             # Iterate through the log vectors and try to parse request parameters from the log vector if they are not explicitly passed by the user.
-            for log_vector, passed_rp_data in zip(log_vectors, request_parameter_data):
+            for log_vector, passed_rp_data in zip(
+                log_vectors, request_parameter_data, strict=False
+            ):
                 for col in request_parameter_names:
                     if col not in passed_rp_data and col in log_vector:
                         passed_rp_data[col] = log_vector[col]
@@ -2671,7 +2741,7 @@ class Engine:
         # get metadata
         for row in log_vectors:
             row.update(
-                Engine.get_logging_metadata(
+                Engine._get_logging_metadata(
                     td_col_name=td_col_name,
                     time_col_name=time_col_name,
                     model_col_name=model_col_name,
@@ -2691,11 +2761,11 @@ class Engine:
         return log_vectors, None, None
 
     @staticmethod
-    def read_feature_log(query, time_col):
+    def _read_feature_log(query, time_col):
         df = query.read()
         return df.drop(["log_id", time_col], axis=1)
 
-    def check_supported_dataframe(self, dataframe: Any) -> bool:
+    def _check_supported_dataframe(self, dataframe: Any) -> bool:
         """Check if a dataframe is supported by the engine.
 
         Both Pandas and Polars dataframes are supported in the Python Engine.

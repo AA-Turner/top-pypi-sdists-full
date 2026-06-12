@@ -1,24 +1,20 @@
 [build-system]
-requires = [
-    "hatchling>=1.19.0",
-]
+requires = ["hatchling>=1.19.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "dagster-webserver"
-version = "1.13.8"
+version = "1.13.9"
 description = "Web UI for dagster."
-authors = [
-    { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
-]
+authors = [{name = "Dagster Labs", email = "hello@dagsterlabs.com"}]
 license = "Apache-2.0"
 readme = "README.rst"
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "click>=7.0,<9.0",
-    "dagster==1.13.8",
-    "dagster-graphql==1.13.8",
-    "starlette!=0.36.0",
+    "dagster==1.13.9",
+    "dagster-graphql==1.13.9",
+    "starlette!=0.36.0",  # avoid bad version https://github.com/encode/starlette/discussions/2436
     "uvicorn[standard]",
 ]
 
@@ -29,31 +25,11 @@ Homepage = "https://github.com/dagster-io/dagster"
 dagster-webserver = "dagster_webserver.cli:main"
 dagster-webserver-debug = "dagster_webserver.debug:main"
 
-[project.optional-dependencies]
-notebook = [
-    "nbconvert",
-]
-
 [tool.hatch.build]
-artifacts = [
-    "dagster_webserver/webapp/build/",
-]
+artifacts = ["dagster_webserver/webapp/build/"]
 
-[tool.uv.sources.dagster]
-path = "../dagster"
-editable = true
-
-[tool.uv.sources.dagster-pipes]
-path = "../dagster-pipes"
-editable = true
-
-[tool.uv.sources.dagster-shared]
-path = "../libraries/dagster-shared"
-editable = true
-
-[tool.uv.sources.dagster-graphql]
-path = "../dagster-graphql"
-editable = true
+[project.optional-dependencies]
+notebook = ["nbconvert"]  # notebooks support
 
 [dependency-groups]
 test = [
@@ -62,5 +38,11 @@ test = [
     "dagster-shared",
     "dagster-graphql",
     "objgraph",
-    "starlette[full]",
+    "starlette[full]",  # TestClient deps; folded from dagster-webserver[test] extra
 ]
+
+[tool.uv.sources]
+dagster = { path = "../dagster", editable = true }
+dagster-pipes = { path = "../dagster-pipes", editable = true }
+dagster-shared = { path = "../libraries/dagster-shared", editable = true }
+dagster-graphql = { path = "../dagster-graphql", editable = true }

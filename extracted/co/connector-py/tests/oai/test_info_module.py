@@ -2719,9 +2719,7 @@ async def test_get_oauth_scopes_with_credentials_scopes_with_empty_values():
         "oauth_cred",
         AppInfoRequest(request=AppInfoRequestPayload(), credentials=None, settings=None),
     )
-    # None values should be filtered out
     assert scopes == {
-        "": "Required for create_account",
         "read:accounts": "Required for list_accounts",
     }
 
@@ -2803,6 +2801,165 @@ async def test_get_oauth_scopes_with_legacy_auth_callable_scopes():
         AppInfoRequest(request=AppInfoRequestPayload(), credentials=None, settings=None),
     )
     assert scopes == {"read:accounts": "Required for list_accounts"}
+
+
+async def test_get_oauth_scopes_aggregates_capabilities_with_shared_scope():
+    """Multiple capabilities sharing one OAuth scope should all appear in the description."""
+    from connector_sdk_types.oai.modules.oauth_module_types import OAuthFlowType, OAuthSettings
+
+    integration = Integration(
+        app_id="test",
+        version="0.1.0",
+        credentials=[
+            OAuthConfig(
+                id="oauth_read",
+                type=AuthModel.OAUTH,
+                description="Read OAuth credential",
+                oauth_settings=OAuthSettings(
+                    flow_type=OAuthFlowType.CODE_FLOW,
+                    token_url="https://example.com/token",
+                    authorization_url="https://example.com/auth",
+                    scopes={
+                        StandardCapabilityName.LIST_ACCOUNTS: "read_api",
+                        StandardCapabilityName.LIST_ENTITLEMENTS: "read_api",
+                        StandardCapabilityName.GET_LAST_ACTIVITY: "read_api",
+                    },
+                ),
+            ),
+        ],
+        description_data=DescriptionData(
+            app_vendor_domain="test.com",
+            user_friendly_name="Test",
+            description="Test description",
+            categories=[],
+        ),
+        exception_handlers=[],
+    )
+
+    info_module = InfoModule()
+    info_module.integration = integration
+
+    scopes = info_module.get_oauth_scopes(
+        "oauth_read",
+        AppInfoRequest(request=AppInfoRequestPayload(), credentials=None, settings=None),
+    )
+    assert scopes == {
+        "read_api": "Required for list_accounts, list_entitlements, get_last_activity",
+    }
+
+
+async def test_generate_openapi_spec_oauth_security_filters_by_capability():
+    """OAuth credentials should only appear on operations they declare scopes for."""
+    from connector.generated import (
+        DeleteAccountRequest,
+        DeleteAccountResponse,
+        DeletedAccount,
+        ListAccountsRequest,
+        ListAccountsResponse,
+        ValidateCredentialsRequest,
+        ValidateCredentialsResponse,
+        ValidatedCredentials,
+    )
+    from connector_sdk_types.oai.modules.credentials_module_types import CredentialsSettings
+    from connector_sdk_types.oai.modules.oauth_module_types import OAuthFlowType, OAuthSettings
+
+    async def validate_credentials(
+        args: ValidateCredentialsRequest,
+    ) -> ValidateCredentialsResponse:
+        return ValidateCredentialsResponse(
+            response=ValidatedCredentials(valid=True),
+        )
+
+    async def list_accounts(args: ListAccountsRequest) -> ListAccountsResponse:
+        return ListAccountsResponse(response=[])
+
+    async def delete_account(args: DeleteAccountRequest) -> DeleteAccountResponse:
+        return DeleteAccountResponse(response=DeletedAccount(deleted=True))
+
+    integration = Integration(
+        app_id="test",
+        version="0.1.0",
+        credentials=[
+            CredentialConfig(
+                id="token_cred",
+                type=AuthModel.TOKEN,
+                description="Token credential",
+            ),
+            OAuthConfig(
+                id="oauth_read",
+                type=AuthModel.OAUTH,
+                description="Read OAuth credential",
+                oauth_settings=OAuthSettings(
+                    flow_type=OAuthFlowType.CODE_FLOW,
+                    token_url="https://example.com/token",
+                    authorization_url="https://example.com/auth",
+                    scopes={
+                        StandardCapabilityName.VALIDATE_CREDENTIALS: "read_api",
+                        StandardCapabilityName.LIST_ACCOUNTS: "read_api",
+                    },
+                ),
+            ),
+            OAuthConfig(
+                id="oauth_write",
+                type=AuthModel.OAUTH,
+                description="Write OAuth credential",
+                oauth_settings=OAuthSettings(
+                    flow_type=OAuthFlowType.CODE_FLOW,
+                    token_url="https://example.com/token",
+                    authorization_url="https://example.com/auth",
+                    scopes={
+                        StandardCapabilityName.VALIDATE_CREDENTIALS: "api",
+                        StandardCapabilityName.LIST_ACCOUNTS: "api",
+                        StandardCapabilityName.DELETE_ACCOUNT: "api",
+                    },
+                ),
+            ),
+        ],
+        credentials_settings=CredentialsSettings(
+            allowed_credentials=["token_cred", "oauth_read", "oauth_write"],
+        ),
+        description_data=DescriptionData(
+            app_vendor_domain="test.com",
+            user_friendly_name="Test",
+            description="Test description",
+            categories=[],
+        ),
+        exception_handlers=[],
+    )
+    integration.register_capabilities(
+        {
+            StandardCapabilityName.VALIDATE_CREDENTIALS: validate_credentials,
+            StandardCapabilityName.LIST_ACCOUNTS: list_accounts,
+            StandardCapabilityName.DELETE_ACCOUNT: delete_account,
+        }
+    )
+
+    info_module = InfoModule()
+    info_module.integration = integration
+    args = AppInfoRequest(request=AppInfoRequestPayload(), credentials=None, settings=None)
+    spec = info_module.generate_openapi_spec(args)
+
+    list_accounts_security = spec.paths["/list_accounts"]["post"]["security"]
+    delete_account_security = spec.paths["/delete_account"]["post"]["security"]
+
+    assert list_accounts_security == [
+        {"token_cred": []},
+        {"oauth_read": ["read_api"]},
+        {"oauth_write": ["api"]},
+    ]
+    assert delete_account_security == [
+        {"token_cred": []},
+        {"oauth_write": ["api"]},
+    ]
+
+    oauth_settings = spec.info.x_oauth_settings
+    assert oauth_settings is not None
+    assert oauth_settings["oauth_read"]["scopes"] == {
+        "read_api": "Required for validate_credentials, list_accounts",
+    }
+    assert oauth_settings["oauth_write"]["scopes"] == {
+        "api": "Required for validate_credentials, list_accounts, delete_account",
+    }
 
 
 async def test_get_oauth_scopes_with_legacy_auth_empty_scopes():

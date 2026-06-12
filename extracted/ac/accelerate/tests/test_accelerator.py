@@ -259,7 +259,9 @@ class AcceleratorTester(AccelerateTestCase):
             pass
 
         with (
-            patch(f"torch.{torch_device}.set_device", noop),
+            # Some backends such as MPS do not expose a module-level `set_device`.
+            # This test only exercises env var parsing, so a synthetic attribute is enough.
+            patch(f"torch.{torch_device}.set_device", noop, create=True),
             patch_environment(ACCELERATE_TORCH_DEVICE=f"{torch_device}:64"),
         ):
             accelerator = Accelerator()
@@ -463,6 +465,17 @@ class AcceleratorTester(AccelerateTestCase):
         assert getattr(valid_dl, "_is_accelerate_prepared", False) is True, (
             "Valid Dataloader is missing `_is_accelerator_prepared` or is set to `False`"
         )
+
+    def test_prepare_model_twice_does_not_double_wrap(self):
+        accelerator = Accelerator()
+        model = torch.nn.Linear(10, 2)
+        prepared_model = accelerator.prepare_model(model)
+        num_models_before = len(accelerator._models)
+        reprepared_model = accelerator.prepare_model(prepared_model)
+        assert len(accelerator._models) == num_models_before, (
+            "prepare_model should not add duplicate entries to _models"
+        )
+        assert reprepared_model is prepared_model, "prepare_model should return the same object when called twice"
 
     @require_cuda_or_xpu
     @slow
@@ -812,7 +825,7 @@ class AcceleratorTester(AccelerateTestCase):
     @require_non_cpu
     @require_huggingface_suite
     def test_nested_hook(self):
-        from transformers.modeling_utils import PretrainedConfig, PreTrainedModel
+        from transformers import PretrainedConfig, PreTrainedModel
 
         class MyLinear(torch.nn.Module):
             def __init__(self, device=None, dtype=None):

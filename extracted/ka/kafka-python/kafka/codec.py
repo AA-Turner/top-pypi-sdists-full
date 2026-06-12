@@ -1,12 +1,8 @@
-from __future__ import absolute_import
-
 import gzip
 import io
 import platform
 import struct
 
-from kafka.vendor import six
-from kafka.vendor.six.moves import range
 
 _XERIAL_V1_HEADER = (-126, b'S', b'N', b'A', b'P', b'P', b'Y', 0, 1, 1)
 _XERIAL_V1_FORMAT = 'bccccccBii'
@@ -149,10 +145,6 @@ def snappy_encode(payload, xerial_compatible=True, xerial_blocksize=32*1024):
         # buffer... likely a python-snappy bug, so just use a slice copy
         chunker = lambda payload, i, size: payload[i:size+i]
 
-    elif six.PY2:
-        # Sliced buffer avoids additional copies
-        # pylint: disable-msg=undefined-variable
-        chunker = lambda payload, i, size: buffer(payload, i, size)
     else:
         # snappy.compress does not like raw memoryviews, so we have to convert
         # tobytes, which is a copy... oh well. it's the thought that counts.
@@ -266,7 +258,8 @@ else:
 
 def lz4_encode_old_kafka(payload):
     """Encode payload for 0.8/0.9 brokers -- requires an incorrect header checksum."""
-    assert xxhash is not None
+    if xxhash is None:
+        raise RuntimeError('pip install xxhash for lz4 encoding with 0.8/0.9 brokers')
     data = lz4_encode(payload)
     header_size = 7
     flg = data[4]
@@ -296,7 +289,8 @@ def lz4_encode_old_kafka(payload):
 
 
 def lz4_decode_old_kafka(payload):
-    assert xxhash is not None
+    if xxhash is None:
+        raise RuntimeError('pip install xxhash for lz4 encoding with 0.8/0.9 brokers')
     # Kafka's LZ4 code has a bug in its header checksum implementation
     header_size = 7
     if isinstance(payload[4], int):

@@ -55,6 +55,7 @@ class RecipientsResource(SyncAPIResource):
         path_account_id: str,
         body_account_id: str | Omit = omit,
         organization_id: str | Omit = omit,
+        recipient_account_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -71,9 +72,15 @@ class RecipientsResource(SyncAPIResource):
 
           share_id: Share identifier tag.
 
-          body_account_id: Account identifier.
+          body_account_id: Deprecated alias for `recipient_account_id`. Use `recipient_account_id` instead.
+              The body field collided with the URL path parameter of the same name, which
+              prevented SDK generators from distinguishing the source account (in the URL)
+              from the recipient account (in the body). Both names will continue to be
+              accepted until 2027-05-26 (see `x-sunset`).
 
           organization_id: Organization identifier.
+
+          recipient_account_id: The account that will receive the share.
 
           extra_headers: Send extra headers
 
@@ -97,6 +104,7 @@ class RecipientsResource(SyncAPIResource):
                 {
                     "body_account_id": body_account_id,
                     "organization_id": organization_id,
+                    "recipient_account_id": recipient_account_id,
                 },
                 recipient_create_params.RecipientCreateParams,
             ),
@@ -135,9 +143,12 @@ class RecipientsResource(SyncAPIResource):
 
           include_resources: Include resources in the response.
 
-          page: Page number.
+          page: Page number. Defaults to `1` when `per_page` is supplied without `page`. May be
+              omitted entirely along with `per_page` to receive a non-paginated response.
 
-          per_page: Number of objects to return per page.
+          per_page: Number of objects to return per page. Defaults to `20` when `page` is supplied
+              without `per_page`. May be omitted entirely along with `page` to receive a
+              non-paginated response.
 
           extra_headers: Send extra headers
 
@@ -316,6 +327,7 @@ class AsyncRecipientsResource(AsyncAPIResource):
         path_account_id: str,
         body_account_id: str | Omit = omit,
         organization_id: str | Omit = omit,
+        recipient_account_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -332,9 +344,15 @@ class AsyncRecipientsResource(AsyncAPIResource):
 
           share_id: Share identifier tag.
 
-          body_account_id: Account identifier.
+          body_account_id: Deprecated alias for `recipient_account_id`. Use `recipient_account_id` instead.
+              The body field collided with the URL path parameter of the same name, which
+              prevented SDK generators from distinguishing the source account (in the URL)
+              from the recipient account (in the body). Both names will continue to be
+              accepted until 2027-05-26 (see `x-sunset`).
 
           organization_id: Organization identifier.
+
+          recipient_account_id: The account that will receive the share.
 
           extra_headers: Send extra headers
 
@@ -358,6 +376,7 @@ class AsyncRecipientsResource(AsyncAPIResource):
                 {
                     "body_account_id": body_account_id,
                     "organization_id": organization_id,
+                    "recipient_account_id": recipient_account_id,
                 },
                 recipient_create_params.RecipientCreateParams,
             ),
@@ -396,9 +415,12 @@ class AsyncRecipientsResource(AsyncAPIResource):
 
           include_resources: Include resources in the response.
 
-          page: Page number.
+          page: Page number. Defaults to `1` when `per_page` is supplied without `page`. May be
+              omitted entirely along with `per_page` to receive a non-paginated response.
 
-          per_page: Number of objects to return per page.
+          per_page: Number of objects to return per page. Defaults to `20` when `page` is supplied
+              without `per_page`. May be omitted entirely along with `page` to receive a
+              non-paginated response.
 
           extra_headers: Send extra headers
 

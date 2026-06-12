@@ -28,6 +28,7 @@ from mindroom.tools import (
 from mindroom.tools.agentql import agentql_tools
 from mindroom.tools.airflow import airflow_tools
 from mindroom.tools.apify import apify_tools
+from mindroom.tools.approved_egress import approved_egress_tools
 from mindroom.tools.arxiv import arxiv_tools
 from mindroom.tools.attachments import attachments_tools
 from mindroom.tools.aws_lambda import aws_lambda_tools
@@ -120,6 +121,7 @@ from mindroom.tools.sql import sql_tools
 from mindroom.tools.subagents import subagents_tools
 from mindroom.tools.tavily import tavily_tools
 from mindroom.tools.telegram import telegram_tools
+from mindroom.tools.thread_model import thread_model_tools
 from mindroom.tools.thread_summary import register_thread_summary_tools
 from mindroom.tools.thread_tags import thread_tags_tools
 from mindroom.tools.todoist import todoist_tools
@@ -148,6 +150,7 @@ __all__ = [
     "agentql_tools",
     "airflow_tools",
     "apify_tools",
+    "approved_egress_tools",
     "arxiv_tools",
     "attachments_tools",
     "aws_lambda_tools",
@@ -241,6 +244,7 @@ __all__ = [
     "subagents_tools",
     "tavily_tools",
     "telegram_tools",
+    "thread_model_tools",
     "thread_tags_tools",
     "todoist_tools",
     "trafilatura_tools",
@@ -369,7 +373,8 @@ def _homeassistant_tools() -> type[Toolkit]:
             type="password",
             required=False,
             description=(
-                "Owner/admin session or agent token used to create vaults and grant membership. "
+                "Instance-owner session or agent token used to create vaults, join them as "
+                "vault-admin (the /join step is owner-only), and grant membership. "
                 "Provide this or the admin token file."
             ),
         ),

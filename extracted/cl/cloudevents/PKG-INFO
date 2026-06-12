@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudevents
-Version: 2.1.0
+Version: 2.2.0
 Summary: CloudEvents Python SDK
 Project-URL: Source code, https://github.com/cloudevents/sdk-python
 Project-URL: Documentation, https://cloudevents.io

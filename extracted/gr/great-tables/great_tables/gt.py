@@ -9,13 +9,15 @@ from ._body import body_reassemble
 from ._boxhead import cols_align, cols_label, cols_label_rotate, cols_label_with
 from ._cols_merge import perform_col_merge
 from ._data_color import data_color
-from ._export import as_latex, as_raw_html, save, show, write_raw_html
+from ._export import as_latex, as_raw_html, gtsave, save, show, write_raw_html
+from ._footnotes import tab_footnote
 from ._formats import (
     fmt,
     fmt_bytes,
     fmt_currency,
     fmt_date,
     fmt_datetime,
+    fmt_duration,
     fmt_engineering,
     fmt_flag,
     fmt_icon,
@@ -24,6 +26,7 @@ from ._formats import (
     fmt_markdown,
     fmt_nanoplot,
     fmt_number,
+    fmt_partsper,
     fmt_percent,
     fmt_roman,
     fmt_scientific,
@@ -34,7 +37,21 @@ from ._formats import (
 from ._gt_data import GTData
 from ._heading import tab_header
 from ._helpers import random_id
-from ._modify_rows import grand_summary_rows, row_group_order, tab_stub, with_id, with_locale
+from ._locations import (
+    LocBody,
+    LocColumnLabels,
+    LocRowGroups,
+    LocStub,
+    resolve,
+)
+from ._modify_rows import (
+    grand_summary_rows,
+    row_group_order,
+    summary_rows,
+    tab_stub,
+    with_id,
+    with_locale,
+)
 from ._options import (
     opt_align_table_header,
     opt_all_caps,
@@ -55,9 +72,13 @@ from ._source_notes import tab_source_note
 from ._spanners import (
     cols_hide,
     cols_merge,
+    cols_merge_n_pct,
+    cols_merge_range,
+    cols_merge_uncert,
     cols_move,
     cols_move_to_end,
     cols_move_to_start,
+    cols_reorder,
     cols_unhide,
     cols_width,
     tab_spanner,
@@ -65,23 +86,135 @@ from ._spanners import (
 )
 from ._stub import reorder_stub_df
 from ._stubhead import tab_stubhead
-from ._substitution import sub_missing, sub_zero
-from ._tab_create_modify import tab_style
-from ._tbl_data import _get_cell, n_rows
+from ._substitution import sub_large_vals, sub_missing, sub_small_vals, sub_values, sub_zero
+from ._tab_create_modify import (
+    tab_style,
+    text_case_match,
+    text_case_when,
+    text_replace,
+    text_transform,
+)
+from ._tbl_data import _get_cell, _set_cell, n_rows
 from ._utils import _migrate_unformatted_to_output
 from ._utils_render_html import (
     _get_table_defs,
     create_body_component_h,
     create_columns_component_h,
-    create_footnotes_component_h,
+    create_footer_component_h,
     create_heading_component_h,
-    create_source_notes_component_h,
 )
 
 if TYPE_CHECKING:
+    from ._gt_data import Body, Boxhead, Stub
     from ._helpers import BaseText
 
 __all__ = ["GT"]
+
+
+# =============================================================================
+# Helper for text transforms
+# =============================================================================
+def _apply_text_transforms(data: "GT", body: "Body") -> "Body":
+    """Apply all registered text transforms to the body cells."""
+    from ._tbl_data import is_na
+
+    if not data._transforms:
+        return body
+
+    for transform in data._transforms:
+        loc = transform.loc
+        fn = transform.fn
+
+        if isinstance(loc, LocBody):
+            positions = resolve(loc, data)
+            for pos in positions:
+                cell_value = _get_cell(body.body, pos.row, pos.colname)
+                # If the cell is NA (unformatted), fall back to the raw data value
+                if is_na(body.body, cell_value):
+                    cell_value = _get_cell(data._tbl_data, pos.row, pos.colname)
+                    if is_na(data._tbl_data, cell_value):
+                        continue
+                new_value = fn(str(cell_value))
+                result = _set_cell(body.body, pos.row, pos.colname, new_value)
+                if result is not None:
+                    body.body = result
+
+    return body
+
+
+def _apply_text_transforms_stub(data: "GT", stub: "Stub", body: "Body") -> tuple["Stub", "Body"]:
+    """Apply text transforms targeting loc.stub() and loc.row_groups()."""
+
+    from ._gt_data import ColInfoTypeEnum, GroupRows, Stub
+    from ._tbl_data import is_na
+
+    if not data._transforms:
+        return stub, body
+
+    for transform in data._transforms:
+        loc = transform.loc
+        fn = transform.fn
+
+        if isinstance(loc, LocStub):
+            # Find the stub column name
+            stub_col = next(
+                (col.var for col in data._boxhead if col.type == ColInfoTypeEnum.stub), None
+            )
+            if stub_col is None:
+                continue
+
+            resolved_rows: set[int] = resolve(loc, data)
+            for row_idx in resolved_rows:
+                cell_value = _get_cell(body.body, row_idx, stub_col)
+                if is_na(body.body, cell_value):
+                    cell_value = _get_cell(data._tbl_data, row_idx, stub_col)
+                    if is_na(data._tbl_data, cell_value):
+                        continue
+                new_value = fn(str(cell_value))
+                result = _set_cell(body.body, row_idx, stub_col, new_value)
+                if result is not None:
+                    body.body = result
+
+        elif isinstance(loc, LocRowGroups):
+            resolved_groups: set[str] = resolve(loc, data)
+            new_group_rows = []
+            for group_row in stub.group_rows:
+                if group_row.group_id in resolved_groups:
+                    label = group_row.defaulted_label()
+                    new_group_rows.append(group_row.with_group_label(fn(str(label))))
+                else:
+                    new_group_rows.append(group_row)
+            stub = Stub(stub.rows, GroupRows(new_group_rows))
+
+    return stub, body
+
+
+def _apply_text_transforms_boxhead(data: "GT") -> "Boxhead":
+    """Apply text transforms targeting loc.column_labels()."""
+    from ._gt_data import Boxhead
+
+    boxhead = data._boxhead
+
+    if not data._transforms:
+        return boxhead
+
+    for transform in data._transforms:
+        loc = transform.loc
+        fn = transform.fn
+
+        if isinstance(loc, LocColumnLabels):
+            resolved_cols = resolve(loc, data)
+            col_names = {name for name, _ in resolved_cols}
+            new_cols = []
+            for col_info in boxhead:
+                if col_info.var in col_names and col_info.column_label is not None:
+                    new_label = fn(str(col_info.column_label))
+                    new_cols.append(col_info.replace_column_label(new_label))
+                else:
+                    new_cols.append(col_info)
+            boxhead = Boxhead(new_cols)
+
+    return boxhead
 
 
 # =============================================================================
@@ -230,10 +363,12 @@ class GT(
     fmt_number = fmt_number
     fmt_integer = fmt_integer
     fmt_percent = fmt_percent
+    fmt_partsper = fmt_partsper
     fmt_scientific = fmt_scientific
     fmt_engineering = fmt_engineering
     fmt_currency = fmt_currency
     fmt_bytes = fmt_bytes
+    fmt_duration = fmt_duration
     fmt_roman = fmt_roman
     fmt_date = fmt_date
     fmt_time = fmt_time
@@ -249,6 +384,9 @@ class GT(
 
     sub_missing = sub_missing
     sub_zero = sub_zero
+    sub_small_vals = sub_small_vals
+    sub_large_vals = sub_large_vals
+    sub_values = sub_values
 
     opt_stylize = opt_stylize
     opt_align_table_header = opt_align_table_header
@@ -266,28 +404,39 @@ class GT(
     cols_label = cols_label
     cols_label_with = cols_label_with
     cols_merge = cols_merge
+    cols_merge_uncert = cols_merge_uncert
+    cols_merge_range = cols_merge_range
+    cols_merge_n_pct = cols_merge_n_pct
     cols_move = cols_move
     cols_move_to_start = cols_move_to_start
     cols_move_to_end = cols_move_to_end
+    cols_reorder = cols_reorder
     cols_hide = cols_hide
     cols_unhide = cols_unhide
     cols_label_rotate = cols_label_rotate
 
     tab_header = tab_header
     tab_source_note = tab_source_note
+    tab_footnote = tab_footnote
     tab_spanner = tab_spanner
     tab_spanner_delim = tab_spanner_delim
     tab_stubhead = tab_stubhead
     tab_style = tab_style
     tab_options = tab_options
+    text_transform = text_transform
+    text_replace = text_replace
+    text_case_match = text_case_match
+    text_case_when = text_case_when
 
     row_group_order = row_group_order
     tab_stub = tab_stub
     with_id = with_id
     with_locale = with_locale
+    summary_rows = summary_rows
     grand_summary_rows = grand_summary_rows
 
     save = save
+    gtsave = gtsave
     show = show
     as_raw_html = as_raw_html
     write_raw_html = write_raw_html
@@ -348,12 +497,13 @@ class GT(
         # self = self.reorder_styles()
 
         # Transformations of individual cells at supported locations
-
-        # self = self.perform_text_transforms()
+        final_body = _apply_text_transforms(built, final_body)
+        final_stub, final_body = _apply_text_transforms_stub(built, final_stub, final_body)
+        final_boxhead = _apply_text_transforms_boxhead(built)
 
         # ...
 
-        return built._replace(_body=final_body, _stub=final_stub)
+        return built._replace(_body=final_body, _stub=final_stub, _boxhead=final_boxhead)
 
     def render(
         self,
@@ -379,8 +529,7 @@ class GT(
         heading_component = create_heading_component_h(data=self)
         column_labels_component = create_columns_component_h(data=self)
         body_component = create_body_component_h(data=self)
-        source_notes_component = create_source_notes_component_h(data=self)
-        footnotes_component = create_footnotes_component_h(data=self)
+        footer_component = create_footer_component_h(data=self)
 
         # Get attributes for the table
         table_defs = _get_table_defs(data=self)
@@ -407,8 +556,7 @@ class GT(
 {column_labels_component}
 </thead>
 {body_component}
-{source_notes_component}
-{footnotes_component}
+{footer_component}
 </table>
 """
 
@@ -440,7 +588,7 @@ class GT(
 </style>
 {html_table}
 </div>
-        """
+"""
 
         if make_page:
             # Create an HTML page and place the table within it
@@ -453,7 +601,7 @@ class GT(
 {finalized_table}
 </body>
 </html>
-            """
+"""
         return finalized_table
 
 

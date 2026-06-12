@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 _CLIENT_ID_QUERY_PARAM = "plato_client_id"
 
+_MCP_HTTP_TIMEOUT_MS = 30 * 60 * 1000  # 1_800_000
+
 
 def scoped_mcp_url(
     remote_url: str,
@@ -51,7 +53,7 @@ def write_mcp_config(
         servers[remote_name] = {
             "type": "http",
             "url": remote_url,
-            "timeout": 1800,
+            "timeout": _MCP_HTTP_TIMEOUT_MS,
         }
         logger.info("MCP server: %s (http) -> %s", remote_name, remote_url)
 

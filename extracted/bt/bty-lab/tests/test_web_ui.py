@@ -157,24 +157,21 @@ def test_ui_dashboard_renders_after_login(client: TestClient) -> None:
     assert "Machines" in body
 
 
-def test_ui_images_handles_empty_release_repo_env(
+def test_ui_images_renders_default_catalog_repo(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``BTY_BOOT_RELEASE_REPO=`` (empty string) used to produce a
-    broken release link on /ui/images because the dict-default
-    fallback only fires on absent keys, not empty values. The
-    ``or DEFAULT_REPO`` pattern handles both."""
+    """The /ui/images Fetch control surfaces the catalog repo
+    (default ``safl/nosi``, the upstream image-builder) in the
+    button title + the fetch-release form action. v0.46 split the
+    catalog repo away from the netboot repo so the catalog comes
+    from nosi while netboot artifacts stay on safl/bty."""
     monkeypatch.setenv("BTY_BOOT_RELEASE_REPO", "")
     _login(client)
-    # The Fetch control now lives in the Catalog table header on the
-    # default list view (the dropped ``?section=fetch`` page).
     r = client.get("/ui/images")
     assert r.status_code == 200
     body = r.text
-    # The fallback ``safl/bty`` repo appears in the Fetch button's
-    # title ("... from safl/bty ...") + the fetch-release form action.
-    assert "safl/bty" in body
+    assert "safl/nosi" in body
     assert 'action="/ui/catalog/fetch-release"' in body
 
 
@@ -545,7 +542,7 @@ def test_ui_backups_lists_existing_bundles(client: TestClient, tmp_path: Path) -
 
     The ``client`` fixture's state.db is at ``tmp_path/state.db`` and
     the app derives ``backups_root`` as ``state.db.parent / "backups"``
-    when ``BTY_BACKUP_DIR`` is unset -- so a bundle dropped into
+    when ``[paths] backup_dir`` is unset, so a bundle dropped into
     ``tmp_path/backups`` shows up without any patching."""
     import json
 
@@ -1700,12 +1697,14 @@ def test_ui_settings_renders_when_authed(client: TestClient) -> None:
     r = client.get("/ui/settings")
     assert r.status_code == 200
     body = r.text
-    # Editable upstream card: release repo + the two tag fields +
-    # the save form. (v0.41.3+: catalog URL became a derived view of
-    # repo + catalog_tag; the form-field id is gone.)
+    # Editable upstream card: netboot repo + catalog repo + the two
+    # tag fields + the save form. v0.46+ split the release repo into
+    # separate netboot + catalog repos so a default deploy can pull
+    # the catalog from nosi while netboot artifacts stay on safl/bty.
     assert "Upstream sources" in body
     assert 'action="/ui/settings/upstream"' in body
-    assert 'id="release_repo"' in body
+    assert 'id="netboot_repo"' in body
+    assert 'id="catalog_repo"' in body
     assert 'id="catalog_tag"' in body
     assert 'id="netboot_tag"' in body
     # Read-only config groups: storage + the Identity magic values.
@@ -1876,15 +1875,18 @@ def test_ui_settings_renders_inline_edit_forms_for_editable_rows(
 
 
 def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
-    """Saving an upstream override persists it; the Settings page then
-    shows it as the override value, and clearing the field reverts to
-    the default."""
+    """Saving upstream overrides persists them; the Settings page then
+    shows them, and clearing the fields reverts to the defaults.
+
+    v0.46+: the form takes ``netboot_repo`` (default ``safl/bty``)
+    and ``catalog_repo`` (default ``safl/nosi``) as separate knobs.
+    """
     _login(client)
-    # Save repo + catalog tag overrides.
     r = client.post(
         "/ui/settings/upstream",
         data={
-            "release_repo": "acme/bty-fork",
+            "netboot_repo": "acme/bty-fork",
+            "catalog_repo": "acme/nosi-fork",
             "catalog_tag": "v1.2.3",
             "netboot_tag": "v1.2.3",
         },
@@ -1894,44 +1896,54 @@ def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
     assert r.headers["location"] == "/ui/settings?saved=upstream"
     body = client.get("/ui/settings").text
     assert "acme/bty-fork" in body
+    assert "acme/nosi-fork" in body
     assert "v1.2.3" in body
-    # The derived catalog URL uses the explicit-tag form.
-    assert "releases/download/v1.2.3/catalog.toml" in body
+    # The derived catalog URL uses the catalog repo + explicit-tag form.
+    assert "https://github.com/acme/nosi-fork/releases/download/v1.2.3/catalog.toml" in body
     # Clearing every field reverts to defaults.
     client.post(
         "/ui/settings/upstream",
-        data={"release_repo": "", "catalog_tag": "", "netboot_tag": ""},
+        data={
+            "netboot_repo": "",
+            "catalog_repo": "",
+            "catalog_tag": "",
+            "netboot_tag": "",
+        },
     )
     body2 = client.get("/ui/settings").text
     assert "acme/bty-fork" not in body2
+    assert "acme/nosi-fork" not in body2
+    # Both built-in defaults visible again.
     assert "safl/bty" in body2
+    assert "safl/nosi" in body2
 
 
 def test_ui_settings_upstream_audit_event_captures_old_and_new(
     client: TestClient,
 ) -> None:
-    """v0.33.28+: settings.upstream.updated event details carries
-    both ``old`` and ``new`` for each of the three knobs. v0.41.3+
-    the third knob is ``netboot_tag`` (the old ``catalog_url``
-    standalone override is gone -- it's derived from repo + catalog
-    tag now)."""
+    """``settings.upstream.updated`` event details carries both
+    ``old`` and ``new`` for each of the four knobs (netboot_repo,
+    catalog_repo, catalog_tag, netboot_tag). v0.46+ split the
+    release repo into separate netboot + catalog repos."""
     _login(client)
     # Initial save: olds are all None (defaults in effect).
     r1 = client.post(
         "/ui/settings/upstream",
         data={
-            "release_repo": "acme/bty-fork",
+            "netboot_repo": "acme/bty-fork",
+            "catalog_repo": "acme/nosi-fork",
             "catalog_tag": "v1.0.0",
             "netboot_tag": "v1.0.0",
         },
         follow_redirects=False,
     )
     assert r1.status_code == 303
-    # Change two of three values + clear one to test all three shapes.
+    # Mix shapes: unchanged, changed, and cleared.
     r2 = client.post(
         "/ui/settings/upstream",
         data={
-            "release_repo": "acme/bty-fork",  # unchanged
+            "netboot_repo": "acme/bty-fork",  # unchanged
+            "catalog_repo": "acme/nosi-fork",  # unchanged
             "catalog_tag": "v1.1.0",  # changed
             "netboot_tag": "",  # cleared
         },
@@ -1943,11 +1955,10 @@ def test_ui_settings_upstream_audit_event_captures_old_and_new(
         params={"kind": "settings.upstream.updated"},
     ).json()["events"]
     assert len(events) >= 2
-    # The newest event captures the second save -- the BEFORE state
-    # of which was the first save's values.
     newest = events[0]
     d = newest["details"]
-    assert d["release_repo"] == {"old": "acme/bty-fork", "new": "acme/bty-fork"}
+    assert d["netboot_repo"] == {"old": "acme/bty-fork", "new": "acme/bty-fork"}
+    assert d["catalog_repo"] == {"old": "acme/nosi-fork", "new": "acme/nosi-fork"}
     assert d["catalog_tag"] == {"old": "v1.0.0", "new": "v1.1.0"}
     assert d["netboot_tag"] == {"old": "v1.0.0", "new": None}
 
@@ -2048,9 +2059,9 @@ def test_ui_settings_backup_invalid_retention_rejects(client: TestClient) -> Non
 def test_settings_upstream_override_drives_catalog_fetch_url(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The catalog-fetch handler resolves its URL from the override at
-    request time. v0.41.3+: a saved repo + catalog tag together build
-    the URL (there's no separate URL override any more)."""
+    """The catalog-fetch handler resolves its URL from the catalog
+    repo + catalog tag overrides at request time. v0.46+: the
+    catalog repo is its own knob, independent of the netboot repo."""
     import urllib.error
     import urllib.request
 
@@ -2058,7 +2069,8 @@ def test_settings_upstream_override_drives_catalog_fetch_url(
     client.post(
         "/ui/settings/upstream",
         data={
-            "release_repo": "acme/widgets",
+            "netboot_repo": "",
+            "catalog_repo": "acme/widgets",
             "catalog_tag": "v9.9.9",
             "netboot_tag": "",
         },
@@ -2856,9 +2868,14 @@ def test_catalog_entry_check_unreachable_origin_is_not_500(
 def test_catalog_entry_check_oras_marks_withcache_not_applicable(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """oras:// sources flow through bty-web's proxy, not withcache, so
-    the cache leg is reported as not-applicable rather than a misleading
-    miss."""
+    """An oras src with NO matching catalog row (e.g. an operator
+    pasting one into the Check form without adding it first) reports
+    ``applicable: false`` because there's no stored ``resolved_src``
+    canonical URL to warm. Once added via ``POST /catalog/entries``
+    the import-time resolution populates ``resolved_src`` and the
+    next Check warms withcache against that URL (see
+    :func:`test_catalog_entry_check_oras_with_resolved_src_warms_withcache`).
+    """
     from bty import flash as _flash
     from bty.web import _settings_store, _withcache
 
@@ -2872,7 +2889,7 @@ def test_catalog_entry_check_oras_marks_withcache_not_applicable(
     monkeypatch.setattr(_settings_store, "resolve_withcache_url", lambda _c: "http://cache:3000")
 
     def fail(*_a, **_kw):  # type: ignore[no-untyped-def]
-        raise AssertionError("is_cached must not be probed for oras sources")
+        raise AssertionError("is_cached must not be probed when no resolved_src is stored")
 
     monkeypatch.setattr(_withcache, "is_cached", fail)
 
@@ -2883,3 +2900,71 @@ def test_catalog_entry_check_oras_marks_withcache_not_applicable(
     )
     assert r.status_code == 200, r.text
     assert r.json()["withcache"] == {"configured": True, "applicable": False}
+
+
+def test_catalog_entry_check_oras_with_resolved_src_warms_withcache(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An oras catalog row whose import-time resolution populated
+    ``resolved_src`` warms withcache against that canonical URL, with
+    a fresh OCI bearer minted just-in-time and supplied as the HEAD's
+    ``Authorization`` header. From withcache 0.4.0 the header is
+    forwarded into the background fetch worker so the cache fills on
+    the first probe."""
+    from bty import flash as _flash
+    from bty import oras as _oras
+    from bty.web import _settings_store, _withcache
+
+    src = "oras://ghcr.io/safl/nosi/freebsd-14-headless:latest"
+    blob_url = "https://ghcr.io/v2/safl/nosi/freebsd-14-headless/blobs/sha256:deadbeef"
+
+    monkeypatch.setattr(
+        _oras,
+        "resolve_ref",
+        lambda *_a, **_kw: _oras.ResolvedBlob(
+            blob_url=blob_url,
+            headers={"Authorization": "Bearer x"},
+            digest="sha256:deadbeef",
+            size=0,
+            title="img.zst",
+        ),
+    )
+    monkeypatch.setattr(_settings_store, "resolve_withcache_url", lambda _c: "http://cache:3000")
+    monkeypatch.setattr(
+        _flash,
+        "probe_image_url",
+        lambda *_a, **_kw: _flash.ImageInfo(
+            path=None, url=src, format="img.zst", size_bytes=0, virtual_size_bytes=None
+        ),
+    )
+
+    # Stub the OCI anon-token mint so the test doesn't hit ghcr.io.
+    monkeypatch.setattr(_oras, "fetch_anonymous_token", lambda *_a, **_kw: "fresh-bearer")
+
+    captured: dict[str, object] = {}
+
+    def fake_is_cached(withcache_url, origin, headers=None, **_kw):  # type: ignore[no-untyped-def]
+        captured["withcache_url"] = withcache_url
+        captured["origin"] = origin
+        captured["headers"] = headers
+        return False  # cold cache; the HEAD enqueued the auth-bearing fetch
+
+    monkeypatch.setattr(_withcache, "is_cached", fake_is_cached)
+
+    # Seed the catalog row so the Check button sees the resolved_src.
+    r = client.post(
+        "/catalog/entries",
+        json={"image_url": src},
+        cookies=AUTH,
+    )
+    assert r.status_code == 201, r.text
+
+    r = client.post("/ui/catalog/entries/check", data={"src": src}, cookies=AUTH)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["withcache"] == {"configured": True, "hit": False, "warmed": True}
+    # The HEAD went to withcache for the canonical blob URL, with a fresh
+    # bearer on Authorization. Withcache 0.4.0 forwards that into the fetch
+    # worker, so the (cold) auto-fetch will actually pull from ghcr.io.
+    assert captured["origin"] == blob_url
+    assert captured["headers"] == {"Authorization": "Bearer fresh-bearer"}

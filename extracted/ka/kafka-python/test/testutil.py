@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import os
 import random
 import re
@@ -26,6 +24,8 @@ def env_kafka_version():
     """
     if 'KAFKA_VERSION' not in os.environ:
         return ()
+    elif os.environ['KAFKA_VERSION'] == 'trunk':
+        return (float('inf'),)
     return tuple(map(int, os.environ['KAFKA_VERSION'].split('.')))
 
 
@@ -52,11 +52,11 @@ def maybe_skip_unsupported_compression(compression_type):
         pytest.skip("Compression libraries not installed for %s" % (compression_type,))
 
 
-class Timer(object):
+class Timer:
     def __enter__(self):
-        self.start = time.time()
+        self.start = time.monotonic()
         return self
 
     def __exit__(self, *args):
-        self.end = time.time()
+        self.end = time.monotonic()
         self.interval = self.end - self.start

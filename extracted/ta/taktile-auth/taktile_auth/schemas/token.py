@@ -85,28 +85,37 @@ class TaktileIdToken(BaseModel):
     def user_id(self) -> UUID4:
         return parse_obj_as(UUID4, self.sub.split(":")[-1])
 
+    _SCOPE_DIMS: t.ClassVar[t.Tuple[str, ...]] = ("org_id", "ws_id")
+
     @classmethod
-    def _expand_role_for_filter(
+    def _filter_one_role(
         cls,
         role_def: RoleDefinition,
         role_args: t.Dict[str, str],
-        filter_key: str,
-        filter_value: str,
+        filters: t.Dict[str, str],
     ) -> t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]]:
-        """Recursively find role definitions that contain filter_key.
+        """Filter one role against (org_id, ws_id) constraints.
 
-        If the role definition has filter_key in its args and the value
-        matches, return it with the wildcard narrowed to filter_value.
-        Otherwise, expand into sub-role definitions and recurse until
-        we find roles that have the filter_key.
+        - Role declares a scope dim: narrow each declared dim against
+          the filter; drop on concrete mismatch. Dims not declared are
+          left alone.
+        - Role declares no scope dim: walk sub_role_definitions and
+          recurse. A role with non-scope args and no sub-roles is
+          dropped — fail-closed default for future roles that don't
+          opt into scope-awareness.
         """
-        if filter_key in role_def.args:
-            arg_value = role_args.get(filter_key, "")
-            if _arg_matches(arg_value, filter_value):
-                narrowed = dict(role_args)
-                narrowed[filter_key] = filter_value
-                return [(role_def, narrowed)]
-            return []
+        declared_scope = set(role_def.args) & set(cls._SCOPE_DIMS)
+
+        if declared_scope:
+            narrowed = dict(role_args)
+            for dim in declared_scope:
+                target = filters.get(dim)
+                if target is None:
+                    continue
+                if not _arg_matches(role_args.get(dim, ""), target):
+                    return []
+                narrowed[dim] = target
+            return [(role_def, narrowed)]
 
         results: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []
         for sub_def in role_def.sub_role_definitions:
@@ -114,11 +123,7 @@ class TaktileIdToken(BaseModel):
             for arg in sub_def.args:
                 if arg not in sub_args:
                     sub_args[arg] = "*"
-            results.extend(
-                cls._expand_role_for_filter(
-                    sub_def, sub_args, filter_key, filter_value
-                )
-            )
+            results.extend(cls._filter_one_role(sub_def, sub_args, filters))
         return results
 
     def filter_roles(
@@ -127,25 +132,16 @@ class TaktileIdToken(BaseModel):
         org_id: t.Optional[str] = None,
         ws_id: t.Optional[str] = None,
     ) -> t.List[Role]:
-        """Filter token roles by org_id and/or ws_id.
-
-        For each filter key:
-        - If a role has the key in its definition and the value matches,
-          keep it.
-        - If a role doesn't have the key, expand sub-roles recursively
-          until finding ones that do.
-        - If the value doesn't match, strip the role.
-        """
-        filters: t.List[t.Tuple[str, str]] = []
+        """Filter token roles by org_id and/or ws_id in a single pass."""
+        filters: t.Dict[str, str] = {}
         if org_id is not None:
-            filters.append(("org_id", org_id))
+            filters["org_id"] = org_id
         if ws_id is not None:
-            filters.append(("ws_id", ws_id))
+            filters["ws_id"] = ws_id
 
         if not filters:
             return self.auth_roles
 
-        # Build initial candidates from token role strings
         candidates: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []
         for role_str in self.roles:
             role_name = role_str.split("/")[0]
@@ -158,20 +154,13 @@ class TaktileIdToken(BaseModel):
                 (role_def, dict(zip(role_def.args, role_args_list)))
             )
 
-        # Apply each filter sequentially
-        for filter_key, filter_value in filters:
-            next_candidates: t.List[
-                t.Tuple[RoleDefinition, t.Dict[str, str]]
-            ] = []
-            for role_def, role_kwargs in candidates:
-                next_candidates.extend(
-                    self._expand_role_for_filter(
-                        role_def, role_kwargs, filter_key, filter_value
-                    )
-                )
-            candidates = next_candidates
+        expanded: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []
+        for role_def, role_kwargs in candidates:
+            expanded.extend(
+                self._filter_one_role(role_def, role_kwargs, filters)
+            )
+        candidates = expanded
 
-        # Deduplicate and build
         seen: t.Set[str] = set()
         results: t.List[Role] = []
         for role_def, role_kwargs in candidates:

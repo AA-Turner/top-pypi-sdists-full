@@ -132,7 +132,33 @@ _SKIP_DIR_NAMES = {
     "venv",
     ".cache",
     ".nox",
+    # additional vendor/cache dirs that can slip through walk ordering
+    "site-packages",
+    "vendor",
+    "pods",
+    "gems",
+    ".bundle",
+    ".gradle",
+    ".cargo",
+    "bower_components",
 }
+# Path-component names considered vendor/cache for truncation_cause classification.
+# These are checked against every component of a returned file's relative path so
+# that files nested inside a vendor dir that wasn't excluded at the walk level (e.g.
+# because the vendor dir sits deeper than the root scan entry points) are still
+# correctly identified as non-project files.
+_VENDOR_CACHE_DIR_COMPONENTS: frozenset[str] = frozenset(
+    _SKIP_DIR_NAMES
+    | {
+        # extra names that appear as sub-directory components but may not be
+        # top-level walk roots (so _should_skip_repo_dir never sees them directly).
+        # NB: do NOT add bare "lib" here — it is a common SOURCE directory; the
+        # vendored case is lib/.../site-packages, already covered by "site-packages".
+        # Misclassifying lib/ project files as vendor makes possibly_truncated False,
+        # which silently disables blast-radius literal-symbol seeding.
+        "site_packages",  # older virtualenv layout
+    }
+)
 _JS_TS_SUFFIXES = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
 _TS_SUFFIXES = {".ts", ".tsx"}
 _RUST_SUFFIXES = {".rs"}
@@ -619,9 +645,55 @@ def _should_skip_repo_dir(path: Path) -> bool:
         return True
     return name.startswith((
         ".tmp_",
+        ".tmp-",  # covers .tmp-ci, .tmp-ci-123, etc.
         "tg-agent-gpu-probe",
         "tg-doctor-gpu-probe",
     ))
+
+
+def _path_has_vendor_component(path: Path, root: Path) -> bool:
+    """Return True if *path* passes through a vendor/cache directory component.
+
+    Used to classify capped files as 'vendor-cache' vs 'project-files' so that
+    ``possibly_truncated`` / ``truncation_cause`` reflects whether RELEVANT
+    (non-vendored) files were actually dropped by the scan cap.
+    """
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    for part in relative.parts[:-1]:  # skip the final filename
+        part_lower = part.lower()
+        if part_lower in _VENDOR_CACHE_DIR_COMPONENTS:
+            return True
+        if part_lower.startswith((".tmp_", ".tmp-")):
+            return True
+    return False
+
+
+def _scan_limit_cause(
+    files: list[Path],
+    root: Path,
+    capped_file_count: int,
+    max_files: int,
+) -> str:
+    """Classify why the file-scan cap was reached.
+
+    Returns ``'project-files'`` when the cap was reached because there are
+    more non-vendored project files than the limit, or ``'vendor-cache'`` when
+    every file at or over the cap boundary belongs to a vendor/cache subtree.
+
+    The heuristic: if ALL files in the returned list are vendor-path files,
+    the entire quota was consumed by vendor dirs — a real truncation warning
+    would be misleading.  If any file is a project file, we conservatively
+    report ``'project-files'``.
+    """
+    if capped_file_count < max_files:
+        # Cap was not actually reached — caller shouldn't be calling this, but
+        # return a safe value anyway.
+        return "project-files"
+    project_file_found = any(not _path_has_vendor_component(f, root) for f in files)
+    return "project-files" if project_file_found else "vendor-cache"
 
 
 def _iter_repo_bucket_files(
@@ -4425,10 +4497,22 @@ def build_repo_map(
         payload["tests"] = tests
         payload["related_paths"] = sorted(dict.fromkeys([*source_files, *tests]))
         if normalized_max_repo_files is not None:
+            _capped = capped_file_count >= normalized_max_repo_files
+            _cause = (
+                _scan_limit_cause(
+                    all_files, context_root, capped_file_count, normalized_max_repo_files
+                )
+                if _capped
+                else "project-files"
+            )
             payload["scan_limit"] = {
                 "max_repo_files": normalized_max_repo_files,
                 "scanned_files": capped_file_count,
-                "possibly_truncated": capped_file_count >= normalized_max_repo_files,
+                # possibly_truncated is True only when project (non-vendor) files
+                # were dropped; kept for back-compat but see truncation_cause for
+                # the full picture.
+                "possibly_truncated": _capped and _cause == "project-files",
+                "truncation_cause": _cause if _capped else None,
             }
     return _attach_profiling(payload, _profiling_collector)
 
@@ -4521,10 +4605,17 @@ def build_repo_map_incremental(
     payload["tests"] = tests
     payload["related_paths"] = sorted(dict.fromkeys([*source_files, *tests]))
     if normalized_max_repo_files is not None:
+        _capped = capped_file_count >= normalized_max_repo_files
+        _cause = (
+            _scan_limit_cause(all_files, context_root, capped_file_count, normalized_max_repo_files)
+            if _capped
+            else "project-files"
+        )
         payload["scan_limit"] = {
             "max_repo_files": normalized_max_repo_files,
             "scanned_files": capped_file_count,
-            "possibly_truncated": capped_file_count >= normalized_max_repo_files,
+            "possibly_truncated": _capped and _cause == "project-files",
+            "truncation_cause": _cause if _capped else None,
         }
     return payload
 
@@ -4578,11 +4669,15 @@ def apply_repo_map_output_limits(
             for path in payload.get("related_paths", [])
             if str(path) in allowed_related_paths
         ]
+    _output_capped = len(original_files) > normalized_max_files
     limited["output_limit"] = {
         "max_files": normalized_max_files,
         "emitted_files": len(selected_files),
         "original_files": len(original_files),
-        "possibly_truncated": len(original_files) > normalized_max_files,
+        # output_limit operates on files already filtered by the repo-map walk,
+        # so these are always project files; possibly_truncated is accurate here.
+        "possibly_truncated": _output_capped,
+        "truncation_cause": "project-files" if _output_capped else None,
     }
     return limited
 
@@ -10964,6 +11059,58 @@ def _external_references(
     return deduped
 
 
+def _enclosing_class_for_definition(
+    definition: dict[str, Any],
+    all_symbols: list[dict[str, Any]],
+) -> str | None:
+    """Return the name of the innermost class that contains *definition*, or None.
+
+    Looks through *all_symbols* for class-kind entries in the same file whose
+    ``start_line``/``end_line`` span contains the definition's line.  When
+    multiple classes nest (rare but possible), the one with the largest
+    ``start_line`` (i.e. innermost) is returned.
+    """
+    def_file = str(definition.get("file", ""))
+    def_line = int(definition.get("line", 0) or 0)
+    best: dict[str, Any] | None = None
+    for sym in all_symbols:
+        if str(sym.get("kind", "")) != "class":
+            continue
+        if str(sym.get("file", "")) != def_file:
+            continue
+        sym_start = int(sym.get("start_line", sym.get("line", 0)) or 0)
+        sym_end = int(sym.get("end_line", sym_start) or sym_start)
+        if sym_start <= def_line <= sym_end:
+            if best is None or sym_start > int(best.get("start_line", best.get("line", 0)) or 0):
+                best = sym
+    return str(best["name"]) if best is not None else None
+
+
+def _definition_confidence_score(definition: dict[str, Any], symbol: str) -> float:
+    """Return a [0.0, 1.0] confidence score for a definition entry.
+
+    All definitions returned by ``build_symbol_defs_from_map`` already pass an
+    exact-name filter, so this function starts at 1.0 and applies small
+    downward adjustments for signals that indicate lower fidelity:
+
+    * LSP-proof entries get a slight boost (capped at 1.0) — they have
+      cross-validated provenance.
+    * Heuristic / regex-backed provenance gets a small penalty.
+    * The definition is in a test file (path contains "test") — mild penalty,
+      as a matching symbol in test code is less likely to be the canonical def.
+    """
+    score = 1.0
+    provenance = str(definition.get("provenance", "")).lower()
+    if "lsp" in provenance and "fallback" not in provenance:
+        score = min(1.0, score + 0.05)
+    if "heuristic" in provenance or provenance == "regex-heuristic":
+        score -= 0.1
+    file_str = str(definition.get("file", "")).lower().replace("\\", "/")
+    if "/test" in file_str or file_str.startswith("test"):
+        score -= 0.05
+    return round(max(0.0, min(1.0, score)), 3)
+
+
 def build_symbol_defs(
     symbol: str,
     path: str | Path = ".",
@@ -11022,6 +11169,18 @@ def build_symbol_defs_from_map(
             definitions = proof_definitions or definitions
         else:
             definitions = _dedupe_definition_rows([*external_definitions, *definitions])
+
+    # L3: Enrich each definition with `class` (enclosing class name or null)
+    # and `score` (confidence signal).  These are additive fields — existing
+    # keys are not renamed or removed.
+    all_symbols_for_class_lookup = list(repo_map.get("symbols", []))
+    for definition in definitions:
+        if "class" not in definition:
+            definition["class"] = _enclosing_class_for_definition(
+                definition, all_symbols_for_class_lookup
+            )
+        if "score" not in definition:
+            definition["score"] = _definition_confidence_score(definition, symbol)
 
     definition_files = [str(current["file"]) for current in definitions]
     related_paths = []
@@ -11250,7 +11409,10 @@ def build_symbol_impact_from_map(
         payload["routing_reason"] = "symbol-impact"
         payload["preferred_command"] = "blast-radius"
         payload["preferred_command_reason"] = (
-            "direct symbol impact is better served by blast-radius"
+            "impact is a fast file-level planning signal; "
+            "blast-radius adds caller_tree, blast_radius_score, and call-graph depth "
+            "for precise change-impact analysis — use blast-radius when you need "
+            "caller attribution or a scored propagation graph"
         )
         payload["trust_level"] = "planning-signal"
         payload["file_matches"] = []
@@ -11364,7 +11526,12 @@ def build_symbol_impact_from_map(
     payload["routing_reason"] = "symbol-impact"
     payload["symbol"] = symbol
     payload["preferred_command"] = "blast-radius"
-    payload["preferred_command_reason"] = "direct symbol impact is better served by blast-radius"
+    payload["preferred_command_reason"] = (
+        "impact is a fast file-level planning signal; "
+        "blast-radius adds caller_tree, blast_radius_score, and call-graph depth "
+        "for precise change-impact analysis — use blast-radius when you need "
+        "caller attribution or a scored propagation graph"
+    )
     payload["trust_level"] = "planning-signal"
     payload["definitions"] = definitions
     payload["files"] = impacted_files

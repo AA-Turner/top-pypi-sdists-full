@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Any, Literal, Union
+from typing import Any, Literal, Optional, Union
 
 from abstra_internals.constants import ABSTRA_LOGO_URL, get_project_url
 from abstra_internals.consts.filepaths import (
@@ -35,6 +35,7 @@ from abstra_internals.contracts_generated import (
 )
 from abstra_internals.environment import IS_PRODUCTION
 from abstra_internals.logger import AbstraLogger
+from abstra_internals.repositories.linter.models import linter_path_key
 from abstra_internals.repositories.project import json_migrations
 from abstra_internals.repositories.project.disabled_stages_loader import (
     DisabledStagesLoader,
@@ -1361,7 +1362,7 @@ class Project:
             module_stages.extend(module.get_stages())
         return module_stages
 
-    def get_stages_by_file_path(self, file_path: Path) -> list[StageWithFile]:
+    def get_stages_by_file_path_map(self) -> dict[Path, list[StageWithFile]]:
         stage_with_file_classes = (
             FormStage,
             HookStage,
@@ -1370,19 +1371,29 @@ class Project:
             ScriptStage,
         )
 
-        all_stages = self.workflow_stages + self.module_stages
+        stages_by_path: dict[Path, list[StageWithFile]] = {}
+        for stage in self.workflow_stages + self.module_stages:
+            if isinstance(stage, stage_with_file_classes):
+                resolved = stage.file_path.absolute().resolve()
+                stages_by_path.setdefault(resolved, []).append(stage)
+        return stages_by_path
 
-        return [
-            stage
-            for stage in all_stages
-            if isinstance(stage, stage_with_file_classes)
-            and stage.file_path.absolute().resolve() == file_path.absolute().resolve()
-        ]
+    def get_stages_by_file_path(self, file_path: Path) -> list[StageWithFile]:
+        return self.get_stages_by_file_path_map().get(
+            file_path.absolute().resolve(), []
+        )
 
     def iter_py_files(self) -> Generator[Path, None, None]:
         root = Settings.root_path
         for path in FileSystemService.list_files(root, allowed_suffixes=[".py"]):
             yield path
+
+    def iter_scoped_py_files(self, path: Optional[Path]) -> Generator[Path, None, None]:
+        if path is not None:
+            yield path
+            return
+
+        yield from self.iter_py_files()
 
     def iter_entrypoints(self) -> Generator[Path, None, None]:
         for stage in self.workflow_stages:
@@ -1395,6 +1406,19 @@ class Project:
         for stage in self.workflow_stages:
             if isinstance(stage, StageWithFile):
                 yield Path(stage.file), stage
+
+    def iter_scoped_entrypointed_stages(
+        self,
+        path: Optional[Path],
+    ) -> Generator[tuple[Path, StageWithFile], None, None]:
+        if path is None:
+            yield from self.iter_entrypointed_stages()
+            return
+
+        key = linter_path_key(path)
+        for entrypoint, stage in self.iter_entrypointed_stages():
+            if linter_path_key(entrypoint) == key:
+                yield entrypoint, stage
 
     @property
     def project_files(self) -> Generator[Path, None, None]:

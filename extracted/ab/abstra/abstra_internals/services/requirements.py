@@ -22,6 +22,7 @@ from typing import (
 
 from importlib_metadata import packages_distributions
 from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 from pip._internal.cli.main import main as pip_main
 
 from abstra_internals.repositories.project.project import LocalProjectRepository
@@ -30,7 +31,6 @@ from abstra_internals.services.notifiers import RequirementsChangeNotifier
 from abstra_internals.services.pypi_cache import PyPIVerificationCache
 from abstra_internals.settings import Settings
 from abstra_internals.utils.ast_cache import ASTCache
-from abstra_internals.utils.format import pip_name
 
 install_lock = threading.Lock()
 
@@ -162,7 +162,7 @@ def get_transitive_dependencies(package_names: Set[str]) -> Set[str]:
 
     while to_process:
         pkg = to_process.pop()
-        normalized = pip_name(pkg)
+        normalized = canonicalize_name(pkg)
 
         if normalized in covered:
             continue
@@ -181,7 +181,7 @@ def get_transitive_dependencies(package_names: Set[str]) -> Set[str]:
                     if _is_extra_dependency(req):
                         continue
 
-                    dep_name = pip_name(req.name)
+                    dep_name = canonicalize_name(req.name)
                     if dep_name not in covered:
                         to_process.append(req.name)
                 except Exception:
@@ -444,7 +444,9 @@ def analyze_code_imports(
     requirements = None
     if requirements_names is None:
         requirements = RequirementsRepository.load()
-        requirements_names = {pip_name(lib.name) for lib in requirements.libraries}
+        requirements_names = {
+            str(canonicalize_name(lib.name)) for lib in requirements.libraries
+        }
 
     if uninstalled_libs is None:
         uninstalled_libs = get_uninstalled_requirements(requirements)
@@ -517,7 +519,8 @@ def analyze_code_imports(
                     # Check if ANY of the providing packages is covered by requirements
                     # (either directly in requirements.txt or as a transitive dependency)
                     is_covered = any(
-                        pip_name(lib_name) in covered_packages for lib_name in lib_names
+                        canonicalize_name(lib_name) in covered_packages
+                        for lib_name in lib_names
                     )
 
                     if is_covered:
@@ -594,9 +597,11 @@ def analyze_code_imports(
 
 def analyze_project_imports(
     skip_pypi_check: bool = False,
+    paths: Optional[List[Path]] = None,
 ) -> Tuple[List[ImportAnalysisResult], List[str]]:
     """
-    Analyze imports across all project files.
+    Analyze imports across all project files, or only across `paths` when
+    given (used by the path-scoped linter runs).
 
     Returns:
         Tuple of (results, uninstalled_libs) where:
@@ -607,7 +612,9 @@ def analyze_project_imports(
 
     # Load shared state once
     requirements = RequirementsRepository.load()
-    requirements_names = {pip_name(lib.name) for lib in requirements.libraries}
+    requirements_names = {
+        str(canonicalize_name(lib.name)) for lib in requirements.libraries
+    }
     uninstalled_libs = get_uninstalled_requirements(requirements)
     package_dist_cache = packages_distributions()
     covered_packages = get_transitive_dependencies(requirements_names)
@@ -615,9 +622,12 @@ def analyze_project_imports(
     # Track visited packages across all files
     visited_packages: Set[str] = set()
 
-    project = LocalProjectRepository().load()
+    if paths is not None:
+        files = paths
+    else:
+        files = LocalProjectRepository().load().project_files
 
-    for python_file in project.project_files:
+    for python_file in files:
         if not python_file.exists():
             continue
 
@@ -1005,8 +1015,11 @@ class Requirements:
         self.libraries.append(create_requirement(name, version))
 
     def update(self, name: str, version: str):
+        canonical_name = canonicalize_name(name)
         self.libraries = [
-            lib if lib.name != name else create_requirement(name, version)
+            create_requirement(lib.name, version)
+            if canonicalize_name(lib.name) == canonical_name
+            else lib
             for lib in self.libraries
         ]
 
@@ -1021,14 +1034,16 @@ class Requirements:
 
         Returns True if a change was made, False otherwise.
         """
-        normalized_name = pip_name(name)
+        normalized_name = canonicalize_name(name)
         if normalized_name == ABSTRA_PACKAGE_NAME:
             return False
 
         changed = False
         new_libraries: List[Requirement] = []
         for lib in self.libraries:
-            if pip_name(lib.name) == normalized_name and has_exact_version(lib):
+            if canonicalize_name(lib.name) == normalized_name and has_exact_version(
+                lib
+            ):
                 new_libraries.append(strip_exact_version(lib))
                 changed = True
             else:
@@ -1047,12 +1062,14 @@ class Requirements:
         Returns the list of requirement names that were updated (preserving
         order).
         """
-        skip_normalized: Set[str] = {pip_name(s) for s in (skip or set())}
-        skip_normalized.add(ABSTRA_PACKAGE_NAME)
+        skip_normalized: Set[str] = {canonicalize_name(s) for s in (skip or set())}
+        skip_normalized.add(canonicalize_name(ABSTRA_PACKAGE_NAME))
         updated: List[str] = []
         new_libraries: List[Requirement] = []
         for lib in self.libraries:
-            if pip_name(lib.name) not in skip_normalized and has_exact_version(lib):
+            if canonicalize_name(lib.name) not in skip_normalized and has_exact_version(
+                lib
+            ):
                 new_libraries.append(strip_exact_version(lib))
                 updated.append(lib.name)
             else:
@@ -1061,17 +1078,25 @@ class Requirements:
         return updated
 
     def delete(self, name: str):
-        self.libraries = [lib for lib in self.libraries if lib.name != name]
-
-    def delete_duplicates(self, name: str, version: Optional[str]):
-        # For packaging.requirements.Requirement, we need to extract version from specifier
+        canonical_name = canonicalize_name(name)
         self.libraries = [
             lib
             for lib in self.libraries
-            if not (
-                lib.name == name and self._get_version_from_requirement(lib) == version
-            )
+            if canonicalize_name(lib.name) != canonical_name
         ]
+
+    def delete_duplicates(self, name_to_keep: str, version_to_keep: Optional[str]):
+        canonical_name = canonicalize_name(name_to_keep)
+        kept = False
+        new_libraries: List[Requirement] = []
+        for lib in self.libraries:
+            if canonicalize_name(lib.name) != canonical_name:
+                new_libraries.append(lib)
+                continue
+            if not kept and self._get_version_from_requirement(lib) == version_to_keep:
+                new_libraries.append(lib)
+                kept = True
+        self.libraries = new_libraries
 
     def _get_version_from_requirement(self, req: Requirement) -> Optional[str]:
         """Extract exact version from a Requirement's specifier.
@@ -1098,8 +1123,9 @@ class Requirements:
         If version is None, checks for any requirement with the given name.
         If version is provided, checks for exact version match (== specifier).
         """
+        canonical_name = canonicalize_name(lib_name)
         for lib in self.libraries:
-            if lib.name == lib_name:
+            if canonicalize_name(lib.name) == canonical_name:
                 if version is None:
                     return True
                 req_version = self._get_version_from_requirement(lib)
@@ -1126,8 +1152,9 @@ class Requirements:
             self.add(lib_name, version)
 
     def get(self, lib_name: str):
+        canonical_name = canonicalize_name(lib_name)
         for lib in self.libraries:
-            if lib.name == lib_name:
+            if canonicalize_name(lib.name) == canonical_name:
                 return self._get_version_from_requirement(lib)
         return None
 
@@ -1137,12 +1164,9 @@ class Requirements:
         Groups requirements by package name, returns only groups with more than one requirement.
         This allows for sophisticated duplicate detection that considers different version specifiers.
         """
-        duplicates = {}
+        duplicates: Dict[str, List[Requirement]] = {}
         for lib in self.libraries:
-            if not isinstance(duplicates.get(lib.name), list):
-                duplicates[lib.name] = [lib]
-            else:
-                duplicates[lib.name].append(lib)
+            duplicates.setdefault(canonicalize_name(lib.name), []).append(lib)
         return {k: v for k, v in duplicates.items() if len(v) > 1}
 
     def __install_from_lib(self):
@@ -1315,7 +1339,7 @@ def validate_requirements_content(content: str) -> RequirementsValidationResult:
         )
 
     # Get normalized names from the new requirements
-    new_names = {pip_name(lib.name) for lib in new_requirements.libraries}
+    new_names = {str(canonicalize_name(lib.name)) for lib in new_requirements.libraries}
 
     # Use the same analysis as the linter to find all necessary packages
     try:
@@ -1334,7 +1358,7 @@ def validate_requirements_content(content: str) -> RequirementsValidationResult:
 
     for result in results:
         if result.status in ("ok", "missing_in_requirements"):
-            normalized_name = pip_name(result.package_name)
+            normalized_name = canonicalize_name(result.package_name)
             if normalized_name not in new_names:
                 missing_packages.add(result.package_name)
 

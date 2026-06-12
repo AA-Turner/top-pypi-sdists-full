@@ -8,6 +8,7 @@ equally well using any Qt binding (PyQt6, PySide6, PyQt5, PySide2).  The
 binding can be selected by setting the :envvar:`QT_API` environment variable to
 the binding name, or by first importing it.
 """
+# sphinx_gallery_thumbnail_path = '_static/embedding_in_qt.png'
 
 import sys
 import time
@@ -15,8 +16,7 @@ import time
 import numpy as np
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
-from matplotlib.backends.backend_qtagg import \
-    NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.figure import Figure
 

@@ -165,7 +165,7 @@ def restart_server() -> None:
     )
     _default_manager.restart()
 
-__version__ = "2.49.8"
+__version__ = "2.49.9"
 __all__ = [
     # Exchanges
     "Polymarket",

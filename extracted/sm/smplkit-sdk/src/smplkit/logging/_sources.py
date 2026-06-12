@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass
 class LoggerSource:
-    """Describes a logger to register via :meth:`SmplManagementClient.loggers.register`.
+    """Describes a logger to register via ``client.logging.loggers.register``.
 
     Used both for buffered runtime discovery (called by ``SmplClient`` as adapters
     discover loggers) and for explicit registration from setup scripts that already

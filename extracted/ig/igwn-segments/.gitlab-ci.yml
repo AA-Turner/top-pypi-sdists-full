@@ -1,0 +1,53 @@
+include:
+  # -- code scanning -----------------
+
+  - local: .gitlab/ci/scan.yml
+
+  # -- sdist -------------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/python/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/sdist@1
+    inputs:
+      image: python:3.13
+      job_name: sdist
+
+  # -- wheels ------------------------
+
+  - local: .gitlab/ci/wheels.yml
+
+  # -- Python tests ------------------
+
+  - local: .gitlab/ci/test.yml
+
+  # -- Coverage ----------------------
+
+  - local: .gitlab/ci/coverage.yml
+
+  # -- Debian ------------------------
+
+  - local: .gitlab/ci/debian.yml
+
+  # -- Red Hat -----------------------
+
+  - local: .gitlab/ci/redhat.yml
+
+  # -- Documentation ------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/sphinx/build/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/sphinx/build@1
+    inputs:
+      image: python:3.12
+      requirements: ".[docs]"
+
+  # -- Publishing ---------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/python/publish/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/publish@1
+    inputs:
+      files: "igwn_segments-*.tar.* igwn_segments-*.whl"
+    rules:
+      # allow disabling via variable
+      - if: $TWINE_DISABLED == 'true' || $TWINE_DISABLED == '1'
+        when: never
+      # only publish tags
+      - if: $CI_COMMIT_TAG

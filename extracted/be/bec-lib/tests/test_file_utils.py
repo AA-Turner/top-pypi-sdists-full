@@ -2,6 +2,8 @@
 
 # pylint: skip-file
 import os
+import threading
+import time
 from unittest import mock
 
 import pytest
@@ -15,6 +17,7 @@ from bec_lib.file_utils import (
     LogWriter,
     compile_file_components,
     get_full_path,
+    wait_for_directory,
 )
 from bec_lib.messages import ScanStatusMessage
 from bec_lib.tests.utils import ConnectorMock
@@ -259,6 +262,30 @@ def test_compile_file_components_valid_paths(kwargs, expected_path, description)
     assert file_path == expected_path, description
 
 
+def test_wait_for_directory_returns_when_directory_appears(tmpdir):
+    """wait_for_directory should stop polling once the directory exists."""
+    dir_path = tmpdir.join("created-later")
+
+    def _create_directory():
+        time.sleep(0.02)
+        dir_path.mkdir()
+
+    creator = threading.Thread(target=_create_directory)
+    creator.start()
+    try:
+        wait_for_directory(str(dir_path), timeout=1.0, interval=0.01)
+    finally:
+        creator.join()
+
+
+def test_wait_for_directory_raises_on_timeout(tmpdir):
+    """wait_for_directory should raise when the directory never appears."""
+    dir_path = tmpdir.join("never-created")
+
+    with pytest.raises(FileWriterError, match="Timeout reached while waiting for directory"):
+        wait_for_directory(str(dir_path), timeout=0.05, interval=0.01)
+
+
 @pytest.mark.parametrize(
     "scan_info",
     [
@@ -324,3 +351,47 @@ def test_get_full_path(scan_info, name, expect_error):
             full_path = f"{file_components[0]}_{name}_{suffix}.{file_components[1]}"
         ret = get_full_path(scan_info, name, create_dir=False)
         assert ret == full_path
+
+
+def test_get_full_path_creates_directory_and_logs_when_missing(tmpdir):
+    base_dir = tmpdir.join("S00000-00999").join("S00005")
+    scan_msg = ScanStatusMessage(
+        scan_id="1111",
+        scan_parameters={"system_config": {"file_directory": None, "file_suffix": None}},
+        info={"scan_number": 5, "file_components": (str(base_dir.join("S00005")), "h5")},
+        status="closed",
+    )
+
+    with mock.patch("bec_lib.file_utils.logger.warning") as mock_warning:
+        ret = get_full_path(scan_msg, "detector", create_dir=True)
+
+    assert ret == str(base_dir.join("S00005_detector.h5"))
+    assert os.path.isdir(str(base_dir))
+    mock_warning.assert_called_once_with(f"Directory {str(base_dir)} does not exist. Creating it.")
+
+
+@pytest.mark.parametrize("dir_exists, log_if_dir_does_not_exist", [(True, True), (False, False)])
+def test_get_full_path_create_dir_skips_warning_when_not_needed(
+    tmpdir, dir_exists, log_if_dir_does_not_exist
+):
+    base_dir = tmpdir.join("S00000-00999").join("S00005")
+    if dir_exists:
+        base_dir.ensure(dir=True)
+    scan_msg = ScanStatusMessage(
+        scan_id="1111",
+        scan_parameters={"system_config": {"file_directory": None, "file_suffix": None}},
+        info={"scan_number": 5, "file_components": (str(base_dir.join("S00005")), "h5")},
+        status="closed",
+    )
+
+    with mock.patch("bec_lib.file_utils.logger.warning") as mock_warning:
+        ret = get_full_path(
+            scan_msg,
+            "detector",
+            create_dir=True,
+            log_if_dir_does_not_exist=log_if_dir_does_not_exist,
+        )
+
+    assert ret == str(base_dir.join("S00005_detector.h5"))
+    assert os.path.isdir(str(base_dir))
+    mock_warning.assert_not_called()

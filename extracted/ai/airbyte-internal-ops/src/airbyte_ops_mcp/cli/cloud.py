@@ -65,10 +65,11 @@ from airbyte_ops_mcp.cloud_admin.registry_lookup import (
 )
 from airbyte_ops_mcp.cloud_admin.version_overrides import (
     ResolvedCloudAuth,
+    VersionOverrideTarget,
     get_connector_version_info,
-    set_actor_version_override,
-    set_organization_version_override,
-    set_workspace_version_override,
+)
+from airbyte_ops_mcp.cloud_admin.version_overrides import (
+    set_version_override as set_cloud_version_override,
 )
 from airbyte_ops_mcp.constants import (
     CLOUD_SQL_INSTANCE,
@@ -115,6 +116,7 @@ from airbyte_ops_mcp.regression_tests.models import (
     TargetOrControl,
 )
 from airbyte_ops_mcp.telemetry import track_regression_test
+from airbyte_ops_mcp.tier_cache import resolve_workspace
 
 # Path to connectors directory within the airbyte repo
 CONNECTORS_SUBDIR = Path("airbyte-integrations") / "connectors"
@@ -485,11 +487,11 @@ def _dispatch_version_override(
     ai_agent_session_url: str | None,
     customer_tier_filter: _TierFilter,
 ) -> None:
-    """Route a version-override request to the helper for `override_level`.
+    """Route a version-override request through the normalized core helper.
 
     Resolves `--actor-definition-id` to its canonical name and connector type
-    via the cloud registry for `workspace`/`organization` scopes, then calls
-    the appropriate MCP-tool function. Prints the operation result as JSON.
+    via the cloud registry for `workspace`/`organization` scopes. Prints the
+    operation result as JSON.
     """
     _validate_override_scope_args(
         override_level=override_level,
@@ -506,12 +508,20 @@ def _dispatch_version_override(
         assert workspace_id is not None
         assert connector_id is not None
         assert connector_type is not None
+        assert organization_id is None
         try:
-            actor_result = set_actor_version_override(
+            ws_resolution = resolve_workspace(workspace_id)
+            if not ws_resolution.organization_id:
+                exit_with_error("Could not resolve organization for workspace.")
+            result = set_cloud_version_override(
                 auth=auth,
-                workspace_id=workspace_id,
-                actor_id=connector_id,
-                actor_type=connector_type,
+                target=VersionOverrideTarget(
+                    scope="actor",
+                    organization_id=ws_resolution.organization_id,
+                    workspace_id=workspace_id,
+                    actor_id=connector_id,
+                    connector_type=connector_type,
+                ),
                 approval_comment_url=approval_comment_url,
                 version=version,
                 unset=unset,
@@ -523,12 +533,12 @@ def _dispatch_version_override(
             )
         except (PyAirbyteInputError, CloudAuthError) as e:
             exit_with_error(str(e))
-        _print_override_result(actor_result.success, actor_result.message)
-        print_json(actor_result.model_dump())
+        _print_override_result(result.success, result.message)
+        print_json(result.model_dump())
         return
 
-    assert actor_definition_id is not None
     try:
+        assert actor_definition_id is not None
         canonical_name, resolved_connector_type = (
             resolve_definition_id_to_canonical_info(actor_definition_id)
         )
@@ -541,34 +551,31 @@ def _dispatch_version_override(
     if override_level == "workspace":
         assert workspace_id is not None
         try:
-            ws_result = set_workspace_version_override(
-                auth=auth,
+            ws_resolution = resolve_workspace(workspace_id)
+            if not ws_resolution.organization_id:
+                exit_with_error("Could not resolve organization for workspace.")
+            target = VersionOverrideTarget(
+                scope="workspace",
+                organization_id=ws_resolution.organization_id,
                 workspace_id=workspace_id,
                 connector_name=canonical_name,
                 connector_type=typed_connector_type,
-                approval_comment_url=approval_comment_url,
-                version=version,
-                unset=unset,
-                override_reason=reason,
-                override_reason_reference_url=reason_url,
-                issue_url=issue_url,
-                ai_agent_session_url=ai_agent_session_url,
-                customer_tier_filter=customer_tier_filter,
             )
-        except (PyAirbyteInputError, CloudAuthError) as e:
+        except PyAirbyteInputError as e:
             exit_with_error(str(e))
-        _print_override_result(ws_result.success, ws_result.message)
-        print_json(ws_result.model_dump())
-        return
-
-    # override_level == "organization"
-    assert organization_id is not None
-    try:
-        org_result = set_organization_version_override(
-            auth=auth,
+    else:
+        assert organization_id is not None
+        target = VersionOverrideTarget(
+            scope="organization",
             organization_id=organization_id,
             connector_name=canonical_name,
             connector_type=typed_connector_type,
+        )
+
+    try:
+        result = set_cloud_version_override(
+            auth=auth,
+            target=target,
             approval_comment_url=approval_comment_url,
             version=version,
             unset=unset,
@@ -580,8 +587,8 @@ def _dispatch_version_override(
         )
     except (PyAirbyteInputError, CloudAuthError) as e:
         exit_with_error(str(e))
-    _print_override_result(org_result.success, org_result.message)
-    print_json(org_result.model_dump())
+    _print_override_result(result.success, result.message)
+    print_json(result.model_dump())
 
 
 def _print_override_result(success: bool, message: str) -> None:
@@ -1663,8 +1670,7 @@ def fetch_connection_config_cmd(
     the internal database using the connection-retriever. This additionally requires:
     - An OC issue URL for audit logging (--oc-issue-url)
     - GCP credentials via `GCP_PROD_DB_ACCESS_CREDENTIALS` env var or `gcloud auth application-default login`
-    - If `CI=true`: expects `cloud-sql-proxy` running on localhost, or
-      direct network access to the Cloud SQL instance.
+    - Cloud SQL Python Connector access to the Prod DB replica.
     """
     path = Path(output_path) if output_path else None
     result = fetch_connection_config(

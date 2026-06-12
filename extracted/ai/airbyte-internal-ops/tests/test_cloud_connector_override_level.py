@@ -13,51 +13,70 @@ Covers:
 from __future__ import annotations
 
 from typing import Any, Literal
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
 
 from airbyte_ops_mcp.cli import cloud as cloud_cli
+from airbyte_ops_mcp.cloud_admin.models import (
+    OrganizationVersionOverrideResult,
+    VersionOverrideOperationResult,
+    WorkspaceVersionOverrideResult,
+)
 from airbyte_ops_mcp.cloud_admin.version_overrides import ResolvedCloudAuth
+from airbyte_ops_mcp.tier_cache import WorkspaceResolution
 
 
-def _build_actor_result(success: bool = True) -> MagicMock:
+def _build_actor_result(success: bool = True) -> VersionOverrideOperationResult:
     """Mimic the `VersionOverrideOperationResult` returned by the actor helper."""
-    result = MagicMock()
-    result.success = success
-    result.message = "actor scope ok"
-    result.model_dump.return_value = {"success": success, "message": "actor scope ok"}
-    return result
+    return VersionOverrideOperationResult(
+        success=success,
+        message="actor scope ok",
+        connector_id="c-1",
+        connector_type="source",
+    )
 
 
-def _build_workspace_result(success: bool = True) -> MagicMock:
+def _build_workspace_result(success: bool = True) -> WorkspaceVersionOverrideResult:
     """Mimic the `WorkspaceVersionOverrideResult` returned by the workspace helper."""
-    result = MagicMock()
-    result.success = success
-    result.message = "workspace scope ok"
-    result.model_dump.return_value = {
-        "success": success,
-        "message": "workspace scope ok",
-    }
-    return result
+    return WorkspaceVersionOverrideResult(
+        success=success,
+        message="workspace scope ok",
+        workspace_id="ws-1",
+        connector_name="source-github",
+        connector_type="source",
+    )
 
 
-def _build_organization_result(success: bool = True) -> MagicMock:
+def _build_organization_result(
+    success: bool = True,
+) -> OrganizationVersionOverrideResult:
     """Mimic the `OrganizationVersionOverrideResult` returned by the org helper."""
-    result = MagicMock()
-    result.success = success
-    result.message = "organization scope ok"
-    result.model_dump.return_value = {
-        "success": success,
-        "message": "organization scope ok",
-    }
-    return result
+    return OrganizationVersionOverrideResult(
+        success=success,
+        message="organization scope ok",
+        organization_id="org-1",
+        connector_name="destination-bigquery",
+        connector_type="destination",
+    )
 
 
 def _fake_auth() -> ResolvedCloudAuth:
     """Return a deterministic `ResolvedCloudAuth` for dispatcher tests."""
     return ResolvedCloudAuth(bearer_token="fake-token")
+
+
+def _fake_workspace_resolution() -> WorkspaceResolution:
+    """Return a deterministic workspace resolution for dispatcher tests."""
+    return WorkspaceResolution(
+        workspace_id="ws-1",
+        organization_id="org-1",
+        customer_tier="TIER_2",
+        dataplane_name="US",
+        is_eu=False,
+        resolved=True,
+    )
 
 
 @pytest.mark.parametrize(
@@ -196,20 +215,20 @@ def test_validate_override_scope_args_accepts_valid_combos(
     mock_exit.assert_not_called()
 
 
-def test_dispatch_actor_scope_calls_actor_helper() -> None:
-    """`override_level='actor'` dispatches to `set_actor_version_override`."""
+def test_dispatch_actor_scope_calls_normalized_helper() -> None:
+    """`override_level='actor'` dispatches to normalized `set_version_override`."""
     auth = _fake_auth()
     with patch.object(
         cloud_cli, "_resolve_cli_cloud_auth", return_value=auth
     ), patch.object(
         cloud_cli,
-        "set_actor_version_override",
+        "resolve_workspace",
+        return_value=_fake_workspace_resolution(),
+    ) as mock_resolve_workspace, patch.object(
+        cloud_cli,
+        "set_cloud_version_override",
         return_value=_build_actor_result(),
-    ) as mock_actor, patch.object(
-        cloud_cli, "set_workspace_version_override"
-    ) as mock_workspace, patch.object(
-        cloud_cli, "set_organization_version_override"
-    ) as mock_org, patch.object(
+    ) as mock_set, patch.object(
         cloud_cli, "resolve_definition_id_to_canonical_info"
     ) as mock_resolve:
         cloud_cli._dispatch_version_override(
@@ -229,22 +248,24 @@ def test_dispatch_actor_scope_calls_actor_helper() -> None:
             customer_tier_filter="TIER_2",
         )
 
-    mock_workspace.assert_not_called()
-    mock_org.assert_not_called()
+    mock_resolve_workspace.assert_called_once_with("ws-1")
     mock_resolve.assert_not_called()
-    mock_actor.assert_called_once()
-    actor_kwargs = mock_actor.call_args.kwargs
-    assert actor_kwargs["auth"] is auth
-    assert actor_kwargs["workspace_id"] == "ws-1"
-    assert actor_kwargs["actor_id"] == "c-1"
-    assert actor_kwargs["actor_type"] == "source"
-    assert actor_kwargs["version"] == "1.0.0"
-    assert actor_kwargs["unset"] is False
-    assert actor_kwargs["override_reason"] == "needed for testing change"
-    assert actor_kwargs["customer_tier_filter"] == "TIER_2"
+    mock_set.assert_called_once()
+    kwargs = mock_set.call_args.kwargs
+    target = kwargs["target"]
+    assert kwargs["auth"] is auth
+    assert target.scope == "actor"
+    assert target.organization_id == "org-1"
+    assert target.workspace_id == "ws-1"
+    assert target.actor_id == "c-1"
+    assert target.connector_type == "source"
+    assert kwargs["version"] == "1.0.0"
+    assert kwargs["unset"] is False
+    assert kwargs["override_reason"] == "needed for testing change"
+    assert kwargs["customer_tier_filter"] == "TIER_2"
 
 
-def test_dispatch_workspace_scope_calls_workspace_helper() -> None:
+def test_dispatch_workspace_scope_calls_normalized_helper() -> None:
     """`override_level='workspace'` resolves the UUID and dispatches accordingly."""
     auth = _fake_auth()
     with patch.object(
@@ -254,14 +275,14 @@ def test_dispatch_workspace_scope_calls_workspace_helper() -> None:
         "resolve_definition_id_to_canonical_info",
         return_value=("source-github", "source"),
     ) as mock_resolve, patch.object(
-        cloud_cli, "set_actor_version_override"
-    ) as mock_actor, patch.object(
         cloud_cli,
-        "set_workspace_version_override",
+        "resolve_workspace",
+        return_value=_fake_workspace_resolution(),
+    ) as mock_resolve_workspace, patch.object(
+        cloud_cli,
+        "set_cloud_version_override",
         return_value=_build_workspace_result(),
-    ) as mock_workspace, patch.object(
-        cloud_cli, "set_organization_version_override"
-    ) as mock_org:
+    ) as mock_set:
         cloud_cli._dispatch_version_override(
             override_level="workspace",
             workspace_id="ws-1",
@@ -279,21 +300,23 @@ def test_dispatch_workspace_scope_calls_workspace_helper() -> None:
             customer_tier_filter="TIER_2",
         )
 
-    mock_actor.assert_not_called()
-    mock_org.assert_not_called()
     mock_resolve.assert_called_once_with("def-uuid")
-    mock_workspace.assert_called_once()
-    ws_kwargs = mock_workspace.call_args.kwargs
-    assert ws_kwargs["auth"] is auth
-    assert ws_kwargs["workspace_id"] == "ws-1"
-    assert ws_kwargs["connector_name"] == "source-github"
-    assert ws_kwargs["connector_type"] == "source"
-    assert ws_kwargs["version"] == "2.0.0"
-    assert ws_kwargs["unset"] is False
+    mock_resolve_workspace.assert_called_once_with("ws-1")
+    mock_set.assert_called_once()
+    kwargs = mock_set.call_args.kwargs
+    target = kwargs["target"]
+    assert kwargs["auth"] is auth
+    assert target.scope == "workspace"
+    assert target.organization_id == "org-1"
+    assert target.workspace_id == "ws-1"
+    assert target.connector_name == "source-github"
+    assert target.connector_type == "source"
+    assert kwargs["version"] == "2.0.0"
+    assert kwargs["unset"] is False
 
 
-def test_dispatch_organization_scope_clear_calls_org_helper() -> None:
-    """`override_level='organization'` with `unset=True` clears via the org helper."""
+def test_dispatch_organization_scope_clear_calls_normalized_helper() -> None:
+    """`override_level='organization'` with `unset=True` uses the normalized helper."""
     auth = _fake_auth()
     with patch.object(
         cloud_cli, "_resolve_cli_cloud_auth", return_value=auth
@@ -302,14 +325,10 @@ def test_dispatch_organization_scope_clear_calls_org_helper() -> None:
         "resolve_definition_id_to_canonical_info",
         return_value=("destination-bigquery", "destination"),
     ) as mock_resolve, patch.object(
-        cloud_cli, "set_actor_version_override"
-    ) as mock_actor, patch.object(
-        cloud_cli, "set_workspace_version_override"
-    ) as mock_workspace, patch.object(
         cloud_cli,
-        "set_organization_version_override",
+        "set_cloud_version_override",
         return_value=_build_organization_result(),
-    ) as mock_org:
+    ) as mock_set:
         cloud_cli._dispatch_version_override(
             override_level="organization",
             workspace_id=None,
@@ -327,17 +346,17 @@ def test_dispatch_organization_scope_clear_calls_org_helper() -> None:
             customer_tier_filter="TIER_2",
         )
 
-    mock_actor.assert_not_called()
-    mock_workspace.assert_not_called()
     mock_resolve.assert_called_once_with("def-uuid")
-    mock_org.assert_called_once()
-    org_kwargs = mock_org.call_args.kwargs
-    assert org_kwargs["auth"] is auth
-    assert org_kwargs["organization_id"] == "org-1"
-    assert org_kwargs["connector_name"] == "destination-bigquery"
-    assert org_kwargs["connector_type"] == "destination"
-    assert org_kwargs["version"] is None
-    assert org_kwargs["unset"] is True
+    mock_set.assert_called_once()
+    kwargs = mock_set.call_args.kwargs
+    target = kwargs["target"]
+    assert kwargs["auth"] is auth
+    assert target.scope == "organization"
+    assert target.organization_id == "org-1"
+    assert target.connector_name == "destination-bigquery"
+    assert target.connector_type == "destination"
+    assert kwargs["version"] is None
+    assert kwargs["unset"] is True
 
 
 def test_dispatch_invalid_actor_definition_id_exits_cleanly() -> None:
@@ -350,9 +369,9 @@ def test_dispatch_invalid_actor_definition_id_exits_cleanly() -> None:
         side_effect=PyAirbyteInputError(
             message="Could not find connector definition for actor_definition_id: bad-uuid",
         ),
-    ), patch.object(
-        cloud_cli, "set_workspace_version_override"
-    ) as mock_workspace, patch.object(cloud_cli, "exit_with_error") as mock_exit:
+    ), patch.object(cloud_cli, "set_cloud_version_override") as mock_set, patch.object(
+        cloud_cli, "exit_with_error"
+    ) as mock_exit:
         mock_exit.side_effect = SystemExit(2)
         with pytest.raises(SystemExit):
             cloud_cli._dispatch_version_override(
@@ -372,6 +391,6 @@ def test_dispatch_invalid_actor_definition_id_exits_cleanly() -> None:
                 customer_tier_filter="TIER_2",
             )
 
-    mock_workspace.assert_not_called()
+    mock_set.assert_not_called()
     mock_exit.assert_called_once()
     assert "Failed to resolve --actor-definition-id" in mock_exit.call_args.args[0]

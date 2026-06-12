@@ -3,6 +3,7 @@ import re
 
 import pandas as pd
 from hopsworks_common.core.constants import HAS_POLARS
+from hopsworks_common.spark_connect_utils import _is_spark_dataframe
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ class DataFrameValidator:
     # Base validator class
 
     @staticmethod
-    def get_validator(df):
+    def _get_validator(df):
         """Get the appropriate validator implementation for the DataFrame type.
 
         Parameters:
@@ -27,13 +28,8 @@ class DataFrameValidator:
             if isinstance(df, pl.DataFrame):
                 return PolarsValidator()
 
-        try:
-            from pyspark.sql import DataFrame as SparkDataFrame
-
-            if isinstance(df, SparkDataFrame):
-                return PySparkValidator()
-        except ImportError:
-            pass
+        if _is_spark_dataframe(df):
+            return PySparkValidator()
 
         return None
 
@@ -62,7 +58,7 @@ class DataFrameValidator:
         formatted_errors = self._format_error_dict(errors)
         raise ValueError(f"{base_message}{formatted_errors}")
 
-    def validate_schema(self, feature_group, df, df_features):
+    def _validate_schema(self, feature_group, df, df_features):
         """Apply common schema validation rules to the DataFrame.
 
         Parameters:
@@ -70,14 +66,14 @@ class DataFrameValidator:
             df: The DataFrame to validate.
             df_features: The list of feature metadata objects for the feature group.
         """
-        validator = self.get_validator(df)
+        validator = self._get_validator(df)
         if validator is None:
             # If no validator is found for this type, skip validation and return df_features
             return df_features
         # If this is the base class and not a subclass instance being called directly,
         # delegate to the appropriate subclass
         if self.__class__ == DataFrameValidator:
-            return validator.validate_schema(feature_group, df, df_features)
+            return validator._validate_schema(feature_group, df, df_features)
         errors = {}
         # Check if the primary key columns exist
         for pk in feature_group.primary_key:
@@ -92,12 +88,16 @@ class DataFrameValidator:
 
         # Handle errors
         if is_pk_null or (
-            is_string_length_exceeded and (feature_group.id or feature_group.features)
+            is_string_length_exceeded and (feature_group.id or feature_group.columns)
         ):
             self._raise_validation_error(errors)
         elif is_string_length_exceeded:
             # If the feature group is not created and string lengths exceed default, adjust the string columns
-            df_features = self.increase_string_columns(column_lengths, df_features)
+            df_features = self._increase_string_columns(
+                column_lengths,
+                df_features,
+                online_enabled=getattr(feature_group, "online_enabled", False),
+            )
 
         return df_features
 
@@ -106,7 +106,7 @@ class DataFrameValidator:
         raise NotImplementedError("Subclasses must implement this method")
 
     @staticmethod
-    def get_feature_from_list(feature_name, features):
+    def _get_feature_from_list(feature_name, features):
         for i_feature in features:
             if i_feature.name == feature_name:
                 return i_feature
@@ -114,24 +114,26 @@ class DataFrameValidator:
         return None
 
     @staticmethod
-    def extract_numbers(input_string):
+    def _extract_numbers(input_string):
         # Define regular expression pattern for matching numbers
         pattern = r"\d+"
         # Use re.findall() to find all occurrences of the pattern in the input string
         return re.findall(pattern, input_string)
 
-    def get_online_varchar_length(self, feature):
+    def _get_online_varchar_length(self, feature):
         # check of online_type is not null and starts with varchar
         if (
             feature
             and feature.online_type
             and feature.online_type.startswith("varchar")
         ):
-            return int(self.extract_numbers(feature.online_type)[0])
+            return int(self._extract_numbers(feature.online_type)[0])
         return None
 
     @staticmethod
-    def increase_string_columns(column_lengths: dict, dataframe_features):
+    def _increase_string_columns(
+        column_lengths: dict, dataframe_features, online_enabled=True
+    ):
         def round_up_to_hundred(num):
             import math
 
@@ -142,15 +144,18 @@ class DataFrameValidator:
             if i_feature.name in column_lengths:
                 char_limit = round_up_to_hundred(column_lengths[i_feature.name])
                 i_feature.online_type = f"varchar({char_limit})"
-                logger.warning(
-                    f"Maximum string length for column {i_feature.name} increased to {char_limit} in online table."
-                )
+                # The widened length only matters for the online store; warning
+                # about it on an offline-only feature group is misleading noise.
+                if online_enabled:
+                    logger.warning(
+                        f"Maximum string length for column {i_feature.name} increased to {char_limit} in online table."
+                    )
         return dataframe_features
 
 
 class PandasValidator(DataFrameValidator):
     @staticmethod
-    def get_string_columns(df):
+    def _get_string_columns(df):
         if pd.__version__.startswith("2."):
             # For pandas 2+, use is_string_dtype api
             return [
@@ -183,14 +188,14 @@ class PandasValidator(DataFrameValidator):
                 is_pk_null = True
 
         # Check string lengths
-        string_columns = self.get_string_columns(df)
+        string_columns = self._get_string_columns(df)
         for col in string_columns:
             currentmax = df[col].str.len().max()
             col_max_len = (
-                self.get_online_varchar_length(
-                    self.get_feature_from_list(col, feature_group.features)
+                self._get_online_varchar_length(
+                    self._get_feature_from_list(col, feature_group.columns)
                 )
-                if feature_group.features
+                if feature_group.columns
                 else 100
             )
 
@@ -224,10 +229,10 @@ class PolarsValidator(DataFrameValidator):
         for col in df.select(pl.col(pl.String)).columns:
             currentmax = df[col].str.len_chars().max()
             col_max_len = (
-                self.get_online_varchar_length(
-                    self.get_feature_from_list(col, feature_group.features)
+                self._get_online_varchar_length(
+                    self._get_feature_from_list(col, feature_group.columns)
                 )
-                if feature_group.features
+                if feature_group.columns
                 else 100
             )
 
@@ -292,10 +297,10 @@ class PySparkValidator(DataFrameValidator):
             currentmax = 0 if currentmax is None else int(currentmax)
 
             col_max_len = (
-                self.get_online_varchar_length(
-                    self.get_feature_from_list(col, feature_group.features)
+                self._get_online_varchar_length(
+                    self._get_feature_from_list(col, feature_group.columns)
                 )
-                if feature_group.features
+                if feature_group.columns
                 else 100
             )
 

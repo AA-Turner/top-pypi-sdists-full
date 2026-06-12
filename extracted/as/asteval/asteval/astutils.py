@@ -8,7 +8,6 @@ import ast
 import io
 import os
 import sys
-import ctypes
 import math
 import numbers
 import re
@@ -17,6 +16,10 @@ from tokenize import ENCODING as tk_ENCODING
 from tokenize import NAME as tk_NAME
 from tokenize import tokenize as generate_tokens
 from string import Formatter
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
 
 builtins = __builtins__
 if not isinstance(builtins, dict):
@@ -39,12 +42,7 @@ except ImportError:
 
 # This is a necessary API but it's undocumented and moved around
 # between Python releases
-try:
-    from _string import formatter_field_name_split
-except ImportError:
-    def formatter_field_name_split(x):
-        return x._formatter_field_name_split()
-
+from _string import formatter_field_name_split
 
 
 MAX_EXPONENT = 10000
@@ -75,23 +73,27 @@ UNSAFE_ATTRS = ('__subclasses__', '__bases__', '__globals__', '__code__',
 
 # unsafe attributes for particular objects, by type
 UNSAFE_ATTRS_DTYPES = {str: ('format', 'format_map')}
+if HAS_NUMPY:
+    UNSAFE_ATTRS_DTYPES[numpy.ndarray] = ('ctypes', 'tofile', 'dump')
 
 # unsafe modules that may be exposed in other modules
 # but should be prevented from being accessed
-UNSAFE_MODULES = (io, os, sys, ctypes)
+UNSAFE_MODULES = [io, os, sys]
+if ctypes is not None:
+    UNSAFE_MODULES.append(ctypes)
 
 # inherit these from python's __builtins__
 FROM_PY = ('ArithmeticError', 'AssertionError', 'AttributeError',
            'BaseException', 'BufferError', 'BytesWarning',
            'DeprecationWarning', 'EOFError', 'EnvironmentError',
-           'Exception', 'False', 'FloatingPointError', 'GeneratorExit',
+           'Exception', 'False', 'FloatingPointError',
            'IOError', 'ImportError', 'ImportWarning', 'IndentationError',
            'IndexError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
            'MemoryError', 'NameError', 'None',
            'NotImplementedError', 'OSError', 'OverflowError',
            'ReferenceError', 'RuntimeError', 'RuntimeWarning',
            'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError',
-           'SystemExit', 'True', 'TypeError', 'UnboundLocalError',
+           'True', 'TypeError', 'UnboundLocalError',
            'UnicodeDecodeError', 'UnicodeEncodeError', 'UnicodeError',
            'UnicodeTranslateError', 'UnicodeWarning', 'ValueError',
            'Warning', 'ZeroDivisionError', 'abs', 'all', 'any', 'bin',
@@ -170,12 +172,11 @@ NUMPY_RENAMES = {'ln': 'log', 'asin': 'arcsin', 'acos': 'arccos',
                  'atan': 'arctan', 'atan2': 'arctan2', 'atanh':
                  'arctanh', 'acosh': 'arccosh', 'asinh': 'arcsinh'}
 
+NUMPY_TABLE = {}
 if HAS_NUMPY:
     FROM_NUMPY = tuple(set(FROM_NUMPY))
     FROM_NUMPY = tuple(sym for sym in FROM_NUMPY if hasattr(numpy, sym))
     NUMPY_RENAMES = {sym: value for sym, value in NUMPY_RENAMES.items() if hasattr(numpy, value)}
-
-    NUMPY_TABLE = {}
     for sym in FROM_NUMPY:
         obj = getattr(numpy, sym, None)
         if obj is not None:
@@ -191,9 +192,6 @@ if HAS_NUMPY:
             obj = getattr(numpy_financial, sym, None)
             if obj is not None:
                 NUMPY_TABLE[sym] = obj
-
-else:
-    NUMPY_TABLE = {}
 
 
 def _open(filename, mode='r', buffering=-1, encoding=None):
@@ -301,10 +299,7 @@ def safe_getattr(obj, attr, raise_exc, node, allow_unsafe_modules=False):
         msg = f"no safe attribute '{attr}' for {repr(obj)}"
         raise_exc(node, exc=AttributeError, msg=msg)
     else:
-        try:
-            return getattr(obj, attr)
-        except AttributeError:
-            pass
+        return getattr(obj, attr, None)
 
 class SafeFormatter(Formatter):
     def __init__(self, raise_exc, node):
@@ -401,10 +396,7 @@ class ExceptionHolder:
 
     def get_error(self):
         """Retrieve error data."""
-        try:
-            exc_name = self.exc.__name__
-        except AttributeError:
-            exc_name = str(self.exc)
+        exc_name = self.exc.__name__
         if exc_name in (None, 'None'):
             exc_name = 'UnknownError'
 
@@ -637,14 +629,14 @@ class Procedure:
 
     def __call__(self, *args, **kwargs):
         """TODO: docstring in public method."""
-        topsym = self.__asteval__.symtable
-        if self.__asteval__.config.get('nested_symtable', False):
+        aeval = self.__asteval__
+        topsym = aeval.symtable
+        if aeval.config.get('nested_symtable', False):
             sargs = {'_main': topsym}
             sgroups = topsym.get('_searchgroups', None)
             if sgroups is not None:
                 for sxname in sgroups:
                     sargs[sxname] = topsym.get(sxname)
-
 
             symlocals = Group(name=f'symtable_{self.name}_', **sargs)
             symlocals._searchgroups = list(sargs.keys())
@@ -655,7 +647,6 @@ class Procedure:
         nargs = len(args)
         nkws = len(kwargs)
         nargs_expected = len(self.__argnames__)
-
         # check for too few arguments, but the correct keyword given
         if (nargs < nargs_expected) and nkws > 0:
             for name in self.__argnames__[nargs:]:
@@ -678,13 +669,6 @@ class Procedure:
                                       lineno=self.lineno)
 
         # check more args given than expected, varargs not given
-        if nargs != nargs_expected:
-            msg = None
-            if nargs < nargs_expected:
-                msg = f"not enough arguments for Procedure {self.name}()"
-                msg = f"{msg} (expected {nargs_expected}, got {nargs}"
-                self.__raise_exc__(None, exc=TypeError, msg=msg)
-
         if nargs > nargs_expected and self.__vararg__ is None:
             if nargs - nargs_expected > len(self.__kwargs__):
                 msg = f"too many arguments for {self.name}() expected at most"
@@ -722,36 +706,51 @@ class Procedure:
             msg = f"incorrect arguments for Procedure {self.name}"
             self.__raise_exc__(None, msg=msg, lineno=self.lineno)
 
-        if self.__asteval__.config.get('nested_symtable', False):
-            save_symtable = self.__asteval__.symtable
-            self.__asteval__.symtable = symlocals
+        if aeval.config.get('nested_symtable', False):
+            save_symtable = aeval.symtable
+            aeval.symtable = symlocals
         else:
-            save_symtable = self.__asteval__.symtable.copy()
-            self.__asteval__.symtable.update(symlocals)
+            save_symtable = aeval.symtable.copy()
+            aeval.symtable.update(symlocals)
 
-        self.__asteval__.retval = None
-        self.__asteval__._calldepth += 1
+        aeval.retval = None
+        # if top-level function/lambda call, and error is not None, clear errors.
+        if aeval._calldepth == 0 and len(aeval.error)  > 0:
+            aeval.prev_error = [e for e in aeval.error]
+            aeval.error = []
+        aeval._calldepth += 1
         retval = None
 
         # evaluate script of function
-        self.__asteval__.code_text.append(self.__text__)
+        aeval.code_text.append(self.__text__)
         for node in self.__body__:
-            out = self.__asteval__.run(node, lineno=node.lineno)
-            if len(self.__asteval__.error) > 0:
-                break
+            try:
+                out = aeval.run(node, lineno=node.lineno,
+                                          with_raise=True)
+            except Exception as exc:
+                aeval.symtable = save_symtable
+                aeval.code_text.pop()
+                aeval._calldepth -= 1
+                aeval._interrupt = None
+                raise exc
+
             if self.__is_lambda__:
                 retval = out
                 break
-            if self.__asteval__.retval is not None:
-                retval = self.__asteval__.retval
-                self.__asteval__.retval = None
+
+            if len(aeval.error) > 0:
+                break
+
+            if aeval.retval is not None:
+                retval = aeval.retval
+                aeval.retval = None
                 if retval is ReturnedNone:
                     retval = None
                 break
 
-        self.__asteval__.symtable = save_symtable
-        self.__asteval__.code_text.pop()
-        self.__asteval__._calldepth -= 1
-        self.__asteval__._interrupt = None
+        aeval.symtable = save_symtable
+        aeval.code_text.pop()
+        aeval._calldepth -= 1
+        aeval._interrupt = None
         symlocals = None
         return retval

@@ -1,0 +1,70 @@
+[tool.poetry]
+name = "fastapi-healthchecks"
+version = "1.1.0"
+authors = ["RockITSoft", "Victor Tsykanov", "Andrey Malchuk", "Mikhail Pachurin"]
+description = "FastAPI Healthchecks"
+keywords = ["fastapi", "healthcheck"]
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+# Required dependencies:
+fastapi = ">=0.70.1" # https://pypi.org/project/fastapi
+pydantic = ">=2.5" # https://pypi.org/project/pydantic
+pydantic-settings = ">=2.1" # https://pypi.org/project/pydantic-settings
+
+# Optional dependencies:
+aio-pika = { version = ">=7", optional = true }  # https://pypi.org/project/aio-pika
+aioboto3 = { version = ">=9.3", optional = true } # https://pypi.org/project/aioboto3
+aiohttp = { version = ">=3", extras = ["speedups"], optional = true } # https://pypi.org/project/aiohttp
+asyncpg = { version = ">=0.25.0", optional = true } # https://pypi.org/project/asyncpg
+redis = { version = ">=4", optional = true } # https://pypi.org/project/redis
+
+[tool.poetry.extras]
+all = ["aio-pika", "aioboto3", "aiohttp", "asyncpg", "redis"]
+ceph = ["aioboto3"]
+http = ["aiohttp"]
+postgres = ["asyncpg"]
+rabbitmq = ["aio-pika"]
+redis = ["redis"]
+
+[tool.poetry.dev-dependencies]
+black = "^22.10" # https://pypi.org/project/black
+flake8 = "^6.0" # https://pypi.org/project/flake8
+flake8-isort = "^6.0" # https://pypi.org/project/flake8-isort
+flake8-quotes = "^3.3" # https://pypi.org/project/flake8-quotes
+flake8-tidy-imports = "^4.8" # https://pypi.org/project/flake8-tidy-imports
+isort = "^5.10" # https://pypi.org/project/isort
+mypy = "^1.8" # https://pypi.org/project/mypy
+pytest = "^7.2" # https://pypi.org/project/pytest
+
+# Unstable dependencies:
+httpx = "*" # https://pypi.org/project/httpx
+pytest-asyncio = "*" # https://pypi.org/project/pytest-asyncio
+
+# Typing stubs:
+types-aiobotocore = { version = "*", extras = ["s3"]} # https://pypi.org/project/types-aiobotocore
+types-redis = "^4" # https://pypi.org/project/types-redis
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+src_paths = ["fastapi_healthchecks", "tests"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+disallow_untyped_calls = true
+follow_imports = "silent"
+ignore_missing_imports = true
+show_column_numbers = true
+show_error_codes = true
+sqlite_cache = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

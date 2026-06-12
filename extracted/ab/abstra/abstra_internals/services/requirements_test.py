@@ -1,5 +1,6 @@
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 from packaging.requirements import Requirement
 
@@ -7,6 +8,7 @@ from abstra_internals.services.requirements import (
     RequirementRecommendation,
     Requirements,
     RequirementsRepository,
+    analyze_code_imports,
     create_requirement,
     get_requirements_lint_markers,
     requirement_from_dict,
@@ -401,6 +403,151 @@ another invalid line!!!"""
         # Should not change anything
         self.assertEqual(len(reqs.libraries), 1)
         self.assertEqual(str(reqs.libraries[0].specifier), "==2.0.0")
+
+    def test_has_is_case_insensitive(self):
+        reqs = Requirements(libraries=[Requirement("Pillow==1.0.0")])
+
+        self.assertTrue(reqs.has("pillow"))
+        self.assertTrue(reqs.has("PILLOW"))
+        self.assertTrue(reqs.has("pillow", "1.0.0"))
+
+    def test_has_normalizes_separators(self):
+        reqs = Requirements(libraries=[Requirement("zope.interface==5.0.0")])
+
+        # PyPI treats runs of . - _ as equivalent.
+        self.assertTrue(reqs.has("zope-interface"))
+        self.assertTrue(reqs.has("zope_interface"))
+
+    def test_get_is_case_insensitive(self):
+        reqs = Requirements(libraries=[Requirement("Pillow==1.0.0")])
+
+        self.assertEqual(reqs.get("pillow"), "1.0.0")
+
+    def test_add_does_not_duplicate_differently_cased_package(self):
+        reqs = Requirements(libraries=[Requirement("Pillow==1.0.0")])
+        reqs.add("pillow", "1.0.0")
+
+        self.assertEqual(len(reqs.libraries), 1)
+        self.assertEqual(reqs.libraries[0].name, "Pillow")
+
+    def test_update_matches_case_insensitively_and_keeps_original_spelling(self):
+        reqs = Requirements(libraries=[Requirement("Pillow==1.0.0")])
+        reqs.update("pillow", "2.0.0")
+
+        self.assertEqual(len(reqs.libraries), 1)
+        self.assertEqual(reqs.libraries[0].name, "Pillow")
+        self.assertEqual(str(reqs.libraries[0].specifier), "==2.0.0")
+
+    def test_ensure_updates_differently_cased_package_without_duplicating(self):
+        reqs = Requirements(libraries=[Requirement("Pillow==1.0.0")])
+        reqs.ensure("pillow", "2.0.0")
+
+        self.assertEqual(len(reqs.libraries), 1)
+        self.assertEqual(reqs.libraries[0].name, "Pillow")
+        self.assertEqual(str(reqs.libraries[0].specifier), "==2.0.0")
+
+    def test_delete_is_case_insensitive(self):
+        reqs = Requirements(libraries=[Requirement("Pillow==1.0.0")])
+        reqs.delete("pillow")
+
+        self.assertEqual(len(reqs.libraries), 0)
+
+    def test_get_duplicates_detects_differently_cased_package(self):
+        reqs = Requirements(
+            libraries=[Requirement("Pillow==1.0.0"), Requirement("pillow==2.0.0")]
+        )
+
+        duplicates = reqs.get_duplicates()
+
+        self.assertEqual(len(duplicates), 1)
+        self.assertIn("pillow", duplicates)
+        self.assertEqual(len(duplicates["pillow"]), 2)
+
+    def test_delete_duplicates_keeps_the_chosen_version(self):
+        reqs = Requirements(
+            libraries=[Requirement("Pillow==1.0.0"), Requirement("pillow==2.0.0")]
+        )
+
+        reqs.delete_duplicates("pillow", "1.0.0")
+
+        self.assertEqual(len(reqs.libraries), 1)
+        self.assertEqual(reqs.libraries[0].name, "Pillow")
+        self.assertEqual(str(reqs.libraries[0].specifier), "==1.0.0")
+
+    def test_delete_duplicates_collapses_same_version_duplicates(self):
+        reqs = Requirements(
+            libraries=[Requirement("Pillow==1.0.0"), Requirement("pillow==1.0.0")]
+        )
+
+        reqs.delete_duplicates("pillow", "1.0.0")
+
+        self.assertEqual(len(reqs.libraries), 1)
+        self.assertEqual(reqs.libraries[0].name, "Pillow")
+        self.assertEqual(str(reqs.libraries[0].specifier), "==1.0.0")
+
+    def test_delete_duplicates_preserves_other_packages(self):
+        reqs = Requirements(
+            libraries=[
+                Requirement("requests==1.0.0"),
+                Requirement("requests==2.0.0"),
+                Requirement("flask>=1.0.0"),
+            ]
+        )
+
+        reqs.delete_duplicates("requests", "2.0.0")
+
+        names = [str(lib) for lib in reqs.libraries]
+        self.assertEqual(names, ["requests==2.0.0", "flask>=1.0.0"])
+
+
+class TestImportCoverageIsCanonical(TestCase):
+    def test_dotted_distribution_covered_by_non_dotted_requirement(self):
+        # requirements.txt lists "zope-interface"; the import resolves to the
+        # dotted distribution "zope.interface". Same package on PyPI, so no linter
+        # alert should be raised.
+        with (
+            patch(
+                "abstra_internals.services.requirements.check_package",
+                return_value="installed",
+            ),
+            patch(
+                "abstra_internals.services.requirements.is_local_module",
+                return_value=False,
+            ),
+        ):
+            results = analyze_code_imports(
+                code="import zope_interface_shim",
+                requirements_names={"zope-interface"},
+                covered_packages={"zope-interface"},
+                uninstalled_libs=[],
+                package_dist_cache={"zope_interface_shim": ["zope.interface"]},
+            )
+
+        missing = [r for r in results if r.status == "missing_in_requirements"]
+        self.assertEqual(missing, [])
+
+    def test_uncovered_dotted_distribution_is_still_flagged(self):
+        with (
+            patch(
+                "abstra_internals.services.requirements.check_package",
+                return_value="installed",
+            ),
+            patch(
+                "abstra_internals.services.requirements.is_local_module",
+                return_value=False,
+            ),
+        ):
+            results = analyze_code_imports(
+                code="import zope_interface_shim",
+                requirements_names=set(),
+                covered_packages=set(),
+                uninstalled_libs=[],
+                package_dist_cache={"zope_interface_shim": ["zope.interface"]},
+            )
+
+        missing = [r for r in results if r.status == "missing_in_requirements"]
+        self.assertEqual(len(missing), 1)
+        self.assertEqual(missing[0].package_name, "zope.interface")
 
 
 class TestRequirementRecommendation(TestCase):

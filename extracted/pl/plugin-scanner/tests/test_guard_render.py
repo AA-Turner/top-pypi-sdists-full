@@ -38,6 +38,27 @@ def test_guard_connect_render_clarifies_paid_plan_pending_state(capsys) -> None:
     assert "Upgrade to sync this device to Guard Cloud" in output
 
 
+def test_guard_connect_render_clarifies_unauthorized_pending_state(capsys) -> None:
+    emit_guard_payload(
+        "connect",
+        {
+            "connected": True,
+            "browser_opened": True,
+            "status": "connected",
+            "milestone": "first_sync_pending",
+            "reason": "HTTP Error 401: Unauthorized",
+            "completed_at": "2026-04-17T00:00:00Z",
+            "connect_url": "https://hol.org/guard/connect",
+            "sync_url": "https://hol.org/api/guard/receipts/sync",
+        },
+        False,
+    )
+
+    output = _normalize_render_output(capsys.readouterr().out)
+    assert "This device is protected locally" in output
+    assert "Sign in to finish Guard Cloud setup" in output
+
+
 def test_guard_render_redacts_sensitive_values_before_rich_renderer(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
@@ -153,6 +174,47 @@ def test_guard_json_renderer_receives_payload_copy(monkeypatch, capsys) -> None:
     output = capsys.readouterr().out
     assert source_payload["api_key"] == "original-secret"
     assert "mutated-secret" not in output
+
+
+def test_guard_protect_render_without_rich_uses_plain_text(capsys, monkeypatch) -> None:
+    monkeypatch.setattr(render, "_RICH_AVAILABLE", False)
+
+    emit_guard_payload(
+        "protect",
+        {
+            "executed": False,
+            "request": {
+                "command": ["npm", "install", "minimist@1.2.8"],
+                "install_kind": "install",
+            },
+            "verdict": {
+                "action": "review",
+                "reason": "Guard cloud evaluation was not authorized, so this package request needs review.",
+            },
+            "supply_chain_evaluation": {
+                "decision": "ask",
+                "user_copy": {
+                    "next_step": "hol-guard connect repair",
+                    "dashboard_url": "http://127.0.0.1:5474/requests/req-package-1",
+                    "harness_message": (
+                        "Open HOL Guard to approve or keep this blocked: "
+                        "http://127.0.0.1:5474/requests/req-package-1. "
+                        "Then run `hol-guard connect repair` and retry the same install."
+                    ),
+                },
+            },
+        },
+        False,
+    )
+
+    output = _normalize_render_output(capsys.readouterr().out)
+
+    assert '"verdict"' not in output
+    assert "HOL Guard paused this install for review before it ran." in output
+    assert "npm install minimist@1.2.8" in output
+    assert "Guard cloud evaluation was not authorized" in output
+    assert "http://127.0.0.1:5474/requests/req-package-1" in output
+    assert "hol-guard connect repair" in output
 
 
 def test_guard_protect_render_uses_supply_chain_user_copy(capsys) -> None:

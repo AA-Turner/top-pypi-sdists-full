@@ -1,0 +1,225 @@
+from __future__ import annotations
+
+import argparse
+import logging
+import re
+import subprocess
+import sys
+from typing import Pattern
+
+import lintrunner_adapters
+from lintrunner_adapters import LintMessage, LintSeverity, run_command
+
+LINTER_CODE = "PYLINT"
+
+# adapters/pylint_linter.py:1:0: C0114: Missing module docstring (missing-module-docstring)
+RESULTS_RE: Pattern[str] = re.compile(
+    r"""(?mx)
+    ^
+    (?P<file>.*?):
+    (?P<line>\d+):
+    (?:(?P<column>-?\d+):)?
+    \s(?P<code>\S+?):?
+    \s(?P<message>.*)
+    \s(?:\((?P<string_code>.*)\))
+    $
+    """
+)
+
+
+def _test_results_re() -> None:
+    """
+    >>> def t(s): return RESULTS_RE.search(s).groupdict()
+
+    >>> t(r"file.py:40:9: W1514: Using open without explicitly specifying an encoding (unspecified-encoding)")
+    ... # doctest: +NORMALIZE_WHITESPACE
+    {'file': 'file.py', 'line': '40', 'column': '9', 'code': 'W1514',
+     'message': 'Using open without explicitly specifying an encoding',
+     'string_code': 'unspecified-encoding'}
+
+    >>> t(r"file.py:14:7: R1714: Consider merging these comparisons with 'in' by using 'severity in ('advice', 'disabled')'. Use a set instead if elements are hashable. (consider-using-in)")
+    ... # doctest: +NORMALIZE_WHITESPACE
+    {'file': 'file.py', 'line': '14', 'column': '7', 'code': 'R1714',
+     'message': "Consider merging these comparisons with 'in' by using 'severity in ('advice', 'disabled')'. Use a set instead if elements are hashable.",
+     'string_code': 'consider-using-in'}
+
+    >>> t(r"file.py:67:15: W1510: Using subprocess.run without explicitly set `check` is not recommended. (subprocess-run-check)")
+    ... # doctest: +NORMALIZE_WHITESPACE
+    {'file': 'file.py', 'line': '67', 'column': '15', 'code': 'W1510',
+     'message': 'Using subprocess.run without explicitly set `check` is not recommended.',
+     'string_code': 'subprocess-run-check'}
+    """
+    pass
+
+
+# Severity can be "I", "C", "R", "W", "E", "F"
+# https://pylint.pycqa.org/en/latest/user_guide/usage/output.html
+SEVERITIES = {
+    "I": LintSeverity.ADVICE,
+    "C": LintSeverity.ADVICE,
+    "R": LintSeverity.ADVICE,
+    "W": LintSeverity.WARNING,
+    "E": LintSeverity.ERROR,
+    "F": LintSeverity.ERROR,
+}
+
+
+# https://pylint.pycqa.org/en/latest/user_guide/messages/fatal/method-check-failed.html
+def pylint_doc_url(code: str, string_code: str) -> str:
+    if code.startswith("I"):
+        category = "informational"
+    elif code.startswith("C"):
+        category = "convention"
+    elif code.startswith("R"):
+        category = "refactor"
+    elif code.startswith("W"):
+        category = "warning"
+    elif code.startswith("E"):
+        category = "error"
+    elif code.startswith("F"):
+        category = "fatal"
+    else:
+        return ""
+
+    return f"https://pylint.pycqa.org/en/latest/user_guide/messages/{category}/{string_code}.html"
+
+
+def format_lint_messages(
+    message: str, code: str, string_code: str, show_disable: bool
+) -> str:
+    formatted = (
+        f"{message} ({string_code})\n"
+        f"See [{string_code}]({pylint_doc_url(code, string_code)})."
+    )
+    if show_disable:
+        formatted += f"\n\nTo disable, use `  # pylint: disable={string_code}`"
+    return formatted
+
+
+def check_files(
+    filenames: list[str],
+    *,
+    rcfile: str | None,
+    jobs: int,
+    retries: int,
+    show_disable: bool,
+) -> list[LintMessage]:
+    try:
+        proc = run_command(
+            [
+                sys.executable,
+                "-mpylint",
+                "--score=n",
+                "--exit-zero",
+                *([f"--rcfile={rcfile}"] if rcfile else []),
+                f"--jobs={jobs}",
+                *filenames,
+            ],
+            retries=retries,
+            check=True,
+        )
+    except OSError as err:
+        return [
+            LintMessage(
+                path=None,
+                line=None,
+                char=None,
+                code=LINTER_CODE,
+                severity=LintSeverity.ERROR,
+                name="command-failed",
+                original=None,
+                replacement=None,
+                description=(f"Failed due to {err.__class__.__name__}:\n{err}"),
+            )
+        ]
+    except subprocess.CalledProcessError as err:
+        return [
+            LintMessage(
+                path=None,
+                line=None,
+                char=None,
+                code=LINTER_CODE,
+                severity=LintSeverity.ERROR,
+                name="command-failed",
+                original=None,
+                replacement=None,
+                description=(
+                    f"Linter exited with return code {err.returncode}.\n"
+                    f"STDOUT: {err.output.decode('utf-8')}\n\n"
+                    f"STDERR: {err.stderr.decode('utf-8')}"
+                ),
+            )
+        ]
+    stdout = str(proc.stdout, "utf-8").strip()
+    return [
+        LintMessage(
+            path=match["file"],
+            name=match["code"],
+            description=format_lint_messages(
+                match["message"], match["code"], match["string_code"], show_disable
+            ),
+            line=int(match["line"]),
+            char=(
+                int(match["column"])
+                if match["column"] is not None and not match["column"].startswith("-")
+                else None
+            ),
+            code=LINTER_CODE,
+            severity=SEVERITIES.get(match["code"][0], LintSeverity.ERROR),
+            original=None,
+            replacement=None,
+        )
+        for match in RESULTS_RE.finditer(stdout)
+    ]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=f"pylint wrapper linter. Linter code: {LINTER_CODE}",
+        fromfile_prefix_chars="@",
+    )
+    parser.add_argument(
+        "--rcfile",
+        default=None,
+        type=str,
+        help="pylint config file",
+    )
+    parser.add_argument(
+        "--jobs",
+        default=0,
+        type=int,
+        help="number of jobs to run in parallel, 0 for number of CPUs",
+    )
+    parser.add_argument(
+        "--show-disable",
+        action="store_true",
+        help="show how to disable a lint message",
+    )
+    lintrunner_adapters.add_default_options(parser)
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        format="<%(threadName)s:%(levelname)s> %(message)s",
+        level=(
+            logging.NOTSET
+            if args.verbose
+            else logging.DEBUG
+            if len(args.filenames) < 1000
+            else logging.INFO
+        ),
+        stream=sys.stderr,
+    )
+
+    lint_messages = check_files(
+        list(args.filenames),
+        rcfile=args.rcfile,
+        jobs=args.jobs,
+        retries=args.retries,
+        show_disable=args.show_disable,
+    )
+    for lint_message in lint_messages:
+        lint_message.display()
+
+
+if __name__ == "__main__":
+    main()

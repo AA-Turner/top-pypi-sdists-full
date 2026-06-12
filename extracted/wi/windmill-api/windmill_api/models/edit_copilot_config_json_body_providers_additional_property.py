@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Type, TypeVar, cast
+from typing import Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="EditCopilotConfigJsonBodyProvidersAdditionalProperty")
 
@@ -12,15 +14,19 @@ class EditCopilotConfigJsonBodyProvidersAdditionalProperty:
     Attributes:
         resource_path (str):
         models (List[str]):
+        web_search_enabled (Union[Unset, bool]):
     """
 
     resource_path: str
     models: List[str]
+    web_search_enabled: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         resource_path = self.resource_path
         models = self.models
+
+        web_search_enabled = self.web_search_enabled
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -30,6 +36,8 @@ class EditCopilotConfigJsonBodyProvidersAdditionalProperty:
                 "models": models,
             }
         )
+        if web_search_enabled is not UNSET:
+            field_dict["web_search_enabled"] = web_search_enabled
 
         return field_dict
 
@@ -40,9 +48,12 @@ class EditCopilotConfigJsonBodyProvidersAdditionalProperty:
 
         models = cast(List[str], d.pop("models"))
 
+        web_search_enabled = d.pop("web_search_enabled", UNSET)
+
         edit_copilot_config_json_body_providers_additional_property = cls(
             resource_path=resource_path,
             models=models,
+            web_search_enabled=web_search_enabled,
         )
 
         edit_copilot_config_json_body_providers_additional_property.additional_properties = d

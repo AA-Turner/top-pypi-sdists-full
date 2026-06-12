@@ -90,6 +90,7 @@ class GTData:
     _formats: Formats
     _substitutions: Formats
     _col_merge: ColMerges
+    _transforms: list  # list[TextTransformInfo]
     _options: Options
     _google_font_imports: GoogleFontImports = field(default_factory=GoogleFontImports)
     _has_built: bool = False
@@ -140,6 +141,7 @@ class GTData:
             _formats=[],
             _substitutions=[],
             _col_merge=[],
+            _transforms=[],
             _options=options,
             _google_font_imports=GoogleFontImports(),
         )
@@ -405,7 +407,7 @@ class Boxhead(_Sequence[ColInfo]):
     def reorder(self, vars: list[str]) -> Self:
         boxh_vars = [col.var for col in self]
         if set(vars) != set(boxh_vars):
-            raise ValueError("Reordering vars must contain all boxhead vars.")
+            raise ValueError("Column reordering must include all columns in the table.")
 
         new_order = [boxh_vars.index(var) for var in vars]
 
@@ -916,7 +918,6 @@ class FootnoteInfo:
     locname: Loc | None = None
     grpname: str | None = None
     colname: str | None = None
-    locnum: int | None = None
     rownum: int | None = None
     colnum: int | None = None
     footnotes: list[str] | None = None
@@ -1008,6 +1009,17 @@ class FormatInfo:
 #     def __init__(self):
 #         pass
 Formats = list
+
+
+# Text Transforms ----
+
+
+@dataclass
+class TextTransformInfo:
+    """Stores a text transformation function and the location to apply it."""
+
+    loc: "Loc"
+    fn: Callable[[str], str]
 
 
 # Column Merge ----
@@ -1194,6 +1206,67 @@ class OptionsInfo:
     type: str
     value: Any
 
+    def _validate_value(self, value: Any, option_name: str) -> Any:
+        """Validate and coerce an option value based on its type.
+
+        Parameters
+        ----------
+        value
+            The value to validate.
+        option_name
+            The name of the option (for error messages).
+
+        Returns
+        -------
+        Any
+            The validated (and possibly coerced) value.
+        """
+        if value is None:
+            return value
+
+        if self.type == "px":
+            # CSS length values: accept str (e.g. "5px", "100%", "auto") or
+            # int/float (coerced to "{x}px")
+            if isinstance(value, (int, float)):
+                return f"{value}px"
+            elif isinstance(value, str):
+                return value
+            else:
+                raise TypeError(
+                    f"Option `{option_name}` expects a CSS length string (e.g., '5px', '100%', "
+                    f"'auto') or a numeric value, but received type `{type(value).__name__}`."
+                )
+        elif self.type in ("boolean", "logical"):
+            if not isinstance(value, bool):
+                raise TypeError(
+                    f"Option `{option_name}` expects a boolean value, "
+                    f"but received type `{type(value).__name__}`."
+                )
+            return value
+        elif self.type == "value":
+            if not isinstance(value, (str, int, float)):
+                raise TypeError(
+                    f"Option `{option_name}` expects a string or numeric value, "
+                    f"but received type `{type(value).__name__}`."
+                )
+            return value
+        elif self.type == "values":
+            if not isinstance(value, (str, list)):
+                raise TypeError(
+                    f"Option `{option_name}` expects a string or list, "
+                    f"but received type `{type(value).__name__}`."
+                )
+            return value
+        elif self.type == "overflow":
+            if not isinstance(value, str):
+                raise TypeError(
+                    f"Option `{option_name}` expects a string value, "
+                    f"but received type `{type(value).__name__}`."
+                )
+            return value
+        else:
+            return value
+
 
 @dataclass(frozen=True)
 class Options:
@@ -1320,13 +1393,13 @@ class Options:
     stub_row_group_border_style: OptionsInfo = OptionsInfo(True, "stub", "value", "solid")
     stub_row_group_border_width: OptionsInfo = OptionsInfo(True, "stub", "px", "2px")
     stub_row_group_border_color: OptionsInfo = OptionsInfo(True, "stub", "value", "#D3D3D3")
-    # summary_row_padding: OptionsInfo = OptionsInfo(True, "summary_row", "px", "8px")
-    # summary_row_padding_horizontal: OptionsInfo = OptionsInfo(True, "summary_row", "px", "5px")
-    # summary_row_background_color: OptionsInfo = OptionsInfo(True, "summary_row", "value", None)
-    # summary_row_text_transform: OptionsInfo = OptionsInfo(True, "summary_row", "value", "inherit")
-    # summary_row_border_style: OptionsInfo = OptionsInfo(True, "summary_row", "value", "solid")
-    # summary_row_border_width: OptionsInfo = OptionsInfo(True, "summary_row", "px", "2px")
-    # summary_row_border_color: OptionsInfo = OptionsInfo(True, "summary_row", "value", "#D3D3D3")
+    summary_row_padding: OptionsInfo = OptionsInfo(True, "summary_row", "px", "8px")
+    summary_row_padding_horizontal: OptionsInfo = OptionsInfo(True, "summary_row", "px", "5px")
+    summary_row_background_color: OptionsInfo = OptionsInfo(True, "summary_row", "value", None)
+    summary_row_text_transform: OptionsInfo = OptionsInfo(True, "summary_row", "value", "inherit")
+    summary_row_border_style: OptionsInfo = OptionsInfo(True, "summary_row", "value", "solid")
+    summary_row_border_width: OptionsInfo = OptionsInfo(True, "summary_row", "px", "2px")
+    summary_row_border_color: OptionsInfo = OptionsInfo(True, "summary_row", "value", "#D3D3D3")
     grand_summary_row_padding: OptionsInfo = OptionsInfo(True, "grand_summary_row", "px", "8px")
     grand_summary_row_padding_horizontal: OptionsInfo = OptionsInfo(
         True, "grand_summary_row", "px", "5px"
@@ -1357,7 +1430,7 @@ class Options:
     # footnotes_border_lr_style: OptionsInfo = OptionsInfo(True, "footnotes", "value", "none")
     # footnotes_border_lr_width: OptionsInfo = OptionsInfo(True, "footnotes", "px", "2px")
     # footnotes_border_lr_color: OptionsInfo = OptionsInfo(True, "footnotes", "value", "#D3D3D3")
-    # footnotes_marks: OptionsInfo = OptionsInfo(False, "footnotes", "values", "numbers")
+    footnotes_marks: OptionsInfo = OptionsInfo(False, "footnotes", "values", "numbers")
     # footnotes_multiline: OptionsInfo = OptionsInfo(False, "footnotes", "boolean", True)
     # footnotes_sep: OptionsInfo = OptionsInfo(False, "footnotes", "value", " ")
     source_notes_padding: OptionsInfo = OptionsInfo(True, "source_notes", "px", "4px")
@@ -1413,6 +1486,7 @@ class Options:
 
     def _set_option_value(self, option: str, value: Any):
         old_info = getattr(self, option)
-        new_info = replace(old_info, value=value)
+        validated_value = old_info._validate_value(value, option_name=option)
+        new_info = replace(old_info, value=validated_value)
 
         return replace(self, **{option: new_info})

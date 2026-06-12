@@ -12,6 +12,7 @@ from connector_sdk_types.errors import (
     build_metadata,
 )
 from connector_sdk_types.generated import Error, ErrorCode, ErrorResponse
+from gql.transport.exceptions import TransportProtocolError, TransportServerError
 
 logger = logging.getLogger("integration-connectors.sdk")
 error_logger = logging.getLogger("integration-connectors.sdk.errors")
@@ -27,6 +28,36 @@ FAILED_TO_PARSE_JSON_MESSAGE = "Failed to parse JSON response: {error_text}"
 HTML_ERROR_MESSAGE = "Upstream HTML error response."
 MAX_TEXT_ERROR_MESSAGE_LENGTH = 800
 TRUNCATED_APPENDIX = "...(truncated)"
+
+
+def _status_code_to_error_code(
+    status_code: int | None,
+    *,
+    default: ConnectorErrorCode = ConnectorErrorCode.INVALID_RESPONSE,
+) -> ConnectorErrorCode:
+    match status_code:
+        case 400 | 413 | 415 | 422:
+            return ConnectorErrorCode.BAD_REQUEST
+        case 401:
+            return ConnectorErrorCode.UNAUTHORIZED
+        case 403:
+            return ConnectorErrorCode.PERMISSION_DENIED
+        case 404:
+            return ConnectorErrorCode.NOT_FOUND
+        case 405 | 406 | 501:
+            return ConnectorErrorCode.UNSUPPORTED_OPERATION
+        case 408:
+            return ConnectorErrorCode.REQUEST_TIMEOUT
+        case 409:
+            return ConnectorErrorCode.CONFLICT
+        case 429:
+            return ConnectorErrorCode.RATE_LIMIT
+        case 503:
+            return ConnectorErrorCode.SERVICE_ERROR
+        case 500 | 502 | 504:
+            return ConnectorErrorCode.BAD_GATEWAY
+        case _:
+            return default
 
 
 class ConnectorError(Exception):
@@ -345,29 +376,29 @@ class HTTPHandler(ExceptionHandler):
         response: ErrorResponse,
         error_code: ErrorCode | ConnectorErrorCode | None = None,
     ) -> ErrorResponse:
-        match response.error.status_code:
-            case 400 | 413 | 415 | 422:
-                response.error.error_code = ConnectorErrorCode.BAD_REQUEST
-            case 401:
-                response.error.error_code = ConnectorErrorCode.UNAUTHORIZED
-            case 403:
-                response.error.error_code = ConnectorErrorCode.PERMISSION_DENIED
-            case 404:
-                response.error.error_code = ConnectorErrorCode.NOT_FOUND
-            case 405 | 406 | 501:
-                response.error.error_code = ConnectorErrorCode.UNSUPPORTED_OPERATION
-            case 408:
-                response.error.error_code = ConnectorErrorCode.REQUEST_TIMEOUT
-            case 409:
-                response.error.error_code = ConnectorErrorCode.CONFLICT
-            case 429:
-                response.error.error_code = ConnectorErrorCode.RATE_LIMIT
-            case 503:
-                response.error.error_code = ConnectorErrorCode.SERVICE_ERROR
-            case 500 | 502 | 504:
-                response.error.error_code = ConnectorErrorCode.BAD_GATEWAY
-            case _:
-                response.error.error_code = ConnectorErrorCode.INVALID_RESPONSE
+        response.error.error_code = _status_code_to_error_code(response.error.status_code)
+        return response
+
+
+class GQLTransportHandler(ExceptionHandler):
+    """
+    Exception handler for gql transport-level exceptions.
+    """
+
+    @staticmethod
+    def handle(
+        e: Exception,
+        original_func: Any,
+        response: ErrorResponse,
+        error_code: ErrorCode | ConnectorErrorCode | None = None,
+    ) -> ErrorResponse:
+        if isinstance(e, TransportProtocolError):
+            response.error.error_code = ConnectorErrorCode.BAD_GATEWAY
+        elif isinstance(e, TransportServerError):
+            response.error.error_code = _status_code_to_error_code(
+                e.code,
+                default=ConnectorErrorCode.BAD_GATEWAY,
+            )
         return response
 
 

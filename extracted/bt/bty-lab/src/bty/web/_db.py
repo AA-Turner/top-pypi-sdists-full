@@ -26,10 +26,12 @@ v0.32.x) was overengineered: ``state.db`` is regenerable
 (bindings re-discover on next PXE contact, audit log is cosmetic,
 settings are a tiny handful), and pre-1.0 explicitly says no
 migration apparatus. Auto-rotation is the simplest correct
-behavior - the operator-irreplaceable state (image files under
-``BTY_IMAGE_ROOT``) is never touched. Operators who want hardware
-inventory preserved across upgrades use ``bty-web export`` /
-``bty-web import``.
+behavior. Image bytes are not on bty-web's disk anyway (v0.40
+took bty-web out of the bytes plane; withcache caches blobs in
+its own volume; oras streams from the registry), so a rotation
+on the bty-web state.db cannot lose images.  Operators who want
+hardware inventory preserved across upgrades use ``bty-web
+export`` / ``bty-web import``.
 """
 
 from __future__ import annotations
@@ -79,7 +81,7 @@ def default_state_path() -> Path:
         # No active config yet (very early startup, or a CLI subcommand
         # that bypasses the FastAPI app). Fall back to the env var
         # alone so the pre-v0.42 contract still works for those.
-        env = os.environ.get("BTY_PATHS_STATE_DIR") or os.environ.get("BTY_STATE_DIR")
+        env = os.environ.get("BTY_PATHS_STATE_DIR")
         base = Path(env) if env else DEFAULT_STATE_DIR
         return base / "state.db"
 
@@ -156,9 +158,21 @@ CREATE TABLE IF NOT EXISTS machines (
 -- the operator-supplied ``sha_url`` adjacent to an https entry, or
 -- the digest baked into an oras blob layer). May stay NULL for any
 -- entry whose publisher did not pin a sha.
+--
+-- ``resolved_src`` is the plain-HTTPS URL the catalog row actually
+-- fetches from. For ``http(s)://`` srcs this equals ``src``. For
+-- ``oras://`` srcs this is the registry blob URL (e.g.
+-- ``https://ghcr.io/v2/<repo>/blobs/sha256:<digest>``) that bty-web
+-- resolves once at catalog import via ``bty.oras.resolve_ref``;
+-- everything downstream (the withcache HEAD probe, the PXE plan's
+-- ``serve_url`` rewrite, the ``/images/{ref}`` proxy fallback) keys
+-- on this URL so withcache stays oras-blind. NULL only for legacy
+-- rows that pre-date import-time resolution (a fresh schema never
+-- writes NULL).
 CREATE TABLE IF NOT EXISTS catalog_entries (
     bty_image_ref  TEXT PRIMARY KEY,
     src            TEXT NOT NULL UNIQUE,
+    resolved_src   TEXT,
     disk_image_sha TEXT,
     name           TEXT NOT NULL,
     sha_url        TEXT,
@@ -269,8 +283,9 @@ def init_db(path: Path) -> None:
 
     Pre-1.0 contract (see module docstring): no migration apparatus,
     no schema-version integer, no operator intervention on upgrade.
-    Operator-irreplaceable state (image files under
-    ``BTY_IMAGE_ROOT``) is never touched by this function.
+    Image bytes are not on bty-web's disk in v0.40+ (withcache holds
+    cached blobs in its own volume; oras streams from the registry),
+    so a rotation here cannot lose them.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -322,7 +337,8 @@ def init_db(path: Path) -> None:
                 actor="system",
                 summary=(
                     f"state.db rotated on upgrade ({rotated_from} -> {bty.__version__}). "
-                    f"Machine bindings + audit log reset; images under BTY_IMAGE_ROOT preserved."
+                    f"Machine bindings + audit log reset; image bytes "
+                    f"(withcache volume / oras registry) are untouched."
                 ),
                 details={
                     "from_version": rotated_from,

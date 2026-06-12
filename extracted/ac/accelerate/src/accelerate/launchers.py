@@ -15,6 +15,7 @@
 import os
 import sys
 import tempfile
+from dataclasses import fields
 
 import torch
 
@@ -27,6 +28,7 @@ from .utils import (
     get_current_device_type,
     get_gpu_info,
     is_mps_available,
+    is_rocm_available,
     is_torch_version,
     patch_environment,
 )
@@ -206,8 +208,9 @@ def notebook_launcher(
                 # First dummy launch
                 # Determine device type without initializing any device (which would break fork)
                 device_type, distributed_type = get_current_device_type()
-                # XPU requires spawn instead of fork
-                start_method = "spawn" if device_type == "xpu" else "fork"
+                # XPU and ROCm require spawn instead of fork (HIP/XPU runtime is initialized in the parent,
+                # which breaks fork-based subprocesses).
+                start_method = "spawn" if device_type == "xpu" or is_rocm_available() else "fork"
                 if os.environ.get("ACCELERATE_DEBUG_MODE", "false").lower() == "true":
                     launcher = PrepareForLaunch(test_launch, distributed_type=distributed_type)
                     try:
@@ -247,7 +250,15 @@ def notebook_launcher(
                     )
                     if is_torch_version(">=", ELASTIC_LOG_LINE_PREFIX_TEMPLATE_PYTORCH_VERSION):
                         launch_config_kwargs["log_line_prefix_template"] = log_line_prefix_template
-                    elastic_launch(config=LaunchConfig(**launch_config_kwargs), entrypoint=function)(*args)
+                    has_numa_options = any(field.name == "numa_options" for field in fields(LaunchConfig))
+                    if has_numa_options:
+                        from torch.numa.binding import AffinityMode, NumaOptions
+
+                        launch_config_kwargs["numa_options"] = NumaOptions(AffinityMode.NODE)
+                    launch_config = LaunchConfig(**launch_config_kwargs)
+                    if has_numa_options:
+                        launch_config.numa_options = None
+                    elastic_launch(config=launch_config, entrypoint=function)(*args)
                 except ProcessRaisedException as e:
                     if f"Cannot re-initialize {device_type.upper()} in forked subprocess" in e.args[0]:
                         raise RuntimeError(
@@ -297,6 +308,7 @@ def debug_launcher(function, args=(), num_processes=2):
     with tempfile.NamedTemporaryFile() as tmp_file:
         # torch.distributed will expect a few environment variable to be here. We set the ones common to each
         # process here (the other ones will be set be the launcher).
+        # gloo's default interface selection (hostname-based) is flaky on CI runners, pin it to loopback
         with patch_environment(
             world_size=num_processes,
             master_addr="127.0.0.1",
@@ -304,6 +316,7 @@ def debug_launcher(function, args=(), num_processes=2):
             accelerate_mixed_precision="no",
             accelerate_debug_rdv_file=tmp_file.name,
             accelerate_use_cpu="yes",
+            gloo_socket_ifname="lo",
         ):
             launcher = PrepareForLaunch(function, debug=True)
             start_processes(launcher, args=args, nprocs=num_processes, start_method="fork")

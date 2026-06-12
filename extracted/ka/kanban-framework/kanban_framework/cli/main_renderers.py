@@ -45,7 +45,6 @@ def _render_help():
             ("summary  <id>", "Task summary"),
             ("progress <id>", "Subtask progress"),
             ("time     <id>", "Time tracking"),
-            ("tokens   <id>", "Token usage"),
         ]),
         ("Inbox", [
             ("inbox add    <id> <text>", "Add feedback"),
@@ -252,30 +251,6 @@ def _render_time(data: dict):
     print(f"\n  Total: {t.get('total_seconds', 0):.0f}s")
     for phase, info in t.get("phases", {}).items():
         print(f"  {phase}: {info.get('elapsed_seconds', 0):.0f}s")
-
-
-def _render_tokens(data: dict):
-    t = data.get("tokens", data)
-
-    if "text_output" in data:
-        print(f"\n{data['text_output']}")
-        return
-
-    if "today" in data:
-        print(f"\n  Today: {data.get('today',{}).get('cost','?')}  |  Month: {data.get('month',{}).get('cost','?')}")
-        return
-
-    if "overview" in data:
-        o = data["overview"]
-        print(f"\n  Period: {data.get('period','?')}")
-        print(f"  Tokens: {o.get('totalTokens',0):,}  |  Cost: {o.get('cost','0')}  |  Sessions: {o.get('sessions',0)}")
-        return
-
-    total = t.get("total_tokens", 0)
-    budget = "within budget" if t.get("within_budget", True) else "over budget"
-    print(f"\n  Total: {total:,} tokens ({budget})")
-    for phase, tokens in t.get("by_phase", {}).items():
-        print(f"  {phase}: {tokens}")
 
 
 def _is_pre_release(version: str) -> bool:

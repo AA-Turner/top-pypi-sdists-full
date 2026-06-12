@@ -972,6 +972,14 @@ class CreateOfflineQueryJobRequest(BaseModel):
     observed_at_upper_bound: Optional[str] = None
     """The upper bound for the observed at timestamp (inclusive). If not specified, defaults to the end of time."""
 
+    inserted_at_lower_bound: Optional[str] = None
+    """The lower bound for the inserted at timestamp (inclusive). Filters on when each row was written to the
+    offline store. If not specified, defaults to the beginning of time."""
+
+    inserted_at_upper_bound: Optional[str] = None
+    """The upper bound for the inserted at timestamp (inclusive). Filters on when each row was written to the
+    offline store. If not specified, defaults to the end of time."""
+
     dataset_name: Optional[str] = None
     branch: Optional[str] = None
     recompute_features: Union[bool, List[str]] = False

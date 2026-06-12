@@ -297,7 +297,7 @@ class InfoModule(BaseIntegrationModule):
                     }
 
             # Operation security schemes
-            security_requirements = []
+            security_requirements: list[dict[str, list[str]]] = []
             for cred_id in authentication.keys():
                 security_scheme_name = cred_id
 
@@ -314,13 +314,19 @@ class InfoModule(BaseIntegrationModule):
                         else:
                             spec.info.x_oauth_settings = authorization[cred_id]["oauth_settings"]
 
-                        # Pull scopes
-                        scopes = authorization[cred_id]["oauth_settings"]["scopes"]
-                        if scopes:
-                            capability_scopes = list(scopes.keys())
-                            security_requirements.append({security_scheme_name: capability_scopes})
-                        else:
+                        capability_scopes = self._get_raw_oauth_capability_scopes(cred_id, args)
+                        if not capability_scopes:
                             security_requirements.append({security_scheme_name: []})
+                        else:
+                            scope = self._get_oauth_scope_for_capability(cred_id, cap_name, args)
+                            if scope is not None:
+                                security_requirements.append(
+                                    {
+                                        security_scheme_name: self._format_oauth_security_scopes(
+                                            scope
+                                        ),
+                                    }
+                                )
                     else:
                         security_requirements.append({security_scheme_name: []})
                 else:
@@ -700,52 +706,82 @@ class InfoModule(BaseIntegrationModule):
         return authentication, authorization, security_schemas
 
     def get_oauth_scopes(self, credential_id: str, args: AppInfoRequest) -> dict[str, str]:
-        oauth_scopes: dict[str, str] = {}
+        capability_scopes = self._get_raw_oauth_capability_scopes(credential_id, args)
+        return self._build_oauth_flow_scope_descriptions(capability_scopes)
 
+    def _normalize_capability_name(self, capability: Any) -> str:
+        if isinstance(capability, Enum):
+            return capability.value
+        return str(capability)
+
+    def _resolve_oauth_scopes_mapping(
+        self,
+        oauth_settings: OAuthSettings | None,
+        args: AppInfoRequest,
+    ) -> dict[Any, str]:
+        if oauth_settings is None or not isinstance(oauth_settings, OAuthSettings):
+            return {}
+
+        scopes = oauth_settings.scopes
+        if scopes is None:
+            return {}
+
+        if callable(scopes):
+            try:
+                scopes = scopes(args)
+            except Exception:
+                return {}
+
+        return scopes or {}
+
+    def _get_raw_oauth_capability_scopes(
+        self,
+        credential_id: str,
+        args: AppInfoRequest,
+    ) -> dict[Any, str]:
         if self.integration.credentials:
             for credential in self.integration.credentials:
                 if credential.id == credential_id:
-                    if credential.oauth_settings is not None and isinstance(
-                        credential.oauth_settings, OAuthSettings
-                    ):
-                        scopes = credential.oauth_settings.scopes
+                    return self._resolve_oauth_scopes_mapping(credential.oauth_settings, args)
+            return {}
 
-                        if scopes is None:
-                            continue
+        if credential_id == self.integration.app_id:
+            return self._resolve_oauth_scopes_mapping(self.integration.oauth_settings, args)
 
-                        if callable(scopes):
-                            try:
-                                scopes = scopes(args)
-                            except Exception as _:
-                                scopes = {}
+        return {}
 
-                        oauth_scopes = {
-                            scope: f"Required for {capability}"
-                            for capability, scope in scopes.items()
-                            if scope is not None
-                        }
+    def _build_oauth_flow_scope_descriptions(
+        self,
+        capability_scopes: dict[Any, str],
+    ) -> dict[str, str]:
+        scope_to_capabilities: dict[str, list[str]] = {}
+        for capability, scope in capability_scopes.items():
+            if not scope:
+                continue
 
-                    break
-        else:
-            if self.integration.oauth_settings:
-                scopes = self.integration.oauth_settings.scopes
+            capability_name = self._normalize_capability_name(capability)
+            scope_to_capabilities.setdefault(scope, []).append(capability_name)
 
-                if scopes is None:
-                    return {}
+        return {
+            scope: f"Required for {', '.join(capabilities)}"
+            for scope, capabilities in scope_to_capabilities.items()
+        }
 
-                if callable(scopes):
-                    try:
-                        scopes = scopes(args)
-                    except Exception as _:
-                        scopes = {}
+    def _get_oauth_scope_for_capability(
+        self,
+        credential_id: str,
+        capability_name: str,
+        args: AppInfoRequest,
+    ) -> str | None:
+        capability_scopes = self._get_raw_oauth_capability_scopes(credential_id, args)
+        for capability, scope in capability_scopes.items():
+            if self._normalize_capability_name(capability) == capability_name:
+                return scope if scope else None
+        return None
 
-                oauth_scopes = {
-                    scope: f"Required for {capability}"
-                    for capability, scope in scopes.items()
-                    if scope is not None
-                }
-
-        return oauth_scopes
+    @staticmethod
+    def _format_oauth_security_scopes(scope: str) -> list[str]:
+        return scope.split()
 
     """
     Utilities

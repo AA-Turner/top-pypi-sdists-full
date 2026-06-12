@@ -39,8 +39,8 @@ class _MetricsReporter:
         self,
         *,
         http_client: Any,
-        environment: str,
-        service: str,
+        environment: str | None,
+        service: str | None,
         flush_interval: float = 60.0,
     ) -> None:
         self._http_client = http_client
@@ -117,10 +117,13 @@ class _MetricsReporter:
     # ------------------------------------------------------------------
 
     def _make_key(self, name: str, dimensions: dict[str, str] | None) -> tuple[str, frozenset[tuple[str, str]]]:
-        merged: dict[str, str] = {
-            "environment": self._environment,
-            "service": self._service,
-        }
+        # environment/service are optional — omit absent ones entirely rather
+        # than emitting the literal string "None" as a dimension value.
+        merged: dict[str, str] = {}
+        if self._environment is not None:
+            merged["environment"] = self._environment
+        if self._service is not None:
+            merged["service"] = self._service
         if dimensions:
             merged.update(dimensions)
         return (name, frozenset(merged.items()))
@@ -211,8 +214,8 @@ class _AsyncMetricsReporter:
         self,
         *,
         http_client: Any,
-        environment: str,
-        service: str,
+        environment: str | None,
+        service: str | None,
         flush_interval: float = 60.0,
     ) -> None:
         self._http_client = http_client
@@ -289,10 +292,13 @@ class _AsyncMetricsReporter:
     # ------------------------------------------------------------------
 
     def _make_key(self, name: str, dimensions: dict[str, str] | None) -> tuple[str, frozenset[tuple[str, str]]]:
-        merged: dict[str, str] = {
-            "environment": self._environment,
-            "service": self._service,
-        }
+        # environment/service are optional — omit absent ones entirely rather
+        # than emitting the literal string "None" as a dimension value.
+        merged: dict[str, str] = {}
+        if self._environment is not None:
+            merged["environment"] = self._environment
+        if self._service is not None:
+            merged["service"] = self._service
         if dimensions:
             merged.update(dimensions)
         return (name, frozenset(merged.items()))

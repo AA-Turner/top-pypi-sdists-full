@@ -137,6 +137,21 @@ def cmd_init(args: list[str]) -> dict:
             except Exception as exc:
                 sync_errors.append(f"{tf.name}: {exc}")
 
+    # Sync agents/ to .claude/agents/ so kanban-* agents are available
+    agents_src = skill_src / "agents"
+    agents_dst = root / ".claude" / "agents"
+    agents_synced: list[str] = []
+    if agents_src.is_dir():
+        try:
+            agents_dst.mkdir(parents=True, exist_ok=True)
+            for af in agents_src.glob("*.md"):
+                dst = agents_dst / af.name
+                if not dst.is_file() or dst.read_text(encoding="utf-8") != af.read_text(encoding="utf-8"):
+                    dst.write_text(af.read_text(encoding="utf-8"), encoding="utf-8")
+                    agents_synced.append(af.name)
+        except Exception as exc:
+            sync_errors.append(f"agents sync: {exc}")
+
     # Agent conflicts detection
     # Post-sync validation: SKILL.md must exist after init
     if not (skill_dst / "SKILL.md").is_file():
@@ -162,6 +177,7 @@ def cmd_init(args: list[str]) -> dict:
             "stale_cleaned": stale,
             "errors": sync_errors,
         },
+        "agents_synced": agents_synced,
     }
 
     # Scope setup (interactive unless --json)

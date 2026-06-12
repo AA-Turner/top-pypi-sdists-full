@@ -15,6 +15,8 @@
 import ast
 import collections
 from collections.abc import Callable
+from collections.abc import Mapping
+from collections.abc import MutableMapping
 import copy
 import importlib
 import inspect
@@ -27,13 +29,13 @@ from typing import Any, Dict, Iterator, Sequence
 from absl import logging
 import dotenv
 import jax
-import numpy as np
 import omegaconf
 import optax
 import orbax.checkpoint as ocp
 from tunix.perf import metrics as perf_metrics
 from tunix.sft import metrics_logger
 from tunix.sft import profiler
+from tunix.utils import mesh as mesh_lib
 
 # Define a prefix for environment variables that can override YAML keys
 _TUNIX_PREFIX = "T_"
@@ -42,6 +44,7 @@ _SUPPORTED_MODEL_SOURCES = (
     "huggingface",
     "gcs",
     "internal",
+    "maxtext",
     "",
 )
 
@@ -66,6 +69,62 @@ _yaml_types_to_parser = {
     omegaconf.dictconfig.DictConfig: dict,
     omegaconf.listconfig.ListConfig: list,
 }
+
+
+def _normalize_cli_override(schema_value: Any, override_value: Any) -> Any:
+  """Restores empty string overrides that OmegaConf parses as None.
+
+  OmegaConf.from_cli interprets CLI values like key="" as None. For string
+  fields we want to preserve the user's intent and treat that as an empty
+  string, including for nested dictionary overrides.
+
+  Args:
+    schema_value: Pre-existing schema value for reference.
+    override_value: Proposed override value.
+
+  Returns:
+    The normalized override value.
+  """
+  if override_value is None and isinstance(schema_value, str):
+    return ""
+  if isinstance(
+      schema_value, (collections.abc.Mapping, omegaconf.DictConfig)
+  ) and isinstance(
+      override_value, (collections.abc.Mapping, omegaconf.DictConfig)
+  ):
+    normalized = {}
+    for key, value in override_value.items():
+      normalized[key] = _normalize_cli_override(schema_value.get(key), value)
+    return normalized
+  return override_value
+
+
+def _can_override_nullable_schema(override_value: Any) -> bool:
+  """Returns whether a null-default schema key can accept the override.
+
+  Nullable schema fields do not provide enough type information to route
+  through `_yaml_types_to_parser`. In that case, preserve the CLI-parsed value
+  directly, or the raw string from the environment.
+
+  Args:
+    override_value: Proposed override value.
+
+  Returns:
+    True if the override value is compatible.
+  """
+  return isinstance(
+      override_value,
+      (
+          str,
+          int,
+          float,
+          bool,
+          collections.abc.Mapping,
+          list,
+          omegaconf.dictconfig.DictConfig,
+          omegaconf.listconfig.ListConfig,
+      ),
+  )
 
 
 def get_project_root() -> pathlib.Path:
@@ -102,7 +161,10 @@ def _dict_to_cli_args(
       else:
         yield f"{new_key}={{}}"
     else:
-      yield f"{new_key}={v}"
+      if v is None:
+        yield f"{new_key}=null"
+      else:
+        yield f"{new_key}={v}"
 
 
 class HyperParameters:
@@ -197,6 +259,89 @@ class HyperParameters:
     self.check_supported_workflow()
     self._validate_perf_metrics(entry_point=argv[0])
 
+  def _config_mapping(self, key: str) -> dict[str, Any]:
+    """Returns a config section as a plain dictionary.
+
+    This narrows nested config sections that may otherwise be inferred as broad
+    unions of scalars and mappings by static type checkers.
+
+    Args:
+      key: Key of config section.
+
+    Returns:
+      The mapped dictionary config section.
+    """
+    value = self.config.get(key)
+    if value is None:
+      return {}
+    if not isinstance(value, Mapping):
+      raise TypeError(
+          f"Expected config section {key!r} to be a mapping, got"
+          f" {type(value).__name__}."
+      )
+    return dict(value)
+
+  def _mutable_config_mapping(self, key: str) -> MutableMapping[str, Any]:
+    """Returns a mutable config section for in-place updates.
+
+    Args:
+      key: Key of config section.
+
+    Returns:
+      The mutable mapping of the config section.
+    """
+    value = self.config.get(key)
+    if value is None:
+      section: dict[str, Any] = {}
+      self.config[key] = section
+      return section
+    if not isinstance(value, MutableMapping):
+      raise TypeError(
+          f"Expected config section {key!r} to be a mutable mapping, got"
+          f" {type(value).__name__}."
+      )
+    return value
+
+  def _config_string(self, key: str, default: str = "") -> str:
+    """Returns a string config value with validation.
+
+    Args:
+      key: Key of config value.
+      default: Default fallback value if not set.
+
+    Returns:
+      The string config value.
+    """
+    value = self.config.get(key, default)
+    if value is None:
+      return default
+    if not isinstance(value, str):
+      raise TypeError(
+          f"Expected config value {key!r} to be a string, got"
+          f" {type(value).__name__}."
+      )
+    return value
+
+  def _config_bool(self, key: str, default: bool = False) -> bool:
+    """Returns a boolean config value with validation.
+
+    Args:
+      key: Key of config value.
+      default: Default fallback value if not set.
+
+    Returns:
+      The boolean config value.
+    """
+    value = self.config.get(key, default)
+    if value is None:
+      return default
+    if not isinstance(value, bool):
+      raise TypeError(
+          f"Expected config value {key!r} to be a bool, got"
+          f" {type(value).__name__}."
+      )
+    return value
+
   def _validate_perf_metrics(self, entry_point: str):
     """Validates that perf metrics are only enabled for GRPO.
 
@@ -252,7 +397,10 @@ class HyperParameters:
           f" {valid_tokenizer_type} is supported"
       )
     if tokenizer_type == "huggingface":
-      if "HF_TOKEN" not in os.environ:
+      # Only require HF_TOKEN when loading from HuggingFace Hub (not a local
+      # or CNS path).
+      is_local_path = tokenizer_path.startswith(("/", "gs://"))
+      if not is_local_path and "HF_TOKEN" not in os.environ:
         raise ValueError("Missing `HF_TOKEN` to access hf tokenizer")
       if not tokenizer_path:
         raise ValueError("tokenizer_path must be specified.")
@@ -320,13 +468,13 @@ class HyperParameters:
     model_name = model_config["model_name"]
     model_source = model_config["model_source"]
     supported_sources = collections.defaultdict(
-        lambda: ["huggingface", "internal"]
+        lambda: ["huggingface", "internal", "maxtext"]
     )
     # TODO(b/467448875): Add support for other sources, such as kaggle for other
     # models.
-    supported_sources["gemma"] = ["kaggle", "internal"]
-    supported_sources["gemma2"] = ["kaggle", "internal"]
-    supported_sources["gemma3"] = ["gcs", "internal"]
+    supported_sources["gemma"] = ["kaggle", "internal", "maxtext"]
+    supported_sources["gemma2"] = ["kaggle", "internal", "maxtext"]
+    supported_sources["gemma3"] = ["gcs", "internal", "maxtext"]
 
     if model_name.startswith("gemma3") or model_name.startswith("gemma-3"):
       expected_sources = supported_sources["gemma3"]
@@ -520,7 +668,9 @@ class HyperParameters:
     )
     # Wrap the optimizer function with inject_hyperparams so that
     # the learning rate can be tracked and logged during training.
-    injected_opt_func = optax.inject_hyperparams(opt_func)
+    injected_opt_func = optax.inject_hyperparams(
+        opt_func, hyperparam_dtype=jax.numpy.float32
+    )
     # Call the optimizer function with the extracted kwargs
     try:
       return injected_opt_func(**opt_kwargs)
@@ -530,24 +680,23 @@ class HyperParameters:
           f"Check if the arguments match the signature of optax.{opt_type}: {e}"
       ) from e
 
-  def create_mesh(self, model_key: str):
-    """Validate and extract mesh configuration from a dictionary.
-
-    Expects raw_keys to contain a 'mesh' key, which is a dictionary with 'shape'
-    and 'axis_names' keys.
+  def parse_mesh_config(
+      self, model_key: str
+  ) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    """Validates and parses the mesh shape and axis names for one model.
 
     Args:
-      model_key: A model key that contain raw mesh configuration. For example,
-        in rl, there are actor_model, critic_model and reference_model, each of
-        them could have different mesh configuration.
+      model_key: Config section name such as ``model_config`` or
+        ``actor_model_config``.
 
     Returns:
-      A tuple containing (axis_shapes, axis_names), both as tuples.
+      A tuple ``(axis_shapes, axis_names)`` ready to pass to
+      ``tunix.utils.mesh.create_mesh``.
 
     Raises:
-      ValueError: If the mesh configuration is missing, malformed, or invalid.
+      ValueError: If the mesh config is missing, malformed, or internally
+        inconsistent.
     """
-
     mesh_config = self.config[model_key].get("mesh")
     if not mesh_config:
 
@@ -581,7 +730,6 @@ class HyperParameters:
           f" {mesh_config.get('axis_names')}"
       ) from e
 
-    # Validate axis_shapes
     if not isinstance(axis_shapes, tuple):
       raise ValueError(
           f"'mesh.shape' must be a list or tuple, got {type(axis_shapes)}."
@@ -591,7 +739,6 @@ class HyperParameters:
           f"All elements in mesh.shape must be integers, got {axis_shapes}."
       )
 
-    # Validate axis_names
     if not isinstance(axis_names, tuple):
       raise ValueError(
           f"'mesh.axis_names' must be a tuple, got {type(axis_names)}."
@@ -601,24 +748,48 @@ class HyperParameters:
           f"All elements in mesh.axis_names must be strings, got {axis_names}."
       )
 
-    # Validate lengths match
     if len(axis_shapes) != len(axis_names):
       raise ValueError(
           f"mesh.shape {axis_shapes} and mesh.axis_names {axis_names} "
           "must have the same length."
       )
+    return tuple(axis_shapes), tuple(axis_names)
 
-    # Validate mesh shape <= device count
-    num_devices = jax.device_count()
-    if np.prod(axis_shapes) > num_devices:
+  def _parse_mesh_allocation_policy(self, model_key: str) -> str:
+    """Validates and returns the mesh allocation policy for one model.
+
+    Mesh allocation policy controls how Tunix chooses device subsets when a
+    mesh must be carved out of a larger device pool.
+
+    Supported values are:
+
+    * ``COMPACT``: prefer the smallest remaining region that can satisfy the
+      request.
+    * ``PERFORMANCE``: prefer the most cubical supported extracted shape.
+
+    When ``mesh.allocation_policy`` is omitted, this defaults to ``COMPACT``.
+
+    Args:
+      model_key: Config section name such as ``model_config`` or
+        ``actor_model_config``.
+
+    Returns:
+      The normalized allocation policy string.
+
+    Raises:
+      ValueError: If the mesh config is missing or the policy value is not
+        supported.
+    """
+    mesh_config = self.config[model_key].get("mesh")
+    if not mesh_config:
+      raise ValueError("Missing 'mesh' configuration in raw_keys.")
+    if not isinstance(mesh_config, collections.abc.Mapping):
       raise ValueError(
-          f"Mesh shape {axis_shapes} requires {np.prod(axis_shapes)} devices, "
-          f"but found {num_devices}."
+          "The 'mesh' configuration must be a dictionary-like object, got"
+          f" {type(mesh_config)}."
       )
-    return jax.make_mesh(
-        tuple(axis_shapes),
-        tuple(axis_names),
-        axis_types=(jax.sharding.AxisType.Auto,) * len(tuple(axis_names)),
+    return mesh_lib.normalize_allocation_policy(
+        mesh_config.get("allocation_policy")
     )
 
   def obtain_training_config_dict(self, key):
@@ -686,7 +857,7 @@ class HyperParameters:
       raw_keys: collections.OrderedDict[str, Any],
       raw_data_from_yaml: dict[str, Any],
       overrides: list[str],
-      **kwargs,
+      **_kwargs,
   ):
     """Update the configuration from command line."""
 
@@ -736,6 +907,22 @@ class HyperParameters:
       else:
         new_proposal = os.environ.get(yaml_key_to_env_key(k))
 
+      new_proposal = _normalize_cli_override(
+          raw_data_from_yaml[k], new_proposal
+      )
+
+      if raw_data_from_yaml[k] is None:
+        if new_proposal is None:
+          raw_keys[k] = None
+          continue
+        if _can_override_nullable_schema(new_proposal):
+          raw_keys[k] = copy.deepcopy(new_proposal)
+          continue
+        raise ValueError(
+            f"For key '{k}', nullable schema can't accept value of type"
+            f" {type(new_proposal)} from the CLI or ENV"
+        )
+
       # If specified value is not one of type in base config yaml or is not
       # consumed by to type parser, error out
       # TODO(b/477343879): ensure Type checking for values with no defaults such
@@ -750,8 +937,6 @@ class HyperParameters:
 
       # Take the config value
       if new_proposal is None:
-        # This allows users to set empty strings via CLI, otherwise parsed as
-        # "None"
         raw_keys[k] = None
       elif isinstance(new_proposal, type(raw_data_from_yaml[k])):
         raw_keys[k] = new_proposal  # take the raw data, no type conversion
@@ -862,7 +1047,7 @@ class HyperParameters:
         try:
           module = importlib.import_module(reward_fn_path)
           module_name = module.__name__
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
           logging.warning(
               "'%s' import failed: %s", reward_fn_path, e, exc_info=True
           )
@@ -897,21 +1082,26 @@ class HyperParameters:
       loaded_module = module
       if self.config["verl_compatible"]:
 
-        def reward_fn(prompts, completions, reward_model, **kwargs):
+        def reward_fn(
+            prompts, completions, reward_model, *, lm=loaded_module, **kwargs
+        ):
           del prompts, kwargs
           ground_truths = reward_model["ground_truth"]
           return [
-              loaded_module.compute_score(c, gt)
+              lm.compute_score(c, gt)
               for c, gt in zip(completions, ground_truths)
           ]
 
         reward_fns.append(reward_fn)
 
       else:
-        # Get all defined functions in the file as reward functions
+        # Get all defined functions in the file as reward functions.
+        # We explicitly ignore functions whose names start with an underscore
+        # (_), ensuring private helper functions are never mistaken for
+        # reward functions.
         defined_functions = []
-        for _, member in inspect.getmembers(module):
-          if inspect.isfunction(member):
+        for name, member in inspect.getmembers(module):
+          if inspect.isfunction(member) and not name.startswith("_"):
             # Check if the function was defined in this module
             if member.__module__ == module_name:
               defined_functions.append(member)

@@ -1236,8 +1236,9 @@ class AntigravityProvider:
                         raise MissingAuthError("Unauthorized (401) from Antigravity API")
                     elif resp.status == 429:
                         try:
-                            message = (await resp.json()).get("error", {}).get("message", "")
-                        except Exception:
+                            message = (await resp.json(content_type=None)).get("error", {}).get("message", "")
+                        except Exception as e:
+                            debug.error("Error parsing error message:", e)
                             message = await resp.text()
                         raise RateLimitError(f"Error 429: {message}")
                     raise RuntimeError(f"Antigravity API error {resp.status}: {await resp.text()}")
@@ -1286,7 +1287,8 @@ class AntigravityProvider:
                         for i, part in enumerate(tool_calls):
                             tc = part["functionCall"]
                             tool_call_obj = {
-                                "id": f"call_{i}_{tc.get('name', 'unknown')}",
+                                "index": len(openai_tool_calls),
+                                "id": tc.get("id", f"call_{i}_{tc.get('name', 'unknown')}"),
                                 "type": "function",
                                 "function": {
                                     "name": tc.get("name"),

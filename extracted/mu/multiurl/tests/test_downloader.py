@@ -13,7 +13,7 @@ import os
 import pytest
 
 from multiurl import Downloader, download
-from multiurl.http import FullHTTPDownloader
+from multiurl.http import FullHTTPDownloader, PartHTTPDownloader
 
 
 def test_http():
@@ -107,6 +107,32 @@ def test_ftp_download(tmp_path, ftpserver):
     download(ftp_url[0], local_test_download)
     with open(local_test_file) as original, open(local_test_download) as downloaded:
         assert original.read() == downloaded.read()
+
+
+class TestPartHTTPDownloader:
+    def test_instantiation(self):
+        url = "http://localhost"
+        downloader = PartHTTPDownloader(url, accept_ranges=True)
+        assert downloader.server_capabilities.accept_ranges is True
+        assert downloader.server_capabilities.accept_multiple_ranges is True
+
+        downloader = PartHTTPDownloader(url, accept_ranges=False)
+        assert downloader.server_capabilities.accept_ranges is False
+        assert downloader.server_capabilities.accept_multiple_ranges is False
+
+        downloader = PartHTTPDownloader(
+            url, accept_ranges=True, accept_multiple_ranges=False
+        )
+        assert downloader.server_capabilities.accept_ranges is True
+        assert downloader.server_capabilities.accept_multiple_ranges is False
+
+        with pytest.raises(ValueError):
+            downloader = PartHTTPDownloader(
+                url, accept_ranges=False, accept_multiple_ranges=True
+            )
+
+        with pytest.raises(ValueError):
+            downloader = PartHTTPDownloader(url, accept_multiple_ranges=False)
 
 
 if __name__ == "__main__":

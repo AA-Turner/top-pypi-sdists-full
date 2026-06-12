@@ -16,9 +16,10 @@ import box
 
 from ...experiment import CometExperiment
 from . import flatten_dictionary
+from .callback_helpers import strip_injected_keys
 
 
-def _is_valid_key_name(key, field):
+def _is_valid_key_name(key: str, field: str) -> bool:
     return key == field or key.startswith(field + "/")  # noqa: E731
 
 
@@ -52,8 +53,14 @@ class TrialResultLogger:
     def _log_parameters(self, step: int) -> None:
         config_update = self._result.pop("config", {}).copy()
         config_update.pop("callbacks", None)  # Remove callbacks
+        # Drop the connection details the callback injected into the config to
+        # reach the workers (e.g. ``_comet_api_key``); they are not user
+        # hyperparameters. On Ray Train V1 they are nested inside
+        # ``train_loop_config``, so strip at both the top and nested levels.
+        config_update = strip_injected_keys(config_update)
         for key, value in config_update.items():
             if isinstance(value, dict):
+                value = strip_injected_keys(value)
                 self._experiment.log_parameters(
                     flatten_dictionary.flatten({key: value}, "/"),
                     step=step,
@@ -64,7 +71,9 @@ class TrialResultLogger:
 
     def _group_by_category(self) -> box.Box:
         flattened = flatten_dictionary.flatten(self._result, delimiter="/")
-        result = {category: {} for category in ["metric", "other", "system", "episode"]}
+        result: Dict[str, Dict[str, Any]] = {
+            category: {} for category in ["metric", "other", "system", "episode"]
+        }
 
         for key, value in flattened.items():
             if value is None:

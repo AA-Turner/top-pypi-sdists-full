@@ -1,208 +1,538 @@
 # pylint: skip-file
-from __future__ import absolute_import
 
 import socket
+import uuid
+from unittest.mock import MagicMock, patch
 
-from kafka.cluster import ClusterMetadata, collect_hosts
+import pytest
+
+from kafka.cluster import ClusterMetadata, collect_hosts, expand_to_canonical_bootstrap_hosts
+from kafka.future import Future
 from kafka.protocol.metadata import MetadataResponse
+from kafka.structs import TopicPartition
+
+Broker = MetadataResponse.MetadataResponseBroker
+Topic = MetadataResponse.MetadataResponseTopic
+Partition = Topic.MetadataResponsePartition
 
 
-def test_empty_broker_list():
-    cluster = ClusterMetadata()
-    assert len(cluster.brokers()) == 0
-
-    cluster.update_metadata(MetadataResponse[0](
-        [(0, 'foo', 12), (1, 'bar', 34)], []))
-    assert len(cluster.brokers()) == 2
-
-    # empty broker list response should be ignored
-    cluster.update_metadata(MetadataResponse[0](
-        [],  # empty brokers
-        [(17, 'foo', []), (17, 'bar', [])]))  # topics w/ error
-    assert len(cluster.brokers()) == 2
-
-
-def test_metadata_v0():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[0](
-        [(0, 'foo', 12), (1, 'bar', 34)],
-        [(0, 'topic-1', [(0, 0, 0, [0], [0])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller is None
-    assert cluster.cluster_id is None
-    assert cluster._partitions['topic-1'][0].offline_replicas == []
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
-
-
-def test_metadata_v1():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[1](
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, [0], [0])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id is None
-    assert cluster._partitions['topic-1'][0].offline_replicas == []
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
+def _make_metadata_response(version):
+    topic = Topic(
+        version=version,
+        error_code=0,
+        name='topic-1',
+        is_internal=False,
+        partitions=[
+            Partition(
+                version=version,
+                error_code=0,
+                partition_index=0,
+                leader_id=0,
+                leader_epoch=0,
+                replica_nodes=[0],
+                isr_nodes=[0],
+                offline_replicas=[12],
+            ),
+        ],
+    )
+    return MetadataResponse(
+        version=version,
+        throttle_time_ms=0,
+        brokers=[
+            Broker(node_id=0, host='foo', port=12, rack='rack-1', version=version),
+            Broker(node_id=1, host='bar', port=34, rack='rack-2', version=version),
+        ],
+        cluster_id='cluster-foo',
+        controller_id=0,
+        topics=[topic])
 
 
-def test_metadata_v2():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[2](
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        'cluster-foo', # cluster_id
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, [0], [0])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id == 'cluster-foo'
-    assert cluster._partitions['topic-1'][0].offline_replicas == []
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
+class TestClusterMetadataUpdateMetadata:
+    def test_empty_broker_list(self, cluster):
+        assert len(cluster.brokers()) == 0
+
+        cluster.update_metadata(MetadataResponse[0](
+            [Broker(0, 'foo', 12, version=0), Broker(1, 'bar', 34, version=0)], []))
+        assert len(cluster.brokers()) == 2
+
+        # empty broker list response should be ignored
+        cluster.update_metadata(MetadataResponse[0](
+            brokers=[],  # empty brokers
+            topics=[Topic(17, 'foo', [], version=0), Topic(17, 'bar', [], version=0)]))  # topics w/ error
+        assert len(cluster.brokers()) == 2
+
+    @pytest.mark.parametrize('version', range(0, MetadataResponse.max_version + 1))
+    def test_metadata(self, cluster, version):
+        response = _make_metadata_response(version)
+        response = MetadataResponse.decode(response.encode(), version=version)
+        cluster.update_metadata(response)
+        assert len(cluster.topics()) == 1
+        if version >= 1:
+            assert cluster.controller == cluster.broker_metadata(0)
+        else:
+            assert cluster.controller is None
+        if version >= 2:
+            assert cluster.cluster_id == 'cluster-foo'
+        else:
+            assert cluster.cluster_id is None
+        if version >= 5:
+            assert cluster._partitions['topic-1'][0].offline_replicas == [12]
+        else:
+            assert cluster._partitions['topic-1'][0].offline_replicas == []
+        if version >= 9:
+            # KAFKA-9212: leader_epoch is only trusted from v9+.
+            assert cluster._partitions['topic-1'][0].leader_epoch == 0
+        else:
+            # Pre-v9 broker may emit stale epochs during reassignment;
+            # we sanitize to -1 (NO_PARTITION_LEADER_EPOCH).
+            assert cluster._partitions['topic-1'][0].leader_epoch == -1
+
+    def test_kafka_9212_stale_epoch_sanitized_on_pre_v9_response(self, cluster):
+        """KAFKA-9212: pre-2.4 brokers may propagate stale leader_epoch
+        during partition reassignment due to a controller-side bug.
+        Match Java's client-side workaround: discard the field for
+        MetadataResponse < v9, replace with -1."""
+        for version in (7, 8):
+            response = _make_metadata_response(version)
+            response = MetadataResponse.decode(response.encode(), version=version)
+            # Sanity: the on-wire response carries the (potentially stale) epoch.
+            assert response.topics[0].partitions[0].leader_epoch == 0
+            cluster.update_metadata(response)
+            # But cluster cache must report -1 (NO_PARTITION_LEADER_EPOCH).
+            tp = TopicPartition('topic-1', 0)
+            assert cluster.leader_epoch_for_partition(tp) == -1
+            assert cluster._partitions['topic-1'][0].leader_epoch == -1
+
+    def test_kafka_9212_v9_response_trusted(self, cluster):
+        """Counterpart: v9+ epochs ARE trusted (the controller bug is
+        fixed in 2.4+ brokers)."""
+        version = 9
+        response = _make_metadata_response(version)
+        response = MetadataResponse.decode(response.encode(), version=version)
+        cluster.update_metadata(response)
+        tp = TopicPartition('topic-1', 0)
+        assert cluster.leader_epoch_for_partition(tp) == 0
+
+    def test_unauthorized_topic(self, cluster):
+        cluster.set_topics(['unauthorized-topic'])
+        assert len(cluster.brokers()) == 0
+
+        cluster.update_metadata(MetadataResponse[0](
+            brokers=[Broker(0, 'foo', 12, version=0), Broker(1, 'bar', 34, version=0)],
+            topics=[Topic(29, 'unauthorized-topic', [], version=0)]))  # single topic w/ unauthorized error
+
+        # broker metadata should get updated
+        assert len(cluster.brokers()) == 2
+
+        # topic should be added to unauthorized list
+        assert 'unauthorized-topic' in cluster.unauthorized_topics
 
 
-def test_metadata_v3():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[3](
-        0, # throttle_time_ms
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        'cluster-foo', # cluster_id
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, [0], [0])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id == 'cluster-foo'
-    assert cluster._partitions['topic-1'][0].offline_replicas == []
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
+def _make_metadata_response_with_id(version, name, topic_id, partition=0,
+                                    leader_id=0, leader_epoch=0):
+    """v10+ MetadataResponse builder that carries a topic_id."""
+    topic = Topic(
+        version=version,
+        error_code=0,
+        name=name,
+        topic_id=topic_id,
+        is_internal=False,
+        partitions=[
+            Partition(
+                version=version,
+                error_code=0,
+                partition_index=partition,
+                leader_id=leader_id,
+                leader_epoch=leader_epoch,
+                replica_nodes=[leader_id],
+                isr_nodes=[leader_id],
+                offline_replicas=[],
+            ),
+        ],
+    )
+    return MetadataResponse(
+        version=version,
+        throttle_time_ms=0,
+        brokers=[Broker(node_id=leader_id, host='foo', port=12, rack=None,
+                        version=version)],
+        cluster_id='cluster-foo',
+        controller_id=leader_id,
+        topics=[topic])
 
 
-def test_metadata_v4():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[4](
-        0, # throttle_time_ms
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        'cluster-foo', # cluster_id
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, [0], [0])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id == 'cluster-foo'
-    assert cluster._partitions['topic-1'][0].offline_replicas == []
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
+class TestClusterMetadataTopicIds:
+    """KIP-516: ClusterMetadata indexes topic UUIDs from MetadataResponse
+    v10+ and detects topic recreation (same name, different id)."""
+
+    def _apply(self, cluster, version, name, topic_id, **kwargs):
+        response = _make_metadata_response_with_id(version, name, topic_id, **kwargs)
+        response = MetadataResponse.decode(response.encode(), version=version)
+        cluster.update_metadata(response)
+        return response
+
+    def test_populates_indexes_from_v10_response(self, cluster):
+        u = uuid.uuid4()
+        self._apply(cluster, 10, 'topic-1', u)
+        assert cluster.topic_id('topic-1') == u
+        assert cluster.topic_name_for_id(u) == 'topic-1'
+
+    def test_topic_id_unknown_returns_none(self, cluster):
+        assert cluster.topic_id('not-a-topic') is None
+        assert cluster.topic_name_for_id(uuid.uuid4()) is None
+
+    def test_pre_v10_response_does_not_populate(self, cluster):
+        # Pre-v10 schemas don't carry topic_id; the codec returns the field
+        # default (None for uuid). The cache should record nothing.
+        response = _make_metadata_response(9)
+        response = MetadataResponse.decode(response.encode(), version=9)
+        cluster.update_metadata(response)
+        assert cluster.topic_id('topic-1') is None
+
+    def test_pre_v10_response_preserves_prior_index(self, cluster):
+        # Once we know an id from a modern broker, a stray older reply
+        # (e.g. mid-rolling-upgrade) must not clobber it.
+        u = uuid.uuid4()
+        self._apply(cluster, 10, 'topic-1', u)
+        response = _make_metadata_response(9)
+        response = MetadataResponse.decode(response.encode(), version=9)
+        cluster.update_metadata(response)
+        assert cluster.topic_id('topic-1') == u
+        assert cluster.topic_name_for_id(u) == 'topic-1'
+
+    def test_zero_uuid_not_indexed(self, cluster):
+        # ZERO_UUID is the "no id" sentinel; codec decodes it to None.
+        # Build a response with topic_id=None and confirm nothing is recorded.
+        self._apply(cluster, 10, 'topic-1', None)
+        assert cluster.topic_id('topic-1') is None
+
+    def test_recreation_resets_leader_epoch_and_updates_index(self, cluster, caplog):
+        u1 = uuid.uuid4()
+        u2 = uuid.uuid4()
+        self._apply(cluster, 10, 'topic-1', u1, leader_epoch=7)
+        assert cluster._partitions['topic-1'][0].leader_epoch == 7
+
+        with caplog.at_level('WARNING', logger='kafka.cluster'):
+            self._apply(cluster, 10, 'topic-1', u2, leader_epoch=9)
+
+        assert cluster.topic_id('topic-1') == u2
+        assert cluster.topic_name_for_id(u2) == 'topic-1'
+        assert cluster.topic_name_for_id(u1) is None
+        # Leader epoch must be reset on recreation (mirrors Java's
+        # Metadata.updateLatestMetadata behaviour).
+        assert cluster._partitions['topic-1'][0].leader_epoch == -1
+        assert any('topic_id changed' in rec.message for rec in caplog.records)
+
+    def test_stable_id_keeps_leader_epoch(self, cluster):
+        # Same id across two updates -> no recreation, epoch trusted (v10).
+        u = uuid.uuid4()
+        self._apply(cluster, 10, 'topic-1', u, leader_epoch=4)
+        self._apply(cluster, 10, 'topic-1', u, leader_epoch=8)
+        assert cluster._partitions['topic-1'][0].leader_epoch == 8
+
+    def test_topic_drop_from_response_clears_index(self, cluster):
+        # If a topic vanishes from a v10+ response, its index entry goes too.
+        u = uuid.uuid4()
+        self._apply(cluster, 10, 'topic-1', u)
+        # Now apply a v10 response with no topics.
+        response = MetadataResponse(
+            version=10,
+            throttle_time_ms=0,
+            brokers=[Broker(node_id=0, host='foo', port=12, rack=None, version=10)],
+            cluster_id='cluster-foo',
+            controller_id=0,
+            topics=[])
+        response = MetadataResponse.decode(response.encode(), version=10)
+        cluster.update_metadata(response)
+        assert cluster.topic_id('topic-1') is None
+        assert cluster.topic_name_for_id(u) is None
 
 
-def test_metadata_v5():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[5](
-        0, # throttle_time_ms
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        'cluster-foo', # cluster_id
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, [0], [0], [12])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id == 'cluster-foo'
-    assert cluster._partitions['topic-1'][0].offline_replicas == [12]
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
+class TestClusterMetadataPartitionLookups:
+    """Cover the per-partition lookups (leader_for_partition,
+    leader_epoch_for_partition) for known and unknown partitions.
+
+    Regression for an issue where ``leader_epoch_for_partition`` raised
+    KeyError on an assigned-but-not-yet-known topic, breaking
+    ``Fetcher.maybe_validate_positions`` during the first poll after
+    ``KafkaConsumer.assign(...)``.
+    """
+
+    def _seed_topic(self, cluster, version=9):
+        # v9 is the first MetadataResponse version with reliable
+        # leader_epoch (KAFKA-9212); earlier responses get sanitized
+        # to -1 by ClusterMetadata.update_metadata.
+        response = _make_metadata_response(version)
+        response = MetadataResponse.decode(response.encode(), version=version)
+        cluster.update_metadata(response)
+
+    def test_known_partition_returns_leader_and_epoch(self, cluster):
+        self._seed_topic(cluster)
+        tp = TopicPartition('topic-1', 0)
+        assert cluster.leader_for_partition(tp) == 0
+        assert cluster.leader_epoch_for_partition(tp) == 0
+
+    def test_unknown_topic_returns_none(self, cluster):
+        # Cluster has no topics; both lookups should return None, not raise.
+        tp = TopicPartition('not-a-topic', 0)
+        assert cluster.leader_for_partition(tp) is None
+        assert cluster.leader_epoch_for_partition(tp) is None
+
+    def test_unknown_partition_returns_none(self, cluster):
+        # Topic exists with partition 0 only; partition 99 must not raise.
+        self._seed_topic(cluster)
+        tp = TopicPartition('topic-1', 99)
+        assert cluster.leader_for_partition(tp) is None
+        assert cluster.leader_epoch_for_partition(tp) is None
 
 
-def test_metadata_v6():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[6](
-        0, # throttle_time_ms
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        'cluster-foo', # cluster_id
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, [0], [0], [12])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id == 'cluster-foo'
-    assert cluster._partitions['topic-1'][0].offline_replicas == [12]
-    assert cluster._partitions['topic-1'][0].leader_epoch == -1
+class TestClusterMetadataUpdatePartitionLeader:
+    """Cover update_partition_leader, the KIP-951 current-leader hint applied
+    out-of-band from a Fetch/Produce response (no MetadataResponse needed)."""
+
+    def _seed_topic(self, cluster, version=9):
+        response = _make_metadata_response(version)
+        response = MetadataResponse.decode(response.encode(), version=version)
+        cluster.update_metadata(response)
+
+    def test_updates_when_epoch_is_strictly_newer(self, cluster):
+        self._seed_topic(cluster)
+        tp = TopicPartition('topic-1', 0)
+        assert cluster.leader_for_partition(tp) == 0
+        assert cluster.leader_epoch_for_partition(tp) == 0
+
+        assert cluster.update_partition_leader(tp, leader_id=1, leader_epoch=5) is True
+        assert cluster.leader_for_partition(tp) == 1
+        assert cluster.leader_epoch_for_partition(tp) == 5
+
+    def test_noop_when_epoch_is_stale_or_equal(self, cluster):
+        self._seed_topic(cluster)
+        tp = TopicPartition('topic-1', 0)
+        # cached epoch is 0; equal and lower must no-op
+        assert cluster.update_partition_leader(tp, leader_id=1, leader_epoch=0) is False
+        assert cluster.update_partition_leader(tp, leader_id=1, leader_epoch=-1) is False
+        assert cluster.leader_for_partition(tp) == 0
+        assert cluster.leader_epoch_for_partition(tp) == 0
+
+    def test_unknown_topic_or_partition_returns_false(self, cluster):
+        # Empty cluster
+        assert cluster.update_partition_leader(
+            TopicPartition('nope', 0), leader_id=1, leader_epoch=5) is False
+        self._seed_topic(cluster)
+        assert cluster.update_partition_leader(
+            TopicPartition('topic-1', 99), leader_id=1, leader_epoch=5) is False
+
+    def test_rewires_broker_partitions(self, cluster):
+        self._seed_topic(cluster)
+        tp = TopicPartition('topic-1', 0)
+        assert tp in cluster.partitions_for_broker(0)
+        assert cluster.update_partition_leader(tp, leader_id=1, leader_epoch=5) is True
+        assert tp not in cluster.partitions_for_broker(0)
+        assert tp in cluster.partitions_for_broker(1)
+
+    def test_unknown_leader_id_minus_one_skips_broker_partitions_add(self, cluster):
+        """leader_id=-1 means 'no leader'; rewire must drop the old mapping
+        without inserting a -1 entry."""
+        self._seed_topic(cluster)
+        tp = TopicPartition('topic-1', 0)
+        assert cluster.update_partition_leader(tp, leader_id=-1, leader_epoch=5) is True
+        assert tp not in cluster.partitions_for_broker(0)
+        assert cluster.partitions_for_broker(-1) in (None, set())
 
 
-def test_metadata_v7():
-    cluster = ClusterMetadata()
-    cluster.update_metadata(MetadataResponse[7](
-        0, # throttle_time_ms
-        [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
-        'cluster-foo', # cluster_id
-        0, # controller_id
-        [(0, 'topic-1', False, [(0, 0, 0, 0, [0], [0], [12])])]))
-    assert len(cluster.topics()) == 1
-    assert cluster.controller == cluster.broker_metadata(0)
-    assert cluster.cluster_id == 'cluster-foo'
-    assert cluster._partitions['topic-1'][0].offline_replicas == [12]
-    assert cluster._partitions['topic-1'][0].leader_epoch == 0
+class TestClusterMetadataTopics:
+    def test_set_topics(self, cluster):
+        cluster._need_update = False
+
+        fut = cluster.set_topics(['t1', 't2'])
+        assert not fut.is_done
+        assert cluster._need_update is True
+
+        fut.success(cluster)
+        cluster._need_update = False
+
+        fut = cluster.set_topics(['t1', 't2'])
+        assert fut.is_done
+        assert fut.value == cluster
+        assert cluster._need_update is False
+
+        fut = cluster.set_topics([])
+        assert fut.is_done
+        assert fut.value == cluster
+        assert cluster._need_update is False
 
 
-def test_unauthorized_topic():
-    cluster = ClusterMetadata()
-    assert len(cluster.brokers()) == 0
+class TestClusterMetadataCollectHosts:
+    def test_collect_hosts__happy_path(self):
+        hosts = "127.0.0.1:1234,127.0.0.1"
+        results = collect_hosts(hosts)
+        assert set(results) == set([
+            ('127.0.0.1', 1234, socket.AF_INET),
+            ('127.0.0.1', 9092, socket.AF_INET),
+        ])
 
-    cluster.update_metadata(MetadataResponse[0](
-        [(0, 'foo', 12), (1, 'bar', 34)],
-        [(29, 'unauthorized-topic', [])]))  # single topic w/ unauthorized error
+    def test_collect_hosts__ipv6(self):
+        hosts = "[localhost]:1234,[2001:1000:2000::1],[2001:1000:2000::1]:1234"
+        results = collect_hosts(hosts)
+        assert set(results) == set([
+            ('localhost', 1234, socket.AF_INET6),
+            ('2001:1000:2000::1', 9092, socket.AF_INET6),
+            ('2001:1000:2000::1', 1234, socket.AF_INET6),
+        ])
 
-    # broker metadata should get updated
-    assert len(cluster.brokers()) == 2
+    def test_collect_hosts__string_list(self):
+        hosts = [
+            'localhost:1234',
+            'localhost',
+            '[localhost]',
+            '2001::1',
+            '[2001::1]',
+            '[2001::1]:1234',
+        ]
+        results = collect_hosts(hosts)
+        assert set(results) == set([
+            ('localhost', 1234, socket.AF_UNSPEC),
+            ('localhost', 9092, socket.AF_UNSPEC),
+            ('localhost', 9092, socket.AF_INET6),
+            ('2001::1', 9092, socket.AF_INET6),
+            ('2001::1', 9092, socket.AF_INET6),
+            ('2001::1', 1234, socket.AF_INET6),
+        ])
 
-    # topic should be added to unauthorized list
-    assert 'unauthorized-topic' in cluster.unauthorized_topics
+    def test_collect_hosts__with_spaces(self):
+        hosts = "localhost:1234, localhost"
+        results = collect_hosts(hosts)
+        assert set(results) == set([
+            ('localhost', 1234, socket.AF_UNSPEC),
+            ('localhost', 9092, socket.AF_UNSPEC),
+        ])
 
-
-def test_collect_hosts__happy_path():
-    hosts = "127.0.0.1:1234,127.0.0.1"
-    results = collect_hosts(hosts)
-    assert set(results) == set([
-        ('127.0.0.1', 1234, socket.AF_INET),
-        ('127.0.0.1', 9092, socket.AF_INET),
-    ])
-
-
-def test_collect_hosts__ipv6():
-    hosts = "[localhost]:1234,[2001:1000:2000::1],[2001:1000:2000::1]:1234"
-    results = collect_hosts(hosts)
-    assert set(results) == set([
-        ('localhost', 1234, socket.AF_INET6),
-        ('2001:1000:2000::1', 9092, socket.AF_INET6),
-        ('2001:1000:2000::1', 1234, socket.AF_INET6),
-    ])
-
-
-def test_collect_hosts__string_list():
-    hosts = [
-        'localhost:1234',
-        'localhost',
-        '[localhost]',
-        '2001::1',
-        '[2001::1]',
-        '[2001::1]:1234',
-    ]
-    results = collect_hosts(hosts)
-    assert set(results) == set([
-        ('localhost', 1234, socket.AF_UNSPEC),
-        ('localhost', 9092, socket.AF_UNSPEC),
-        ('localhost', 9092, socket.AF_INET6),
-        ('2001::1', 9092, socket.AF_INET6),
-        ('2001::1', 9092, socket.AF_INET6),
-        ('2001::1', 1234, socket.AF_INET6),
-    ])
-
-
-def test_collect_hosts__with_spaces():
-    hosts = "localhost:1234, localhost"
-    results = collect_hosts(hosts)
-    assert set(results) == set([
-        ('localhost', 1234, socket.AF_UNSPEC),
-        ('localhost', 9092, socket.AF_UNSPEC),
-    ])
+    def test_collect_hosts__protocol(self):
+        hosts = "SASL_SSL://foo.bar:1234,SASL_SSL://fizz.buzz:5678"
+        results = collect_hosts(hosts)
+        assert set(results) == set([
+            ('foo.bar', 1234, socket.AF_UNSPEC),
+            ('fizz.buzz', 5678, socket.AF_UNSPEC),
+        ])
 
 
-def test_collect_hosts__protocol():
-    hosts = "SASL_SSL://foo.bar:1234,SASL_SSL://fizz.buzz:5678"
-    results = collect_hosts(hosts)
-    assert set(results) == set([
-        ('foo.bar', 1234, socket.AF_UNSPEC),
-        ('fizz.buzz', 5678, socket.AF_UNSPEC),
-    ])
+class TestExpandToCanonicalBootstrapHosts:
+    def test_expands_multi_ip_host_to_canonical_names(self):
+        addrinfos = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, 'broker-1.kafka.example.com', ('10.0.0.1', 9092)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, 'broker-2.kafka.example.com', ('10.0.0.2', 9092)),
+        ]
+        with patch('socket.getaddrinfo', return_value=addrinfos):
+            expanded = expand_to_canonical_bootstrap_hosts([('kafka.example.com', 9092, socket.AF_UNSPEC)])
+        assert expanded == [
+            ('broker-1.kafka.example.com', 9092, socket.AF_INET),
+            ('broker-2.kafka.example.com', 9092, socket.AF_INET),
+        ]
+
+    def test_deduplicates_canonical_names(self):
+        addrinfos = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, 'broker-1.kafka.example.com', ('10.0.0.1', 9092)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, 'broker-1.kafka.example.com', ('10.0.0.5', 9092)),
+        ]
+        with patch('socket.getaddrinfo', return_value=addrinfos):
+            expanded = expand_to_canonical_bootstrap_hosts([('kafka.example.com', 9092, socket.AF_UNSPEC)])
+        assert expanded == [('broker-1.kafka.example.com', 9092, socket.AF_INET)]
+
+    def test_falls_back_to_original_on_resolution_failure(self):
+        with patch('socket.getaddrinfo', side_effect=socket.gaierror('no such host')):
+            expanded = expand_to_canonical_bootstrap_hosts([('kafka.example.com', 9092, socket.AF_UNSPEC)])
+        assert expanded == [('kafka.example.com', 9092, socket.AF_UNSPEC)]
+
+    def test_missing_canonname_falls_back_to_input_host(self):
+        addrinfos = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('10.0.0.1', 9092)),
+        ]
+        with patch('socket.getaddrinfo', return_value=addrinfos):
+            expanded = expand_to_canonical_bootstrap_hosts([('kafka.example.com', 9092, socket.AF_UNSPEC)])
+        assert expanded == [('kafka.example.com', 9092, socket.AF_INET)]
+
+
+class TestClusterMetadataClientDnsLookup:
+    def test_default_does_not_expand_bootstrap(self):
+        with patch('socket.getaddrinfo') as mock_gai:
+            cluster = ClusterMetadata(bootstrap_servers='kafka.example.com:9092')
+            assert mock_gai.call_count == 0
+        nodes = cluster.bootstrap_brokers()
+        assert [n.host for n in nodes] == ['kafka.example.com']
+
+    def test_canonical_mode_expands_bootstrap(self):
+        addrinfos = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, 'broker-1.kafka.example.com', ('10.0.0.1', 9092)),
+            (socket.AF_INET, socket.SOCK_STREAM, 0, 'broker-2.kafka.example.com', ('10.0.0.2', 9092)),
+        ]
+        with patch('socket.getaddrinfo', return_value=addrinfos):
+            cluster = ClusterMetadata(
+                bootstrap_servers='kafka.example.com:9092',
+                client_dns_lookup='resolve_canonical_bootstrap_servers_only')
+        nodes = cluster.bootstrap_brokers()
+        assert sorted(n.host for n in nodes) == [
+            'broker-1.kafka.example.com', 'broker-2.kafka.example.com']
+
+
+class TestClusterMetadataRefresh:
+    def test_request_update_returns_future(self, cluster):
+        f = cluster.request_update()
+        assert isinstance(f, Future)
+        assert not f.is_done
+
+    def test_request_update_deduplicates(self, cluster):
+        f1 = cluster.request_update()
+        f2 = cluster.request_update()
+        assert f1 is f2
+
+    def test_request_update_new_future_after_done(self, cluster):
+        f1 = cluster.request_update()
+        f1.success(True)
+        f2 = cluster.request_update()
+        assert f2 is not f1
+
+    def test_request_update_sets_cluster_need_update(self, cluster):
+        f = cluster.request_update()
+        assert cluster._need_update
+
+    def test_request_update_sends_metadata_request(self, manager, net):
+        manager.bootstrap()
+        manager.cluster.config['retry_backoff_ms'] = 10 # reduce loop delay when metadata in progress
+
+        response = _make_metadata_response(8)
+        with patch.object(manager, 'send', return_value=Future().success(response)):
+            f = manager.cluster.request_update()
+            # Drive the cluster refresh loop
+            net.poll(timeout_ms=100, future=f)
+            assert manager.send.called
+
+    def test_refresh_metadata_retries_no_node(self, manager, net):
+        # No connected nodes, empty cluster
+        cluster = manager.cluster
+        with patch.object(cluster, 'brokers', return_value=[]):
+            cluster.start_refresh_loop()
+            f = cluster.request_update()
+            net.poll(timeout_ms=0)
+            # Should not have resolved yet (retry scheduled)
+            assert not f.is_done
+            # Should have a scheduled retry
+            assert len(manager._net._scheduled) > 0
+
+    def test_bootstrap_triggers_refresh_loop(self, manager, mocker):
+        """bootstrap() schedules the periodic metadata refresh loop on the
+        cluster, so refresh fires without anyone calling it from compat.poll()."""
+        cluster = manager.cluster
+        assert cluster._refresh_loop_future is None
+        spy = mocker.spy(cluster, 'refresh_metadata')
+        manager.bootstrap(timeout_ms=100)
+        assert cluster._refresh_loop_future is not None
+        assert spy.call_count >= 1
+
+    def test_refresh_loop_spawned_once(self, manager):
+        """Calling bootstrap() multiple times must not spawn multiple refresh
+        loop tasks."""
+        cluster = manager.cluster
+        manager.bootstrap(timeout_ms=100)
+        future = cluster._refresh_loop_future
+        assert future is not None
+        manager.bootstrap(timeout_ms=100)
+        assert cluster._refresh_loop_future is future

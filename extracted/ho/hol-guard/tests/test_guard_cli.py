@@ -3760,6 +3760,7 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.sys, "executable", "/opt/guard-venv/bin/python")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.18")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.18")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -3782,6 +3783,7 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.sys, "prefix", "/mock-home/.local/pipx/venvs/hol-guard")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.18")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.18")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -3850,6 +3852,7 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "unknown")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.36")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.36")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -3981,6 +3984,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -4018,6 +4022,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -4056,6 +4061,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -4093,6 +4099,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -4128,6 +4135,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -4171,6 +4179,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -4213,6 +4222,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         monkeypatch.setattr(
             guard_update_commands_module,
             "apply_managed_install",
@@ -4255,6 +4265,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         original_get_managed_install = GuardStore.get_managed_install
         lookup_calls: list[str] = []
 
@@ -4311,6 +4322,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         original_get_managed_install = GuardStore.get_managed_install
         lookup_calls: list[str] = []
 
@@ -4356,6 +4368,7 @@ args = ["-lc", "echo hi"]
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
         monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         original_get_managed_install = GuardStore.get_managed_install
         lookup_calls: list[str] = []
 
@@ -6697,8 +6710,13 @@ url = http://127.0.0.1:8787/guard-canary
                 "workspace_id": "workspace-123",
             }
 
-        def fake_sync_local_guard_cloud_proof(store: GuardStore) -> dict[str, object]:
+        def fake_sync_local_guard_cloud_proof(
+            store: GuardStore,
+            *,
+            auth_context: dict[str, object] | None = None,
+        ) -> dict[str, object]:
             del store
+            assert auth_context is None
             sync_calls.append("first-proof")
             return {
                 "synced_at": "2026-06-04T18:31:00+00:00",
@@ -7274,7 +7292,7 @@ url = http://127.0.0.1:8787/guard-canary
                 "runtime_sessions_visible": 1,
             }
 
-        def fake_sync_receipts(current_store: GuardStore) -> dict[str, object]:
+        def fake_sync_receipts(current_store: GuardStore, **_kwargs: object) -> dict[str, object]:
             assert current_store is not None
             return {
                 "synced_at": now,
@@ -7335,7 +7353,7 @@ url = http://127.0.0.1:8787/guard-canary
                 "runtime_sessions_visible": 1,
             }
 
-        def fake_sync_receipts(current_store: GuardStore) -> dict[str, object]:
+        def fake_sync_receipts(current_store: GuardStore, **_kwargs: object) -> dict[str, object]:
             assert current_store is not None
             return {
                 "synced_at": now,
@@ -8740,7 +8758,7 @@ url = http://127.0.0.1:8787/guard-canary
     def test_guard_sync_surfaces_auth_expired_reauth_message(self, tmp_path, capsys, monkeypatch):
         home_dir = tmp_path / "home"
 
-        def _fail_sync(_store: GuardStore) -> dict[str, object]:
+        def _fail_sync(_store: GuardStore, **_kwargs: object) -> dict[str, object]:
             raise guard_commands_module.GuardSyncAuthorizationExpiredError(
                 "Guard authorization expired. Run `hol-guard connect` to sign in again."
             )
@@ -8765,7 +8783,7 @@ url = http://127.0.0.1:8787/guard-canary
             "2026-04-09T00:00:00Z",
         )
 
-        def _fail_sync(_store: GuardStore) -> dict[str, object]:
+        def _fail_sync(_store: GuardStore, **_kwargs: object) -> dict[str, object]:
             raise guard_commands_module.GuardSyncAuthorizationExpiredError(
                 "Guard authorization expired. Run `hol-guard connect` to sign in again."
             )
@@ -8788,7 +8806,7 @@ url = http://127.0.0.1:8787/guard-canary
             "2026-04-09T00:00:00Z",
         )
 
-        def _bundle_rejected(current_store: GuardStore) -> dict[str, object]:
+        def _bundle_rejected(current_store: GuardStore, **_kwargs: object) -> dict[str, object]:
             current_store.set_sync_payload(
                 "policy_bundle_last_error",
                 {"reason": "bundle_version_downgrade"},
@@ -8821,7 +8839,11 @@ url = http://127.0.0.1:8787/guard-canary
             "2026-04-09T00:00:00Z",
         )
 
-        monkeypatch.setattr(guard_commands_module, "sync_receipts", lambda _store: {"synced": True})
+        monkeypatch.setattr(
+            guard_commands_module,
+            "sync_receipts",
+            lambda _store, **_kwargs: {"synced": True},
+        )
         monkeypatch.setattr(guard_commands_module, "sync_supply_chain_bundle", lambda _store: None)
 
         guard_commands_module._refresh_cloud_policy_bundle(store)

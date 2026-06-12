@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.24.0
+Version: 0.25.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -9,12 +9,14 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: tiktoken>=0.5.0
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: litellm==1.82.3
+Requires-Dist: litellm>=1.86.2,<2.0
 Requires-Dist: click>=8.1.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: opentelemetry-api>=1.24.0
@@ -36,9 +38,9 @@ Requires-Dist: mypy>=1.0.0 ; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0 ; extra == 'dev'
 Requires-Dist: openai>=1.0.0 ; extra == 'dev'
 Requires-Dist: anthropic>=0.18.0 ; extra == 'dev'
-Requires-Dist: litellm==1.82.3 ; extra == 'dev'
+Requires-Dist: litellm>=1.86.2,<2.0 ; extra == 'dev'
 Requires-Dist: fastapi>=0.100.0 ; extra == 'dev'
-Requires-Dist: uvicorn>=0.23.0 ; extra == 'dev'
+Requires-Dist: uvicorn>=0.23.0,<1.0 ; extra == 'dev'
 Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'dev'
 Requires-Dist: websockets>=13.0 ; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.24.0 ; extra == 'dev'
@@ -47,10 +49,10 @@ Requires-Dist: ollama>=0.4.0 ; extra == 'dev'
 Requires-Dist: langchain-ollama>=0.2.0 ; extra == 'dev'
 Requires-Dist: hnswlib>=0.8.0 ; extra == 'dev'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'dev'
-Requires-Dist: sentence-transformers>=2.2.0 ; extra == 'dev'
+Requires-Dist: sentence-transformers>=2.2.0,<6.0 ; extra == 'dev'
 Requires-Dist: numpy>=1.24.0 ; extra == 'dev'
 Requires-Dist: datasets>=2.14.0 ; extra == 'evals'
-Requires-Dist: sentence-transformers>=2.2.0 ; extra == 'evals'
+Requires-Dist: sentence-transformers>=2.2.0,<6.0 ; extra == 'evals'
 Requires-Dist: numpy>=1.24.0 ; extra == 'evals'
 Requires-Dist: scikit-learn>=1.3.0 ; extra == 'evals'
 Requires-Dist: anthropic>=0.18.0 ; extra == 'evals'
@@ -61,23 +63,23 @@ Requires-Dist: sentencepiece>=0.1.99 ; extra == 'image'
 Requires-Dist: rapidocr-onnxruntime>=1.4.0,<2 ; python_full_version < '3.13' and extra == 'image'
 Requires-Dist: rapidocr>=3.0,<4 ; python_full_version >= '3.13' and extra == 'image'
 Requires-Dist: onnxruntime>=1.7,<2 ; python_full_version >= '3.13' and extra == 'image'
-Requires-Dist: langchain-core>=0.2.0 ; extra == 'langchain'
-Requires-Dist: langchain-openai>=0.1.0 ; extra == 'langchain'
+Requires-Dist: langchain-core>=1.3.3,<4.0 ; extra == 'langchain'
+Requires-Dist: langchain-openai>=1.1.14,<2.0 ; extra == 'langchain'
 Requires-Dist: mcp>=1.0.0 ; extra == 'mcp'
 Requires-Dist: httpx>=0.24.0 ; extra == 'mcp'
 Requires-Dist: hnswlib>=0.8.0 ; extra == 'memory'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'memory'
-Requires-Dist: sentence-transformers>=2.2.0 ; extra == 'memory'
-Requires-Dist: mem0ai>=0.1.100 ; extra == 'memory-stack'
-Requires-Dist: qdrant-client>=1.9.0 ; extra == 'memory-stack'
-Requires-Dist: neo4j>=5.20.0 ; extra == 'memory-stack'
+Requires-Dist: sentence-transformers>=2.2.0,<6.0 ; extra == 'memory'
+Requires-Dist: mem0ai>=1.0.0,<2.0 ; extra == 'memory-stack'
+Requires-Dist: qdrant-client>=1.9.0,<2.0 ; extra == 'memory-stack'
+Requires-Dist: neo4j>=5.20.0,<7.0 ; extra == 'memory-stack'
 Requires-Dist: torch>=2.0.0 ; extra == 'ml'
-Requires-Dist: transformers>=4.30.0 ; extra == 'ml'
+Requires-Dist: transformers>=4.30.0,<6.0 ; extra == 'ml'
 Requires-Dist: huggingface-hub>=1.5.0,<2.0 ; extra == 'ml'
 Requires-Dist: opentelemetry-sdk>=1.24.0 ; extra == 'otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.24.0 ; extra == 'otel'
 Requires-Dist: fastapi>=0.100.0 ; extra == 'proxy'
-Requires-Dist: uvicorn>=0.23.0 ; extra == 'proxy'
+Requires-Dist: uvicorn>=0.23.0,<1.0 ; extra == 'proxy'
 Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'proxy'
 Requires-Dist: openai>=2.14.0 ; extra == 'proxy'
 Requires-Dist: mcp>=1.0.0 ; extra == 'proxy'
@@ -85,17 +87,19 @@ Requires-Dist: magika>=0.6.0 ; extra == 'proxy'
 Requires-Dist: zstandard>=0.20.0 ; extra == 'proxy'
 Requires-Dist: websockets>=13.0 ; extra == 'proxy'
 Requires-Dist: onnxruntime>=1.16.0 ; extra == 'proxy'
-Requires-Dist: transformers>=4.30.0 ; extra == 'proxy'
+Requires-Dist: transformers>=4.30.0,<6.0 ; extra == 'proxy'
 Requires-Dist: watchdog>=4.0.0 ; extra == 'proxy'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'proxy'
 Requires-Dist: headroom-ai[proxy] ; extra == 'proxy-prod'
 Requires-Dist: gunicorn>=21.0.0 ; sys_platform != 'win32' and extra == 'proxy-prod'
+Requires-Dist: torch>=2.0.0 ; sys_platform == 'darwin' and extra == 'pytorch-mps'
+Requires-Dist: sentence-transformers>=2.2.0 ; sys_platform == 'darwin' and extra == 'pytorch-mps'
 Requires-Dist: fastembed>=0.4.0 ; extra == 'relevance'
 Requires-Dist: numpy>=1.24.0 ; extra == 'relevance'
 Requires-Dist: jinja2>=3.0.0 ; extra == 'reports'
 Requires-Dist: strands-agents>=0.1.0 ; extra == 'strands'
 Requires-Dist: onnxruntime>=1.16.0 ; extra == 'voice'
-Requires-Dist: transformers>=4.30.0 ; extra == 'voice'
+Requires-Dist: transformers>=4.30.0,<6.0 ; extra == 'voice'
 Requires-Dist: torch>=2.0.0 ; extra == 'voice'
 Requires-Dist: headroom-ai[voice] ; extra == 'voice-train'
 Requires-Dist: datasets>=2.14.0 ; extra == 'voice-train'
@@ -118,6 +122,7 @@ Provides-Extra: ml
 Provides-Extra: otel
 Provides-Extra: proxy
 Provides-Extra: proxy-prod
+Provides-Extra: pytorch-mps
 Provides-Extra: relevance
 Provides-Extra: reports
 Provides-Extra: strands
@@ -156,7 +161,7 @@ Project-URL: Repository, https://github.com/chopratejas/headroom
   <a href="https://app.codecov.io/gh/chopratejas/headroom"><img src="https://codecov.io/gh/chopratejas/headroom/graph/badge.svg" alt="codecov"></a>
   <a href="https://pypi.org/project/headroom-ai/"><img src="https://img.shields.io/pypi/v/headroom-ai.svg" alt="PyPI"></a>
   <a href="https://www.npmjs.com/package/headroom-ai"><img src="https://img.shields.io/npm/v/headroom-ai.svg" alt="npm"></a>
-  <a href="https://huggingface.co/chopratejas/kompress-base"><img src="https://img.shields.io/badge/model-Kompress--base-yellow.svg" alt="Model: Kompress-base"></a>
+  <a href="https://huggingface.co/chopratejas/kompress-v2-base"><img src="https://img.shields.io/badge/model-Kompress--v2--base-yellow.svg" alt="Model: Kompress-v2-base"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
   <a href="https://headroom-docs.vercel.app/docs"><img src="https://img.shields.io/badge/docs-online-blue.svg" alt="Docs"></a>
 </p>
@@ -193,7 +198,7 @@ Headroom compresses everything your AI agent reads — tool outputs, logs, RAG c
 - **MCP server** — `headroom_compress`, `headroom_retrieve`, `headroom_stats` for any MCP client
 - **Cross-agent memory** — shared store across Claude, Codex, Gemini, auto-dedup
 - **`headroom learn`** — mines failed sessions, writes corrections to `CLAUDE.md` / `AGENTS.md`
-- **Reversible (CCR)** — originals never deleted; LLM retrieves on demand
+- **Reversible (CCR)** — originals are cached for retrieval on demand
 
 ## How it works (30 seconds)
 
@@ -222,7 +227,7 @@ Headroom compresses everything your AI agent reads — tool outputs, logs, RAG c
 - **CacheAligner** — stabilizes prefixes so provider KV caches actually hit
 - **CCR** — stores originals locally; LLM calls `headroom_retrieve` if it needs them
 
-→ [Architecture](https://headroom-docs.vercel.app/docs/architecture) · [CCR reversible compression](https://headroom-docs.vercel.app/docs/ccr) · [Kompress-base model card](https://huggingface.co/chopratejas/kompress-base)
+→ [Architecture](https://headroom-docs.vercel.app/docs/architecture) · [CCR reversible compression](https://headroom-docs.vercel.app/docs/ccr) · [Kompress-v2-base model card](https://huggingface.co/chopratejas/kompress-v2-base)
 
 ## Get started (60 seconds)
 
@@ -240,7 +245,7 @@ headroom proxy --port 8787              # drop-in proxy, zero code changes
 headroom perf
 ```
 
-Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[code]`, `[memory]`, `[relevance]`, `[image]`, `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
+Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[code]`, `[memory]`, `[relevance]`, `[image]`, `[agno]`, `[langchain]`, `[evals]`, `[pytorch-mps]` (Apple-GPU memory-embedder offload — set `HEADROOM_EMBEDDER_RUNTIME=pytorch_mps`). Requires **Python 3.10+**.
 
 ## Proof
 
@@ -300,7 +305,7 @@ Platform support note: macOS auth reuse via Copilot CLI Keychain storage has bee
 **Great fit if you…**
 - run AI coding agents daily and want savings without changing your code
 - work across multiple agents and want shared memory
-- need reversible compression — originals always retrievable via CCR
+- need reversible compression — originals are retrievable via CCR within the configured TTL
 
 **Skip it if you…**
 - only use a single provider's native compaction and don't need cross-agent memory
@@ -369,7 +374,7 @@ npm install headroom-ai                 # TypeScript / Node
 docker pull ghcr.io/chopratejas/headroom:latest
 ```
 
-Granular extras: `[proxy]`, `[mcp]`, `[ml]` (Kompress-base), `[code]`, `[memory]`, `[relevance]`, `[image]`, `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
+Granular extras: `[proxy]`, `[mcp]`, `[ml]` (Kompress-base), `[code]`, `[memory]`, `[relevance]`, `[image]`, `[agno]`, `[langchain]`, `[evals]`, `[pytorch-mps]` (Apple-GPU memory-embedder offload — set `HEADROOM_EMBEDDER_RUNTIME=pytorch_mps`). Requires **Python 3.10+**.
 
 Using `pipx`? Choose a supported interpreter explicitly:
 
@@ -378,6 +383,33 @@ pipx install --python python3.13 "headroom-ai[all]"
 ```
 
 → [Installation guide](https://headroom-docs.vercel.app/docs/installation) — Docker tags, persistent service, PowerShell, devcontainers.
+
+### Corporate / SSL-inspection environments
+
+If `pip install "headroom-ai[all]"` fails with `CERTIFICATE_VERIFY_FAILED`
+(`unable to get local issuer certificate`), your network uses **SSL inspection** — a MITM
+proxy presenting a company-issued CA. The build backend (`maturin`) downloads `rustup` over a
+connection your TLS stack doesn't trust. **Install Rust first** so the build doesn't fetch it:
+
+```bash
+# macOS / Linux
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && rustup default stable
+# Windows
+winget install Rustlang.Rustup && rustup default stable
+```
+
+Restart your shell, then `pip install "headroom-ai[all]"`. A prebuilt wheel avoids the Rust
+build entirely where available: `pip install --only-binary headroom-ai headroom-ai`.
+
+Two runtime assets are fetched over TLS; if they are blocked, trust your corporate CA via
+`REQUESTS_CA_BUNDLE` / `SSL_CERT_FILE` / `CURL_CA_BUNDLE`:
+
+- **`cdn.pyke.io`** — the ONNX Runtime for the Rust core. Alternatively pre-provide it with
+  `ORT_STRATEGY=system` and `ORT_LIB_LOCATION=/path/to/onnxruntime`.
+- **`huggingface.co`** — the `kompress-base` compression model. Pre-download it and run with
+  `HF_HUB_OFFLINE=1`, or set `HF_ENDPOINT` to a trusted mirror.
+
+Running with compression disabled (pure gateway) requires neither asset.
 
 ## headroom learn
 
@@ -424,8 +456,9 @@ Devcontainers in `.devcontainer/` (default + `memory-stack` with Qdrant & Neo4j)
 ## Community
 
 - **[Discord](https://discord.gg/yRmaUNpsPJ)** — questions, feedback, war stories.
-- **[Kompress-base on HuggingFace](https://huggingface.co/chopratejas/kompress-base)** — the model behind our text compression.
+- **[Kompress-v2-base on HuggingFace](https://huggingface.co/chopratejas/kompress-v2-base)** — the model behind our text compression.
 
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
+

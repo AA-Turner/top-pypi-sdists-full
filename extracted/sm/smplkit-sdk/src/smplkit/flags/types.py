@@ -60,6 +60,25 @@ class _ContextBase:
         updated_at: datetime.datetime | None = None,
         **kwargs: Any,
     ) -> None:
+        """Construct a context entity.
+
+        Args:
+            type: Entity type (e.g. ``"user"``, ``"account"``). Must be a string.
+            key: Entity key uniquely identifying the entity within its type. Must be
+                a string; stringify numeric identifiers at the SDK boundary.
+            attributes: Mapping of attribute data that targeting rules evaluate
+                against. Merged with any keyword attributes; defaults to empty.
+            name: Optional human-readable display name for the entity.
+            created_at: Server-assigned creation timestamp. Set when the context is
+                parsed from a server response; leave unset when authoring.
+            updated_at: Server-assigned last-modified timestamp. Set when the context
+                is parsed from a server response; leave unset when authoring.
+            **kwargs: Additional attributes supplied as keyword arguments, merged
+                into ``attributes``.
+
+        Raises:
+            TypeError: *type* or *key* is not a string.
+        """
         if not isinstance(type, str):
             raise TypeError(f"Context type must be a string, got {type.__class__.__name__}: {type!r}")
         if not isinstance(key, str):
@@ -124,9 +143,9 @@ class Context(_ContextBase):
     keyword arguments) carry the data that targeting rules evaluate against.
 
     Used for both authoring (``flag.get(context=[...])``,
-    ``client.set_context([...])``, ``mgmt.contexts.register([...])``)
-    and reading (``mgmt.contexts.list/get`` return populated ``Context``
-    instances with ``save()`` / ``delete()`` ready to call).
+    ``client.set_context([...])``, ``client.platform.contexts.register([...])``)
+    and reading (``client.platform.contexts.list/get`` return populated
+    ``Context`` instances with ``save()`` / ``delete()`` ready to call).
 
     Examples::
 
@@ -151,7 +170,7 @@ class Context(_ContextBase):
 class AsyncContext(_ContextBase):
     """Async variant of :class:`Context`.
 
-    Returned by ``await mgmt.contexts.list/get`` on the async client.
+    Returned by ``await client.platform.contexts.list/get`` on the async client.
     For authoring use cases (``flag.get(context=[...])``,
     ``client.set_context([...])``, etc.), construct a regular
     :class:`Context` — input usage doesn't require the async variant.
@@ -175,10 +194,19 @@ class AsyncContext(_ContextBase):
 class FlagDeclaration:
     """Describes a flag declaration for buffered registration.
 
-    Used by :meth:`smplkit.SmplManagementClient.flags.register` to queue
-    declarations for bulk registration.  ``service`` and ``environment``
-    default to ``None``; the runtime client fills them from the active
-    ``SmplClient`` when it forwards declarations.
+    Used by ``client.flags.register`` to queue declarations for bulk registration.
+
+    Attributes:
+        id (str): Stable flag identifier the declaration registers.
+        type (str): Flag value type (e.g. ``"BOOLEAN"``, ``"STRING"``,
+            ``"NUMERIC"``, ``"JSON"``).
+        default (Any): Default value to register for the flag.
+        service (str | None): Originating service name. Defaults to ``None``; the
+            runtime client fills it from the active ``SmplClient`` when it forwards
+            declarations.
+        environment (str | None): Target environment. Defaults to ``None``; the
+            runtime client fills it from the active ``SmplClient`` when it forwards
+            declarations.
     """
 
     id: str
@@ -204,6 +232,14 @@ class Rule:
     """
 
     def __init__(self, description: str, *, environment: str) -> None:
+        """Start building a targeting rule.
+
+        Args:
+            description: Human-readable label for the rule.
+            environment: Name of the environment the rule targets. Required so the
+                target environment is unambiguous when the built rule is passed to
+                :meth:`Flag.add_rule`.
+        """
         self._description = description
         self._conditions: list[dict[str, Any]] = []
         self._environment = environment
@@ -225,6 +261,19 @@ class Rule:
         - ``when(expr)`` — escape hatch accepting an arbitrary JSON Logic
           expression (use this for OR, nested AND/OR, ``if``, etc.).
           See https://jsonlogic.com/ for the full expression grammar.
+
+        Args:
+            *args: Either a single JSON Logic expression dict — ``when(expr)`` — or
+                the three positional values ``var, op, value`` for a simple
+                comparison, where ``op`` is an :class:`Op` enum value (preferred) or a
+                raw operator string such as ``"=="`` or ``"contains"``.
+
+        Returns:
+            This rule, so ``when`` and ``serve`` calls can be chained.
+
+        Raises:
+            TypeError: *args* is neither a single dict nor exactly three positional
+                values.
         """
         if len(args) == 1 and isinstance(args[0], dict):
             self._conditions.append(args[0])
@@ -241,7 +290,15 @@ class Rule:
         raise TypeError(f"Rule.when() takes either (var, op, value) or a single JSON Logic dict; got args={args!r}")
 
     def serve(self, value: Any) -> dict[str, Any]:
-        """Finalize the rule with *value* served on match and return the built dict."""
+        """Finalize the rule with *value* served on match and return the built dict.
+
+        Args:
+            value: The value to serve when the rule's conditions evaluate truthy.
+
+        Returns:
+            The built rule dict (description, logic, value, environment) ready to
+            pass to :meth:`Flag.add_rule`.
+        """
         if len(self._conditions) == 1:
             logic = self._conditions[0]
         elif len(self._conditions) > 1:

@@ -21,6 +21,7 @@ from chalk.client.models import (
 from chalk.client.serialization.constants import GRPC_RESULT_METADATA_COL_PREFIX
 from chalk.features._encoding.converter import make_primitive_converter
 from chalk.features._encoding.json import FeatureEncodingOptions
+from chalk.features.feature_field import parse_versioned_name
 from chalk.parsed._proto.utils import (
     datetime_to_proto_timestamp,
     proto_duration_to_timedelta,
@@ -522,10 +523,11 @@ class OnlineQueryConverter:
                         # If metadata_val is not returned - these are set to None and "MISSING"
                         result.valid = (source_id is not None) or (source_type != "MISSING")
                     if result.valid:
+                        _, fqn_version = parse_versioned_name(col_name)
                         result.meta = FeatureResolutionMeta(
                             chosen_resolver_fqn=resolver_fqn,
                             cache_hit=is_cache_hit,
-                            #    version=1
+                            version=fqn_version or 1,
                         )
 
                 res.append(result)

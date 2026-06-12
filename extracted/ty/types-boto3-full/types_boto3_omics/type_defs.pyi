@@ -1225,6 +1225,7 @@ RunListItemTypeDef = TypedDict(
         "stopTime": NotRequired[datetime],
         "storageType": NotRequired[StorageTypeType],
         "workflowVersionName": NotRequired[str],
+        "workflowName": NotRequired[str],
     },
 )
 

@@ -32,19 +32,22 @@ class ResolvedConfig:
     api_key: str
     base_domain: str
     scheme: str
-    environment: str
-    service: str
+    # Optional: when absent the SDK sends no environment/service signal and
+    # the server derives the environment from the API key (ADR-021 update).
+    # Audit/jobs-only customers never need to supply either.
+    environment: str | None
+    service: str | None
     debug: bool
     telemetry: bool
 
 
 @dataclass(frozen=True)
-class ResolvedManagementConfig:
-    """Resolved configuration for the management-only client.
+class ResolvedClientConfig:
+    """Resolved configuration for a product client.
 
-    Management operations (CRUD against the platform API) are not tied
-    to an environment or service, so those fields are not part of the
-    resolved config and not required at construction time.
+    CRUD operations against the platform are not tied to an environment
+    or service, so those fields are not part of the resolved config and
+    not required at construction time.
     """
 
     api_key: str
@@ -190,23 +193,13 @@ def resolve_config(
         if val is not None:
             resolved[key] = val
 
-    # Validate required fields
-    if not resolved["environment"]:
-        raise Error(
-            "No environment provided. Set one of:\n"
-            "  1. Pass environment to the constructor\n"
-            "  2. Set the SMPLKIT_ENVIRONMENT environment variable\n"
-            f"  3. Add environment to the [{active_profile}] section in ~/.smplkit"
-        )
-
-    if not resolved["service"]:
-        raise Error(
-            "No service provided. Set one of:\n"
-            "  1. Pass service to the constructor\n"
-            "  2. Set the SMPLKIT_SERVICE environment variable\n"
-            f"  3. Add service to the [{active_profile}] section in ~/.smplkit"
-        )
-
+    # Validate required fields.
+    #
+    # ``environment`` and ``service`` are OPTIONAL: an audit-only or
+    # jobs-only customer needs neither, and when ``environment`` is absent
+    # the server derives it from the API key (the key can be scoped to an
+    # environment). config/flags/logging simply send no environment signal
+    # when it's unset. ``api_key`` remains required.
     if not resolved["api_key"]:
         raise Error(
             "No API key provided. Set one of:\n"
@@ -215,18 +208,21 @@ def resolve_config(
             f"  3. Add api_key to the [{active_profile}] section in ~/.smplkit"
         )
 
+    environment = resolved["environment"]
+    service = resolved["service"]
     return ResolvedConfig(
         api_key=str(resolved["api_key"]),
         base_domain=str(resolved["base_domain"]),
         scheme=str(resolved["scheme"]),
-        environment=str(resolved["environment"]),
-        service=str(resolved["service"]),
+        # Preserve None rather than coercing to the literal string "None".
+        environment=str(environment) if environment is not None else None,
+        service=str(service) if service is not None else None,
         debug=bool(resolved["debug"]),
         telemetry=bool(resolved["telemetry"]),
     )
 
 
-def resolve_management_config(
+def resolve_client_config(
     *,
     profile: str | None = None,
     api_key: str | None = None,
@@ -234,8 +230,8 @@ def resolve_management_config(
     scheme: str | None = None,
     debug: bool | None = None,
     _home_dir: Path | None = None,
-) -> ResolvedManagementConfig:
-    """Resolve management-only configuration.
+) -> ResolvedClientConfig:
+    """Resolve configuration for a product client.
 
     Mirrors :func:`resolve_config` but skips ``environment`` / ``service``
     requirements — they have no meaning for CRUD operations.
@@ -289,7 +285,7 @@ def resolve_management_config(
             f"  3. Add api_key to the [{active_profile}] section in ~/.smplkit"
         )
 
-    return ResolvedManagementConfig(
+    return ResolvedClientConfig(
         api_key=str(resolved["api_key"]),
         base_domain=str(resolved["base_domain"]),
         scheme=str(resolved["scheme"]),

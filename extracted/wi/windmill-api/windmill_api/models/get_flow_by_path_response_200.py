@@ -43,6 +43,8 @@ class GetFlowByPathResponse200:
         timeout (Union[Unset, float]):
         visible_to_runner_only (Union[Unset, bool]):
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
         lock_error_logs (Union[Unset, str]):
         version_id (Union[Unset, float]):
     """
@@ -67,6 +69,7 @@ class GetFlowByPathResponse200:
     timeout: Union[Unset, float] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     lock_error_logs: Union[Unset, str] = UNSET
     version_id: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -100,6 +103,10 @@ class GetFlowByPathResponse200:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         lock_error_logs = self.lock_error_logs
         version_id = self.version_id
@@ -143,6 +150,8 @@ class GetFlowByPathResponse200:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
         if lock_error_logs is not UNSET:
             field_dict["lock_error_logs"] = lock_error_logs
         if version_id is not UNSET:
@@ -202,6 +211,8 @@ class GetFlowByPathResponse200:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         lock_error_logs = d.pop("lock_error_logs", UNSET)
 
         version_id = d.pop("version_id", UNSET)
@@ -227,6 +238,7 @@ class GetFlowByPathResponse200:
             timeout=timeout,
             visible_to_runner_only=visible_to_runner_only,
             labels=labels,
+            inherited_labels=inherited_labels,
             lock_error_logs=lock_error_logs,
             version_id=version_id,
         )

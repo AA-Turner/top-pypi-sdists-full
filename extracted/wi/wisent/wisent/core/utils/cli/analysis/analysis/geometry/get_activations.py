@@ -249,7 +249,7 @@ def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTU
                 updated_pair = collector.collect(
                     pair, strategy=extraction_strategy,
                     layers=layer_strs, component=extraction_component,
-                    capture_qk=True,
+                    capture_qk=getattr(args, "capture_qk", True),
                 )
                 enriched_pairs.append(updated_pair)
                 qk_data_per_pair.append(dict(collector._last_qk))

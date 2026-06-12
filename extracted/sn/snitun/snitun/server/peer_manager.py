@@ -5,21 +5,21 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, ValuesView
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 import json
 import logging
 
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 
-from ..exceptions import SniTunInvalidPeer
-from ..utils.asyncio import asyncio_timeout
+from ..exceptions import MultiplexerTransportError, SniTunInvalidPeer
+from ..multiplexer.crypto import DEFAULT_CIPHER
 from ..utils.server import TokenData
 from .peer import Peer
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class PeerManagerEvent(str, Enum):
+class PeerManagerEvent(StrEnum):
     """Peer Manager event flags."""
 
     CONNECTED = "connected"
@@ -37,7 +37,6 @@ class PeerManager:
     ) -> None:
         """Initialize Peer Manager."""
         self._fernet = MultiFernet([Fernet(key) for key in fernet_tokens])
-        self._loop = asyncio.get_event_loop()
         self._throttling = throttling
         self._event_callback = event_callback
         self._peers: dict[str, Peer] = {}
@@ -69,15 +68,21 @@ class PeerManager:
         aes_key = bytes.fromhex(config["aes_key"])
         aes_iv = bytes.fromhex(config["aes_iv"])
 
-        return Peer(
-            hostname,
-            valid,
-            aes_key,
-            aes_iv,
-            protocol_version=config.get("protocol_version", 0),
-            throttling=self._throttling,
-            alias=config.get("alias", []),
-        )
+        try:
+            return Peer(
+                hostname,
+                valid,
+                aes_key,
+                aes_iv,
+                protocol_version=config.get("protocol_version", 0),
+                cipher=config.get("cipher", DEFAULT_CIPHER),
+                throttling=self._throttling,
+                alias=config.get("alias", []),
+            )
+        except MultiplexerTransportError as err:
+            # The token requested a cipher this runtime cannot provide
+            # (e.g. AES-GCM-SIV without OpenSSL 3.0+).
+            raise SniTunInvalidPeer("Unsupported cipher") from err
 
     def add_peer(self, peer: Peer) -> None:
         """Register peer to internal hostname list."""
@@ -94,7 +99,11 @@ class PeerManager:
             self._peers[alias] = peer
 
         if self._event_callback:
-            self._loop.call_soon(self._event_callback, peer, PeerManagerEvent.CONNECTED)
+            asyncio.get_running_loop().call_soon(
+                self._event_callback,
+                peer,
+                PeerManagerEvent.CONNECTED,
+            )
 
     def remove_peer(self, peer: Peer) -> None:
         """Remove peer from list."""
@@ -105,7 +114,7 @@ class PeerManager:
             self._peers.pop(hostname, None)
 
         if self._event_callback:
-            self._loop.call_soon(
+            asyncio.get_running_loop().call_soon(
                 self._event_callback,
                 peer,
                 PeerManagerEvent.DISCONNECTED,
@@ -133,7 +142,7 @@ class PeerManager:
 
         if waiters := [peer.wait_disconnect() for peer in peers]:
             try:
-                async with asyncio_timeout.timeout(timeout):
+                async with asyncio.timeout(timeout):
                     await asyncio.gather(*waiters, return_exceptions=True)
             except TimeoutError:
                 _LOGGER.error("Timeout while waiting for peer disconnect")

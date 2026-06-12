@@ -185,49 +185,6 @@ jobs:
           path: connector-repo
           fetch-depth: 1
 
-      - name: Install Cloud SQL Proxy
-        if: ${{ inputs.connection_id != '' }}
-        run: |
-          set -euo pipefail
-          echo "Installing Cloud SQL Proxy..."
-          VERSION="v2.15.0"
-          BASE_URL="https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${VERSION}"
-          BINARY_NAME="cloud-sql-proxy.linux.amd64"
-          # Checksum from GitHub release: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/releases/tag/v2.15.0
-          EXPECTED_SHA256="cf3e9d069ea0d09cdfddce77daa36811bb0b963b1169e9c3f1586433ca7325fa"
-
-          echo "Downloading Cloud SQL Proxy binary..."
-          curl -fsSLO "${BASE_URL}/${BINARY_NAME}"
-
-          echo "Verifying Cloud SQL Proxy checksum..."
-          echo "${EXPECTED_SHA256}  ${BINARY_NAME}" | sha256sum -c -
-
-          chmod +x "${BINARY_NAME}"
-          sudo mv "${BINARY_NAME}" /usr/local/bin/cloud-sql-proxy
-          cloud-sql-proxy --version
-
-      - name: Start Cloud SQL Proxy
-        if: ${{ inputs.connection_id != '' }}
-        env:
-          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
-        run: |
-          echo "Starting Cloud SQL Proxy for connection secret retrieval..."
-          # Start proxy in background on port 15432
-          uv run airbyte-ops cloud db start-proxy --port 15432 &
-          # Wait for proxy to be ready
-          for i in {1..30}; do
-            if nc -z localhost 15432 2>/dev/null; then
-              echo "Cloud SQL Proxy is ready on port 15432"
-              break
-            fi
-            echo "Waiting for proxy to start... ($i/30)"
-            sleep 1
-          done
-          if ! nc -z localhost 15432 2>/dev/null; then
-            echo "ERROR: Cloud SQL Proxy failed to start"
-            exit 1
-          fi
-
       - name: Setup paths and args
         id: setup
         run: |

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division
-
 import atexit
 import base64
 import logging
@@ -8,20 +6,62 @@ import os.path
 import socket
 import subprocess
 import time
+from urllib.parse import urlparse
 import uuid
 
 import py
-from kafka.vendor.six.moves import range
-from kafka.vendor.six.moves.urllib.parse import urlparse  # pylint: disable=E0611,F0401
 
-from kafka import errors, KafkaAdminClient, KafkaClient, KafkaConsumer, KafkaProducer
-from kafka.errors import InvalidReplicationFactorError, KafkaTimeoutError
-from kafka.protocol.admin import CreateTopicsRequest
-from kafka.protocol.metadata import MetadataRequest
+from kafka import errors, KafkaAdminClient
+from kafka.errors import InvalidReplicationFactorError
 from test.testutil import env_kafka_version, random_string
 from test.service import ExternalService, SpawnedService
 
 log = logging.getLogger(__name__)
+
+
+def create_topics(broker, topic_names, num_partitions=None, replication_factor=None):
+    """Create topics on the given broker fixture.
+
+    Uses KafkaAdminClient for Kafka 0.10.1+, falls back to CLI.
+    """
+    if num_partitions is None:
+        num_partitions = broker.partitions
+    if replication_factor is None:
+        replication_factor = broker.replicas
+    if env_kafka_version() >= (0, 10, 1, 0):
+        _create_topics_via_admin(broker, topic_names, num_partitions, replication_factor)
+    else:
+        for topic_name in topic_names:
+            # TODO: verify kafka-topics.sh support for early 0.8 brokers
+            broker._create_topic_via_cli(topic_name, num_partitions, replication_factor)
+
+
+def _create_topics_via_admin(broker, topic_names, num_partitions, replication_factor):
+    from kafka.admin import NewTopic
+    params = broker._enrich_client_params({}, client_id='topic_creator')
+    admin = KafkaAdminClient(**params)
+    try:
+        topics = [NewTopic(name, num_partitions, replication_factor) for name in topic_names]
+        admin.create_topics(topics, wait_for_metadata=True)
+    except InvalidReplicationFactorError:
+        time.sleep(0.5)
+        topics = [NewTopic(name, num_partitions, replication_factor) for name in topic_names]
+        admin.create_topics(topics, wait_for_metadata=True)
+    finally:
+        admin.close()
+
+
+def client_params(broker, client_id='client', **overrides):
+    """Build connection params for a client from a broker fixture."""
+    return broker._enrich_client_params(overrides, client_id='%s_%s' % (client_id, random_string(4)))
+
+
+def _extract_topic_command_error(stdout):
+    """Extract the error line from kafka-topics.sh output."""
+    for line in stdout.decode('utf-8', errors='replace').splitlines():
+        if line.startswith('Error while executing topic command'):
+            return line
+    return ''
 
 
 def get_open_port():
@@ -37,20 +77,21 @@ def gen_ssl_resources(directory):
     cd {0}
     echo Generating SSL resources in {0}
 
-    # Step 1
+    # Step 1: Generate server keystore
     keytool -keystore kafka.server.keystore.jks -alias localhost -validity 1 \
-      -genkey -storepass foobar -keypass foobar \
+      -genkey -keyalg RSA -storepass foobar -keypass foobar \
       -dname "CN=localhost, OU=kafka-python, O=kafka-python, L=SF, ST=CA, C=US" \
       -ext SAN=dns:localhost
 
-    # Step 2
+    # Step 2: Generate CA and truststore
     openssl genrsa -out ca-key 2048
     openssl req -new -x509 -key ca-key -out ca-cert -days 1 \
-      -subj "/C=US/ST=CA/O=MyOrg, Inc./CN=mydomain.com"
+      -subj "/C=US/ST=CA/O=MyOrg, Inc./CN=mydomain.com" \
+      -addext "keyUsage=critical,keyCertSign,cRLSign"
     keytool -keystore kafka.server.truststore.jks -alias CARoot -import \
       -file ca-cert -storepass foobar -noprompt
 
-    # Step 3
+    # Step 3: Sign server cert with CA
     keytool -keystore kafka.server.keystore.jks -alias localhost -certreq \
       -file cert-file -storepass foobar
     openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file -out cert-signed \
@@ -62,9 +103,8 @@ def gen_ssl_resources(directory):
     """.format(directory))
 
 
-class Fixture(object):
-    kafka_version = os.environ.get('KAFKA_VERSION', '0.11.0.2')
-    scala_version = os.environ.get("SCALA_VERSION", '2.8.0')
+class Fixture:
+    kafka_version = os.environ.get('KAFKA_VERSION', '4.2.0')
     project_root = os.environ.get('PROJECT_ROOT',
                                   os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
     kafka_root = os.environ.get("KAFKA_ROOT",
@@ -80,6 +120,14 @@ class Fixture(object):
         path = os.path.join(cls.project_root, "servers", cls.kafka_version, "resources", filename)
         if os.path.isfile(path):
             return path
+        if env_kafka_version() < (1, 0):
+            one_resource = os.path.join(cls.project_root, "servers", "resources", "0.0", filename)
+            if os.path.isfile(one_resource):
+                return one_resource
+        elif env_kafka_version() < (4, 0):
+            one_resource = os.path.join(cls.project_root, "servers", "resources", "1.0", filename)
+            if os.path.isfile(one_resource):
+                return one_resource
         return os.path.join(cls.project_root, "servers", "resources", "default", filename)
 
     @classmethod
@@ -137,18 +185,22 @@ class ZookeeperFixture(Fixture):
         if host is None:
             host = "127.0.0.1"
         fixture = cls(host, port, external=external)
-        fixture.open()
+        try:
+            fixture.open()
+        except:
+            fixture.close()
+            raise
         return fixture
 
     def __init__(self, host, port, external=False, tmp_dir=None):
-        super(ZookeeperFixture, self).__init__()
+        super().__init__()
         self.host = host
         self.port = port
         self.running = external
         self.tmp_dir = tmp_dir
 
     def kafka_run_class_env(self):
-        env = super(ZookeeperFixture, self).kafka_run_class_env()
+        env = super().kafka_run_class_env()
         env['LOG_DIR'] = self.tmp_dir.join('logs').strpath
         return env
 
@@ -248,15 +300,20 @@ class KafkaFixture(Fixture):
                                auto_create_topic=auto_create_topic,
                                tmp_dir=tmp_dir)
 
-        fixture.open()
+        try:
+            fixture.open()
+        except:
+            fixture.close()
+            raise
         return fixture
 
     def __init__(self, host, port, broker_id, zookeeper=None, zk_chroot=None,
                  replicas=1, partitions=2, transport='PLAINTEXT',
                  sasl_mechanism=None, auto_create_topic=True,
                  tmp_dir=None, external=False):
-        super(KafkaFixture, self).__init__()
-
+        super().__init__()
+        self.external = external
+        self.running = False
         self.host = host
         self.controller_bootstrap_host = host
         if port is None:
@@ -273,9 +330,11 @@ class KafkaFixture(Fixture):
         self.transport = transport.upper()
         if sasl_mechanism is not None:
             self.sasl_mechanism = sasl_mechanism.upper()
+            assert self.sasl_enabled, 'sasl_mechanism defined without enabling SASL transport'
         else:
             self.sasl_mechanism = None
-        self.ssl_dir = self.test_resource('ssl')
+            assert not self.sasl_enabled, 'SASL transport requires sasl_mechanism'
+        self.ssl_dir = None
 
         # TODO: checking for port connection would be better than scanning logs
         # until then, we need the pattern to work across all supported broker versions
@@ -288,6 +347,9 @@ class KafkaFixture(Fixture):
             self.start_pattern = r"\[KafkaRaftServer nodeId=%d\] Kafka Server started" % (broker_id,)
             self.scram_pattern = r"Replayed UserScramCredentialRecord creating new entry for %s" % (self.broker_user,)
 
+        if env_kafka_version() < (0, 9):
+            assert not self.ssl_enabled, 'Kafka broker version %s does not support SSL' % (env_kafka_version(),)
+
         self.zookeeper = zookeeper
         self.zk_chroot = zk_chroot
         # Add the attributes below for the template binding
@@ -298,17 +360,16 @@ class KafkaFixture(Fixture):
         self.partitions = partitions
 
         self.tmp_dir = tmp_dir
-        self.external = external
 
         if self.external:
             self.child = ExternalService(self.host, self.port)
-            (self._client,) = self.get_clients(1, client_id='_internal_client')
             self.running = True
         else:
-            self._client = None
             self.running = False
 
         self.sasl_config = ''
+        self.ssl_config = ''
+        self.acl_config = ''
         self.jaas_config = ''
 
     def _gen_cluster_id(self):
@@ -323,6 +384,43 @@ class KafkaFixture(Fixture):
             'sasl.mechanism.inter.broker.protocol={mechanism}\n'
         )
         return sasl_config.format(mechanism=self.sasl_mechanism)
+
+    @property
+    def ssl_enabled(self):
+        return self.transport in ('SSL', 'SASL_SSL')
+
+    def _ssl_config(self):
+        if not self.ssl_enabled:
+            return ''
+        self.ssl_dir = os.path.join(self.tmp_dir.strpath, 'ssl')
+        os.makedirs(self.ssl_dir, exist_ok=True)
+        gen_ssl_resources(self.ssl_dir)
+        return (
+            'ssl.keystore.location={ssl_dir}/kafka.server.keystore.jks\n'
+            'ssl.keystore.password=foobar\n'
+            'ssl.key.password=foobar\n'
+            'ssl.truststore.location={ssl_dir}/kafka.server.truststore.jks\n'
+            'ssl.truststore.password=foobar'
+        ).format(ssl_dir=self.ssl_dir)
+
+    def _acl_config(self):
+        if env_kafka_version() < (0, 9):
+            return ''
+        elif env_kafka_version() < (2, 4):
+            return (
+                'authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer\n'
+                'allow.everyone.if.no.acl.found=true'
+            )
+        elif env_kafka_version() < (4, 0):
+            return (
+                'authorizer.class.name=kafka.security.authorizer.AclAuthorizer\n'
+                'allow.everyone.if.no.acl.found=true'
+            )
+        else:
+            return (
+                'authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer\n'
+                'allow.everyone.if.no.acl.found=true'
+            )
 
     def _jaas_config(self):
         if not self.sasl_enabled:
@@ -368,13 +466,13 @@ class KafkaFixture(Fixture):
 
     @property
     def sasl_enabled(self):
-        return self.sasl_mechanism is not None
+        return self.transport in ('SASL_PLAINTEXT', 'SASL_SSL')
 
     def bootstrap_server(self):
         return '%s:%d' % (self.host, self.port)
 
     def kafka_run_class_env(self):
-        env = super(KafkaFixture, self).kafka_run_class_env()
+        env = super().kafka_run_class_env()
         env['LOG_DIR'] = self.tmp_dir.join('logs').strpath
         return env
 
@@ -450,7 +548,10 @@ class KafkaFixture(Fixture):
         else:
             raise RuntimeError('Failed to start KafkaInstance before max_timeout')
 
-        (self._client,) = self.get_clients(1, client_id='_internal_client')
+        if env_kafka_version() < (0, 9):
+            # broker requires at least one topic for bootstrap to return brokers list
+            log.info('Creating _bootstrap_fixup_ topic for broker %s', (env_kafka_version(),))
+            create_topics(self, ['_bootstrap_fixup_'])
 
         self.out("Done!")
         self.running = True
@@ -504,6 +605,8 @@ class KafkaFixture(Fixture):
             self._format_log_dirs()
 
         self.sasl_config = self._sasl_config()
+        self.ssl_config = self._ssl_config()
+        self.acl_config = self._acl_config()
         self.jaas_config = self._jaas_config()
         self.start()
 
@@ -533,7 +636,7 @@ class KafkaFixture(Fixture):
         self.out("Done!")
 
     def dump_logs(self):
-        super(KafkaFixture, self).dump_logs()
+        super().dump_logs()
         self.zookeeper.dump_logs()
 
     def _format_log_dirs(self):
@@ -551,77 +654,6 @@ class KafkaFixture(Fixture):
             raise RuntimeError("Failed to format log dirs!")
         return True
 
-    def _send_request(self, request, timeout=None):
-        def _failure(error):
-            raise error
-        retries = 10
-        while True:
-            node_id = self._client.least_loaded_node()
-            for connect_retry in range(40):
-                self._client.maybe_connect(node_id)
-                if self._client.connected(node_id):
-                    break
-                self._client.poll(timeout_ms=100)
-            else:
-                raise RuntimeError('Could not connect to broker with node id %s' % (node_id,))
-
-            try:
-                future = self._client.send(node_id, request)
-                future.error_on_callbacks = True
-                future.add_errback(_failure)
-                self._client.poll(future=future, timeout_ms=timeout)
-                if not future.is_done:
-                    raise KafkaTimeoutError()
-                return future.value
-            except Exception as exc:
-                time.sleep(1)
-                retries -= 1
-                if retries == 0:
-                    raise exc
-                else:
-                    pass # retry
-
-    def _create_topic(self, topic_name, num_partitions=None, replication_factor=None, timeout_ms=10000):
-        if num_partitions is None:
-            num_partitions = self.partitions
-        if replication_factor is None:
-            replication_factor = self.replicas
-
-        # Try different methods to create a topic, from the fastest to the slowest
-        if self.auto_create_topic and num_partitions == self.partitions and replication_factor == self.replicas:
-            self._create_topic_via_metadata(topic_name, timeout_ms)
-        elif env_kafka_version() >= (0, 10, 1, 0) and env_kafka_version() < (4, 0):
-            try:
-                # 4.0 brokers dropped support for CreateTopicsRequest v0 (TODO: pick from api_versions)
-                self._create_topic_via_admin_api(topic_name, num_partitions, replication_factor, timeout_ms)
-            except InvalidReplicationFactorError:
-                # wait and try again
-                # on travis the brokers sometimes take a while to find themselves
-                time.sleep(0.5)
-                self._create_topic_via_admin_api(topic_name, num_partitions, replication_factor, timeout_ms)
-        else:
-            self._create_topic_via_cli(topic_name, num_partitions, replication_factor)
-
-    def _create_topic_via_metadata(self, topic_name, timeout_ms=10000):
-        timeout_at = time.time() + timeout_ms / 1000
-        while time.time() < timeout_at:
-            response = self._send_request(MetadataRequest[0]([topic_name]), timeout_ms)
-            if response.topics[0][0] == 0:
-                return
-            log.warning("Unable to create topic via MetadataRequest: err %d", response.topics[0][0])
-            time.sleep(1)
-        else:
-            raise RuntimeError('Unable to create topic via MetadataRequest')
-
-    def _create_topic_via_admin_api(self, topic_name, num_partitions, replication_factor, timeout_ms=10000):
-        request = CreateTopicsRequest[0]([(topic_name, num_partitions,
-                                           replication_factor, [], [])], timeout_ms)
-        response = self._send_request(request, timeout=timeout_ms)
-        for topic_result in response.topic_errors:
-            error_code = topic_result[1]
-            if error_code != 0:
-                raise errors.for_code(error_code)
-
     def _create_topic_via_cli(self, topic_name, num_partitions, replication_factor):
         args = self.run_script('kafka-topics.sh',
                                '--create',
@@ -638,11 +670,12 @@ class KafkaFixture(Fixture):
         proc = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         if proc.returncode != 0:
-            if 'kafka.common.TopicExistsException' not in stdout:
+            error = _extract_topic_command_error(stdout)
+            if 'TopicExistsException' not in error and 'already exists' not in error:
                 self.out("Failed to create topic %s" % (topic_name,))
                 self.out(stdout)
                 self.out(stderr)
-                raise RuntimeError("Failed to create topic %s" % (topic_name,))
+                raise RuntimeError(error)
 
     def _cli_connect_args(self):
         if env_kafka_version() < (3, 0, 0):
@@ -669,74 +702,48 @@ class KafkaFixture(Fixture):
             raise RuntimeError("Failed to list topics!")
         return stdout.decode().splitlines(False)
 
-    def create_topics(self, topic_names, num_partitions=None, replication_factor=None):
-        for topic_name in topic_names:
-            self._create_topic(topic_name, num_partitions, replication_factor)
-
     def _enrich_client_params(self, params, **defaults):
         params = params.copy()
         for key, value in defaults.items():
             params.setdefault(key, value)
         params.setdefault('bootstrap_servers', self.bootstrap_server())
+        params.setdefault('security_protocol', self.transport)
         if self.sasl_enabled:
             params.setdefault('sasl_mechanism', self.sasl_mechanism)
-            params.setdefault('security_protocol', self.transport)
             if self.sasl_mechanism in ('PLAIN', 'SCRAM-SHA-256', 'SCRAM-SHA-512'):
                 params.setdefault('sasl_plain_username', self.broker_user)
                 params.setdefault('sasl_plain_password', self.broker_password)
+        if self.ssl_enabled:
+            params.setdefault('ssl_cafile', os.path.join(self.ssl_dir, 'ca-cert'))
+            params.setdefault('ssl_check_hostname', False)
         return params
 
-    @staticmethod
-    def _create_many_clients(cnt, cls, *args, **params):
-        client_id = params['client_id']
-        for _ in range(cnt):
-            params['client_id'] = '%s_%s' % (client_id, random_string(4))
-            yield cls(*args, **params)
-
-    def get_clients(self, cnt=1, **params):
-        params = self._enrich_client_params(params, client_id='client')
-        for client in self._create_many_clients(cnt, KafkaClient, **params):
-            yield client
-
-    def get_admin_clients(self, cnt, **params):
-        params = self._enrich_client_params(params, client_id='admin_client')
-        for client in self._create_many_clients(cnt, KafkaAdminClient, **params):
-            yield client
-
-    def get_consumers(self, cnt, topics, **params):
-        params = self._enrich_client_params(
-            params, client_id='consumer', heartbeat_interval_ms=500, auto_offset_reset='earliest'
-        )
-        for client in self._create_many_clients(cnt, KafkaConsumer, *topics, **params):
-            yield client
-
-    def get_producers(self, cnt, **params):
-        params = self._enrich_client_params(params, client_id='producer')
-        for client in self._create_many_clients(cnt, KafkaProducer, **params):
-            yield client
 
 
 def get_api_versions():
     logging.basicConfig(level=logging.ERROR)
-    zk = ZookeeperFixture.instance()
-    k = KafkaFixture.instance(0, zk)
-
-    from kafka import KafkaClient
-    client = KafkaClient(bootstrap_servers='localhost:{}'.format(k.port))
-    client.check_version()
-
-    from pprint import pprint
-
-    pprint(client.get_api_versions())
-
-    client.close()
-    k.close()
-    zk.close()
-
-
-def run_brokers():
-    logging.basicConfig(level=logging.ERROR)
     k = KafkaFixture.instance(0)
+    zk = k.zookeeper
+
+    try:
+        from kafka.admin import KafkaAdminClient
+        client = KafkaAdminClient(bootstrap_servers='localhost:{}'.format(k.port))
+        print(client.api_versions())
+        client.close()
+
+    finally:
+        k.close()
+        if zk:
+            zk.close()
+
+
+def run_brokers(args=()):
+    logging.basicConfig(level=logging.ERROR)
+    params = {}
+    if len(args) == 1 and args[0] == '--sasl':
+        params['transport'] = "SASL_PLAINTEXT"
+        params['sasl_mechanism'] = 'SCRAM-SHA-512'
+    k = KafkaFixture.instance(0, **params)
     zk = k.zookeeper
 
     print("Kafka", k.kafka_version, "running on port:", k.port)
@@ -759,7 +766,7 @@ if __name__ == '__main__':
     if cmd == 'get_api_versions':
         get_api_versions()
     elif cmd == 'kafka':
-        run_brokers()
+        run_brokers(sys.argv[2:])
     else:
         print("Unknown cmd: %s", cmd)
         exit(1)

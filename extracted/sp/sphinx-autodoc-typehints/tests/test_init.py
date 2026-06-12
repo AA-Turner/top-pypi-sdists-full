@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+from typing import Any
 from unittest.mock import MagicMock, create_autospec, patch
 
+import pytest
 from conftest import make_docstring_app, make_sig_app
 from sphinx.application import Sphinx
 from sphinx.config import Config
@@ -81,6 +83,26 @@ def test_process_docstring_sphinx_signature_raises_type_error() -> None:
     with patch("sphinx_autodoc_typehints.sphinx_signature", side_effect=TypeError("bad")):
         process_docstring(app, "function", "func", func, None, lines)
     assert ":param x: the x" in lines
+
+
+def test_process_docstring_descriptor_without_stub_is_untouched() -> None:
+    """A C data descriptor with no stub keeps its docstring as-is."""
+    import array  # noqa: PLC0415
+
+    app = make_docstring_app()
+    lines = ["the typecode character used to create the array"]
+    process_docstring(app, "attribute", "array.array.typecode", array.array.typecode, None, lines)
+    assert lines == ["the typecode character used to create the array"]
+
+
+def test_process_docstring_descriptor_with_existing_type_field() -> None:
+    """An explicit :type: field wins over the stub annotation."""
+    import array  # noqa: PLC0415
+
+    app = make_docstring_app()
+    lines = [":type: str"]
+    process_docstring(app, "attribute", "array.array.typecode", array.array.typecode, None, lines)
+    assert lines == [":type: str"]
 
 
 def test_inject_overload_no_qualname() -> None:
@@ -309,14 +331,67 @@ def test_process_docstring_strips_complex_inline_param_type() -> None:
     assert "int" in type_lines[0]
 
 
-def test_process_signature_annotations_name_error() -> None:
-    """PEP 649 lazy annotations raising NameError must not propagate from process_signature."""
+def _trailing_underscore_func(lambda_: float) -> None: ...
+
+
+def _trailing_underscore_starred_func(*args_: float) -> None: ...
+
+
+def _trailing_underscore_undocumented_func(x_: float) -> None: ...
+
+
+@pytest.mark.parametrize(
+    ("func", "lines", "expected_param_line", "expected_type_name"),
+    [
+        pytest.param(
+            _trailing_underscore_func,
+            [":param lambda_: description"],
+            ":param lambda\\_: description",
+            "lambda\\_",
+            id="unescaped-line-rewritten",
+        ),
+        pytest.param(
+            _trailing_underscore_starred_func,
+            [":param \\*args_: description"],
+            ":param \\*args_: description",
+            "args_",
+            id="starred-line-kept",
+        ),
+        pytest.param(
+            _trailing_underscore_undocumented_func,
+            [],
+            ":param x\\_:",
+            "x\\_",
+            id="undocumented-escaped",
+        ),
+    ],
+)
+def test_process_docstring_trailing_underscore_param(
+    func: Any, lines: list[str], expected_param_line: str, expected_type_name: str
+) -> None:
+    """napoleon emits ``:param lambda_:`` unescaped by default; the param line must be rewritten to
+    the escaped form and the type attached, except for forms that cannot be rewritten (issue #708)."""
+    app = make_docstring_app(typehints_document_rtype=False, always_document_param_types=True)
+    process_docstring(app, "function", "test.func", func, None, lines)
+    assert expected_param_line in lines
+    assert any(line.startswith(":type ") and expected_type_name in line and "float" in line for line in lines)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(NameError("Callable"), id="name-error"),
+        pytest.param(TypeError("type 'DiGraph' is not subscriptable"), id="type-error"),
+    ],
+)
+def test_process_signature_annotations_error(error: Exception) -> None:
+    """PEP 649 lazy annotation evaluation raising (NameError for TYPE_CHECKING-only names, TypeError
+    for subscripting a non-generic class) must not propagate from process_signature (issue #712)."""
 
     class _Func:
         @property
         def __annotations__(self) -> dict[str, object]:  # noqa: PLW3201
-            msg = "Callable"
-            raise NameError(msg)
+            raise error
 
         def __call__(self) -> None: ...
 

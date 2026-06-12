@@ -19,10 +19,8 @@ from smplkit import AsyncSmplClient
 
 async def main() -> None:
 
-    # create the client (use SmplClient for synchronous use)
-    async with AsyncSmplClient(
-        environment="production", service="showcase-service"
-    ) as client:
+    # or SmplClient for synchronous use
+    async with AsyncSmplClient() as client:
         await client.logging.install()
         print("All loggers are now controlled by smplkit")
 

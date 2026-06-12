@@ -19,7 +19,7 @@ def flatten(
     delimiter: str = "/",
     prevent_delimiter: bool = False,
     flatten_list: bool = False,
-):  # pragma: no cover
+) -> Dict:  # pragma: no cover
     """
     THIS FUNCTION IS COPIED FROM DEPRECATED ray.tune.utils.flatten_dict
 

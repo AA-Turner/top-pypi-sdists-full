@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datamodel-code-generator
-Version: 0.62.0
+Version: 0.63.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/koxudaxi/datamodel-code-generator
 Project-URL: Source, https://github.com/koxudaxi/datamodel-code-generator
@@ -109,6 +109,30 @@ in another Python file to a different output type.
 - 🔄 [CI/CD Integration](https://datamodel-code-generator.koxudaxi.dev/ci-cd/) - GitHub Actions, pre-commit hooks
 - 🚀 [One-liner Usage](https://datamodel-code-generator.koxudaxi.dev/oneliner/) - uvx, pipx, clipboard integration
 - ❓ [FAQ](https://datamodel-code-generator.koxudaxi.dev/faq/) - Common questions
+
+---
+
+## Coding agent skill
+
+This repository includes an experimental Agent Skill that teaches compatible coding agents to run `datamodel-codegen` when generating Python models from OpenAPI, AsyncAPI, JSON Schema, GraphQL, JSON/YAML/CSV sample data, MCP tool schemas, Protocol Buffers, XML Schema, Apache Avro, or existing Python model objects.
+
+See [Coding Agent Skill](docs/coding-agent-skill.md) for detailed guidance and troubleshooting.
+
+Install the directory for your agent:
+
+```bash
+# Codex, project-local
+mkdir -p .agents/skills
+cp -R skills/datamodel-code-generator .agents/skills/datamodel-code-generator
+
+# Claude Code, project-local
+mkdir -p .claude/skills
+cp -R skills/datamodel-code-generator .claude/skills/datamodel-code-generator
+```
+
+For a personal install, copy the same directory to `$HOME/.agents/skills/datamodel-code-generator/` for Codex or `~/.claude/skills/datamodel-code-generator/` for Claude Code.
+
+Check your agent's current documentation for exact search paths.
 
 ---
 
@@ -323,6 +347,12 @@ See [CI/CD Integration](https://datamodel-code-generator.koxudaxi.dev/ci-cd/) fo
       <a href="https://github.com/astral-sh">
         <img src="https://avatars.githubusercontent.com/u/115962839?s=200&v=4" alt="Astral Logo" style="width: 100px;">
         <p>Astral</p>
+      </a>
+    </td>
+    <td valign="top" align="center">
+      <a href="https://github.com/openai">
+        <img src="https://avatars.githubusercontent.com/u/14957082?s=200&v=4" alt="OpenAI Logo" style="width: 100px;">
+        <p>OpenAI</p>
       </a>
     </td>
   </tr>

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.23.0
+Version: 2.24.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -34,8 +34,10 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- 📝 docs(pyproject-fmt): overhaul the formatting reference by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#366 <https://github.com/tox-dev/toml-fmt/pull/366>`_ <a id="2.22.0"></a>
+- ✨ feat(pyproject-fmt): drop redundant wheel from setuptools build requires by
+  `@gaborbernat <https://github.com/gaborbernat>`_ in `#373 <https://github.com/tox-dev/toml-fmt/pull/373>`_
+- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#368 <https://github.com/tox-dev/toml-fmt/pull/368>`_ <a id="2.23.0"></a>
 
 Philosophy
 ----------
@@ -569,7 +571,8 @@ Beyond general formatting, each table has specific key ordering and value normal
 The :pep:`517` / :pep:`518` table that declares how your project is built. See the
 `packaging specification <https://packaging.python.org/en/latest/specifications/pyproject-toml/#build-system-table>`_.
 
-Keys are ordered ``build-backend`` → ``requires`` → ``backend-path``, and ``requires`` is normalized and sorted.
+Keys are ordered ``build-backend`` → ``requires`` → ``backend-path``, and ``requires`` is normalized and sorted. A
+redundant ``wheel`` requirement is removed when the build backend is setuptools.
 
 
 **Key ordering:** ``build-backend`` → ``requires`` → ``backend-path``
@@ -578,6 +581,15 @@ Keys are ordered ``build-backend`` → ``requires`` → ``backend-path``, and ``
 
 - ``requires``: dependencies normalized per :pep:`508` and sorted alphabetically by package name
 - ``backend-path``: entries sorted alphabetically
+
+**Redundant wheel removal:**
+
+A bare ``wheel`` entry is removed from ``requires`` when ``build-backend`` is ``setuptools.build_meta`` or
+``setuptools.build_meta:__legacy__``: setuptools either injects ``wheel`` dynamically when building (before
+version 70.1) or bundles its own copy of ``bdist_wheel`` (70.1 and later), so listing it has no effect. The
+entry is kept when it carries a version constraint, extras, or markers (it then expresses intent the backend's
+dynamic injection would honor), when ``backend-path`` is set (an in-tree backend may import ``wheel``
+directly), or when ``setuptools`` itself is missing from ``requires``.
 
 .. code-block:: toml
 
@@ -589,7 +601,7 @@ Keys are ordered ``build-backend`` → ``requires`` → ``backend-path``, and ``
     # After
     [build-system]
     build-backend = "setuptools.build_meta"
-    requires = ["setuptools>=45", "wheel"]
+    requires = ["setuptools>=45"]
 
 ``[project]``
 ~~~~~~~~~~~~~

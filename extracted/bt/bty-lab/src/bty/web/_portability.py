@@ -14,11 +14,11 @@ Bundle layout::
 
 ``inventory.json`` carries ``bty_export_version`` (currently 3).
 The import refuses anything else. Pre-1.0 policy: bundles don't
-migrate across major-format bumps -- regenerate on the source
+migrate across major-format bumps; regenerate on the source
 release. The name reflects what the file actually is: a machine
 inventory (mac + lshw + known_disks), distinct from the catalog
-``manifest`` (``${BTY_STATE_DIR}/catalog.toml`` -- a different
-file with a different schema).
+``manifest`` (``<state_dir>/catalog.toml``; a different file with
+a different schema).
 
 Why metadata-only: a routine backup runs daily on a cadence, so the
 size matters. Earlier releases (v0.31.0 through v0.33.1) shipped
@@ -53,21 +53,20 @@ from . import _db
 # The inventory bundle's on-disk format version. INDEPENDENT of
 # ``bty.__version__``: this number is bumped ONLY when the
 # ``inventory.json`` shape changes (fields added, removed, or
-# their semantics change). It does NOT bump for every bty release
-# -- a v3 bundle written by bty v0.33.2 must be importable by any
+# their semantics change). It does NOT bump for every bty release:
+# a v3 bundle written by bty v0.33.2 must be importable by any
 # future bty release that still understands v3, and the export
 # from bty v0.34.0 / v0.35.0 / ... still writes v3 unless the
 # shape itself changes.
 #
 # History:
-#   v1 -- pre-v0.31.0 layout (images/ + cache/ subdirs + machine
-#         bindings + catalog_entries section). No longer
-#         importable.
-#   v2 -- v0.31.0..v0.33.1 (flat files/ + slim machine records).
-#         No longer importable; image bytes are now out of scope
-#         for the bundle.
-#   v3 -- v0.33.2+ metadata-only: just inventory.json with mac +
-#         lshw + known_disks per machine.
+#   v1: pre-v0.31.0 layout (images/ + cache/ subdirs + machine
+#       bindings + catalog_entries section). No longer importable.
+#   v2: v0.31.0..v0.33.1 (flat files/ + slim machine records). No
+#       longer importable; image bytes are now out of scope for the
+#       bundle.
+#   v3: v0.33.2+ metadata-only: just inventory.json with mac +
+#       lshw + known_disks per machine.
 #
 # Import refuses any version that isn't equal to this constant.
 # Pre-1.0 policy: bundles don't migrate across major-format bumps.
@@ -101,9 +100,8 @@ class ImportSummary:
 class BundleVersionMismatch(ValueError):
     """Raised by :func:`import_bundle` when the bundle's
     ``bty_export_version`` doesn't match the running code's
-    expected value. Pre-1.0 policy: bundles don't migrate
-    across major-format bumps -- regenerate on the source
-    release."""
+    expected value. Pre-1.0 policy: bundles don't migrate across
+    major-format bumps; regenerate on the source release."""
 
 
 def export_bundle(
@@ -117,12 +115,11 @@ def export_bundle(
     Reads minimal machine records (mac + hw_lshw + known_disks +
     their timestamps) from ``state_path`` and writes them to
     ``dest/inventory.json``. ``dest`` is created if absent. No
-    image bytes are touched -- this is the routine-backup
-    primitive.
+    image bytes are touched; this is the routine-backup primitive.
 
     ``known_disks`` and ``hw_lshw`` live in sqlite as JSON-encoded
     TEXT; ``_decode_machine`` decodes them on the way out so the
-    inventory carries native objects/arrays rather than re-encoded
+    inventory carries native objects + arrays rather than re-encoded
     strings. Operators can ``jq`` it without an extra decode step.
     """
     dest.mkdir(parents=True, exist_ok=True)
@@ -197,7 +194,7 @@ def import_bundle(
             f"bundle bty_export_version={ver!r}, expected {_EXPORT_VERSION!r}. "
             f"v0.33.2 introduced a metadata-only bundle format; older bundles "
             f"(v1: pre-v0.31.0, v2: v0.31.0..v0.33.1 with image bytes) aren't "
-            f"migratable -- regenerate on the source release."
+            f"migratable; regenerate on the source release."
         )
 
     n_m = 0

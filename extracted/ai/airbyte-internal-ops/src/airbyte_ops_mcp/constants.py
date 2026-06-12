@@ -34,6 +34,9 @@ ENV_AIRBYTE_INTERNAL_ADMIN_USER = "AIRBYTE_INTERNAL_ADMIN_USER"
 ENV_GCP_PROD_DB_ACCESS_CREDENTIALS = "GCP_PROD_DB_ACCESS_CREDENTIALS"
 """Environment variable containing GCP service account JSON credentials for prod DB access."""
 
+ENV_K_SERVICE = "K_SERVICE"
+"""Cloud Run env var set to the service name, used only for runtime detection."""
+
 # Expected values for internal admin authentication
 EXPECTED_ADMIN_FLAG_VALUE = "airbyte.io"
 EXPECTED_ADMIN_EMAIL_DOMAIN = "@airbyte.io"

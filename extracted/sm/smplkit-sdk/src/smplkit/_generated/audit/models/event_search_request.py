@@ -44,10 +44,9 @@ class EventSearchRequest:
                 filtering. When present, the search is silently capped to the last 30 days by `occurred_at` (intersected with
                 any explicit `filter[occurred_at]` the caller supplied).
             filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope results to (e.g.
-                `production,staging`). When omitted, results are scoped to your single accessible environment; send the
-                `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects
-                platform change events that smplkit records about your own resources (flags, configuration, and so on); these
-                are not tied to a deployment environment and are readable regardless of which environments you manage.
+                `production,staging`). When omitted, results cover every environment you can access. The reserved value
+                `smplkit` selects platform change events smplkit records about your own resources; it is included by default
+                when your plan grants change history, and requesting it explicitly without that entitlement returns 402.
             filterevent_type (None | str | Unset): Exact match on the event's `event_type` field.
             filterresource_type (None | str | Unset): Exact match on the event's `resource_type` field.
             filterresource_id (None | str | Unset): Exact match on the event's `resource_id` field. Must be accompanied by

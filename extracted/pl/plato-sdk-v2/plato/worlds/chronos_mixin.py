@@ -62,13 +62,33 @@ class ChronosSessionMixin:
             return self.chronos.otel_url.removesuffix("/api/otel")
         return ""
 
+    def _get_chronos_api_key(self) -> str:
+        """API key for Chronos calls.
+
+        Prefers session config (filled by the launch backend / dev runner),
+        falling back to the PLATO_API_KEY env var so a config without
+        session.api_key still authenticates instead of sending an empty
+        X-API-Key.
+        """
+        if self.chronos.api_key:
+            return self.chronos.api_key
+        return os.environ.get("PLATO_API_KEY", "")
+
+    def _chronos_auth_source(self) -> str:
+        """Describe where the Chronos API key came from (for debug logs)."""
+        if self.chronos.api_key:
+            return "session.api_key"
+        if os.environ.get("PLATO_API_KEY"):
+            return "PLATO_API_KEY env"
+        return "MISSING"
+
     def _chronos_client(self):
         """Create an AsyncChronos client for the current session."""
         from plato.chronos.sdk import AsyncChronos
 
         return AsyncChronos(
             base_url=self._get_chronos_base_url(),
-            api_key=self.chronos.api_key,
+            api_key=self._get_chronos_api_key(),
         )
 
     # -- OTel / session setup ----------------------------------------------

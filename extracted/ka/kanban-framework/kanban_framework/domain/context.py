@@ -65,6 +65,8 @@ def _load_knowledge_summary(fs: Filesystem, task: Task) -> dict | None:
     try:
         data = json.loads(kf.read_text(encoding="utf-8"))
         matched = data.get("matched", [])
+        if not isinstance(matched, list):
+            matched = [] if not matched else [matched] if isinstance(matched, dict) else []
         # Auto-record usage for knowledge entries matched during plan (#365)
         if matched:
             try:

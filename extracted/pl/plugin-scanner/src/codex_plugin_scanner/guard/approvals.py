@@ -35,6 +35,7 @@ GUARD_CONNECT_URL = f"{GUARD_DASHBOARD_URL}/connect"
 _WORKSPACE_SCOPED_RUNTIME_ARTIFACT_TYPES = frozenset(
     {
         "file_read_request",
+        "package_request",
         "prompt_request",
         "tool_action_request",
     }
@@ -53,6 +54,27 @@ def build_approval_request_url(approval_center_url: str, request_id: str) -> str
     """Build the canonical local dashboard deep link for one approval request."""
 
     return f"{approval_center_url.rstrip('/')}/requests/{request_id.strip()}"
+
+
+def build_approval_browser_url(approval_url: str | None, *, auth_token: str | None) -> str | None:
+    """Build a browser-openable approval URL with a scoped Guard session token."""
+
+    if not approval_url or auth_token is None:
+        return approval_url
+    parsed = urlparse(approval_url)
+    fragment_pairs = [
+        (key, value) for key, value in parse_qsl(parsed.fragment, keep_blank_values=True) if key != "guard-token"
+    ]
+    fragment_pairs.append(
+        (
+            "guard-token",
+            build_local_dashboard_session_token(
+                auth_token=auth_token,
+                surface="approval-center",
+            ),
+        )
+    )
+    return urlunparse(parsed._replace(fragment=urlencode(fragment_pairs)))
 
 
 def _normalize_harness_slug(harness: str | None) -> str | None:
@@ -206,6 +228,7 @@ def queue_blocked_approvals(
             scanner_evidence=_item_scanner_evidence(item),
         )
         persisted_request_id = store.add_approval_request(request, timestamp)
+        created_new_request = persisted_request_id == request.request_id
         if persisted_request_id != request.request_id:
             request = replace(
                 request,
@@ -213,6 +236,8 @@ def queue_blocked_approvals(
                 review_command=f"{GUARD_COMMAND} approvals approve {persisted_request_id}",
                 approval_url=build_approval_request_url(approval_center_url, persisted_request_id),
             )
+        if created_new_request:
+            _record_created_event(store, request, timestamp)
         _notify_pending_approval(store=store, request=request)
         queued.append(request.to_dict())
     return queued
@@ -419,6 +444,25 @@ def _record_resolution_event(store: GuardStore, request_id: str, action: str, sc
     )
 
 
+def _record_created_event(store: GuardStore, request: GuardApprovalRequest, created_at: str) -> None:
+    store.add_event(
+        "approval.created",
+        {
+            "request_id": request.request_id,
+            "harness": request.harness,
+            "artifact_id": request.artifact_id,
+            "artifact_name": request.artifact_name,
+            "artifact_type": request.artifact_type,
+            "policy_action": request.policy_action,
+            "recommended_scope": request.recommended_scope,
+            "source_scope": request.source_scope,
+            "workspace": request.workspace,
+            "publisher": request.publisher,
+        },
+        created_at,
+    )
+
+
 def _refresh_queue_result(
     store: GuardStore,
     result: dict[str, object],
@@ -448,12 +492,13 @@ def approval_center_hint(
     managed_install: dict[str, object] | None = None,
     request_id: str | None = None,
     artifact_id: str | None = None,
+    review_url: str | None = None,
 ) -> str:
     del context
     flow = approval_prompt_flow(harness, managed_install=managed_install)
     count = len(queued)
     risk_summary = _queue_risk_summary(queued)
-    review_url = (
+    resolved_review_url = review_url or (
         primary_approval_url(
             queued,
             harness=harness,
@@ -466,7 +511,7 @@ def approval_center_hint(
     return (
         f"Guard queued {count} approval request{'s' if count != 1 else ''} for {harness}. "
         f"{flow['summary']} "
-        f"Review them in the Guard approval center at {review_url}. "
+        f"Review them in the Guard approval center at {resolved_review_url}. "
         f"{risk_summary} "
         f"{flow['fallback_hint']}"
     )

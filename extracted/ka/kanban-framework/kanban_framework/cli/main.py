@@ -20,14 +20,12 @@ from kanban_framework.cli.main_renderers import (  # noqa: F401
     _render_status,
     _render_summary,
     _render_time,
-    _render_tokens,
     _render_update,
 )
 from kanban_framework.cli.main_commands import (  # noqa: F401
     _cmd_check_env,
     _cmd_stats,
     _cmd_sync_agents,
-    _cmd_track,
     _cmd_update,
     _is_pre_release,
 )
@@ -58,7 +56,6 @@ _CMD_MAP: dict[str, tuple[str, str]] = {
     "summary":    ("kanban_framework.cli.query", "cmd_summary"),
     "progress":   ("kanban_framework.cli.query", "cmd_progress"),
     "time":       ("kanban_framework.cli.query", "cmd_time"),
-    "tokens":     ("kanban_framework.cli.query", "cmd_tokens"),
     "dashboard":  ("kanban_framework.cli.query", "cmd_dashboard"),
     "inbox":      ("kanban_framework.cli.inbox", "dispatch"),
     "knowledge":  ("kanban_framework.cli.knowledge", "dispatch"),
@@ -73,7 +70,6 @@ _CMD_MAP: dict[str, tuple[str, str]] = {
     "update":         ("kanban_framework.cli.main", "_cmd_update"),
     "codebase":       ("kanban_framework.cli.codebase", "dispatch"),
     "stats":          ("kanban_framework.cli.main", "_cmd_stats"),
-    "track":          ("kanban_framework.cli.main", "_cmd_track"),
     "hook":           ("kanban_framework.cli.hook", "cmd_hook"),
     "install-codeburn": ("kanban_framework.cli.task", "cmd_install_codeburn"),
 }
@@ -150,10 +146,10 @@ def main() -> None:
     _setup_logging()
 
     if not args or args[0] in ("--help", "-h", "help"):
-        if _USE_JSON:
-            _output({"success": True, "data": _cmd_help(args[1:] if len(args) > 1 else [])})
-        else:
+        if not explicit_json:
             _render_help()
+        else:
+            _output({"success": True, "data": _cmd_help(args[1:] if len(args) > 1 else [])})
         return
 
     if args[0] in ("--version", "-V"):
@@ -210,7 +206,6 @@ def _render(cmd: str, data: dict) -> None:
         "score": _render_score,
         "summary": _render_summary,
         "time": _render_time,
-        "tokens": _render_tokens,
         "nlp": _render_nlp,
         "dashboard": _render_dashboard,
         "update": _render_update,

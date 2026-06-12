@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from smplkit._errors import NotFoundError
-from smplkit.client import AsyncSmplClient, SmplClient
-from smplkit.config.client import ConfigChangeEvent, LiveConfigProxy
+from smplkit._client import AsyncSmplClient, SmplClient
+from smplkit.config._client import ConfigChangeEvent, LiveConfigProxy
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ def _make_connected_async_client(cache=None):
 class TestResolveSyncPrescriptive:
     def test_resolve_returns_flat_dict(self):
         client = _make_connected_client()
-        result = client.config.get("db")
+        result = client.config.subscribe("db")
         assert isinstance(result, LiveConfigProxy)
         assert dict(result) == {
             "host": "localhost",
@@ -75,14 +75,20 @@ class TestResolveSyncPrescriptive:
     def test_resolve_raises_not_found_for_missing_config(self):
         client = _make_connected_client()
         with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
-            client.config.get("nonexistent")
+            client.config.subscribe("nonexistent")
 
-    def test_resolve_triggers_lazy_connect(self):
+    def test_subscribe_lazy_connects_without_explicit_install(self):
         client = SmplClient(api_key="sk_test", environment="production", service="svc")
-        with patch.object(client.config, "start") as mock_connect:
-            client.config._config_cache = {"db": {"host": "h"}}
-            client.config.get("db")
-        mock_connect.assert_called_once()
+        # No explicit install — subscribe connects lazily on first use.
+        mock_cfg = MagicMock()
+        mock_cfg.id = "db"
+        mock_cfg._items_raw = {"host": {"value": "h"}}
+        mock_cfg.environments = {}
+        mock_cfg._build_chain.return_value = [{"id": "db", "items": {"host": {"value": "h"}}, "environments": {}}]
+        with patch.object(client.config, "_fetch_all_configs", return_value=[mock_cfg]):
+            proxy = client.config.subscribe("db")
+        assert client.config._connected is True
+        assert proxy["host"] == "h"
 
 
 # ===================================================================
@@ -95,7 +101,7 @@ class TestResolveAsyncPrescriptive:
         client = _make_connected_async_client()
 
         async def _run():
-            result = await client.config.get("db")
+            result = client.config.subscribe("db")
             assert isinstance(result, LiveConfigProxy)
             assert result["host"] == "localhost"
             assert result["port"] == 5432
@@ -107,7 +113,7 @@ class TestResolveAsyncPrescriptive:
 
         async def _run():
             with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
-                await client.config.get("nonexistent")
+                client.config.subscribe("nonexistent")
 
         asyncio.run(_run())
 
@@ -120,19 +126,19 @@ class TestResolveAsyncPrescriptive:
 class TestGetProxyBehaviorSync:
     def test_proxy_attribute_access(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert proxy.host == "localhost"
         assert proxy.port == 5432
 
     def test_proxy_getitem_access(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert proxy["host"] == "localhost"
         assert proxy["port"] == 5432
 
     def test_proxy_reflects_cache_updates(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert proxy.host == "localhost"
 
         # Simulate cache update (as refresh() would do)
@@ -141,19 +147,19 @@ class TestGetProxyBehaviorSync:
 
     def test_proxy_missing_attribute_raises(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         with pytest.raises(AttributeError, match="No config item"):
             _ = proxy.nonexistent
 
     def test_proxy_missing_getitem_raises(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         with pytest.raises(KeyError):
             _ = proxy["nonexistent"]
 
     def test_proxy_repr_without_model(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         r = repr(proxy)
         assert "LiveConfigProxy" in r
         assert "db" in r
@@ -161,34 +167,34 @@ class TestGetProxyBehaviorSync:
     def test_get_for_missing_config_raises_not_found(self):
         client = _make_connected_client()
         with pytest.raises(NotFoundError, match="Config with id 'nonexistent' not found"):
-            client.config.get("nonexistent")
+            client.config.subscribe("nonexistent")
 
     def test_proxy_contains(self):
         client = _make_connected_client()
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert "host" in proxy
         assert "nope" not in proxy
 
     def test_proxy_len(self):
         client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert len(proxy) == 2
 
     def test_proxy_iter(self):
         client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert sorted(iter(proxy)) == ["host", "port"]
 
     def test_proxy_keys_values_items(self):
         client = _make_connected_client({"db": {"host": "localhost", "port": 5432}})
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert sorted(proxy.keys()) == ["host", "port"]
         assert set(proxy.values()) == {"localhost", 5432}
         assert dict(proxy.items()) == {"host": "localhost", "port": 5432}
 
     def test_proxy_get_method(self):
         client = _make_connected_client({"db": {"host": "localhost"}})
-        proxy = client.config.get("db")
+        proxy = client.config.subscribe("db")
         assert proxy.get("host") == "localhost"
         assert proxy.get("missing") is None
         assert proxy.get("missing", "fallback") == "fallback"
@@ -204,7 +210,7 @@ class TestGetProxyBehaviorAsync:
         client = _make_connected_async_client()
 
         async def _run():
-            proxy = await client.config.get("db")
+            proxy = client.config.subscribe("db")
             assert proxy.host == "localhost"
 
         asyncio.run(_run())
@@ -213,7 +219,7 @@ class TestGetProxyBehaviorAsync:
         client = _make_connected_async_client()
 
         async def _run():
-            proxy = await client.config.get("db")
+            proxy = client.config.subscribe("db")
             assert proxy["host"] == "localhost"
 
         asyncio.run(_run())
@@ -222,7 +228,7 @@ class TestGetProxyBehaviorAsync:
         client = _make_connected_async_client()
 
         async def _run():
-            proxy = await client.config.get("db")
+            proxy = client.config.subscribe("db")
             assert proxy.host == "localhost"
             client.config._config_cache["db"]["host"] = "updated"
             assert proxy.host == "updated"
@@ -236,7 +242,7 @@ class TestGetProxyBehaviorAsync:
 
 
 class TestRefreshSync:
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = _make_connected_client({"db": {"host": "old"}})
 
@@ -270,7 +276,7 @@ class TestRefreshSync:
 
         assert client.config._config_cache["db"]["host"] == "new-host"
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_refresh_fires_listeners(self, mock_list):
         client = _make_connected_client({"db": {"host": "old"}})
 
@@ -319,7 +325,7 @@ class TestRefreshSync:
 
 
 class TestRefreshAsync:
-    @patch("smplkit.config.client.list_configs.asyncio_detailed")
+    @patch("smplkit.config._client.list_configs.asyncio_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = _make_connected_async_client({"db": {"host": "old"}})
 
@@ -359,7 +365,7 @@ class TestRefreshAsync:
         asyncio.run(run())
         assert client.config._config_cache["db"]["host"] == "new-host"
 
-    @patch("smplkit.config.client.list_configs.asyncio_detailed")
+    @patch("smplkit.config._client.list_configs.asyncio_detailed")
     def test_refresh_fires_listeners(self, mock_list):
         client = _make_connected_async_client({"db": {"host": "old"}})
 

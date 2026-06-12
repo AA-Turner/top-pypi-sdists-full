@@ -233,7 +233,7 @@ def is_dask_collection(x) -> bool:
         return False
 
     pkg_name = getattr(type(x), "__module__", "")
-    if pkg_name.split(".")[0] in ("dask_cudf",):
+    if pkg_name.split(".")[0] == "dask_cudf":
         # Temporary hack to avoid graph materialization. Note that this won't work with
         # dask_expr.array objects wrapped by xarray or pint. By the time dask_expr.array
         # is published, we hope to be able to rewrite this method completely.
@@ -381,7 +381,7 @@ class DaskMethodsMixin:
         try:
             from distributed import futures_of, wait
         except ImportError as e:
-            raise ImportError(
+            raise type(e)(
                 "Using async/await with dask requires the `distributed` package"
             ) from e
 
@@ -577,9 +577,9 @@ def optimize(*args, traverse=True, **kwargs):
     >>> a2, b2 = dask.optimize(a, b)
 
     >>> a2.compute() == a.compute()
-    True
+    np.True_
     >>> b2.compute() == b.compute()
-    True
+    np.True_
     """
     # TODO: This API is problematic. The approach to using postpersist forces us
     # to materialize the graph. Most low level optimizations will materialize as
@@ -640,12 +640,12 @@ def compute(
     >>> a = da.arange(10, chunks=2).sum()
     >>> b = da.arange(10, chunks=2).mean()
     >>> dask.compute(a, b)
-    (45, 4.5)
+    (np.int64(45), np.float64(4.5))
 
     By default, dask objects inside python collections will also be computed:
 
     >>> dask.compute({'a': a, 'b': b, 'c': 1})
-    ({'a': 45, 'b': 4.5, 'c': 1},)
+    ({'a': np.int64(45), 'b': np.float64(4.5), 'c': 1},)
     """
 
     collections, repack = unpack_collections(*args, traverse=traverse)
@@ -1301,5 +1301,6 @@ def clone_key(key: KeyOrStrT, seed: Hashable) -> KeyOrStrT:
         return (clone_key(key[0], seed),) + key[1:]
     if isinstance(key, str):
         prefix = key_split(key)
-        return prefix + "-" + tokenize(key, seed)
+        token = tokenize(key, seed)
+        return f"{prefix}-{token}"
     raise TypeError(f"Expected str or a tuple starting with str; got {key!r}")

@@ -1,12 +1,12 @@
 """Scheduled + on-demand backup of the operator-owned state.
 
 A backup is exactly what :func:`bty.web._portability.export_bundle`
-produces -- v0.33.2+: a metadata-only bundle (just
-``inventory.json``) carrying the per-machine hardware identity
-(mac + lshw + known_disks). No image bytes; image files live in
-``BTY_IMAGE_ROOT`` and are either still on disk or re-fetchable
-from the catalog. The bundle lands as a directory under
-:data:`backups_root`. The manager wires this primitive into the
+produces, a metadata-only bundle (just ``inventory.json``) carrying
+the per-machine hardware identity (mac + lshw + known_disks). No
+image bytes: v0.40+ took bty-web out of the bytes plane, so image
+artifacts live in withcache's volume or oras at the registry and
+are re-fetchable from the catalog. The bundle lands as a directory
+under :data:`backups_root`. The manager wires this primitive into the
 same per-key worker-pool model :class:`_BaseAsyncManager` uses for
 downloads + hashes + release fetches, so the worker indicator +
 the Backups page (``/ui/backups``) treat backups as just another
@@ -644,11 +644,10 @@ def _resolve_max_parallel() -> int:
         n = _cfg().tuning.backup_max_parallel
         return n if n >= 1 else DEFAULT_MAX_PARALLEL
     except RuntimeError:
-        # No active config -- direct-call test / import. Fall back
-        # to the legacy env name so existing fixtures still work.
-        raw = os.environ.get("BTY_TUNING_BACKUP_MAX_PARALLEL") or os.environ.get(
-            "BTY_BACKUP_MAX_PARALLEL"
-        )
+        # No active config (direct-call test / import path). Read the
+        # canonical env name directly so test fixtures that bypass
+        # config loading still work.
+        raw = os.environ.get("BTY_TUNING_BACKUP_MAX_PARALLEL")
         if raw is None:
             return DEFAULT_MAX_PARALLEL
         try:

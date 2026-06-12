@@ -904,6 +904,7 @@ class OrderableDBInstanceOptionTypeDef(TypedDict):
     MinIopsPerGib: NotRequired[float]
     MaxIopsPerGib: NotRequired[float]
     SupportsGlobalDatabases: NotRequired[bool]
+    SupportedNetworkTypes: NotRequired[list[str]]
 
 
 class SubnetTypeDef(TypedDict):
@@ -961,6 +962,7 @@ class ClusterPendingModifiedValuesTypeDef(TypedDict):
     StorageType: NotRequired[str]
     AllocatedStorage: NotRequired[int]
     Iops: NotRequired[int]
+    NetworkType: NotRequired[str]
 
 
 class PendingModifiedValuesTypeDef(TypedDict):
@@ -1062,6 +1064,7 @@ class CreateDBClusterMessageTypeDef(TypedDict):
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     GlobalClusterIdentifier: NotRequired[str]
     StorageType: NotRequired[str]
+    NetworkType: NotRequired[str]
     SourceRegion: NotRequired[str]
 
 
@@ -1086,6 +1089,7 @@ class ModifyDBClusterMessageTypeDef(TypedDict):
     CopyTagsToSnapshot: NotRequired[bool]
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     StorageType: NotRequired[str]
+    NetworkType: NotRequired[str]
 
 
 class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
@@ -1108,6 +1112,7 @@ class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
     CopyTagsToSnapshot: NotRequired[bool]
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     StorageType: NotRequired[str]
+    NetworkType: NotRequired[str]
 
 
 class DBClusterEndpointMessageTypeDef(TypedDict):
@@ -1470,6 +1475,7 @@ class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
     DeletionProtection: NotRequired[bool]
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationTypeDef]
     StorageType: NotRequired[str]
+    NetworkType: NotRequired[str]
 
 
 class EventCategoriesMessageTypeDef(TypedDict):
@@ -1523,6 +1529,7 @@ class DBSubnetGroupTypeDef(TypedDict):
     SubnetGroupStatus: NotRequired[str]
     Subnets: NotRequired[list[SubnetTypeDef]]
     DBSubnetGroupArn: NotRequired[str]
+    SupportedNetworkTypes: NotRequired[list[str]]
 
 
 class DBClusterTypeDef(TypedDict):
@@ -1571,6 +1578,7 @@ class DBClusterTypeDef(TypedDict):
     GlobalClusterIdentifier: NotRequired[str]
     IOOptimizedNextAllowedModificationTime: NotRequired[datetime]
     StorageType: NotRequired[str]
+    NetworkType: NotRequired[str]
 
 
 class DescribeEngineDefaultClusterParametersResultTypeDef(TypedDict):
@@ -1709,6 +1717,7 @@ class DBInstanceTypeDef(TypedDict):
     PerformanceInsightsKMSKeyId: NotRequired[str]
     EnabledCloudwatchLogsExports: NotRequired[list[str]]
     DeletionProtection: NotRequired[bool]
+    NetworkType: NotRequired[str]
 
 
 class DBSubnetGroupMessageTypeDef(TypedDict):

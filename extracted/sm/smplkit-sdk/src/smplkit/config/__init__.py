@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from smplkit.config.client import (
+from smplkit.config._client import (
     ConfigChangeEvent,
     LiveConfigProxy,
 )

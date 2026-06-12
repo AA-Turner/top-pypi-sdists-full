@@ -29,7 +29,7 @@ class CustomCertificateEditParams(TypedDict, total=False):
     """The identifier for the Custom CSR that was used."""
 
     deploy: Literal["staging", "production"]
-    """The environment to deploy the certificate to, defaults to production"""
+    """The environment to deploy the certificate to, defaults to production."""
 
     geo_restrictions: GeoRestrictionsParam
     """
@@ -58,4 +58,8 @@ class CustomCertificateEditParams(TypedDict, total=False):
     """
 
     private_key: str
-    """The zone's private key."""
+    """The zone's private key.
+
+    Not required if custom_csr_id is provided, in which case the private key is
+    retrieved from the CSR record held by Cloudflare.
+    """

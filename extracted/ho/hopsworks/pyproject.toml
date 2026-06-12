@@ -1,7 +1,7 @@
 [project]
 name = "hopsworks"
 dynamic = ["version"]
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10,<3.14"
 readme = "README.md"
 description = "Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving"
 keywords = [
@@ -28,7 +28,6 @@ classifiers = [
     "Topic :: Utilities",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -57,10 +56,16 @@ dependencies = [
     "protobuf>=4.25.4,<5.0.0",       # ^4.25.4
     "packaging",                     # ^21.0
     "hopsworks-apigen>=1.0.4,<2.0.0",
+    "click>=8.1",
+    "tomli>=2.0; python_version < '3.11'",
+    "tomli-w>=1.0",
+    "build",
 ]
 
 [project.scripts]
 hopsworks-mcp = "hopsworks.mcp:run_server_command"
+hops = "hopsworks.cli.main:main"
+hopsworks = "hopsworks.cli.main:main"
 
 [project.optional-dependencies]
 python = [
@@ -68,44 +73,49 @@ python = [
     "confluent-kafka<=2.11.1",
     "fastavro>=1.4.11,<=1.12.0",
     "tqdm",
-    "hops-deltalake==1.4.0-post1; python_version >= '3.10' and (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64'))",
+    "hops-deltalake==1.4.0-post121; sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64')",
+    "httpx<=0.28.1",
 ]
 sqlalchemy-1 = [
     "pandas<2.2.0; python_version < '3.13'",
     "sqlalchemy<2.0.0",
 ]
-great-expectations = ["great_expectations==0.18.12"]
+great-expectations = ["great_expectations>=0.18.12,<=1.17.1"]
 dev-no-opt = [
     "hopsworks[python,trino]",
     "pytest==7.4.4",
     "pytest-mock==3.12.0",
+    "pytest-cov>=4.0",
     "ruff==0.15.6",
-    "docsig==0.79.0; python_version >= '3.10'",
+    "docsig==0.79.0",
     "pyspark==3.5.5",
     "moto[s3]==5.0.0",
     "pandas>=2.2.0",
     "typeguard==4.2.1",
     "delta-spark==3.3.1",
+    "setuptools; python_version >= '3.12'",
 ]
 dev-pandas1 = [
     "hopsworks[python,trino]",
     "pytest==7.4.4",
     "pytest-mock==3.12.0",
+    "pytest-cov>=4.0",
     "ruff==0.15.6",
-    "docsig==0.79.0; python_version >= '3.10'",
+    "docsig==0.79.0",
     "pyspark==3.5.5",
     "moto[s3]==5.0.0",
     "pandas<=1.5.3; python_version < '3.12'",
+    "numpy<2; python_version < '3.12'",
     "sqlalchemy<=1.4.48",
     "delta-spark==3.3.1",
 ]
 dev = ["hopsworks[dev-no-opt,great-expectations,polars,python,mcp,trino]"]
 polars = [
-    "polars>=0.20.18,<=0.21.0",
+    "polars>=0.20.31,<=1.40.1",
     "pyarrow>=17.0",
 ]
 mcp = [
-    "fastmcp>=2.10.5,<=2.13.3; python_version >= '3.10'",
+    "fastmcp>=2.10.5,<=2.13.3",
     "filelock",
     "httpx",
     "httptools",
@@ -145,6 +155,9 @@ include = [
     "hsml*",
     "hopsworks_common*",
 ]
+
+[tool.setuptools.package-data]
+"hopsworks.cli.templates" = ["*.md"]
 
 [tool.setuptools.dynamic]
 version = { attr = "hopsworks_common.version.__version__" }
@@ -192,8 +205,8 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.9+ syntax.
-target-version = "py39"
+# Assume Python 3.10+ syntax.
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -219,7 +232,6 @@ select = [
     "FA",
 ]
 ignore = [
-    "B905",  # zip has no strict kwarg until Python 3.10
     "W505",  # Doc line too long
     "E501",  # Line too long
 ]
@@ -261,3 +273,11 @@ disable = [
     "SIG305",
 ]
 ignore_kwargs = true
+
+[tool.coverage.run]
+source = ["hopsworks", "hsfs", "hsml", "hopsworks_common"]
+omit = ["*/tests/*"]
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true

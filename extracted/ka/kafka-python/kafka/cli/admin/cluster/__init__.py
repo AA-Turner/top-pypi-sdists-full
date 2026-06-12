@@ -1,16 +1,14 @@
-from __future__ import absolute_import
-
-import sys
-
 from .describe import DescribeCluster
+from .describe_quorum import DescribeQuorum
+from .features import DescribeFeatures, UpdateFeatures
+from .log_dirs import DescribeLogDirs, AlterLogDirs
+from .versions import GetApiVersions, GetBrokerVersion
 
 
-class ClusterSubCommand:
-
-    @classmethod
-    def add_subparser(cls, subparsers):
-        parser = subparsers.add_parser('cluster', help='Manage Kafka Cluster')
-        commands = parser.add_subparsers()
-        for cmd in [DescribeCluster]:
-            cmd.add_subparser(commands)
-        parser.set_defaults(command=lambda *_args: parser.print_help() or sys.exit(2))
+class ClusterCommandGroup:
+    GROUP = 'cluster'
+    HELP = 'Manage Kafka Cluster'
+    COMMANDS = [DescribeCluster, DescribeQuorum,
+                GetApiVersions, GetBrokerVersion,
+                DescribeFeatures, UpdateFeatures,
+                DescribeLogDirs, AlterLogDirs]

@@ -26,11 +26,11 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -38,15 +38,16 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization"
 ]
 dependencies = [
-    "commonmark>=0.9.1",
+    "multimark>=0.1.3",
     "faicons>=0.2.2",
     "htmltools>=0.4.1",
     "importlib-metadata",
+    "nokap>=0.1.0",
     "typing_extensions>=3.10.0.0",
     "Babel>=2.13.1",
     "importlib-resources"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 all = [
@@ -55,7 +56,7 @@ all = [
 ]
 
 extra = [
-    "css-inline>=0.14.1",
+    "css-inline>=0.20.2,<0.21",
     "selenium>=4.18.1",
     "Pillow>=10.2.0",
 ]
@@ -71,8 +72,6 @@ dev = [
 dev-no-pandas = [
     "ruff==0.8.0",
     "jupyter",
-    "quartodoc>=0.11.0; python_version >= '3.9'",
-    "griffe==0.38.1",
     "gt-extras>=0.0.7",
     "polars",
     "pre-commit==2.15.0",
@@ -91,7 +90,7 @@ documentation = "https://posit-dev.github.io/great-tables/"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --cov=great_tables -m 'not no_pandas'"
+addopts = "-ra -q --cov=great_tables -m 'not no_pandas and not integration'"
 asyncio_mode = "strict"
 testpaths = [
     "tests"
@@ -100,6 +99,7 @@ testpaths = [
 markers = [
     "extra: marks tests that require extra dependencies to run",
     "no_pandas: test meant to run without pandas installed",
+    "integration: marks tests that require Chrome (not run in CI)",
 ]
 
 [tool.ruff]

@@ -1,0 +1,17 @@
+# Production stack configuration for the Airbyte Ops Webapp shared service.
+#
+# Runtime project: internal-airbyte-ai-infra
+# Runtime region: us-west3
+# DNS zone project: airbyte-intranet
+# DNS zone: internal-airbyte-ai
+config:
+  gcp:project: internal-airbyte-ai-infra
+  gcp:region: us-west3
+  ops-webapp:min-instances: "0"
+  ops-webapp:max-instances: "10"
+  ops-webapp:domain: ops.internal.airbyte.ai
+  ops-webapp:dns-zone-project: airbyte-intranet
+  ops-webapp:dns-zone-name: internal-airbyte-ai
+  ops-webapp:oauth-issuer: https://cloud.airbyte.com/auth/realms/airbyte
+  ops-webapp:oauth-client-id: airbyte-ops-webapp-client
+  ops-webapp:airbyte-config-api-url: https://cloud.airbyte.com/api/v1

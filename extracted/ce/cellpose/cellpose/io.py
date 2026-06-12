@@ -79,20 +79,32 @@ def logger_setup(cp_path=".cellpose", logfile_name="run.log", stdout_file_replac
     log_file = cp_dir.joinpath(logfile_name)
     try:
         log_file.unlink()
-    except:
+    except FileNotFoundError:
         print('creating new log file')
-    handlers = [logging.FileHandler(log_file),]
+    logfile_fh = logging.FileHandler(log_file)
     if stdout_file_replacement is not None:
-        handlers.append(logging.FileHandler(stdout_file_replacement))
+        stdout_fh = logging.FileHandler(stdout_file_replacement)
     else:
-        handlers.append(logging.StreamHandler(sys.stdout))
-    logging.basicConfig(
-                    level=logging.INFO,
-                    format="%(asctime)s [%(levelname)s] %(message)s",
-                    handlers=handlers,
-                    force=True
-    )
-    logger = logging.getLogger(__name__)
+        stdout_fh = logging.StreamHandler(sys.stdout)
+
+    formatter = logging.Formatter("%(asctime)s [%(module)s %(levelname)s] %(message)s")
+    debug_formatter = logging.Formatter("%(asctime)s %(levelname)s [%(filename)s:%(lineno)d - %(funcName)20s()] %(message)s")
+    logger = logging.getLogger('cellpose')
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
+
+    logfile_fh.setFormatter(debug_formatter)
+    logfile_fh.setLevel(logging.DEBUG)
+    logger.addHandler(logfile_fh)
+
+    stdout_fh.setFormatter(formatter)
+    stdout_fh.setLevel(logging.INFO)
+    logger.addHandler(stdout_fh)
+
+    logger.propagate = False
+
+    print(f"[GUI INFO] : WRITING LOG OUTPUT TO {log_file}")
+    print(version_str)
     logger.info(f"WRITING LOG OUTPUT TO {log_file}")
     logger.info(version_str)
 
@@ -336,6 +348,9 @@ def remove_model(filename, delete=False):
     filename = os.path.split(filename)[-1]
     from . import models
     model_strings = models.get_user_models()
+    if filename not in model_strings:
+        raise ValueError(f'filename not found: {filename}')
+    model_strings.remove(filename)
     if len(model_strings) > 0:
         with open(models.MODEL_LIST_PATH, "w") as textfile:
             for fname in model_strings:
@@ -344,10 +359,10 @@ def remove_model(filename, delete=False):
         # write empty file
         textfile = open(models.MODEL_LIST_PATH, "w")
         textfile.close()
-    print(f"{filename} removed from custom model list")
+    io_logger.info(f"{filename} removed from custom model list")
     if delete:
-        os.remove(os.fspath(models.MODEL_DIR.joinpath(fname)))
-        print("model deleted")
+        os.remove(os.fspath(models.MODEL_DIR.joinpath(filename)))
+        io_logger.info(f"{filename} model deleted from disk")
 
 
 def add_model(filename):
@@ -708,6 +723,10 @@ def save_rois(masks, file_name, multiprocessing=None, prefix='', pad=False):
     Returns:
         None
     """
+    if masks.max() == 0:
+        io_logger.warning("no masks found, will not save ImageJ ROIs to .zip archive")
+        return
+
     outlines = utils.outlines_list(masks, multiprocessing=multiprocessing)
     
     n_digits = int(np.floor(np.log10(masks.max()))+1) if pad else 0
@@ -875,3 +894,5 @@ def save_masks(images, masks, flows, file_names, png=True, tif=False, channels=[
               )
         #save full flow data
         imsave(os.path.join(flowdir, basename + '_dP' + suffix + '.tif'), flows[1])
+        # save cellprob
+        imsave(os.path.join(flowdir, basename + '_cellprob' + suffix + '.tif'), flows[2])

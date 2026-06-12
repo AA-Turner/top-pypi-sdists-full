@@ -11,7 +11,6 @@ and nodes using the `~.path.Path`, `~.patches.PathPatch` and
 import matplotlib.pyplot as plt
 import numpy as np
 
-import matplotlib.cm as cm
 from matplotlib.patches import Circle, PathPatch
 from matplotlib.path import Path
 from matplotlib.transforms import Affine2D
@@ -31,19 +30,14 @@ circle = Circle((0, 0), 1, facecolor='none',
 ax.add_patch(circle)
 
 im = plt.imshow(np.random.random((100, 100)),
-                origin='lower', cmap=cm.winter,
+                origin='lower', cmap="winter",
                 interpolation='spline36',
                 extent=(-1, 1, -1, 1))
 im.set_clip_path(circle)
 
 plt.plot(x, y, 'o', color=(0.9, 0.9, 1.0), alpha=0.8)
 
-# Dolphin from OpenClipart library by Andy Fitzsimon
-#   <cc:License rdf:about="http://web.resource.org/cc/PublicDomain">
-#     <cc:permits rdf:resource="http://web.resource.org/cc/Reproduction"/>
-#     <cc:permits rdf:resource="http://web.resource.org/cc/Distribution"/>
-#     <cc:permits rdf:resource="http://web.resource.org/cc/DerivativeWorks"/>
-#   </cc:License>
+# Dolphin from OpenClipart library by Andy Fitzsimon (Public Domain).
 
 dolphin = """
 M -0.59739425,160.18173 C -0.62740401,160.18885 -0.57867129,160.11183
@@ -120,3 +114,9 @@ plt.show()
 #    - `matplotlib.transforms`
 #    - `matplotlib.transforms.Affine2D`
 #    - `matplotlib.transforms.Affine2D.rotate_deg`
+#
+# .. tags::
+#
+#    component: patch
+#    styling: shape
+#    purpose: fun

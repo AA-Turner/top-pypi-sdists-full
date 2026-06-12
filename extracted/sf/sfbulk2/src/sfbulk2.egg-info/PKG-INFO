@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: sfbulk2
+Version: 0.8.0
+Summary: Util Class for Salesforce Bulk API 2.0 and gitlog util
+Home-page: https://github.com/mohan-chinnappan-n/sfbulk2
+Author: Mohan Chinnappan
+Author-email: mohan.chinnappan.n@gmail.com
+Classifier: Programming Language :: Python :: 3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+# sfbulk2
+
+## Salesforce Bulk API 2.0 Utility
+
+- Util class for using Salesforce Bulk API 2.0 
+
+## Install
+
+```
+ pip install sfbulk2
+
+```

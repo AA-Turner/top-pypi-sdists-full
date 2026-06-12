@@ -19,7 +19,7 @@ from connector.oai.base_clients import (
     RateLimitedHTTPXAsyncTransport,
 )
 from connector.oai.capability import Request, get_token_auth
-from connector.oai.errors import ConnectorError
+from connector.oai.errors import ConnectorError, RateLimitError
 from connector.utils.httpx_auth import BearerAuth
 from connector.utils.rate_limit_context import (
     RATE_LIMIT_CONTEXT,
@@ -35,6 +35,8 @@ from connector_sdk_types.generated import (
     StandardCapabilityName,
 )
 from connector_sdk_types.oai.modules.rate_limiting_types import RateLimitPolicySource
+from gql.transport.exceptions import TransportQueryError
+from graphql import ExecutionResult
 
 
 @pytest.fixture(autouse=True)
@@ -817,6 +819,120 @@ class TestRateLimitedHTTPXAsyncTransport:
         config, delay = transport.get_current_rate_limits()
         assert config is rate_limit_config  # RateLimitedHTTPXAsyncTransport stores config directly
         assert isinstance(delay, float)
+
+    @staticmethod
+    def _rate_limited_execution_result() -> ExecutionResult:
+        """An ExecutionResult shaped like a Wiz GraphQL rate limit response.
+
+        gql's httpx transport returns this for an HTTP 429 with a parseable
+        GraphQL `errors` body instead of raising — see RateLimitedHTTPXAsyncTransport.
+        """
+        return ExecutionResult(
+            data=None,
+            errors=[
+                {
+                    "message": "Rate limit exceeded",
+                    "extensions": {
+                        "code": "RATE_LIMIT_EXCEEDED",
+                        "remaining": 0,
+                        "retryAfterNS": 47708451,
+                    },
+                }
+            ],
+            extensions={},
+        )
+
+    async def test_rate_limited_graphql_error_result_is_retried(
+        self, mock_base_transport, rate_limit_config
+    ):
+        """A GraphQL error payload classified as rate-limit is retried by the RateLimiter."""
+        mock_base_transport.execute = AsyncMock(
+            side_effect=[
+                self._rate_limited_execution_result(),
+                {"data": {"test": "result"}},
+            ]
+        )
+
+        transport = RateLimitedHTTPXAsyncTransport(mock_base_transport, rate_limit_config)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await transport.execute("query { test }")
+
+        assert result == {"data": {"test": "result"}}
+        assert mock_base_transport.execute.call_count == 2
+
+    async def test_rate_limited_graphql_error_result_exhausts_retries(
+        self, mock_base_transport, rate_limit_config
+    ):
+        """Persistent rate-limit error payloads raise RateLimitError after retries are exhausted."""
+        mock_base_transport.execute = AsyncMock(return_value=self._rate_limited_execution_result())
+
+        transport = RateLimitedHTTPXAsyncTransport(mock_base_transport, rate_limit_config)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(RateLimitError) as exc_info:
+                await transport.execute("query { test }")
+
+        assert exc_info.value.retry_after_seconds is not None
+        assert isinstance(exc_info.value.__cause__, TransportQueryError)
+        # Initial attempt + maximum_retries
+        assert mock_base_transport.execute.call_count == rate_limit_config.maximum_retries + 1
+
+    async def test_non_rate_limit_graphql_error_result_passes_through(
+        self, mock_base_transport, rate_limit_config
+    ):
+        """GraphQL errors that don't classify as retryable are returned untouched.
+
+        AsyncClientSession.execute raises the TransportQueryError above this layer,
+        preserving existing behavior for ordinary GraphQL errors.
+        """
+        error_result = ExecutionResult(
+            data=None,
+            errors=[
+                {
+                    "message": "Cannot query field 'nope' on type 'Query'",
+                    "extensions": {"code": "GRAPHQL_VALIDATION_FAILED"},
+                }
+            ],
+            extensions={},
+        )
+        mock_base_transport.execute = AsyncMock(return_value=error_result)
+
+        transport = RateLimitedHTTPXAsyncTransport(mock_base_transport, rate_limit_config)
+        result = await transport.execute("query { nope }")
+
+        assert result is error_result
+        mock_base_transport.execute.assert_called_once()
+
+    async def test_custom_rate_limit_error_check_is_honored_for_graphql_errors(
+        self, mock_base_transport, rate_limit_config
+    ):
+        """A connector-supplied rate_limit_error_check classifies GraphQL error payloads."""
+
+        def by_extension_code(e: Exception) -> bool:
+            if not isinstance(e, TransportQueryError) or not e.errors:
+                return False
+            return any(error.get("extensions", {}).get("code") == "SLOW_DOWN" for error in e.errors)
+
+        config = rate_limit_config.model_copy(
+            update={"rate_limit_error_check": by_extension_code, "maximum_retries": 1}
+        )
+        # No keyword from STATIC_RATE_LIMIT_DICTIONARY in the message, so only
+        # the custom check can classify this as a rate limit error.
+        error_result = ExecutionResult(
+            data=None,
+            errors=[{"message": "Slow down", "extensions": {"code": "SLOW_DOWN"}}],
+            extensions={},
+        )
+        mock_base_transport.execute = AsyncMock(return_value=error_result)
+
+        transport = RateLimitedHTTPXAsyncTransport(mock_base_transport, config)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(RateLimitError):
+                await transport.execute("query { test }")
+
+        assert mock_base_transport.execute.call_count == 2
 
 
 class TestBaseGraphQLSession:

@@ -36,6 +36,12 @@ jobs:
               - 'uv.lock'
               - 'ruff.toml'
               - '.github/workflows/format-check.yml'
+            airbyte-ops-webapp:
+              - 'airbyte-ops-webapp/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'ruff.toml'
+              - '.github/workflows/format-check.yml'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -54,6 +60,7 @@ jobs:
         env:
           AIRBYTE_INTERNAL_OPS_CHANGED: ${{ steps.package-changes.outputs.airbyte-internal-ops }}
           AIRBYTE_CLOUD_CLI_CHANGED: ${{ steps.package-changes.outputs.airbyte-cloud-cli }}
+          AIRBYTE_OPS_WEBAPP_CHANGED: ${{ steps.package-changes.outputs.airbyte-ops-webapp }}
         run: |
           set -euo pipefail
           targets=()
@@ -62,6 +69,9 @@ jobs:
           fi
           if [[ "$GITHUB_EVENT_NAME" == "push" || "$AIRBYTE_CLOUD_CLI_CHANGED" == "true" ]]; then
             targets+=("airbyte-cloud-cli")
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" || "$AIRBYTE_OPS_WEBAPP_CHANGED" == "true" ]]; then
+            targets+=("airbyte-ops-webapp")
           fi
           if [[ ${#targets[@]} -eq 0 ]]; then
             echo "No Python package changes detected."

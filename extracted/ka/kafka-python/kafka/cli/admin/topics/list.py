@@ -1,9 +1,11 @@
-from __future__ import absolute_import
-
-
 class ListTopics:
+    COMMAND = 'list'
+    HELP = 'List Kafka Topics'
 
     @classmethod
-    def add_subparser(cls, subparsers):
-        parser = subparsers.add_parser('list', help='List Kafka Topics')
-        parser.set_defaults(command=lambda cli, _args: cli.list_topics())
+    def add_arguments(cls, parser):
+        pass
+
+    @classmethod
+    def command(cls, client, args):
+        return client.list_topics()

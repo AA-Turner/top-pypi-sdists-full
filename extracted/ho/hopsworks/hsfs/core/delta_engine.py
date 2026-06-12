@@ -25,7 +25,7 @@ from hopsworks_common import client
 from hopsworks_common.client.exceptions import FeatureStoreException
 from hopsworks_common.core import project_api
 from hopsworks_common.core.constants import HAS_POLARS
-from hopsworks_common.core.type_systems import convert_offline_type_to_pyarrow_type
+from hopsworks_common.core.type_systems import _convert_offline_type_to_pyarrow_type
 from hsfs import feature_group, feature_group_commit, util
 from hsfs.core import feature_group_api, variable_api
 
@@ -40,6 +40,63 @@ if TYPE_CHECKING:
 # They are imported on-demand inside methods to provide friendly errors only
 # when the functionality is used.
 _logger = logging.getLogger(__name__)
+
+
+def _is_delta_table_at(spark_session, path: str) -> bool:
+    """Return True iff *path* contains a Delta table.
+
+    The classic ``delta.tables.DeltaTable.isDeltaTable`` reaches
+    ``spark._sc._jvm`` internally, which Spark Connect sessions don't expose.
+    For Connect, probe via ``DESCRIBE DETAIL delta.<path>`` instead — it
+    succeeds only when *path* is a Delta table and otherwise raises an
+    AnalysisException that we treat as "not a Delta table".
+    """
+    from hopsworks_common.spark_connect_utils import _is_spark_connect_session
+
+    if _is_spark_connect_session(spark_session):
+        try:
+            spark_session.sql(f"DESCRIBE DETAIL delta.`{path}`").take(1)
+            return True
+        except Exception:  # noqa: BLE001 - any failure means not a Delta table here
+            return False
+    try:
+        from delta.tables import DeltaTable
+    except ImportError as e:
+        raise ImportError(
+            "Delta Lake (delta-spark) is required for Spark operations. "
+            "Install 'delta-spark' or include it in your environment."
+        ) from e
+    return DeltaTable.isDeltaTable(spark_session, path)
+
+
+def _delta_table_for_path(spark_session, path: str):
+    """Return a ``DeltaTable`` handle for *path*.
+
+    On classic Spark, defers to ``delta.tables.DeltaTable.forPath``.
+    On Spark Connect, requires ``delta.connect.tables`` (delta-spark 4.0+);
+    older delta-spark versions do not support Connect-mode handle ops like
+    merge/history, so we raise a clear error pointing at the upgrade path.
+    """
+    from hopsworks_common.spark_connect_utils import _is_spark_connect_session
+
+    if _is_spark_connect_session(spark_session):
+        try:
+            from delta.connect.tables import DeltaTable
+        except ImportError as e:
+            raise ImportError(
+                "Spark Connect mode requires delta-spark>=4.0 for merge / "
+                "history / forPath operations (delta.connect.tables). The "
+                "currently installed delta-spark does not provide it."
+            ) from e
+        return DeltaTable.forPath(spark_session, path)
+    try:
+        from delta.tables import DeltaTable
+    except ImportError as e:
+        raise ImportError(
+            "Delta Lake (delta-spark) is required for Spark operations. "
+            "Install 'delta-spark' or include it in your environment."
+        ) from e
+    return DeltaTable.forPath(spark_session, path)
 
 
 class DeltaEngine:
@@ -64,10 +121,26 @@ class DeltaEngine:
         self._spark_context = spark_context
         self._spark_session = spark_session
         if self._spark_session:
-            self._spark_session.conf.set(
-                "spark.sql.catalog.spark_catalog",
-                "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-            )
+            if self._spark_context is not None:
+                # Classic Spark: catalog config is mutable at runtime.
+                self._spark_session.conf.set(
+                    "spark.sql.catalog.spark_catalog",
+                    "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+                )
+            else:
+                # Spark Connect: static config — must be set at builder time.
+                # Verify it is present and warn if not.
+                try:
+                    ext = str(self._spark_session.conf.get("spark.sql.extensions", ""))
+                except Exception:
+                    ext = ""
+                if "DeltaSparkSessionExtension" not in ext:
+                    _logger.warning(
+                        "Delta SQL extension not configured on this SparkSession. "
+                        "Delta operations such as VACUUM may fail. "
+                        "Set spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension "
+                        "on the SparkSession builder."
+                    )
         self._feature_store_id = feature_store_id
         self._feature_store_name = feature_store_name
 
@@ -76,28 +149,30 @@ class DeltaEngine:
         self._project_api = project_api.ProjectApi()
         self._setup_delta_rs()
 
-    def save_delta_fg(
+    def _save_delta_fg(
         self,
         dataset: pd.DataFrame | pa.Table | pl.DataFrame,
         write_options: dict[str, Any] | None,
         validation_id: int | None = None,
+        operation: str = "upsert",
     ) -> feature_group_commit.FeatureGroupCommit:
+        operation = operation.lower() if operation else "upsert"
         if self._spark_session is not None:
             _logger.debug(
                 f"Saving Delta dataset using spark to feature group {self._feature_group.name} v{self._feature_group.version}"
             )
-            fg_commit = self._write_delta_dataset(dataset, write_options)
+            fg_commit = self._write_delta_dataset(dataset, write_options, operation)
         else:
             _logger.debug(
                 f"Saving Delta dataset using delta-rs to feature group {self._feature_group.name} v{self._feature_group.version}"
             )
             fg_commit = self._write_delta_rs_dataset(
-                dataset, write_options=write_options
+                dataset, write_options=write_options, operation=operation
             )
         fg_commit.validation_id = validation_id
-        return self._feature_group_api.commit(self._feature_group, fg_commit)
+        return self._feature_group_api._commit(self._feature_group, fg_commit)
 
-    def register_temporary_table(
+    def _register_temporary_table(
         self,
         delta_fg_alias,
         read_options: dict[str, Any] | None = None,
@@ -143,7 +218,7 @@ class DeltaEngine:
             and delta_fg_alias.left_feature_group_start_timestamp is None
         ):
             # snapshot query with end time
-            _delta_commit_end_time = util.get_delta_datestr_from_timestamp(
+            _delta_commit_end_time = util._get_delta_datestr_from_timestamp(
                 delta_fg_alias.left_feature_group_end_timestamp
             )
             delta_options = {
@@ -151,7 +226,7 @@ class DeltaEngine:
             }
         elif delta_fg_alias.left_feature_group_start_timestamp is not None:
             # change data feed query with start and end time
-            _delta_commit_start_time = util.get_delta_datestr_from_timestamp(
+            _delta_commit_start_time = util._get_delta_datestr_from_timestamp(
                 delta_fg_alias.left_feature_group_start_timestamp,
             )
 
@@ -160,7 +235,7 @@ class DeltaEngine:
                 "startingTimestamp": _delta_commit_start_time,
             }
             if delta_fg_alias.left_feature_group_end_timestamp is not None:
-                _delta_commit_end_time = util.get_delta_datestr_from_timestamp(
+                _delta_commit_end_time = util._get_delta_datestr_from_timestamp(
                     delta_fg_alias.left_feature_group_end_timestamp,
                 )
                 delta_options["endingTimestamp"] = _delta_commit_end_time
@@ -179,20 +254,19 @@ class DeltaEngine:
 
         return delta_options
 
-    def delete_record(self, delete_df):
+    def _delete_record(self, delete_df):
+        storage_options = None
         if self._spark_session is not None:
-            try:
-                from delta.tables import DeltaTable
-            except ImportError as e:
-                raise ImportError(
-                    "Delta Lake (delta-spark) is required for Spark operations. "
-                    "Install 'delta-spark' or include it in your environment."
-                ) from e
             location = self._feature_group.prepare_spark_location()
-            fg_source_table = DeltaTable.forPath(self._spark_session, location)
-            is_delta_table = DeltaTable.isDeltaTable(self._spark_session, location)
+            is_delta_table = _is_delta_table_at(self._spark_session, location)
+            fg_source_table = (
+                _delta_table_for_path(self._spark_session, location)
+                if is_delta_table
+                else None
+            )
         else:
-            location = self._feature_group.location.replace("hopsfs", "hdfs")
+            location = self._get_delta_rs_location()
+            storage_options = self._get_delta_rs_storage_options()
             try:
                 from deltalake import DeltaTable as DeltaRsTable
                 from deltalake.exceptions import TableNotFoundError
@@ -202,7 +276,9 @@ class DeltaEngine:
                     "Install 'hops-deltalake' to enable Delta RS features."
                 ) from e
             try:
-                fg_source_table = DeltaRsTable(location)
+                fg_source_table = DeltaRsTable(
+                    location, storage_options=storage_options
+                )
                 is_delta_table = True
             except TableNotFoundError:
                 is_delta_table = False
@@ -230,22 +306,17 @@ class DeltaEngine:
                 source_alias=updates_alias,
                 target_alias=source_alias,
             ).when_matched_delete().execute()
-        fg_commit = self._get_last_commit_metadata(self._spark_session, location)
-        return self._feature_group_api.commit(self._feature_group, fg_commit)
+        fg_commit = self._get_last_commit_metadata(
+            self._spark_session, location, storage_options=storage_options
+        )
+        return self._feature_group_api._commit(self._feature_group, fg_commit)
 
-    def _write_delta_dataset(self, dataset, write_options):
-        try:
-            from delta.tables import DeltaTable
-        except ImportError as e:
-            raise ImportError(
-                "Delta Lake (delta-spark) is required for Spark operations. "
-                "Install 'delta-spark' or include it in your environment."
-            ) from e
+    def _write_delta_dataset(self, dataset, write_options, operation="upsert"):
         location = self._feature_group.prepare_spark_location()
         if write_options is None:
             write_options = {}
 
-        if not DeltaTable.isDeltaTable(self._spark_session, location):
+        if not _is_delta_table_at(self._spark_session, location):
             (
                 dataset.write.format(DeltaEngine.DELTA_SPARK_FORMAT)
                 .options(**write_options)
@@ -257,8 +328,18 @@ class DeltaEngine:
                 .mode("append")
                 .save(location)
             )
+        elif operation == "insert":
+            _logger.debug(
+                f"Insert operation requested for {location}. Using append mode, skipping merge."
+            )
+            (
+                dataset.write.format(DeltaEngine.DELTA_SPARK_FORMAT)
+                .options(**write_options)
+                .mode("append")
+                .save(location)
+            )
         else:
-            fg_source_table = DeltaTable.forPath(self._spark_session, location)
+            fg_source_table = _delta_table_for_path(self._spark_session, location)
 
             source_alias = (
                 f"{self._feature_group.name}_{self._feature_group.version}_source"
@@ -276,13 +357,18 @@ class DeltaEngine:
 
     def _setup_delta_rs(self):
         _logger.debug("Setting up delta-rs environment")
-        _client = client.get_instance()
+        if not self._feature_group._is_hopsfs_storage():
+            _logger.debug(
+                "Non-HopsFS storage connector detected, skipping HopsFS-specific delta-rs setup"
+            )
+            return
+        _client = client._get_instance()
         if _client._is_external():
             _logger.debug("Setting up delta-rs for external client")
-            os.environ["PEMS_DIR"] = _client.get_certs_folder()
+            os.environ["PEMS_DIR"] = _client._get_certs_folder()
             _logger.debug(f"PEMS_DIR set to {os.environ['PEMS_DIR']}")
             try:
-                datanode_ip = self._variable_api.get_loadbalancer_external_domain(
+                datanode_ip = self._variable_api._get_loadbalancer_external_domain(
                     "datanode"
                 )
                 _logger.debug(
@@ -294,7 +380,7 @@ class DeltaEngine:
                     "Failed to write to delta table in external cluster. Make sure datanode load balancer has been setup on the cluster."
                 ) from e
 
-            user_name = self._project_api.get_user_info().get("username", None)
+            user_name = self._project_api._get_user_info().get("username", None)
 
             if not user_name:
                 raise FeatureStoreException(
@@ -305,7 +391,12 @@ class DeltaEngine:
             os.environ["LIBHDFS_DEFAULT_USER"] = project_username
 
     def _get_delta_rs_location(self):
-        _client = client.get_instance()
+        if not self._feature_group._is_hopsfs_storage():
+            location = self._feature_group.location
+            _logger.debug(f"Non-HopsFS storage, using location as-is: {location}")
+            return location
+
+        _client = client._get_instance()
         location = self._feature_group.location.replace(
             "hopsfs:/", "hdfs:/"
         )  # deltars requires hdfs scheme
@@ -313,7 +404,7 @@ class DeltaEngine:
         if _client._is_external():
             parsed_url = urlparse(location)
             try:
-                deltars_loc = f"hdfs://{self._variable_api.get_loadbalancer_external_domain('namenode')}:{parsed_url.port}{parsed_url.path}"
+                deltars_loc = f"hdfs://{self._variable_api._get_loadbalancer_external_domain('namenode')}:{parsed_url.port}{parsed_url.path}"
                 _logger.debug(
                     f"External client, using namenode url + delta-rs location: {deltars_loc}"
                 )
@@ -325,6 +416,51 @@ class DeltaEngine:
         else:
             _logger.debug(f"Internal client, using delta-rs location: {location}")
             return location
+
+    def _get_delta_rs_storage_options(self) -> dict[str, str]:
+        """Build delta-rs storage_options from the feature group's storage connector.
+
+        Returns an empty dict for HopsFS (handled separately via env vars) and for
+        feature groups without a connector.
+        For S3, ADLS, and GCS connectors the relevant credential keys are returned.
+        """
+        from hsfs import storage_connector as sc
+
+        connector = self._feature_group.storage_connector
+        if connector is None or connector.type == sc.StorageConnector.HOPSFS:
+            return {}
+        if connector.type == sc.StorageConnector.S3:
+            opts = {}
+            if connector.access_key:
+                opts["AWS_ACCESS_KEY_ID"] = connector.access_key
+            if connector.secret_key:
+                opts["AWS_SECRET_ACCESS_KEY"] = connector.secret_key
+            if connector.session_token:
+                opts["AWS_SESSION_TOKEN"] = connector.session_token
+            if connector.region:
+                opts["AWS_REGION"] = connector.region
+            return opts
+        if connector.type == sc.StorageConnector.ADLS:
+            opts = {}
+            if connector.account_name:
+                opts["AZURE_STORAGE_ACCOUNT_NAME"] = connector.account_name
+            if connector.application_id:
+                opts["AZURE_CLIENT_ID"] = connector.application_id
+            if connector.service_credential:
+                opts["AZURE_CLIENT_SECRET"] = connector.service_credential
+            if connector.directory_id:
+                opts["AZURE_TENANT_ID"] = connector.directory_id
+            return opts
+        if connector.type == sc.StorageConnector.GCS:
+            opts = {}
+            if connector.key_path:
+                # key_path is a HopsFS path; download it locally for external clients
+                from hsfs import engine
+
+                local_key_path = engine._get_instance()._add_file(connector.key_path)
+                opts["GOOGLE_SERVICE_ACCOUNT_PATH"] = local_key_path
+            return opts
+        return {}
 
     @staticmethod
     def _get_partition_values(
@@ -375,6 +511,7 @@ class DeltaEngine:
         self,
         dataset: pa.Table | pl.DataFrame | pd.DataFrame,
         write_options: dict[str, Any] | None = None,
+        operation: str = "upsert",
     ):
         """Write a dataset to a Delta table using delta-rs.
 
@@ -392,26 +529,24 @@ class DeltaEngine:
             ) from e
 
         location = self._get_delta_rs_location()
+        storage_options = self._get_delta_rs_storage_options()
 
-        is_polars_df = False
         if HAS_POLARS:
             import polars as pl
 
             if isinstance(dataset, pl.DataFrame):
-                is_polars_df = True
                 _logger.debug("Converting DataFrame to Arrow Table for Delta write")
                 dataset = dataset.to_arrow()
 
-        if not is_polars_df:
-            dataset = self._prepare_df_for_delta(dataset)
+        dataset = self._prepare_df_for_delta(dataset)
 
-        append_requested = (
+        append_requested = operation == "insert" or (
             isinstance(write_options, dict)
             and str(write_options.get("mode", "")).lower() == self.APPEND
         )
 
         try:
-            fg_source_table = DeltaRsTable(location)
+            fg_source_table = DeltaRsTable(location, storage_options=storage_options)
             is_delta_table = True
             _logger.debug(
                 f"Delta table found at {location}. Proceeding with merge operation."
@@ -433,6 +568,7 @@ class DeltaEngine:
                 dataset,
                 partition_by=self._feature_group.partition_key,
                 configuration=configuration,
+                storage_options=storage_options or None,
             )
         else:
             if (
@@ -447,11 +583,18 @@ class DeltaEngine:
                     }
                 )
             if append_requested:
-                deltars_write(location, dataset, mode=self.APPEND)
+                deltars_write(
+                    location,
+                    dataset,
+                    mode=self.APPEND,
+                    storage_options=storage_options or None,
+                )
                 _logger.debug(
                     f"Explicit append mode requested for {location}. Skipping merge operation."
                 )
-                return self._get_last_commit_metadata(self._spark_session, location)
+                return self._get_last_commit_metadata(
+                    self._spark_session, location, storage_options=storage_options
+                )
             # Optimisation: if the feature group is partitioned and none of the
             # incoming partition values already exist in the table, a plain append
             # is equivalent to a merge (no rows to update) but avoids loading all
@@ -463,6 +606,7 @@ class DeltaEngine:
                     dataset,
                     mode="append",
                     partition_by=self._feature_group.partition_key,
+                    storage_options=storage_options or None,
                 )
             else:
                 source_alias = (
@@ -499,10 +643,18 @@ class DeltaEngine:
         _logger.debug(
             f"Executed delta-rs write. Retrieving commit metadata for Delta table at {location}"
         )
-        return self._get_last_commit_metadata(self._spark_session, location)
+        return self._get_last_commit_metadata(
+            self._spark_session, location, storage_options=storage_options
+        )
 
     @staticmethod
     def _prepare_df_for_delta(df, timestamp_precision="us"):
+        """Normalize a pandas DataFrame or PyArrow Table for Delta Lake writes.
+
+        Casts timestamp precision, `float16` to `float32`, and `date64` to `date32`
+        — types Delta Lake either rejects outright or stores in a way that breaks
+        the kernel statistics parser.
+        """
         try:
             import pandas as pd
             import pyarrow as pa
@@ -510,35 +662,22 @@ class DeltaEngine:
             raise ImportError(
                 "pandas and pyarrow are required to prepare data for Delta operations."
             ) from e
-        """
-        Prepares a pandas DataFrame for Delta Lake operations by fixing timestamp columns.
 
-        Parameters:
-        -----------
-        df : pandas.DataFrame
-            DataFrame to prepare
-        timestamp_precision : str, default='us'
-            Precision for timestamps (ns, us, ms, s)
+        if isinstance(df, pd.DataFrame):
+            # `df` is already a shallow copy from convert_to_default_dataframe, so we do not
+            # need a full deep copy here.  Column assignments on a shallow copy update only the
+            # copy's column reference and never mutate the caller's original DataFrame.
+            for col in df.select_dtypes(include=["datetime64"]).columns:
+                # For timezone-aware timestamps, convert to UTC and remove timezone info
+                if hasattr(df[col].dtype, "tz") and df[col].dtype.tz is not None:
+                    df[col] = df[col].dt.tz_convert("UTC").dt.tz_localize(None)
 
-        Returns:
-        --------
-        pyarrow.Table
-            PyArrow table ready for Delta Lake
-        """
-        # Process timestamp columns
-        if not isinstance(df, pd.DataFrame):
+            _logger.debug("Converting DataFrame to basic PyArrow Table")
+            table = pa.Table.from_pandas(df, preserve_index=False)
+        elif isinstance(df, pa.Table):
+            table = df
+        else:
             return df
-        # `df` is already a shallow copy from convert_to_default_dataframe, so we do not
-        # need a full deep copy here.  Column assignments on a shallow copy update only the
-        # copy's column reference and never mutate the caller's original DataFrame.
-        for col in df.select_dtypes(include=["datetime64"]).columns:
-            # For timezone-aware timestamps, convert to UTC and remove timezone info
-            if hasattr(df[col].dtype, "tz") and df[col].dtype.tz is not None:
-                df[col] = df[col].dt.tz_convert("UTC").dt.tz_localize(None)
-
-        # Convert to basic PyArrow table first
-        _logger.debug("Converting DataFrame to basic PyArrow Table")
-        table = pa.Table.from_pandas(df, preserve_index=False)
 
         # Cast timestamp columns to the specified precision and float16 to float32
         _logger.debug("Casting timestamp and float16 columns if needed")
@@ -566,6 +705,10 @@ class DeltaEngine:
                     stacklevel=1,
                 )
                 new_cols.append(col.cast(pa.float32()))
+            elif pa.types.is_date(field.type) and field.type != pa.date32():
+                # Delta Lake statistics use Date32 (days since epoch); date64
+                # (milliseconds since epoch) causes a parse error in the kernel.
+                new_cols.append(col.cast(pa.date32()))
             else:
                 new_cols.append(col)
 
@@ -573,7 +716,7 @@ class DeltaEngine:
         _logger.debug("Creating new PyArrow Table with modified columns")
         return pa.Table.from_arrays(new_cols, names=table.column_names)
 
-    def save_empty_delta_table_pyspark(self, write_options=None):
+    def _save_empty_delta_table_pyspark(self, write_options=None):
         """Create an empty Delta table with the schema from the feature group features.
 
         This method builds a DDL schema string from the feature group's features
@@ -588,7 +731,7 @@ class DeltaEngine:
         """
         # Build DDL schema string from features
         ddl_fields = []
-        for _feature in self._feature_group.features:
+        for _feature in self._feature_group.columns:
             if _feature.type:
                 ddl_fields.append(f"{_feature.name} {_feature.type}")
             else:
@@ -604,7 +747,7 @@ class DeltaEngine:
 
         self._write_delta_dataset(empty_df, write_options or {})
 
-    def save_empty_delta_table_python(self, write_options=None):
+    def _save_empty_delta_table_python(self, write_options=None):
         """Create an empty Delta table with the schema from the feature group features using delta-rs.
 
         This method converts feature types directly to PyArrow types without requiring Spark,
@@ -628,14 +771,14 @@ class DeltaEngine:
 
         # Build PyArrow schema directly from features
         pyarrow_fields = []
-        for _feature in self._feature_group.features:
+        for _feature in self._feature_group.columns:
             if not _feature.type:
                 raise FeatureStoreException(
                     f"Feature '{_feature.name}' does not have a type defined. "
                     "Cannot create Delta table schema."
                 )
             try:
-                pyarrow_type = convert_offline_type_to_pyarrow_type(_feature.type)
+                pyarrow_type = _convert_offline_type_to_pyarrow_type(_feature.type)
                 pyarrow_fields.append(
                     pa.field(_feature.name, pyarrow_type, nullable=True)
                 )
@@ -654,13 +797,13 @@ class DeltaEngine:
 
         self._write_delta_rs_dataset(empty_arrow_table, write_options=write_options)
 
-    def save_empty_table(self, write_options=None):
+    def _save_empty_table(self, write_options=None):
         if self._spark_session is not None:
-            self.save_empty_delta_table_pyspark(write_options=write_options)
+            self._save_empty_delta_table_pyspark(write_options=write_options)
         else:
-            self.save_empty_delta_table_python(write_options=write_options)
+            self._save_empty_delta_table_python(write_options=write_options)
 
-    def vacuum(self, retention_hours: int):
+    def _vacuum(self, retention_hours: int):
         location = self._feature_group.prepare_spark_location()
         _logger.debug(
             f"Vacuuming Delta table for feature group {self._feature_group.name} v{self._feature_group.version} at location {location} with retention {retention_hours} hours"
@@ -706,7 +849,9 @@ class DeltaEngine:
         return merge_query_str
 
     @staticmethod
-    def _get_last_commit_metadata(spark_context, base_path):
+    def _get_last_commit_metadata(
+        spark_context, base_path, storage_options: dict | None = None
+    ):
         """Retrieve oldest and last data-changing commits (MERGE/WRITE) from a Delta table.
 
         Uses shared filtering logic for both Spark and delta-rs.
@@ -716,17 +861,74 @@ class DeltaEngine:
 
         # --- Get commit history ---
         if spark_context is not None:
-            try:
-                from delta.tables import DeltaTable
-            except ImportError as e:
-                raise ImportError(
-                    "Delta Lake (delta-spark) is required to read commit metadata. "
-                    "Install 'delta-spark' or include it in your environment."
-                ) from e
-            # Spark DeltaTable (returns Spark DataFrame)
-            fg_source_table = DeltaTable.forPath(spark_context, base_path)
-            history = fg_source_table.history()
-            history_records = [r.asDict() for r in history.collect()]
+            from hopsworks_common.spark_connect_utils import (  # noqa: PLC0415
+                _is_spark_connect_session,
+            )
+
+            if _is_spark_connect_session(spark_context):
+                # Spark Connect path: ``DESCRIBE HISTORY`` and
+                # ``DeltaTable.history()`` route through Spark's catalog, which
+                # on Hopsworks is the Hive Metastore. The Spark Connect server
+                # in the terminal-spark image has no Hive client provisioned,
+                # so reading commit metadata that way fails with::
+                #
+                #   HiveException: Unable to instantiate
+                #   org.apache.hadoop.hive.ql.metadata.SessionHiveMetaStoreClient
+                #
+                # Read ``_delta_log/*.json`` directly via ``spark.read.json``
+                # — only touches the underlying filesystem (HopsFS), so no
+                # Hive client is required.
+                #
+                # Limitation: commits older than the latest checkpoint are
+                # stored in ``<n>.checkpoint.parquet`` and are not surfaced
+                # here. Hopsworks calls this right after a write to summarize
+                # the latest commit, so checkpoint coverage is unnecessary.
+                from pyspark.sql import functions as F  # noqa: PLC0415
+
+                log_glob = f"{base_path.rstrip('/')}/_delta_log/*.json"
+                log_df = spark_context.read.json(log_glob)
+                if "commitInfo" not in log_df.columns:
+                    history_records = []
+                else:
+                    # ``recursive=True`` so the nested ``operationMetrics``
+                    # struct comes back as a dict — the downstream summarizer
+                    # calls ``.get(...)`` on it.
+                    history_records = [
+                        r.asDict(recursive=True)
+                        for r in (
+                            log_df.withColumn("_file", F.input_file_name())
+                            .filter(F.col("commitInfo").isNotNull())
+                            .withColumn(
+                                "version",
+                                F.regexp_extract(
+                                    F.col("_file"), r"(\d+)\.json", 1
+                                ).cast("long"),
+                            )
+                            .select(
+                                "version",
+                                F.col("commitInfo.timestamp").alias("timestamp"),
+                                F.col("commitInfo.operation").alias("operation"),
+                                F.col("commitInfo.operationMetrics").alias(
+                                    "operationMetrics"
+                                ),
+                            )
+                            .collect()
+                        )
+                    ]
+            else:
+                # Classic Spark path: original behaviour, JVM-backed
+                # ``DeltaTable.forPath(...).history()``.
+                try:
+                    from delta.tables import DeltaTable  # noqa: PLC0415
+                except ImportError as e:
+                    raise ImportError(
+                        "Delta Lake (delta-spark) is required to read commit "
+                        "metadata. Install 'delta-spark' or include it in your "
+                        "environment."
+                    ) from e
+                fg_source_table = DeltaTable.forPath(spark_context, base_path)
+                history = fg_source_table.history()
+                history_records = [r.asDict() for r in history.collect()]
             _logger.debug(f"history_records for {base_path}: {history_records}")
         else:
             try:
@@ -737,7 +939,9 @@ class DeltaEngine:
                     "Install 'hops-deltalake' to enable Delta RS features."
                 ) from e
             # delta-rs DeltaTable (returns list[dict])
-            fg_source_table = DeltaRsTable(base_path)
+            fg_source_table = DeltaRsTable(
+                base_path, storage_options=storage_options or {}
+            )
             history_records = fg_source_table.history()
             _logger.debug(f"history_records for {base_path}: {history_records}")
 
@@ -766,14 +970,14 @@ class DeltaEngine:
     def _get_delta_feature_group_commit(last_commit, oldest_commit):
         _logger.debug(f"Extract info about the latest commit {last_commit}")
         operation = last_commit["operation"]
-        commit_timestamp = util.convert_event_time_to_timestamp(
+        commit_timestamp = util._convert_event_time_to_timestamp(
             last_commit["timestamp"]
         )
-        commit_date_string = util.get_hudi_datestr_from_timestamp(commit_timestamp)
+        commit_date_string = util._get_hudi_datestr_from_timestamp(commit_timestamp)
         operation_metrics = last_commit["operationMetrics"]
 
         # Extract info about the oldest remaining commit
-        oldest_commit_timestamp = util.convert_event_time_to_timestamp(
+        oldest_commit_timestamp = util._convert_event_time_to_timestamp(
             oldest_commit["timestamp"]
         )
 

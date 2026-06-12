@@ -1682,6 +1682,11 @@ class CronsStub(object):
                 request_serializer=core__api__pb2.CreateCronRequest.SerializeToString,
                 response_deserializer=core__api__pb2.Cron.FromString,
                 _registered_method=True)
+        self.Get = channel.unary_unary(
+                '/coreApi.Crons/Get',
+                request_serializer=core__api__pb2.GetCronRequest.SerializeToString,
+                response_deserializer=core__api__pb2.Cron.FromString,
+                _registered_method=True)
         self.Patch = channel.unary_unary(
                 '/coreApi.Crons/Patch',
                 request_serializer=core__api__pb2.PatchCronRequest.SerializeToString,
@@ -1718,6 +1723,12 @@ class CronsServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Create(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Get(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1765,6 +1776,11 @@ def add_CronsServicer_to_server(servicer, server):
             'Create': grpc.unary_unary_rpc_method_handler(
                     servicer.Create,
                     request_deserializer=core__api__pb2.CreateCronRequest.FromString,
+                    response_serializer=core__api__pb2.Cron.SerializeToString,
+            ),
+            'Get': grpc.unary_unary_rpc_method_handler(
+                    servicer.Get,
+                    request_deserializer=core__api__pb2.GetCronRequest.FromString,
                     response_serializer=core__api__pb2.Cron.SerializeToString,
             ),
             'Patch': grpc.unary_unary_rpc_method_handler(
@@ -1824,6 +1840,33 @@ class Crons(object):
             target,
             '/coreApi.Crons/Create',
             core__api__pb2.CreateCronRequest.SerializeToString,
+            core__api__pb2.Cron.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Get(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Crons/Get',
+            core__api__pb2.GetCronRequest.SerializeToString,
             core__api__pb2.Cron.FromString,
             options,
             channel_credentials,

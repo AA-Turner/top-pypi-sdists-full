@@ -338,8 +338,8 @@ def _get_time_summary(task_id: str) -> dict:
         return {"total_seconds": 0, "total_human": "unknown", "phases": {}}
 
 
-def _append_time_token_to_retrospective(task_id: str) -> None:
-    """Append time/token consumption summary to retrospective.md at archive time.
+def _append_time_to_retrospective(task_id: str) -> None:
+    """Append time consumption summary to retrospective.md at archive time.
 
     Called during archive as a safety net — the knowledge-manager agent should
     already include this data, but this ensures it's always present.
@@ -355,20 +355,17 @@ def _append_time_token_to_retrospective(task_id: str) -> None:
             return
 
         from kanban_framework.infra.time_tracking import TimeTracker
-        from kanban_framework.infra.token_tracking import TokenTracker
         import os
 
         reports_dir = fs.kanban_dir / "reports"
         time_tracker = TimeTracker(reports_dir / "time_tracking.json")
-        token_tracker = TokenTracker(reports_dir / "token_tracking.json")
 
         time_data = time_tracker.report(task_id)
-        token_data = token_tracker.report(task_id)
 
         existing = retro_path.read_text(encoding="utf-8")
 
-        # Skip if time/token sections already exist
-        if "## 时间消耗" in existing or "## Token 消耗" in existing:
+        # Skip if time section already exists
+        if "## 时间消耗" in existing:
             return
 
         lines = []
@@ -384,23 +381,11 @@ def _append_time_token_to_retrospective(task_id: str) -> None:
                 lines.append(f"| {phase_name} | {_fmt_duration(elapsed)} |")
             lines.append(f"\n- **总计**: {_fmt_duration(total_seconds)}")
 
-        # Token section
-        total_tokens = token_data.get("total_tokens", 0)
-        by_phase = token_data.get("by_phase", {})
-        if total_tokens > 0:
-            lines.append("\n## Token 消耗")
-            lines.append("| 阶段 | Token |")
-            lines.append("|------|-------|")
-            for phase_name, tokens in sorted(by_phase.items()):
-                lines.append(f"| {phase_name} | {tokens:,} |")
-            budget_status = "within budget" if token_data.get("within_budget", True) else "over budget"
-            lines.append(f"\n- **总计**: {total_tokens:,} tokens ({budget_status})")
-
         if lines:
             retro_path.write_text(existing + "\n".join(lines) + "\n", encoding="utf-8")
     except (OSError, json.JSONDecodeError, KeyError) as exc:
         import logging
-        logging.getLogger("kanban").warning("retrospective time/token append failed: %s", exc)
+        logging.getLogger("kanban").warning("retrospective time append failed: %s", exc)
 
 
 def _collect_iteration_artifacts(fs: Filesystem, task_id: str) -> dict:
@@ -492,61 +477,3 @@ def _resolve_worktree() -> tuple[Git, Worktree]:
     wt = Worktree(git=g, repo_root=root, worktree_base=wt_base)
     return g, wt
 
-
-# ── run ──────────────────────────────────────────────────────────
-
-def _auto_track_step(fs, task_id: str, step_id: str, status: str,
-                     session_id: str = "") -> None:
-    """Record spawn step → subagent session for precise per-task API counting.
-
-    When the orchestrator marks a spawn step as completed, it passes the
-    subagent ID from the Agent tool response via --session.
-    This creates a direct subagent→step mapping without time window guessing,
-    and works correctly with parallel sessions.
-    """
-    if status != "completed" or not session_id:
-        return
-    spawn_steps = {
-        "plan.plan_A", "plan.plan_B", "plan.knowledge_search", "plan.check_constraints",
-        "plan_review.spawn", "plan_review.knowledge_cross_validate",
-        "qa_spec.spawn", "spec_review.spawn",
-        "execute.pitfall_check", "execute.spawn",
-        "evaluate.spawn", "evaluate.spawn_review", "evaluate.e2e_run",
-        "retrospective.spawn", "retrospective.audit_realtime_knowledge",
-    }
-    if step_id not in spawn_steps:
-        return
-    try:
-        from kanban_framework.infra.token_tracking import TokenTracker
-        from kanban_framework.infra.stats_backend import NativeBackend
-        reports_dir = fs.kanban_dir / "reports"
-        fs.ensure_dir(reports_dir)
-        tt = TokenTracker(reports_dir / "token_tracking.json")
-        # Record session → step mapping (phase derived from step_id)
-        phase = step_id.split(".")[0]
-        entry = tt._data.setdefault(task_id, tt._data.get(task_id, {}))
-        entry.setdefault("session_steps", {})
-        entry["session_steps"].setdefault(step_id, [])
-        if session_id not in entry["session_steps"][step_id]:
-            entry["session_steps"][step_id].append(session_id)
-        entry.setdefault("session_phases", {})
-        entry["session_phases"].setdefault(phase, [])
-        if session_id not in entry["session_phases"][phase]:
-            entry["session_phases"][phase].append(session_id)
-        entry.setdefault("sessions", [])
-        if session_id not in entry["sessions"]:
-            entry["sessions"].append(session_id)
-
-        # Count subagent entries and populate token estimate
-        nb = NativeBackend(fs.kanban_dir.parent)
-        sub_count = nb._count_subagent(session_id)
-        if sub_count > 0:
-            entry.setdefault("by_phase", {})
-            entry["by_phase"][phase] = entry["by_phase"].get(phase, 0) + round(sub_count * 800)
-            entry["total_tokens"] = entry.get("total_tokens", 0) + round(sub_count * 800)
-            entry.setdefault("prompt_count", {})
-            entry["prompt_count"][phase] = entry["prompt_count"].get(phase, 0) + 1
-            entry["total_prompts"] = entry.get("total_prompts", 0) + 1
-        tt._save()
-    except Exception:
-        pass

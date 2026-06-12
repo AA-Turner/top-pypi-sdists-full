@@ -381,7 +381,7 @@ class Api:
                             "vision": provider in vision_models,
                             "audio": provider in audio_models,
                             "video": provider in video_models,
-                            "type": "image" if provider in image_models else "chat",
+                            "type": "image" if provider in image_models else "chat"
                         }]
                     }
                 return ErrorResponse.from_message(str(e), 404)
@@ -403,6 +403,7 @@ class Api:
                     "audio": (model.get("id") if isinstance(model, dict) else model) in getattr(provider, "audio_models", []),
                     "video": (model.get("id") if isinstance(model, dict) else model) in getattr(provider, "video_models", []),
                     "type": "image" if (model.get("id") if isinstance(model, dict) else model) in getattr(provider, "image_models", []) else "chat",
+                    "count": provider.models_count.get(model.get("id") if isinstance(model, dict) else model, 0),
                     **(model if isinstance(model, dict) else {})
                 } for model in (models.values() if isinstance(models, dict) else models)]
             }
@@ -451,6 +452,7 @@ class Api:
             HTTP_401_UNAUTHORIZED: {"model": ErrorResponseModel},
             HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
             HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorResponseModel},
+            HTTP_429_TOO_MANY_REQUESTS: {"model": ErrorResponseModel},
             HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
         }
         @self.app.post("/v1/chat/completions", responses=responses)
@@ -542,6 +544,9 @@ class Api:
                                 yield f"data: {chunk.model_dump_json() if hasattr(chunk, 'model_dump_json') else chunk.json()}\n\n"
                     except GeneratorExit:
                         pass
+                    except RateLimitError as e:
+                        debug.error(e)
+                        yield f'data: {format_exception(e, config)}\n\n'
                     except Exception as e:
                         logger.exception(e)
                         yield f'data: {format_exception(e, config)}\n\n'
@@ -555,6 +560,8 @@ class Api:
             except (MissingAuthError, NoValidHarFileError) as e:
                 logger.exception(e)
                 return ErrorResponse.from_exception(e, config, HTTP_401_UNAUTHORIZED)
+            except RateLimitError as e:
+                return ErrorResponse.from_exception(e, config, HTTP_429_TOO_MANY_REQUESTS)
             except Exception as e:
                 logger.exception(e)
                 return ErrorResponse.from_exception(e, config, HTTP_500_INTERNAL_SERVER_ERROR)
@@ -563,6 +570,7 @@ class Api:
             HTTP_200_OK: {"model": ImagesResponse},
             HTTP_401_UNAUTHORIZED: {"model": ErrorResponseModel},
             HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
+            HTTP_429_TOO_MANY_REQUESTS: {"model": ErrorResponseModel},
             HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
         }
         @self.app.post("/v1/media/generate", responses=responses)

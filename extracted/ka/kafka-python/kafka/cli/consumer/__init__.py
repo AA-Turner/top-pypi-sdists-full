@@ -1,72 +1,49 @@
-from __future__ import absolute_import, print_function
-
 import argparse
 import logging
 
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
+from ..common import add_common_cli_args, configure_logging, build_connect_kwargs
 
 
-def main_parser():
+def main_parser(prog=None):
     parser = argparse.ArgumentParser(
-        prog='python -m kafka.consumer',
+        prog=prog or 'python -m kafka.consumer',
         description='Kafka console consumer',
     )
-    parser.add_argument(
-        '-b', '--bootstrap-servers', type=str, action='append', required=True,
-        help='host:port for cluster bootstrap servers')
-    parser.add_argument(
+    add_common_cli_args(parser)
+    options = parser.add_argument_group('consumer options')
+    options.add_argument(
         '-t', '--topic', type=str, action='append', dest='topics', required=True,
         help='subscribe to topic')
-    parser.add_argument(
-        '-g', '--group', type=str, required=True,
+    options.add_argument(
+        '-g', '--group', type=str,
         help='consumer group')
-    parser.add_argument(
-        '-c', '--extra-config', type=str, action='append',
-        help='additional configuration properties for kafka consumer')
-    parser.add_argument(
-        '-l', '--log-level', type=str,
-        help='logging level, passed to logging.basicConfig')
-    parser.add_argument(
+    options.add_argument(
+        '-i', '--group-instance-id', type=str,
+        help='static group membership identifier')
+    options.add_argument(
         '-f', '--format', type=str, default='str',
         help='output format: str|raw|full')
-    parser.add_argument(
+    options.add_argument(
         '--encoding', type=str, default='utf-8', help='encoding to use for str output decode()')
     return parser
 
 
-_LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
-
-
-def build_kwargs(props):
-    kwargs = {}
-    for prop in props or []:
-        k, v = prop.split('=')
-        try:
-            v = int(v)
-        except ValueError:
-            pass
-        if v == 'None':
-            v = None
-        elif v == 'False':
-            v = False
-        elif v == 'True':
-            v = True
-        kwargs[k] = v
-    return kwargs
-
-
-def run_cli(args=None):
-    parser = main_parser()
+def run_cli(args=None, prog=None):
+    parser = main_parser(prog=prog)
     config = parser.parse_args(args)
-    if config.log_level:
-        logging.basicConfig(level=_LOGGING_LEVELS[config.log_level.upper()])
+
     if config.format not in ('str', 'raw', 'full'):
         raise ValueError('Unrecognized format: %s' % config.format)
+    configure_logging(config)
     logger = logging.getLogger(__name__)
 
-    kwargs = build_kwargs(config.extra_config)
-    consumer = KafkaConsumer(bootstrap_servers=config.bootstrap_servers, group_id=config.group, **kwargs)
+    kwargs = build_connect_kwargs(config)
+    consumer = KafkaConsumer(
+        group_id=config.group,
+        group_instance_id=config.group_instance_id,
+        **kwargs)
     consumer.subscribe(config.topics)
     try:
         for m in consumer:
@@ -79,11 +56,8 @@ def run_cli(args=None):
     except KeyboardInterrupt:
         logger.info('Bye!')
         return 0
-    except KafkaError as e:
-        logger.error(e)
-        return 1
     except Exception:
-        logger.exception('Error!')
+        logger.critical('Error!', exc_info=True)
         return 1
     finally:
         consumer.close()

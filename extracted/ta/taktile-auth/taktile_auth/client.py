@@ -393,14 +393,23 @@ class AuthClient:
         )
 
     def fetch_jwt(
-        self, *, session_state: SessionState, expires_seconds: int
+        self,
+        *,
+        session_state: SessionState,
+        expires_seconds: int,
+        organization_id: t.Optional[str] = None,
+        workspace_id: t.Optional[str] = None,
     ) -> t.Union[
         JWTResponseSuccess,
         JWTResponseAllowedFailure,
         JWTResponseForbiddenFailure,
     ]:
         """
-        Take a look at PEP 76: Auth Cache Router for details on this logic
+        Take a look at PEP 76: Auth Cache Router for details on this logic.
+
+        ``organization_id`` / ``workspace_id`` forward as query params to
+        ``/access-token`` so the auth server mints a scope-narrowed JWT.
+        Omit both for an unscoped mint (backwards-compatible default).
         """
         # PEP-295 prefix is for *customer* hop accounting. The internal
         # access-token exchange is not a hop — the prefix would only
@@ -413,12 +422,17 @@ class AuthClient:
             jwt=session_state.jwt,
             session_prefix=None,
         )
+        params: t.Dict[str, t.Any] = {"expires_seconds": expires_seconds}
+        if organization_id is not None:
+            params["organization_id"] = organization_id
+        if workspace_id is not None:
+            params["workspace_id"] = workspace_id
         try:
             res = requests.post(
                 self.access_token_url,
                 headers=bare_state.to_auth_headers(),
                 timeout=settings.AUTH_SERVER_TIMEOUT_SECONDS,
-                params={"expires_seconds": expires_seconds},
+                params=params,
                 cert=self.cert,
             )
             res.raise_for_status()

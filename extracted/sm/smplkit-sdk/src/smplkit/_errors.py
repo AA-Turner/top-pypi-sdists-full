@@ -15,9 +15,9 @@ class ApiErrorDetail:
     code: str | None = None
     """
     Application-specific machine-readable error code (e.g.
-    ``environment_unmanaged``). Per JSON:API §7 and ADR-014, smplkit
-    sets this on every error so callers can branch without
-    string-matching the human ``detail``.
+    ``environment_unmanaged``). Per JSON:API §7, smplkit sets this on
+    every error so callers can branch without string-matching the human
+    ``detail``.
     """
     title: str | None = None
     detail: str | None = None
@@ -138,6 +138,15 @@ class ValidationError(Error):
 class PaymentRequiredError(Error):
     """Raised when the server rejects a request because the account's
     subscription plan does not include the required entitlement."""
+
+
+class NotInstalledError(Error):
+    """Raised when a logging operation is attempted before ``install()``.
+
+    Smpl Logging monkey-patches the standard logging framework, so it stays
+    opt-in: its live surface requires an explicit
+    :meth:`LoggingClient.install` first. Config and flags connect lazily on
+    first live use and never raise this."""
 
 
 def _raise_for_status(status_code: int, content: bytes) -> None:

@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from smplkit._generated.flags.types import UNSET as _FLAGS_UNSET
 from smplkit._helpers import PAGE_SIZE
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit._client import AsyncSmplClient, SmplClient
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def _log_group_resource(id_: str) -> MagicMock:
 
 
 class TestConfigRuntimePagination:
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_single_short_page(self, mock_list):
         mock_list.return_value = _list_resp([_config_resource("c1")])
         client = SmplClient(api_key="sk_test", environment="test", service="svc")
@@ -112,7 +112,7 @@ class TestConfigRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_fetch_all_configs_multi_page_exit(self, mock_list):
         full_page = [_config_resource(f"c{i}") for i in range(PAGE_SIZE)]
         short_page = [_config_resource("c_last")]
@@ -129,7 +129,7 @@ class TestConfigRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.config.client.list_configs.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.config._client.list_configs.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_all_configs_async_multi_page_exit(self, mock_list):
         full_page = [_config_resource(f"c{i}") for i in range(PAGE_SIZE)]
         short_page = [_config_resource("c_last")]
@@ -142,14 +142,14 @@ class TestConfigRuntimePagination:
         page_numbers = [c.kwargs["pagenumber"] for c in mock_list.call_args_list]
         assert page_numbers == [1, 2]
 
-    @patch("smplkit.config.client.list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_handle_configs_changed_multi_page_exit(self, mock_list):
         full_page = [_config_resource(f"c{i}") for i in range(PAGE_SIZE)]
         short_page = [_config_resource("c_last")]
         mock_list.side_effect = [_list_resp(full_page), _list_resp(short_page)]
 
         client = AsyncSmplClient(api_key="sk_test", environment="test", service="svc")
-        client.config._connected = True
+        client.config._installed = True
         client.config._handle_configs_changed({})
         # ``raw_cache`` now contains every resource across both pages.
         assert len(client.config._raw_config_cache) == PAGE_SIZE + 1
@@ -164,40 +164,30 @@ class TestConfigRuntimePagination:
 
 class TestFlagsRuntimePagination:
     def _flags_client(self):
-        from smplkit.management._buffer import _ContextRegistrationBuffer
-        from smplkit.flags.client import FlagsClient
-        from smplkit.management.client import ContextsClient
-        from smplkit.management.client import FlagsClient as _MgmtFlagsClient
+        from smplkit._buffer import _ContextRegistrationBuffer
+        from smplkit.flags._client import FlagsClient
+        from smplkit.platform._client import ContextsClient as ContextsClient
 
         parent = MagicMock()
-        parent._api_key = "sk_test"
         parent._environment = "test"
         parent._service = None
-        manage = MagicMock()
-        manage.contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
-        manage.flags = _MgmtFlagsClient(MagicMock())
-        parent.manage = manage
-        with patch("smplkit.flags.client.AuthenticatedClient"):
-            return FlagsClient(parent, manage=manage, metrics=parent._metrics)
+        contexts = ContextsClient(MagicMock(), _ContextRegistrationBuffer())
+        with patch("smplkit.flags._client.AuthenticatedClient"):
+            return FlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
 
     def _async_flags_client(self):
-        from smplkit.management._buffer import _ContextRegistrationBuffer
-        from smplkit.flags.client import AsyncFlagsClient
-        from smplkit.management.client import AsyncContextsClient
-        from smplkit.management.client import AsyncFlagsClient as _MgmtAsyncFlagsClient
+        from smplkit._buffer import _ContextRegistrationBuffer
+        from smplkit.flags._client import AsyncFlagsClient
+        from smplkit.platform._client import AsyncContextsClient
 
         parent = MagicMock()
-        parent._api_key = "sk_test"
         parent._environment = "test"
         parent._service = None
-        manage = MagicMock()
-        manage.contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
-        manage.flags = _MgmtAsyncFlagsClient(MagicMock())
-        parent.manage = manage
-        with patch("smplkit.flags.client.AuthenticatedClient"):
-            return AsyncFlagsClient(parent, manage=manage, metrics=parent._metrics)
+        contexts = AsyncContextsClient(MagicMock(), _ContextRegistrationBuffer())
+        with patch("smplkit.flags._client.AuthenticatedClient"):
+            return AsyncFlagsClient(parent=parent, transport=MagicMock(), contexts=contexts, metrics=parent._metrics)
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_fetch_flags_list_multi_page_exit(self, mock_list):
         full_page = [_flag_json_dict(f"f{i}") for i in range(PAGE_SIZE)]
         short_page = [_flag_json_dict("f_last")]
@@ -213,7 +203,7 @@ class TestFlagsRuntimePagination:
         page_numbers = [c.kwargs["pagenumber"] for c in mock_list.call_args_list]
         assert page_numbers == [1, 2]
 
-    @patch("smplkit.flags.client.list_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_fetch_all_flags_sync_multi_page_exit(self, mock_list):
         full_page = [_flag_json_dict(f"f{i}") for i in range(PAGE_SIZE)]
         short_page = [_flag_json_dict("f_last")]
@@ -227,7 +217,7 @@ class TestFlagsRuntimePagination:
         assert len(client._flag_store) == PAGE_SIZE + 1
         assert mock_list.call_count == 2
 
-    @patch("smplkit.flags.client.list_flags.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.flags._client.list_flags.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_flags_list_async_multi_page_exit(self, mock_list):
         full_page = [_flag_json_dict(f"f{i}") for i in range(PAGE_SIZE)]
         short_page = [_flag_json_dict("f_last")]
@@ -248,8 +238,8 @@ class TestFlagsRuntimePagination:
 
 
 class TestLoggingRuntimePagination:
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
     def test_fetch_and_apply_loggers_multi_page_exit(self, mock_loggers, mock_groups):
         full_loggers = [_logger_resource(f"lg{i}") for i in range(PAGE_SIZE)]
         short_loggers = [_logger_resource("lg_last")]
@@ -266,8 +256,8 @@ class TestLoggingRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
     def test_fetch_and_apply_log_groups_multi_page_exit(self, mock_loggers, mock_groups):
         full_groups = [_log_group_resource(f"g{i}") for i in range(PAGE_SIZE)]
         short_groups = [_log_group_resource("g_last")]
@@ -284,8 +274,8 @@ class TestLoggingRuntimePagination:
         finally:
             client.close()
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_and_apply_async_loggers_multi_page_exit(self, mock_loggers, mock_groups):
         full_loggers = [_logger_resource(f"lg{i}") for i in range(PAGE_SIZE)]
         short_loggers = [_logger_resource("lg_last")]
@@ -297,8 +287,8 @@ class TestLoggingRuntimePagination:
         assert len(client.logging._loggers_cache) == PAGE_SIZE + 1
         assert mock_loggers.await_count == 2
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_fetch_and_apply_async_log_groups_multi_page_exit(self, mock_loggers, mock_groups):
         full_groups = [_log_group_resource(f"g{i}") for i in range(PAGE_SIZE)]
         short_groups = [_log_group_resource("g_last")]
@@ -329,32 +319,43 @@ def _mgmt_sync_pair_assert(call, *, page_number, page_size):
 
 class TestManagementListPaginationForwarding:
     def _mgmt(self):
-        from smplkit.management.client import SmplManagementClient
+        from smplkit import SmplClient
 
-        return SmplManagementClient(api_key="sk_test", base_domain="example.test")
+        return SmplClient(api_key="sk_test", base_domain="example.test").platform
 
     def _async_mgmt(self):
-        from smplkit.management.client import AsyncSmplManagementClient
+        from smplkit import AsyncSmplClient
 
-        return AsyncSmplManagementClient(api_key="sk_test", base_domain="example.test")
+        return AsyncSmplClient(api_key="sk_test", base_domain="example.test").platform
+
+    def _logging(self):
+        """Logger / log-group CRUD lives on client.logging (loggers / log_groups)."""
+        from smplkit import SmplClient
+
+        return SmplClient(api_key="sk_test", base_domain="example.test").logging
+
+    def _async_logging(self):
+        from smplkit import AsyncSmplClient
+
+        return AsyncSmplClient(api_key="sk_test", base_domain="example.test").logging
 
     # ------------------------------------------------------------------
     # Environments
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_environments.sync_detailed")
+    @patch("smplkit.platform._client._gen_list_environments.sync_detailed")
     def test_environments_list_defaults(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().environments.list()
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=None, page_size=None)
 
-    @patch("smplkit.management.client._gen_list_environments.sync_detailed")
+    @patch("smplkit.platform._client._gen_list_environments.sync_detailed")
     def test_environments_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().environments.list(page_number=3, page_size=50)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=3, page_size=50)
 
-    @patch("smplkit.management.client._gen_list_environments.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.platform._client._gen_list_environments.asyncio_detailed", new_callable=AsyncMock)
     def test_environments_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().environments.list(page_number=2, page_size=25))
@@ -364,13 +365,13 @@ class TestManagementListPaginationForwarding:
     # Context types
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_context_types.sync_detailed")
+    @patch("smplkit.platform._client._gen_list_context_types.sync_detailed")
     def test_context_types_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().context_types.list(page_number=4, page_size=10)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=4, page_size=10)
 
-    @patch("smplkit.management.client._gen_list_context_types.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.platform._client._gen_list_context_types.asyncio_detailed", new_callable=AsyncMock)
     def test_context_types_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().context_types.list(page_number=4, page_size=10))
@@ -380,14 +381,14 @@ class TestManagementListPaginationForwarding:
     # Contexts
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_contexts.sync_detailed")
+    @patch("smplkit.platform._client._gen_list_contexts.sync_detailed")
     def test_contexts_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         self._mgmt().contexts.list("user", page_number=5, page_size=20)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=5, page_size=20)
         assert mock_list.call_args.kwargs["filtercontext_type"] == "user"
 
-    @patch("smplkit.management.client._gen_list_contexts.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.platform._client._gen_list_contexts.asyncio_detailed", new_callable=AsyncMock)
     def test_contexts_async_list_forwards(self, mock_list):
         mock_list.return_value = _resp(content=b'{"data": []}')
         asyncio.run(self._async_mgmt().contexts.list("user", page_number=5, page_size=20))
@@ -397,75 +398,85 @@ class TestManagementListPaginationForwarding:
     # Config
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_configs.sync_detailed")
+    @patch("smplkit.config._client.list_configs.sync_detailed")
     def test_config_list_forwards(self, mock_list):
+        from smplkit import SmplClient
+
         mock_list.return_value = _list_resp([])
-        self._mgmt().config.list(page_number=2, page_size=100)
+        SmplClient(api_key="sk_test", base_domain="example.test").config.list(page_number=2, page_size=100)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=2, page_size=100)
 
-    @patch("smplkit.management.client._gen_list_configs.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.config._client.list_configs.asyncio_detailed", new_callable=AsyncMock)
     def test_config_async_list_forwards(self, mock_list):
+        from smplkit import AsyncSmplClient
+
         mock_list.return_value = _list_resp([])
-        asyncio.run(self._async_mgmt().config.list(page_number=2, page_size=100))
+        client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+        asyncio.run(client.config.list(page_number=2, page_size=100))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=2, page_size=100)
 
     # ------------------------------------------------------------------
     # Flags
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_flags.sync_detailed")
+    @patch("smplkit.flags._client.list_flags.sync_detailed")
     def test_flags_list_forwards(self, mock_list):
+        from smplkit import SmplClient
+
         mock_list.return_value = _resp(content=b'{"data": []}')
-        self._mgmt().flags.list(page_number=7, page_size=42)
+        SmplClient(api_key="sk_test", base_domain="example.test").flags.list(page_number=7, page_size=42)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=7, page_size=42)
 
-    @patch("smplkit.management.client._gen_list_flags.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.flags._client.list_flags.asyncio_detailed", new_callable=AsyncMock)
     def test_flags_async_list_forwards(self, mock_list):
+        from smplkit import AsyncSmplClient
+
         mock_list.return_value = _resp(content=b'{"data": []}')
-        asyncio.run(self._async_mgmt().flags.list(page_number=7, page_size=42))
+        client = AsyncSmplClient(api_key="sk_test", base_domain="example.test")
+        asyncio.run(client.flags.list(page_number=7, page_size=42))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=7, page_size=42)
 
     # ------------------------------------------------------------------
     # Loggers
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
     def test_loggers_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        self._mgmt().loggers.list(page_number=9, page_size=11)
+        self._logging().loggers.list(page_number=9, page_size=11)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=9, page_size=11)
 
-    @patch("smplkit.management.client._gen_list_loggers.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed", new_callable=AsyncMock)
     def test_loggers_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        asyncio.run(self._async_mgmt().loggers.list(page_number=9, page_size=11))
+        asyncio.run(self._async_logging().loggers.list(page_number=9, page_size=11))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=9, page_size=11)
 
     # ------------------------------------------------------------------
     # Log groups
     # ------------------------------------------------------------------
 
-    @patch("smplkit.management.client._gen_list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
     def test_log_groups_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        self._mgmt().log_groups.list(page_number=6, page_size=8)
+        self._logging().log_groups.list(page_number=6, page_size=8)
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=6, page_size=8)
 
-    @patch("smplkit.management.client._gen_list_log_groups.asyncio_detailed", new_callable=AsyncMock)
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed", new_callable=AsyncMock)
     def test_log_groups_async_list_forwards(self, mock_list):
         mock_list.return_value = _list_resp([])
-        asyncio.run(self._async_mgmt().log_groups.list(page_number=6, page_size=8))
+        asyncio.run(self._async_logging().log_groups.list(page_number=6, page_size=8))
         _mgmt_sync_pair_assert(mock_list.call_args, page_number=6, page_size=8)
 
 
 class TestPaginationKwargsHelper:
     def test_empty_when_both_none(self):
-        from smplkit.management.client import _pagination_kwargs
+        from smplkit.platform._client import _pagination_kwargs
 
         assert _pagination_kwargs(None, None) == {}
 
     def test_includes_only_set_values(self):
-        from smplkit.management.client import _pagination_kwargs
+        from smplkit.platform._client import _pagination_kwargs
 
         assert _pagination_kwargs(2, None) == {"pagenumber": 2}
         assert _pagination_kwargs(None, 50) == {"pagesize": 50}

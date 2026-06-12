@@ -75,10 +75,20 @@ class _OriginType(str, Enum):
     CONNECTOR_ROLLOUT = "connector_rollout"
 
 
+def _auth_root_for_config_api_root(config_api_root: str | None) -> str:
+    """Return the token exchange root for the configured API target."""
+    if not config_api_root:
+        return constants.CLOUD_API_ROOT
+    if config_api_root.startswith("http://localhost:"):
+        return config_api_root
+    return constants.CLOUD_API_ROOT
+
+
 def _get_access_token(
     client_id: str | None = None,
     client_secret: str | None = None,
     bearer_token: str | None = None,
+    config_api_root: str | None = None,
 ) -> str:
     """Get an access token for Airbyte Cloud API.
 
@@ -106,8 +116,8 @@ def _get_access_token(
             message="Either bearer_token or both client_id and client_secret must be provided",
         )
 
-    # Always authenticate via the public API endpoint
-    auth_url = f"{constants.CLOUD_API_ROOT}/applications/token"
+    auth_root = _auth_root_for_config_api_root(config_api_root)
+    auth_url = f"{auth_root}/applications/token"
     response = requests.post(
         auth_url,
         json={
@@ -152,7 +162,12 @@ def get_user_id_by_email(
     Raises:
         PyAirbyteInputError: If user not found or API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     endpoint = f"{config_api_root}/users/list_instance_admin"
     response = requests.post(
@@ -192,6 +207,52 @@ def get_user_id_by_email(
     )
 
 
+def list_instance_admin_users(
+    config_api_root: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bearer_token: str | None = None,
+) -> tuple[dict[str, str], ...]:
+    """List instance-admin users from the Config API."""
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
+    endpoint = f"{config_api_root}/users/list_instance_admin"
+    response = requests.post(
+        endpoint,
+        json={},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "User-Agent": ops_constants.USER_AGENT,
+            "Content-Type": "application/json",
+        },
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        raise PyAirbyteInputError(
+            message=f"Failed to list users: {response.status_code} {response.text}",
+            context={
+                "endpoint": endpoint,
+                "status_code": response.status_code,
+                "response": response.text,
+            },
+        )
+
+    users = response.json().get("users", [])
+    return tuple(
+        {
+            "userId": str(user.get("userId", "")),
+            "email": str(user.get("email", "")),
+        }
+        for user in users
+        if isinstance(user, dict) and user.get("userId") and user.get("email")
+    )
+
+
 def resolve_connector_version_id(
     actor_definition_id: str,
     connector_type: Literal["source", "destination"],
@@ -218,7 +279,12 @@ def resolve_connector_version_id(
     Raises:
         PyAirbyteInputError: If version cannot be resolved or API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     endpoint = f"{config_api_root}/actor_definition_versions/resolve"
     payload = {
@@ -264,6 +330,66 @@ def resolve_connector_version_id(
         )
 
     return version_id
+
+
+def _resolve_connector_definition_id(
+    *,
+    connector_name: str,
+    connector_type: Literal["source", "destination"],
+    config_api_root: str,
+    access_token: str,
+) -> str:
+    """Resolve a connector name to an actor definition ID."""
+    if not config_api_root.startswith("http://localhost:"):
+        return resolve_canonical_name_to_definition_id(connector_name)
+
+    definitions_endpoint = (
+        f"{config_api_root}/source_definitions/list_latest"
+        if connector_type == "source"
+        else f"{config_api_root}/destination_definitions/list_latest"
+    )
+    definitions_response = requests.post(
+        definitions_endpoint,
+        json={},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "User-Agent": ops_constants.USER_AGENT,
+            "Content-Type": "application/json",
+        },
+        timeout=30,
+    )
+    if definitions_response.status_code != 200:
+        raise PyAirbyteInputError(
+            message=(
+                "Failed to resolve local connector definition: "
+                f"{definitions_response.status_code} {definitions_response.text}"
+            ),
+            context={
+                "endpoint": definitions_endpoint,
+                "connector_name": connector_name,
+            },
+        )
+    definitions_key = (
+        "sourceDefinitions" if connector_type == "source" else "destinationDefinitions"
+    )
+    definition_id_key = (
+        "sourceDefinitionId"
+        if connector_type == "source"
+        else "destinationDefinitionId"
+    )
+    for definition in definitions_response.json().get(definitions_key, []):
+        raw_name = str(definition.get("name", ""))
+        docker_repository = str(definition.get("dockerRepository", ""))
+        canonical_name = docker_repository.rsplit("/", maxsplit=1)[-1] or raw_name
+        if connector_name in (canonical_name, raw_name):
+            return definition[definition_id_key]
+    raise PyAirbyteInputError(
+        message=f"Could not resolve local connector definition for {connector_name}",
+        context={
+            "endpoint": definitions_endpoint,
+            "connector_name": connector_name,
+        },
+    )
 
 
 def _get_scoped_configuration_context(
@@ -362,7 +488,12 @@ def get_all_scoped_configuration_contexts(
     Raises:
         PyAirbyteInputError: If any API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     # Start with empty dict - only add entries for scopes that have active configs
     # This ensures the result is falsy if nothing is set
@@ -424,7 +555,12 @@ def get_connector_version(
     Raises:
         PyAirbyteInputError: If the API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     # Determine endpoint based on connector type
     # config_api_root already includes /v1
@@ -582,7 +718,12 @@ def set_connector_version_override(
             message="override_reason is required when setting a version and must be at least 10 characters",
         )
 
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     # Build the scoped configuration
     scope_type = _ScopeType.ACTOR
@@ -1015,11 +1156,20 @@ def set_workspace_connector_version_override(
             message="override_reason is required when setting a version and must be at least 10 characters",
         )
 
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     # Resolve connector name to actor_definition_id using the shared registry lookup
-    actor_definition_id = resolve_canonical_name_to_definition_id(connector_name)
-
+    actor_definition_id = _resolve_connector_definition_id(
+        connector_name=connector_name,
+        connector_type=connector_type,
+        config_api_root=config_api_root,
+        access_token=access_token,
+    )
     if unset:
         # Get the existing workspace-level configuration
         active_config = _get_scoped_configuration_context(
@@ -1249,10 +1399,20 @@ def set_organization_connector_version_override(
             message="override_reason is required when setting a version and must be at least 10 characters",
         )
 
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     # Resolve connector name to actor_definition_id using the shared registry lookup
-    actor_definition_id = resolve_canonical_name_to_definition_id(connector_name)
+    actor_definition_id = _resolve_connector_definition_id(
+        connector_name=connector_name,
+        connector_type=connector_type,
+        config_api_root=config_api_root,
+        access_token=access_token,
+    )
 
     if unset:
         # Get the existing organization-level configuration
@@ -1478,7 +1638,12 @@ def start_connector_rollout(
     Raises:
         PyAirbyteInputError: If the API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     endpoint = f"{config_api_root}/connector_rollout/manual_start"
     payload: dict[str, Any] = {
@@ -1592,7 +1757,12 @@ def progress_connector_rollout(
     Raises:
         PyAirbyteInputError: If the API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     endpoint = f"{config_api_root}/connector_rollout/manual_rollout"
     payload: dict[str, Any] = {
@@ -1706,7 +1876,12 @@ def finalize_connector_rollout(
     Raises:
         PyAirbyteInputError: If the API request fails
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     endpoint = f"{config_api_root}/connector_rollout/manual_finalize"
     payload: dict[str, Any] = {
@@ -1809,7 +1984,12 @@ def get_actor_sync_info(
     Raises:
         PyAirbyteInputError: If the API request fails or rollout not found
     """
-    access_token = _get_access_token(client_id, client_secret, bearer_token)
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
 
     endpoint = f"{config_api_root}/connector_rollout/get_actor_sync_info"
     payload = {"id": rollout_id}

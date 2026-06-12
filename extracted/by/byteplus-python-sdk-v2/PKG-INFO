@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: byteplus-python-sdk-v2
-Version: 3.0.48
+Version: 3.0.49
 Summary: Byteplus SDK for Python
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/byteplus-sdk/byteplus-python-sdk-v2
@@ -139,3 +139,7 @@ When calling APIs, it is recommended to integrate the SDK in your project. Using
 6. [Error Handling](docs/6-ErrorHandling.md) — Exception Handling
 7. [Debugging](docs/7-Debugging.md) — Debug Mode, Log Output
 8. [Environment Variables](docs/EnvironmentVariables.md) — Environment Variable Configuration
+
+## Security and privacy
+This project takes security seriously.
+For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md)

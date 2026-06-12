@@ -94,6 +94,8 @@ jobs:
               - 'infra/sentry/**'
             agent-message-bus:
               - 'infra/agent-message-bus/**'
+            ops-webapp:
+              - 'infra/ops-webapp/**'
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
@@ -108,6 +110,8 @@ jobs:
               - 'infra/sentry/**'
             agent-message-bus:
               - 'infra/agent-message-bus/**'
+            ops-webapp:
+              - 'infra/ops-webapp/**'
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
@@ -130,9 +134,11 @@ jobs:
             } else {
               const sentry = ${{ steps['changes-push'].outputs.sentry || steps['changes-pr'].outputs.sentry || false }};
               const amb = ${{ steps['changes-push'].outputs['agent-message-bus'] || steps['changes-pr'].outputs['agent-message-bus'] || false }};
+              const opsWebapp = ${{ steps['changes-push'].outputs['ops-webapp'] || steps['changes-pr'].outputs['ops-webapp'] || false }};
               const workflow = ${{ steps['changes-push'].outputs.workflow || steps['changes-pr'].outputs.workflow || false }};
               if (sentry || workflow) stacks.push({ name: 'sentry', dir: 'infra/sentry' });
               if (amb || workflow) stacks.push({ name: 'agent-message-bus', dir: 'infra/agent-message-bus' });
+              if (opsWebapp || workflow) stacks.push({ name: 'ops-webapp', dir: 'infra/ops-webapp' });
             }
             const result = JSON.stringify(stacks);
             core.setOutput('stacks', result);
@@ -204,7 +210,7 @@ jobs:
 
       # GCP stacks: authenticate via Workload Identity Federation
       - name: Authenticate to GCP (WIF)
-        if: matrix.stack.name == 'agent-message-bus'
+        if: matrix.stack.name != 'sentry'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
@@ -245,10 +251,10 @@ jobs:
           pulumi login "file://$BACKEND_DIR"
           [ -d "$BACKEND_DIR/.pulumi/stacks" ] && echo "State restored from artifact" || echo "No existing state found, starting fresh"
 
-      # ---------- State backend: GCS (agent-message-bus) ----------
+      # ---------- State backend: GCS (GCP stacks) ----------
 
       - name: Initialize GCS backend
-        if: matrix.stack.name == 'agent-message-bus'
+        if: matrix.stack.name != 'sentry'
         run: pulumi login gs://internal-airbyte-ai-infra-pulumi-state
 
       # ---------- Select stack, preview, and apply ----------

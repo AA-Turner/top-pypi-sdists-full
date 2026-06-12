@@ -1,16 +1,24 @@
-from kafka.structs import TopicPartition
+from logging import info
+from threading import Event, Thread
+from time import monotonic as time, sleep
+
 import pytest
 
-from logging import info
-from test.testutil import env_kafka_version, random_string
-from threading import Event, Thread
-from time import time, sleep
-
 from kafka.admin import (
-    ACLFilter, ACLOperation, ACLPermissionType, ResourcePattern, ResourceType, ACL, ConfigResource, ConfigResourceType)
+    ACLFilter, ACLOperation, ACLPermissionType,
+    ResourcePattern, ResourceType, ACL,
+    ConfigResource, ConfigResourceType,
+    NewPartitions, NewTopic, OffsetSpec
+)
 from kafka.errors import (
-        BrokerResponseError, NoError, CoordinatorNotAvailableError, NonEmptyGroupError,
-        GroupIdNotFoundError, OffsetOutOfRangeError, UnknownTopicOrPartitionError)
+    BrokerResponseError, NoError, CoordinatorNotAvailableError,
+    NonEmptyGroupError, GroupIdNotFoundError, OffsetOutOfRangeError,
+    UnknownTopicOrPartitionError, ElectionNotNeededError,
+    KafkaTimeoutError, IncompatibleBrokerVersion
+)
+from kafka.structs import TopicPartition, OffsetAndTimestamp, TopicPartitionReplica
+from test.testutil import env_kafka_version, random_string
+from test.integration.fixtures import create_topics
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="ACL features require broker >=0.11")
@@ -94,27 +102,43 @@ def test_describe_configs_broker_resource_returns_configs(kafka_admin_client):
     """Tests that describe config returns configs for broker
     """
     broker_id = kafka_admin_client._client.least_loaded_node()
-    configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.BROKER, broker_id)])
+    configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.BROKER, broker_id)], config_filter='all')
 
     assert len(configs) == 1
-    assert configs[0].resources[0][2] == ConfigResourceType.BROKER
-    assert configs[0].resources[0][3] == str(broker_id)
-    assert len(configs[0].resources[0][4]) > 1
+    assert len(configs['broker']) == 1
+    if env_kafka_version() >= (4, 0):
+        assert configs['broker'][str(broker_id)]['advertised.listeners']['config_source'] == 'STATIC_BROKER_CONFIG'
+    elif env_kafka_version() >= (1, 1):
+        assert configs['broker'][str(broker_id)]['advertised.listeners']['config_source'] == 'DEFAULT_CONFIG'
+    if env_kafka_version() >= (2, 6):
+        assert configs['broker'][str(broker_id)]['advertised.listeners']['config_type'] in ('LIST', 'STRING')
+    if env_kafka_version() >= (4, 0):
+        assert configs['broker'][str(broker_id)]['advertised.listeners']['read_only'] is True
+    elif env_kafka_version() >= (1, 1):
+        assert configs['broker'][str(broker_id)]['advertised.listeners']['read_only'] is False
+    assert configs['broker'][str(broker_id)]['advertised.listeners']['is_sensitive'] is False
+    if env_kafka_version() >= (1, 1):
+        assert configs['broker'][str(broker_id)]['advertised.listeners']['synonyms'] == []
+    assert 'value' in configs['broker'][str(broker_id)]['advertised.listeners']
 
 
-@pytest.mark.xfail(condition=True,
-                   reason="https://github.com/dpkp/kafka-python/issues/1929",
-                   raises=AssertionError)
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
 def test_describe_configs_topic_resource_returns_configs(topic, kafka_admin_client):
     """Tests that describe config returns configs for topic
     """
-    configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.TOPIC, topic)])
+    configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.TOPIC, topic)], config_filter='all')
 
     assert len(configs) == 1
-    assert configs[0].resources[0][2] == ConfigResourceType.TOPIC
-    assert configs[0].resources[0][3] == topic
-    assert len(configs[0].resources[0][4]) > 1
+    assert len(configs['topic']) == 1
+    if env_kafka_version() >= (1, 1):
+        assert configs['topic'][topic]['retention.bytes']['config_source'] == 'DEFAULT_CONFIG'
+    if env_kafka_version() >= (2, 6):
+        assert configs['topic'][topic]['retention.bytes']['config_type'] == 'LONG'
+    assert configs['topic'][topic]['retention.bytes']['read_only'] is False
+    assert configs['topic'][topic]['retention.bytes']['is_sensitive'] is False
+    if env_kafka_version() >= (1, 1):
+        assert configs['topic'][topic]['retention.bytes']['synonyms'] == []
+    assert configs['topic'][topic]['retention.bytes']['value'] == '-1'
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
@@ -122,18 +146,17 @@ def test_describe_configs_mixed_resources_returns_configs(topic, kafka_admin_cli
     """Tests that describe config returns configs for mixed resource types (topic + broker)
     """
     broker_id = kafka_admin_client._client.least_loaded_node()
-    configs = kafka_admin_client.describe_configs([
-        ConfigResource(ConfigResourceType.TOPIC, topic),
-        ConfigResource(ConfigResourceType.BROKER, broker_id)])
+    configs = kafka_admin_client.describe_configs(
+        [ConfigResource(ConfigResourceType.TOPIC, topic),
+         ConfigResource(ConfigResourceType.BROKER, broker_id)],
+        config_filter='all',
+    )
 
     assert len(configs) == 2
-
-    for config in configs:
-        assert (config.resources[0][2] == ConfigResourceType.TOPIC
-                and config.resources[0][3] == topic) or \
-               (config.resources[0][2] == ConfigResourceType.BROKER
-                and config.resources[0][3] == str(broker_id))
-        assert len(config.resources[0][4]) > 1
+    assert topic in configs['topic']
+    assert len(configs['topic'][topic]) > 1
+    assert str(broker_id) in configs['broker']
+    assert len(configs['broker'][str(broker_id)]) > 1
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
@@ -143,11 +166,11 @@ def test_describe_configs_invalid_broker_id_raises(kafka_admin_client):
     broker_id = "str"
 
     with pytest.raises(ValueError):
-        kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.BROKER, broker_id)])
+        kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.BROKER, broker_id)], config_filter='all')
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason='Describe consumer group requires broker >=0.11')
-def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_factory, topic):
+def test_describe_group_exists(kafka_admin_client, kafka_consumer_factory, topic):
     """Tests that the describe consumer group call returns valid consumer group information
     This test takes inspiration from the test 'test_group' in test_consumer_group.py.
     """
@@ -161,10 +184,10 @@ def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_facto
         assert i not in consumers
         assert i not in stop
         stop[i] = Event()
-        consumers[i] = kafka_consumer_factory(group_id=group_id)
-        while not stop[i].is_set():
-            consumers[i].poll(timeout_ms=200)
-        consumers[i].close()
+        with kafka_consumer_factory(group_id=group_id) as c:
+            consumers[i] = c
+            while not stop[i].is_set():
+                consumers[i].poll(timeout_ms=200)
         consumers[i] = None
         stop[i] = None
 
@@ -213,20 +236,20 @@ def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_facto
             sleep(1)
 
         info('Group stabilized; verifying assignment')
-        output = kafka_admin_client.describe_consumer_groups(group_id_list)
+        output = kafka_admin_client.describe_groups(group_id_list)
         assert len(output) == 2
-        consumer_groups = set()
-        for consumer_group in output:
-            assert(consumer_group.group in group_id_list)
-            if consumer_group.group == group_id_list[0]:
-                assert(len(consumer_group.members) == 2)
+        groups = set()
+        for group in output.values():
+            assert(group['group_id'] in group_id_list)
+            if group['group_id'] == group_id_list[0]:
+                assert(len(group['members']) == 2)
             else:
-                assert(len(consumer_group.members) == 1)
-            for member in consumer_group.members:
-                    assert(member.member_metadata.topics[0] == topic)
-                    assert(member.member_assignment.assignment[0][0] == topic)
-            consumer_groups.add(consumer_group.group)
-        assert(sorted(list(consumer_groups)) == group_id_list)
+                assert(len(group['members']) == 1)
+            for member in group['members']:
+                    assert(member['member_metadata']['topics'] == [topic])
+                    assert(member['member_assignment']['assigned_partitions'][0]['topic'] == topic)
+            groups.add(group['group_id'])
+        assert(sorted(list(groups)) == group_id_list)
     finally:
         info('Shutting down %s consumers', num_consumers)
         for c in range(num_consumers):
@@ -239,84 +262,75 @@ def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_facto
 
 
 @pytest.mark.skipif(env_kafka_version() < (1, 1), reason="Delete consumer groups requires broker >=1.1")
-def test_delete_consumergroups(kafka_admin_client, kafka_consumer_factory, send_messages):
+def test_delete_groups(kafka_admin_client, kafka_consumer_factory, send_messages):
     random_group_id = 'test-group-' + random_string(6)
     group1 = random_group_id + "_1"
     group2 = random_group_id + "_2"
     group3 = random_group_id + "_3"
 
     send_messages(range(0, 100), partition=0)
-    consumer1 = kafka_consumer_factory(group_id=group1)
-    next(consumer1)
-    consumer1.close()
+    with kafka_consumer_factory(group_id=group1) as consumer1:
+        next(consumer1)
 
-    consumer2 = kafka_consumer_factory(group_id=group2)
-    next(consumer2)
-    consumer2.close()
+    with kafka_consumer_factory(group_id=group2) as consumer2:
+        next(consumer2)
 
-    consumer3 = kafka_consumer_factory(group_id=group3)
-    next(consumer3)
-    consumer3.close()
+    with kafka_consumer_factory(group_id=group3) as consumer3:
+        next(consumer3)
 
-    consumergroups = {group_id for group_id, _ in kafka_admin_client.list_consumer_groups()}
-    assert group1 in consumergroups
-    assert group2 in consumergroups
-    assert group3 in consumergroups
+    groups = {group['group_id'] for group in kafka_admin_client.list_groups()}
+    assert group1 in groups
+    assert group2 in groups
+    assert group3 in groups
 
-    delete_results = {
-        group_id: error
-        for group_id, error in kafka_admin_client.delete_consumer_groups([group1, group2])
-    }
-    assert delete_results[group1] == NoError
-    assert delete_results[group2] == NoError
+    delete_results = kafka_admin_client.delete_groups([group1, group2])
+    assert delete_results[group1] == 'OK'
+    assert delete_results[group2] == 'OK'
     assert group3 not in delete_results
 
-    consumergroups = {group_id for group_id, _ in kafka_admin_client.list_consumer_groups()}
-    assert group1 not in consumergroups
-    assert group2 not in consumergroups
-    assert group3 in consumergroups
+    groups = {group['group_id'] for group in kafka_admin_client.list_groups()}
+    assert group1 not in groups
+    assert group2 not in groups
+    assert group3 in groups
 
 
 @pytest.mark.skipif(env_kafka_version() < (1, 1), reason="Delete consumer groups requires broker >=1.1")
-def test_delete_consumergroups_with_errors(kafka_admin_client, kafka_consumer_factory, send_messages):
+def test_delete_groups_with_errors(kafka_admin_client, kafka_consumer_factory, send_messages):
     random_group_id = 'test-group-' + random_string(6)
     group1 = random_group_id + "_1"
     group2 = random_group_id + "_2"
     group3 = random_group_id + "_3"
 
     send_messages(range(0, 100), partition=0)
-    consumer1 = kafka_consumer_factory(group_id=group1)
-    next(consumer1)
-    consumer1.close()
+    with kafka_consumer_factory(group_id=group1) as consumer1:
+        next(consumer1)
 
-    consumer2 = kafka_consumer_factory(group_id=group2)
-    next(consumer2)
+    with kafka_consumer_factory(group_id=group2) as consumer2:
+        next(consumer2)
 
-    consumergroups = {group_id for group_id, _ in kafka_admin_client.list_consumer_groups()}
-    assert group1 in consumergroups
-    assert group2 in consumergroups
-    assert group3 not in consumergroups
+        groups = {group['group_id'] for group in kafka_admin_client.list_groups()}
+        assert group1 in groups
+        assert group2 in groups
+        assert group3 not in groups
 
-    delete_results = {
-        group_id: error
-        for group_id, error in kafka_admin_client.delete_consumer_groups([group1, group2, group3])
-    }
+        delete_results = kafka_admin_client.delete_groups([group1, group2, group3])
+        assert delete_results[group1] == 'OK'
+        assert delete_results[group2] == 'NonEmptyGroupError'
+        assert delete_results[group3] == 'GroupIdNotFoundError'
 
-    assert delete_results[group1] == NoError
-    assert delete_results[group2] == NonEmptyGroupError
-    assert delete_results[group3] == GroupIdNotFoundError
+    groups = {group['group_id'] for group in kafka_admin_client.list_groups()}
+    assert group1 not in groups
+    assert group2 in groups
+    assert group3 not in groups
 
-    consumergroups = {group_id for group_id, _ in kafka_admin_client.list_consumer_groups()}
-    assert group1 not in consumergroups
-    assert group2 in consumergroups
-    assert group3 not in consumergroups
 
 @pytest.fixture(name="topic2")
 def _topic2(kafka_broker, request):
     """Same as `topic` fixture, but a different name if you need to topics."""
     topic_name = '%s_%s' % (request.node.name, random_string(10))
-    kafka_broker.create_topics([topic_name])
+    create_topics(kafka_broker, [topic_name])
     return topic_name
+
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Delete records requires broker >=0.11.0")
 def test_delete_records(kafka_admin_client, kafka_consumer_factory, send_messages, topic, topic2):
@@ -332,10 +346,10 @@ def test_delete_records(kafka_admin_client, kafka_consumer_factory, send_message
     for p in partitions:
         send_messages(range(0, 100), partition=p.partition, topic=p.topic)
 
-    consumer1 = kafka_consumer_factory(group_id=None, topics=())
-    consumer1.assign(partitions)
-    for _ in range(600):
-        next(consumer1)
+    with kafka_consumer_factory(group_id=None, topics=()) as consumer1:
+        consumer1.assign(partitions)
+        for _ in range(600):
+            next(consumer1)
 
     result = kafka_admin_client.delete_records({t0p0: -1, t0p1: 50, t1p0: 40, t1p2: 30}, timeout_ms=1000)
     assert result[t0p0] == {"low_watermark": 100, "error_code": 0, "partition_index": t0p0.partition}
@@ -343,11 +357,11 @@ def test_delete_records(kafka_admin_client, kafka_consumer_factory, send_message
     assert result[t1p0] == {"low_watermark": 40, "error_code": 0, "partition_index": t1p0.partition}
     assert result[t1p2] == {"low_watermark": 30, "error_code": 0, "partition_index": t1p2.partition}
 
-    consumer2 = kafka_consumer_factory(group_id=None, topics=())
-    consumer2.assign(partitions)
-    all_messages = consumer2.poll(max_records=600, timeout_ms=2000)
-    assert sum(len(x) for x in all_messages.values()) == 600 - 100 - 50 - 40 - 30
-    assert not consumer2.poll(max_records=1, timeout_ms=1000) # ensure there are no delayed messages
+    with kafka_consumer_factory(group_id=None, topics=()) as consumer2:
+        consumer2.assign(partitions)
+        all_messages = consumer2.poll(max_records=600, timeout_ms=2000)
+        assert sum(len(x) for x in all_messages.values()) == 600 - 100 - 50 - 40 - 30
+        assert not consumer2.poll(max_records=1, timeout_ms=1000) # ensure there are no delayed messages
 
     assert not all_messages.get(t0p0, [])
     assert [r.offset for r in all_messages[t0p1]] == list(range(50, 100))
@@ -375,3 +389,207 @@ def test_delete_records_with_errors(kafka_admin_client, topic, send_messages):
         kafka_admin_client.delete_records({p0: 1000})
     with pytest.raises(BrokerResponseError):
         kafka_admin_client.delete_records({p0: 1000, p1: 1000})
+
+
+@pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Create topics requires broker >=0.10.1")
+def test_create_delete_topics(kafka_admin_client):
+    topic_name = random_string(4)
+    response = kafka_admin_client.create_topics([NewTopic(topic_name, 1, 1)])
+    assert response['topics'][0]['name'] == topic_name
+    assert response['topics'][0]['error_code'] == 0 # NoError
+
+    response = kafka_admin_client.delete_topics([topic_name])
+    assert response['topics'][0]['name'] == topic_name
+    assert response['topics'][0]['error_code'] == 0 # NoError
+
+    topic_name = random_string(4)
+    response = kafka_admin_client.create_topics({topic_name: {'num_partitions': 1, 'replication_factor': 1}})
+    assert response['topics'][0]['name'] == topic_name
+    assert response['topics'][0]['error_code'] == 0 # NoError
+
+    response = kafka_admin_client.delete_topics([topic_name])
+    assert response['topics'][0]['name'] == topic_name
+    assert response['topics'][0]['error_code'] == 0 # NoError
+
+    # Create topics requires explicit num_partitions/replication_factor on < 2.4
+    if env_kafka_version() < (2, 4):
+        with pytest.raises(IncompatibleBrokerVersion):
+            kafka_admin_client.create_topics([topic_name])
+
+        with pytest.raises(IncompatibleBrokerVersion):
+            kafka_admin_client.create_topics({topic_name: {'num_partitions': 2}})
+
+    else:
+        topic_name = random_string(4)
+        response = kafka_admin_client.create_topics([topic_name])
+        assert response['topics'][0]['name'] == topic_name
+        assert response['topics'][0]['error_code'] == 0 # NoError
+
+        response = kafka_admin_client.delete_topics([topic_name])
+        assert response['topics'][0]['name'] == topic_name
+        assert response['topics'][0]['error_code'] == 0 # NoError
+
+
+@pytest.mark.skipif(env_kafka_version() < (1, 0), reason="CreatePartitions requires broker >=1.0")
+def test_create_partitions(kafka_admin_client, topic):
+    # topic fixture creates with 4 partitions by default
+    topic_metadata = kafka_admin_client.describe_topics([topic])
+    assert len(topic_metadata) == 1
+    original_count = len(topic_metadata[0]['partitions'])
+    assert original_count == 4
+
+    # Increase to 6 partitions
+    new_total = 6
+    response = kafka_admin_client.create_partitions({topic: NewPartitions(new_total, [[0], [0]])})
+    for result in response.results:
+        assert result[0] == topic
+        assert result[1] == 0  # NoError
+
+    timeout_at = time() + 30
+    while time() < timeout_at:
+        # Verify the new partition count
+        topic_metadata = kafka_admin_client.describe_topics([topic])
+        if len(topic_metadata[0]['partitions']) == new_total:
+            break
+        else:
+            sleep(1)
+    else:
+        raise KafkaTimeoutError('Failed to create partitions')
+
+
+@pytest.mark.skipif(env_kafka_version() < (2, 2), reason="Leader Election requires broker >=2.2")
+def test_elect_leaders(kafka_admin_client, topic):
+    topic_metadata = kafka_admin_client.describe_topics([topic])[0]
+    assert topic_metadata['name'] == topic
+    partitions = list(map(lambda p: p['partition_index'], topic_metadata['partitions']))
+    election_type = 0 # Preferred
+    topic_partitions = {topic: partitions}
+    # When Leader Election is not needed (cluster is stable), error 84 is returned
+    response = kafka_admin_client.elect_leaders(election_type, topic_partitions)
+    assert len(response.replica_election_results) == 1
+    result = response.replica_election_results[0]
+    assert result[0] == topic
+    partition_set = set(partitions)
+    for partition in result[1]:
+        assert partition[0] in partition_set
+        partition_set.remove(partition[0])
+        assert partition[1] == ElectionNotNeededError.errno
+    assert partition_set == set()
+
+
+@pytest.mark.skipif(env_kafka_version() < (1, 0), reason="DescribeLogDirsRequest requires broker >= 1.0")
+def test_describe_log_dirs(kafka_admin_client):
+    log_dirs = kafka_admin_client.describe_log_dirs()
+    assert log_dirs
+    broker_map = {result['broker']: result for result in log_dirs}
+    for broker in kafka_admin_client._manager.cluster.brokers():
+        assert broker.node_id in broker_map
+        assert len(broker_map[broker.node_id]['log_dirs']) > 0
+        for log_dir in broker_map[broker.node_id]['log_dirs']:
+            assert 'log_dir' in log_dir
+            assert log_dir['error_code'] == 0
+
+
+@pytest.mark.skipif(env_kafka_version() < (1, 1), reason="AlterReplicaLogDirs requires broker >=1.1")
+def test_alter_replica_log_dirs(kafka_admin_client, topic):
+    log_dirs = kafka_admin_client.describe_log_dirs()
+    target_dir = log_dirs[0]['log_dirs'][0]['log_dir']
+    broker_id = log_dirs[0]['broker']
+    tpr = TopicPartitionReplica(topic, 0, broker_id)
+
+    result = kafka_admin_client.alter_replica_log_dirs({tpr: target_dir})
+    assert tpr in result
+    # Moving a replica to its current log dir is a no-op that returns NoError.
+    assert result[tpr] is NoError
+
+
+@pytest.mark.skipif(env_kafka_version() < (4, 0), reason="DescribeQuorum requires KRaft (broker >=4.0)")
+def test_describe_metadata_quorum(kafka_admin_client):
+    result = kafka_admin_client.describe_metadata_quorum()
+    assert 'error_code' not in result
+    assert 'error_message' not in result
+    assert len(result['topics']) == 1
+    t = result['topics'][0]
+    assert t['topic_name'] == '__cluster_metadata'
+    assert len(t['partitions']) == 1
+    p = t['partitions'][0]
+    assert p['partition_index'] == 0
+    assert 'error_code' not in p
+    assert 'error_message' not in p
+    assert p['error'] is None
+    assert p['leader_id'] >= 0
+    assert p['leader_epoch'] >= 0
+    assert p['high_watermark'] >= 0
+    assert len(p['current_voters']) >= 1
+
+
+@pytest.mark.skipif(env_kafka_version() < (2, 4), reason="AlterPartitionReassignments requires broker >=2.4")
+def test_alter_partition_reassignments(kafka_admin_client, topic):
+    brokers = [b.node_id for b in kafka_admin_client._manager.cluster.brokers()]
+    # Single-broker cluster: only valid reassignment target is [broker]
+    tp = TopicPartition(topic, 0)
+
+    result = kafka_admin_client.alter_partition_reassignments({tp: brokers})
+    assert result == {tp: None}
+
+
+@pytest.mark.skipif(env_kafka_version() < (2, 4), reason="ListPartitionReassignments requires broker >=2.4")
+def test_list_partition_reassignments(kafka_admin_client, topic):
+    # No reassignments in progress on a freshly-created topic
+    result = kafka_admin_client.list_partition_reassignments()
+    assert isinstance(result, dict)
+
+    # Scoped lookup for specific partitions also returns an (empty) dict
+    tp = TopicPartition(topic, 0)
+    result = kafka_admin_client.list_partition_reassignments([tp])
+    assert isinstance(result, dict)
+    for key, value in result.items():
+        assert isinstance(key, TopicPartition)
+        assert set(value.keys()) == {'replicas', 'adding_replicas', 'removing_replicas'}
+
+
+@pytest.mark.skipif(env_kafka_version() < (4, 0), reason="DescribeTopicPartitions requires broker >=4.0 (KRaft)")
+def test_describe_topic_partitions(kafka_admin_client, topic):
+    result = kafka_admin_client.describe_topic_partitions([topic])
+    assert 'topics' in result
+    assert 'next_cursor' in result
+    assert len(result['topics']) == 1
+    t = result['topics'][0]
+    assert t['name'] == topic
+    assert t['error_code'] == 0
+    # topic fixture creates 4 partitions
+    assert len(t['partitions']) == 4
+    for p in t['partitions']:
+        assert p['error_code'] == 0
+        assert p['partition_index'] in {0, 1, 2, 3}
+        assert p['leader_id'] >= 0
+        assert len(p['replica_nodes']) >= 1
+
+
+@pytest.mark.skipif(env_kafka_version() < (4, 0), reason="DescribeTopicPartitions requires broker >=4.0 (KRaft)")
+def test_describe_topic_partitions_pagination(kafka_admin_client, topic):
+    # Request only 1 partition per page; we should get a cursor back.
+    result = kafka_admin_client.describe_topic_partitions(
+        [topic], response_partition_limit=1)
+    # Small clusters may still satisfy the request without a cursor if the
+    # broker ignores the partition limit - tolerate either outcome but verify
+    # the cursor round-trips when present.
+    if result['next_cursor'] is not None:
+        cursor = result['next_cursor']
+        assert cursor['topic_name'] == topic
+        next_result = kafka_admin_client.describe_topic_partitions(
+            [topic], response_partition_limit=10, cursor=cursor)
+        assert next_result['topics']
+
+
+def test_list_partition_offsets(kafka_admin_client, topic):
+    tp = TopicPartition(topic, 0)
+    result = kafka_admin_client.list_partition_offsets({tp: OffsetSpec.LATEST})
+    assert tp in result
+    assert isinstance(result[tp], OffsetAndTimestamp)
+
+
+@pytest.mark.skipif(env_kafka_version() < (4, 1), reason="ListConfigResources requires broker >=4.1 (KRaft)")
+def test_list_config_resources(kafka_admin_client):
+    result = kafka_admin_client.list_config_resources()
+    assert 'broker' in result

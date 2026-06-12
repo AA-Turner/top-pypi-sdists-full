@@ -145,6 +145,14 @@ class OfctlService(app_manager.OSKenApp):
             self.reply_to_request(req, rep)
             return
 
+        # Reject if the message's datapath is stale (switch reconnected)
+        if si.datapath is not datapath:
+            self.logger.error('stale dpid %s', datapath.id)
+            rep = event.Reply(exception=exception.
+                              InvalidDatapath(result=datapath.id))
+            self.reply_to_request(req, rep)
+            return
+
         def _store_xid(xid, barrier_xid):
             assert xid not in si.results
             assert xid not in si.xids
@@ -164,7 +172,15 @@ class OfctlService(app_manager.OSKenApp):
             barrier = datapath.ofproto_parser.OFPBarrierRequest(datapath)
             datapath.set_xid(barrier)
             _store_xid(msg.xid, barrier.xid)
-            if not datapath.send_msg(msg):
+            try:
+                msg_sent = datapath.send_msg(msg)
+            except Exception as e:
+                self.logger.error('failed to serialize message <%s>: %s',
+                                  msg, e)
+                return self._cancel(
+                    si, barrier.xid,
+                    exception.InvalidMessage(result=msg))
+            if not msg_sent:
                 return self._cancel(
                     si, barrier.xid,
                     exception.InvalidDatapath(result=datapath.id))

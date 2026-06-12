@@ -47,13 +47,14 @@ from bty.web import (
 )
 from bty.web._auth import SESSION_AUTHED_KEY
 from bty.web._events_log import KNOWN_ACTORS, KNOWN_EVENT_KINDS, KNOWN_SUBJECT_KINDS
-from bty.web._events_log import normalize_ip as _normalize_ip
 from bty.web._models import (
     BOOT_MODES,
     DEFAULT_BOOT_MODE,
     CatalogEntryAdd,
     MachineUpsert,
 )
+from bty.web._reqctx import client_ip as _client_ip
+from bty.web._reqctx import normalise_mac as _normalise_mac
 
 
 class NotAuthenticated(Exception):
@@ -277,14 +278,28 @@ def register_ui_routes(
             {
                 "label": "TFTP daemon running",
                 "ok": tftp.is_active,
+                # On a container deploy bty-web can't see into the
+                # bty-tftp sidecar (its dnsmasq runs in another
+                # container, in a different mount namespace, and on
+                # host networking) so the local probe reports
+                # ``unknown``. That is not a failure: the Netboot
+                # page's network probe is the canonical signal in
+                # that mode. Render as advisory rather than warning
+                # so a healthy container deploy doesn't look broken.
+                # On a bare-metal deploy ``unknown`` still means the
+                # operator needs to look; keep the warning there.
+                "info": tftp.state == "unknown" and _sysconfig.running_in_container(),
                 "detail": (
-                    f"dnsmasq.service is {tftp.state}."
+                    "dnsmasq.service is active."
                     if tftp.state == "active"
                     else (
-                        f"dnsmasq.service is {tftp.state} "
-                        "(container deploys run TFTP from a sidecar "
-                        "outside bty-web's visibility -- check the "
-                        "sidecar's status if PXE is failing)."
+                        "bty-web is running in a container; the "
+                        "bty-tftp sidecar's dnsmasq lives in a "
+                        "different mount namespace and isn't "
+                        "visible from here. The Netboot page's "
+                        "network probe is the canonical signal."
+                        if tftp.state == "unknown" and _sysconfig.running_in_container()
+                        else f"dnsmasq.service is {tftp.state}."
                     )
                 ),
                 "href": "/ui/netboot",
@@ -678,7 +693,7 @@ def register_ui_routes(
         flash = request.query_params.get("error")
         catalog_manifest_path = str(_config.cfg().catalog_file)
         with _db.open_db(state_path) as conn:
-            release_repo = _settings_store.resolve_release_repo(conn)
+            catalog_repo = _settings_store.resolve_catalog_repo(conn)
             catalog_tag = _settings_store.resolve_catalog_tag(conn)
             image_events = _events_log.list_events(conn, subject_kind="catalog", limit=15)
         return render(
@@ -687,7 +702,7 @@ def register_ui_routes(
             unified=unified,
             image_events=image_events,
             manifest_path=catalog_manifest_path,
-            release_repo=release_repo,
+            catalog_repo=catalog_repo,
             catalog_tag=catalog_tag,
             flash=flash,
             flash_kind="danger" if flash else None,
@@ -822,13 +837,23 @@ def register_ui_routes(
         reachable (+ how big), and does withcache already hold it?
 
         The withcache HEAD also warms an auto-fetch cache, so on a miss
-        this doubles as a one-click "start caching it" -- click again
+        this doubles as a one-click "start caching it": click again
         shortly and it flips to cached. Strictly point-in-time: the
         result can change at any moment (a network blip, or withcache
-        finishing a background fill). Never 500s on a dead origin -- an
+        finishing a background fill). Never 500s on a dead origin: an
         unreachable source is a normal result here (reported as
-        ``origin.reachable = false``), same as the catalog-add path."""
+        ``origin.reachable = false``), same as the catalog-add path.
+
+        For ``oras://`` srcs bty-web warms withcache against the
+        ``resolved_src`` blob URL the catalog row carries (populated
+        at import time by ``bty.oras.resolve_ref``). A fresh
+        anonymous OCI bearer is minted on every Check and sent on
+        the withcache HEAD; withcache forwards the ``Authorization``
+        into its background fetch worker (withcache 0.4.0+), so the
+        cache fills against a token-gated origin in one probe.
+        """
         from bty import flash as _flash
+        from bty import oras as _oras
         from bty.web import _withcache
 
         origin: dict[str, Any]
@@ -841,20 +866,46 @@ def register_ui_routes(
             }
         except Exception as exc:
             # FileNotFoundError (unreachable / 4xx / 5xx / oras resolve
-            # fail) or ValueError (unsupported scheme) -- both are
-            # "not deployable right now", not server errors.
+            # fail) or ValueError (unsupported scheme): both are "not
+            # deployable right now", not server errors.
             origin = {"reachable": False, "error": str(exc)}
 
         with _db.open_db(state_path) as conn:
             withcache_url = _settings_store.resolve_withcache_url(conn)
+            row = conn.execute(
+                "SELECT resolved_src FROM catalog_entries WHERE src = ?", (src,)
+            ).fetchone()
+        resolved_src = row["resolved_src"] if row else None
+
         if not withcache_url:
             withcache = {"configured": False}
-        elif src.startswith(("http://", "https://")):
+        elif resolved_src is None and src.startswith(("http://", "https://")):
+            # Pre-resolved-src catalog row (legacy schema or a fresh
+            # row whose import-time resolution failed). Fall back to
+            # treating ``src`` as the URL directly.
             hit = _withcache.is_cached(withcache_url, src)
             withcache = {"configured": True, "hit": hit, "warmed": not hit}
+        elif resolved_src is not None:
+            # New unified path: a stored canonical URL, possibly with
+            # a freshly-minted bearer for an oras-backed row.
+            headers: dict[str, str] | None = None
+            if src.startswith("oras://"):
+                try:
+                    ref = _oras.parse_ref(src)
+                    token = _oras.fetch_anonymous_token(ref.host, ref.repository)
+                    headers = {"Authorization": f"Bearer {token}"}
+                except _oras.OrasError as exc:
+                    # Token mint failed: HEAD anonymously. Withcache
+                    # records the miss but the worker fetch will 401;
+                    # operator sees "warming" until the next Check.
+                    headers = None
+                    origin.setdefault("warnings", []).append(f"token mint: {exc}")
+            hit = _withcache.is_cached(withcache_url, resolved_src, headers=headers)
+            withcache = {"configured": True, "hit": hit, "warmed": not hit}
         else:
-            # oras:// flows through bty-web's /images proxy (needs the
-            # bearer token); withcache only fronts plain-HTTP origins.
+            # ``file://`` or another scheme with no resolved_src: not
+            # applicable. Operators who want caching for these add an
+            # HTTPS or oras catalog entry pointing at the same bytes.
             withcache = {"configured": True, "applicable": False}
 
         return {
@@ -941,12 +992,13 @@ def register_ui_routes(
                 try:
                     conn.execute(
                         "INSERT INTO catalog_entries "
-                        "(bty_image_ref, src, disk_image_sha, name, sha_url, "
+                        "(bty_image_ref, src, resolved_src, disk_image_sha, name, sha_url, "
                         "format, size_bytes, description, added_at) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             bty_image_ref,
                             image_url,
+                            resolved.blob_url,
                             sha256,
                             name,
                             None,
@@ -1037,11 +1089,12 @@ def register_ui_routes(
             try:
                 conn.execute(
                     "INSERT INTO catalog_entries "
-                    "(bty_image_ref, src, disk_image_sha, name, sha_url, "
+                    "(bty_image_ref, src, resolved_src, disk_image_sha, name, sha_url, "
                     "format, size_bytes, description, added_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         bty_image_ref,
+                        image_url,
                         image_url,
                         sha256,
                         name,
@@ -1111,7 +1164,7 @@ def register_ui_routes(
         artifacts = _releases.inspect_boot_dir(boot_root)
         artifacts_all_cached = bool(artifacts) and all(a.present for a in artifacts)
         with _db.open_db(state_path) as conn:
-            release_repo = _settings_store.resolve_release_repo(conn)
+            netboot_repo = _settings_store.resolve_netboot_repo(conn)
             netboot_tag = _settings_store.resolve_netboot_tag(conn)
             # Recent netboot activity for the page's "Activity" table.
             boot_events = _events_log.list_events(conn, subject_kind="netboot", limit=10)
@@ -1121,7 +1174,7 @@ def register_ui_routes(
             artifacts=artifacts,
             artifacts_all_cached=artifacts_all_cached,
             artifact_shas=_releases.boot_artifact_shas(boot_root),
-            release_repo=release_repo,
+            netboot_repo=netboot_repo,
             netboot_tag=netboot_tag,
             boot_events=boot_events,
             flash=flash,
@@ -1329,21 +1382,26 @@ def register_ui_routes(
         state_dir = state_path.parent
         catalog_file = str(cfg.catalog_file)
         with _db.open_db(state_path) as conn:
-            release_repo = _settings_store.resolve_release_repo(conn)
+            netboot_repo = _settings_store.resolve_netboot_repo(conn)
+            catalog_repo = _settings_store.resolve_catalog_repo(conn)
             catalog_url = _settings_store.resolve_catalog_url(conn)
             catalog_tag = _settings_store.resolve_catalog_tag(conn)
             netboot_tag = _settings_store.resolve_netboot_tag(conn)
-            repo_override = _settings_store.get(conn, _settings_store.KEY_RELEASE_REPO)
+            netboot_repo_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_REPO)
+            catalog_repo_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_REPO)
             catalog_tag_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_TAG)
             netboot_tag_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
         upstream = {
-            "release_repo": release_repo,
-            "release_repo_override": repo_override,
-            "release_repo_default": _settings_store.default_release_repo(),
+            "netboot_repo": netboot_repo,
+            "netboot_repo_override": netboot_repo_override,
+            "netboot_repo_default": _settings_store.default_netboot_repo(),
+            "catalog_repo": catalog_repo,
+            "catalog_repo_override": catalog_repo_override,
+            "catalog_repo_default": _settings_store.default_catalog_repo(),
             "catalog_tag": catalog_tag,
             "catalog_tag_override": catalog_tag_override,
             "catalog_tag_default": _settings_store.DEFAULT_TAG,
-            "catalog_url": catalog_url,  # derived view (repo + catalog_tag)
+            "catalog_url": catalog_url,  # derived view (catalog_repo + catalog_tag)
             "netboot_tag": netboot_tag,
             "netboot_tag_override": netboot_tag_override,
             "netboot_tag_default": _settings_store.DEFAULT_TAG,
@@ -1702,42 +1760,45 @@ def register_ui_routes(
     )
     def ui_settings_upstream(
         request: Request,
-        release_repo: Annotated[str, Form()] = "",
+        netboot_repo: Annotated[str, Form()] = "",
+        catalog_repo: Annotated[str, Form()] = "",
         catalog_tag: Annotated[str, Form()] = "",
         netboot_tag: Annotated[str, Form()] = "",
     ) -> RedirectResponse:
-        """Save (or clear) the three editable upstream overrides:
-        release repo, catalog tag, netboot tag. An empty field clears
-        that override, reverting to the default. All three take effect
-        on the next fetch without a restart, since the fetch sites
-        resolve from this store at request time."""
-        rr = release_repo.strip()
+        """Save (or clear) the four editable upstream overrides:
+        netboot repo, catalog repo, catalog tag, netboot tag. An empty
+        field clears that override, reverting to the built-in default.
+        All four take effect on the next fetch without a restart,
+        since the fetch sites resolve from this store at request time.
+        """
+        nr = netboot_repo.strip()
+        cr = catalog_repo.strip()
         ct = catalog_tag.strip()
         nt = netboot_tag.strip()
         with _db.open_db(state_path) as conn:
             # Snapshot the previous explicit overrides (None = was on
             # default) BEFORE the writes so the audit event can carry
             # both before + after.
-            old_rr = _settings_store.get(conn, _settings_store.KEY_RELEASE_REPO)
+            old_nr = _settings_store.get(conn, _settings_store.KEY_NETBOOT_REPO)
+            old_cr = _settings_store.get(conn, _settings_store.KEY_CATALOG_REPO)
             old_ct = _settings_store.get(conn, _settings_store.KEY_CATALOG_TAG)
             old_nt = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
-            if rr:
-                _settings_store.set_value(conn, _settings_store.KEY_RELEASE_REPO, rr)
-            else:
-                _settings_store.clear(conn, _settings_store.KEY_RELEASE_REPO)
-            if ct:
-                _settings_store.set_value(conn, _settings_store.KEY_CATALOG_TAG, ct)
-            else:
-                _settings_store.clear(conn, _settings_store.KEY_CATALOG_TAG)
-            if nt:
-                _settings_store.set_value(conn, _settings_store.KEY_NETBOOT_TAG, nt)
-            else:
-                _settings_store.clear(conn, _settings_store.KEY_NETBOOT_TAG)
+            for value, key in (
+                (nr, _settings_store.KEY_NETBOOT_REPO),
+                (cr, _settings_store.KEY_CATALOG_REPO),
+                (ct, _settings_store.KEY_CATALOG_TAG),
+                (nt, _settings_store.KEY_NETBOOT_TAG),
+            ):
+                if value:
+                    _settings_store.set_value(conn, key, value)
+                else:
+                    _settings_store.clear(conn, key)
             _events_log.record(
                 conn,
                 kind="settings.upstream.updated",
                 summary=(
-                    f"upstream sources set: repo={rr or '(default)'}, "
+                    f"upstream sources set: netboot_repo={nr or '(default)'}, "
+                    f"catalog_repo={cr or '(default)'}, "
                     f"catalog_tag={ct or '(default)'}, "
                     f"netboot_tag={nt or '(default)'}"
                 ),
@@ -1746,7 +1807,8 @@ def register_ui_routes(
                 actor="operator",
                 source_ip=_client_ip(request),
                 details={
-                    "release_repo": {"old": old_rr, "new": rr or None},
+                    "netboot_repo": {"old": old_nr, "new": nr or None},
+                    "catalog_repo": {"old": old_cr, "new": cr or None},
                     "catalog_tag": {"old": old_ct, "new": ct or None},
                     "netboot_tag": {"old": old_nt, "new": nt or None},
                 },
@@ -2091,37 +2153,6 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
-
-
-def _client_ip(request: Request) -> str | None:
-    """Mirror of ``bty.web._app._client_ip``: read the request's
-    client host and feed it through :func:`_events_log.normalize_ip`
-    so v4-mapped-v6 addresses collapse to bare v4 before hitting
-    the audit log. ``[server] trusted_proxy`` (env override
-    ``BTY_SERVER_TRUSTED_PROXY``) opts into reading
-    ``X-Forwarded-For`` for deployments behind a reverse proxy.
-    Duplicated here rather than imported because ``_app`` already
-    imports this module (circular)."""
-    if _config.cfg().server.trusted_proxy:
-        xff = request.headers.get("x-forwarded-for")
-        if xff:
-            first = xff.split(",", 1)[0].strip()
-            if first:
-                return _normalize_ip(first)
-    return _normalize_ip(request.client.host if request.client else None)
-
-
-def _normalise_mac(raw: str) -> str:
-    cleaned = raw.lower().replace("-", ":")
-    parts = cleaned.split(":")
-    if len(parts) != 6 or any(
-        len(p) != 2 or any(c not in "0123456789abcdef" for c in p) for p in parts
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"invalid MAC: {raw!r}",
-        )
-    return cleaned
 
 
 def _now_iso() -> str:

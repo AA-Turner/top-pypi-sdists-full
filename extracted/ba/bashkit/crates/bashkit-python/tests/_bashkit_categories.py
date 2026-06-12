@@ -129,6 +129,24 @@ def test_bash_restore_snapshot_after_reset_restores_original_state():
     assert bash.execute_sync("cat /workspace/state.txt").stdout.strip() == "saved"
 
 
+def test_bash_keyed_snapshot_rejects_wrong_key_and_restores_state():
+    bash = Bash()
+    bash.execute_sync("export KEEP=1; mkdir -p /workspace && echo saved > /workspace/state.txt")
+    snapshot = bash.snapshot_keyed(b"correct key that is long enough for security")
+
+    with pytest.raises(BashError, match="HMAC mismatch"):
+        Bash.from_snapshot_keyed(snapshot, b"wrong key that is also long enough ok")
+
+    restored = Bash.from_snapshot_keyed(snapshot, b"correct key that is long enough for security", username="alice")
+    assert restored.execute_sync("whoami").stdout.strip() == "alice"
+    assert restored.execute_sync("echo $KEEP").stdout.strip() == "1"
+    assert restored.execute_sync("cat /workspace/state.txt").stdout.strip() == "saved"
+
+    restored.execute_sync("export KEEP=2")
+    restored.restore_snapshot_keyed(snapshot, b"correct key that is long enough for security")
+    assert restored.execute_sync("echo $KEEP").stdout.strip() == "1"
+
+
 def test_bash_snapshot_can_exclude_filesystem():
     bash = Bash()
     bash.execute_sync("export KEEP=1; echo saved > /tmp/state.txt")
@@ -300,6 +318,25 @@ def test_bash_files_dict_callable_errors_and_invalid_returns_raise():
         bash.read_file("/config/invalid.txt")
 
 
+def test_bash_files_dict_callable_large_return_is_limited_and_retryable():
+    state = {"large": True, "calls": 0}
+
+    def load_file():
+        state["calls"] += 1
+        if state["large"]:
+            return "x" * 10_000_001
+        return "ok"
+
+    bash = Bash(files={"/config/lazy.txt": load_file})
+
+    with pytest.raises(Exception, match="file size limit exceeded"):
+        bash.read_file("/config/lazy.txt")
+
+    state["large"] = False
+    assert bash.read_file("/config/lazy.txt") == "ok"
+    assert state["calls"] == 2
+
+
 def test_bash_mounts_readonly_by_default(tmp_path):
     (tmp_path / "data.txt").write_text("original\n")
     bash = Bash(mounts=[{"host_path": str(tmp_path), "vfs_path": "/data"}])
@@ -453,6 +490,27 @@ def test_bash_direct_vfs_glob_limits_result_count():
             bash.write_file(f"{shard_dir}/file_{idx}.txt", "x")
     matches = bash.glob("/data/*/*.txt")
     assert len(matches) == 9_000
+
+
+def test_bash_direct_vfs_glob_bounds_realfs_traversal(tmp_path):
+    # Security regression: direct glob over RealFs must stop by work budget
+    # instead of walking every host entry outside Bash execution limits.
+    for idx in range(10_050):
+        (tmp_path / f"dir_{idx:05}").mkdir()
+    (tmp_path / "zz_after_budget.txt").write_text("late")
+
+    bash = Bash(mounts=[{"host_path": str(tmp_path), "vfs_path": "/host"}])
+
+    assert bash.glob("/host/z*_after_budget.txt") == []
+
+
+def test_bash_direct_vfs_glob_honors_timeout(tmp_path):
+    for idx in range(512):
+        (tmp_path / f"dir_{idx:05}").mkdir()
+
+    bash = Bash(mounts=[{"host_path": str(tmp_path), "vfs_path": "/host"}], timeout_seconds=0)
+
+    assert bash.glob("/host/*/missing.txt") == []
 
 
 # -- Bash: FS / mount error cases ------------------------------------------
@@ -770,6 +828,24 @@ def test_bashtool_restore_snapshot_after_reset_restores_original_state():
     assert tool.execute_sync("echo $KEEP").stdout.strip() == "1"
     assert tool.execute_sync("pwd").stdout.strip() == "/workspace"
     assert tool.execute_sync("cat /workspace/tool.txt").stdout.strip() == "saved"
+
+
+def test_bashtool_keyed_snapshot_rejects_wrong_key_and_restores_state():
+    tool = BashTool()
+    tool.execute_sync("export KEEP=1; mkdir -p /workspace && echo saved > /workspace/tool.txt")
+    snapshot = tool.snapshot_keyed(b"correct key that is long enough for security")
+
+    with pytest.raises(BashError, match="HMAC mismatch"):
+        BashTool.from_snapshot_keyed(snapshot, b"wrong key that is also long enough ok")
+
+    restored = BashTool.from_snapshot_keyed(snapshot, b"correct key that is long enough for security", username="alice")
+    assert restored.execute_sync("whoami").stdout.strip() == "alice"
+    assert restored.execute_sync("echo $KEEP").stdout.strip() == "1"
+    assert restored.execute_sync("cat /workspace/tool.txt").stdout.strip() == "saved"
+
+    restored.execute_sync("export KEEP=2")
+    restored.restore_snapshot_keyed(snapshot, b"correct key that is long enough for security")
+    assert restored.execute_sync("echo $KEEP").stdout.strip() == "1"
 
 
 def test_bashtool_snapshot_can_exclude_filesystem():

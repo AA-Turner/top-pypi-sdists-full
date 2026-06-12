@@ -13,10 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 
+from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.ssh import SSHKeyPair, wait_for_ssh_reachable
 from plato.cli.chronos.dev.sync import SyncManager
 from plato.v2.async_.environment import Environment
 from plato.v2.async_.session import Session
+from plato.worlds.config import DevConfig
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,48 @@ class SyncTarget:
 
     local_path: Path
     remote_path: str
+
+
+def _resolve_dev_path(value: Path | None, config_dir: Path) -> Path | None:
+    """Resolve a dev-config path; relative paths are config-file-relative."""
+    if value is None:
+        return None
+    if value.is_absolute():
+        return value
+    return (config_dir / value).resolve()
+
+
+def build_sync_targets(dev: DevConfig, config_dir: Path) -> list[SyncTarget]:
+    """Build the /world, /agents/*, /extra/* and /sdk sync targets from a dev config.
+
+    Shared by the chronos dev and test runners so both resolve `dev.*` paths
+    the same way: relative to the config file's directory.
+    """
+    targets: list[SyncTarget] = []
+
+    world_path = _resolve_dev_path(dev.world, config_dir)
+    if world_path:
+        targets.append(SyncTarget(local_path=world_path, remote_path="/world"))
+
+    for name, agent_path in dev.agents.items():
+        resolved = _resolve_dev_path(agent_path, config_dir)
+        if resolved:
+            targets.append(SyncTarget(local_path=resolved, remote_path=f"/agents/{name}"))
+
+    for name, extra_path in dev.extra_sync.items():
+        resolved = _resolve_dev_path(extra_path, config_dir)
+        if resolved:
+            targets.append(SyncTarget(local_path=resolved, remote_path=f"/extra/{name}"))
+
+    if dev.sync_sdk:
+        if isinstance(dev.sync_sdk, Path):
+            sdk_root = _resolve_dev_path(dev.sync_sdk, config_dir)
+        else:
+            sdk_root = get_sdk_root()
+        if sdk_root and (sdk_root / "pyproject.toml").exists():
+            targets.append(SyncTarget(local_path=sdk_root, remote_path="/sdk"))
+
+    return targets
 
 
 async def provision_vm(

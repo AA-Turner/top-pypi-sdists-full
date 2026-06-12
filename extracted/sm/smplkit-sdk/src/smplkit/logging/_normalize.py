@@ -1,4 +1,4 @@
-"""Logger name normalization per ADR-034 §5."""
+"""Logger name normalization into canonical logger ids."""
 
 from __future__ import annotations
 

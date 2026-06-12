@@ -129,7 +129,7 @@ from .utils.constants import (
     SCALER_NAME,
 )
 from .utils.modeling import get_state_dict_offloaded_model
-from .utils.other import compile_regions, compile_regions_deepspeed, is_compiled_module
+from .utils.other import compile_regions, compile_regions_deepspeed, compile_regions_fsdp2, is_compiled_module
 
 
 if is_deepspeed_available():
@@ -154,7 +154,8 @@ if is_megatron_lm_available():
         megatron_lm_prepare_model_optimizer_scheduler,
     )
 
-from torch.distributed.algorithms.join import Join
+if torch.distributed.is_available():
+    from torch.distributed.algorithms.join import Join
 
 
 if is_torch_xla_available():
@@ -1308,7 +1309,7 @@ class Accelerator:
                 PyTorch Module that was prepared with `Accelerator.prepare` for DistributedDataParallel training.
             even_batches (`bool`, *optional*)
                 If set, this will override the value of `even_batches` set in the `Accelerator`. If it is not provided,
-                the default `Accelerator` value wil be used.
+                the default `Accelerator` value will be used.
 
         <Tip warning={true}>
 
@@ -1696,10 +1697,14 @@ class Accelerator:
             model = fsdp2_apply_ac(self, model)
 
         # Apply compile if needed, has to be *after* applying AC
-        # Copied from: `accelerator.prepare_model` ~ L1804
         if self.state.dynamo_plugin.backend != DynamoBackend.NO and not is_compiled_module(model):
             if self.state.dynamo_plugin.use_regional_compilation:
-                model = compile_regions(model, **self.state.dynamo_plugin.to_kwargs())
+                # Match torchtitan's per-block compile recipe: needed for MoE token-choice dispatch
+                # (data-dependent dynamic shapes) and to keep the AC + compile boundary consistent
+                # by skipping replay of forward python side effects in backward.
+                torch._dynamo.config.capture_scalar_outputs = True
+                torch._dynamo.config.skip_fwd_side_effects_in_bwd_under_checkpoint = True
+                model = compile_regions_fsdp2(model, **self.state.dynamo_plugin.to_kwargs())
             else:
                 model = torch.compile(model, **self.state.dynamo_plugin.to_kwargs())
 
@@ -1790,6 +1795,12 @@ class Accelerator:
         """
         if device_placement is None:
             device_placement = self.device_placement and self.distributed_type != DistributedType.FSDP
+
+        # Ensure we can't double wrap a model
+        if getattr(model, "_is_accelerate_prepared", False):
+            if model not in self._models:
+                self._models.append(model)
+            return model
 
         self._models.append(model)
 
@@ -2053,6 +2064,7 @@ class Accelerator:
                 model = compile_regions(model, **self.state.dynamo_plugin.to_kwargs())
             else:
                 model = torch.compile(model, **self.state.dynamo_plugin.to_kwargs())
+        model._is_accelerate_prepared = True
         return model
 
     def _prepare_ao(self, *args):
@@ -2334,7 +2346,7 @@ class Accelerator:
             deepspeed_plugin.deepspeed_config_process(must_match=False, **config_kwargs)
             self.deepspeed_config = deepspeed_plugin.deepspeed_config
 
-            # note: batch_size derivation is all over the map, especiall in HF Trainer, so try to fix it at the last moment if needed
+            # note: batch_size derivation is all over the map, especially in HF Trainer, so try to fix it at the last moment if needed
             pc = self.parallelism_config
             if pc is not None and pc.sp_backend == "deepspeed" and pc.sp_size > 1:
                 self.deepspeed_config["train_batch_size"] = (
@@ -3137,7 +3149,8 @@ class Accelerator:
             tensor (`torch.Tensor`, or a nested tuple/list/dictionary of `torch.Tensor`):
                 The tensors to reduce across all processes.
             reduction (`str`, *optional*, defaults to "sum"):
-                A reduction type, can be one of 'sum', 'mean', or 'none'. If 'none', will not perform any operation.
+                A reduction type, can be one of 'sum', 'mean', 'max', or 'none'. If 'none', will not perform any
+                operation.
             scale (`float`, *optional*, defaults to 1.0):
                 A default scaling value to be applied after the reduce, only valid on XLA.
 
@@ -3256,7 +3269,7 @@ class Accelerator:
         wait_for_everyone()
 
     @on_main_process
-    def init_trackers(self, project_name: str, config: dict | None = None, init_kwargs: dict | None = {}):
+    def init_trackers(self, project_name: str, config: dict | None = None, init_kwargs: dict | None = None):
         """
         Initializes a run for all trackers stored in `self.log_with`, potentially with starting configurations
 
@@ -3285,6 +3298,8 @@ class Accelerator:
         ... )
         ```
         """
+        if init_kwargs is None:
+            init_kwargs = {}
         for tracker in self.log_with:
             if issubclass(type(tracker), GeneralTracker):
                 # Custom trackers are already initialized
@@ -3339,7 +3354,7 @@ class Accelerator:
         return GeneralTracker(_blank=True)
 
     @on_main_process
-    def log(self, values: dict, step: int | None = None, log_kwargs: dict | None = {}):
+    def log(self, values: dict, step: int | None = None, log_kwargs: dict | None = None):
         """
         Logs `values` to all stored trackers in `self.trackers` on the main process only.
 
@@ -3365,12 +3380,14 @@ class Accelerator:
         >>> accelerator.log({"loss": 0.5, "accuracy": 0.9})
         ```
         """
+        if log_kwargs is None:
+            log_kwargs = {}
         for tracker in self.trackers:
             tracker.log(values, step=step, **log_kwargs.get(tracker.name, {}))
 
     def end_training(self):
         """
-        Runs any special end training behaviors, such as stopping trackers on the main process only or destoying
+        Runs any special end training behaviors, such as stopping trackers on the main process only or destroying
         process group. Should always be called at the end of your script if using experiment tracking.
 
         Example:

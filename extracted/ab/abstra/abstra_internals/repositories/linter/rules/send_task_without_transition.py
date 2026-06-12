@@ -1,9 +1,11 @@
 import ast
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
 from abstra_internals.repositories.project.project import (
     LocalProjectRepository,
@@ -28,30 +30,30 @@ class SendTaskWithoutTransitionFound(LinterIssue):
         self.fixes = []
 
 
-class SendTaskWithoutTransition(LinterRule):
+class SendTaskWithoutTransition(PathScopedLinterRule):
     label: str = "send_task calls should have a matching transition"
     type: str = "info"
     fix_with_ai: bool = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues = []
 
-        for entrypoint, stage in project.iter_entrypointed_stages():
+        for entrypoint, stage in project.iter_scoped_entrypointed_stages(path):
             try:
                 tree = ASTCache.get(entrypoint)
                 send_task_calls = self._find_send_task_calls(tree)
 
                 for task_type, line_number in send_task_calls:
                     if not self._has_matching_transition(stage, task_type):
-                        issues.append(
-                            SendTaskWithoutTransitionFound(
-                                task_type=task_type,
-                                stage_title=stage.title,
-                                stage_file=stage.file,
-                                line_number=line_number,
-                            )
+                        issue = SendTaskWithoutTransitionFound(
+                            task_type=task_type,
+                            stage_title=stage.title,
+                            stage_file=stage.file,
+                            line_number=line_number,
                         )
+                        issue.path = linter_path_key(entrypoint)
+                        issues.append(issue)
             except Exception:
                 pass
 

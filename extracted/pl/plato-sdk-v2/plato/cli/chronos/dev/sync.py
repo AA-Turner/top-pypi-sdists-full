@@ -34,6 +34,7 @@ def parse_gitignore(gitignore_path: Path) -> list[str]:
         "node_modules",
         ".mypy_cache",
         ".pytest_cache",
+        ".ruff_cache",
         "dist",
         ".next",
         "plato-fuse/target",
@@ -329,8 +330,13 @@ class SyncManager:
 
         self._running = True
 
-        # Build fswatch command
+        # Build fswatch command. Whitelist mutation events only: without
+        # --event filters, inotify reports reads (PlatformSpecific) too, so
+        # rsync scanning the tree re-triggers the watcher — an infinite
+        # sync feedback loop that eventually overflows the event queue.
         fswatch_cmd = ["fswatch", "-o", "--latency", "0.5", "-r"]
+        for event in ("Created", "Updated", "Removed", "Renamed", "MovedFrom", "MovedTo"):
+            fswatch_cmd.extend(["--event", event])
 
         # Add exclude patterns from all targets
         all_excludes: set[str] = set()

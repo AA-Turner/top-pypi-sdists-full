@@ -1,9 +1,22 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import sys
+import threading
 import time
+import types
 
 import dcc_mcp_core._server.gateway_guardian as gg
+
+
+def _wait_until(predicate, *, timeout: float = 10.0, interval: float = 0.01) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return predicate()
 
 
 class _Resp:
@@ -26,6 +39,30 @@ def test_ensure_gateway_daemon_reports_existing_health(monkeypatch):
     )
     assert result["ok"] is True
     assert result["reason"] == "already_healthy"
+
+
+def test_resolve_server_bin_uses_packaged_binary_when_path_missing(monkeypatch, tmp_path):
+    binary = tmp_path / "dcc-mcp-server"
+    binary.write_text("", encoding="utf-8")
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: binary
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gg.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+
+    assert gg._resolve_server_bin() == str(binary)
+
+
+def test_resolve_server_bin_prefers_explicit_env(monkeypatch, tmp_path):
+    explicit = tmp_path / "custom-server"
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: Path("/unused/dcc-mcp-server")
+
+    monkeypatch.setenv("DCC_MCP_SERVER_BIN", str(explicit))
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+
+    assert gg._resolve_server_bin() == str(explicit)
 
 
 def test_ensure_gateway_daemon_spawns_and_becomes_healthy(tmp_path, monkeypatch):
@@ -65,7 +102,7 @@ def test_ensure_gateway_daemon_spawns_and_becomes_healthy(tmp_path, monkeypatch)
     assert not (tmp_path / "gateway-launch.lock").exists()
 
 
-def test_ensure_gateway_daemon_spawn_failure_returns_embedded_fallback_reason(monkeypatch):
+def test_ensure_gateway_daemon_spawn_failure_returns_embedded_fallback_reason(monkeypatch, tmp_path):
     monkeypatch.setattr(gg, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(OSError("down")))
 
     monkeypatch.setattr(
@@ -77,7 +114,7 @@ def test_ensure_gateway_daemon_spawn_failure_returns_embedded_fallback_reason(mo
     result = gg.ensure_gateway_daemon(
         gateway_host="127.0.0.1",
         gateway_port=9765,
-        registry_dir=None,
+        registry_dir=str(tmp_path),
         dcc_type="maya",
     )
     assert result["ok"] is False
@@ -389,11 +426,16 @@ def test_gateway_daemon_guardian_resets_failures_on_health(monkeypatch):
 def test_guardian_run_catches_crash_and_increments_crash_count(monkeypatch):
     """P0: probe_once crash is caught by _run(), crash_count increments."""
     call_count = 0
+    crash_reported = threading.Event()
 
     def _crash_after_one(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         raise RuntimeError("deliberate probe crash")
+
+    def _status_callback(status):
+        if status.get("crash_count", 0) >= 1:
+            crash_reported.set()
 
     monkeypatch.setattr(gg, "_is_healthy", _crash_after_one)
 
@@ -404,11 +446,16 @@ def test_guardian_run_catches_crash_and_increments_crash_count(monkeypatch):
         dcc_type="crash-test",
         probe_interval_secs=0.05,
         failure_threshold=5,
+        status_callback=_status_callback,
     )
 
     guardian.start()
-    time.sleep(0.2)
-    guardian.stop(timeout=2.0)
+    try:
+        assert _wait_until(lambda: crash_reported.is_set() or guardian.status().get("crash_count", 0) >= 1), (
+            "Expected guardian crash status to be published"
+        )
+    finally:
+        guardian.stop(timeout=2.0)
 
     status = guardian.status()
     assert status["crash_count"] >= 1, f"Expected crash_count >= 1, got {status['crash_count']}"
@@ -419,12 +466,19 @@ def test_guardian_run_catches_crash_and_increments_crash_count(monkeypatch):
 def test_guardian_run_continues_after_exception(monkeypatch):
     """P0: _run() loop survives exception and keeps probing."""
     calls = []
+    crash_reported = threading.Event()
+    continued_after_crash = threading.Event()
 
     def _probe(*args, **kwargs):
         calls.append(1)
         if len(calls) == 1:
             raise RuntimeError("first probe crash")
+        continued_after_crash.set()
         return False  # subsequent probes return healthy=False (no crash)
+
+    def _status_callback(status):
+        if status.get("crash_count", 0) >= 1:
+            crash_reported.set()
 
     monkeypatch.setattr(gg, "_is_healthy", _probe)
 
@@ -434,12 +488,20 @@ def test_guardian_run_continues_after_exception(monkeypatch):
         registry_dir=None,
         dcc_type="resilient-test",
         probe_interval_secs=0.05,
-        failure_threshold=5,
+        failure_threshold=100,
+        status_callback=_status_callback,
     )
 
     guardian.start()
-    time.sleep(0.5)
-    guardian.stop(timeout=2.0)
+    try:
+        assert _wait_until(lambda: crash_reported.is_set() or guardian.status().get("crash_count", 0) >= 1), (
+            "Expected guardian crash status to be published"
+        )
+        assert _wait_until(lambda: continued_after_crash.is_set() or len(calls) >= 2), (
+            "Expected guardian loop to continue probing"
+        )
+    finally:
+        guardian.stop(timeout=2.0)
 
     # The loop survived the first crash and continued probing
     assert len(calls) >= 2, f"Expected >= 2 probe calls, got {len(calls)}"

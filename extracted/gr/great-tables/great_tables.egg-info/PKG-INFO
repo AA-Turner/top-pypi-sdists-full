@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: great-tables
-Version: 0.21.0
+Version: 0.22.0
 Summary: Easily generate information-rich, publication-quality tables from Python.
 Author-email: Richard Iannone <rich@posit.co>, Michael Chow <michael.chow@posit.co>
 License: MIT License
@@ -35,23 +35,24 @@ Classifier: Intended Audience :: Healthcare Industry
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: commonmark>=0.9.1
+Requires-Dist: multimark>=0.1.3
 Requires-Dist: faicons>=0.2.2
 Requires-Dist: htmltools>=0.4.1
 Requires-Dist: importlib-metadata
+Requires-Dist: nokap>=0.1.0
 Requires-Dist: typing_extensions>=3.10.0.0
 Requires-Dist: Babel>=2.13.1
 Requires-Dist: importlib-resources
@@ -59,7 +60,7 @@ Provides-Extra: all
 Requires-Dist: great_tables[extra]; extra == "all"
 Requires-Dist: great_tables[dev]; extra == "all"
 Provides-Extra: extra
-Requires-Dist: css-inline>=0.14.1; extra == "extra"
+Requires-Dist: css-inline<0.21,>=0.20.2; extra == "extra"
 Requires-Dist: selenium>=4.18.1; extra == "extra"
 Requires-Dist: Pillow>=10.2.0; extra == "extra"
 Provides-Extra: dev
@@ -70,8 +71,6 @@ Requires-Dist: numpy>=1.22.4; extra == "dev"
 Provides-Extra: dev-no-pandas
 Requires-Dist: ruff==0.8.0; extra == "dev-no-pandas"
 Requires-Dist: jupyter; extra == "dev-no-pandas"
-Requires-Dist: quartodoc>=0.11.0; python_version >= "3.9" and extra == "dev-no-pandas"
-Requires-Dist: griffe==0.38.1; extra == "dev-no-pandas"
 Requires-Dist: gt-extras>=0.0.7; extra == "dev-no-pandas"
 Requires-Dist: polars; extra == "dev-no-pandas"
 Requires-Dist: pre-commit==2.15.0; extra == "dev-no-pandas"

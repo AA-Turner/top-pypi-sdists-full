@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_healthlake.literals import AuthorizationStrategyType
+    from mypy_boto3_healthlake.literals import AnalyticsStatusType
 
-    data: AuthorizationStrategyType = "AWS_AUTH"
+    data: AnalyticsStatusType = "DISABLED"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AnalyticsStatusType",
     "AuthorizationStrategyType",
     "CmkTypeType",
     "DatastoreStatusType",
@@ -33,6 +34,7 @@ __all__ = (
     "FHIRVersionType",
     "HealthLakeServiceName",
     "JobStatusType",
+    "NlpStatusType",
     "PreloadDataTypeType",
     "RegionName",
     "ResourceServiceName",
@@ -41,9 +43,12 @@ __all__ = (
     "WaiterName",
 )
 
+AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
 CmkTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
-DatastoreStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING"]
+DatastoreStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
+]
 ErrorCategoryType = Literal["NON_RETRYABLE_ERROR", "RETRYABLE_ERROR"]
 FHIRDatastoreActiveWaiterName = Literal["fhir_datastore_active"]
 FHIRDatastoreDeletedWaiterName = Literal["fhir_datastore_deleted"]
@@ -62,6 +67,7 @@ JobStatusType = Literal[
     "QUEUED",
     "SUBMITTED",
 ]
+NlpStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
 PreloadDataTypeType = Literal["SYNTHEA"]
 ValidationLevelType = Literal["minimal", "strict", "structure-only"]
 HealthLakeServiceName = Literal["healthlake"]

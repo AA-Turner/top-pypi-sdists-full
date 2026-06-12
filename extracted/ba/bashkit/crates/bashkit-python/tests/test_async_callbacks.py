@@ -12,6 +12,7 @@ import asyncio
 import contextvars
 import gc
 import threading
+import time
 import weakref
 
 import pytest
@@ -36,6 +37,70 @@ def _collect_between_tests():
 # ===========================================================================
 # Async callback basics
 # ===========================================================================
+
+
+def test_async_callback_execute_sync_honors_timeout():
+    """execute_sync() timeout preempts slow async callbacks on private loop."""
+
+    callback_done = threading.Event()
+
+    async def slow(params, stdin=None):
+        await asyncio.sleep(0.25)
+        callback_done.set()
+        return "late\n"
+
+    tool = ScriptedTool("api", timeout_seconds=0.05)
+    tool.add_tool("slow", "Slow", callback=slow)
+
+    start = time.monotonic()
+    r = tool.execute_sync("slow")
+    elapsed = time.monotonic() - start
+
+    assert elapsed < 0.2
+    assert r.exit_code == 1
+    assert "timeout" in (r.stderr + (r.error or "")).lower()
+    # Wait until the abandoned private-loop worker finishes before proceeding,
+    # so interpreter state is clean. Avoids the fixed sleep(0.3) that was both
+    # slow and flaky (threading.Event gives exact synchronisation).
+    assert callback_done.wait(timeout=2.0), "slow callback did not finish within 2 s"
+
+
+def test_dealloc_during_inflight_callback_does_not_deadlock():
+    """Dropping the tool while a timed-out callback still runs must not hang.
+
+    Regression for TM-PY-030 (2): pyclass dealloc runs with the GIL held and
+    joins the tool's tokio runtime; the abandoned callback task needs the GIL
+    to finish, so a join while attached deadlocked the whole interpreter.
+    Teardown must release the GIL around the join and bound it by cancelling
+    the in-flight callback, so dealloc returns promptly either way.
+    """
+
+    settled = threading.Event()
+
+    async def slow(params, stdin=None):
+        try:
+            await asyncio.sleep(0.25)
+        finally:
+            # Runs on completion AND on cancellation (deterministic teardown
+            # cancels abandoned callbacks rather than awaiting them).
+            settled.set()
+        return "late\n"
+
+    tool = ScriptedTool("api", timeout_seconds=0.05)
+    tool.add_tool("slow", "Slow", callback=slow)
+
+    r = tool.execute_sync("slow")
+    assert r.exit_code == 1
+
+    # Dealloc the tool (and its runtime) while the abandoned callback is
+    # still sleeping on the private-loop worker thread. This must neither
+    # deadlock nor wait out the sleep.
+    begin = time.monotonic()
+    del tool
+    gc.collect()
+    assert time.monotonic() - begin < 5.0, "teardown blocked on abandoned callback"
+
+    assert settled.wait(timeout=2.0), "slow callback neither finished nor cancelled"
 
 
 def test_async_callback_sync_execute():
@@ -463,3 +528,71 @@ def test_async_callable_object():
     r = tool.execute_sync("greet --name Object")
     assert r.exit_code == 0
     assert r.stdout.strip() == "hello Object"
+
+
+def test_async_callback_execute_sync_first_private_loop_call_does_not_deadlock():
+    """First execute_sync call must not deadlock when the private-loop worker
+    needs the GIL to create its asyncio event loop.
+
+    Regression for TM-PY-030 variant (1): the work-dispatch channel was a
+    rendezvous (sync_channel(0)), so the dispatcher blocked on send() while the
+    worker blocked on the GIL — both waiting on each other. The fix switches the
+    dispatch channel to unbounded so send() never blocks.
+
+    Runs in a fresh subprocess with a 10 s timeout to reliably detect a deadlock
+    without hanging the whole test suite.
+    """
+    import glob as _glob
+    import os
+    import subprocess
+    import sys
+    import textwrap
+
+    script = textwrap.dedent("""
+        import asyncio
+        from bashkit import ScriptedTool
+
+        async def greet(params, stdin=None):
+            return "hello\\n"
+
+        tool = ScriptedTool("api")
+        tool.add_tool("greet", "Greet", callback=greet)
+        r = tool.execute_sync("greet")
+        assert r.exit_code == 0, f"exit_code={r.exit_code} stderr={r.stderr!r}"
+        assert r.stdout.strip() == "hello"
+        print("ok")
+    """)
+
+    # pytest runs from crates/bashkit-python/, so the subprocess inherits that
+    # CWD. Python always inserts '' (= CWD) as sys.path[0], which points at the
+    # source tree (no _bashkit.so). Fix: cwd='/' neutralises ''; we also
+    # prepend the directory that actually contains _bashkit*.so via a glob scan
+    # of sys.path (find_spec is unreliable after pytest imports bashkit first).
+    pkg_root = next(
+        (
+            p
+            for p in sys.path
+            if p
+            and (
+                _glob.glob(os.path.join(p, "bashkit", "_bashkit*.so"))
+                or _glob.glob(os.path.join(p, "bashkit", "_bashkit*.pyd"))
+            )
+        ),
+        None,
+    )
+    env = {
+        **os.environ,
+        "PYTHONPATH": (pkg_root + os.pathsep if pkg_root else "") + os.environ.get("PYTHONPATH", ""),
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        timeout=10,
+        capture_output=True,
+        text=True,
+        cwd="/",
+        env=env,
+    )
+    assert result.returncode == 0, (
+        f"subprocess failed (exit {result.returncode}):\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )

@@ -27,7 +27,7 @@ from hopsworks_common.core.constants import (
     HAS_POLARS,
     HAS_PYARROW,
 )
-from hopsworks_common.decorators import uses_polars
+from hopsworks_common.decorators import _uses_polars
 from hsfs.client.exceptions import FeatureStoreException
 
 
@@ -91,7 +91,7 @@ else:
 
 if HAS_PYARROW:
 
-    def convert_offline_type_to_pyarrow_type(offline_type: str) -> pa.DataType:
+    def _convert_offline_type_to_pyarrow_type(offline_type: str) -> pa.DataType:
         """Convert an offline type string to a PyArrow type.
 
         Supports simple types (int, bigint, string, etc.), array types (array<type>),
@@ -110,7 +110,7 @@ if HAS_PYARROW:
             element_type_str = offline_type[
                 6:-1
             ]  # Extract content between array< and >
-            element_type = convert_offline_type_to_pyarrow_type(element_type_str)
+            element_type = _convert_offline_type_to_pyarrow_type(element_type_str)
             return pa.list_(element_type)
 
         # Handle struct types: struct<field1:type1,field2:type2>
@@ -151,7 +151,7 @@ if HAS_PYARROW:
                     i += 1
 
                 field_type_str = struct_content[type_start:i].strip()
-                field_type = convert_offline_type_to_pyarrow_type(field_type_str)
+                field_type = _convert_offline_type_to_pyarrow_type(field_type_str)
                 fields.append(pa.field(field_name, field_type, nullable=True))
                 if i < len(struct_content):
                     i += 1  # Skip comma
@@ -197,7 +197,7 @@ if HAS_PYARROW:
         )
 else:
 
-    def convert_offline_type_to_pyarrow_type(offline_type: str):
+    def _convert_offline_type_to_pyarrow_type(offline_type: str):
         raise FeatureStoreException(
             "PyArrow is not installed. Cannot convert offline type to PyArrow type."
         )
@@ -248,7 +248,7 @@ if HAS_PANDAS:
     }
 
 
-def create_extended_type(base_type: type) -> HopsworksLoggingMetadataType:
+def _create_extended_type(base_type: type) -> HopsworksLoggingMetadataType:
     """This is wrapper function to create a new class that extends the base_type class with a new attribute that can be used to store metadata.
 
     Parameters:
@@ -278,14 +278,14 @@ def create_extended_type(base_type: type) -> HopsworksLoggingMetadataType:
 
 # TODO: Rework whatever is going on here
 HopsworksLoggingMetadataType = NewType(
-    "HopsworksLoggingMetadataType", create_extended_type(type)
+    "HopsworksLoggingMetadataType", _create_extended_type(type)
 )  # Adding new type for type hinting and static analysis.
 
 
-def convert_pandas_dtype_to_offline_type(arrow_type: str) -> str:
+def _convert_pandas_dtype_to_offline_type(arrow_type: str) -> str:
     # This is a simple type conversion between pandas dtypes and pyspark (hive) types,
     # using pyarrow types obatined from pandas dataframe to convert pandas typed fields,
-    # A recurisive function  "convert_pandas_object_type_to_offline_type" is used to convert complex types like lists and structures
+    # A recurisive function  "_convert_pandas_object_type_to_offline_type" is used to convert complex types like lists and structures
     # "_onvert_simple_pandas_dtype_to_offline_type" is used to convert simple types
     # In the backend, the types specified here will also be used for mapping to Avro types.
     if (
@@ -293,22 +293,22 @@ def convert_pandas_dtype_to_offline_type(arrow_type: str) -> str:
         or pa.types.is_large_list(arrow_type)
         or pa.types.is_struct(arrow_type)
     ):
-        return convert_pandas_object_type_to_offline_type(arrow_type)
+        return _convert_pandas_object_type_to_offline_type(arrow_type)
 
-    return convert_simple_pandas_dtype_to_offline_type(arrow_type)
+    return _convert_simple_pandas_dtype_to_offline_type(arrow_type)
 
 
-def convert_pandas_object_type_to_offline_type(arrow_type: str) -> str:
+def _convert_pandas_object_type_to_offline_type(arrow_type: str) -> str:
     if pa.types.is_list(arrow_type) or pa.types.is_large_list(arrow_type):
         # figure out sub type
         sub_arrow_type = arrow_type.value_type
-        subtype = convert_pandas_dtype_to_offline_type(sub_arrow_type)
+        subtype = _convert_pandas_dtype_to_offline_type(sub_arrow_type)
         return f"array<{subtype}>"
     if pa.types.is_struct(arrow_type):
         struct_schema = {}
         for index in range(arrow_type.num_fields):
             struct_schema[arrow_type.field(index).name] = (
-                convert_pandas_dtype_to_offline_type(arrow_type.field(index).type)
+                _convert_pandas_dtype_to_offline_type(arrow_type.field(index).type)
             )
         return (
             "struct<"
@@ -319,7 +319,7 @@ def convert_pandas_object_type_to_offline_type(arrow_type: str) -> str:
     raise ValueError(f"dtype 'O' (arrow_type '{str(arrow_type)}') not supported")
 
 
-def cast_pandas_column_to_offline_type(
+def _cast_pandas_column_to_offline_type(
     feature_column: pd.Series, offline_type: str
 ) -> pd.Series:
     offline_type = offline_type.lower()
@@ -352,8 +352,8 @@ def cast_pandas_column_to_offline_type(
     return feature_column  # handle gracefully, just return the column as-is
 
 
-@uses_polars
-def cast_polars_column_to_offline_type(
+@_uses_polars
+def _cast_polars_column_to_offline_type(
     feature_column: pl.Series, offline_type: str
 ) -> pl.Series:
     offline_type = offline_type.lower()
@@ -363,13 +363,18 @@ def cast_polars_column_to_offline_type(
     if offline_type == "date":
         return feature_column.cast(pl.Date)
     if offline_type.startswith(("array<", "struct<")) or offline_type == "boolean":
-        return feature_column.map_elements(
-            lambda x: (
-                (ast.literal_eval(x) if isinstance(x, str) else x)
-                if (x is not None and x != "")
-                else None
-            )
-        )
+        # Mirrors the pandas branch: pass already-parsed list/dict values through,
+        # parse strings via literal_eval, and treat None / "" as null. Without the
+        # list/dict short-circuit, a column that already has pl.List/pl.Struct
+        # dtype confuses map_elements' return-dtype inference.
+        def _parse_or_passthrough(x):
+            if x is None:
+                return None
+            if isinstance(x, str):
+                return ast.literal_eval(x) if x else None
+            return x
+
+        return feature_column.map_elements(_parse_or_passthrough)
     if offline_type == "string":
         return feature_column.map_elements(lambda x: str(x) if x is not None else None)
     if offline_type.startswith("decimal"):
@@ -381,17 +386,17 @@ def cast_polars_column_to_offline_type(
     return feature_column  # handle gracefully, just return the column as-is
 
 
-def cast_column_to_offline_type(
+def _cast_column_to_offline_type(
     feature_column: pd.Series | pl.Series, offline_type: str
 ) -> pd.Series:
     if isinstance(feature_column, pd.Series):
-        return cast_pandas_column_to_offline_type(feature_column, offline_type.lower())
+        return _cast_pandas_column_to_offline_type(feature_column, offline_type.lower())
     if HAS_POLARS and isinstance(feature_column, pl.Series):
-        return cast_polars_column_to_offline_type(feature_column, offline_type.lower())
+        return _cast_polars_column_to_offline_type(feature_column, offline_type.lower())
     return None
 
 
-def cast_column_to_online_type(
+def _cast_column_to_online_type(
     feature_column: pd.Series, online_type: str
 ) -> pd.Series:
     online_type = online_type.lower()
@@ -419,14 +424,28 @@ def cast_column_to_online_type(
     return feature_column  # handle gracefully, just return the column as-is
 
 
-def convert_simple_pandas_dtype_to_offline_type(arrow_type: str) -> str:
+def _convert_simple_pandas_dtype_to_offline_type(arrow_type: str) -> str:
+    # Decimal types are parameterised by (precision, scale), so they can't live
+    # in the static PYARROW_HOPSWORKS_DTYPE_MAPPING table — render the Hive
+    # `decimal(p,s)` string from the Arrow type's own precision/scale. Covers
+    # both decimal128 and decimal256 source widths; the offline type carries
+    # no width distinction so they share one branch. `pa.types.is_decimal`
+    # dereferences `.id` on its argument and will AttributeError on a bare
+    # string, so guard with isinstance first — callers may pass legacy
+    # plain-string dtypes that still need to fall through to the table.
+    if (
+        HAS_PYARROW
+        and isinstance(arrow_type, pa.DataType)
+        and pa.types.is_decimal(arrow_type)
+    ):
+        return f"decimal({arrow_type.precision},{arrow_type.scale})"
     try:
         return PYARROW_HOPSWORKS_DTYPE_MAPPING[arrow_type]
     except KeyError as err:
         raise ValueError(f"dtype '{arrow_type}' not supported") from err
 
 
-def translate_legacy_spark_type(
+def _translate_legacy_spark_type(
     output_type: str,
 ) -> Literal[
     "STRING",
@@ -466,9 +485,9 @@ def translate_legacy_spark_type(
     return "STRING"  # handle gracefully, and return STRING type, the default for spark udfs
 
 
-def convert_spark_type_to_offline_type(spark_type_string: str) -> str:
+def _convert_spark_type_to_offline_type(spark_type_string: str) -> str:
     if spark_type_string.endswith("Type()"):
-        spark_type_string = translate_legacy_spark_type(spark_type_string)
+        spark_type_string = _translate_legacy_spark_type(spark_type_string)
     if spark_type_string == "STRING":
         return "STRING"
     if spark_type_string == "BINARY":
@@ -496,13 +515,13 @@ def convert_spark_type_to_offline_type(spark_type_string: str) -> str:
     )
 
 
-def infer_spark_type(output_type):
+def _infer_spark_type(output_type):
     if not output_type:
         return "STRING"  # STRING is default type for spark udfs
 
     if isinstance(output_type, str):
         if output_type.endswith("Type()"):
-            return translate_legacy_spark_type(output_type)
+            return _translate_legacy_spark_type(output_type)
         output_type = output_type.lower()
 
     if output_type in (str, "str", "string"):

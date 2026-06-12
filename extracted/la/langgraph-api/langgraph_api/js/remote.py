@@ -85,6 +85,41 @@ def default_command(obj):
     raise TypeError
 
 
+def _js_sidecar_error_message(
+    *,
+    method: str,
+    graph_id: Any,
+    status_code: int,
+    body: bytes,
+) -> str:
+    """Best-effort detail string from a non-2xx JS sidecar HTTP response."""
+    if not body:
+        return f"JS graph {graph_id}/{method} returned HTTP {status_code} with an empty body"
+    try:
+        parsed = orjson.loads(body)
+    except orjson.JSONDecodeError:
+        text = body.decode("utf-8", errors="replace").strip()
+        return f"JS graph {graph_id}/{method} returned HTTP {status_code}: {text[:500]}"
+    if isinstance(parsed, dict):
+        for key in ("message", "detail", "error"):
+            value = parsed.get(key)
+            if isinstance(value, str) and value:
+                return (
+                    f"JS graph {graph_id}/{method} returned HTTP {status_code}: {value}"
+                )
+            if isinstance(value, dict):
+                nested = value.get("message") or value.get("detail")
+                if isinstance(nested, str) and nested:
+                    return (
+                        f"JS graph {graph_id}/{method} returned HTTP {status_code}: "
+                        f"{nested}"
+                    )
+    return (
+        f"JS graph {graph_id}/{method} returned HTTP {status_code}: "
+        f"{body.decode('utf-8', errors='replace')[:500]}"
+    )
+
+
 async def _client_stream(method: str, data: dict[str, Any]):
     graph_id = data.get("graph_id")
     async with _client.stream(
@@ -97,6 +132,17 @@ async def _client_stream(method: str, data: dict[str, Any]):
         },
         data=orjson.dumps(data, default=default_command),
     ) as response:
+        if response.is_error:
+            raw = await response.aread()
+            raise RemoteException(
+                f"HTTP_{response.status_code}",
+                _js_sidecar_error_message(
+                    method=method,
+                    graph_id=graph_id,
+                    status_code=response.status_code,
+                    body=raw,
+                ),
+            )
         decoder = SSEDecoder()
         async for line in aiter_lines_raw(response):
             sse = decoder.decode(line)
@@ -179,6 +225,36 @@ class RemotePregel(BaseRemotePregel):
                 yield CustomStreamEvent(**event)
             else:
                 yield StandardStreamEvent(**event)
+
+    async def astream_protocol_events(
+        self,
+        input: Any,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Stream native Protocol v2 (``ProtocolEvent``) frames from the sidecar.
+
+        Used only for Protocol v2 event-streaming runs. Requests
+        ``stream_protocol: "v3"`` so the sidecar drives the graph through
+        LangGraphJS's native v3 stream and forwards protocol-aligned events
+        (``{"type": "event", "method", "params"}``) instead of legacy
+        ``on_chain_stream`` chunks. The worker feeds these straight into
+        ``EventStreamingSession`` via ``normalize_protocol_event``, matching
+        the native-graph v3 path. Legacy runs keep using
+        :meth:`astream_events` (``version="v2"``).
+        """
+        data = {
+            "graph_id": self.graph_id,
+            "graph_config": self.config,
+            "graph_name": self.name,
+            "command" if isinstance(input, Command) else "input": input,
+            "config": config,
+            "stream_protocol": "v3",
+            **kwargs,
+        }
+
+        async for event in _client_stream("streamEvents", data):
+            yield event
 
     async def fetch_state_schema(self):
         return await _client_invoke("getSchema", {"graph_id": self.graph_id})

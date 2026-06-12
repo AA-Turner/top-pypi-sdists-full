@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asteval
-Version: 1.0.8
+Version: 1.0.9
 Summary: Safe, minimalistic evaluator of python expression using ast module
 Author-email: Matthew Newville <matt.newville@gmail.com>
 License-Expression: MIT
@@ -55,7 +55,7 @@ ASTEVAL
    :target: https://pypi.org/project/asteval
 
 .. image:: https://img.shields.io/pypi/dm/asteval.svg
-   :target: https://pypi.org/project/asteval
+   :target: https://pypistats.org/packages/asteval
 
 .. image:: https://img.shields.io/badge/docs-read-brightgreen
    :target: https://lmfit.github.io/asteval/

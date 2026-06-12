@@ -18,6 +18,13 @@ __all__ = [
     "GuardrailsPrompt",
     "GuardrailsResponse",
     "Otel",
+    "SpendLimits",
+    "SpendLimitsRule",
+    "SpendLimitsRuleMetadata",
+    "SpendLimitsRuleMetadataMode",
+    "SpendLimitsRuleMetadataUnionMember1",
+    "SpendLimitsRuleModel",
+    "SpendLimitsRuleProvider",
     "Stripe",
     "StripeUsageEvent",
 ]
@@ -62,6 +69,8 @@ class AIGatewayUpdateParams(TypedDict, total=False):
 
     retry_max_attempts: Optional[int]
     """Maximum number of retry attempts for failed requests (1-5)"""
+
+    spend_limits: Optional[SpendLimits]
 
     store_id: Optional[str]
 
@@ -172,13 +181,64 @@ class Guardrails(TypedDict, total=False):
 
 
 class Otel(TypedDict, total=False):
-    authorization: Required[str]
-
     headers: Required[Dict[str, str]]
 
     url: Required[str]
 
+    authorization: str
+
     content_type: Literal["json", "protobuf"]
+
+
+class SpendLimitsRuleMetadataMode(TypedDict, total=False):
+    mode: Required[Literal["partition"]]
+
+
+class SpendLimitsRuleMetadataUnionMember1(TypedDict, total=False):
+    mode: Required[Literal["filter"]]
+
+    values: Required[SequenceNotStr[str]]
+
+
+SpendLimitsRuleMetadata: TypeAlias = Union[SpendLimitsRuleMetadataMode, SpendLimitsRuleMetadataUnionMember1]
+
+
+class SpendLimitsRuleModel(TypedDict, total=False):
+    mode: Required[Literal["filter"]]
+
+    values: Required[SequenceNotStr[str]]
+
+
+class SpendLimitsRuleProvider(TypedDict, total=False):
+    mode: Required[Literal["filter"]]
+
+    values: Required[SequenceNotStr[str]]
+
+
+class SpendLimitsRule(TypedDict, total=False):
+    limit: Required[float]
+
+    limit_type: Required[Annotated[Literal["cost"], PropertyInfo(alias="limitType")]]
+
+    window: Required[int]
+
+    id: str
+
+    enabled: bool
+
+    metadata: Dict[str, SpendLimitsRuleMetadata]
+
+    model: SpendLimitsRuleModel
+
+    provider: SpendLimitsRuleProvider
+
+    technique: Literal["fixed", "sliding"]
+
+
+class SpendLimits(TypedDict, total=False):
+    enabled: bool
+
+    rules: Iterable[SpendLimitsRule]
 
 
 class StripeUsageEvent(TypedDict, total=False):

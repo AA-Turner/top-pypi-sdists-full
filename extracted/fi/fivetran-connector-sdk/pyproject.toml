@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-fivetran = "fivetran_connector_sdk:main"
+fivetran = "fivetran_connector_sdk.fivetran_shim:main"
 
 [project.urls]
 Homepage = "https://fivetran.com/docs/connectors/connector-sdk"

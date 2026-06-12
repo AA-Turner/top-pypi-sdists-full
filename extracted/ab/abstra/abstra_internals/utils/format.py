@@ -21,7 +21,3 @@ def _normalize_string(string: str):
     matches = re.findall(alphanumeric_pattern, unaccented)
 
     return "-".join(matches)
-
-
-def pip_name(name: str) -> str:
-    return name.strip().lower().replace("_", "-")

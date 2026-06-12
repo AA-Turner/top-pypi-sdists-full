@@ -4,7 +4,6 @@ from pathlib import Path
 from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.infra.config import Config
 from kanban_framework.infra.time_tracking import TimeTracker
-from kanban_framework.infra.token_tracking import TokenTracker
 from kanban_framework.domain.task import TaskManager
 from kanban_framework.domain.progress import ProgressTracker
 
@@ -179,92 +178,6 @@ def cmd_time(args: list[str]) -> dict:
             tracker.track_agent(task_id, task_id, agent, elapsed)
         return {"task_id": task_id, "agent": agent, "elapsed": elapsed}
     return {"task_id": task_id, "time": tracker.report(task_id)}
-
-
-def _run_codeburn(cmd: list[str]) -> dict:
-    """Run a codeburn subcommand and return its JSON output."""
-    import subprocess, shutil
-    exe = shutil.which("codeburn") or shutil.which("npx")
-    if not exe:
-        return {"error": "codeburn not installed. Install: npm install -g codeburn", "install_hint": "npm install -g codeburn"}
-    try:
-        full_cmd = [exe] if exe.endswith("codeburn") else [exe, "codeburn"]
-        full_cmd.extend(cmd)
-        result = subprocess.run(full_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
-        if result.returncode == 0 and result.stdout.strip():
-            import json as _json
-            return _json.loads(result.stdout)
-        return {"error": result.stderr.strip() or "codeburn returned no data"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def cmd_tokens(args: list[str]) -> dict:
-    """Token usage — JSONL-based report + CodeBurn integration."""
-    sub = args[0] if args else "report"
-
-    # CodeBurn-powered subcommands
-    if sub == "dashboard":
-        return _run_codeburn([])
-    if sub == "optimize":
-        period = "week"
-        for i, a in enumerate(args):
-            if a == "-p" and i + 1 < len(args):
-                period = args[i + 1]
-        result = _run_codeburn(["optimize", "-p", period])
-        if "error" not in result:
-            return result
-        # optimize doesn't support --json, capture text output
-        import subprocess, shutil
-        exe = shutil.which("codeburn") or shutil.which("npx")
-        full = [exe] if (exe or "").endswith("codeburn") else ["npx", "codeburn"]
-        full.extend(["optimize", "-p", period])
-        try:
-            r = subprocess.run(full, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
-            return {"text_output": r.stdout.strip()}
-        except Exception as e:
-            return {"error": str(e)}
-    if sub == "yield":
-        return _run_codeburn(["yield", "--format", "json"])
-    if sub == "models":
-        return _run_codeburn(["models", "--format", "json"])
-    if sub == "status":
-        return _run_codeburn(["status", "--format", "json"])
-    if sub == "cost":
-        return _run_codeburn(["report", "-p", "week", "--format", "json"])
-
-    if sub == "per-step":
-        from kanban_framework.domain.jsonl_reader import attribute_tokens_to_steps
-        result = attribute_tokens_to_steps(days=30)
-        return {"per_step_tokens": result}
-
-    # Default: JSONL-based report
-    from kanban_framework.domain.jsonl_reader import collect_all_sessions, aggregate_stats
-    days = 30
-    i = 0 if args else 0
-    while i < len(args):
-        if args[i] == "--days" and i + 1 < len(args):
-            days = int(args[i + 1]); i += 2
-        else:
-            i += 1
-
-    sessions = collect_all_sessions(days=days)
-    aggr = aggregate_stats(sessions)
-
-    return {
-        "period_days": days,
-        "sessions": aggr["sessions"],
-        "total_turns": aggr["total_turns"],
-        "total_input": aggr["total_input"],
-        "total_output": aggr["total_output"],
-        "total_tokens": aggr["total_input"] + aggr["total_output"],
-        "cache_read": aggr["total_cache_read"],
-        "cache_write": aggr["total_cache_write"],
-        "duration_minutes": round(aggr["total_duration_minutes"], 1),
-        "tool_counts": dict(sorted(aggr["tool_counts"].items(), key=lambda x: -x[1])[:10]),
-        "models": aggr["models"],
-        "recent_sessions": aggr["per_session"][:10],
-    }
 
 
 def cmd_dashboard(args: list[str]) -> dict:

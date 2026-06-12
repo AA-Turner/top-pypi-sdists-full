@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -14,7 +15,7 @@ from smplkit.audit._buffer import (
     MAX_BUFFER_SIZE,
     _PendingEvent,
 )
-from smplkit.audit.client import AuditClient
+from smplkit.audit._client import AuditClient
 from smplkit.audit.models import Event
 
 
@@ -32,27 +33,37 @@ class _StubResponse:
 
 
 def test_buffer_drops_oldest_when_over_capacity():
-    """When the buffer is full, the oldest item is dropped to make room."""
+    """When the buffer is full, the oldest queued item is dropped to make room."""
     posts: list[_PendingEvent] = []
+    worker_parked = threading.Event()
+    release_worker = threading.Event()
 
-    def post(item: _PendingEvent) -> httpx.Response:
-        # Hold the worker by returning success only after we've populated.
+    def post(item: _PendingEvent) -> int:
+        # Park the worker inside the first POST so it cannot drain the queue
+        # while we fill it past capacity. This makes the drop-oldest branch
+        # fire deterministically, independent of worker-thread timing.
+        if not worker_parked.is_set():
+            worker_parked.set()
+            release_worker.wait(timeout=5.0)
         posts.append(item)
         return 201
 
     buf = AuditEventBuffer(post_fn=post, max_size=3, watermark=999)
     try:
-        for i in range(5):
+        buf.enqueue({"i": 0})
+        # Wait until the worker has popped event 0 and is parked in post().
+        assert worker_parked.wait(timeout=2.0)
+        # With the worker parked, these fill the queue to capacity; the fifth
+        # enqueue overflows and drops the oldest queued item (i=1).
+        for i in range(1, 5):
             buf.enqueue({"i": i})
-        # Allow the worker a brief tick — but posting is fast in this stub,
-        # so by the time we check, the queue should be drained.
+        release_worker.set()
         buf.flush(timeout=2.0)
-        assert len(posts) >= 3  # at least three events made it through
-        # The oldest items are the ones dropped, so events with the largest
-        # ``i`` values should be present in posts.
         seen = {p.body["i"] for p in posts}
-        assert max(seen) == 4
+        assert max(seen) == 4  # the newest event survived
+        assert 1 not in seen  # the oldest queued event was dropped
     finally:
+        release_worker.set()
         buf.close(timeout=2.0)
 
 
@@ -335,6 +346,63 @@ def test_record_passes_actor_fields_to_wire():
         assert '"actor_label":"BillingBot"' in body
     finally:
         client._close()
+
+
+def test_record_category_serialized_on_wire():
+    """``category=...`` survives the wrapper into the JSON body — the audit
+    service stores it verbatim and surfaces it via ``filter[category]`` and
+    the ``categories`` discovery listing."""
+    posts: list[str] = []
+    success_body = {
+        "data": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "type": "event",
+            "attributes": {
+                "event_type": "invoice.created",
+                "resource_type": "invoice",
+                "resource_id": "inv-1",
+                "occurred_at": "2026-05-06T12:00:00+00:00",
+                "created_at": "2026-05-06T12:00:01+00:00",
+                "actor_type": "API_KEY",
+                "actor_id": None,
+                "actor_label": "",
+                "category": "billing",
+                "data": {},
+                "idempotency_key": "auto",
+            },
+        }
+    }
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        posts.append(req.content.decode())
+        return httpx.Response(201, json=success_body)
+
+    transport = httpx.MockTransport(handler)
+    client = AuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
+    client._auth.set_httpx_client(httpx.Client(transport=transport, base_url="https://audit.example.com"))
+    try:
+        client.events.record(
+            event_type="invoice.created",
+            resource_type="invoice",
+            resource_id="inv-1",
+            category="billing",
+            flush=True,
+        )
+        body = "".join(posts).replace(" ", "")
+        assert '"category":"billing"' in body
+    finally:
+        client._close()
+
+
+def test_event_from_resource_surfaces_category():
+    """The read model surfaces a recorded ``category`` and leaves it ``None``
+    when the event was recorded without one."""
+    with_cat = _make_resource("66666666-6666-6666-6666-666666666666")
+    with_cat["attributes"]["category"] = "billing"
+    assert Event._from_resource(with_cat).category == "billing"
+
+    without_cat = _make_resource("77777777-7777-7777-7777-777777777777")
+    assert Event._from_resource(without_cat).category is None
 
 
 def test_event_from_resource_handles_z_suffix_timestamps():

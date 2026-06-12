@@ -51,6 +51,121 @@ const REDUCED_INFO_RELATIVE_FLOOR: f64 = 1e-10;
 /// (near) zero, so `λ_max ≈ 0` cannot scale the relative floor.
 const REDUCED_INFO_ABSOLUTE_FLOOR: f64 = 1e-12;
 
+/// Slope `d(λ) = g'(λ)` of the Jeffreys eigenvalue antiderivative `g`:
+///
+///   * `λ ≥ floor`:      `g = ln λ`,                          `d = 1/λ`
+///     (the exact Jeffreys log-volume on identified curvature);
+///   * `0 ≤ λ < floor`:  `g = λ/floor + ln(floor) − 1`,       `d = 1/floor`
+///     (the #787 linear continuation — C¹ at `+floor`, preserves the
+///     1/floor separation bound);
+///   * `λ < 0`:          `g = ln(floor) − 1 + λ/(floor − λ)`, `d = floor/(floor − λ)²`
+///     (SATURATING continuation, gam#979 — see below). C¹ at `0`
+///     (`g(0) = ln(floor) − 1`, `d(0) = 1/floor` from both sides), monotone
+///     increasing everywhere, and `g → ln(floor) − 2`, `d → 0` as `λ → −∞`.
+///
+/// WHY THE NEGATIVE BRANCH SATURATES (gam#979; supersedes the gam#814
+/// `ln|λ|` magnitude branch). `ln|λ|` on `λ < 0` made `Φ` REWARD increasingly
+/// indefinite curvature: `∂Φ/∂λ = 1/(2λ) < 0`, so the Φ-augmented inner
+/// objective `−ℓ + ½βᵀSβ − Φ` could be descended indefinitely by driving a
+/// reduced eigenvalue more negative. The old `K²` vec-Gram phantom curvature
+/// froze the step and masked this; with the exact divided-difference `H_Φ`
+/// the joint Newton followed the reward into likelihood saturation (measured
+/// on the constrained binomial-LS wiggle fixture: bare `−ℓ + pen` climbing
+/// 5.2 → 9.9 over 500 cycles while the augmented Δobj stayed negative every
+/// cycle, residual → 3e2, budget exhausted). The Jeffreys prior is the
+/// log-volume of POSITIVE information; an indefinite direction carries no
+/// prior signal, so the principled continuation is FLAT in the limit: the
+/// rational saturation keeps `g` monotone (no reward), bounded below
+/// (no sink), with `d` bounded by `1/floor` (no gam#814 phantom score on
+/// moderate negatives: `d(−0.3) ≈ floor/0.09 ≈ 0`) and no kink anywhere
+/// (the gam#814 `±floor` jump is gone).
+#[inline]
+fn floored_inverse(lam: f64, floor: f64) -> f64 {
+    if lam >= floor {
+        1.0 / lam
+    } else if lam >= 0.0 {
+        1.0 / floor
+    } else {
+        let denom = floor - lam;
+        floor / (denom * denom)
+    }
+}
+
+/// `d'(λ)` with the floor held fixed: `−1/λ²` above the floor, `0` inside the
+/// band (the linear continuation has no curvature in `λ`),
+/// `2·floor/(floor − λ)³` on the saturating negative branch.
+#[inline]
+fn floored_inverse_prime(lam: f64, floor: f64) -> f64 {
+    if lam >= floor {
+        -1.0 / (lam * lam)
+    } else if lam >= 0.0 {
+        0.0
+    } else {
+        let denom = floor - lam;
+        2.0 * floor / (denom * denom * denom)
+    }
+}
+
+/// `d''(λ)` with the floor held fixed: `2/λ³` above the floor, `0` inside the
+/// band, `6·floor/(floor − λ)⁴` on the saturating negative branch. Needed by
+/// the drift path for the confluent-pair limit of the divided-difference
+/// kernel motion (`δΨ_ii = d''(λ_i)·λ̇_i`).
+#[inline]
+fn floored_inverse_second(lam: f64, floor: f64) -> f64 {
+    if lam >= floor {
+        2.0 / (lam * lam * lam)
+    } else if lam >= 0.0 {
+        0.0
+    } else {
+        let denom = floor - lam;
+        6.0 * floor / (denom * denom * denom * denom)
+    }
+}
+
+/// `∂d/∂floor` with `λ` held fixed: `0` above the floor, `−1/floor²` inside
+/// the band, `−(floor + λ)/(floor − λ)³` on the saturating negative branch.
+/// Feeds the floor-motion term of the kernel drift when the floor is in its
+/// active relative regime (`floor = REL·λ_max(β)`).
+#[inline]
+fn floored_inverse_floor_sensitivity(lam: f64, floor: f64) -> f64 {
+    if lam >= floor {
+        0.0
+    } else if lam >= 0.0 {
+        -1.0 / (floor * floor)
+    } else {
+        let denom = floor - lam;
+        -(floor + lam) / (denom * denom * denom)
+    }
+}
+
+/// Daleckii–Krein divided-difference matrix of the floored signed inverse on
+/// the reduced spectrum: `Ψ_ij = (d(λ_i) − d(λ_j)) / (λ_i − λ_j)` for
+/// well-separated pairs, with the confluent limit `Ψ_ii = d'(λ_i)` on the
+/// diagonal and on (near-)tied pairs. This is the exact eigenbasis kernel of
+/// the Fréchet derivative of the floored pseudo-inverse `K = V diag(d_i) Vᵀ`:
+/// `δK = V (Ψ ∘ (Vᵀ δH_id V)) Vᵀ` — and therefore also the exact curvature
+/// kernel of `Φ = ½ Σ g(λ_i)`: dropping only the second-directional-Hessian
+/// term `½ tr(K D_ab)` (which carries the vanishing curvature factor of a
+/// separating direction, so it is O(1) exactly where the term arms),
+///   `∂²Φ[a,b] = ½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij`,  `Ṽ_k = Vᵀ D_k V`.
+/// With the saturating negative branch `d` is continuous everywhere, so every
+/// divided difference is bounded by `max|d'| ≤ 2/floor`.
+fn floored_inverse_divided_differences(evals: &Array1<f64>, floor: f64) -> Array2<f64> {
+    let m = evals.len();
+    let mut psi = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        for j in 0..m {
+            let denom = evals[i] - evals[j];
+            psi[[i, j]] = if denom.abs() <= REDUCED_INFO_ABSOLUTE_FLOOR {
+                floored_inverse_prime(evals[i], floor)
+            } else {
+                (floored_inverse(evals[i], floor) - floored_inverse(evals[j], floor)) / denom
+            };
+        }
+    }
+    psi
+}
+
 /// Conditioning gate. When the reduced information `H_id = Z_J^T H Z_J` is
 /// well-conditioned — every direction's curvature is within this relative
 /// factor of the dominant `λ_max` — the data identifies the WHOLE span at
@@ -695,17 +810,17 @@ where
     // there), so no special-casing is warranted.
     let floor_in_relative_regime =
         lambda_max > 0.0 && REDUCED_INFO_RELATIVE_FLOOR * lambda_max >= REDUCED_INFO_ABSOLUTE_FLOOR;
-    // Eigenvector of the dominant eigenvalue `λ_max` (the one the relative floor
-    // tracks), needed for `∂λ_max/∂β_k = v_maxᵀ D_k v_max`. Only consulted in the
-    // relative regime.
-    let lambda_max_evec: Option<Array1<f64>> = if floor_in_relative_regime {
+    // Index of the dominant eigenvalue `λ_max` (the one the relative floor
+    // tracks), needed for `∂λ_max/∂β_k = v_maxᵀ D_k v_max = (Ṽ_k)_mm`. Only
+    // consulted in the relative regime.
+    let lambda_max_idx: Option<usize> = if floor_in_relative_regime {
         let mut idx_max = 0usize;
         for i in 1..m {
             if evals[i] > evals[idx_max] {
                 idx_max = i;
             }
         }
-        Some(evecs.column(idx_max).to_owned())
+        Some(idx_max)
     } else {
         None
     };
@@ -719,64 +834,54 @@ where
     // h_id_inv = V diag(1/max(λ,floor)) Vᵀ  (floored symmetric pseudo-inverse).
     let mut inv_diag = Array1::<f64>::zeros(m);
     for (i, &lam) in evals.iter().enumerate() {
-        // VALUE / GRADIENT CONSISTENCY (was a stall — gam#787/#785) AND SIGN
-        // HANDLING ON INDEFINITE REDUCED INFO (gam#814). The gradient below is
-        // `½ tr(H_id⁻¹ D_k) = ½ Σ_i inv_diag_i ∂λ_i/∂β`, so for the value/gradient
-        // pair to be consistent (∇Φ = d/dβ Φ) the value `Φ = ½ Σ_i g(λ_i)` must use
-        // the antiderivative `g` of `λ ↦ inv_diag(λ)`.
-        //
-        // We floor on the MAGNITUDE `|λ|` and keep the SIGN of the inverse:
-        //   • |λ| ≥ floor: g(λ) = ln|λ|               (g'(λ) = 1/λ),
-        //   • |λ| < floor: g(λ) = λ/floor + ln(floor) − 1  (g'(λ) = 1/floor),
-        // the #787 linear continuation, C¹ at λ = +floor (g(floor) = ln(floor),
-        // g'(floor⁻) = g'(floor⁺) = 1/floor).
-        //
-        // WHY THE FLOOR IS ON `|λ|`, NOT `λ` (gam#814). `H_id = Z_Jᵀ H Z_J` is the
-        // reduced OBSERVED information; for a non-canonical link (e.g. the
-        // marginal-slope survival family) it need NOT be PSD away from the mode, so
-        // at off-mode trial points it carries MODERATE NEGATIVE eigenvalues
-        // (measured: λ ≈ −0.05 … −0.36, |λ| ≫ floor = 1e-10·λ_max). The previous
-        // `1/max(λ, floor)` flooring keyed on the SIGNED eigenvalue, so EVERY
-        // negative direction — however moderate — was treated as near-zero and
-        // pinned to `1/floor ≈ 1.7e6`: a phantom Firth score (∇Φ ≈ 1.4e6,
-        // H_Φ ≈ 1e12) that no Newton step could satisfy, so the inner joint-Newton
-        // crawled its whole cycle budget and the outer LAML never received a
-        // stationary mode (gam#814 survival clustered-PC marginal-slope timeout).
-        // Flooring on `|λ|` with the SIGNED true inverse `1/λ` gives the moderate
-        // negatives their genuine `1/λ ≈ −20 … −2.8` instead of `+1.7e6`, so the
-        // Jeffreys log-volume uses `½ ln|λ|` (the determinant magnitude, the
-        // PSD-realisation of `½ log det I` the Jeffreys prior intends) and the term
-        // self-limits rather than exploding. On a genuinely PSD fit every λ ≥ floor
-        // and this is BYTE-IDENTICAL to the prior `1/λ`, `½ ln λ`; the #787
-        // near-separation branch (`0 ≤ λ < floor`) is UNCHANGED, preserving the
-        // 1/floor separation bound. There is a harmless C⁰ kink in inv_diag at
-        // λ = ±floor (it jumps `+1/floor ↔ −1/floor`), but no eigenvalue sits near
-        // ∓floor in practice and the value `½ ln|λ|` stays continuous there.
-        let lam_mag = lam.abs();
-        if lam_mag >= floor {
-            phi += 0.5 * lam_mag.ln();
-            inv_diag[i] = 1.0 / lam;
-        } else {
+        // VALUE / GRADIENT CONSISTENCY (was a stall — gam#787/#785). The gradient
+        // below is `½ tr(H_id⁻¹ D_k) = ½ Σ_i inv_diag_i ∂λ_i/∂β`, so for the
+        // value/gradient pair to be consistent (∇Φ = d/dβ Φ) the value
+        // `Φ = ½ Σ_i g(λ_i)` must use the antiderivative `g` of
+        // `λ ↦ inv_diag(λ) = floored_inverse(λ)` — the three-branch `g`
+        // documented on `floored_inverse`: exact `ln λ` on identified positive
+        // curvature, the #787 linear continuation inside the band, and the
+        // gam#979 SATURATING continuation on negative curvature (which replaced
+        // the gam#814 `ln|λ|` magnitude branch — that branch made Φ REWARD
+        // increasingly indefinite curvature, an unbounded sink the exact
+        // divided-difference H_Φ let the inner Newton descend into likelihood
+        // saturation; the saturating branch is monotone, bounded below, and
+        // keeps the gam#814 guarantee that moderate negatives carry no phantom
+        // score: `d(−0.3) = floor/(floor+0.3)² ≈ 0`).
+        if lam >= floor {
+            phi += 0.5 * lam.ln();
+            inv_diag[i] = floored_inverse(lam, floor);
+        } else if lam >= 0.0 {
             phi += 0.5 * (lam / floor + floor.ln() - 1.0);
-            inv_diag[i] = 1.0 / floor;
+            inv_diag[i] = floored_inverse(lam, floor);
             // ∂g(λ; floor)/∂floor = 1/floor − λ/floor², accumulated so the gradient
             // below can add the floor-response term `½ · this · ∂floor/∂β_k`.
             floor_value_sensitivity += 1.0 / floor - lam / (floor * floor);
+        } else {
+            phi += 0.5 * (floor.ln() - 1.0 + lam / (floor - lam));
+            inv_diag[i] = floored_inverse(lam, floor);
+            // ∂g(λ; floor)/∂floor = 1/floor − λ/(floor − λ)² for the saturating
+            // branch (λ < 0 makes both terms positive).
+            let denom = floor - lam;
+            floor_value_sensitivity += 1.0 / floor - lam / (denom * denom);
         }
     }
-    let scaled = &evecs * &inv_diag.view().insert_axis(ndarray::Axis(0));
-    let h_id_inv = scaled.dot(&evecs.t());
+    // Daleckii–Krein divided-difference kernel of the floored signed inverse on
+    // this spectrum — the single source of truth tying `∇Φ` (its diagonal
+    // weights are `inv_diag = d(λ_i)`) to the exact curvature `H_Φ` below
+    // (gam#979).
+    let psi = floored_inverse_divided_differences(&evals, floor);
 
-    // Gradient: grad[k] = 1/2 tr(H_id^{-1} Z_J^T Hdot[e_k] Z_J).
-    // For the inner-Newton dense path the Hessian is beta-dependent through the
-    // working weights only along coefficient directions; we evaluate Hdot per
-    // canonical coefficient axis. `J_red[:, k]` stores the reduced sensitivity
-    // s_k = vec(Z_J^T Hdot[e_k] Z_J) contracted with H_id^{-1}, which feeds both
-    // the gradient and the Gauss-Newton curvature surrogate.
+    // Gradient: grad[k] = ½ tr(K · Z_Jᵀ Hdot[e_k] Z_J) = ½ Σ_i d_i (Ṽ_k)_ii with
+    // Ṽ_k = Vᵀ D_k V the reduced derivative rotated into the eigenbasis. For the
+    // inner-Newton dense path the Hessian is beta-dependent through the working
+    // weights only along coefficient directions; we evaluate Hdot per canonical
+    // coefficient axis.
     let mut grad = Array1::<f64>::zeros(p);
-    // Reduced sensitivity rows g_k = H_id^{-1} (Z_J^T Hdot[e_k] Z_J), flattened,
-    // kept to assemble the PSD Gauss-Newton curvature surrogate.
-    let mut sensitivity = Array2::<f64>::zeros((p, m * m));
+    // Eigenbasis sensitivity rows vec(Ṽ_k) and their Ψ-weighted partners
+    // vec(Ψ ∘ Ṽ_k), kept to assemble the exact curvature in one GEMM.
+    let mut a_rows = Array2::<f64>::zeros((p, m * m));
+    let mut aw_rows = Array2::<f64>::zeros((p, m * m));
     let mut axis = Array1::<f64>::zeros(p);
     for k in 0..p {
         axis.fill(0.0);
@@ -798,56 +903,75 @@ where
                 hdot.ncols()
             ));
         }
-        // Reduced derivative D_k = Z_J^T Hdot Z_J  (m x m).
+        // Reduced derivative D_k = Z_J^T Hdot Z_J (m x m), rotated into the
+        // eigenbasis: Ṽ_k = Vᵀ D_k V.
         let hdz = hdot.dot(&z_j);
         let d_k = z_j.t().dot(&hdz);
-        // M_k = H_id^{-1} D_k.
-        let m_k = h_id_inv.dot(&d_k);
-        // grad[k] = 1/2 tr(M_k) (the eigenvalue term `½ Σ_i inv_diag_i ∂λ_i/∂β_k`).
+        let a_k = evecs.t().dot(&d_k).dot(&evecs);
+        // grad[k] = ½ Σ_i d_i (Ṽ_k)_ii (the eigenvalue term `½ Σ_i inv_diag_i ∂λ_i/∂β_k`,
+        // identical to the previous ½ tr(H_id⁻¹ D_k) — just read off in the eigenbasis).
         let mut trace = 0.0;
         for i in 0..m {
-            trace += m_k[[i, i]];
+            trace += inv_diag[i] * a_k[[i, i]];
         }
         grad[k] = 0.5 * trace;
         // FLOOR-RESPONSE term (see the `floor` block above). For below-floor
         // eigenvalues the floor moves with `λ_max(β)`, so `dΦ/dβ_k` carries
         // `½ · floor_value_sensitivity · ∂floor/∂β_k`, with
-        // `∂floor/∂β_k = REL · ∂λ_max/∂β_k = REL · v_maxᵀ D_k v_max`. This is the
-        // exact antiderivative partner of the below-floor value branch; it is
-        // identically zero (and skipped) whenever no eigenvalue is below the floor
-        // or the floor is in the β-independent absolute regime, so the well-
+        // `∂floor/∂β_k = REL · ∂λ_max/∂β_k = REL · v_maxᵀ D_k v_max = REL · (Ṽ_k)_mm`.
+        // This is the exact antiderivative partner of the below-floor value branch;
+        // it is identically zero (and skipped) whenever no eigenvalue is below the
+        // floor or the floor is in the β-independent absolute regime, so the well-
         // conditioned, indefinite, and above-floor paths are unchanged.
-        if let Some(v_max) = lambda_max_evec.as_ref() {
+        if let Some(idx_max) = lambda_max_idx {
             if floor_value_sensitivity != 0.0 {
-                let dvmax = d_k.dot(v_max);
-                let dlambda_max = v_max.dot(&dvmax); // v_maxᵀ D_k v_max
+                let dlambda_max = a_k[[idx_max, idx_max]]; // v_maxᵀ D_k v_max
                 let dfloor = REDUCED_INFO_RELATIVE_FLOOR * dlambda_max;
                 grad[k] += 0.5 * floor_value_sensitivity * dfloor;
             }
         }
-        // Store vec(M_k) for the Gauss-Newton surrogate.
+        // Store vec(Ṽ_k) and vec(Ψ ∘ Ṽ_k) for the exact-curvature GEMM.
         let mut col = 0usize;
         for i in 0..m {
             for j in 0..m {
-                sensitivity[[k, col]] = m_k[[i, j]];
+                a_rows[[k, col]] = a_k[[i, j]];
+                aw_rows[[k, col]] = psi[[i, j]] * a_k[[i, j]];
                 col += 1;
             }
         }
     }
-    // Gauss-Newton curvature surrogate: H_Phi = ½ S Sᵀ over the reduced
-    // sensitivities `S = sensitivity` (p × m²), i.e. H_Phi[a,b] = ½ <vec(M_a),
-    // vec(M_b)>. PSD by construction, vanishes on directions the data already
-    // identifies (M_k = 0 there), and grows as the reduced curvature shrinks
-    // along a separating direction — the automatic O(1)-bounding Firth curvature.
+    // EXACT Jeffreys curvature on the floored spectrum (gam#979). The penalized
+    // objective is `−ℓ + ½βᵀSβ − Φ`, so the Newton system needs `−∇²Φ`. By the
+    // Daleckii–Krein formula (first-order eigen-perturbation), with
+    // `Ṽ_k = Vᵀ D_k V` and `Ψ` the divided differences of `d = g'`:
+    //   ∇²Φ[a,b] = ½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij + ½ tr(K D_ab),
+    // and we keep everything except the second-directional-Hessian term
+    // `½ tr(K D_ab)` (a genuinely separating direction's `D_ab` carries its
+    // vanishing curvature factor, so that remainder is O(1) exactly where the
+    // term arms — the trust region owns it). So
+    //   H_Φ[a,b] = −½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij,
+    // assembled as one BLAS-3 GEMM over the stored rows. On an unfloored PSD
+    // spectrum `Ψ_ij = −1/(λ_i λ_j)` and this is the classic PSD log-det
+    // Gauss-Newton curvature `½ tr(K D_a K D_b)`.
     //
-    // PERF (gam#729/#826/#808): assemble it as one BLAS-3 GEMM `S·Sᵀ` instead of
-    // the p²·m² scalar triple loop. For a K-block coupled family (Dirichlet/
-    // multinomial) the joint width p and reduced dimension m make the triple loop
-    // the dominant per-inner-cycle cost (it is rebuilt every inner Newton cycle
-    // and every outer continuation eval); routing through faer's matmul makes it
-    // cache-blocked and parallel, the same arithmetic with no accuracy change.
-    let mut hphi = fast_abt(&sensitivity, &sensitivity);
-    hphi.mapv_inplace(|v| 0.5 * v);
+    // WHY NOT THE vec-GRAM `½⟨vec(K D_a), vec(K D_b)⟩` (the previous surrogate):
+    // that object is `½ tr(D_a K² D_b)` — a `K²`-weighted Gram that puts
+    // `1/floor² ≈ 1e20` PHANTOM curvature on every floored↔floored eigenpair,
+    // whose true curvature (divided difference of two equal `1/floor` slopes)
+    // is ZERO. The inner joint-Newton step along any Firth-active direction was
+    // shrunk by up to twenty orders of magnitude while the rhs carried the
+    // exact `∇Φ`, degrading Newton to a frozen/linear crawl — the gam#979
+    // `phantom_multiplier_with_well_conditioned_H` grind (binary marginal-slope
+    // slowdown, survival marginal-slope hang) and the spurious model-stationary
+    // accepts the outer evaluator then rejects as unresolved KKT mass. The
+    // divided-difference curvature is the exact β-derivative of the implemented
+    // `∇Φ` (same `g`, same floor, same spectrum — modulo the floor-response and
+    // `D_ab` remainders documented above), so the trust-region model matches
+    // the objective and Newton recovers its quadratic rate. It is indefinite
+    // exactly where `Φ` is (mixed-sign spectrum); the exact Moré–Sorensen
+    // trust-region subproblem handles that rigorously.
+    let mut hphi = fast_abt(&aw_rows, &a_rows);
+    hphi.mapv_inplace(|v| -0.5 * v);
     // Scale the (value, gradient, curvature) triple by the smooth gate weight.
     // `gate_weight == 1` in the fully-active (under-identified) regime, so this is
     // identity there (byte-identical to the binary-gate term); it only tapers the
@@ -1047,103 +1171,97 @@ where
         return Ok(Array2::zeros((p, p)));
     }
     let floor = (REDUCED_INFO_RELATIVE_FLOOR * lambda_max).max(REDUCED_INFO_ABSOLUTE_FLOOR);
-    let mut inv_diag = Array1::<f64>::zeros(m);
-    for (i, &lam) in evals.iter().enumerate() {
-        // Floor on |λ| with the SIGNED true inverse, identical to the value/gradient
-        // path in `joint_jeffreys_term` (gam#814).
-        if lam.abs() >= floor {
-            inv_diag[i] = 1.0 / lam;
-        } else {
-            inv_diag[i] = 1.0 / floor;
-        }
-    }
-    let scaled = &evecs * &inv_diag.view().insert_axis(ndarray::Axis(0));
-    let h_id_inv = scaled.dot(&evecs.t());
-
     // Ḋ = Z_Jᵀ (∂H_joint) Z_J, the reduced perturbation of the reduced information.
     let dbar = z_j.t().dot(&pert_h.dot(&z_j)); // m x m
 
-    // EXACT DERIVATIVE OF THE FLOORED PSEUDO-INVERSE K (value↔gradient consistency,
-    // gam#808). The value path builds `H_Φ[a,b] = ½⟨K D_a, K D_b⟩` with the FLOORED
-    // signed pseudo-inverse `K = V diag(d_i) Vᵀ`, `d_i = 1/λ_i` if `|λ_i| ≥ floor`
-    // else `1/floor`. The earlier drift used `δK = −K Ḋ K`, which is the directional
-    // derivative of the UNfloored inverse `1/λ` only. On a separating direction one
-    // or more reduced eigenvalues sit BELOW the floor (exactly the regime that
-    // activates this term), where `d_i = 1/floor` is flat in λ_i (∂d_i/∂λ_i = 0) and
-    // the floor itself moves with `λ_max(β)`. `−K Ḋ K` then assigns those entries the
-    // wrong divided differences `−d_i d_j` (it pretends `d'(λ_i) = −d_i²` and ignores
-    // the floor motion), so the analytic outer-LAML drift `D_β H_Φ[v_k]` differed from
-    // the value the inner Newton converged on — no outer step satisfied descent
-    // (the frozen `|g|` survival-marginal-slope stall). We instead form the EXACT
-    // directional derivative of the floored matrix function via the Daleckii–Krein
-    // divided-difference formula in the eigenbasis, plus the floor-motion term.
-    //
-    //   δK = V (Ψ ∘ (Vᵀ Ḋ V)) Vᵀ  +  V diag(∂d_i/∂floor · δfloor) Vᵀ,
-    //
-    // with divided differences of the floored `d(λ)`:
-    //   Ψ_ij = (d_i − d_j)/(λ_i − λ_j)  (i ≠ j, well-separated),
-    //   Ψ_ii = d'(λ_i) = −1/λ_i² if |λ_i| ≥ floor else 0 (floor frozen),
-    // and the limit `Ψ_ij → d'(λ_i)` as `λ_i → λ_j` (continuous divided difference).
-    // The floor-motion term fires only in the active RELATIVE regime, mirroring the
-    // value path's floor-response gradient: `δfloor = REL · δλ_max = REL · (Vᵀ Ḋ V)_{mm}`
-    // for the dominant eigenvalue index `m`, and `∂d_i/∂floor = −1/floor²` on below-
-    // floor entries (0 otherwise). On a fully-PSD/above-floor fit every `|λ_i| ≥ floor`
-    // and the floor is constant, so Ψ reduces to `−d_i d_j` and the floor-motion term
-    // vanishes — `δK` is byte-identical to the previous `−K Ḋ K` there.
-    let delta_k = {
-        let dbar_red = evecs.t().dot(&dbar).dot(&evecs); // Vᵀ Ḋ V (m × m)
-        let floor_in_relative_regime = lambda_max > 0.0
-            && REDUCED_INFO_RELATIVE_FLOOR * lambda_max >= REDUCED_INFO_ABSOLUTE_FLOOR;
-        let mut idx_max = 0usize;
-        for i in 1..m {
-            if evals[i] > evals[idx_max] {
-                idx_max = i;
-            }
+    // EXACT DERIVATIVE OF THE DIVIDED-DIFFERENCE CURVATURE (value↔drift
+    // consistency, gam#979). The value path builds
+    //   `H_Φ_raw[a,b] = −½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij`,
+    // with `Ṽ_k = Vᵀ D_k V` the eigenbasis-rotated reduced derivatives and `Ψ`
+    // the Daleckii–Krein divided differences of the floored signed inverse
+    // (see `joint_jeffreys_term`). Under a perturbation that moves `H_id` by
+    // `Ḋ` and each `D_a` by `∂D_a`, the exact first-order pieces are:
+    //   * eigenvalue motion       λ̇_i = (Ḋ̃)_ii,            Ḋ̃ = Vᵀ Ḋ V,
+    //   * eigenvector rotation    δV = V C,   C_ij = (Ḋ̃)_ij/(λ_j − λ_i) (i≠j),
+    //   * rotated derivatives     δṼ_a = Vᵀ (∂D_a) V + Ṽ_a C − C Ṽ_a,
+    //   * kernel motion           δΨ_ij from the chain rule on the divided
+    //     difference `Ψ(λ_i, λ_j; floor)` — for separated pairs
+    //       δΨ_ij = [(d'(λ_i) − Ψ_ij)·λ̇_i + (Ψ_ij − d'(λ_j))·λ̇_j]/(λ_i − λ_j)
+    //               + (∂d_i/∂floor − ∂d_j/∂floor)/(λ_i − λ_j) · δfloor,
+    //     and for confluent/diagonal entries `δΨ_ii = d''(λ_i)·λ̇_i` (the floor
+    //     branch has `d'' = 0`, and `d'` is floor-independent in both branches
+    //     so no diagonal floor-motion arises). The floor-motion term fires only
+    //     in the active RELATIVE regime, mirroring the value path's
+    //     floor-response: `δfloor = REL · λ̇_{idx_max}`, `∂d_i/∂floor = −1/floor²`
+    //     on below-floor entries (0 otherwise).
+    // Then
+    //   δH_Φ_raw[a,b] = −½ Σ_ij [δΨ_ij (Ṽ_a)_ij (Ṽ_b)_ij
+    //                            + Ψ_ij ((δṼ_a)_ij (Ṽ_b)_ij + (Ṽ_a)_ij (δṼ_b)_ij)].
+    let dbar_red = evecs.t().dot(&dbar).dot(&evecs); // Vᵀ Ḋ V (m × m)
+    let psi = floored_inverse_divided_differences(&evals, floor);
+    let floor_in_relative_regime =
+        lambda_max > 0.0 && REDUCED_INFO_RELATIVE_FLOOR * lambda_max >= REDUCED_INFO_ABSOLUTE_FLOOR;
+    let mut idx_max = 0usize;
+    for i in 1..m {
+        if evals[i] > evals[idx_max] {
+            idx_max = i;
         }
-        // d'(λ_i) for the floored signed inverse (floor held fixed).
-        let d_prime = |i: usize| -> f64 {
-            if evals[i].abs() >= floor {
-                -inv_diag[i] * inv_diag[i] // −1/λ_i²
+    }
+    let dfloor = if floor_in_relative_regime {
+        REDUCED_INFO_RELATIVE_FLOOR * dbar_red[[idx_max, idx_max]]
+    } else {
+        0.0
+    };
+    // Eigenvector-rotation generator C (skew: C_ij = (Ḋ̃)_ij/(λ_j − λ_i), 0 on
+    // the diagonal and on confluent pairs, where first-order rotation within
+    // the degenerate subspace cancels out of the symmetric contraction).
+    let mut rotation = Array2::<f64>::zeros((m, m));
+    // Kernel motion δΨ.
+    let mut dpsi = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        for j in 0..m {
+            let denom = evals[j] - evals[i];
+            if denom.abs() > REDUCED_INFO_ABSOLUTE_FLOOR {
+                rotation[[i, j]] = dbar_red[[i, j]] / denom;
+            }
+            let gap = evals[i] - evals[j];
+            if gap.abs() > REDUCED_INFO_ABSOLUTE_FLOOR {
+                let dp_i = floored_inverse_prime(evals[i], floor);
+                let dp_j = floored_inverse_prime(evals[j], floor);
+                let lam_dot_i = dbar_red[[i, i]];
+                let lam_dot_j = dbar_red[[j, j]];
+                dpsi[[i, j]] =
+                    ((dp_i - psi[[i, j]]) * lam_dot_i + (psi[[i, j]] - dp_j) * lam_dot_j) / gap;
+                if dfloor != 0.0 {
+                    dpsi[[i, j]] += (floored_inverse_floor_sensitivity(evals[i], floor)
+                        - floored_inverse_floor_sensitivity(evals[j], floor))
+                        / gap
+                        * dfloor;
+                }
             } else {
-                0.0
-            }
-        };
-        let mut psi_dbar = Array2::<f64>::zeros((m, m));
-        for i in 0..m {
-            for j in 0..m {
-                let denom = evals[i] - evals[j];
-                let weight = if denom.abs() <= REDUCED_INFO_ABSOLUTE_FLOOR {
-                    // Confluent / tied eigenvalues: the divided difference is the
-                    // diagonal derivative limit.
-                    d_prime(i)
-                } else {
-                    (inv_diag[i] - inv_diag[j]) / denom
-                };
-                psi_dbar[[i, j]] = weight * dbar_red[[i, j]];
-            }
-        }
-        // Floor-motion term (active relative regime only). δfloor = REL · δλ_max,
-        // δλ_max = v_maxᵀ Ḋ v_max = (Vᵀ Ḋ V)_{idx_max, idx_max}.
-        if floor_in_relative_regime {
-            let dfloor = REDUCED_INFO_RELATIVE_FLOOR * dbar_red[[idx_max, idx_max]];
-            if dfloor != 0.0 {
-                let inv_floor_sq = 1.0 / (floor * floor);
-                for i in 0..m {
-                    if evals[i].abs() < floor {
-                        // ∂d_i/∂floor = −1/floor², contributes only to the diagonal.
-                        psi_dbar[[i, i]] += -inv_floor_sq * dfloor;
-                    }
+                // Confluent/diagonal: Ψ = d'(λ), so δΨ = d''(λ)·λ̇ with the
+                // averaged eigenvalue motion of the (near-)tied pair, plus the
+                // floor motion of d' (nonzero only on the saturating negative
+                // branch, where `∂d'/∂floor = −2(2·floor + λ)/(floor − λ)⁴`).
+                dpsi[[i, j]] = floored_inverse_second(evals[i], floor)
+                    * 0.5
+                    * (dbar_red[[i, i]] + dbar_red[[j, j]]);
+                if dfloor != 0.0 && evals[i] < 0.0 {
+                    let denom = floor - evals[i];
+                    dpsi[[i, j]] +=
+                        -2.0 * (2.0 * floor + evals[i]) / (denom * denom * denom * denom) * dfloor;
                 }
             }
         }
-        evecs.dot(&psi_dbar).dot(&evecs.t()) // δK (m × m), back to the standard basis
-    };
+    }
 
-    // For each canonical axis e_a: base M_a = K D_a and its perturbation δM_a. We
-    // assemble flattened vec(M_a) and vec(δM_a) so the final contraction is a pair
-    // of m·m inner products per (a,b).
-    let mut m_rows = Array2::<f64>::zeros((p, m * m)); // vec(M_a)
-    let mut dm_rows = Array2::<f64>::zeros((p, m * m)); // vec(δM_a)
+    // Per canonical axis e_a: rotated base Ṽ_a, its Ψ-weighted partner, the
+    // perturbed rotation δṼ_a, and the δΨ/Ψ-weighted derivative rows, flattened
+    // so the final contraction is a pair of m·m inner products per (a,b).
+    let mut a_rows = Array2::<f64>::zeros((p, m * m)); // vec(Ṽ_a)
+    let mut aw_rows = Array2::<f64>::zeros((p, m * m)); // vec(Ψ ∘ Ṽ_a)
+    let mut da_rows = Array2::<f64>::zeros((p, m * m)); // vec(δṼ_a)
+    let mut dw_rows = Array2::<f64>::zeros((p, m * m)); // vec(δΨ ∘ Ṽ_a + Ψ ∘ δṼ_a)
     let mut axis = Array1::<f64>::zeros(p);
     for a in 0..p {
         axis.fill(0.0);
@@ -1160,7 +1278,7 @@ where
             ));
         }
         let d_a = z_j.t().dot(&hdot_a.dot(&z_j)); // Z_Jᵀ ∂_a H Z_J
-        let m_a = h_id_inv.dot(&d_a); // K D_a
+        let a_a = evecs.t().dot(&d_a).dot(&evecs); // Ṽ_a
 
         let pert_hdot_a = match pert_hessian_dir(&axis)? {
             Some(h2) => h2,
@@ -1175,30 +1293,31 @@ where
         }
         let d_a_pert = z_j.t().dot(&pert_hdot_a.dot(&z_j)); // Z_Jᵀ (∂Hdot[e_a]) Z_J
 
-        // δM_a = (δK) D_a + K (∂D_a), with the EXACT floored-pseudo-inverse
-        // derivative `δK` formed above (Daleckii–Krein + floor motion) — NOT the
-        // unfloored `−K Ḋ K`, which is wrong on below-floor (separating) directions.
-        let dm_a = &delta_k.dot(&d_a) + &h_id_inv.dot(&d_a_pert);
+        // δṼ_a = Vᵀ (∂D_a) V + Ṽ_a C − C Ṽ_a.
+        let da_a = evecs.t().dot(&d_a_pert).dot(&evecs) + &a_a.dot(&rotation) - &rotation.dot(&a_a);
 
         let mut col = 0usize;
         for i in 0..m {
             for j in 0..m {
-                m_rows[[a, col]] = m_a[[i, j]];
-                dm_rows[[a, col]] = dm_a[[i, j]];
+                a_rows[[a, col]] = a_a[[i, j]];
+                aw_rows[[a, col]] = psi[[i, j]] * a_a[[i, j]];
+                da_rows[[a, col]] = da_a[[i, j]];
+                dw_rows[[a, col]] = dpsi[[i, j]] * a_a[[i, j]] + psi[[i, j]] * da_a[[i, j]];
                 col += 1;
             }
         }
     }
 
-    // δ(½Gram)[a,b] = ½ (⟨vec δM_a, vec M_b⟩ + ⟨vec M_a, vec δM_b⟩). Symmetric.
+    // δH_Φ_raw[a,b] = −½ (⟨vec(δΨ∘Ṽ_a + Ψ∘δṼ_a), vec(Ṽ_b)⟩ + ⟨vec(Ψ∘Ṽ_a), vec(δṼ_b)⟩).
+    // Mathematically symmetric in (a, b); assembled symmetrically for exactness.
     let mut out = Array2::<f64>::zeros((p, p));
     for a in 0..p {
         for b in a..p {
             let mut acc = 0.0;
             for col in 0..(m * m) {
-                acc += dm_rows[[a, col]] * m_rows[[b, col]] + m_rows[[a, col]] * dm_rows[[b, col]];
+                acc += dw_rows[[a, col]] * a_rows[[b, col]] + aw_rows[[a, col]] * da_rows[[b, col]];
             }
-            let value = 0.5 * acc;
+            let value = -0.5 * acc;
             out[[a, b]] = value;
             out[[b, a]] = value;
         }
@@ -1213,13 +1332,9 @@ where
     let (g_dlmin, g_dlmax) = conditioning_gate_weight_grad(lambda_min, lambda_max);
     if g_dlmin != 0.0 || g_dlmax != 0.0 {
         let mut idx_min = 0usize;
-        let mut idx_max = 0usize;
         for i in 1..m {
             if evals[i] < evals[idx_min] {
                 idx_min = i;
-            }
-            if evals[i] > evals[idx_max] {
-                idx_max = i;
             }
         }
         let extreme_perturbation = |idx: usize| -> f64 {
@@ -1229,7 +1344,8 @@ where
         let d_gate =
             g_dlmin * extreme_perturbation(idx_min) + g_dlmax * extreme_perturbation(idx_max);
         if d_gate != 0.0 {
-            let hphi_raw = m_rows.dot(&m_rows.t()).mapv(|x| 0.5 * x);
+            // H_Φ_raw = −½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij, matching the value path.
+            let hphi_raw = aw_rows.dot(&a_rows.t()).mapv(|x| -0.5 * x);
             result.scaled_add(d_gate, &hphi_raw);
         }
     }

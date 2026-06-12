@@ -55,7 +55,7 @@ import kafka.codec as codecs
 from kafka.errors import CorruptRecordError, UnsupportedCodecError
 
 
-class LegacyRecordBase(object):
+class LegacyRecordBase:
 
     __slots__ = ()
 
@@ -122,6 +122,9 @@ class LegacyRecordBase(object):
             checker, name = codecs.has_snappy, "snappy"
         elif compression_type == self.CODEC_LZ4:
             checker, name = codecs.has_lz4, "lz4"
+        else:
+            raise UnsupportedCodecError(
+                "Unrecognized compression type")
         if not checker():
             raise UnsupportedCodecError(
                 "Libraries for {} compression codec not found".format(name))
@@ -178,7 +181,8 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
         return self._magic
 
     def validate_crc(self):
-        crc = calc_crc32(self._buffer[self.MAGIC_OFFSET:])
+        # memoryview avoids a full-body copy when slicing the bytearray.
+        crc = calc_crc32(memoryview(self._buffer)[self.MAGIC_OFFSET:])
         return self._crc == crc
 
     def _decompress(self, key_offset):
@@ -206,7 +210,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
                 uncompressed = lz4_decode_old_kafka(data.tobytes())
             else:
                 uncompressed = lz4_decode(data.tobytes())
-        return uncompressed
+        return uncompressed  # pylint: disable=E0606
 
     def _read_header(self, pos):
         if self._magic == 0:
@@ -246,7 +250,10 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
         return key, value
 
     def _crc_bytes(self, msg_pos, length):
-        return self._buffer[msg_pos + self.MAGIC_OFFSET:msg_pos + self.LOG_OVERHEAD + length]
+        # memoryview avoids copying the message bytes out of the batch buffer
+        # just to hand them to calc_crc32 later in LegacyRecord.validate_crc.
+        return memoryview(self._buffer)[
+            msg_pos + self.MAGIC_OFFSET:msg_pos + self.LOG_OVERHEAD + length]
 
     def __iter__(self):
         if self._magic == 1:
@@ -483,7 +490,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
                 else:
                     compressed = lz4_encode(data)
             size = self.size_in_bytes(
-                0, timestamp=0, key=None, value=compressed)
+                0, timestamp=0, key=None, value=compressed)  # pylint: disable=E0606
             # We will try to reuse the same buffer if we have enough space
             if size > len(self._buffer):
                 self._buffer = bytearray(size)
@@ -546,7 +553,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
         return cls.LOG_OVERHEAD + cls.record_size(magic, key, value)
 
 
-class LegacyRecordMetadata(object):
+class LegacyRecordMetadata:
 
     __slots__ = ("_crc", "_size", "_timestamp", "_offset")
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.50"
+version = "0.0.52"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"
@@ -13,6 +13,15 @@ python = ">=3.10,<3.12.1 || >3.12.1,<4.0"
 pydantic = ">=2.09,<3"
 requests = "^2.32.3"
 traceloop-sdk = ">=0.46.0"
+# ``traceloop-sdk`` 0.61.0 imports ``httpx`` in
+# ``traceloop/sdk/evaluator/evaluator.py`` without declaring it as a
+# dependency, so fresh installs that resolve traceloop >=0.61 crash with
+# ``ModuleNotFoundError: No module named 'httpx'`` at ``import
+# raindrop.analytics`` in environments where httpx isn't already present.
+# Declare it directly until upstream fixes their packaging; the declaration
+# stays harmlessly redundant afterwards. Wide range on purpose so strict
+# resolvers (see the urllib3/protobuf notes above/below) don't fight us.
+httpx = ">=0.24,<1"
 opentelemetry-sdk = ">=1.36.0"
 # ``urllib3`` is pulled in transitively by ``requests`` (>=1.26,<3). We do
 # not import it directly anywhere in the SDK, so we deliberately do not

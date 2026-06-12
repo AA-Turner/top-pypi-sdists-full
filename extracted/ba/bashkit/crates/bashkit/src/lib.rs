@@ -18,22 +18,22 @@
 //! - **Experimental: Python** - Embedded Python via [Monty](https://github.com/pydantic/monty) (`python` feature)
 //! - **Experimental: SQLite** - Embedded SQLite-compatible engine via [Turso](https://github.com/tursodatabase/turso) (`sqlite` feature)
 //!
-//! # Built-in Commands (156)
+//! # Built-in Commands (164)
 //!
 //! | Category | Commands |
 //! |----------|----------|
-//! | Core | `echo`, `printf`, `cat`, `nl`, `read`, `log` |
+//! | Core | `echo`, `printf`, `cat`, `nl`, `read`, `mapfile`, `readarray`, `log` |
 //! | Navigation | `cd`, `pwd`, `ls`, `find`, `tree`, `pushd`, `popd`, `dirs` |
 //! | Flow control | `true`, `false`, `exit`, `return`, `break`, `continue`, `test`, `[`, `assert` |
 //! | Variables | `export`, `set`, `unset`, `local`, `shift`, `source`, `.`, `eval`, `readonly`, `times`, `declare`, `typeset`, `let`, `dotenv`, `envsubst` |
-//! | Shell | `bash`, `sh` (virtual re-invocation), `:`, `trap`, `caller`, `getopts`, `shopt`, `alias`, `unalias`, `compgen`, `fc`, `help` |
-//! | Text processing | `grep`, `rg`, `sed`, `awk`, `jq`, `head`, `tail`, `sort`, `uniq`, `cut`, `tr`, `wc`, `paste`, `column`, `diff`, `comm`, `strings`, `tac`, `rev`, `seq`, `expr`, `fold`, `expand`, `unexpand`, `join`, `split`, `iconv`, `template` |
-//! | File operations | `mkdir`, `mktemp`, `mkfifo`, `rm`, `cp`, `mv`, `touch`, `chmod`, `chown`, `ln`, `rmdir`, `realpath`, `readlink`, `glob`, `patch` |
+//! | Shell | `bash`, `sh` (virtual re-invocation), `exec`, `:`, `trap`, `caller`, `getopts`, `shopt`, `command`, `type`, `which`, `hash`, `alias`, `unalias`, `compgen`, `fc`, `help` |
+//! | Text processing | `grep`, `rg`, `sed`, `awk`, `jq` (with `jq` feature), `head`, `tail`, `sort`, `uniq`, `cut`, `tr`, `wc`, `paste`, `column`, `diff`, `comm`, `strings`, `tac`, `rev`, `seq`, `expr`, `fold`, `expand`, `unexpand`, `join`, `split`, `iconv`, `shuf`, `template` |
+//! | File operations | `mkdir`, `mktemp`, `mkfifo`, `rm`, `cp`, `mv`, `touch`, `chmod`, `chown`, `ln`, `rmdir`, `realpath`, `readlink`, `truncate`, `glob`, `patch` |
 //! | File inspection | `file`, `stat`, `less` |
 //! | Archives | `tar`, `gzip`, `gunzip`, `zip`, `unzip` |
 //! | Byte tools | `od`, `xxd`, `hexdump`, `base64` |
 //! | Checksums | `md5sum`, `sha1sum`, `sha256sum`, `verify` |
-//! | Utilities | `sleep`, `date`, `basename`, `dirname`, `timeout`, `wait`, `watch`, `yes`, `kill`, `clear`, `retry`, `parallel` |
+//! | Utilities | `sleep`, `date`, `basename`, `dirname`, `timeout`, `wait`, `watch`, `yes`, `kill`, `clear`, `numfmt`, `retry`, `parallel` |
 //! | Disk | `df`, `du` |
 //! | Pipeline | `xargs`, `tee` |
 //! | System info | `whoami`, `hostname`, `uname`, `id`, `env`, `printenv`, `history` |
@@ -660,9 +660,11 @@ impl Bash {
         script: &str,
         mut extensions: ExecutionExtensions,
     ) -> Result<ExecResult> {
-        // Expose active execution limits to builtins that need to honor
-        // per-execution sandbox settings.
-        let _ = extensions.insert(self.interpreter.limits().clone());
+        // Expose active execution limits and deadline to builtins that need to
+        // honor per-execution sandbox settings inside synchronous VM sections.
+        let active_limits = self.interpreter.limits().clone();
+        let _ = extensions.insert(active_limits.clone());
+        let _ = extensions.insert(builtins::ExecutionDeadline::new(active_limits.timeout));
         #[cfg(feature = "python")]
         let _ = extensions.insert(builtins::PythonInprocessOptIn(self.python_inprocess_opt_in));
         #[cfg(feature = "sqlite")]
@@ -674,6 +676,10 @@ impl Bash {
     async fn exec_impl(&mut self, script: &str) -> Result<ExecResult> {
         // THREAT[TM-ISO-005/006/007]: Reset transient state between exec() calls
         self.interpreter.reset_transient_state();
+
+        // THREAT[TM-DOS-059]: Count every host exec() call at the boundary so
+        // malformed or parser-expensive scripts cannot bypass session limits.
+        self.interpreter.begin_exec_invocation()?;
 
         // Check raw input size before hooks to avoid allocating/copying oversized
         // untrusted scripts in hook payloads.
@@ -857,7 +863,7 @@ impl Bash {
             match tokio::time::timeout(execution_timeout, self.interpreter.execute(&ast)).await {
                 Ok(r) => r,
                 Err(_elapsed) => {
-                    self.interpreter.clear_transient_stdin();
+                    self.interpreter.clear_cancelled_execution_state();
                     Err(Error::ResourceLimit(LimitExceeded::Timeout(
                         execution_timeout,
                     )))
@@ -912,18 +918,30 @@ impl Bash {
             }
         }
 
-        // Fire after_exec hooks
-        if let Ok(ref exec_result) = result
-            && !self.interpreter.hooks().after_exec.is_empty()
-        {
-            let output = hooks::ExecOutput {
-                script: script.to_string(),
-                stdout: exec_result.stdout.clone(),
-                stderr: exec_result.stderr.clone(),
-                exit_code: exec_result.exit_code,
-            };
-            self.interpreter.hooks().fire_after_exec(output);
-        }
+        // Fire after_exec hooks — interceptor decisions are part of the public policy API.
+        let result = if let Ok(exec_result) = result {
+            if !self.interpreter.hooks().after_exec.is_empty() {
+                let output = hooks::ExecOutput {
+                    script: script.to_string(),
+                    stdout: exec_result.stdout.clone(),
+                    stderr: exec_result.stderr.clone(),
+                    exit_code: exec_result.exit_code,
+                };
+                match self.interpreter.hooks().fire_after_exec(output) {
+                    Some(output) => Ok(ExecResult {
+                        stdout: output.stdout,
+                        stderr: output.stderr,
+                        exit_code: output.exit_code,
+                        ..exec_result
+                    }),
+                    None => Ok(ExecResult::err("cancelled by after_exec hook", 1)),
+                }
+            } else {
+                Ok(exec_result)
+            }
+        } else {
+            result
+        };
 
         // Fire on_error hooks for execution errors
         if let Err(ref e) = result
@@ -1094,6 +1112,13 @@ impl Bash {
         vfs_path: impl AsRef<std::path::Path>,
         fs: Arc<dyn FileSystem>,
     ) -> Result<()> {
+        // THREAT[TM-DOS-058]: `Bash::fs()` exposes the live outer VFS handle;
+        // reject mounting that handle back into this Bash before any wrappers
+        // can hide pointer identity and recurse through delegated operations.
+        if Arc::ptr_eq(&self.fs, &fs) {
+            return Err(std::io::Error::other("cannot mount filesystem into itself").into());
+        }
+
         let fs: Arc<dyn FileSystem> = if self.readonly_filesystem {
             Arc::new(ReadOnlyFs::new(fs))
         } else {
@@ -1460,8 +1485,11 @@ impl BashBuilder {
     ///     .build();
     /// ```
     pub fn tty(mut self, fd: u32, is_terminal: bool) -> Self {
+        let key = format!("_TTY_{}", fd);
         if is_terminal {
-            self.env.insert(format!("_TTY_{}", fd), "1".to_string());
+            self.env.insert(key, "1".to_string());
+        } else {
+            self.env.remove(&key);
         }
         self
     }
@@ -3181,6 +3209,50 @@ mod tests {
 
         let result = bash.exec("cat").await.unwrap();
         assert_eq!(result.stdout, "");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_timed_out_fd3_capture_does_not_leak_to_next_exec() {
+        let limits = ExecutionLimits::new().timeout(std::time::Duration::from_millis(1));
+        let mut bash = Bash::builder().limits(limits).build();
+
+        let timed_out = bash.exec("{ sleep 10; } 3>&1 > /tmp/poison.txt").await;
+        assert!(matches!(
+            timed_out,
+            Err(Error::ResourceLimit(LimitExceeded::Timeout(_)))
+        ));
+
+        let hidden = bash.exec("echo SECRET_FROM_EXEC2 1>&3").await.unwrap();
+        assert_eq!(hidden.stdout, "");
+
+        let routed = bash
+            .exec("echo PUBLIC_FROM_EXEC3 2>&1 > /tmp/public.txt")
+            .await
+            .unwrap();
+        assert_eq!(routed.stdout, "");
+
+        let file = bash.exec("cat /tmp/public.txt").await.unwrap();
+        assert_eq!(file.stdout, "PUBLIC_FROM_EXEC3\n");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_timed_out_debug_trap_does_not_suppress_next_exec_debug_trap() {
+        let limits = ExecutionLimits::new().timeout(std::time::Duration::from_millis(1));
+        let mut bash = Bash::builder().limits(limits).build();
+
+        let timed_out = bash
+            .exec("trap 'sleep 10' DEBUG; echo should-not-run")
+            .await;
+        assert!(matches!(
+            timed_out,
+            Err(Error::ResourceLimit(LimitExceeded::Timeout(_)))
+        ));
+
+        let result = bash
+            .exec("count=0; trap '((count++))' DEBUG; echo body; trap - DEBUG; echo $count")
+            .await
+            .unwrap();
+        assert_eq!(result.stdout, "body\n2\n");
     }
 
     #[tokio::test]
@@ -6498,6 +6570,45 @@ echo missing fi"#,
     }
 
     #[tokio::test]
+    async fn test_exec_streaming_respects_stdout_stderr_limits() {
+        let stdout_chunks = Arc::new(Mutex::new(Vec::new()));
+        let stderr_chunks = Arc::new(Mutex::new(Vec::new()));
+        let so = stdout_chunks.clone();
+        let se = stderr_chunks.clone();
+        let mut bash = Bash::builder()
+            .limits(
+                ExecutionLimits::new()
+                    .max_stdout_bytes(10)
+                    .max_stderr_bytes(8),
+            )
+            .build();
+
+        let result = bash
+            .exec_streaming(
+                "echo hello; echo world; echo err1 >&2; echo err2 >&2",
+                Box::new(move |stdout, stderr| {
+                    if !stdout.is_empty() {
+                        so.lock().unwrap().push(stdout.to_string());
+                    }
+                    if !stderr.is_empty() {
+                        se.lock().unwrap().push(stderr.to_string());
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.stdout, "hello\nworl");
+        assert_eq!(result.stderr, "err1\nerr");
+        assert!(result.stdout_truncated);
+        assert!(result.stderr_truncated);
+        let streamed_stdout: String = stdout_chunks.lock().unwrap().iter().cloned().collect();
+        let streamed_stderr: String = stderr_chunks.lock().unwrap().iter().cloned().collect();
+        assert_eq!(streamed_stdout, result.stdout);
+        assert_eq!(streamed_stderr, result.stderr);
+    }
+
+    #[tokio::test]
     async fn test_streaming_equivalence_for_loop() {
         assert_streaming_equivalence("for i in 1 2 3; do echo $i; done").await;
     }
@@ -6536,6 +6647,12 @@ echo missing fi"#,
     #[tokio::test]
     async fn test_streaming_equivalence_subshell() {
         assert_streaming_equivalence("x=$(echo hello); echo $x").await;
+    }
+
+    #[tokio::test]
+    async fn test_streaming_equivalence_command_substitution_exit_trap() {
+        assert_streaming_equivalence("secret=$(trap 'echo TOKEN' EXIT); trap - EXIT; echo ok")
+            .await;
     }
 
     #[tokio::test]
@@ -6784,6 +6901,89 @@ echo missing fi"#,
 
         bash.exec("echo hello-hooks").await.unwrap();
         assert_eq!(captured.lock().unwrap().trim(), "hello-hooks");
+    }
+
+    #[tokio::test]
+    async fn test_after_exec_hook_can_modify_output() {
+        let mut bash = Bash::builder()
+            .after_exec(Box::new(|mut output| {
+                output.stdout = output.stdout.replace("SECRET", "[redacted]");
+                output.stderr = "policy stderr\n".to_string();
+                output.exit_code = 7;
+                hooks::HookAction::Continue(output)
+            }))
+            .build();
+
+        let result = bash.exec("echo SECRET").await.unwrap();
+        assert_eq!(result.stdout, "[redacted]\n");
+        assert_eq!(result.stderr, "policy stderr\n");
+        assert_eq!(result.exit_code, 7);
+    }
+
+    #[tokio::test]
+    async fn test_after_exec_hook_can_cancel_result() {
+        let mut bash = Bash::builder()
+            .after_exec(Box::new(|_output| {
+                hooks::HookAction::Cancel("blocked".to_string())
+            }))
+            .build();
+
+        let result = bash.exec("echo SECRET").await.unwrap();
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "cancelled by after_exec hook");
+        assert_eq!(result.exit_code, 1);
+    }
+
+    #[tokio::test]
+    async fn test_before_tool_hook_can_cancel_special_builtin() {
+        let mut bash = Bash::builder()
+            .before_tool(Box::new(|event| {
+                if event.name == "source" {
+                    hooks::HookAction::Cancel("source blocked".to_string())
+                } else {
+                    hooks::HookAction::Continue(event)
+                }
+            }))
+            .build();
+
+        let result = bash.exec("source missing.sh").await.unwrap();
+        assert_eq!(result.exit_code, 1);
+        assert!(result.stderr.contains("cancelled by before_tool hook"));
+    }
+
+    #[tokio::test]
+    async fn test_after_tool_hook_can_modify_builtin_result() {
+        let mut bash = Bash::builder()
+            .after_tool(Box::new(|mut result| {
+                if result.name == "echo" {
+                    result.stdout = result.stdout.replace("SECRET", "[redacted]");
+                    result.exit_code = 9;
+                }
+                hooks::HookAction::Continue(result)
+            }))
+            .build();
+
+        let result = bash.exec("echo SECRET").await.unwrap();
+        assert_eq!(result.stdout, "[redacted]\n");
+        assert_eq!(result.exit_code, 9);
+    }
+
+    #[tokio::test]
+    async fn test_after_tool_hook_can_cancel_builtin_result() {
+        let mut bash = Bash::builder()
+            .after_tool(Box::new(|result| {
+                if result.name == "echo" {
+                    hooks::HookAction::Cancel("blocked".to_string())
+                } else {
+                    hooks::HookAction::Continue(result)
+                }
+            }))
+            .build();
+
+        let result = bash.exec("echo SECRET").await.unwrap();
+        assert_eq!(result.stdout, "");
+        assert!(result.stderr.contains("cancelled by after_tool hook"));
+        assert_eq!(result.exit_code, 1);
     }
 
     #[tokio::test]
@@ -7108,10 +7308,9 @@ echo missing fi"#,
     }
 
     #[tokio::test]
-    async fn test_before_tool_hook_does_not_fire_for_special_builtins() {
-        // Special builtins (declare, local, etc.) dispatch through
-        // dispatch_special_builtin, not execute_registered_builtin,
-        // so before_tool should not fire for them.
+    async fn test_before_tool_hook_fires_for_special_and_registered_builtins() {
+        // Special builtins now route through execute_special_builtin_with_hooks
+        // so before_tool fires for both declare and echo.
         use std::sync::Arc;
         use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -7125,13 +7324,13 @@ echo missing fi"#,
             }))
             .build();
 
-        // declare is a special builtin — should NOT trigger before_tool
+        // declare is a special builtin — now triggers before_tool
         bash.exec("declare x=1").await.unwrap();
-        assert_eq!(count.load(Ordering::Relaxed), 0);
-
-        // echo is a registered builtin — should trigger before_tool
-        bash.exec("echo hi").await.unwrap();
         assert_eq!(count.load(Ordering::Relaxed), 1);
+
+        // echo is a registered builtin — also triggers before_tool
+        bash.exec("echo hi").await.unwrap();
+        assert_eq!(count.load(Ordering::Relaxed), 2);
     }
 
     #[cfg(feature = "http_client")]
@@ -7183,7 +7382,7 @@ echo missing fi"#,
         // Even though the request will fail (no real server), the hook
         // infrastructure is wired correctly if it doesn't panic.
         // A successful test is that the builder accepts the hook and builds.
-        let _result = bash.exec("curl -s https://httpbin.org/get").await.unwrap();
+        let _result = bash.exec("curl -s https://httpbin.org/get").await;
         // We can't assert on captured content since there's no real HTTP
         // server, but the hook is wired and the build succeeded.
     }

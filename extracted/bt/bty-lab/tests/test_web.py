@@ -384,7 +384,7 @@ def test_put_boot_rejects_oversized_upload(
     cap on /boot."""
     from bty.web import _config
 
-    monkeypatch.setenv("BTY_MAX_UPLOAD_BYTES", "16")
+    monkeypatch.setenv("BTY_TUNING_MAX_UPLOAD_BYTES", "16")
     # Cfg is loaded once at create_app time; reload now that the test
     # has set the env override the upload-cap reader consults.
     _config.set_active_config(_config.load_config(None))
@@ -2435,14 +2435,14 @@ def test_events_list_includes_machine_lifecycle(app_client: TestClient) -> None:
 def test_source_ip_uses_x_forwarded_for_when_trusted_proxy(
     app_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When ``BTY_TRUSTED_PROXY`` is set, ``_client_ip`` reads the
-    leftmost ``X-Forwarded-For`` value instead of
+    """When ``BTY_SERVER_TRUSTED_PROXY`` is set, ``_client_ip`` reads
+    the leftmost ``X-Forwarded-For`` value instead of
     ``request.client.host``. This is what bty-web operators behind
     nginx / caddy need so audit rows show the real client IP, not
     the proxy's loopback."""
     from bty.web import _config
 
-    monkeypatch.setenv("BTY_TRUSTED_PROXY", "1")
+    monkeypatch.setenv("BTY_SERVER_TRUSTED_PROXY", "1")
     _config.set_active_config(_config.load_config(None))
     mac = "aa:bb:cc:dd:ee:f8"
     app_client.get(f"/pxe/{mac}", headers={"X-Forwarded-For": "192.168.1.42, 10.0.0.1"})
@@ -2455,9 +2455,9 @@ def test_source_ip_uses_x_forwarded_for_when_trusted_proxy(
 def test_source_ip_ignores_x_forwarded_for_when_proxy_not_trusted(
     app_client: TestClient,
 ) -> None:
-    """Without ``BTY_TRUSTED_PROXY``, ``X-Forwarded-For`` is ignored
-    (the header is client-spoofable). Defensive default: we trust
-    only the connection-level ``request.client.host``."""
+    """Without ``BTY_SERVER_TRUSTED_PROXY``, ``X-Forwarded-For`` is
+    ignored (the header is client-spoofable). Defensive default: we
+    trust only the connection-level ``request.client.host``."""
     mac = "aa:bb:cc:dd:ee:f7"
     app_client.get(f"/pxe/{mac}", headers={"X-Forwarded-For": "1.2.3.4"})
     r = app_client.get("/events", params={"kind": "machine.discovered"}, cookies=AUTH)
@@ -2593,6 +2593,62 @@ def test_catalog_entry_add_sha_failure_logs_event(
     assert row["subject_id"] == "https://example.com/foo.img.gz"
     assert row["details"] is not None
     assert "upstream gave 404" in row["details"]["error"]
+
+
+def test_catalog_entry_add_https_populates_resolved_src(app_client: TestClient) -> None:
+    """An https catalog entry stores ``resolved_src`` equal to ``src``;
+    there's no manifest walk for plain HTTPS, the URL is the URL. Used
+    downstream by the withcache HEAD probe + PXE plan rewrite, which
+    key on ``resolved_src`` (so the oras vs https paths converge on one
+    field)."""
+    r = app_client.post(
+        "/catalog/entries",
+        json={"image_url": "https://example.com/path/foo.img.gz"},
+        cookies=AUTH,
+    )
+    assert r.status_code == 201
+    row = next(
+        e
+        for e in app_client.get("/catalog/entries", cookies=AUTH).json()
+        if e["src"] == "https://example.com/path/foo.img.gz"
+    )
+    assert row["resolved_src"] == "https://example.com/path/foo.img.gz"
+
+
+def test_catalog_entry_add_oras_populates_resolved_src_with_blob_url(
+    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An oras catalog entry's ``resolved_src`` carries the canonical
+    ``https://<host>/v2/<repo>/blobs/sha256:<digest>`` URL produced by
+    ``bty.oras.resolve_ref`` at import time. Withcache sees a plain
+    HTTPS URL it can warm against; nothing downstream needs to know
+    the source was ``oras://``."""
+    from bty import oras as _oras
+
+    blob_url = "https://ghcr.io/v2/safl/nosi/freebsd-14-headless/blobs/sha256:abc123"
+    monkeypatch.setattr(
+        _oras,
+        "resolve_ref",
+        lambda *_a, **_kw: _oras.ResolvedBlob(
+            blob_url=blob_url,
+            headers={"Authorization": "Bearer x"},
+            digest="sha256:abc123",
+            size=12345,
+            title="freebsd-14-headless.img.zst",
+        ),
+    )
+    r = app_client.post(
+        "/catalog/entries",
+        json={"image_url": "oras://ghcr.io/safl/nosi/freebsd-14-headless:latest"},
+        cookies=AUTH,
+    )
+    assert r.status_code == 201
+    row = next(
+        e
+        for e in app_client.get("/catalog/entries", cookies=AUTH).json()
+        if e["src"] == "oras://ghcr.io/safl/nosi/freebsd-14-headless:latest"
+    )
+    assert row["resolved_src"] == blob_url
 
 
 def test_events_filter_by_subject_id(app_client: TestClient) -> None:

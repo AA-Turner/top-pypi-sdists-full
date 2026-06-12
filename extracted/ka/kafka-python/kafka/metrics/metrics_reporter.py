@@ -1,17 +1,12 @@
-from __future__ import absolute_import
-
-import abc
-
-from kafka.vendor.six import add_metaclass
+from abc import ABC, abstractmethod
 
 
-@add_metaclass(abc.ABCMeta)
-class AbstractMetricsReporter(object):
+class AbstractMetricsReporter(ABC):
     """
     An abstract class to allow things to listen as new metrics
     are created so they can be reported.
     """
-    @abc.abstractmethod
+    @abstractmethod
     def init(self, metrics):
         """
         This is called when the reporter is first registered
@@ -20,9 +15,9 @@ class AbstractMetricsReporter(object):
         Arguments:
             metrics (list of KafkaMetric): All currently existing metrics
         """
-        raise NotImplementedError
+        pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def metric_change(self, metric):
         """
         This is called whenever a metric is updated or added
@@ -30,9 +25,9 @@ class AbstractMetricsReporter(object):
         Arguments:
             metric (KafkaMetric)
         """
-        raise NotImplementedError
+        pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def metric_removal(self, metric):
         """
         This is called whenever a metric is removed
@@ -40,9 +35,9 @@ class AbstractMetricsReporter(object):
         Arguments:
             metric (KafkaMetric)
         """
-        raise NotImplementedError
+        pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def configure(self, configs):
         """
         Configure this class with the given key-value pairs
@@ -50,9 +45,9 @@ class AbstractMetricsReporter(object):
         Arguments:
             configs (dict of {str, ?})
         """
-        raise NotImplementedError
+        pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def close(self):
         """Called when the metrics repository is closed."""
-        raise NotImplementedError
+        pass

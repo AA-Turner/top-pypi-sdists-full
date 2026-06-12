@@ -270,8 +270,8 @@ class RetrievalOptionsBoostBy(TypedDict, total=False):
     """Metadata field name to boost by.
 
     Use 'timestamp' for document freshness, or any custom_metadata field. Numeric
-    and datetime fields support asc/desc directions; text/boolean fields support
-    exists/not_exists.
+    and datetime fields support all four directions (asc, desc, exists, not_exists);
+    text/boolean fields only support exists/not_exists.
     """
 
     direction: Literal["asc", "desc", "exists", "not_exists"]
@@ -279,7 +279,7 @@ class RetrievalOptionsBoostBy(TypedDict, total=False):
 
     'desc' = higher values rank higher (e.g. newer timestamps). 'asc' = lower values
     rank higher. 'exists' = boost chunks that have the field. 'not_exists' = boost
-    chunks that lack the field. Optional ��� defaults to 'asc' for numeric/datetime
+    chunks that lack the field. Optional — defaults to 'asc' for numeric/datetime
     fields, 'exists' for text/boolean fields.
     """
 
@@ -289,8 +289,8 @@ class RetrievalOptions(TypedDict, total=False):
     """Metadata fields to boost search results by.
 
     Each entry specifies a metadata field and an optional direction. Direction
-    defaults to 'asc' for numeric fields and 'exists' for text/boolean fields.
-    Fields must match 'timestamp' or a defined custom_metadata field.
+    defaults to 'asc' for numeric/datetime fields and 'exists' for text/boolean
+    fields. Fields must match 'timestamp' or a defined custom_metadata field.
     """
 
     keyword_match_mode: Literal["and", "or"]
@@ -325,8 +325,9 @@ class SourceParamsWebCrawlerParseOptionsContentSelector(TypedDict, total=False):
     selector: Required[str]
     """CSS selector to extract content from pages matching the path pattern.
 
-    Supports standard CSS selectors including class, ID, element, and attribute
-    selectors.
+    Must not contain disallowed characters (;, `, $, {, }, \\)). Must target a single
+    element; if multiple elements match, the selector is ignored and the full page
+    is used.
     """
 
 
@@ -335,10 +336,16 @@ class SourceParamsWebCrawlerParseOptions(TypedDict, total=False):
     """
     List of path-to-selector mappings for extracting specific content from crawled
     pages. Each entry pairs a URL glob pattern with a CSS selector. The first
-    matching path wins. Only the matched HTML fragment is stored and indexed.
+    matching path wins. Only the matched HTML fragment is stored and indexed. Omit
+    the field to disable content selection — empty arrays are rejected.
     """
 
     include_headers: Dict[str, str]
+    """Up to 5 custom HTTP headers sent with each crawl request.
+
+    Names must be RFC-7230 token characters (no spaces, colons, or control
+    characters); values must be HTAB + printable ASCII (no CR/LF).
+    """
 
     include_images: bool
 

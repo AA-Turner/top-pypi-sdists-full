@@ -36,12 +36,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import queue
+import re
 import threading
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
 from ..engine.base import BaseEngine, GenerationOutput
+from ..model_aliases import resolve_profile
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +52,73 @@ logger = logging.getLogger(__name__)
 # (e.g. block-vs-token deltas, finish_reason semantics).
 DIFFUSION_LANE_VERSION = "0.1-wired"
 
+
+# DiffusionGemma's chat template wraps the assistant response in
+# ``<|channel>NAME\n…<channel|>`` blocks. ``<|channel>`` (id 100) and
+# ``<channel|>`` (id 101) are TRUE special tokens, so passing them
+# through mlx-vlm's detokenizer with ``skip_special_token_ids`` set
+# (which we do — same construction as ``mlx_vlm/server/generation.py``)
+# decodes them as empty strings. That strips the angle-bracket markers
+# but leaves the channel NAME — literally ``thought`` or ``final``
+# followed by a newline — as plain text at the boundary, leaking into
+# the first SSE chunk the client sees.
+#
+# Empirically (15-prompt quality probe on diffusiongemma-26B-A4B-it-4bit,
+# 2026-06-11) the leak fires when a prompt asks the model to show its
+# reasoning — the model emits the ``thought`` channel header and writes
+# the entire response inside it without ever opening a ``final`` channel.
+# Older one-shot cases also leaked the prefix on translation tasks.
+#
+# This regex strips a leading ``thought\n`` or ``final\n`` channel
+# header from the FIRST non-empty block emitted per request. Mid-stream
+# channel switches (model alternates ``thought`` → ``final`` in one
+# response) are rare in this model and would require a stateful
+# parser; the leading-strip handles every case observed in v0.7.1.
+_LEAKED_CHANNEL_HEADER_RE = re.compile(r"^(?:thought|final)\n")
+
+
+def _strip_leading_channel_header(text: str) -> str:
+    """Remove a leading ``thought\\n`` / ``final\\n`` channel header.
+
+    Returns ``text`` unchanged when no header is present, so this is a
+    no-op for the vast majority of blocks. Idempotent on already-clean
+    input.
+    """
+
+    return _LEAKED_CHANNEL_HEADER_RE.sub("", text, count=1)
+
+
 # Sentinel pushed onto the streaming queue to signal end of generation.
 # Plain string to keep the queue homogeneous-ish; the consumer checks
 # ``is`` identity, so the value is irrelevant.
 _STREAM_DONE = object()
+
+
+# Tool-call parsers DiffusionEngine can surface. Each entry maps the
+# parser name (as it appears in ``AliasProfile.tool_call_parser``) to
+# the inline wire markers that must NOT be filtered by mlx-vlm's
+# ``skip_special_token_ids`` set — otherwise the parser never sees the
+# call invocations and the request degrades to plain prose.
+#
+# The map is the SSOT for both:
+#   - ``supports_tool_calls`` gating in ``__init__``
+#   - ``build_prompt`` gating on whether to forward ``tools=`` to the
+#     chat template (only when the active parser is known to handle
+#     them — diffusion models without a parser would otherwise hit a
+#     ``TypeError`` on tokenizers whose ``apply_chat_template`` doesn't
+#     accept the kwarg)
+#   - the ``_build_skip_special_token_ids`` carve-out below
+_GEMMA4_WIRE_MARKERS: tuple[str, ...] = (
+    "<|tool_call>",
+    "<tool_call|>",
+    '<|"|>',
+    "<|tool>",
+    "<tool|>",
+)
+_TOOL_PARSER_MARKERS: dict[str, tuple[str, ...]] = {
+    "gemma4": _GEMMA4_WIRE_MARKERS,
+}
+_SUPPORTED_TOOL_CALL_PARSERS: frozenset[str] = frozenset(_TOOL_PARSER_MARKERS)
 
 
 def _normalize_stops(value: Any) -> list[str]:
@@ -128,6 +193,16 @@ class DiffusionGenerationConfig:
     # workloads to bound peak Metal allocation per step — without it
     # the diffusion lane OOMs on 30k+ prompts (codex round 5 [P2]).
     prefill_step_size: int | None = None
+    # True when the originating request included a ``tools`` array
+    # AND the engine reports ``supports_tool_calls=True``. Gates the
+    # per-request tool-call marker carve-out in
+    # ``_build_skip_special_token_ids`` so plain non-tool chats
+    # continue to filter every entry of ``all_special_ids`` —
+    # otherwise a model that spontaneously sampled a ``<|tool_call>``
+    # token (rare with temp=0.0 but possible at higher temperatures)
+    # would leak the raw marker into the client's content stream
+    # without any parser to interpret it (codex r2 BLOCKING #1).
+    has_tools: bool = False
 
 
 class DiffusionEngine(BaseEngine):
@@ -146,15 +221,17 @@ class DiffusionEngine(BaseEngine):
     the route layer, not here.
     """
 
-    # Engine-level capability bit consulted by ``routes/chat.py``'s
-    # ``_engine_supports_channel_routed_tool_calls`` probe. The
-    # DiffusionGemma generator emits a free-form denoised canvas with
-    # no tool-call channel — even though its tokenizer would trip the
-    # Gemma 4 channel-routed allowlist, the actual engine path never
-    # runs OutputRouter and always emits ``channel="content"``. Without
-    # this bit, ``tool_choice="required"`` would silently slip past
-    # the streaming-required gate and finish with plain text instead
-    # of 422'ing upfront (codex round 9 [P2]).
+    # ``supports_tool_calls`` is an *instance* attribute set in
+    # ``__init__`` based on the resolved alias profile — only aliases
+    # whose ``tool_call_parser`` is set to a parser this engine can
+    # surface (currently just ``"gemma4"``) opt in. Aliases without a
+    # parser (e.g. a hypothetical future diffusion text model whose
+    # template lacks tool-call markers) keep ``supports_tool_calls =
+    # False`` so the route's ``_engine_opts_out_of_tools`` gate
+    # 422s ``tool_choice="required"`` upfront instead of running a
+    # full canvas generation that will never surface ``tool_calls``.
+    # Class-level default is False so callers without a profile
+    # (programmatic, no alias entry) stay on the conservative side.
     supports_tool_calls: bool = False
 
     def __init__(
@@ -170,6 +247,24 @@ class DiffusionEngine(BaseEngine):
         self._processor: Any = None
         self._loaded = False
         self._load_error: BaseException | None = None
+        # Resolve alias profile so the engine can branch on per-alias
+        # routing knobs (e.g. ``tool_call_parser="gemma4"`` opts the
+        # detokenize path into preserving tool-call wire markers so
+        # routes/chat.py can extract structured ``tool_calls`` from
+        # the canvas text). ``resolve_profile`` accepts both alias
+        # names and bare HF paths via its reverse-index; returns None
+        # only for HF paths not referenced by any alias entry, in
+        # which case the engine falls back to the no-tool default.
+        self._profile = resolve_profile(model_name)
+        # Instance-level capability gate (codex r1 BLOCKING #2). Only
+        # opt in to tool calling when the resolved profile names a
+        # parser this engine can surface. Aliases without a parser
+        # (and bare HF paths with no matching alias) stay False so
+        # the route's ``_engine_opts_out_of_tools`` gate fires.
+        self.supports_tool_calls = bool(
+            self._profile is not None
+            and self._profile.tool_call_parser in _SUPPORTED_TOOL_CALL_PARSERS
+        )
         # Admission control mirrors BatchedEngine.check_admission —
         # reservations counter under a lock, BackpressureError raised
         # when the configured ``max_concurrent_requests`` is reached.
@@ -595,39 +690,95 @@ class DiffusionEngine(BaseEngine):
         enable_thinking: bool | None = None,
     ) -> str:
         self._ensure_loaded()
-        if tools:
-            # DiffusionGemma's generator emits a free-form denoised
-            # canvas — no function-call grammar, no tool-name decoding
-            # path. Early versions raised here, but Big-AGI (and other
-            # OpenAI-compatible frontends) attach their built-in tools
-            # to every chat request even when the user didn't intend a
-            # tool invocation, which turned the very first message into
-            # an opaque 500. The OpenAI contract treats a model that
-            # never emits tool calls as still serviceable for plain
-            # chat, so we follow that shape: drop the tools list and
-            # log a warning so the operator can see it happen.
-            #
-            # ``tool_choice="required"`` is a stricter contract — the
-            # caller is asserting "you MUST emit a tool call" and
-            # cannot be satisfied. routes/chat.py post-parses the
-            # generated text and 422s when ``required`` was set and no
-            # tool_calls came back, so the contract violation surfaces
-            # to the client without us needing to special-case it
-            # here.
+        template_kwargs: dict[str, Any] = {
+            "tokenize": False,
+            "add_generation_prompt": True,
+        }
+        # Only forward ``tools`` to the chat template when the active
+        # alias declares a tool parser this engine can actually surface
+        # (codex r1 BLOCKING #1). Tokenizers whose ``apply_chat_template``
+        # doesn't accept a ``tools=`` kwarg would otherwise raise
+        # ``TypeError`` and turn a Big-AGI / BCG chat request that
+        # incidentally attached a ``tools`` list into a 500.
+        if tools and self.supports_tool_calls:
+            template_kwargs["tools"] = tools
+        elif tools and not self.supports_tool_calls:
+            # Frontends attach ``tools`` opportunistically (Big-AGI,
+            # BCG, raw OpenAI clients) without knowing whether the
+            # active model surfaces parsed calls. Pre-r5 we silently
+            # dropped the array — operators only learned about it when
+            # the model produced a plain-prose answer to what looked
+            # like a tool request. Log a one-line WARNING so the drop
+            # is at least visible in ``rapid-mlx logs``.
             logger.warning(
-                "DiffusionEngine dropped %d tool(s) — model has no "
-                "function-call grammar; chat continues without them.",
+                "DiffusionEngine: dropping %d tool(s) from chat template — "
+                "the active model has no tool-call parser registered. "
+                "Set ``tool_call_parser`` on the alias if you intend to "
+                "surface tool calls.",
                 len(tools),
             )
-        # ``apply_chat_template`` returns either a string or a list of
-        # token IDs depending on tokenize=. We want the rendered text
-        # for build_prompt's contract; the tokenization happens inside
-        # stream_chat right before we hand off to mlx-vlm.
         return self._processor.tokenizer.apply_chat_template(
             messages,
-            tokenize=False,
-            add_generation_prompt=True,
+            **template_kwargs,
         )
+
+    def _build_skip_special_token_ids(
+        self, tokenizer: Any, *, has_tools: bool = False
+    ) -> set[int]:
+        """Construct the ``skip_special_token_ids`` set mlx-vlm uses
+        to strip special tokens from the detokenized canvas.
+
+        Starts from ``tokenizer.all_special_ids`` (the conservative
+        default — strip everything the tokenizer flagged as special).
+        When the alias declares a tool-call parser this engine knows
+        how to surface (see ``_TOOL_PARSER_MARKERS``) AND the active
+        request actually attached tools (``has_tools=True``), drops
+        the parser's wire markers from the skip set so they survive
+        detokenization and reach the post-generation parser in
+        ``routes/chat.py``. Without the carve-out, mlx-vlm would
+        strip the markers, the parser would see plain prose, and the
+        tool request would silently degrade.
+
+        ``has_tools=False`` (the default) keeps the markers in the
+        skip set. This is the path plain non-tool chats take: the
+        parser never runs on the response (routes/chat.py only
+        invokes it when ``request.tools`` is set), so any
+        spontaneously-emitted marker token would otherwise leak raw
+        wire-format characters into the client's content stream
+        (codex r2 BLOCKING #1).
+
+        Carve-out is strictly subtractive — only ids the tokenizer
+        encodes a marker into as a single token AND that are already
+        in the skip set get removed. Tokenizers that decompose a
+        marker into multiple ids (e.g. a future model whose template
+        spells ``<|tool_call>`` as a 3-token sequence) keep their
+        existing skip behaviour because the parser still sees the
+        literal characters via cross-token detokenization.
+
+        Pure helper — no I/O, no side effects beyond constructing
+        the return set. Exposed at instance scope so unit tests can
+        exercise the carve-out without standing up a worker thread
+        or invoking the mlx-vlm diffusion generator.
+        """
+        skip_ids: set[int] = set()
+        special = getattr(tokenizer, "all_special_ids", None) or []
+        for sid in special:
+            skip_ids.add(int(sid))
+        if not has_tools:
+            return skip_ids
+        if self._profile is None:
+            return skip_ids
+        parser = self._profile.tool_call_parser
+        if not parser or parser not in _TOOL_PARSER_MARKERS:
+            return skip_ids
+        for token in _TOOL_PARSER_MARKERS[parser]:
+            try:
+                token_ids = tokenizer.encode(token, add_special_tokens=False)
+            except TypeError:
+                token_ids = tokenizer.encode(token)
+            if len(token_ids) == 1 and int(token_ids[0]) in skip_ids:
+                skip_ids.discard(int(token_ids[0]))
+        return skip_ids
 
     def estimate_new_tokens(self, prompt: str) -> tuple[int, int]:
         self._ensure_loaded()
@@ -687,6 +838,7 @@ class DiffusionEngine(BaseEngine):
         tools: list[dict] | None = None,
         images: list[str] | None = None,
         videos: list[str] | None = None,
+        is_streaming: bool = False,
         **kwargs,
     ) -> AsyncIterator[GenerationOutput]:
         self._ensure_loaded()
@@ -703,10 +855,28 @@ class DiffusionEngine(BaseEngine):
                 "drop them from the request."
             )
         prompt = self.build_prompt(messages, tools=tools)
+        # ``has_tools`` controls the wire-marker carve-out in
+        # ``_build_skip_special_token_ids``: when True, mlx-vlm's
+        # detokenizer leaves ``<|tool_call>`` family markers in the
+        # output so ``routes/chat.py``'s post-parse step can extract
+        # ``tool_calls``. Gating this on ``not is_streaming`` is the
+        # fix for pr_validate r8 BLOCKING #2: in SSE mode the route
+        # forwards each chunk as a delta WITHOUT running the parser,
+        # so leaving markers in would mean a streaming client sees
+        # raw ``<|tool_call>`` wire text in ``delta.content``. By
+        # disabling the carve-out for streaming, mlx-vlm strips
+        # markers normally; the model still receives the tool
+        # declarations via the chat template, so any call-emission
+        # is degraded-to-prose rather than corrupted. Non-stream
+        # callers (`_create_chat_completion_impl`) buffer the whole
+        # canvas and then parse — they need the markers, so they
+        # leave ``is_streaming=False``.
+        has_tools = bool(tools) and self.supports_tool_calls and not is_streaming
         async for chunk in self._stream_prompt_raw(
             prompt,
             max_tokens=max_tokens,
             temperature=temperature,
+            has_tools=has_tools,
             **kwargs,
         ):
             yield chunk
@@ -716,6 +886,8 @@ class DiffusionEngine(BaseEngine):
         prompt: str,
         max_tokens: int,
         temperature: float,
+        *,
+        has_tools: bool = False,
         **kwargs,
     ) -> AsyncIterator[GenerationOutput]:
         """Shared queue / cancel / stop-sequence plumbing for chat and
@@ -742,11 +914,18 @@ class DiffusionEngine(BaseEngine):
         # non-None.
         _sc = self._scheduler_config
         _prefill_step_size = getattr(_sc, "prefill_step_size", None) if _sc else None
+        # ``has_tools`` flows into the per-request skip_ids carve-out
+        # (codex r2 BLOCKING #1). Only flip True when the caller
+        # actually attached a tools array AND the engine reports it
+        # can surface them — both halves matter, because some
+        # frontends attach an empty list as the "I don't want tools"
+        # signal and we don't want to perturb skip_ids for those.
         cfg = DiffusionGenerationConfig(
             diffusion_steps=kwargs.get("diffusion_steps"),
             temperature=temperature,
             diffusion_sampler=kwargs.get("diffusion_sampler", "entropy-bound"),
             prefill_step_size=_prefill_step_size,
+            has_tools=has_tools,
         )
         loop = asyncio.get_running_loop()
         # Cancellation handle — set by the stream_chat finally clause
@@ -1134,10 +1313,15 @@ class DiffusionEngine(BaseEngine):
         ids = tokenizer.encode(prompt)
         input_ids = mx.array(ids)[None]
 
-        skip_ids: set[int] = set()
-        special = getattr(tokenizer, "all_special_ids", None) or []
-        for sid in special:
-            skip_ids.add(int(sid))
+        # ``cfg.has_tools`` was set by ``stream_chat`` based on
+        # whether the originating request actually attached a tools
+        # array — gates the per-request tool-marker carve-out so
+        # plain chat requests keep filtering the markers (codex r2
+        # BLOCKING #1).
+        skip_ids = self._build_skip_special_token_ids(
+            tokenizer,
+            has_tools=cfg.has_tools,
+        )
 
         kwargs: dict[str, Any] = {
             "max_tokens": max_tokens,
@@ -1157,6 +1341,12 @@ class DiffusionEngine(BaseEngine):
         last_prompt_tokens = 0
         last_completion_tokens = 0
         last_token: int = 0
+        # Per-request flag: the leaked-channel-header strip only fires
+        # on the FIRST non-empty block we emit (see
+        # ``_LEAKED_CHANNEL_HEADER_RE`` for the rationale). Once we've
+        # emitted any block we trust the downstream text to be the
+        # model's actual content.
+        first_block_emitted = False
 
         # Cancel-check #2 — last opportunity before the first
         # ``next()`` on stream_diffusion_generate triggers the
@@ -1209,7 +1399,16 @@ class DiffusionEngine(BaseEngine):
             if block_complete or finish_reason:
                 joined = "".join(block_parts)
                 block_parts.clear()
+                if not first_block_emitted and joined:
+                    # Strip a leaked Gemma diffusion channel header.
+                    # No-op for plain content; saves the chat client
+                    # from seeing ``thought\n`` as the model's first
+                    # words on prompts that triggered the thought
+                    # channel.
+                    joined = _strip_leading_channel_header(joined)
                 if joined or finish_reason:
+                    if joined:
+                        first_block_emitted = True
                     out_q.put(
                         GenerationOutput(
                             text="",
@@ -1236,10 +1435,18 @@ class DiffusionEngine(BaseEngine):
         # don't push a stale terminal chunk into a queue the
         # stream_chat finally is already draining.
         if not cancel_event.is_set():
+            trailing = "".join(block_parts)
+            if not first_block_emitted and trailing:
+                # Edge case: the entire response was short enough to fit
+                # in a single block that never set ``diffusion_block_complete``
+                # before the generator's natural exit (no finish_reason
+                # branch fired). Apply the same channel-header strip
+                # so a short ``thought\n…`` response isn't leaked here.
+                trailing = _strip_leading_channel_header(trailing)
             out_q.put(
                 GenerationOutput(
                     text="",
-                    new_text="".join(block_parts),
+                    new_text=trailing,
                     tokens=[last_token],
                     prompt_tokens=last_prompt_tokens,
                     completion_tokens=last_completion_tokens,

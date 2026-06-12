@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import logging
 import sys
 import time
@@ -11,7 +9,7 @@ from kafka.metrics.stats import Sensor
 logger = logging.getLogger(__name__)
 
 
-class Metrics(object):
+class Metrics:
     """
     A registry of sensors and metrics.
 
@@ -164,20 +162,20 @@ class Metrics(object):
         Arguments:
             name (str): The name of the sensor to be removed
         """
-        sensor = self._sensors.get(name)
-        if sensor:
-            child_sensors = None
-            with sensor._lock:
-                with self._lock:
+        with self._lock:
+            sensor = self._sensors.get(name)
+            if sensor:
+                child_sensors = None
+                with sensor._lock:
                     val = self._sensors.pop(name, None)
                     if val and val == sensor:
                         for metric in sensor.metrics:
                             self.remove_metric(metric.metric_name)
                         logger.debug('Removed sensor with name %s', name)
                         child_sensors = self._children_sensors.pop(sensor, None)
-            if child_sensors:
-                for child_sensor in child_sensors:
-                    self.remove_sensor(child_sensor.name)
+                if child_sensors:
+                    for child_sensor in child_sensors:
+                        self.remove_sensor(child_sensor.name)
 
     def add_metric(self, metric_name, measurable, config=None):
         """
@@ -231,7 +229,7 @@ class Metrics(object):
             for reporter in self._reporters:
                 reporter.metric_change(metric)
 
-    class ExpireSensorTask(object):
+    class ExpireSensorTask:
         """
         This iterates over every Sensor and triggers a remove_sensor
         if it has expired. Package private for testing

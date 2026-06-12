@@ -110,10 +110,13 @@ def comet_ray_train_logger(
         **experiment_kwargs
     )
 
+    # ``run_config.callbacks`` is typed as a list of Ray's callback base, which
+    # differs between Train V1/V2; our callback is a valid member of whichever is
+    # active (see CometTrainLoggerCallback's dynamic base), but mypy can't see that.
     if run_config.callbacks is None:
-        run_config.callbacks = [callback]
+        run_config.callbacks = [callback]  # type: ignore[list-item]
     else:
-        run_config.callbacks.append(callback)
+        run_config.callbacks.append(callback)  # type: ignore[arg-type]
 
 
 def _has_comet_callback(callbacks: List[Any]) -> bool:

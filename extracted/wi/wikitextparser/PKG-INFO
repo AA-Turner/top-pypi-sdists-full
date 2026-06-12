@@ -1,22 +1,23 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: wikitextparser
-Version: 0.56.4
+Version: 1.0.0
 Summary: A simple parsing tool for MediaWiki's wikitext markup.
 Keywords: MediaWiki,wikitext,parser
+Author: 5j9
 Author-email: 5j9 <5j9@users.noreply.github.com>
-Requires-Python: >= 3.8
-Description-Content-Type: text/x-rst
+License: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Topic :: Text Processing
-License-File: LICENSE.md
-Requires-Dist: regex >= 2022.9.11
+Requires-Dist: regex>=2022.9.11
 Requires-Dist: wcwidth
-Requires-Dist: coverage ; extra == "dev"
-Requires-Dist: pytest ; extra == "tests"
+Requires-Dist: coverage ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Python: >=3.8
 Project-URL: Homepage, https://github.com/5j9/wikitextparser
 Provides-Extra: dev
 Provides-Extra: tests
+Description-Content-Type: text/x-rst
 
 .. image:: https://github.com/5j9/wikitextparser/actions/workflows/tests.yml/badge.svg
     :target: https://github.com/5j9/wikitextparser/actions/workflows/tests.yml
@@ -133,7 +134,26 @@ WikiLinks
     >>> wl
     WikiLink('[[new_title#new_fragmet]]')
 
-All WikiLink properties support get, set, and delete operations.
+All WikiLink properties support get, set, and delete operations. Categories are special cases of WikiLinks, in that they are prefixed with the category namespace, which is case insensitive and may be internationalized:
+
+.. code:: python
+
+    >>> parsed = wtp.parse("""
+        [[Category:Foo]]
+        [[Κατηγορία:Bar]]
+        [[Other link]]
+        """)
+    >>> categories = [
+            wl
+            for wl
+            in parsed.wikilinks
+            if wl.title.partition(':')[0]
+                .strip()
+                .lower()
+                in ["category", "κατηγορία"]
+        ]
+    >>> categories
+    [WikiLink('[[Category:Foo]]'), WikiLink('[[Category:Bar]]')]
 
 Sections
 --------
@@ -391,4 +411,3 @@ Credits
 * `python <https://www.python.org/>`_
 * `regex <https://github.com/mrabarnett/mrab-regex>`_
 * `wcwidth <https://github.com/jquast/wcwidth>`_
-

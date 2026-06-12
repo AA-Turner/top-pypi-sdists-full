@@ -126,6 +126,29 @@ async fn keys_pretty_prints_array() {
     assert_eq!(result.trim(), "[\n  \"a\",\n  \"b\"\n]");
 }
 
+/// TM-DOS-093: an unbounded generator must not grow output without limit or
+/// hang the host. jaq's iterator is synchronous so the execution timeout
+/// cannot preempt it; the output-byte cap (here the 1 MB default, since the
+/// test harness supplies no shell/limits) must abort with a clean error.
+#[tokio::test]
+async fn unbounded_generator_is_capped() {
+    let result = run_jq_result_with_args(&["-n", "repeat(1)"], "")
+        .await
+        .unwrap();
+    assert_ne!(result.exit_code, 0, "runaway generator should fail");
+    assert!(
+        result.stderr.contains("output limit exceeded"),
+        "expected output-limit error, got stderr={:?} stdout_len={}", // debug-ok: test assertion
+        result.stderr,
+        result.stdout.len()
+    );
+    assert!(
+        result.stdout.len() <= 1_048_576 + 64,
+        "output must be bounded by the cap, got {} bytes",
+        result.stdout.len()
+    );
+}
+
 #[tokio::test]
 async fn length_returns_number() {
     let result = run_jq("length", r#"[1,2,3,4,5]"#).await.unwrap();
@@ -797,6 +820,28 @@ async fn regex_invalid_pattern_yields_short_error() {
     // Must not leak fancy-regex internal Debug shapes
     assert!(!result.stderr.contains("ParseError"));
     assert!(!result.stderr.contains("CompileError"));
+}
+
+#[tokio::test]
+async fn setpath_binds_dynamic_path_to_original_input() {
+    let result = run_jq(r#"setpath(.path; 1)"#, r#"{"path":["a"]}"#)
+        .await
+        .unwrap();
+    assert_eq!(
+        result.trim(),
+        "{\n  \"path\": [\n    \"a\"\n  ],\n  \"a\": 1\n}"
+    );
+}
+
+#[tokio::test]
+async fn setpath_binds_dynamic_value_to_original_input() {
+    let result = run_jq(r#"setpath(["a"]; .path[0])"#, r#"{"path":["expected"]}"#)
+        .await
+        .unwrap();
+    assert_eq!(
+        result.trim(),
+        "{\n  \"path\": [\n    \"expected\"\n  ],\n  \"a\": \"expected\"\n}"
+    );
 }
 
 #[tokio::test]

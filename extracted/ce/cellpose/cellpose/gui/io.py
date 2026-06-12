@@ -41,23 +41,22 @@ def _add_model(parent, filename=None, load_model=True):
 
     for ind, model_string in enumerate(parent.model_strings[:-1]):
         if model_string == fname:
-            _remove_model(parent, ind=ind + 1, verbose=False)
+            _remove_model(parent, ind=ind + 1)
 
     parent.ModelChooseC.setCurrentIndex(len(parent.model_strings))
     if load_model:
         parent.model_choose(custom=True)
 
 
-def _remove_model(parent, ind=None, verbose=True):
+def _remove_model(parent, ind=None):
     if ind is None:
         ind = parent.ModelChooseC.currentIndex()
     if ind > 0:
-        ind -= 1
-        parent.ModelChooseC.removeItem(ind + 1)
-        del parent.model_strings[ind]
-        # remove model from txt path
         modelstr = parent.ModelChooseC.currentText()
+        parent.ModelChooseC.removeItem(ind)
+        # remove model from txt path
         remove_model(modelstr)
+        parent.model_strings.remove(modelstr)
         if len(parent.model_strings) > 0:
             parent.ModelChooseC.setCurrentIndex(len(parent.model_strings))
         else:
@@ -121,7 +120,11 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
             else:
                 image = None
             _load_seg(parent, manual_file, image=image, image_file=filename,
-                      load_3D=load_3D)
+                        load_3D=load_3D)
+            if len(np.unique(image[..., 1:])) == 1:
+                parent.color = 'gray' # updates the plot automatically
+            else:
+                parent.update_plot()
             return
         elif parent.autoloadMasks.isChecked():
             mask_file = os.path.splitext(filename)[0] + "_masks" + os.path.splitext(
@@ -153,11 +156,10 @@ def _load_image(parent, filename=None, load_seg=True, load_3D=False):
 
     # check if gray and adjust viewer:
     if len(np.unique(image[..., 1:])) == 1:
-        parent.color = 4
-        parent.RGBDropDown.setCurrentIndex(4) # gray
+        parent.color = 'gray' # triggers update_plot
+    else:
         parent.update_plot()
 
-        
 def _initialize_images(parent, image, load_3D=False):
     """ format image for GUI
 
@@ -167,7 +169,7 @@ def _initialize_images(parent, image, load_3D=False):
     load_3D = parent.load_3D if load_3D is False else load_3D
 
     parent.stack = image
-    print(f"GUI_INFO: image shape: {image.shape}")
+    parent.logger.info(f" : image shape: {image.shape}")
     if load_3D:
         parent.NZ = len(parent.stack)
         parent.scroll.setMaximum(parent.NZ - 1)
@@ -177,14 +179,18 @@ def _initialize_images(parent, image, load_3D=False):
 
     img_min = image.min()
     img_max = image.max()
-    parent.stack = parent.stack.astype(np.float32)
+    parent.stack = parent.stack.astype("float32")
     parent.stack -= img_min
     if img_max > img_min + 1e-3:
         parent.stack /= (img_max - img_min)
     parent.stack *= 255
 
+    if parent.stack.shape[-1] == 2:
+        parent.stack = np.concatenate((parent.stack, np.zeros((*parent.stack.shape[:-1], 1), dtype="float32")), axis=-1)
+    print(parent.stack.shape)
+
     if load_3D:
-        print("GUI_INFO: converted to float and normalized values to 0.0->255.0")
+        parent.logger.info(": converted to float and normalized values to 0.0->255.0")
 
     del image
     gc.collect()
@@ -192,33 +198,12 @@ def _initialize_images(parent, image, load_3D=False):
     parent.imask = 0
     parent.Ly, parent.Lx = parent.stack.shape[-3:-1]
     parent.Ly0, parent.Lx0 = parent.stack.shape[-3:-1]
+    parent.nchan = parent.stack.shape[-1]
     parent.layerz = 255 * np.ones((parent.Ly, parent.Lx, 4), "uint8")
-    if hasattr(parent, "stack_filtered"):
-        parent.Lyr, parent.Lxr = parent.stack_filtered.shape[-3:-1]
-    elif parent.restore and "upsample" in parent.restore:
-        parent.Lyr, parent.Lxr = int(parent.Ly * parent.ratio), int(parent.Lx *
-                                                                    parent.ratio)
-    else:
-        parent.Lyr, parent.Lxr = parent.Ly, parent.Lx
+    parent.Lyr, parent.Lxr = parent.stack.shape[-3:-1]
     parent.clear_all()
 
-    if not hasattr(parent, "stack_filtered") and parent.restore:
-        print("GUI_INFO: no 'img_restore' found, applying current settings")
-        parent.compute_restore()
-
-    if parent.autobtn.isChecked():
-        if parent.restore is None or parent.restore != "filter":
-            print(
-                "GUI_INFO: normalization checked: computing saturation levels (and optionally filtered image)"
-            )
-            parent.compute_saturation()
-    # elif len(parent.saturation) != parent.NZ:
-    #     parent.saturation = []
-    #     for r in range(3):
-    #         parent.saturation.append([])
-    #         for n in range(parent.NZ):
-    #             parent.saturation[-1].append([0, 255])
-    #         parent.sliders[r].setValue([0, 255])
+    parent.compute_saturation()    
     parent.compute_scale()
     parent.track_changes = []
 
@@ -319,7 +304,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
         if "manual_changes" in dat:
             parent.track_changes = dat["manual_changes"]
-            print("GUI_INFO: loaded in previous changes")
+            parent.logger.info("loaded in previous changes")
         if "zdraw" in dat:
             parent.zdraw = dat["zdraw"]
         else:
@@ -334,8 +319,11 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
             parent.ismanual = dat["ismanual"]
 
     if "current_channel" in dat:
-        parent.color = (dat["current_channel"] + 2) % 5
-        parent.RGBDropDown.setCurrentIndex(parent.color)
+        # saved as int, loading int is built into .color property
+        color = dat['current_channel']
+        if isinstance(color, tuple):
+            color = color[0]
+        parent.color = color
 
     if "flows" in dat:
         parent.flows = dat["flows"]
@@ -361,6 +349,7 @@ def _load_seg(parent, filename=None, image=None, image_file=None, load_3D=False)
 
     parent.enable_buttons()
     parent.update_layer()
+    parent.update_plot()
     del dat
     gc.collect()
 
@@ -399,7 +388,6 @@ def _load_masks(parent, filename=None):
     del masks
     gc.collect()
     parent.update_layer()
-    parent.update_plot()
 
 
 def _masks_to_gui(parent, masks, outlines=None, colors=None):
@@ -407,7 +395,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
     # get unique values
     shape = masks.shape
     if len(fastremap.unique(masks)) != masks.max() + 1:
-        print("GUI_INFO: renumbering masks")
+        parent.logger.info("renumbering masks")
         fastremap.renumber(masks, in_place=True)
         outlines = None
         masks = masks.reshape(shape)
@@ -432,7 +420,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
             if parent.cellpix_orig.ndim == 2:
                 parent.cellpix_orig = parent.cellpix_orig[np.newaxis, :, :]
 
-    print(f"GUI_INFO: {masks.max()} masks found")
+    parent.logger.info(f"{masks.max()} masks found")
 
     # get outlines
     if outlines is None:  # parent.outlinesOn
@@ -446,7 +434,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
                 outlines = masks_to_outlines(parent.cellpix_orig[z])
                 parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
             if z % 50 == 0 and parent.NZ > 1:
-                print("GUI_INFO: plane %d outlines processed" % z)
+                parent.logger.info("plane %d outlines processed" % z)
         if parent.restore and "upsample" in parent.restore:
             parent.outpix_resize = parent.outpix.copy()
     else:
@@ -458,7 +446,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
                 outlines = masks_to_outlines(parent.cellpix_orig[z])
                 parent.outpix_orig[z] = outlines * parent.cellpix_orig[z]
                 if z % 50 == 0 and parent.NZ > 1:
-                    print("GUI_INFO: plane %d outlines processed" % z)
+                    parent.logger.info("plane %d outlines processed" % z)
 
     if parent.outpix.ndim == 2:
         parent.outpix = parent.outpix[np.newaxis, :, :]
@@ -470,7 +458,7 @@ def _masks_to_gui(parent, masks, outlines=None, colors=None):
 
     parent.ncells.set(parent.cellpix.max())
     colors = parent.colormap[:parent.ncells.get(), :3] if colors is None else colors
-    print("GUI_INFO: creating cellcolors and drawing masks")
+    parent.logger.info("creating cellcolors and drawing masks")
     parent.cellcolors = np.concatenate((np.array([[255, 255, 255]]), colors),
                                        axis=0).astype(np.uint8)
     if parent.ncells > 0:
@@ -492,13 +480,13 @@ def _save_png(parent):
     base = os.path.splitext(filename)[0]
     if parent.NZ == 1:
         if parent.cellpix[0].max() > 65534:
-            print("GUI_INFO: saving 2D masks to tif (too many masks for PNG)")
+            parent.logger.info("saving 2D masks to tif (too many masks for PNG)")
             imsave(base + "_cp_masks.tif", parent.cellpix[0])
         else:
-            print("GUI_INFO: saving 2D masks to png")
+            parent.logger.info("saving 2D masks to png")
             imsave(base + "_cp_masks.png", parent.cellpix[0].astype(np.uint16))
     else:
-        print("GUI_INFO: saving 3D masks to tiff")
+        parent.logger.info("saving 3D masks to tiff")
         imsave(base + "_cp_masks.tif", parent.cellpix)
 
 
@@ -506,14 +494,14 @@ def _save_flows(parent):
     """ save flows and cellprob to tiff """
     filename = parent.filename
     base = os.path.splitext(filename)[0]
-    print("GUI_INFO: saving flows and cellprob to tiff")
+    parent.logger.info("saving flows and cellprob to tiff")
     if len(parent.flows) > 0:
         imsave(base + "_cp_cellprob.tif", parent.flows[1])
         for i in range(3):
             imsave(base + f"_cp_flows_{i}.tif", parent.flows[0][..., i])
         if len(parent.flows) > 2:
             imsave(base + "_cp_flows.tif", parent.flows[2])
-        print("GUI_INFO: saved flows and cellprob")
+        parent.logger.info("saved flows and cellprob")
     else:
         print("ERROR: no flows or cellprob found")
 
@@ -558,6 +546,8 @@ def _save_sets(parent):
     flow_threshold = parent.segmentation_settings.flow_threshold
     cellprob_threshold = parent.segmentation_settings.cellprob_threshold
 
+    # use ints instead of strings for backwards compatibility with old _seg.npy files
+    color_int = list(parent.RGBDropDown.name_map.keys()).index(parent.color)
     if parent.NZ > 1:
         dat = {
             "outlines":
@@ -566,7 +556,7 @@ def _save_sets(parent):
                 parent.cellcolors[1:],
             "masks":
                 parent.cellpix,
-            "current_channel": (parent.color - 2) % 5,
+            "current_channel": color_int,
             "filename":
                 parent.filename,
             "flows":
@@ -629,7 +619,7 @@ def _save_sets(parent):
             dat["img_restore"] = parent.stack_filtered
     try:
         np.save(base + "_seg.npy", dat)
-        print("GUI_INFO: %d ROIs saved to %s" % (parent.ncells.get(), base + "_seg.npy"))
+        parent.logger.info("%d ROIs saved to %s" % (parent.ncells.get(), base + "_seg.npy"))
     except Exception as e:
         print(f"ERROR: {e}")
     del dat

@@ -16,25 +16,24 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from smplkit.management.audit import ForwardersClient
+    from smplkit.audit._forwarders import ForwardersClient
 
 
 class ForwarderType(str, enum.Enum):
     """Supported SIEM forwarder destination types.
 
-    The audit service's OpenAPI spec declares ``forwarder_type`` as a
-    string-with-enum-constraint (per ADR-047 §2.12, refined by ADR-050);
-    this Python-side Enum mirrors that constraint so customers get
-    autocomplete and type-checked values instead of stringly-typed
-    inputs. ``str`` subclassing keeps interop with the auto-generated
-    client transparent — a ``ForwarderType`` member compares equal to
-    its string literal (``ForwarderType.HTTP == "http"``).
+    The audit service declares ``forwarder_type`` as a string with an
+    enum constraint; this Python-side Enum mirrors that constraint so
+    customers get autocomplete and type-checked values instead of
+    stringly-typed inputs. ``str`` subclassing keeps interop with the
+    auto-generated client transparent — a ``ForwarderType`` member
+    compares equal to its string literal (``ForwarderType.HTTP ==
+    "http"``).
 
     The available types are real-time HTTP destinations sharing one
-    outbound plumbing path. Object-storage archival (S3, GCS, etc.) has
-    different operational shape (batching, IAM, lifecycle policies) and
-    will get its own type if customer demand warrants — see ADR-047
-    §2.12.
+    outbound delivery path. Object-storage archival (S3, GCS, etc.) has
+    a different operational shape (batching, IAM, lifecycle policies) and
+    may get its own type if customer demand warrants.
     """
 
     DATADOG = "datadog"
@@ -108,6 +107,12 @@ class Event:
         actor_label (str | None): Human-readable label for the actor
             (e.g. an email address or API key name). ``None`` when not
             supplied.
+        category (str | None): Free-form bucket label for the event
+            (e.g. ``"auth"``, ``"billing"``, ``"config-change"``). Stored
+            exactly as supplied; drives the audit log's category filter and
+            the ``categories`` discovery listing
+            (:meth:`~smplkit.audit.AuditClient.categories`). ``None`` when
+            not supplied.
         data (dict[str, Any]): Free-form per-event payload defined by
             the customer. Surfaced on the audit-event resource as a
             structured JSONB column.
@@ -133,6 +138,7 @@ class Event:
     actor_type: str | None = None
     actor_id: str | None = None
     actor_label: str | None = None
+    category: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str = ""
     do_not_forward: bool = False
@@ -149,6 +155,7 @@ class Event:
             actor_type=attrs.get("actor_type"),
             actor_id=attrs.get("actor_id"),
             actor_label=attrs.get("actor_label"),
+            category=attrs.get("category"),
             occurred_at=_parse_iso(attrs["occurred_at"]),
             created_at=_parse_iso(attrs["created_at"]),
             data=attrs.get("data") or {},
@@ -164,8 +171,9 @@ class HttpHeader:
 
     Attributes:
         name (str): Header name (e.g. ``"Authorization"``, ``"DD-API-KEY"``).
-        value (str): Header value, plaintext on writes. The audit service
-            encrypts values at rest; reads return them as ``"<redacted>"``.
+        value (str): Header value. Supply it plaintext on writes; reads
+            return it as ``"<redacted>"``, so re-supply the real value
+            before saving.
     """
 
     name: str
@@ -183,8 +191,8 @@ class HttpConfiguration:
         method (HttpMethod): HTTP verb used for delivery. Defaults to ``HttpMethod.POST``.
         url (str): Destination URL the audit service POSTs each event to.
         headers (list[HttpHeader]): Headers attached to every outbound request.
-            Values carry credentials and are encrypted at rest server-side;
-            reads return them redacted.
+            Values carry credentials: supply them plaintext on writes; reads
+            return them redacted, so re-supply real values before saving.
         success_status (str): Status the destination must return for delivery
             to count as success — either an exact code (``"200"``, ``"204"``)
             or a class (``"2xx"``, ``"4xx"``). Defaults to ``"2xx"``.
@@ -319,7 +327,7 @@ class Forwarder:
         created_at (datetime | None): When the audit service first persisted
             this forwarder. ``None`` for an unsaved instance.
         updated_at (datetime | None): When this forwarder was last mutated.
-        deleted_at (datetime | None): Soft-delete timestamp. ``None`` for live
+        deleted_at (datetime | None): Deletion timestamp; ``None`` for live
             forwarders.
         version (int | None): Monotonic version counter; bumped on every
             server-side write.
@@ -387,10 +395,66 @@ class Forwarder:
         self._apply(other)
 
     def delete(self) -> None:
-        """Soft-delete this forwarder on the server."""
+        """Delete this forwarder on the server."""
         if self._client is None or self.id is None:
             raise RuntimeError("Forwarder was constructed without a client or id; cannot delete")
         self._client.delete(self.id)
+
+    def _environment_override(self, environment: str) -> ForwarderEnvironment:
+        """Return the override for ``environment``, creating an empty one if absent.
+
+        Mirrors :meth:`smplkit.config.models.Config._items_target` — the
+        per-environment mutators reach through here so an existing override's
+        other field is preserved when only one of ``enabled`` / ``configuration``
+        is being set.
+        """
+        env = self.environments.get(environment)
+        if env is None:
+            env = ForwarderEnvironment()
+            self.environments[environment] = env
+        return env
+
+    def set_configuration(self, configuration: HttpConfiguration, environment: str | None = None) -> None:
+        """Set this forwarder's destination configuration in memory.
+
+        With ``environment`` omitted, replaces the base
+        :attr:`configuration`. With ``environment`` given, sets the
+        per-environment override's configuration on
+        :attr:`environments`, creating the override entry if it doesn't
+        exist yet (preserving any already-set ``enabled`` on it). Call
+        :meth:`save` to persist.
+
+        Args:
+            configuration: The :class:`HttpConfiguration` to apply.
+            environment: Environment key to scope the change to. Omit to
+                set the base configuration that all environments inherit.
+        """
+        if environment is None:
+            self.configuration = configuration
+        else:
+            self._environment_override(environment).configuration = configuration
+
+    def set_enabled(self, enabled: bool, environment: str | None = None) -> None:
+        """Set this forwarder's enablement in memory.
+
+        With ``environment`` omitted, sets the base :attr:`enabled` (which
+        the server pins false regardless — enablement is per-environment).
+        With ``environment`` given, sets the per-environment override's
+        ``enabled`` on :attr:`environments`, creating the override entry if
+        it doesn't exist yet (preserving any already-set ``configuration``
+        on it). Call :meth:`save` to persist.
+
+        Args:
+            enabled: Whether the forwarder delivers events in the targeted
+                scope.
+            environment: Environment key to scope the change to. Omit to
+                set the base ``enabled`` (which the server pins false —
+                enablement is per-environment).
+        """
+        if environment is None:
+            self.enabled = enabled
+        else:
+            self._environment_override(environment).enabled = enabled
 
     def _apply(self, other: Forwarder) -> None:
         """Copy every server-authoritative field from ``other`` onto self."""
@@ -446,15 +510,39 @@ class Forwarder:
         )
 
 
+class AsyncForwarder(Forwarder):
+    """Async active-record forwarder — the async counterpart of :class:`Forwarder`.
+
+    Identical fields and semantics; ``save()`` and ``delete()`` are
+    coroutines (``await forwarder.save()``). Returned by the async forwarder
+    surface (``AsyncAuditClient.forwarders``).
+    """
+
+    async def save(self) -> None:  # type: ignore[override]
+        """Create or full-replace this forwarder on the server (async)."""
+        if self._client is None:
+            raise RuntimeError("Forwarder was constructed without a client; cannot save")
+        if self.created_at is None:
+            other = await self._client._create(self)
+        else:
+            other = await self._client._update(self)
+        self._apply(other)
+
+    async def delete(self) -> None:  # type: ignore[override]
+        """Delete this forwarder on the server (async)."""
+        if self._client is None or self.id is None:
+            raise RuntimeError("Forwarder was constructed without a client or id; cannot delete")
+        await self._client.delete(self.id)
+
+
 @dataclass(frozen=True, slots=True)
 class ResourceType:
     """A distinct resource_type slug seen for the account.
 
     The ``id`` and ``resource_type`` fields are the same value — JSON:API
-    surfaces the customer-facing key as the resource id (ADR-014 "key as
-    id"). The duplication keeps SDK consumers from having to dig into
-    the id field when filtering UI controls; pick whichever name reads
-    better in context.
+    surfaces the customer-facing key as the resource id. The duplication
+    keeps SDK consumers from having to dig into the id field when
+    filtering UI controls; pick whichever name reads better in context.
 
     Attributes:
         id (str): The resource-type slug, surfaced as the JSON:API resource id.
@@ -505,6 +593,37 @@ class EventType:
         return cls(
             id=resource["id"],
             event_type=attrs.get("event_type") or resource["id"],
+            created_at=_parse_iso(attrs["created_at"]),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Category:
+    """A distinct ``category`` value seen for the account.
+
+    Same shape as :class:`ResourceType` and :class:`EventType` — ``id``
+    and ``category`` are the same value, surfaced as the JSON:API
+    resource id. The duplication keeps SDK consumers from having to dig
+    into the ``id`` field when populating filter UI controls; pick
+    whichever name reads better in context.
+
+    Attributes:
+        id (str): The category value, surfaced as the JSON:API resource id.
+        category (str): Same value as :attr:`id`; provided for readability.
+        created_at (datetime): Earliest sighting of this category for the
+            account.
+    """
+
+    id: str
+    category: str
+    created_at: datetime
+
+    @classmethod
+    def _from_resource(cls, resource: dict[str, Any]) -> "Category":
+        attrs = resource.get("attributes", {})
+        return cls(
+            id=resource["id"],
+            category=attrs.get("category") or resource["id"],
             created_at=_parse_iso(attrs["created_at"]),
         )
 

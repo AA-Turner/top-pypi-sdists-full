@@ -1,7 +1,4 @@
-"""Deep-merge resolution algorithm for config inheritance chains.
-
-Implements the resolution logic from ADR-024 sections 2.5 and 2.6.
-"""
+"""Deep-merge resolution algorithm for config inheritance chains."""
 
 from __future__ import annotations
 
@@ -55,8 +52,8 @@ def resolve(chain: list[dict[str, Any]], environment: str) -> dict[str, Any]:
     environment-specific values (environment wins), then that result is
     merged on top of the accumulated parent result (child wins over parent).
 
-    Per ADR-024 §2.4 each ``environments`` entry IS the flat override map
-    ``{key: rawValue}`` — no ``"values"`` envelope, no per-override wrapper.
+    Each ``environments`` entry IS the flat override map ``{key: rawValue}``
+    — no ``"values"`` envelope, no per-override wrapper.
 
     Args:
         chain: Ordered list of config data dicts from child (index 0) to

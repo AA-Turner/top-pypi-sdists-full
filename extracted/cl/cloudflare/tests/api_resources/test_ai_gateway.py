@@ -179,9 +179,9 @@ class TestAIGateway:
             logpush_public_key="xxxxxxxxxxxxxxxx",
             otel=[
                 {
-                    "authorization": "authorization",
                     "headers": {"foo": "string"},
                     "url": "https://example.com",
+                    "authorization": "authorization",
                     "content_type": "json",
                 }
             ],
@@ -189,6 +189,28 @@ class TestAIGateway:
             retry_backoff="constant",
             retry_delay=0,
             retry_max_attempts=1,
+            spend_limits={
+                "enabled": True,
+                "rules": [
+                    {
+                        "limit": 1,
+                        "limit_type": "cost",
+                        "window": 1,
+                        "id": "x",
+                        "enabled": True,
+                        "metadata": {"foo": {"mode": "partition"}},
+                        "model": {
+                            "mode": "filter",
+                            "values": ["string"],
+                        },
+                        "provider": {
+                            "mode": "filter",
+                            "values": ["string"],
+                        },
+                        "technique": "fixed",
+                    }
+                ],
+            },
             store_id="store_id",
             stripe={
                 "authorization": "authorization",
@@ -564,9 +586,9 @@ class TestAsyncAIGateway:
             logpush_public_key="xxxxxxxxxxxxxxxx",
             otel=[
                 {
-                    "authorization": "authorization",
                     "headers": {"foo": "string"},
                     "url": "https://example.com",
+                    "authorization": "authorization",
                     "content_type": "json",
                 }
             ],
@@ -574,6 +596,28 @@ class TestAsyncAIGateway:
             retry_backoff="constant",
             retry_delay=0,
             retry_max_attempts=1,
+            spend_limits={
+                "enabled": True,
+                "rules": [
+                    {
+                        "limit": 1,
+                        "limit_type": "cost",
+                        "window": 1,
+                        "id": "x",
+                        "enabled": True,
+                        "metadata": {"foo": {"mode": "partition"}},
+                        "model": {
+                            "mode": "filter",
+                            "values": ["string"],
+                        },
+                        "provider": {
+                            "mode": "filter",
+                            "values": ["string"],
+                        },
+                        "technique": "fixed",
+                    }
+                ],
+            },
             store_id="store_id",
             stripe={
                 "authorization": "authorization",

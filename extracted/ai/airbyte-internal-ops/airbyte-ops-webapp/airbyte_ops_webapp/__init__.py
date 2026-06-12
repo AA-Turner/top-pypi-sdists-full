@@ -1,0 +1,1 @@
+"""Connector pinning FastMCP app."""

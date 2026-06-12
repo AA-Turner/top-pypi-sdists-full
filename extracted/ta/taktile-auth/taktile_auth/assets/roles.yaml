@@ -247,7 +247,7 @@ api_key_ws_viewer/org_id,ws_id:
 scim_provisioner/org_id:
     - r+w:scim_provisioning/org_id
 access_requester_org/org_id:
-    - r+w:access_request/org_id
+    - r+w+d:access_request/org_id
     - r:organization/org_id
 access_requester:
     - access_requester_org/*

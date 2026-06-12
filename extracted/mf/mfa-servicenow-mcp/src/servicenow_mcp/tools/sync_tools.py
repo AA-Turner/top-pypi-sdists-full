@@ -339,9 +339,11 @@ def _resolve_local_path(path: Path) -> _ResolvedComponent:
         file_field_map = _folder_layout_field_map(table_name)
         if file_field_map is None:
             raise ValueError(
-                f"Directory push is only supported for known tables "
-                f"({', '.join(sorted(FOLDER_TABLES | SINGLE_FILE_TABLES))}). "
-                f"Got: {table_name}"
+                f"File-based push doesn't cover '{table_name}' (file-path tables: "
+                f"{', '.join(sorted(FOLDER_TABLES | SINGLE_FILE_TABLES))}). This is a "
+                f"file-path limit, NOT 'uneditable' — edit it by sys_id instead: "
+                f"manage_portal_component(action='update_code', table='{table_name}', "
+                f"sys_id=..., update_data={{...}})."
             )
         folder_name = path.name
         map_data = _read_map_json(table_dir)
@@ -395,7 +397,12 @@ def _resolve_local_path(path: Path) -> _ResolvedComponent:
         _field_name_opt = file_field_map.get(filename)
         if not _field_name_opt:
             supported = ", ".join(sorted(file_field_map))
-            raise ValueError(f"Unknown file '{filename}' for {table_name}. Supported: {supported}")
+            raise ValueError(
+                f"File-based push doesn't recognize '{filename}' for {table_name} "
+                f"(known files: {supported}). If it's a metadata field (not a downloaded "
+                f"file), edit it by sys_id: manage_portal_component(action='update_code', "
+                f"table='{table_name}', sys_id=..., update_data={{...}})."
+            )
         field_name = _field_name_opt
         map_data = _read_map_json(table_dir)
         # Prefer the record's own _metadata.json sys_id (collision-proof) over the
@@ -1057,7 +1064,6 @@ def update_remote_from_local(
         "sys_updated_by",
         "sys_created_by",
         "sys_scope",
-        "sys_policy",
     ]
     try:
         remote_record = _fetch_portal_component_record(
@@ -1066,24 +1072,11 @@ def update_remote_from_local(
     except ValueError as e:
         return {"error": str(e)}
 
-    # Pre-flight protection check (same as update_portal_component): a Protected
-    # record (sys_policy='read') is locked by ServiceNow — the write WILL be
-    # rejected. Stop with the reason + remedy rather than a doomed push.
-    # sys_policy rode the fetch above, so 0 extra API calls.
-    if str(remote_record.get("sys_policy") or "").strip().lower() == "read":
-        return {
-            "success": False,
-            "error": "PROTECTED_RECORD",
-            "message": (
-                "This record is Protected (sys_policy='read'); ServiceNow blocks writes to "
-                "it. Unprotect it in Studio, or edit it in the UI, then retry."
-            ),
-            "component": {
-                "table": resolved.table,
-                "sys_id": resolved.sys_id,
-                "name": resolved.name,
-            },
-        }
+    # NOTE: no pre-flight protection BLOCK here. A Protected record
+    # (sys_policy='read') limits the API but not necessarily this caller/scope (the
+    # same record is UI-editable), so we never pre-refuse on our own guess — the
+    # actual write goes through update_portal_component, which warns and lets the
+    # SERVER decide. A genuine rejection surfaces there as a 403 with guidance.
 
     # 2. Baseline-drift verification gate — TIME-INDEPENDENT. Compares the remote's
     #    CURRENT sys_updated_on against the value recorded in _sync_meta at

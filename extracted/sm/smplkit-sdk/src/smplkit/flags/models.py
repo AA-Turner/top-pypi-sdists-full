@@ -6,9 +6,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from smplkit.flags.client import AsyncFlagsClient, FlagsClient
-    from smplkit.management.client import AsyncFlagsClient as AsyncMgmtFlagsClient
-    from smplkit.management.client import FlagsClient as MgmtFlagsClient
+    from smplkit.flags._client import AsyncFlagsClient, FlagsClient
 
 
 @dataclasses.dataclass(frozen=True)
@@ -92,7 +90,7 @@ class Flag:
 
     def __init__(
         self,
-        client: FlagsClient | MgmtFlagsClient | None = None,
+        client: FlagsClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -141,8 +139,8 @@ class Flag:
         """Persist this flag to the server.
 
         Creates a new flag if unsaved, or updates the existing one.
-        Requires a management client (i.e. the flag was constructed via
-        ``mgmt.flags.new*`` or returned from ``mgmt.flags.get/list``).
+        Requires a flags client (i.e. the flag was constructed via
+        ``client.flags.new_*`` or returned from ``client.flags.get/list``).
         """
         if self._client is None:
             raise RuntimeError("Flag was constructed without a client; cannot save")
@@ -169,7 +167,16 @@ class Flag:
         The *built_rule* dict must include an ``"environment"`` key.
         Call :meth:`save` to persist.
 
-        Returns *self* for chaining.
+        Args:
+            built_rule: The dict produced by ``Rule(..., environment=...).when(...)
+                .serve(...)``. Must include an ``"environment"`` key naming the
+                target environment.
+
+        Returns:
+            This flag, so calls can be chained.
+
+        Raises:
+            ValueError: The *built_rule* dict has no ``"environment"`` key.
         """
         env_key = built_rule.get("environment")
         if env_key is None:
@@ -190,6 +197,10 @@ class Flag:
 
         With ``environment="..."`` scopes to that single environment; without,
         enables rules in every environment configured on this flag.
+
+        Args:
+            environment: Name of the environment to enable. When ``None`` (the
+                default), enables rules in every environment configured on this flag.
         """
         if environment is None:
             for env_key in list(self._environments.keys()):
@@ -204,6 +215,11 @@ class Flag:
         disables rules in every environment configured on this flag.  When
         disabled, :meth:`get` skips rules and returns the env-specific default
         (or the flag's base default).
+
+        Args:
+            environment: Name of the environment to disable. When ``None`` (the
+                default), disables rules in every environment configured on this
+                flag.
         """
         if environment is None:
             for env_key in list(self._environments.keys()):
@@ -219,6 +235,11 @@ class Flag:
         sets the per-environment default served when no rule matches.
 
         Call :meth:`save` to persist.
+
+        Args:
+            value: The default value to serve.
+            environment: Name of the environment whose default to set. When ``None``
+                (the default), sets the flag-level base default instead.
         """
         if environment is None:
             self.default = value
@@ -230,6 +251,9 @@ class Flag:
 
         After clearing, the environment falls back to the flag's base default
         when no rule matches.  Call :meth:`save` to persist.
+
+        Args:
+            environment: Name of the environment whose default override to clear.
         """
         if environment in self._environments:
             _replace_env(self._environments, environment, default=None)
@@ -239,6 +263,11 @@ class Flag:
 
         With ``environment="..."`` scopes to that single environment; without,
         removes rules from every environment configured on this flag.
+
+        Args:
+            environment: Name of the environment whose rules to remove. When ``None``
+                (the default), removes rules from every environment configured on
+                this flag.
         """
         if environment is None:
             for env_key in list(self._environments.keys()):
@@ -247,14 +276,30 @@ class Flag:
             _replace_env(self._environments, environment, rules=())
 
     def add_value(self, name: str, value: Any) -> Flag:
-        """Append a constrained value to the flag's values list. Returns *self* for chaining."""
+        """Append a constrained value to the flag's values list.
+
+        Args:
+            name: Human-readable label for the value entry.
+            value: The value to allow the flag to serve.
+
+        Returns:
+            This flag, so calls can be chained.
+        """
         if self._values is None:
             self._values = []
         self._values.append(FlagValue(name=name, value=value))
         return self
 
     def remove_value(self, value: Any) -> Flag:
-        """Remove the first values entry whose ``value`` field matches.  Returns *self* for chaining."""
+        """Remove the first values entry whose ``value`` field matches.
+
+        Args:
+            value: The value to remove. Entries are matched on their ``value`` field;
+                the first match is removed and others are left in place.
+
+        Returns:
+            This flag, so calls can be chained.
+        """
         if self._values is None:
             return self
         self._values = [v for v in self._values if v.value != value]
@@ -269,7 +314,17 @@ class Flag:
     # ------------------------------------------------------------------
 
     def get(self, context: list | None = None) -> Any:
-        """Evaluate this flag and return its current value."""
+        """Evaluate this flag and return its current value.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated flag value, or this flag's default when no environment
+            override or rule applies.
+        """
         return self._client._evaluate_handle(self.id, self.default, context)
 
     # ------------------------------------------------------------------
@@ -296,6 +351,17 @@ class BooleanFlag(Flag):
     """A boolean flag — .get() returns bool."""
 
     def get(self, context: list | None = None) -> bool:
+        """Evaluate this flag and return its current boolean value.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated boolean value, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not a ``bool``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, bool):
             return value
@@ -306,6 +372,17 @@ class StringFlag(Flag):
     """A string flag — .get() returns str."""
 
     def get(self, context: list | None = None) -> str:
+        """Evaluate this flag and return its current string value.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated string value, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not a ``str``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, str):
             return value
@@ -316,6 +393,18 @@ class NumberFlag(Flag):
     """A numeric flag — .get() returns int | float."""
 
     def get(self, context: list | None = None) -> int | float:
+        """Evaluate this flag and return its current numeric value.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated numeric value, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not an ``int`` or
+            ``float``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return value
@@ -326,6 +415,17 @@ class JsonFlag(Flag):
     """A JSON flag — .get() returns dict."""
 
     def get(self, context: list | None = None) -> dict[str, Any]:
+        """Evaluate this flag and return its current JSON value.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated JSON object, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not a ``dict``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, dict):
             return value
@@ -353,7 +453,7 @@ class AsyncFlag:
 
     def __init__(
         self,
-        client: AsyncFlagsClient | AsyncMgmtFlagsClient | None = None,
+        client: AsyncFlagsClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -416,6 +516,22 @@ class AsyncFlag:
     # ------------------------------------------------------------------
 
     def add_rule(self, built_rule: dict[str, Any]) -> AsyncFlag:
+        """Append a rule to a specific environment.
+
+        The *built_rule* dict must include an ``"environment"`` key.
+        Call :meth:`save` to persist.
+
+        Args:
+            built_rule: The dict produced by ``Rule(..., environment=...).when(...)
+                .serve(...)``. Must include an ``"environment"`` key naming the
+                target environment.
+
+        Returns:
+            This flag, so calls can be chained.
+
+        Raises:
+            ValueError: The *built_rule* dict has no ``"environment"`` key.
+        """
         env_key = built_rule.get("environment")
         if env_key is None:
             raise ValueError(
@@ -433,6 +549,10 @@ class AsyncFlag:
     def enable_rules(self, *, environment: str | None = None) -> None:
         """Enable rule evaluation.  Without ``environment``, applies to every
         environment configured on this flag.  Call :meth:`save` to persist.
+
+        Args:
+            environment: Name of the environment to enable. When ``None`` (the
+                default), enables rules in every environment configured on this flag.
         """
         if environment is None:
             for env_key in list(self._environments.keys()):
@@ -441,8 +561,16 @@ class AsyncFlag:
             _replace_env(self._environments, environment, enabled=True)
 
     def disable_rules(self, *, environment: str | None = None) -> None:
-        """Disable rule evaluation.  Without ``environment``, applies to every
-        environment configured on this flag.  Call :meth:`save` to persist.
+        """Disable rule evaluation (kill switch).  Without ``environment``, applies
+        to every environment configured on this flag.  Call :meth:`save` to persist.
+
+        When disabled, :meth:`get` skips rules and returns the env-specific default
+        (or the flag's base default).
+
+        Args:
+            environment: Name of the environment to disable. When ``None`` (the
+                default), disables rules in every environment configured on this
+                flag.
         """
         if environment is None:
             for env_key in list(self._environments.keys()):
@@ -453,7 +581,16 @@ class AsyncFlag:
     def set_default(self, value: Any, *, environment: str | None = None) -> None:
         """Set the flag's default served value (base or per-environment).
 
+        With ``environment=None`` (the default), updates the flag-level default used
+        when no environment-specific override applies.  With ``environment="..."``,
+        sets the per-environment default served when no rule matches.
+
         Call :meth:`save` to persist.
+
+        Args:
+            value: The default value to serve.
+            environment: Name of the environment whose default to set. When ``None``
+                (the default), sets the flag-level base default instead.
         """
         if environment is None:
             self.default = value
@@ -461,13 +598,25 @@ class AsyncFlag:
             _replace_env(self._environments, environment, default=value)
 
     def clear_default(self, *, environment: str) -> None:
-        """Clear the per-environment default override on *environment*."""
+        """Clear the per-environment default override on *environment*.
+
+        After clearing, the environment falls back to the flag's base default when no
+        rule matches.  Call :meth:`save` to persist.
+
+        Args:
+            environment: Name of the environment whose default override to clear.
+        """
         if environment in self._environments:
             _replace_env(self._environments, environment, default=None)
 
     def clear_rules(self, *, environment: str | None = None) -> None:
         """Remove rules.  Without ``environment``, applies to every environment
         configured on this flag.  Call :meth:`save` to persist.
+
+        Args:
+            environment: Name of the environment whose rules to remove. When ``None``
+                (the default), removes rules from every environment configured on
+                this flag.
         """
         if environment is None:
             for env_key in list(self._environments.keys()):
@@ -476,14 +625,30 @@ class AsyncFlag:
             _replace_env(self._environments, environment, rules=())
 
     def add_value(self, name: str, value: Any) -> AsyncFlag:
-        """Append a constrained value to the flag's values list. Returns *self* for chaining."""
+        """Append a constrained value to the flag's values list.
+
+        Args:
+            name: Human-readable label for the value entry.
+            value: The value to allow the flag to serve.
+
+        Returns:
+            This flag, so calls can be chained.
+        """
         if self._values is None:
             self._values = []
         self._values.append(FlagValue(name=name, value=value))
         return self
 
     def remove_value(self, value: Any) -> AsyncFlag:
-        """Remove the first values entry whose ``value`` field matches.  Returns *self* for chaining."""
+        """Remove the first values entry whose ``value`` field matches.
+
+        Args:
+            value: The value to remove. Entries are matched on their ``value`` field;
+                the first match is removed and others are left in place.
+
+        Returns:
+            This flag, so calls can be chained.
+        """
         if self._values is None:
             return self
         self._values = [v for v in self._values if v.value != value]
@@ -498,6 +663,20 @@ class AsyncFlag:
     # ------------------------------------------------------------------
 
     def get(self, context: list | None = None) -> Any:
+        """Evaluate this flag and return its current value.
+
+        Synchronous; reads the locally cached definitions. Warm the cache first via
+        an awaitable live method so the value reflects the live state.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated flag value, or this flag's default when no environment
+            override or rule applies.
+        """
         return self._client._evaluate_handle(self.id, self.default, context)
 
     # ------------------------------------------------------------------
@@ -520,7 +699,23 @@ class AsyncFlag:
 
 
 class AsyncBooleanFlag(AsyncFlag):
+    """An async boolean flag — .get() returns bool."""
+
     def get(self, context: list | None = None) -> bool:
+        """Evaluate this flag and return its current boolean value.
+
+        Synchronous; reads the locally cached definitions. Warm the cache first via
+        an awaitable live method so the value reflects the live state.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated boolean value, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not a ``bool``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, bool):
             return value
@@ -528,7 +723,23 @@ class AsyncBooleanFlag(AsyncFlag):
 
 
 class AsyncStringFlag(AsyncFlag):
+    """An async string flag — .get() returns str."""
+
     def get(self, context: list | None = None) -> str:
+        """Evaluate this flag and return its current string value.
+
+        Synchronous; reads the locally cached definitions. Warm the cache first via
+        an awaitable live method so the value reflects the live state.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated string value, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not a ``str``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, str):
             return value
@@ -536,7 +747,24 @@ class AsyncStringFlag(AsyncFlag):
 
 
 class AsyncNumberFlag(AsyncFlag):
+    """An async numeric flag — .get() returns int | float."""
+
     def get(self, context: list | None = None) -> int | float:
+        """Evaluate this flag and return its current numeric value.
+
+        Synchronous; reads the locally cached definitions. Warm the cache first via
+        an awaitable live method so the value reflects the live state.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated numeric value, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not an ``int`` or
+            ``float``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             return value
@@ -544,7 +772,23 @@ class AsyncNumberFlag(AsyncFlag):
 
 
 class AsyncJsonFlag(AsyncFlag):
+    """An async JSON flag — .get() returns dict."""
+
     def get(self, context: list | None = None) -> dict[str, Any]:
+        """Evaluate this flag and return its current JSON value.
+
+        Synchronous; reads the locally cached definitions. Warm the cache first via
+        an awaitable live method so the value reflects the live state.
+
+        Args:
+            context: Optional list of :class:`smplkit.Context` entities to evaluate
+                targeting rules against. When omitted, the ambient request context
+                (if any) is used.
+
+        Returns:
+            The evaluated JSON object, or this flag's default when no environment
+            override or rule applies (or the evaluated value is not a ``dict``).
+        """
         value = self._client._evaluate_handle(self.id, self.default, context)
         if isinstance(value, dict):
             return value

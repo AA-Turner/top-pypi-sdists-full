@@ -197,7 +197,7 @@ class TestCodebaseControllerListFiles(unittest.TestCase):
         SettingsController._root_path = Path("/tmp/foo")
 
         mock_project = MagicMock()
-        mock_project.get_stages_by_file_path.return_value = []
+        mock_project.get_stages_by_file_path_map.return_value = {}
 
         self.repos = MagicMock()
         self.repos.project.load.return_value = mock_project

@@ -28,6 +28,8 @@ class GetResourceResponse200:
         created_by (Union[Unset, str]):
         edited_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
         ws_specific (Union[Unset, bool]):
     """
 
@@ -41,6 +43,7 @@ class GetResourceResponse200:
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -63,6 +66,10 @@ class GetResourceResponse200:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         ws_specific = self.ws_specific
 
@@ -89,6 +96,8 @@ class GetResourceResponse200:
             field_dict["edited_at"] = edited_at
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
         if ws_specific is not UNSET:
             field_dict["ws_specific"] = ws_specific
 
@@ -129,6 +138,8 @@ class GetResourceResponse200:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         ws_specific = d.pop("ws_specific", UNSET)
 
         get_resource_response_200 = cls(
@@ -142,6 +153,7 @@ class GetResourceResponse200:
             created_by=created_by,
             edited_at=edited_at,
             labels=labels,
+            inherited_labels=inherited_labels,
             ws_specific=ws_specific,
         )
 

@@ -1,6 +1,6 @@
 """Tests verifying module accessors return the same instance every time."""
 
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit._client import AsyncSmplClient, SmplClient
 
 
 class TestSingletonAccessorsSync:

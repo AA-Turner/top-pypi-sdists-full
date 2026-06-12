@@ -641,6 +641,8 @@ class AsyncChalkClient:
         sample_features: list[FeatureReference] | None = None,
         lower_bound: datetime | timedelta | str | None = None,
         upper_bound: datetime | timedelta | str | None = None,
+        lower_bound_inserted_at: datetime | timedelta | str | None = None,
+        upper_bound_inserted_at: datetime | timedelta | str | None = None,
         store_plan_stages: bool = False,
         explain: bool = False,
         tags: list[str] | None = None,

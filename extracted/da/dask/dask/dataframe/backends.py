@@ -52,9 +52,7 @@ try:
     import pyarrow as pa
     import pyarrow.compute
 except ImportError:
-    HAS_PYARROW = False
-else:
-    HAS_PYARROW = True
+    pass
 
 
 class DataFrameBackendEntrypoint(DaskBackendEntrypoint):
@@ -303,7 +301,7 @@ def make_meta_object(x, index=None):
     >>> make_meta_object(('a', 'f8'))
     Series([], Name: a, dtype: float64)
     >>> make_meta_object('i8')
-    1
+    np.int64(1)
     """
 
     if is_arraylike(x) and x.shape:

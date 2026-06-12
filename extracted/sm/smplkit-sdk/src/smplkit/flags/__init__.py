@@ -1,9 +1,12 @@
-"""Smpl Flags SDK module — wraps generated flags client."""
+"""Smpl Flags SDK module — wraps generated flags client.
 
-from smplkit.flags.client import (
-    AsyncFlagsClient,
+The fused ``FlagsClient`` / ``AsyncFlagsClient`` live in
+``smplkit.flags._client`` and are re-exported only from the top-level
+``smplkit`` package (mirroring config), not from here.
+"""
+
+from smplkit.flags._client import (
     FlagChangeEvent,
-    FlagsClient,
     FlagStats,
 )
 from smplkit.flags.models import (
@@ -21,12 +24,12 @@ from smplkit.flags.models import (
     NumberFlag,
     StringFlag,
 )
-from smplkit.flags.types import Context, FlagDeclaration, Op, Rule
+from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
 
 __all__ = [
     "AsyncBooleanFlag",
+    "AsyncContext",
     "AsyncFlag",
-    "AsyncFlagsClient",
     "AsyncJsonFlag",
     "AsyncNumberFlag",
     "AsyncStringFlag",
@@ -37,7 +40,6 @@ __all__ = [
     "FlagDeclaration",
     "FlagEnvironment",
     "FlagRule",
-    "FlagsClient",
     "FlagValue",
     "FlagStats",
     "JsonFlag",

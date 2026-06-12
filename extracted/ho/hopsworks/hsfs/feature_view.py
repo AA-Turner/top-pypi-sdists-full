@@ -22,10 +22,8 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Literal,
     TypeVar,
-    Union,
 )
 
 import humps
@@ -70,6 +68,7 @@ from hsfs.transformation_function import TransformationFunction, TransformationT
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from datetime import date, datetime
 
     from hopsworks_common.alert import Alert, FeatureViewAlert
@@ -91,32 +90,29 @@ if HAS_NUMPY:
 _logger = logging.getLogger(__name__)
 
 # TODO: Rework TrainingDatasetDataFrameTypes
-TrainingDatasetDataFrameTypes = Union[
-    pd.DataFrame,
-    TypeVar("pyspark.sql.DataFrame"),  # noqa: F821
-    TypeVar("pyspark.RDD"),  # noqa: F821
-    np.ndarray,
-    list[list[Any]],
-]
+TrainingDatasetDataFrameTypes = (
+    pd.DataFrame
+    | TypeVar("pyspark.sql.DataFrame")  # noqa: F821
+    | TypeVar("pyspark.RDD")  # noqa: F821
+    | np.ndarray
+    | list[list[Any]]
+)
 
 if HAS_POLARS:
     import polars as pl
 
-    TrainingDatasetDataFrameTypes = Union[
-        TrainingDatasetDataFrameTypes,
-        pl.DataFrame,
-    ]
+    TrainingDatasetDataFrameTypes = TrainingDatasetDataFrameTypes | pl.DataFrame
 
 
 # TODO: Rework SplineDataFrameTypes
-SplineDataFrameTypes = Union[
-    pd.DataFrame,
-    TypeVar("pyspark.sql.DataFrame"),  # noqa: F821
-    TypeVar("pyspark.RDD"),  # noqa: F821
-    np.ndarray,
-    list[list[Any]],
-    TypeVar("SplineGroup"),  # noqa: F821
-]
+SplineDataFrameTypes = (
+    pd.DataFrame
+    | TypeVar("pyspark.sql.DataFrame")  # noqa: F821
+    | TypeVar("pyspark.RDD")  # noqa: F821
+    | np.ndarray
+    | list[list[Any]]
+    | TypeVar("SplineGroup")  # noqa: F821
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -298,7 +294,7 @@ class FeatureView:
             util.JobWarning,
             stacklevel=2,
         )
-        self._feature_view_engine.delete(self.name, self.version, force)
+        self._feature_view_engine._delete(self.name, self.version, force)
 
     @public
     @staticmethod
@@ -340,7 +336,7 @@ class FeatureView:
         """
         if not isinstance(feature_store_id, int):
             raise ValueError("`feature_store_id` should be an integer.")
-        FeatureViewApi(feature_store_id).delete_by_name_version(
+        FeatureViewApi(feature_store_id)._delete_by_name_version(
             feature_view_name, feature_view_version, force
         )
 
@@ -369,10 +365,10 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        return self._feature_view_engine.update(self)
+        return self._feature_view_engine._update(self)
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def init_serving(
         self,
         training_dataset_version: int | None = None,
@@ -477,7 +473,7 @@ class FeatureView:
             )
 
         # initiate single vector server
-        self._vector_server.init_serving(
+        self._vector_server._init_serving(
             entity=self,
             external=external,
             inference_helper_columns=True,
@@ -550,7 +546,7 @@ class FeatureView:
             training_dataset_version: Transformation statistics are fetched from training dataset and applied to the feature vector.
         """
         self._serving_training_dataset_version = training_dataset_version
-        self._batch_scoring_server.init_batch_scoring(
+        self._batch_scoring_server._init_batch_scoring(
             self, training_dataset_version=training_dataset_version
         )
 
@@ -607,7 +603,7 @@ class FeatureView:
         Returns:
             The batch query.
         """
-        return self._feature_view_engine.get_batch_query_string(
+        return self._feature_view_engine._get_batch_query_string(
             self,
             start_time,
             end_time,
@@ -768,7 +764,7 @@ class FeatureView:
         vector_db_features = None
         if self._vector_db_client:
             vector_db_features = self._get_vector_db_result(entry)
-        return self._vector_server.get_feature_vector(
+        return self._vector_server._get_feature_vector(
             entry=entry,
             return_type=return_type,
             passed_features=passed_features,
@@ -930,7 +926,7 @@ class FeatureView:
             for _entry in entry:
                 vector_db_features.append(self._get_vector_db_result(_entry))
 
-        return self._vector_server.get_feature_vectors(
+        return self._vector_server._get_feature_vectors(
             entries=entry,
             return_type=return_type,
             passed_features=passed_features,
@@ -990,7 +986,7 @@ class FeatureView:
         """
         if not self._vector_server._serving_initialized:
             self.init_serving(external=external, init_rest_client=force_rest_client)
-        return self._vector_server.get_inference_helper(
+        return self._vector_server._get_inference_helper(
             entry, return_type, force_rest_client, force_sql_client
         )
 
@@ -1047,7 +1043,7 @@ class FeatureView:
         """
         if self._vector_server is None:
             self.init_serving(external=external, init_rest_client=force_rest_client)
-        return self._vector_server.get_inference_helpers(
+        return self._vector_server._get_inference_helpers(
             entry, return_type, force_rest_client, force_sql_client
         )
 
@@ -1059,15 +1055,15 @@ class FeatureView:
             return {}
         result_vectors = {}
         for join_index, fg in self._vector_db_client.embedding_fg_by_join_index.items():
-            complete, fg_entry = self._vector_db_client.filter_entry_by_join_index(
+            complete, fg_entry = self._vector_db_client._filter_entry_by_join_index(
                 entry, join_index
             )
             if not complete:
                 # Not retrieving from vector db if entry is not completed
                 continue
-            vector_db_features = self._vector_db_client.read(
+            vector_db_features = self._vector_db_client._read(
                 fg.id,
-                fg.features,
+                fg.columns,
                 keys=fg_entry,
                 index_name=fg.embedding_index.index_name,
             )
@@ -1142,7 +1138,7 @@ class FeatureView:
         """
         if self._vector_db_client is None:
             self.init_serving(external=external)
-        results = self._vector_db_client.find_neighbors(
+        results = self._vector_db_client._find_neighbors(
             embedding,
             feature=(feature if feature else None),
             k=k,
@@ -1151,7 +1147,7 @@ class FeatureView:
         if len(results) == 0:
             return []
 
-        return self._vector_server.get_feature_vectors(
+        return self._vector_server._get_feature_vectors(
             [self._extract_primary_key(res[1]) for res in results],
             return_type=return_type,
             vector_db_features=[res[1] for res in results],
@@ -1179,7 +1175,7 @@ class FeatureView:
         return {fg for fg in self.query.featuregroups if fg.embedding_index}
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_batch_data(
         self,
         start_time: str | int | datetime | date | None = None,
@@ -1315,7 +1311,7 @@ class FeatureView:
         if not self._batch_scoring_server._serving_initialized:
             self.init_batch_scoring()
 
-        return self._feature_view_engine.get_batch_data(
+        return self._feature_view_engine._get_batch_data(
             self,
             start_time,
             end_time,
@@ -1361,7 +1357,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        return self._feature_view_engine.add_tag(self, name, value)
+        return self._feature_view_engine._add_tag(self, name, value)
 
     @public
     def get_tag(self, name: str) -> tag.Tag | None:
@@ -1388,7 +1384,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        return self._feature_view_engine.get_tag(self, name)
+        return self._feature_view_engine._get_tag(self, name)
 
     @public
     def get_tags(self) -> dict[str, tag.Tag]:
@@ -1412,7 +1408,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        return self._feature_view_engine.get_tags(self)
+        return self._feature_view_engine._get_tags(self)
 
     @public
     def get_parent_feature_groups(self) -> explicit_provenance.Links | None:
@@ -1429,7 +1425,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        return self._feature_view_engine.get_parent_feature_groups(self)
+        return self._feature_view_engine._get_parent_feature_groups(self)
 
     @public
     def get_newest_model(
@@ -1497,7 +1493,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        return self._feature_view_engine.get_models_provenance(
+        return self._feature_view_engine._get_models_provenance(
             self, training_dataset_version=training_dataset_version
         )
 
@@ -1523,7 +1519,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        return self._feature_view_engine.delete_tag(self, name)
+        return self._feature_view_engine._delete_tag(self, name)
 
     @public
     def update_last_accessed_training_dataset(self, version: int) -> None:
@@ -1539,7 +1535,7 @@ class FeatureView:
         self._last_accessed_training_dataset = version
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def create_training_data(
         self,
         start_time: str | int | datetime | date | None = "",
@@ -1742,7 +1738,7 @@ class FeatureView:
             data_source = ds.DataSource(
                 storage_connector=storage_connector, path=location
             )
-        normalized_tags = tag.Tag.normalize(tags)
+        normalized_tags = tag.Tag._normalize(tags)
 
         td = training_dataset.TrainingDataset(
             name=self.name,
@@ -1761,7 +1757,7 @@ class FeatureView:
             tags=normalized_tags,
         )
         # td_job is used only if the python engine is used
-        td, td_job = self._feature_view_engine.create_training_dataset(
+        td, td_job = self._feature_view_engine._create_training_dataset(
             self,
             td,
             write_options or {},
@@ -1779,7 +1775,7 @@ class FeatureView:
         return td.version, td_job
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def create_train_test_split(
         self,
         test_size: float | None = None,
@@ -1929,7 +1925,7 @@ class FeatureView:
             })
 
             feature_group = fs.get_or_create_feature_group(
-                name='feature_group_name',
+                name='_feature_group_name',
                 version=1,
                 primary_key=['category_col']
             )
@@ -2039,7 +2035,7 @@ class FeatureView:
             data_source = ds.DataSource(
                 storage_connector=storage_connector, path=location
             )
-        normalized_tags = tag.Tag.normalize(tags)
+        normalized_tags = tag.Tag._normalize(tags)
 
         td = training_dataset.TrainingDataset(
             name=self.name,
@@ -2062,7 +2058,7 @@ class FeatureView:
             tags=normalized_tags,
         )
         # td_job is used only if the python engine is used
-        td, td_job = self._feature_view_engine.create_training_dataset(
+        td, td_job = self._feature_view_engine._create_training_dataset(
             self,
             td,
             write_options or {},
@@ -2079,7 +2075,7 @@ class FeatureView:
         return td.version, td_job
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def create_train_validation_test_split(
         self,
         validation_size: float | None = None,
@@ -2332,7 +2328,7 @@ class FeatureView:
             data_source = ds.DataSource(
                 storage_connector=storage_connector, path=location
             )
-        normalized_tags = tag.Tag.normalize(tags)
+        normalized_tags = tag.Tag._normalize(tags)
 
         td = training_dataset.TrainingDataset(
             name=self.name,
@@ -2358,7 +2354,7 @@ class FeatureView:
             tags=normalized_tags,
         )
         # td_job is used only if the python engine is used
-        td, td_job = self._feature_view_engine.create_training_dataset(
+        td, td_job = self._feature_view_engine._create_training_dataset(
             self,
             td,
             write_options or {},
@@ -2376,7 +2372,7 @@ class FeatureView:
         return td.version, td_job
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def recreate_training_dataset(
         self,
         training_dataset_version: int,
@@ -2445,7 +2441,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        td, td_job = self._feature_view_engine.recreate_training_dataset(
+        td, td_job = self._feature_view_engine._recreate_training_dataset(
             self,
             training_dataset_version=training_dataset_version,
             statistics_config=statistics_config,
@@ -2458,7 +2454,7 @@ class FeatureView:
         return td_job
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def training_data(
         self,
         start_time: str | int | datetime | date | None = None,
@@ -2599,7 +2595,7 @@ class FeatureView:
             extra_filter=extra_filter,
             lookback=Lookback.from_user_input(lookback),
         )
-        td, df = self._feature_view_engine.get_training_data(
+        td, df = self._feature_view_engine._get_training_data(
             self,
             read_options,
             training_dataset_obj=td,
@@ -2619,7 +2615,7 @@ class FeatureView:
         return df
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def train_test_split(
         self,
         test_size: float | None = None,
@@ -2783,7 +2779,7 @@ class FeatureView:
             extra_filter=extra_filter,
             lookback=Lookback.from_user_input(lookback),
         )
-        td, df = self._feature_view_engine.get_training_data(
+        td, df = self._feature_view_engine._get_training_data(
             self,
             read_options,
             training_dataset_obj=td,
@@ -2817,7 +2813,7 @@ class FeatureView:
             )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def train_validation_test_split(
         self,
         validation_size: float | None = None,
@@ -3007,7 +3003,7 @@ class FeatureView:
             extra_filter=extra_filter,
             lookback=Lookback.from_user_input(lookback),
         )
-        td, df = self._feature_view_engine.get_training_data(
+        td, df = self._feature_view_engine._get_training_data(
             self,
             read_options,
             training_dataset_obj=td,
@@ -3053,7 +3049,7 @@ class FeatureView:
             )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_training_data(
         self,
         training_dataset_version: int,
@@ -3115,7 +3111,7 @@ class FeatureView:
         Returns:
             (X, y): Tuple of dataframe of features and labels
         """
-        td, df = self._feature_view_engine.get_training_data(
+        td, df = self._feature_view_engine._get_training_data(
             self,
             read_options,
             training_dataset_version=training_dataset_version,
@@ -3126,11 +3122,11 @@ class FeatureView:
             transformation_context=transformation_context,
         )
         self.update_last_accessed_training_dataset(td.version)
-        util.check_missing_mandatory_tags(td.missing_mandatory_tags)
+        util._check_missing_mandatory_tags(td.missing_mandatory_tags)
         return df
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_train_test_split(
         self,
         training_dataset_version: int,
@@ -3189,7 +3185,7 @@ class FeatureView:
             (X_train, X_test, y_train, y_test):
                 Tuple of dataframe of features and labels
         """
-        td, df = self._feature_view_engine.get_training_data(
+        td, df = self._feature_view_engine._get_training_data(
             self,
             read_options,
             training_dataset_version=training_dataset_version,
@@ -3204,7 +3200,7 @@ class FeatureView:
         return df
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_train_validation_test_split(
         self,
         training_dataset_version: int,
@@ -3265,7 +3261,7 @@ class FeatureView:
             (X_train, X_val, X_test, y_train, y_val, y_test):
                 Tuple of dataframe of features and labels
         """
-        td, df = self._feature_view_engine.get_training_data(
+        td, df = self._feature_view_engine._get_training_data(
             self,
             read_options,
             training_dataset_version=training_dataset_version,
@@ -3284,7 +3280,7 @@ class FeatureView:
         return df
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_training_datasets(self) -> list[training_dataset.TrainingDatasetBase]:
         """Returns the metadata of all training datasets created with this feature view.
 
@@ -3306,16 +3302,16 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        tds = self._feature_view_engine.get_training_datasets(self)
+        tds = self._feature_view_engine._get_training_datasets(self)
         for td in tds:
-            util.check_missing_mandatory_tags(
+            util._check_missing_mandatory_tags(
                 td.missing_mandatory_tags,
                 message=f"Training dataset '{td.name}' version {td.version} has missing mandatory tags",
             )
         return tds
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_training_dataset_statistics(
         self,
         training_dataset_version: int,
@@ -3344,7 +3340,7 @@ class FeatureView:
         Returns:
             `Statistics`
         """
-        return self._statistics_engine.get(
+        return self._statistics_engine._get(
             self,
             training_dataset_version=training_dataset_version,
             before_transformation=before_transformation,
@@ -3352,7 +3348,7 @@ class FeatureView:
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def add_training_dataset_tag(
         self,
         training_dataset_version: int,
@@ -3385,12 +3381,12 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        return self._feature_view_engine.add_tag(
+        return self._feature_view_engine._add_tag(
             self, name, value, training_dataset_version=training_dataset_version
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_training_dataset_tag(
         self, training_dataset_version: int, name: str
     ) -> tag.Tag | None:
@@ -3421,12 +3417,12 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        return self._feature_view_engine.get_tag(
+        return self._feature_view_engine._get_tag(
             self, name, training_dataset_version=training_dataset_version
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_training_dataset_tags(
         self, training_dataset_version: int
     ) -> dict[str, tag.Tag]:
@@ -3455,12 +3451,12 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        return self._feature_view_engine.get_tags(
+        return self._feature_view_engine._get_tags(
             self, training_dataset_version=training_dataset_version
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def delete_training_dataset_tag(
         self, training_dataset_version: int, name: str
     ) -> None:
@@ -3488,12 +3484,12 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request
         """
-        return self._feature_view_engine.delete_tag(
+        return self._feature_view_engine._delete_tag(
             self, name, training_dataset_version=training_dataset_version
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def purge_training_data(self, training_dataset_version: int) -> None:
         """Delete a training dataset (data only).
 
@@ -3517,12 +3513,12 @@ class FeatureView:
         """
         if self._last_accessed_training_dataset == training_dataset_version:
             self.update_last_accessed_training_dataset(None)
-        self._feature_view_engine.delete_training_dataset_only(
+        self._feature_view_engine._delete_training_dataset_only(
             self, training_data_version=training_dataset_version
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def purge_all_training_data(self) -> None:
         """Delete all training datasets (data only).
 
@@ -3543,10 +3539,10 @@ class FeatureView:
         """
         if self._last_accessed_training_dataset is not None:
             self.update_last_accessed_training_dataset(None)
-        self._feature_view_engine.delete_training_dataset_only(self)
+        self._feature_view_engine._delete_training_dataset_only(self)
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def delete_training_dataset(self, training_dataset_version: int) -> None:
         """Delete a training dataset. This will delete both metadata and training data.
 
@@ -3572,12 +3568,12 @@ class FeatureView:
         """
         if self._last_accessed_training_dataset == training_dataset_version:
             self.update_last_accessed_training_dataset(None)
-        self._feature_view_engine.delete_training_data(
+        self._feature_view_engine._delete_training_data(
             self, training_data_version=training_dataset_version
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def delete_all_training_datasets(self) -> None:
         """Delete all training datasets. This will delete both metadata and training data.
 
@@ -3598,7 +3594,7 @@ class FeatureView:
         """
         if self._last_accessed_training_dataset is not None:
             self.update_last_accessed_training_dataset(None)
-        self._feature_view_engine.delete_training_data(self)
+        self._feature_view_engine._delete_training_data(self)
 
     @public
     def get_feature_monitoring_configs(
@@ -3650,7 +3646,7 @@ class FeatureView:
                 "Only Feature Group registered with Hopsworks can fetch feature monitoring configurations."
             )
 
-        return self._feature_monitoring_config_engine.get_feature_monitoring_configs(
+        return self._feature_monitoring_config_engine._get_feature_monitoring_configs(
             name=name,
             feature_name=feature_name,
             config_id=config_id,
@@ -3711,7 +3707,7 @@ class FeatureView:
                 "Only Feature View registered with Hopsworks can fetch feature monitoring history."
             )
 
-        return self._feature_monitoring_result_engine.get_feature_monitoring_results(
+        return self._feature_monitoring_result_engine._get_feature_monitoring_results(
             config_name=config_name,
             config_id=config_id,
             start_time=start_time,
@@ -4058,7 +4054,7 @@ class FeatureView:
         Returns:
             The feature vector that contains all on-demand features in the feature view.
         """
-        return self._vector_server.compute_on_demand_features(
+        return self._vector_server._compute_on_demand_features(
             feature_vectors=feature_vector,
             request_parameters=request_parameters,
             transformation_context=transformation_context,
@@ -4096,7 +4092,7 @@ class FeatureView:
         if not self._vector_server._serving_initialized:
             self.init_serving(external=external)
 
-        return self._vector_server.transform(
+        return self._vector_server._transform(
             feature_vectors=feature_vector,
             transformation_context=transformation_context,
             return_type=return_type,
@@ -4141,8 +4137,8 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: In case the backend encounters an issue
         """
-        fv = self._feature_view_engine.enable_feature_logging(self, extra_log_columns)
-        self._feature_logging = self._feature_view_engine.get_feature_logging(fv)
+        fv = self._feature_view_engine._enable_feature_logging(self, extra_log_columns)
+        self._feature_logging = self._feature_view_engine._get_feature_logging(fv)
         return fv
 
     @public
@@ -4321,7 +4317,7 @@ class FeatureView:
                 stacklevel=1,
             )
             logging_features = (
-                self._feature_view_engine.get_logging_feature_from_dataframe(
+                self._feature_view_engine._get_logging_feature_from_dataframe(
                     dataframes=[
                         untransformed_features,
                         transformed_features,
@@ -4336,7 +4332,7 @@ class FeatureView:
                 )
             )
             self.enable_logging(extra_log_columns=logging_features)
-        return self._feature_view_engine.log_features(
+        return self._feature_view_engine._log_features(
             self,
             feature_logging=self.feature_logging,
             logs=logging_data,
@@ -4388,7 +4384,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to retrieve the log timeline.
         """
-        return self._feature_view_engine.get_log_timeline(
+        return self._feature_view_engine._get_log_timeline(
             self, wallclock_time, limit, transformed
         )
 
@@ -4438,7 +4434,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to read the log entries.
         """
-        return self._feature_view_engine.read_feature_logs(
+        return self._feature_view_engine._read_feature_logs(
             self,
             start_time,
             end_time,
@@ -4463,7 +4459,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to pause feature logging.
         """
-        self._feature_view_engine.pause_logging(self)
+        self._feature_view_engine._pause_logging(self)
 
     @public
     def resume_logging(self) -> None:
@@ -4478,7 +4474,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to pause feature logging.
         """
-        self._feature_view_engine.resume_logging(self)
+        self._feature_view_engine._resume_logging(self)
 
     @public
     def materialize_log(
@@ -4502,7 +4498,7 @@ class FeatureView:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to materialize the log.
         """
-        return self._feature_view_engine.materialize_feature_logs(
+        return self._feature_view_engine._materialize_feature_logs(
             self, wait, transformed
         )
 
@@ -4523,7 +4519,7 @@ class FeatureView:
              hopsworks.client.exceptions.RestAPIError: in case the backend fails to delete the log.
         """
         if self.feature_logging is not None:
-            self._feature_view_engine.delete_feature_logs(
+            self._feature_view_engine._delete_feature_logs(
                 self, self.feature_logging, transformed
             )
 
@@ -4556,7 +4552,7 @@ class FeatureView:
         from hsfs.feature_logger_async import AsyncFeatureLogger
 
         return AsyncFeatureLogger(
-            project_id=int(client.get_instance()._project_id),
+            project_id=int(client._get_instance()._project_id),
             source="localhost",
             namespace=os.environ["HOPSWORKS_PROJECT_NAME"].replace("_", "-"),
             deployment_name=os.environ["DEPLOYMENT_NAME"],
@@ -4628,7 +4624,7 @@ class FeatureView:
                 - `dict[str, Any]` if input was a dictionary
         """
         if self._on_demand_transformation_functions:
-            data = self._feature_view_engine.apply_transformations(
+            data = self._feature_view_engine._apply_transformations(
                 transformation_functions=self._on_demand_transformation_functions,
                 data=data,
                 online=online,
@@ -4702,7 +4698,7 @@ class FeatureView:
                 - `dict[str, Any]` if input was a dictionary
         """
         if self.transformation_functions:
-            data = self._feature_view_engine.apply_transformations(
+            data = self._feature_view_engine._apply_transformations(
                 transformation_functions=self.transformation_functions,
                 data=data,
                 online=online,
@@ -4788,7 +4784,7 @@ class FeatureView:
             "type": "featureViewDTO",
             "extraLogColumns": self._extra_log_columns,
         }
-        tags_dict = tag.Tag.tags_to_dict(self._tags)
+        tags_dict = tag.Tag._tags_to_dict(self._tags)
         if tags_dict:
             fv_dict["tags"] = tags_dict
         return fv_dict
@@ -4816,7 +4812,7 @@ class FeatureView:
         Returns:
             List of training dataset features objects.
         """
-        return self._feature_view_engine.get_training_dataset_schema(
+        return self._feature_view_engine._get_training_dataset_schema(
             self, training_dataset_version
         )
 
@@ -4866,6 +4862,7 @@ class FeatureView:
     def version(self, version: int) -> None:
         self._version = version
 
+    @public
     @property
     def missing_mandatory_tags(self) -> list[dict[str, Any]]:
         """List of missing mandatory tags for the feature view."""
@@ -4882,7 +4879,7 @@ class FeatureView:
 
     @labels.setter
     def labels(self, labels: list[str]) -> None:
-        self._labels = [util.autofix_feature_name(lb) for lb in labels]
+        self._labels = [util._autofix_feature_name(lb) for lb in labels]
 
     @public
     @property
@@ -4896,7 +4893,7 @@ class FeatureView:
     @inference_helper_columns.setter
     def inference_helper_columns(self, inference_helper_columns: list[str]) -> None:
         self._inference_helper_columns = [
-            util.autofix_feature_name(exf) for exf in inference_helper_columns
+            util._autofix_feature_name(exf) for exf in inference_helper_columns
         ]
 
     @public
@@ -4911,7 +4908,7 @@ class FeatureView:
     @training_helper_columns.setter
     def training_helper_columns(self, training_helper_columns: list[str]) -> None:
         self._training_helper_columns = [
-            util.autofix_feature_name(exf) for exf in training_helper_columns
+            util._autofix_feature_name(exf) for exf in training_helper_columns
         ]
 
     @public
@@ -4989,7 +4986,7 @@ class FeatureView:
         return {
             transformation_function.hopsworks_udf.output_column_names[
                 0
-            ]: transformation_function.hopsworks_udf.get_udf()
+            ]: transformation_function.hopsworks_udf._get_udf()
             for transformation_function in self.transformation_functions
         }
 
@@ -4998,7 +4995,7 @@ class FeatureView:
     def on_demand_transformations(self) -> dict[str, Callable]:
         """Get On-Demand transformations as a dictionary mapping on-demand feature names to transformation function."""
         return {
-            feature.on_demand_transformation_function.hopsworks_udf.function_name: feature.on_demand_transformation_function.hopsworks_udf.get_udf()
+            feature.on_demand_transformation_function.hopsworks_udf.function_name: feature.on_demand_transformation_function.hopsworks_udf._get_udf()
             for feature in self.features
             if feature.on_demand_transformation_function
         }
@@ -5069,8 +5066,8 @@ class FeatureView:
             or self._serving_keys is None
             or len(self._serving_keys) == 0
         ):
-            self._serving_keys = util.build_serving_keys_from_prepared_statements(
-                self._feature_view_engine._feature_view_api.get_serving_prepared_statement(
+            self._serving_keys = util._build_serving_keys_from_prepared_statements(
+                self._feature_view_engine._feature_view_api._get_serving_prepared_statement(
                     name=self.name,
                     version=self.version,
                     batch=False,
@@ -5100,7 +5097,7 @@ class FeatureView:
     def feature_logging(self) -> FeatureLogging | None:
         """Feature logging feature groups of this feature view."""
         if self.logging_enabled and self._feature_logging is None:
-            self._feature_logging = self._feature_view_engine.get_feature_logging(self)
+            self._feature_logging = self._feature_view_engine._get_feature_logging(self)
         return self._feature_logging
 
     def _get_spine_fg_ids(self) -> list[feature_group.SpineGroup]:

@@ -142,8 +142,10 @@ class Scheduler:
                 step_name = s.id.split(".")[-1] if "." in s.id else s.id
                 # Map common prefixes to standard role names
                 role = step_name.replace("spawn_", "").replace("evaluate_", "")
+                # When step_id is too generic to derive specific roles (e.g. "evaluate.spawn"),
+                # fall back to standard eval roles so score collection finds actual report files.
                 if not role or role == "spawn":
-                    role = step_name
+                    return list(cls.EVAL_ROLES)
                 roles.append({"name": role, "agent_type": s.agent_type or "general-purpose"})
 
         return roles if roles else list(cls.EVAL_ROLES)

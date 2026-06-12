@@ -66,7 +66,7 @@ def test_MetricName():
 
 
 def test_simple_stats(mocker, time_keeper, metrics):
-    mocker.patch('time.time', side_effect=time_keeper.time)
+    mocker.patch('time.monotonic', side_effect=time_keeper.time)
     config = metrics._config
 
     measurable = ConstantMeasurable()
@@ -215,7 +215,7 @@ def test_remove_sensor(metrics):
 
 
 def test_remove_inactive_metrics(mocker, time_keeper, metrics):
-    mocker.patch('time.time', side_effect=time_keeper.time)
+    mocker.patch('time.monotonic', side_effect=time_keeper.time)
 
     s1 = metrics.sensor('test.s1', None, 1)
     s1.add(metrics.metric_name('test.s1.count', 'grp1'), Count())
@@ -289,7 +289,7 @@ def test_remove_metric(metrics):
 
 
 def test_event_windowing(mocker, time_keeper):
-    mocker.patch('time.time', side_effect=time_keeper.time)
+    mocker.patch('time.monotonic', side_effect=time_keeper.time)
 
     count = Count()
     config = MetricConfig(event_window=1, samples=2)
@@ -301,7 +301,7 @@ def test_event_windowing(mocker, time_keeper):
 
 
 def test_time_windowing(mocker, time_keeper):
-    mocker.patch('time.time', side_effect=time_keeper.time)
+    mocker.patch('time.monotonic', side_effect=time_keeper.time)
 
     count = Count()
     config = MetricConfig(time_window_ms=1, samples=2)
@@ -315,7 +315,7 @@ def test_time_windowing(mocker, time_keeper):
 
 
 def test_old_data_has_no_effect(mocker, time_keeper):
-    mocker.patch('time.time', side_effect=time_keeper.time)
+    mocker.patch('time.monotonic', side_effect=time_keeper.time)
 
     max_stat = Max()
     min_stat = Min()
@@ -342,7 +342,7 @@ def test_duplicate_MetricName(metrics):
         metrics.sensor('test2').add(metrics.metric_name('test', 'grp1'), Total())
 
 
-def test_Quotas(metrics):
+def test_quotas(metrics):
     sensor = metrics.sensor('test')
     sensor.add(metrics.metric_name('test1.total', 'grp1'), Total(),
                MetricConfig(quota=Quota.upper_bound(5.0)))
@@ -360,7 +360,7 @@ def test_Quotas(metrics):
         sensor.record(-1.0)
 
 
-def test_Quotas_equality():
+def test_quotas_equality():
     quota1 = Quota.upper_bound(10.5)
     quota2 = Quota.lower_bound(10.5)
     assert quota1 != quota2, 'Quota with different upper values should not be equal'
@@ -369,7 +369,7 @@ def test_Quotas_equality():
     assert quota2 == quota3, 'Quota with same upper and bound values should be equal'
 
 
-def test_Percentiles(metrics):
+def test_percentiles(metrics):
     buckets = 100
     _percentiles = [
         Percentile(metrics.metric_name('test.p25', 'grp1'), 25),
@@ -401,7 +401,7 @@ def test_Percentiles(metrics):
     assert p75.value() < 1.0
 
 def test_rate_windowing(mocker, time_keeper, metrics):
-    mocker.patch('time.time', side_effect=time_keeper.time)
+    mocker.patch('time.monotonic', side_effect=time_keeper.time)
 
     # Use the default time window. Set 3 samples
     config = MetricConfig(samples=3)
@@ -425,7 +425,7 @@ def test_rate_windowing(mocker, time_keeper, metrics):
     kafka_metric = metrics.metrics.get(metrics.metric_name('test.rate', 'grp1'))
     assert abs((sum_val / elapsed_secs) - kafka_metric.value()) < EPS, \
             'Rate(0...2) = 2.666'
-    assert abs(elapsed_secs - (kafka_metric.measurable.window_size(config, time.time() * 1000) / 1000.0)) \
+    assert abs(elapsed_secs - (kafka_metric.measurable.window_size(config, time.monotonic() * 1000) / 1000.0)) \
             < EPS, 'Elapsed Time = 75 seconds'
 
 
@@ -464,12 +464,12 @@ class ConstantMeasurable(AbstractMeasurable):
         return self._value
 
 
-class TimeKeeper(object):
+class TimeKeeper:
     """
     A clock that you can manually advance by calling sleep
     """
     def __init__(self, auto_tick_ms=0):
-        self._millis = time.time() * 1000
+        self._millis = time.monotonic() * 1000
         self._auto_tick_ms = auto_tick_ms
 
     def time(self):

@@ -255,13 +255,23 @@ def _read_tsconfig_aliases(tsconfig: Path, base_dir: Path, seen: set) -> dict[st
         if extended_path.exists():
             aliases.update(_read_tsconfig_aliases(extended_path, extended_path.parent, seen))
 
-    paths = data.get("compilerOptions", {}).get("paths", {})
+    # tsconfig `paths` are resolved relative to `baseUrl` (itself relative to
+    # the tsconfig's directory), not the tsconfig directory directly. Honoring
+    # baseUrl is required for the common monorepo / NestJS layout where
+    # baseUrl points at a subdirectory, e.g. baseUrl "./src" with
+    # "@services/*": ["services/*"] must resolve to <dir>/src/services rather
+    # than <dir>/services. Defaults to "." so configs without baseUrl (paths
+    # relative to the tsconfig dir, the TS 4.1+ behavior) keep working.
+    compiler_options = data.get("compilerOptions", {})
+    base_url = compiler_options.get("baseUrl") or "."
+    paths_base = base_dir / base_url
+    paths = compiler_options.get("paths", {})
     for alias, targets in paths.items():
         if not targets:
             continue
         alias_prefix = alias.rstrip("/*")
         target_base = targets[0].rstrip("/*")
-        aliases[alias_prefix] = str(base_dir / target_base)
+        aliases[alias_prefix] = str(os.path.normpath(paths_base / target_base))
 
     return aliases
 
@@ -4541,7 +4551,7 @@ def extract_dart(path: Path) -> dict:
             mixin_clean = mixin.split("<")[0].strip()
             mixin_nid = _make_id(mixin_clean)
             add_node(mixin_nid, mixin_clean, source_file=None)
-            add_edge(class_nid, mixin_nid, "implements")
+            add_edge(class_nid, mixin_nid, "mixes_in")
 
         # Map interfaces
         for interface in interfaces_list:
@@ -4823,8 +4833,209 @@ def extract_dart(path: Path) -> dict:
     return {"nodes": nodes, "edges": edges}
 
 
+def _sv_first_identifier(node, source: bytes) -> str | None:
+    """First `simple_identifier` under node in pre-order, or None.
+
+    tree-sitter-verilog 1.0.3 nests declaration names a few levels deep instead
+    of exposing a `name` field. Scope the search to the right child node (e.g.
+    `function_identifier`) or this returns the return-type instead of the name.
+    """
+    if node is None:
+        return None
+    for child in node.children:
+        if child.type == "simple_identifier":
+            return _read_text(child, source)
+        found = _sv_first_identifier(child, source)
+        if found:
+            return found
+    return None
+
+
+def _sv_child(node, type_name: str) -> object | None:
+    if node is None:
+        return None
+    for child in node.children:
+        if child.type == type_name:
+            return child
+    return None
+
+
+_SV_BUILTIN_TYPES = frozenset({
+    "bit", "logic", "reg", "wire", "int", "integer", "shortint", "longint",
+    "byte", "time", "real", "shortreal", "void", "string", "type", "event",
+    "mailbox", "semaphore", "process", "chandle",
+})
+
+_SV_NON_TYPE_WORDS = frozenset({
+    "return", "if", "else", "for", "foreach", "while", "case", "begin", "end",
+    "function", "task", "class", "endclass", "endfunction", "endtask",
+})
+
+# One level of balanced parens (e.g. `Foo #(Bar #(int))`) — bounded so malformed
+# input cannot trigger pathological backtracking.
+_SV_PARENS_INNER = r"(?:[^()]|\([^()]*\))*"
+_SV_PARENS = r"\(" + _SV_PARENS_INNER + r"\)"
+
+_SV_FUNC_RE = re.compile(
+    r"\bfunction\s+([A-Za-z_]\w*(?:\s*#\s*" + _SV_PARENS + r")?)\s+(\w+)\s*"
+    r"\((" + _SV_PARENS_INNER + r")\)\s*;",
+    re.MULTILINE,
+)
+
+_SV_PARAM_RE = re.compile(
+    r"\s*(?:input|output|inout|ref|const\s+ref)?\s*"
+    r"([A-Za-z_]\w*(?:\s*#\s*" + _SV_PARENS + r")?)\s+\w+"
+)
+
+
+def _sv_strip_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    return re.sub(r"//.*", "", text)
+
+
+def _sv_split_type_list(text: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for idx, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == "," and depth == 0:
+            item = text[start:idx].strip()
+            if item:
+                parts.append(item)
+            start = idx + 1
+    item = text[start:].strip()
+    if item:
+        parts.append(item)
+    return parts
+
+
+def _sv_collect_type_refs(type_text: str, generic: bool = False,
+                          skip: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
+    refs: list[tuple[str, str]] = []
+    text = type_text.strip()
+    if not text:
+        return refs
+    head = re.match(r"([A-Za-z_]\w*)", text)
+    if head:
+        name = head.group(1)
+        # `skip` carries the enclosing class's `#(type T = ...)` parameters so
+        # they are not mistaken for referenced types.
+        if name not in _SV_BUILTIN_TYPES and name not in _SV_NON_TYPE_WORDS and name not in skip:
+            refs.append((name, "generic_arg" if generic else "type"))
+    params = re.search(r"#\s*\((" + _SV_PARENS_INNER + r")\)", text)
+    if params:
+        for arg in _sv_split_type_list(params.group(1)):
+            refs.extend(_sv_collect_type_refs(arg, generic=True, skip=skip))
+    return refs
+
+
+def _augment_systemverilog_semantics(
+    raw: str,
+    stem: str,
+    str_path: str,
+    file_nid: str,
+    nodes: list[dict],
+    edges: list[dict],
+    seen_ids: set[str],
+) -> None:
+    label_to_nid = {node["label"]: node["id"] for node in nodes}
+
+    def line_for(offset: int) -> int:
+        return raw.count("\n", 0, offset) + 1
+
+    def add_node(nid: str, label: str, line: int) -> None:
+        if nid not in seen_ids:
+            seen_ids.add(nid)
+            nodes.append({"id": nid, "label": label, "file_type": "code",
+                          "source_file": str_path, "source_location": f"L{line}",
+                          "confidence_score": 1.0})
+        label_to_nid[label] = nid
+
+    def ensure_type(label: str, line: int) -> str:
+        if label in label_to_nid:
+            return label_to_nid[label]
+        nid = _make_id(stem, label)
+        add_node(nid, label, line)
+        return nid
+
+    def add_edge(src: str, target_label: str, relation: str, line: int, context: str | None = None) -> None:
+        tgt = ensure_type(target_label, line)
+        edge = {"source": src, "target": tgt, "relation": relation,
+                "confidence": "EXTRACTED", "confidence_score": 1.0,
+                "source_file": str_path, "source_location": f"L{line}", "weight": 1.0}
+        if context:
+            edge["context"] = context
+        edges.append(edge)
+
+    text = _sv_strip_comments(raw)
+    # Consuming `endclass` (rather than a lookahead) makes each match own its
+    # terminator, so back-to-back or malformed classes cannot bleed bodies.
+    class_re = re.compile(
+        r"\b(?:(interface)\s+)?class\s+(\w+)([^;{]*)\s*;(.*?)\bendclass\b",
+        re.DOTALL,
+    )
+    for match in class_re.finditer(text):
+        class_name = match.group(2)
+        header = match.group(3) or ""
+        body = match.group(4) or ""
+        line = line_for(match.start())
+        # `#(type T = Payload)` declares `T` as a class type parameter, not a
+        # referenced type — collect these to skip below.
+        type_params = frozenset(re.findall(r"\btype\s+(\w+)", header))
+        class_nid = _make_id(stem, class_name)
+        add_node(class_nid, class_name, line)
+        edges.append({"source": file_nid, "target": class_nid, "relation": "defines",
+                      "confidence": "EXTRACTED", "confidence_score": 1.0,
+                      "source_file": str_path, "source_location": f"L{line}", "weight": 1.0})
+
+        ext = re.search(r"\bextends\s+(\w+)", header)
+        if ext:
+            add_edge(class_nid, ext.group(1), "inherits", line)
+        impl = re.search(r"\bimplements\s+([^;{]+)", header)
+        if impl:
+            for iface_name in _sv_split_type_list(impl.group(1)):
+                add_edge(class_nid, iface_name.split("#", 1)[0].strip(), "implements", line)
+
+        body_without_functions = re.sub(
+            r"\bfunction\b.*?\bendfunction\b",
+            lambda m: "\n" * m.group(0).count("\n"),
+            body,
+            flags=re.DOTALL,
+        )
+        for field in re.finditer(r"^\s*([A-Za-z_]\w*(?:\s*#\s*\([^;]+?\))?)\s+\w+\s*;", body_without_functions, re.MULTILINE):
+            # Count to the start of the type token (group 1), not the match
+            # start: `^\s*` consumes the leading newline(s), so field.start()
+            # would resolve to the class's line instead of the field's.
+            field_line = line + body_without_functions.count("\n", 0, field.start(1))
+            for ref_name, role in _sv_collect_type_refs(field.group(1), skip=type_params):
+                add_edge(class_nid, ref_name, "references", field_line, "generic_arg" if role == "generic_arg" else "field")
+
+        for fm in _SV_FUNC_RE.finditer(body):
+            return_type, func_name, params = fm.group(1), fm.group(2), fm.group(3)
+            func_line = line + body.count("\n", 0, fm.start())
+            func_nid = _make_id(class_nid, func_name)
+            add_node(func_nid, func_name, func_line)
+            edges.append({"source": class_nid, "target": func_nid, "relation": "method",
+                          "confidence": "EXTRACTED", "confidence_score": 1.0,
+                          "source_file": str_path, "source_location": f"L{func_line}", "weight": 1.0})
+            for ref_name, role in _sv_collect_type_refs(return_type, skip=type_params):
+                add_edge(func_nid, ref_name, "references", func_line, "generic_arg" if role == "generic_arg" else "return_type")
+            for param in _sv_split_type_list(params):
+                pm = _SV_PARAM_RE.match(param)
+                if not pm:
+                    continue
+                for ref_name, role in _sv_collect_type_refs(pm.group(1), skip=type_params):
+                    add_edge(func_nid, ref_name, "references", func_line, "generic_arg" if role == "generic_arg" else "parameter_type")
+
+
 def extract_verilog(path: Path) -> dict:
-    """Extract modules, functions, tasks, package imports, and instantiations from .v/.sv files."""
+    """Extract modules, functions, tasks, package imports, instantiations, and
+    SystemVerilog class semantics (inherits/implements edges, field/parameter/
+    return-type references) from .v/.sv files."""
     try:
         import tree_sitter_verilog as tsverilog
         from tree_sitter import Language, Parser
@@ -4865,10 +5076,15 @@ def extract_verilog(path: Path) -> dict:
     def walk(node, module_nid: str | None = None) -> None:
         t = node.type
 
+        # SystemVerilog class bodies are handled by _augment_systemverilog_semantics
+        # (regex over source text). Skip their subtrees so in-class methods are not
+        # double-emitted here — and with the wrong, return-type-derived name.
+        if t in ("class_declaration", "interface_class_declaration"):
+            return
+
         if t == "module_declaration":
-            name_node = node.child_by_field_name("name")
-            if name_node:
-                mod_name = _read_text(name_node, source)
+            mod_name = _sv_first_identifier(_sv_child(node, "module_header"), source)
+            if mod_name:
                 line = node.start_point[0] + 1
                 nid = _make_id(stem, mod_name)
                 add_node(nid, mod_name, line)
@@ -4877,10 +5093,13 @@ def extract_verilog(path: Path) -> dict:
                     walk(child, nid)
                 return
 
-        elif t in ("function_declaration", "function_prototype"):
-            name_node = node.child_by_field_name("name")
-            if name_node:
-                func_name = _read_text(name_node, source)
+        # `function_prototype` only appears inside class/interface-class bodies
+        # (skipped above) and nests its name differently; it is intentionally not
+        # handled here.
+        elif t == "function_declaration":
+            fn_body = _sv_child(node, "function_body_declaration")
+            func_name = _sv_first_identifier(_sv_child(fn_body, "function_identifier"), source)
+            if func_name:
                 line = node.start_point[0] + 1
                 parent = module_nid or file_nid
                 nid = _make_id(parent, func_name)
@@ -4888,9 +5107,9 @@ def extract_verilog(path: Path) -> dict:
                 add_edge(parent, nid, "contains", line)
 
         elif t == "task_declaration":
-            name_node = node.child_by_field_name("name")
-            if name_node:
-                task_name = _read_text(name_node, source)
+            tk_body = _sv_child(node, "task_body_declaration")
+            task_name = _sv_first_identifier(_sv_child(tk_body, "task_identifier"), source)
+            if task_name:
                 line = node.start_point[0] + 1
                 parent = module_nid or file_nid
                 nid = _make_id(parent, task_name)
@@ -4906,14 +5125,18 @@ def extract_verilog(path: Path) -> dict:
                         line = node.start_point[0] + 1
                         tgt_nid = _make_id(pkg_name)
                         add_node(tgt_nid, pkg_name, line)
-                        src = module_nid or file_nid
-                        add_edge(src, tgt_nid, "imports_from", line)
+                        src_nid = module_nid or file_nid
+                        add_edge(src_nid, tgt_nid, "imports_from", line)
 
-        elif t == "module_instantiation":
-            # module_type instantiates another module
-            type_node = node.child_by_field_name("module_type")
-            if type_node and module_nid:
-                inst_type = _read_text(type_node, source).strip()
+        elif t in ("module_instantiation", "checker_instantiation"):
+            # `leaf u_leaf();` parses as checker_instantiation in 1.0.3;
+            # module_instantiation (when it occurs) exposes a `module_type` field.
+            # Both reduce to the first identifier under the node — the instantiated
+            # type, not the instance name (which appears later).
+            if module_nid:
+                type_node = node.child_by_field_name("module_type")
+                inst_type = (_read_text(type_node, source).strip() if type_node
+                             else _sv_first_identifier(node, source))
                 if inst_type:
                     line = node.start_point[0] + 1
                     tgt_nid = _make_id(inst_type)
@@ -4924,6 +5147,15 @@ def extract_verilog(path: Path) -> dict:
             walk(child, module_nid)
 
     walk(root)
+    _augment_systemverilog_semantics(
+        source.decode("utf-8", errors="replace"),
+        stem,
+        str_path,
+        file_nid,
+        nodes,
+        edges,
+        seen_ids,
+    )
     return {"nodes": nodes, "edges": edges}
 
 
@@ -7275,6 +7507,43 @@ def _js_exported_declaration_names(node, source: bytes) -> list[str]:
     return names
 
 
+def _js_default_import_name(node, source: bytes) -> str | None:
+    """Local binding of a default import: the `Foo` in `import Foo from './x'`.
+
+    The default binding is a bare identifier child of the import_clause (named
+    imports live in a `named_imports` node, namespace imports in a
+    `namespace_import` node), so it is also picked up from the mixed form
+    `import Foo, { Bar } from './x'`.
+    """
+    for child in node.children:
+        if child.type == "import_clause":
+            for sub in child.children:
+                if sub.type == "identifier":
+                    return _read_text(sub, source)
+    return None
+
+
+def _js_default_export_name(node, source: bytes) -> str | None:
+    """Local name of a default export, or None for anonymous defaults.
+
+    Handles `export default class Foo {}`, `export default function foo() {}`,
+    `export default abstract class Foo {}` (name on the `declaration` field) and
+    `export default Foo` (an identifier on the `value` field). Anonymous defaults
+    (`export default class {}`, `export default {...}`) have no resolvable symbol
+    and return None.
+    """
+    if not any(child.type == "default" for child in node.children):
+        return None
+    declaration = node.child_by_field_name("declaration")
+    if declaration is not None:
+        name_node = declaration.child_by_field_name("name")
+        return _read_text(name_node, source) if name_node is not None else None
+    value = node.child_by_field_name("value")
+    if value is not None and value.type == "identifier":
+        return _read_text(value, source)
+    return None
+
+
 def _js_top_level_function_bodies(path: Path, root_node, source: bytes) -> list[tuple[str, object]]:
     bodies: list[tuple[str, object]] = []
     stem = _file_stem(path)
@@ -7525,6 +7794,17 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
                         node.start_point[0] + 1,
                     )
                 )
+            default_local = _js_default_import_name(node, source)
+            if default_local is not None:
+                facts.imports.append(
+                    _SymbolImportFact(
+                        path,
+                        default_local,
+                        target_path,
+                        "default",
+                        node.start_point[0] + 1,
+                    )
+                )
 
         for node in _walk_js_tree(root_node):
             for alias, target in _js_lexical_aliases(node, source):
@@ -7590,6 +7870,21 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
                         exported_name,
                         node.start_point[0] + 1,
                         local_name=exported_name,
+                    )
+                )
+
+            # `export default class Foo {}` / `export default foo` exposes the
+            # symbol under the name "default"; record that so a default import
+            # (imported_name="default") resolves to it. `export { X as default }`
+            # is already handled via the export_clause path above.
+            default_name = _js_default_export_name(node, source)
+            if default_name is not None:
+                facts.exports.append(
+                    _SymbolExportFact(
+                        path,
+                        "default",
+                        node.start_point[0] + 1,
+                        local_name=default_name,
                     )
                 )
 
@@ -11704,18 +11999,34 @@ def collect_files(target: Path, *, follow_symlinks: bool = False, root: Path | N
     from graphify.detect import _is_ignored, _is_noise_dir, _load_graphifyignore
     ignore_root = root if root is not None else target
     patterns = _load_graphifyignore(ignore_root)
+    # Shared across all _is_ignored calls in this scan so ancestor-directory
+    # results are memoised instead of re-evaluated per file.
+    ignore_cache: dict[Path, bool] = {}
 
     def _ignored(p: Path) -> bool:
-        return bool(patterns and _is_ignored(p, ignore_root, patterns))
+        return bool(patterns and _is_ignored(p, ignore_root, patterns, _cache=ignore_cache))
 
     if not follow_symlinks:
+        # The old rglob filter rejected paths with a noise component anywhere,
+        # including components of target itself — preserve that.
+        if any(_is_noise_dir(part) for part in target.parts):
+            return []
+        # When negation (!) patterns exist, skip directory-level ignore pruning
+        # so negated files inside ignored dirs can still be reached (same
+        # conservatism as detect's scan walk).
+        has_negation = any(pat.startswith("!") for _, pat in patterns)
         results: list[Path] = []
-        for ext in sorted(_EXTENSIONS):
-            results.extend(
-                p for p in target.rglob(f"*{ext}")
-                if not any(_is_noise_dir(part) for part in p.parts)
-                and not _ignored(p)
-            )
+        for dirpath, dirnames, filenames in os.walk(target):
+            dp = Path(dirpath)
+            dirnames[:] = [
+                d for d in dirnames
+                if not _is_noise_dir(d)
+                and (has_negation or not _ignored(dp / d))
+            ]
+            for fname in filenames:
+                p = dp / fname
+                if p.suffix in _EXTENSIONS and not _ignored(p):
+                    results.append(p)
         return sorted(results)
     # Walk with symlink following + cycle detection
     results = []

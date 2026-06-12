@@ -1,20 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hacking
-Version: 8.0.0
+Version: 8.1.0
 Summary: OpenStack Hacking Guideline Enforcement
-Home-page: https://docs.openstack.org/hacking/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
-Project-URL: Bug Tracker, https://bugs.launchpad.net/hacking
-Project-URL: Reviews, https://review.opendev.org/q/p:openstack/hacking+status:open
-Project-URL: CI, https://zuul.opendev.org/t/openstack/builds?project=openstack%2Fhacking
-Project-URL: Source Code, https://opendev.org/openstack/hacking
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/hacking/latest
+Project-URL: Issues, https://bugs.launchpad.net/hacking
+Project-URL: Repository, https://opendev.org/openstack/hacking
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -22,20 +19,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: flake8~=7.3.0
-Provides-Extra: pep257
-Requires-Dist: flake8-docstrings==1.7.0; extra == "pep257"
-Provides-Extra: test
-Requires-Dist: coverage!=4.4,>=4.0; extra == "test"
-Requires-Dist: fixtures>=3.0.0; extra == "test"
-Requires-Dist: python-subunit>=1.0.0; extra == "test"
-Requires-Dist: stestr>=2.0.0; extra == "test"
-Requires-Dist: testscenarios>=0.4; extra == "test"
-Requires-Dist: testtools>=2.2.0; extra == "test"
-Requires-Dist: ddt>=1.2.1; extra == "test"
-Requires-Dist: eventlet!=0.18.3,!=0.20.1,>=0.18.2; extra == "test"
+Dynamic: license-file
+Dynamic: requires-dist
 
 Introduction
 ============
@@ -140,7 +130,11 @@ Some of the available checks are disabled by default. These checks are:
 - [H205] Use assert(Greater|Less)(Equal) for comparison.
 - [H210] Require 'autospec', 'spec', or 'spec_set' in
   mock.patch/mock.patch.object calls
+- [H216] Make sure unittest.mock is used instead of the third party mock
+  library
 - [H904] Delay string interpolations at logging calls.
+- [H905] Do not import eventlet.
+- [H906] Log.warn is deprecated. Enforce use of LOG.warning.
 
 To enable these checks, edit the ``flake8`` section of the ``tox.ini`` file.
 For example to enable H106 and H203:
@@ -188,4 +182,3 @@ The plugins, in the example above they live in
 
 Further details are part of the `flake8 documentation
 <https://flake8.pycqa.org/en/latest/plugin-development/index.html>`_.
-

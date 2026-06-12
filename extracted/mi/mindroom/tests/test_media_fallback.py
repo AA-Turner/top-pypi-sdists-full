@@ -4,14 +4,18 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from agno.media import Audio, Image
+from agno.models.message import Message
 from agno.models.openai import OpenAIChat
 
+from mindroom import ai_runtime
 from mindroom.media_fallback import (
     ModelMediaRoute,
     build_model_media_route,
     filter_media_inputs_for_route,
     reset_model_media_capability_cache,
     retry_media_inputs_after_failure,
+    unsupported_media_kinds_for_route,
 )
 from mindroom.media_inputs import MediaInputs
 
@@ -127,6 +131,31 @@ def test_generic_media_error_retries_without_caching() -> None:
     assert filtered.media_inputs == media
 
 
+def test_context_media_kinds_enable_retry_without_current_turn_media() -> None:
+    """Media pinned to history messages should still trigger retry and teach the cache."""
+    reset_model_media_capability_cache()
+    route = _route()
+
+    decision = retry_media_inputs_after_failure(
+        route,
+        "image input is not supported",
+        MediaInputs(),
+        extra_present_kinds=frozenset({"image"}),
+    )
+
+    assert decision.should_retry is True
+    assert decision.removed_kinds == frozenset({"image"})
+    assert unsupported_media_kinds_for_route(route) == frozenset({"image"})
+    reset_model_media_capability_cache()
+
+
+def test_unsupported_media_kinds_for_route_defaults_empty() -> None:
+    """Unknown and None routes report no learned-unsupported kinds."""
+    reset_model_media_capability_cache()
+    assert unsupported_media_kinds_for_route(None) == frozenset()
+    assert unsupported_media_kinds_for_route(_route()) == frozenset()
+
+
 def test_cache_can_be_reset() -> None:
     """Tests need explicit access to clear process-local learned state."""
     media = _media_inputs()
@@ -151,3 +180,44 @@ def _media_inputs() -> MediaInputs:
         files=(MagicMock(name="file"),),
         videos=(MagicMock(name="video"),),
     )
+
+
+def test_run_input_media_helpers_cover_pinned_history_media() -> None:
+    """Run-input helpers report, collect, and strip media pinned to history messages."""
+    image = Image(content=b"\x89PNG\r\n\x1a\npayload")
+    audio = Audio(content=b"audio-bytes", mime_type="audio/ogg")
+    history = Message(role="user", content="earlier", images=[image], audio=[audio])
+    current = Message(role="user", content="now")
+    run_input = [history, current]
+
+    collected = ai_runtime.media_inputs_from_run_input(run_input)
+    assert collected.kinds() == frozenset({"image", "audio"})
+    assert ai_runtime.media_inputs_from_run_input("plain prompt").kinds() == frozenset()
+    assert list(collected.images) == [image]
+    assert list(collected.audio) == [audio]
+
+    stripped = ai_runtime.append_inline_media_fallback_to_run_input(
+        run_input,
+        fallback_prompt="Use attachment tools instead.",
+        removed_kinds=frozenset({"image"}),
+    )
+    assert stripped[0].images is None
+    assert [item.content for item in (stripped[0].audio or [])] == [audio.content]
+    assert "[Inline media unavailable for this model]" in str(stripped[-1].content)
+    # The original run input stays untouched for later retries.
+    assert history.images == [image]
+
+
+def test_media_inputs_merge_concatenates_preserving_order() -> None:
+    """Merging media inputs keeps left-then-right (chronological) order per kind."""
+    history_image = Image(content=b"\x89PNG\r\n\x1a\nhistory")
+    current_image = Image(content=b"\x89PNG\r\n\x1a\ncurrent")
+    history = MediaInputs(images=(history_image,))
+    current = MediaInputs(images=(current_image,), audio=(Audio(content=b"audio-bytes", mime_type="audio/ogg"),))
+
+    merged = history.merge(current)
+
+    assert list(merged.images) == [history_image, current_image]
+    assert merged.kinds() == frozenset({"image", "audio"})
+    assert MediaInputs().merge(current) == current
+    assert history.merge(MediaInputs()) == history

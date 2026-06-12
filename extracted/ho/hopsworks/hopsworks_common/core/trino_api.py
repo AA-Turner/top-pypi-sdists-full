@@ -31,7 +31,7 @@ from hopsworks_common.client.exceptions import TrinoException
 from hopsworks_common.core import project_api, secret_api
 from hopsworks_common.core.constants import HAS_TRINO
 from hopsworks_common.core.variable_api import VariableApi
-from hopsworks_common.decorators import uses_trino
+from hopsworks_common.decorators import _uses_trino
 
 
 if HAS_TRINO:
@@ -59,7 +59,6 @@ if TYPE_CHECKING:
     from hopsworks_common import project
     from sqlalchemy.engine import Engine
     from trino.dbapi import Connection
-    from trino.transaction import IsolationLevel  # noqa: TC004
 
 
 _logger = logging.getLogger(__name__)
@@ -71,7 +70,7 @@ DEFAULT_SQLALCHEMY_SOURCE = "hopsworks-trino-sqlalchemy"
 HTTPS = "https"
 
 
-@public("hopsworks.core.trino_api.TrinoAPI")
+@public("hopsworks.core.trino_api.TrinoApi")
 class TrinoApi:
     """API for connecting to Trino from within Hopsworks.
 
@@ -115,12 +114,12 @@ class TrinoApi:
         """
         self._variable_api: VariableApi = VariableApi()
         self._service_discovery_domain = (
-            self._variable_api.get_service_discovery_domain()
+            self._variable_api._get_service_discovery_domain()
         )
         self._secret_api: secret_api.SecretsApi = secret_api.SecretsApi()
         self._project_api: project_api.ProjectApi = project_api.ProjectApi()
         if project is None:
-            _client = client.get_instance()
+            _client = client._get_instance()
             self.project_name = _client._project_name
         else:
             self.project_name = project.name
@@ -136,12 +135,12 @@ class TrinoApi:
             The original verify value if verification is handled by the caller or disabled.
         """
         if not client._is_external() and verify is True:
-            _client = client.get_instance()
+            _client = client._get_instance()
             return _client._get_ca_chain_path()
         return verify
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_host(self) -> str:
         """Retrieve the Trino host based on client location.
 
@@ -157,7 +156,7 @@ class TrinoApi:
         """
         _logger.debug("Retrieving Trino host.")
         if client._is_external():
-            external_domain = self._variable_api.get_loadbalancer_external_domain(
+            external_domain = self._variable_api._get_loadbalancer_external_domain(
                 "trino"
             )
             host = external_domain
@@ -172,7 +171,7 @@ class TrinoApi:
         return host
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_port(self) -> int:
         """Get the Trino port number.
 
@@ -203,7 +202,7 @@ class TrinoApi:
         return secret.value
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def get_basic_auth(self) -> tuple[str, str]:
         """Get a tuple containing the username and password for the current project user.
 
@@ -215,7 +214,7 @@ class TrinoApi:
                 If credentials cannot be retrieved from secrets storage or
                 if the client cannot determine the username for the current project user.
         """
-        username = self._project_api.get_user_info().get("username", None)
+        username = self._project_api._get_user_info().get("username", None)
         if username is None:
             raise TrinoException(
                 "Client could not determine username for the current project user."
@@ -224,48 +223,28 @@ class TrinoApi:
         password = self._get_password(user)
         return user, password
 
-    @uses_trino
+    @_uses_trino
     @public
-    @usage.method_logger
+    @usage._method_logger
     def connect(
         self,
         source: str = DEFAULT_SOURCE,
         catalog: str = DEFAULT_CATALOG,
         schema: str = DEFAULT_SCHEMA,
-        session_properties: dict | None = None,
-        http_headers: dict | None = None,
-        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-        request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
-        isolation_level: IsolationLevel = AUTOCOMMIT,
         verify: bool | str = True,
-        http_session: Any = None,
-        client_tags: list[str] | None = None,
-        legacy_primitive_types: bool = False,
-        legacy_prepared_statements: bool | None = None,
-        roles: dict | None = None,
-        timezone: str | None = None,
-        encoding: str | list[str] | None = None,
+        **kwargs: Any,
     ) -> Connection:
         """Connect to Trino using the native DBAPI interface.
+
+        Hopsworks automatically handles authentication, host resolution, and TLS.
+        Any additional keyword arguments are forwarded directly to `trino.dbapi.connect`.
 
         Parameters:
             source: Source identifier for Trino queries.
             catalog: Trino catalog to connect to.
             schema: Database schema within the catalog.
-            session_properties: Dictionary of Trino session properties.
-            http_headers: Additional HTTP headers for the connection.
-            max_attempts: Maximum number of retry attempts for failed requests.
-            request_timeout: Timeout in seconds for each HTTP request.
-            isolation_level: Transaction isolation level.
             verify: Whether to verify SSL certificates.
-                    Set verify="/path/to/cert.crt" if you want to verify the ssl cert (default: True).
-            http_session: Custom HTTP session for connection pooling.
-            client_tags: Tags to identify the client in Trino query logs.
-            legacy_primitive_types: Whether to use legacy primitive type handling.
-            legacy_prepared_statements: Whether to use legacy prepared statement handling.
-            roles: Dictionary mapping catalog names to role names.
-            timezone: Timezone for the session.
-            encoding: Character encoding for the connection.
+                    Set verify="/path/to/cert.crt" if you want to verify the ssl cert.
 
         Returns:
             A connection object implementing the Python DB API 2.0 specification.
@@ -306,62 +285,32 @@ class TrinoApi:
             auth=basic_auth,
             http_scheme=HTTPS,
             verify=self._get_ca_chain_path(verify),
-            session_properties=session_properties,
-            http_headers=http_headers,
-            max_attempts=max_attempts,
-            request_timeout=request_timeout,
-            isolation_level=isolation_level,
-            http_session=http_session,
-            client_tags=client_tags,
-            legacy_primitive_types=legacy_primitive_types,
-            legacy_prepared_statements=legacy_prepared_statements,
-            roles=roles,
-            timezone=timezone,
-            encoding=encoding,
+            **kwargs,
         )
 
-    @uses_trino
+    @_uses_trino
     @public
-    @usage.method_logger
+    @usage._method_logger
     def create_engine(
         self,
         source: str = DEFAULT_SQLALCHEMY_SOURCE,
         catalog: str = DEFAULT_CATALOG,
         schema: str = DEFAULT_SCHEMA,
-        session_properties: dict | None = None,
-        http_headers: dict | None = None,
-        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
-        request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
-        isolation_level: IsolationLevel = AUTOCOMMIT,
         verify: bool | str = True,
-        http_session: Any = None,
-        client_tags: list[str] | None = None,
-        legacy_primitive_types: bool = False,
-        legacy_prepared_statements: bool | None = None,
-        roles: dict | None = None,
-        timezone: str | None = None,
-        encoding: str | list[str] | None = None,
+        **kwargs: Any,
     ) -> Engine:
         """Create a SQLAlchemy engine for Trino.
+
+        Hopsworks automatically handles authentication, host resolution, and TLS.
+        Any additional keyword arguments are forwarded as `connect_args` to the
+        underlying `trino.dbapi.connect` call.
 
         Parameters:
             source: Source identifier for Trino queries.
             catalog: Trino catalog to connect to.
             schema: Database schema within the catalog.
-            session_properties: Dictionary of Trino session properties.
-            http_headers: Additional HTTP headers for the connection.
-            max_attempts: Maximum number of retry attempts for failed requests.
-            request_timeout: Timeout in seconds for each HTTP request.
-            isolation_level: Transaction isolation level.
             verify: Whether to verify SSL certificates.
-                    Set verify="/path/to/cert.crt" if you want to verify the ssl cert (default: True).
-            http_session: Custom HTTP session for connection pooling.
-            client_tags: Tags to identify the client in Trino query logs.
-            legacy_primitive_types: Whether to use legacy primitive type handling.
-            legacy_prepared_statements: Whether to use legacy prepared statement handling.
-            roles: Dictionary mapping catalog names to role names.
-            timezone: Timezone for the session.
-            encoding: Character encoding for the connection.
+                    Set verify="/path/to/cert.crt" if you want to verify the ssl cert.
 
         Returns:
             A SQLAlchemy engine for executing queries against Trino.
@@ -406,17 +355,6 @@ class TrinoApi:
             "http_scheme": HTTPS,
             "verify": self._get_ca_chain_path(verify),
             "source": source,
-            "session_properties": session_properties,
-            "http_headers": http_headers,
-            "client_tags": client_tags,
-            "legacy_primitive_types": legacy_primitive_types,
-            "legacy_prepared_statements": legacy_prepared_statements,
-            "roles": roles,
-            "timezone": timezone,
-            "encoding": encoding,
-            "max_attempts": max_attempts,
-            "request_timeout": request_timeout,
-            "isolation_level": isolation_level,
-            "http_session": http_session,
+            **kwargs,
         }
         return create_engine(connection_url, connect_args=connect_args)

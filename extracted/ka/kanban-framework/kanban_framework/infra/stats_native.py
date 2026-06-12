@@ -58,7 +58,7 @@ class NativeBackend:
         return stats
 
     def get_task_stats(self, task_id: str) -> dict:
-        """Per-task stats from token_tracking.json + JSONL estimation."""
+        """Per-task stats from JSONL estimation."""
         from pathlib import Path as _Path
         from kanban_framework.infra.filesystem import Filesystem as _FS
 
@@ -66,12 +66,7 @@ class NativeBackend:
         kanban_dir = self._resolve_kanban_dir(_Path, _FS)
         task_dir, _ = self._resolve_task_dirs(kanban_dir, task_id)
 
-        # 1. Try token_tracking.json first
-        tt_data = self._load_token_tracking(kanban_dir, task_id)
-        if tt_data:
-            return self._build_tracked_result(tt_data, result)
-
-        # 2. JSONL estimation fallback
+        # JSONL estimation
         task_json = task_dir / "task.json"
         if task_json.is_file():
             estimate_task_from_history(task_json, task_dir, self._jsonl_files, result)
@@ -160,19 +155,6 @@ class NativeBackend:
         if archive_dir.is_dir() and not task_dir.is_dir():
             task_dir = archive_dir
         return task_dir, archive_dir
-
-    def _load_token_tracking(self, kanban_dir: Path, task_id: str) -> dict | None:
-        tt_file = kanban_dir / "reports" / "token_tracking.json"
-        if not tt_file.is_file():
-            return None
-        try:
-            data = json.loads(tt_file.read_text(encoding="utf-8"))
-            entry = data.get(task_id, {})
-            if entry.get("total_tokens", 0) > 0:
-                return entry
-        except Exception:
-            pass
-        return None
 
     def _build_tracked_result(self, entry: dict, result: dict) -> dict:
         result["total_tokens"] = entry.get("total_tokens", 0)

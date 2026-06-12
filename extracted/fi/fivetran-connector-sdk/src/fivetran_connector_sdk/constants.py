@@ -1,3 +1,4 @@
+import os
 from fivetran_connector_sdk.protos import common_pb2
 
 TESTER_VERSION = "2.26.0604.001"
@@ -54,15 +55,14 @@ LOGGING_PREFIX = "⚡ sdk "
 VIRTUAL_ENV_CONFIG = "pyvenv.cfg"
 GITIGNORE_FILENAME = ".gitignore"
 ROOT_FILENAME = "connector.py"
-MAX_RECORDS_IN_BATCH = 100
-MAX_BATCH_SIZE_IN_BYTES = 100000 # 100 KB
-QUEUE_SIZE = 100
+MAX_RECORDS_IN_BATCH = int(os.environ.get("CONNECTOR_SDK_MAX_RECORDS_IN_BATCH", 100))
+MAX_BATCH_SIZE_IN_BYTES = int(os.environ.get("CONNECTOR_SDK_MAX_BATCH_SIZE_IN_BYTES", 100000)) # Default 100 KB
+QUEUE_SIZE = int(os.environ.get("CONNECTOR_SDK_QUEUE_SIZE", 100))
 
 ALWAYS_INCLUDED_FILES = [GITIGNORE_FILENAME]
 EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR]
 EXCLUDED_PIPREQS_DIRS = ["bin,etc,include,lib,Lib,lib64,Scripts,share"]
 VALID_COMMANDS = ["version", "init", "debug", "deploy", "reset", "package", "help"]
-FORCE_DEPRECATION_WARNING_COMMANDS = ["init", "package", "deploy", "reset"]
 DEPRECATED_FORCE_FLAG_WARNING = (
     "--force and -f are deprecated and will be removed in a future release."
     "Use --non-interactive instead."
@@ -109,6 +109,7 @@ AGENT_PLUGINS = {
     "codex": {
         "display_name": "Codex CLI",
         "cli_command": "codex",
+        "min_supported_version": (0, 131, 0),
         "install_commands": [
             ["codex", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
             ["codex", "plugin", "add", TOOLS_PLUGIN_NAME],

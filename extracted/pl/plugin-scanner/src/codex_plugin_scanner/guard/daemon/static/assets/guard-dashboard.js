@@ -14001,6 +14001,26 @@ function guardParams() {
 function guardParam(name) {
   return guardParams().get(name);
 }
+function readBrowserStorage(getStorage, name) {
+  try {
+    return getStorage().getItem(name);
+  } catch {
+    return null;
+  }
+}
+function readGuardStorage(name) {
+  return readBrowserStorage(() => window.sessionStorage, name) ?? readBrowserStorage(() => window.localStorage, name);
+}
+function saveBrowserStorage(getStorage, name, value) {
+  try {
+    getStorage().setItem(name, value);
+  } catch {
+  }
+}
+function saveGuardStorage(name, value) {
+  saveBrowserStorage(() => window.sessionStorage, name, value);
+  saveBrowserStorage(() => window.localStorage, name, value);
+}
 function readGuardToken() {
   const locationKey = `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (guardTokenLocationKey !== locationKey) {
@@ -14012,17 +14032,17 @@ function readGuardToken() {
   }
   const guardToken = guardParam(GUARD_TOKEN_PARAM);
   if (guardToken) {
-    window.sessionStorage.setItem(GUARD_TOKEN_PARAM, guardToken);
+    saveGuardStorage(GUARD_TOKEN_PARAM, guardToken);
     return guardToken;
   }
-  return window.sessionStorage.getItem(GUARD_TOKEN_PARAM);
+  return readGuardStorage(GUARD_TOKEN_PARAM);
 }
 function saveGuardToken(guardToken) {
   guardTokenOverride = guardToken;
-  window.sessionStorage.setItem(GUARD_TOKEN_PARAM, guardToken);
+  saveGuardStorage(GUARD_TOKEN_PARAM, guardToken);
 }
 function saveGuardDaemonOrigin(daemonOrigin) {
-  window.sessionStorage.setItem(GUARD_DAEMON_PARAM, daemonOrigin);
+  saveGuardStorage(GUARD_DAEMON_PARAM, daemonOrigin);
 }
 function preferredGuardDaemonPort() {
   const fromOrigin = readGuardDaemonOrigin();
@@ -14172,11 +14192,11 @@ function readGuardDaemonOrigin() {
   if (rawDaemonUrl) {
     const daemonOrigin = localGuardDaemonOrigin(rawDaemonUrl);
     if (daemonOrigin) {
-      window.sessionStorage.setItem(GUARD_DAEMON_PARAM, daemonOrigin);
+      saveGuardStorage(GUARD_DAEMON_PARAM, daemonOrigin);
       return daemonOrigin;
     }
   }
-  const storedDaemonUrl = window.sessionStorage.getItem(GUARD_DAEMON_PARAM);
+  const storedDaemonUrl = readGuardStorage(GUARD_DAEMON_PARAM);
   return storedDaemonUrl ? localGuardDaemonOrigin(storedDaemonUrl) : null;
 }
 function localGuardDaemonOrigin(rawUrl) {
@@ -16606,6 +16626,57 @@ function DecodedLayerCard(props) {
     }
   );
 }
+function formatBlockedShare(blocked, total) {
+  if (!(total > 0) || !(blocked > 0)) {
+    return null;
+  }
+  const percent = blocked / total * 100;
+  if (percent < 1) {
+    return "<1% of recorded actions";
+  }
+  if (percent < 10) {
+    return `${percent.toFixed(1).replace(/\.0$/, "")}% of recorded actions`;
+  }
+  return `${Math.round(percent)}% of recorded actions`;
+}
+function formatEvidenceCount(value) {
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+  if (value >= 1e4) return `${Math.round(value / 1e3)}K`;
+  if (value >= 1e3) return value.toLocaleString();
+  return String(value);
+}
+function formatDurationSince(iso) {
+  if (!iso) return "No activity yet";
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return "Recently";
+  const days = Math.max(0, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1e3)));
+  if (days === 0) return "Today";
+  if (days === 1) return "1 day ago";
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? "1 month ago" : `${months} months ago`;
+}
+function formatDayLabel(dateKey) {
+  return (/* @__PURE__ */ new Date(`${dateKey}T12:00:00`)).toLocaleDateString(void 0, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+function receiptUtcDateKey(iso) {
+  if (!iso) {
+    return "";
+  }
+  if (iso.length >= 10 && iso[10] === "T" && iso.endsWith("Z")) {
+    return iso.slice(0, 10);
+  }
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")}`;
+}
 function filterByTime(receipts, time, day, now2) {
   const base = /* @__PURE__ */ new Date();
   const startOfToday = new Date(base.getFullYear(), base.getMonth(), base.getDate());
@@ -16618,15 +16689,7 @@ function filterByTime(receipts, time, day, now2) {
   const startOfLast30d = new Date(startOfToday);
   startOfLast30d.setDate(startOfLast30d.getDate() - 30);
   if (day) {
-    const parts = day.split("-").map(Number);
-    const dayStart = new Date(parts[0], parts[1] - 1, parts[2]);
-    const dayEnd = new Date(parts[0], parts[1] - 1, parts[2] + 1);
-    if (!isNaN(dayStart.getTime()) && !isNaN(dayEnd.getTime())) {
-      return receipts.filter((r) => {
-        const d = new Date(r.timestamp);
-        return d >= dayStart && d < dayEnd;
-      });
-    }
+    return receipts.filter((r) => receiptUtcDateKey(r.timestamp) === day);
   }
   if (time === "all") return receipts;
   return receipts.filter((r) => {
@@ -16766,6 +16829,8 @@ function parseEvidenceUrlState(params) {
   const decision = params.get("decision");
   const sort = params.get("sort");
   const view = params.get("view");
+  const day = params.get("day") ?? DEFAULT_FILTER_STATE.day;
+  const resolvedView = VALID_VIEW.includes(view) ? view : DEFAULT_FILTER_STATE.view;
   return {
     search: params.get("search") ?? DEFAULT_FILTER_STATE.search,
     time: VALID_TIME.includes(time) ? time : DEFAULT_FILTER_STATE.time,
@@ -16773,9 +16838,9 @@ function parseEvidenceUrlState(params) {
     harness: params.get("harness") ?? DEFAULT_FILTER_STATE.harness,
     category: params.get("category") ?? DEFAULT_FILTER_STATE.category,
     sourceScope: params.get("sourceScope") ?? DEFAULT_FILTER_STATE.sourceScope,
-    day: params.get("day") ?? DEFAULT_FILTER_STATE.day,
+    day,
     sort: VALID_SORT.includes(sort) ? sort : DEFAULT_FILTER_STATE.sort,
-    view: VALID_VIEW.includes(view) ? view : DEFAULT_FILTER_STATE.view,
+    view: day ? "actions" : resolvedView,
     selectedId: params.get("selected") ?? DEFAULT_FILTER_STATE.selectedId
   };
 }
@@ -16789,9 +16854,13 @@ function serializeEvidenceUrlState(state) {
     params.set("harness", state.harness);
   if (state.category) params.set("category", state.category);
   if (state.sourceScope) params.set("sourceScope", state.sourceScope);
-  if (state.day) params.set("day", state.day);
+  if (state.day) {
+    params.set("day", state.day);
+    params.set("view", "actions");
+  } else if (state.view !== DEFAULT_FILTER_STATE.view) {
+    params.set("view", state.view);
+  }
   if (state.sort !== DEFAULT_FILTER_STATE.sort) params.set("sort", state.sort);
-  if (state.view !== DEFAULT_FILTER_STATE.view) params.set("view", state.view);
   if (state.selectedId) params.set("selected", state.selectedId);
   return params;
 }
@@ -18028,44 +18097,6 @@ function EvidenceInsightStrip({ metrics }) {
   );
 }
 var reactDomExports = requireReactDom();
-function formatBlockedShare(blocked, total) {
-  if (!(total > 0) || !(blocked > 0)) {
-    return null;
-  }
-  const percent = blocked / total * 100;
-  if (percent < 1) {
-    return "<1% of recorded actions";
-  }
-  if (percent < 10) {
-    return `${percent.toFixed(1).replace(/\.0$/, "")}% of recorded actions`;
-  }
-  return `${Math.round(percent)}% of recorded actions`;
-}
-function formatEvidenceCount(value) {
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
-  if (value >= 1e4) return `${Math.round(value / 1e3)}K`;
-  if (value >= 1e3) return value.toLocaleString();
-  return String(value);
-}
-function formatDurationSince(iso) {
-  if (!iso) return "No activity yet";
-  const ts = new Date(iso).getTime();
-  if (Number.isNaN(ts)) return "Recently";
-  const days = Math.max(0, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1e3)));
-  if (days === 0) return "Today";
-  if (days === 1) return "1 day ago";
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  return months === 1 ? "1 month ago" : `${months} months ago`;
-}
-function formatDayLabel(dateKey) {
-  return (/* @__PURE__ */ new Date(`${dateKey}T12:00:00`)).toLocaleDateString(void 0, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-}
 function intensityClass(total, peak) {
   if (total <= 0) return "evidence-heatmap-0";
   const ratio = peak > 0 ? total / peak : 0;
@@ -18760,11 +18791,17 @@ function EvidenceActivityHeatmapMini({ cells }) {
 function insightsSharePublishErrorMessage(raw) {
   const message = raw.trim();
   const lower = message.toLowerCase();
-  if (lower.includes("insights") && lower.includes("not enabled")) {
+  if (lower.includes("insights") && lower.includes("not enabled") || lower.includes("insights") && lower.includes("not live")) {
     return "Guard insights sharing is not live on Guard Cloud yet. If you just updated, wait a few minutes and try again.";
+  }
+  if (lower.includes("guard cloud is unavailable")) {
+    return "Guard Cloud could not publish this share link right now. Local Guard keeps protecting this machine. Try again in a few minutes or reconnect with hol-guard connect.";
   }
   if (lower.includes("guard:insights.share") || lower.includes("insufficient scope") || lower.includes("missing scope")) {
     return "Reconnect Guard Cloud to grant insights sharing permission, then try again.";
+  }
+  if (lower.includes("invalid_grant") || lower.includes("already consumed") || lower.includes("no longer valid")) {
+    return "Guard Cloud sign-in on this device expired. Run hol-guard disconnect, then hol-guard connect, and try again.";
   }
   if (lower.includes("unauthorized") || lower.includes("401")) {
     return "Guard Cloud session expired. Reconnect from Settings, then try again.";
@@ -18852,7 +18889,7 @@ function EvidenceInsightsShareModal({
               GuardStatMetric,
               {
                 label: "Pending",
-                value: String(runtime?.pending_count ?? 0),
+                value: formatEvidenceCount(runtime?.pending_count ?? 0),
                 compact: true
               }
             ),
@@ -18860,7 +18897,7 @@ function EvidenceInsightsShareModal({
               GuardStatMetric,
               {
                 label: "Apps",
-                value: String(runtime?.managed_installs?.length ?? 0),
+                value: formatEvidenceCount(runtime?.managed_installs?.length ?? 0),
                 compact: true
               }
             ),
@@ -18868,7 +18905,7 @@ function EvidenceInsightsShareModal({
               GuardStatMetric,
               {
                 label: "Recorded",
-                value: String(runtime?.receipt_count ?? 0),
+                value: formatEvidenceCount(runtime?.receipt_count ?? 0),
                 compact: true
               }
             )
@@ -19259,7 +19296,6 @@ function EvidenceInsightsSurface({
     () => analytics.top_artifacts.reduce((sum, item) => sum + item.total, 0),
     [analytics.top_artifacts]
   );
-  const cloudConnected = runtime?.cloud_state === "paired_active";
   if (analytics.total === 0) {
     return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center justify-center py-16 text-center", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium text-brand-dark", children: "No data yet" }),
@@ -19281,7 +19317,7 @@ function EvidenceInsightsSurface({
           /* @__PURE__ */ jsxRuntimeExports.jsx(SectionLabel, { children: "Your Guard stats" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: "All-time local store" })
         ] }),
-        cloudConnected ? /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsShareButton, { onClick: () => setShareOpen(true) }) : null
+        /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsShareButton, { onClick: () => setShareOpen(true) })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsHeadlineBento, { analytics, variant: "full" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-t border-slate-100 px-5 py-5", children: [
@@ -20299,7 +20335,7 @@ function EvidenceWorkbench({ receiptItems, runtime, onClearEvidence, onNavigate 
   }, [harnesses, filters.harness]);
   reactExports.useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, filters.harness, filters.decision, filters.time, filters.category, filters.sourceScope]);
+  }, [debouncedSearch, filters.harness, filters.decision, filters.time, filters.category, filters.sourceScope, filters.day]);
   const effectiveFilters = reactExports.useMemo(
     () => ({ ...filters, search: debouncedSearch }),
     [filters, debouncedSearch]
@@ -20346,7 +20382,11 @@ function EvidenceWorkbench({ receiptItems, runtime, onClearEvidence, onNavigate 
     setPage((prev) => prev + 1);
   }, []);
   const handleViewChange = reactExports.useCallback((view) => {
-    setFilters((prev) => ({ ...prev, view }));
+    setFilters((prev) => ({
+      ...prev,
+      view,
+      ...view !== "actions" ? { day: "" } : {}
+    }));
   }, []);
   const handleOpenExport = reactExports.useCallback(() => {
     setExportOpen(true);
@@ -25319,7 +25359,7 @@ clientExports.createRoot(container).render(
   /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) })
 );
 export {
-  clearPolicy as $,
+  disableApprovalGateTotp as $,
   ActionButton as A,
   Badge as B,
   HiMiniWrenchScrewdriver as C,
@@ -25332,79 +25372,80 @@ export {
   HiMiniClipboard as J,
   requireReact as K,
   getDefaultExportFromCjs as L,
-  HiMiniLockClosed as M,
-  HiMiniBellAlert as N,
-  HiMiniAdjustmentsHorizontal as O,
+  HiMiniKey as M,
+  HiMiniLockClosed as N,
+  HiMiniBellAlert as O,
   ProofStrip as P,
-  HiMiniCog6Tooth as Q,
-  HiMiniCircleStack as R,
+  HiMiniAdjustmentsHorizontal as Q,
+  HiMiniCog6Tooth as R,
   SectionLabel as S,
-  TabBar as T,
-  fetchSettings as U,
-  fetchRuntimeSnapshot as V,
-  revokeApprovalGateCooldown as W,
-  enrollApprovalGateTotp as X,
-  verifyApprovalGateTotp as Y,
-  disableApprovalGateTotp as Z,
-  updateSettings as _,
+  HiMiniCircleStack as T,
+  TabBar as U,
+  fetchSettings as V,
+  fetchRuntimeSnapshot as W,
+  updateSettings as X,
+  clearPolicy as Y,
+  clearReviewQueue as Z,
+  revokeApprovalGateCooldown as _,
   EvidenceActivityHeatmapMini as a,
-  clearReviewQueue as a0,
-  clearEvidence as a1,
-  exportDiagnostics as a2,
-  repairApprovalCenter as a3,
-  exportSettings as a4,
-  importSettings as a5,
-  resetSettings as a6,
-  setupDesktopNotifications as a7,
-  Tag as a8,
-  HiMiniMagnifyingGlass as a9,
-  fetchPackageFirewallStatus as aA,
-  runPackageFirewallAction as aB,
-  runPackageAudit as aC,
-  runPackageSync as aD,
-  startPackageFirewallConnect as aE,
-  openPackageFirewallShell as aF,
-  HiMiniArrowDown as aG,
-  HiMiniArrowUp as aH,
-  fetchSupplyChainBundle as aI,
-  HiMiniDocumentMagnifyingGlass as aJ,
-  HiMiniShieldExclamation as aK,
-  HiMiniComputerDesktop as aL,
-  HiMiniInformationCircle as aM,
-  fetchReceipts as aN,
-  HiMiniArrowRight as aO,
-  runAuditRemediation as aP,
-  HiMiniDocumentText as aQ,
-  guardAwareHref as aR,
-  HiMiniBarsArrowUp as aS,
-  HiMiniBarsArrowDown as aT,
-  HiMiniSignal as aU,
-  approvalGateCooldownLabel as aa,
-  fetchApprovalPage as ab,
-  fetchPolicy as ac,
-  HiMiniArrowLeft as ad,
-  HiMiniHome as ae,
-  detectCategory as af,
-  CATEGORIES as ag,
-  policyIdentityKey as ah,
-  HiMiniChartBar as ai,
-  runHarnessAction as aj,
-  GuardHarnessActionError as ak,
-  HiMiniRocketLaunch as al,
-  HiMiniArrowPath as am,
-  HiMiniTrash as an,
-  clearLabelForScope as ao,
-  formatHarnessCommand as ap,
-  HiMiniCommandLine as aq,
-  WorkspacePageHeader as ar,
-  __vitePreload as as,
-  Surface as at,
-  HiMiniArrowTopRightOnSquare as au,
-  HiMiniCheckBadge as av,
-  HiMiniClock as aw,
-  IconActionButton as ax,
-  HiMiniBeaker as ay,
-  HiMiniBugAnt as az,
+  enrollApprovalGateTotp as a0,
+  verifyApprovalGateTotp as a1,
+  clearEvidence as a2,
+  exportDiagnostics as a3,
+  repairApprovalCenter as a4,
+  exportSettings as a5,
+  importSettings as a6,
+  resetSettings as a7,
+  setupDesktopNotifications as a8,
+  Tag as a9,
+  HiMiniBugAnt as aA,
+  fetchPackageFirewallStatus as aB,
+  runPackageFirewallAction as aC,
+  runPackageAudit as aD,
+  runPackageSync as aE,
+  startPackageFirewallConnect as aF,
+  openPackageFirewallShell as aG,
+  HiMiniArrowDown as aH,
+  HiMiniArrowUp as aI,
+  fetchSupplyChainBundle as aJ,
+  HiMiniDocumentMagnifyingGlass as aK,
+  HiMiniShieldExclamation as aL,
+  HiMiniComputerDesktop as aM,
+  HiMiniInformationCircle as aN,
+  fetchReceipts as aO,
+  HiMiniArrowRight as aP,
+  runAuditRemediation as aQ,
+  HiMiniDocumentText as aR,
+  guardAwareHref as aS,
+  HiMiniBarsArrowUp as aT,
+  HiMiniBarsArrowDown as aU,
+  HiMiniSignal as aV,
+  HiMiniMagnifyingGlass as aa,
+  approvalGateCooldownLabel as ab,
+  fetchApprovalPage as ac,
+  fetchPolicy as ad,
+  HiMiniArrowLeft as ae,
+  HiMiniHome as af,
+  detectCategory as ag,
+  CATEGORIES as ah,
+  policyIdentityKey as ai,
+  HiMiniChartBar as aj,
+  runHarnessAction as ak,
+  GuardHarnessActionError as al,
+  HiMiniRocketLaunch as am,
+  HiMiniArrowPath as an,
+  HiMiniTrash as ao,
+  clearLabelForScope as ap,
+  formatHarnessCommand as aq,
+  HiMiniCommandLine as ar,
+  WorkspacePageHeader as as,
+  __vitePreload as at,
+  Surface as au,
+  HiMiniArrowTopRightOnSquare as av,
+  HiMiniCheckBadge as aw,
+  HiMiniClock as ax,
+  IconActionButton as ay,
+  HiMiniBeaker as az,
   EmptyState as b,
   EvidenceInsightsShareModal as c,
   HiMiniCheckCircle as d,

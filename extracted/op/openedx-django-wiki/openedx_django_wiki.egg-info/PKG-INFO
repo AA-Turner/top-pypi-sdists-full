@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-django-wiki
-Version: 3.1.1
+Version: 3.1.2
 Summary: A wiki system written for the Django framework.
 Home-page: https://github.com/openedx/django-wiki
 Author: Benjamin Bach
@@ -21,12 +21,12 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Description-Content-Type: text/markdown
-Requires-Dist: bleach[css]>=6.0.0
-Requires-Dist: sorl-thumbnail
-Requires-Dist: django-sekizai
 Requires-Dist: django-mptt
-Requires-Dist: Markdown
 Requires-Dist: django
+Requires-Dist: sorl-thumbnail
+Requires-Dist: bleach[css]>=6.0.0
+Requires-Dist: django-sekizai
+Requires-Dist: Markdown
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

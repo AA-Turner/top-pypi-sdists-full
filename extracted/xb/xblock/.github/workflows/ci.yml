@@ -1,0 +1,41 @@
+name: Python CI
+
+on:
+  workflow_call:
+  pull_request:
+    branches:
+    - '**'
+
+jobs:
+  run_tests:
+    name: tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12']
+        toxenv: [quality, docs, django42, django52]
+
+    steps:
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+    - name: setup python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Install CI dependencies
+      run: uv sync --group ci
+
+    - name: Run Tests
+      run: uv run tox -e ${{ matrix.toxenv }}
+
+    - name: Run Coverage
+      if: matrix.python-version == '3.12' && matrix.toxenv == 'django42'
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+      with:
+        flags: unittests
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}

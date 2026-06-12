@@ -1,28 +1,182 @@
 name: Deploy Ops Webapp
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-ops-webapp-command.yml"
+      - "airbyte-ops-webapp/**"
   workflow_dispatch:
     inputs:
       pr:
-        description: "PR number for slash-command dispatch. Ignore for manual dry runs."
+        description: "PR number to deploy. Slash-command dispatch fills this automatically."
         required: false
         type: string
       comment-id:
         description: "Comment ID for slash-command dispatch. Ignore for manual dry runs."
         required: false
         type: string
-
 permissions:
   contents: read
+  issues: write
+  id-token: write
+  pull-requests: read
+
+env:
+  GCP_PROJECT: internal-airbyte-ai-infra
+  GCP_REGION: us-west3
+  IMAGE_REPOSITORY: ops-webapp
+  IMAGE_NAME: ops-webapp
+  CLOUD_RUN_SERVICE: ops-webapp
+  OPS_WEBAPP_PUBLIC_URL: https://ops.internal.airbyte.ai
+  OPS_WEBAPP_OAUTH_ISSUER: https://cloud.airbyte.com/auth/realms/airbyte
+  OPS_WEBAPP_OAUTH_CLIENT_ID: airbyte-ops-webapp-client
+  OPS_WEBAPP_PR: ${{ github.event.inputs.pr || '' }}
+  OPS_WEBAPP_COMMENT_ID: ${{ github.event.inputs.comment-id || '' }}
 
 jobs:
   deploy-ops-webapp:
-    name: Deploy Ops Webapp stub
+    name: Deploy Ops Webapp
     runs-on: ubuntu-latest
+    environment:
+      name: "Cloud Run (ops-webapp)"
+      url: https://ops.internal.airbyte.ai
     steps:
-      - name: Confirm workflow placeholder
+      - name: Resolve deployment variables
+        id: resolve-vars
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+          GCP_PROJECT: ${{ env.GCP_PROJECT }}
+          IMAGE_REPOSITORY: ${{ env.IMAGE_REPOSITORY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
-          echo "Deploy Ops Webapp workflow placeholder." | tee -a $GITHUB_STEP_SUMMARY
-          echo "This workflow will be expanded from feature branches after it exists on main." | tee -a $GITHUB_STEP_SUMMARY
-          echo "PR input: ${{ github.event.inputs.pr }}" | tee -a $GITHUB_STEP_SUMMARY
-          echo "Comment ID input: ${{ github.event.inputs.comment-id }}" | tee -a $GITHUB_STEP_SUMMARY
+          ref="$GITHUB_SHA"
+          short_sha="${GITHUB_SHA:0:7}"
+          source="manual"
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" = "main" ]; then
+            source="main"
+          fi
+
+          if [ -n "$OPS_WEBAPP_PR" ]; then
+            if ! [[ "$OPS_WEBAPP_PR" =~ ^[1-9][0-9]*$ ]]; then
+              echo "Invalid PR number: $OPS_WEBAPP_PR" >&2
+              exit 1
+            fi
+            ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${OPS_WEBAPP_PR}" --jq '.head.sha')"
+            short_sha="${ref:0:7}"
+            source="pr-${OPS_WEBAPP_PR}"
+          fi
+
+          image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${IMAGE_REPOSITORY}/${IMAGE_NAME}:${source}-${short_sha}"
+          {
+            printf "ref=%s\n" "$ref"
+            printf "short_sha=%s\n" "$short_sha"
+            printf "source=%s\n" "$source"
+            printf "image=%s\n" "$image"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Append comment with deployment job link
+        id: post-start-comment
+        if: env.OPS_WEBAPP_PR != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ env.OPS_WEBAPP_COMMENT_ID }}
+          issue-number: ${{ env.OPS_WEBAPP_PR }}
+          edit-mode: append
+          body: |
+            > 🚀 **Ops Webapp Deploy Job Info**
+            >
+            > Deploying `${{ steps.resolve-vars.outputs.source }}` to `${{ env.OPS_WEBAPP_PUBLIC_URL }}`.
+            > Image: `${{ steps.resolve-vars.outputs.image }}`
+            >
+            > ⏳ Job started... [Check job output.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Checkout deployment target
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.resolve-vars.outputs.ref }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify Artifact Registry repository
+        run: >
+          gcloud artifacts repositories describe "${{ env.IMAGE_REPOSITORY }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --location="${{ env.GCP_REGION }}"
+
+      - name: Verify Cloud Run service
+        run: >
+          gcloud run services describe "${{ env.CLOUD_RUN_SERVICE }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --format="value(metadata.name)"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build image
+        run: >
+          docker build
+          --file airbyte-ops-webapp/Dockerfile
+          --tag "${{ steps.resolve-vars.outputs.image }}"
+          .
+
+      - name: Push image
+        run: docker push "${{ steps.resolve-vars.outputs.image }}"
+
+      - name: Update Cloud Run service image
+        run: >
+          gcloud run services update "${{ env.CLOUD_RUN_SERVICE }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --image="${{ steps.resolve-vars.outputs.image }}"
+          --quiet
+          --update-env-vars="AIRBYTE_OPS_WEBAPP_PUBLIC_URL=${{ env.OPS_WEBAPP_PUBLIC_URL }},AIRBYTE_OPS_WEBAPP_OAUTH_ISSUER=${{ env.OPS_WEBAPP_OAUTH_ISSUER }},AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID=${{ env.OPS_WEBAPP_OAUTH_CLIENT_ID }},AIRBYTE_OPS_WEBAPP_MOCKONLY=true"
+
+      - name: Summarize deployment
+        run: |
+          {
+            echo "Ops Webapp deployed."
+            printf "Source: %s\n" "${{ steps.resolve-vars.outputs.source }}"
+            printf "Commit: %s\n" "${{ steps.resolve-vars.outputs.ref }}"
+            printf "Image: %s\n" "${{ steps.resolve-vars.outputs.image }}"
+            printf "URL: %s\n" "${{ env.OPS_WEBAPP_PUBLIC_URL }}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Append success comment
+        if: >
+          success() &&
+          env.OPS_WEBAPP_PR != '' &&
+          steps.post-start-comment.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.post-start-comment.outputs.comment-id }}
+          issue-number: ${{ env.OPS_WEBAPP_PR }}
+          edit-mode: append
+          reactions: hooray
+          body: |
+            > ✅ Ops Webapp deploy completed successfully: ${{ env.OPS_WEBAPP_PUBLIC_URL }}
+
+      - name: Append failure comment
+        if: >
+          failure() &&
+          env.OPS_WEBAPP_PR != '' &&
+          steps.post-start-comment.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.post-start-comment.outputs.comment-id }}
+          issue-number: ${{ env.OPS_WEBAPP_PR }}
+          edit-mode: append
+          reactions: confused
+          body: |
+            > ❌ Ops Webapp deploy failed. Check the [job output](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.

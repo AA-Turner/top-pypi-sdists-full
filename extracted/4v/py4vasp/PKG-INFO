@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py4vasp
-Version: 0.11.2
+Version: 0.11.3
 Summary: Tool for assisting with the analysis and setup of VASP calculations.
 Project-URL: Homepage, https://vasp.at/py4vasp/latest
 Project-URL: Repository, https://github.com/vasp-dev/py4vasp

@@ -1,0 +1,177 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from numbers import Integral, Real
+from typing import ClassVar, Literal, get_args
+
+from pyfixest.core.demean import Preconditioner
+
+MapBackend = Literal["numba", "rust", "jax"]
+LsmrBackend = Literal["within", "cupy", "torch"]
+LsmrPrecision = Literal["float32", "float64"]
+TorchDevice = Literal["auto", "cpu", "mps", "cuda"]
+LsmrPreconditioner = Literal["auto", "off", "additive", "diagonal"]
+
+
+def _validate_unit_interval_float(value: float, name: str) -> None:
+
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"`{name}` must be a real number.")
+    if value <= 0:
+        raise ValueError(f"`{name}` must be strictly positive.")
+    if value >= 1:
+        raise ValueError(f"`{name}` must be less than one.")
+
+
+def _validate_positive_int(value: int, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise TypeError(f"`{name}` must be an int.")
+    if value <= 0:
+        raise ValueError(f"`{name}` must be strictly positive.")
+
+
+@dataclass(frozen=True, slots=True)
+class BaseDemeaner:
+    """Base configuration shared by all fixed-effects demeaners."""
+
+    fixef_maxiter: int = 10_000
+    kind: ClassVar[str]
+
+    def __post_init__(self) -> None:
+        _validate_positive_int(self.fixef_maxiter, "fixef_maxiter")
+
+
+@dataclass(frozen=True, slots=True)
+class MapDemeaner(BaseDemeaner):
+    """Method of Alternating Projections (MAP) demeaner."""
+
+    fixef_tol: float = 1e-06
+    backend: MapBackend = "rust"
+    kind: ClassVar[str] = "map"
+
+    def __post_init__(self) -> None:
+        BaseDemeaner.__post_init__(self)
+        _validate_unit_interval_float(self.fixef_tol, "fixef_tol")
+        if not isinstance(self.backend, str):
+            raise TypeError("`backend` must be a string.")
+        if self.backend not in get_args(MapBackend):
+            raise ValueError(f"`backend` must be one of {get_args(MapBackend)}.")
+
+
+@dataclass(frozen=True, slots=True)
+class LsmrDemeaner(BaseDemeaner):
+    """Sparse LSMR demeaner.
+
+    Notes
+    -----
+    The ``within`` backend takes a single tolerance, so ``fixef_atol`` and
+    ``fixef_btol`` are collapsed to ``max(fixef_atol, fixef_btol)`` for that
+    backend. The ``cupy`` and ``torch`` backends use both tolerances
+    independently (SciPy LSMR convention).
+
+    The ``local_size`` field only applies to ``backend="within"``; the
+    ``cupy`` and ``torch`` backends ignore it.
+
+    The ``precision``, ``device``, and ``warn_on_cpu_fallback`` fields are
+    only relevant for the ``torch`` backend (and the deprecated ``cupy``
+    backend). The ``within`` backend always runs on CPU in float64 and
+    ignores these fields.
+
+    ``preconditioner`` selects the preconditioner. Supported values:
+
+    - ``"auto"`` (default): selects different preconditioners for different
+      backend implementations: ``"additive"`` for ``within``; ``"diagonal"``
+      for ``torch`` / ``cupy``.
+    - ``"off"``: disables preconditioning. Supported by ``within`` and
+      ``cupy``; not supported by ``torch``.
+    - ``"additive"``: additive Schwarz preconditioner. Only supported by the
+      ``within`` backend.
+    - ``"diagonal"``: diagonal (Jacobi) preconditioner. Supported by
+      ``within``, ``torch``, and ``cupy``.
+    - A :class:`pyfixest.Preconditioner` instance: a previously built
+      preconditioner (typically obtained via ``fit.preconditioner`` or
+      pickled across sessions). Only supported by ``backend='within'``;
+      preconditioners are only computed and applied for two or more
+      fixed-effect factors because single-factor problems run MAP as the within algo
+      provides no benefits. Passing a preconditioner to any other backend raises ``ValueError``
+      at construction time.
+
+    If a *string* value is incompatible with the chosen backend, a
+    ``UserWarning`` is emitted at solve time and the backend's default is
+    used. A ``Preconditioner`` paired with a non-``within`` backend is
+    rejected eagerly with ``ValueError`` because there is no sensible
+    fallback for a prebuilt object.
+    """
+
+    fixef_maxiter: int = 1_000
+    backend: LsmrBackend = "within"
+    precision: LsmrPrecision = "float64"
+    device: TorchDevice = "auto"
+    fixef_atol: float = 1e-8
+    fixef_btol: float = 1e-8
+    warn_on_cpu_fallback: bool = True
+    preconditioner: LsmrPreconditioner | Preconditioner = "auto"
+    local_size: int | None = None
+    kind: ClassVar[str] = "lsmr"
+
+    def __post_init__(self) -> None:
+        BaseDemeaner.__post_init__(self)
+        if not isinstance(self.backend, str):
+            raise TypeError("`backend` must be a string.")
+        if self.backend not in get_args(LsmrBackend):
+            raise ValueError(f"`backend` must be one of {get_args(LsmrBackend)}.")
+
+        if not isinstance(self.precision, str):
+            raise TypeError("`precision` must be a string.")
+        if self.precision not in get_args(LsmrPrecision):
+            raise ValueError(f"`precision` must be one of {get_args(LsmrPrecision)}.")
+
+        if not isinstance(self.device, str):
+            raise TypeError("`device` must be a string.")
+        if self.device not in get_args(TorchDevice):
+            raise ValueError(f"`device` must be one of {get_args(TorchDevice)}.")
+        _validate_unit_interval_float(self.fixef_atol, "fixef_atol")
+        _validate_unit_interval_float(self.fixef_btol, "fixef_btol")
+
+        if not isinstance(self.warn_on_cpu_fallback, bool):
+            raise TypeError("`warn_on_cpu_fallback` must be a bool.")
+        if isinstance(self.preconditioner, Preconditioner):
+            if self.backend != "within":
+                raise ValueError(
+                    "A Preconditioner can only be reused with `backend='within'`."
+                )
+        elif not isinstance(self.preconditioner, str):
+            raise TypeError("`preconditioner` must be a string or a Preconditioner.")
+        elif self.preconditioner not in get_args(LsmrPreconditioner):
+            raise ValueError(
+                f"`preconditioner` must be one of {get_args(LsmrPreconditioner)} "
+                "or a Preconditioner."
+            )
+
+        if self.local_size is not None:
+            _validate_positive_int(self.local_size, "local_size")
+
+        if self.backend == "cupy" and self.device == "mps":
+            raise ValueError("The CuPy backend does not support MPS devices.")
+
+        if (
+            self.backend == "torch"
+            and self.device == "mps"
+            and self.precision != "float32"
+        ):
+            raise ValueError("The MPS torch backend requires `precision='float32'`.")
+
+
+AnyDemeaner = MapDemeaner | LsmrDemeaner
+
+__all__ = [
+    "AnyDemeaner",
+    "BaseDemeaner",
+    "LsmrBackend",
+    "LsmrDemeaner",
+    "LsmrPrecision",
+    "LsmrPreconditioner",
+    "MapBackend",
+    "MapDemeaner",
+    "TorchDevice",
+]

@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 
 from headroom import paths as _paths
+from headroom.pricing.litellm_pricing import resolve_litellm_model
 
 log = logging.getLogger(__name__)
 
@@ -62,38 +63,6 @@ try:
 except ImportError:
     _LITELLM_AVAILABLE = False
 
-# Cache resolved model names (e.g. "claude-opus-4-6" → "anthropic/claude-opus-4-6")
-_resolved_model_cache: dict[str, str] = {}
-
-
-def _resolve_model(model: str) -> str:
-    """Resolve to a model name LiteLLM recognises, adding provider prefix if needed.
-
-    TODO: Duplicated with CostTracker._resolve_litellm_model in proxy/server.py.
-    Extract to shared utility.
-    """
-    if model in _resolved_model_cache:
-        return _resolved_model_cache[model]
-
-    if not _LITELLM_AVAILABLE:
-        _resolved_model_cache[model] = model
-        return model
-
-    # Try as-is
-    if model in _litellm.model_cost:
-        _resolved_model_cache[model] = model
-        return model
-
-    # Try provider prefixes
-    for prefix in ("anthropic/", "openai/", "google/", "mistral/", "deepseek/"):
-        prefixed = f"{prefix}{model}"
-        if prefixed in _litellm.model_cost:
-            _resolved_model_cache[model] = prefixed
-            return prefixed
-
-    _resolved_model_cache[model] = model
-    return model
-
 
 def _litellm_cost(
     model: str,
@@ -107,7 +76,7 @@ def _litellm_cost(
     """
     if not _LITELLM_AVAILABLE:
         return None
-    resolved = _resolve_model(model)
+    resolved = resolve_litellm_model(model)
     try:
         input_cost, _ = _litellm.cost_per_token(
             model=resolved,
@@ -125,7 +94,7 @@ def _get_list_price(model: str) -> float | None:
     """Get list input price per 1M tokens."""
     if not _LITELLM_AVAILABLE:
         return None
-    resolved = _resolve_model(model)
+    resolved = resolve_litellm_model(model)
     info = _litellm.model_cost.get(resolved, {})
     cost_per_token = info.get("input_cost_per_token")
     return cost_per_token * 1_000_000 if cost_per_token else None
@@ -142,7 +111,14 @@ def _parse_kv(kv_str: str) -> dict[str, str]:
     # Handle transforms= specially since its value contains spaces
     if "transforms=" in kv_str:
         before, transforms_val = kv_str.split("transforms=", 1)
-        result["transforms"] = transforms_val.strip()
+        transform_parts: list[str] = []
+        for part in transforms_val.split():
+            if "=" in part:
+                k, v = part.split("=", 1)
+                result[k] = v
+            else:
+                transform_parts.append(part)
+        result["transforms"] = " ".join(transform_parts).strip()
         kv_str = before
     for part in kv_str.split():
         if "=" in part:
@@ -167,6 +143,7 @@ class PerfRecord:
     cache_hit_pct: int = 0
     optimization_ms: float = 0
     transforms: list[str] = field(default_factory=list)
+    client: str = ""
 
 
 @dataclass
@@ -257,7 +234,8 @@ def parse_log_files(last_n_hours: float = 168.0) -> PerfReport:
     report = PerfReport()
     report.requested_hours = last_n_hours
 
-    if not LOG_DIR.exists():
+    log_dir = _paths.log_dir()
+    if not log_dir.exists():
         return report
 
     cutoff = datetime.now() - timedelta(hours=last_n_hours) if last_n_hours > 0 else None
@@ -281,7 +259,7 @@ def parse_log_files(last_n_hours: float = 168.0) -> PerfReport:
             report.newest_kept_ts = ts_str
 
     # Collect log files: proxy.log, proxy.log.1, proxy.log.2, ...
-    log_files = sorted(LOG_DIR.glob("proxy.log*"), key=lambda p: p.stat().st_mtime)
+    log_files = sorted(log_dir.glob("proxy.log*"), key=lambda p: p.stat().st_mtime)
 
     for log_file in log_files:
         report.log_files_read += 1
@@ -330,6 +308,7 @@ def parse_log_files(last_n_hours: float = 168.0) -> PerfReport:
                                 cache_hit_pct=int(kv.get("cache_hit_pct", 0)),
                                 optimization_ms=float(kv.get("opt_ms", 0)),
                                 transforms=transforms,
+                                client=kv.get("client", ""),
                             )
                         )
                         continue
@@ -620,7 +599,7 @@ def format_report(report: PerfReport) -> str:
     lines.append(
         f"Log files: {report.log_files_read} | Lines parsed: {report.total_lines_parsed:,}"
     )
-    lines.append(f"Log dir: {LOG_DIR}")
+    lines.append(f"Log dir: {_paths.log_dir()}")
 
     return "\n".join(lines)
 
@@ -642,6 +621,7 @@ PERF_RECORD_FIELDS = [
     "timestamp",
     "request_id",
     "model",
+    "client",
     "num_messages",
     "tokens_before",
     "tokens_after",

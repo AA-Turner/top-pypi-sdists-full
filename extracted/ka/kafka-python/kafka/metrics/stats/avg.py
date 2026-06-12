@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from kafka.metrics.stats.sampled_stat import AbstractSampledStat
 
 
@@ -10,7 +8,7 @@ class Avg(AbstractSampledStat):
     __slots__ = ('_initial_value', '_samples', '_current')
 
     def __init__(self):
-        super(Avg, self).__init__(0.0)
+        super().__init__(0.0)
 
     def update(self, sample, config, value, now):
         sample.value += value

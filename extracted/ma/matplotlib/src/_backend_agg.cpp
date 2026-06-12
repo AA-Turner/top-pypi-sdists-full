@@ -10,9 +10,9 @@ RendererAgg::RendererAgg(unsigned int width, unsigned int height, double dpi)
       height(height),
       dpi(dpi),
       NUMBYTES((size_t)width * (size_t)height * 4),
-      pixBuffer(NULL),
+      pixBuffer(nullptr),
       renderingBuffer(),
-      alphaBuffer(NULL),
+      alphaBuffer(nullptr),
       alphaMaskRenderingBuffer(),
       alphaMask(alphaMaskRenderingBuffer),
       pixfmtAlphaMask(alphaMaskRenderingBuffer),
@@ -26,7 +26,7 @@ RendererAgg::RendererAgg(unsigned int width, unsigned int height, double dpi)
       rendererAA(),
       rendererBin(),
       theRasterizer(32768),
-      lastclippath(NULL),
+      lastclippath(nullptr),
       _fill_color(agg::rgba(1, 1, 1, 0))
 {
     if (dpi <= 0.0) {
@@ -75,7 +75,7 @@ BufferRegion *RendererAgg::copy_from_bbox(agg::rect_d in_rect)
     agg::rect_i rect(
         (int)in_rect.x1, height - (int)in_rect.y2, (int)in_rect.x2, height - (int)in_rect.y1);
 
-    BufferRegion *reg = NULL;
+    BufferRegion *reg = nullptr;
     reg = new BufferRegion(rect);
 
     agg::rendering_buffer rbuf;
@@ -90,21 +90,21 @@ BufferRegion *RendererAgg::copy_from_bbox(agg::rect_d in_rect)
 
 void RendererAgg::restore_region(BufferRegion &region)
 {
-    if (region.get_data() == NULL) {
+    if (region.get_data() == nullptr) {
         throw std::runtime_error("Cannot restore_region from NULL data");
     }
 
     agg::rendering_buffer rbuf;
     rbuf.attach(region.get_data(), region.get_width(), region.get_height(), region.get_stride());
 
-    rendererBase.copy_from(rbuf, 0, region.get_rect().x1, region.get_rect().y1);
+    rendererBase.copy_from(rbuf, nullptr, region.get_rect().x1, region.get_rect().y1);
 }
 
 // Restore the part of the saved region with offsets
 void
 RendererAgg::restore_region(BufferRegion &region, int xx1, int yy1, int xx2, int yy2, int x, int y )
 {
-    if (region.get_data() == NULL) {
+    if (region.get_data() == nullptr) {
         throw std::runtime_error("Cannot restore_region from NULL data");
     }
 
@@ -122,15 +122,6 @@ bool RendererAgg::render_clippath(mpl::PathIterator &clippath,
                                   const agg::trans_affine &clippath_trans,
                                   e_snap_mode snap_mode)
 {
-    typedef agg::conv_transform<mpl::PathIterator> transformed_path_t;
-    typedef PathNanRemover<transformed_path_t> nan_removed_t;
-    /* Unlike normal Paths, the clip path cannot be clipped to the Figure bbox,
-     * because it needs to remain a complete closed path, so there is no
-     * PathClipper<nan_removed_t> step. */
-    typedef PathSnapper<nan_removed_t> snapped_t;
-    typedef PathSimplifier<snapped_t> simplify_t;
-    typedef agg::conv_curve<simplify_t> curve_t;
-
     bool has_clippath = (clippath.total_vertices() != 0);
 
     if (has_clippath &&
@@ -141,13 +132,19 @@ bool RendererAgg::render_clippath(mpl::PathIterator &clippath,
         trans *= agg::trans_affine_translation(0.0, (double)height);
 
         rendererBaseAlphaMask.clear(agg::gray8(0, 0));
-        transformed_path_t transformed_clippath(clippath, trans);
-        nan_removed_t nan_removed_clippath(transformed_clippath, true, clippath.has_codes());
-        snapped_t snapped_clippath(nan_removed_clippath, snap_mode, clippath.total_vertices(), 0.0);
-        simplify_t simplified_clippath(snapped_clippath,
-                                       clippath.should_simplify() && !clippath.has_codes(),
-                                       clippath.simplify_threshold());
-        curve_t curved_clippath(simplified_clippath);
+        auto transformed_clippath = agg::conv_transform{clippath, trans};
+        auto nan_removed_clippath = PathNanRemover{
+            transformed_clippath, true, clippath.has_codes()};
+        // Unlike normal Paths, the clip path cannot be clipped to the Figure
+        // bbox, because it needs to remain a complete closed path, so there is
+        // no PathClipper step after nan-removal.
+        auto snapped_clippath = PathSnapper{
+            nan_removed_clippath, snap_mode, clippath.total_vertices(), 0.0};
+        auto simplified_clippath = PathSimplifier{
+            snapped_clippath,
+            clippath.should_simplify() && !clippath.has_codes(),
+            clippath.simplify_threshold()};
+        auto curved_clippath = agg::conv_curve{simplified_clippath};
         theRasterizer.add_path(curved_clippath);
         rendererAlphaMask.color(agg::gray8(255, 255));
         agg::render_scanlines(theRasterizer, scanlineAlphaMask, rendererAlphaMask);

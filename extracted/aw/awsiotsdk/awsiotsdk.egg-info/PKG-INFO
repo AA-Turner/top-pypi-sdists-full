@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awsiotsdk
-Version: 1.29.0
+Version: 1.30.0
 Summary: AWS IoT SDK based on the AWS Common Runtime
 Home-page: https://github.com/aws/aws-iot-device-sdk-python-v2
 Author: AWS SDK Common Runtime Team
@@ -10,7 +10,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: awscrt==0.32.1
+Requires-Dist: awscrt==0.34.1
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -39,6 +39,7 @@ The AWS IoT Device SDK for Python v2 connects your Python applications and devic
 * [Getting Started](#getting-started)
 * [Samples](samples)
 * [MQTT5 User Guide](./documents/MQTT5_Userguide.md)
+* [Specifics](#specifics)
 * [Getting Help](#getting-help)
 * [Resources](#resources)
 
@@ -109,6 +110,24 @@ Check out the [samples](samples) directory for working code examples that demons
 
 The samples provide ready-to-run code with detailed setup instructions for each authentication method and use case.
 
+## Specifics
+
+#### Mac-Only TLS 1.3
+
+By default, macOS uses Apple Secure Transport as the TLS implementation, which supports up to TLS 1.2. To enable TLS 1.3 on macOS, set the environment variable `AWS_CRT_USE_NON_FIPS_TLS_13=1` before running your application. This switches the TLS backend to s2n-tls with aws-lc at runtime.
+
+> [!IMPORTANT]
+> Enabling `AWS_CRT_USE_NON_FIPS_TLS_13` trades FIPS compliance and macOS Keychain/PKCS#12 integration for TLS 1.3 support. This variable has no effect on Linux or Windows.
+
+#### Mac Keychain
+
+When using the default Apple Secure Transport backend, once a private key is used with a certificate, that certificate-key pair is imported into the Mac Keychain. All subsequent uses of that certificate will use the stored private key and ignore anything passed in programmatically. When a stored private key from the Keychain is used, the following will be logged at the "info" log level:
+
+```
+static: certificate has an existing certificate-key pair that was previously imported into the Keychain.
+ Using key from Keychain instead of the one provided.
+```
+
 ## Getting Help
 
 The best way to interact with our team is through GitHub.
@@ -117,18 +136,6 @@ The best way to interact with our team is through GitHub.
 * Create an [issue](https://github.com/aws/aws-iot-device-sdk-python-v2/issues/new/choose): New feature request or file a bug
 
 If you have a support plan with [AWS Support](https://aws.amazon.com/premiumsupport/), you can also create a new support case.
-
-#### Mac-Only TLS Behavior
-
-> [!NOTE]
-> This SDK does not support TLS 1.3 on macOS. Support for TLS 1.3 on macOS is planned for a future release.
-
-Please note that on Mac, once a private key is used with a certificate, that certificate-key pair is imported into the Mac Keychain.  All subsequent uses of that certificate will use the stored private key and ignore anything passed in programmatically.  Beginning in v1.7.3, when a stored private key from the Keychain is used, the following will be logged at the "info" log level:
-
-```
-static: certificate has an existing certificate-key pair that was previously imported into the Keychain.
- Using key from Keychain instead of the one provided.
-```
 
 ## Resources
 
@@ -147,4 +154,4 @@ Check out our resources for additional guidance too before opening an issue:
 
 This library is licensed under the [Apache 2.0 License](./documents/LICENSE).
 
-Latest released version: v1.29.0
+Latest released version: v1.30.0

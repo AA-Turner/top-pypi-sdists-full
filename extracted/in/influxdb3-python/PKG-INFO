@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: influxdb3-python
-Version: 0.19.0
+Version: 0.20.0
 Summary: Community Python client for InfluxDB 3.0
 Home-page: https://github.com/InfluxCommunity/influxdb3-python
 Author: InfluxData
@@ -96,12 +96,52 @@ You can install 'influxdb3-python' using `pip`:
 pip install influxdb3-python
 ```
 
-Note: This does not include Pandas support. If you would like to use key features such as `to_pandas()`  and `write_file()` you will need to install `pandas` separately.
+Note: This does not include Pandas support. If you would like to use key features such as `to_pandas()`  and `write_file()`, or to use PyArrow data conversion methods with nanosecond timestamp precision, you will need to install `pandas` separately.
 
 *Note: Please make sure you are using 3.9 or above. For the best performance use 3.11+*
 
+## CLI (Agent-Friendly Query Tool)
+
+This package includes an `influx3` CLI for read/query workflows.
+
+### Run a query
+
+```bash
+influx3 query -d my_database "SELECT * FROM cpu LIMIT 5"
+```
+
+By default, output is JSON to stdout.
+
+### Supported formats
+
+- `json` (default)
+- `jsonl`
+- `csv`
+- `pretty`
+
+```bash
+influx3 query -d my_database --format csv "SELECT * FROM cpu LIMIT 5"
+```
+
+### Config precedence
+
+Configuration values are resolved in this order:
+
+1. CLI flags
+2. `INFLUXDB3_*` environment variables
+3. legacy `INFLUX_*` environment variables
+4. built-in defaults (host defaults to `http://127.0.0.1:8181`)
+
+Relevant environment variables:
+
+- `INFLUXDB3_HOST_URL` (legacy fallback: `INFLUX_HOST`)
+- `INFLUXDB3_DATABASE_NAME` (legacy fallback: `INFLUX_DATABASE`)
+- `INFLUXDB3_AUTH_TOKEN` (legacy fallback: `INFLUX_TOKEN`)
+
 # Usage
-One of the easiest ways to get started is to checkout the ["Pokemon Trainer Cookbook"](https://github.com/InfluxCommunity/influxdb3-python/blob/main/Examples/pokemon-trainer/cookbook.ipynb). This scenario takes you through the basics of both the client library and Pyarrow.
+One of the easiest ways to get started is to check out the ["Influxdb3 Python Basic Usage"](https://github.com/InfluxCommunity/influxdb3-python/blob/main/examples/jupyter/basic-write-query.ipynb) notebook. This scenario takes you through the core write and read APIs of the client library.
+
+Additional examples independent of jupyter are detailed in the [`./examples`](./examples/README.md) directory.
 
 ## Importing the Module
 ```python
@@ -251,6 +291,56 @@ client.write_dataframe(
     tags=['trainer', 'pokemon_id']
 )
 ```
+
+### Accept partial writes and inspect failed lines
+`accept_partial` defaults to `True` and allows partial success when writing through the V3 API endpoint (`use_v2_api=False`) and a batch contains invalid lines.
+On partial failure, the client raises `InfluxDBPartialWriteError` with structured `line_errors`.
+
+```python
+from influxdb_client_3 import InfluxDBClient3
+from influxdb_client_3.exceptions import InfluxDBPartialWriteError
+
+client = InfluxDBClient3(
+    host="http://localhost:8181",
+    token="token",
+    database="db",
+    write_use_v2_api=False,
+)
+lp = "home,room=Sunroom temp=96 1735545600\nhome,room=Sunroom temp=\"hi\" 1735549200"
+
+try:
+    client.write(lp)  # accept_partial=True by default on V3 API endpoint
+except InfluxDBPartialWriteError as e:
+    for line_err in e.line_errors:
+        print(f"line {line_err.line_number} failed: {line_err.error_message} ({line_err.original_line})")
+```
+
+Disable partial writes:
+```python
+client = InfluxDBClient3(
+    host="http://localhost:8181",
+    token="token",
+    database="db",
+    write_use_v2_api=False,
+    write_accept_partial=False,
+)
+```
+
+### Compatibility with InfluxDB Clustered and InfluxDB Cloud Dedicated/Serverless
+Writes use the V2 API endpoint by default, so no additional configuration is required for these products.
+
+`use_v2_api` can be configured by:
+- `WriteOptions(use_v2_api=False)` (for V3 API endpoint features)
+- constructor kwarg: `write_use_v2_api=False`
+- env var: `INFLUX_WRITE_USE_V2_API=false`
+
+When `use_v2_api=True`:
+- `accept_partial` is not used
+- `no_sync=True` is invalid and rejected before dispatch with:
+  `invalid write options: no_sync cannot be used with use_v2_api`
+
+To use `no_sync` or `accept_partial` controls, set `use_v2_api=False`
+(for example with InfluxDB 3 Core/Enterprise).
 
 ## Querying
 

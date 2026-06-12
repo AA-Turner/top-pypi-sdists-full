@@ -1,4 +1,4 @@
-.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start start-js-server build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios
+.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start start-js-server build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios test-auth-read-only-assistant
 
 # Environment variables
 LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "assistant_id_runtime": "./tests/graphs/assistant_id_runtime.py:graph", "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "agent_parallel_interrupt": "./tests/graphs/agent_parallel_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph", "agent_echo_stream": "./tests/graphs/agent_echo_stream.py:graph", "agent_tool_stream": "./tests/graphs/agent_tool_stream.py:graph", "runtime_graph": "./tests/graphs/runtime_graph.py:graph", "tool_call_chunk_stream": "./tests/graphs/tool_call_chunk_stream.py:graph", "ui_tool_call_stream": "./tests/graphs/ui_tool_call_stream.py:graph", "agent_metrics_stream": "./tests/graphs/agent_metrics_stream.py:graph", "agent_multimodal_stream": "./tests/graphs/agent_multimodal_stream.py:graph", "agent_bedtime_story": "./tests/graphs/agent_bedtime_story.py:graph", "delta_channel": "./tests/graphs/delta_channel.py:graph", "delta_channel_freq": "./tests/graphs/delta_channel_freq.py:graph", "delta_channel_files": "./tests/graphs/delta_channel_files.py:graph", "delta_channel_files_freq": "./tests/graphs/delta_channel_files_freq.py:graph", "delta_channel_legacy": "./tests/graphs/delta_channel_migration.py:graph_legacy", "delta_channel_delta": "./tests/graphs/delta_channel_migration.py:graph_delta", "delta_channel_messages_freq": "./tests/graphs/delta_channel_messages.py:graph_freq", "delta_channel_messages": "./tests/graphs/delta_channel_messages.py:graph", "delta_channel_messages_legacy": "./tests/graphs/delta_channel_messages.py:graph_legacy", "delta_channel_messages_remove": "./tests/graphs/delta_channel_messages.py:graph_remove", "delta_channel_messages_update": "./tests/graphs/delta_channel_messages.py:graph_update", "delta_channel_messages_delta": "./tests/graphs/delta_channel_messages.py:graph_delta"}'
@@ -71,6 +71,19 @@ else
 	HTTP_CONFIG := $(LANGGRAPH_HTTP)
 endif
 
+# Dev/test default: opt in to loopback + http webhooks.
+# ``test_custom_route`` etc use relative URLs to dispatch to my_router.py;
+# ``test_join_*`` / ``test_webhook_payload_on_timeouts`` / ``test_cron_*``
+# and the shutdown suite use ``http://localhost:{port}/webhook`` to a
+# pytest httpserver fixture — all of these are blocked by the secure
+# ``disable_loopback`` default (GHSA-q3v5-r5ch-p57j), and
+# ``require_https`` defaults to true once any webhooks.url block is
+# present, so explicitly disable it for the http httpserver fixture.
+# Production deployers don't use these Makefiles. Override with
+# ``LANGGRAPH_WEBHOOKS=...`` on the command line to exercise the secure
+# default during local development.
+LANGGRAPH_WEBHOOKS ?= {"url": {"disable_loopback": false, "require_https": false}}
+
 LANGGRAPH_STORE ?= ""
 ifeq ($(LANGGRAPH_STORE),custom)
 	STORE_CONFIG := {"path": "./tests/graphs/custom_store.py:generate_store"}
@@ -93,10 +106,10 @@ REVISION ?= $(shell git rev-parse --short HEAD)
 LANGGRAPH_ENCRYPTION ?=
 
 test-license-oss:
-	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(TEST)
+	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_STORE='$(STORE_CONFIG)' LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(XDIST_ARGS) $(TEST)
 
 test-watch-oss:
-	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run --no-sync ptw . -- -x -vv --ff --capture=no $(TEST)
+	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' LANGGRAPH_HTTP='$(HTTP_CONFIG)' LANGGRAPH_ENCRYPTION='$(LANGGRAPH_ENCRYPTION)' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run --no-sync ptw . -- -x -vv --ff --capture=no $(TEST)
 
 test: test-license-oss
 test-watch: test-watch-oss
@@ -159,6 +172,7 @@ LANGSMITH_TRACING ?= false
 
 start:
 	LANGGRAPH_DISABLE_FILE_PERSISTENCE=$(LANGGRAPH_DISABLE_FILE_PERSISTENCE) \
+	LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' \
 	LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	LANGGRAPH_RUNTIME_EDITION=inmem \
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \
@@ -186,6 +200,7 @@ start:
 start-license-oss: start
 
 start-encrypt:
+	LANGGRAPH_WEBHOOKS='$(LANGGRAPH_WEBHOOKS)' \
 	LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	LANGGRAPH_RUNTIME_EDITION=inmem \
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \

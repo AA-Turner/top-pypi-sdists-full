@@ -1,24 +1,30 @@
-from __future__ import absolute_import
-
-from kafka.admin.config_resource import ConfigResource
+from .common import add_resource_arguments, parse_resources
 
 
 class DescribeConfigs:
+    COMMAND = 'describe'
+    HELP = 'Describe Kafka Configs'
 
     @classmethod
-    def add_subparser(cls, subparsers):
-        parser = subparsers.add_parser('describe', help='Describe Kafka Configs')
-        parser.add_argument('-t', '--topic', type=str, action='append', dest='topics', default=[])
-        parser.add_argument('-b', '--broker', type=str, action='append', dest='brokers', default=[])
-        parser.set_defaults(command=cls.command)
+    def add_arguments(cls, parser):
+        add_resource_arguments(parser)
+        parser.add_argument('-c', '--config', type=str, action='append', dest='configs', default=None)
+        parser.add_argument('--dynamic', action='store_true', default=False)
+        parser.add_argument('--modified', action='store_true', default=False)
+        parser.add_argument('--static', action='store_true', default=False)
+        parser.add_argument('--default', action='store_true', default=False)
 
     @classmethod
     def command(cls, client, args):
-        resources = []
-        for topic in args.topics:
-            resources.append(ConfigResource('TOPIC', topic))
-        for broker in args.brokers:
-            resources.append(ConfigResource('BROKER', broker))
-
-        response = client.describe_configs(resources)
-        return list(zip([(r.resource_type.name, r.name) for r in resources], [{str(vals[0]): vals[1] for vals in r.resources[0][4]} for r in response]))
+        resources = parse_resources(args, configs=args.configs)
+        if args.modified:
+            config_filter = 'modified'
+        elif args.dynamic:
+            config_filter = 'dynamic'
+        elif args.static:
+            config_filter = 'static'
+        elif args.default:
+            config_filter = 'default'
+        else:
+            config_filter = 'all'
+        return client.describe_configs(resources, config_filter=config_filter)

@@ -79,7 +79,14 @@ def _get_webhook_config() -> _WebhookConfig:
     exact_allowed = frozenset(exact_hosts)
 
     disable_private_ips = bool(policy_cfg.get("disable_private_ips", False))
-    disable_loopback = bool(policy_cfg.get("disable_loopback", False))
+    # Loopback webhooks are denied by default (covers relative URLs that
+    # would dispatch through the in-process ASGI client at root_path=/noauth,
+    # plus localhost / 127.x / ::1 / host.docker.internal absolute URLs,
+    # plus any hostname that DNS-resolves into the loopback range). This is
+    # the fix for GHSA-q3v5-r5ch-p57j: relative-URL webhooks were the auth
+    # bypass primitive, and the localhost/loopback IP variants are the
+    # broader SSRF surface that the same flag governs via SSRFPolicy.
+    disable_loopback = bool(policy_cfg.get("disable_loopback", True))
 
     return _WebhookConfig(
         allowed_domains=allowed_domains,
@@ -111,11 +118,26 @@ async def validate_webhook_url_or_raise(url: str) -> None:
     if len(url) > wh.max_url_length:
         raise HTTPException(status_code=422, detail="Webhook URL too long")
 
-    # Relative loopback URL (internal route) — not subject to SSRF checks
+    # Relative loopback URL (internal route) — dispatched via an in-process
+    # ASGI client that mounts under root_path="/noauth", which the auth
+    # middleware treats as an auth-bypass marker. Denied by default so a
+    # user-supplied webhook URL cannot be turned into an unauthenticated
+    # call against the server's own routes (GHSA-q3v5-r5ch-p57j). Operators
+    # who intentionally route webhooks to in-process routes can opt back in
+    # by setting webhooks.url.disable_loopback to false.
     if url.startswith("/"):
         if wh.disable_loopback:
             raise HTTPException(
-                status_code=422, detail="Loopback webhooks are disabled"
+                status_code=422,
+                detail=(
+                    "Loopback webhooks (relative URLs and localhost) are "
+                    "disabled by default. They bypass authentication via the "
+                    "in-process ASGI transport and can be abused to invoke "
+                    "internal routes as an unauthenticated caller. Set "
+                    "webhooks.url.disable_loopback to false (in langgraph.json "
+                    "or via LANGGRAPH_WEBHOOKS) to opt back in — only do so "
+                    "when you control the mounted routes."
+                ),
             )
         return
 

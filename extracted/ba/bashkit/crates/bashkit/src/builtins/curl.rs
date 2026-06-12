@@ -15,7 +15,8 @@
 use async_trait::async_trait;
 
 #[cfg(feature = "http_client")]
-use super::limits::CURL_MAX_REDIRECTS as MAX_REDIRECTS;
+use super::limits::{CURL_MAX_REDIRECTS as MAX_REDIRECTS, CURL_MAX_REQUEST_BODY_BYTES};
+#[cfg(feature = "http_client")]
 use super::resolve_path;
 use super::{Builtin, Context};
 use crate::error::Result;
@@ -185,34 +186,8 @@ impl Builtin for Curl {
             i += 1;
         }
 
-        // Resolve -d @- (stdin) and -d @file (VFS file) before sending
-        if let Some(ref d) = data
-            && let Some(path) = d.strip_prefix('@')
-        {
-            if path == "-" {
-                // Read from stdin
-                data = Some(ctx.stdin.unwrap_or("").to_string());
-            } else {
-                // Read from VFS file
-                let resolved = resolve_path(ctx.cwd, path);
-                match ctx.fs.read_file(&resolved).await {
-                    Ok(content) => {
-                        data = Some(String::from_utf8_lossy(&content).into_owned());
-                    }
-                    Err(_) => {
-                        return Ok(ExecResult::err(
-                            format!(
-                                "curl: Failed reading data file {}: No such file or directory\n",
-                                path
-                            ),
-                            26,
-                        ));
-                    }
-                }
-            }
-        }
-
-        // Validate URL
+        // Validate URL before resolving @file bodies. This keeps failed/no-network
+        // invocations from forcing host/VFS reads or large allocations.
         let url = match url {
             Some(u) => u,
             None => {
@@ -235,11 +210,21 @@ impl Builtin for Curl {
         #[cfg(feature = "http_client")]
         {
             if let Some(http_client) = ctx.http_client {
+                if let Err(e) = http_client.enforce_url_security(&url).await {
+                    return Ok(curl_network_error_result(e));
+                }
+                let data_body =
+                    match resolve_data_body(data.as_deref(), ctx.stdin, ctx.cwd, ctx.fs.as_ref())
+                        .await
+                    {
+                        Ok(body) => body,
+                        Err(result) => return Ok(*result),
+                    };
                 return execute_curl_request(
                     http_client,
                     &url,
                     &method,
-                    data.as_deref(),
+                    data_body.as_deref(),
                     &headers,
                     head_only,
                     silent,
@@ -294,8 +279,115 @@ impl Builtin for Curl {
     }
 }
 
+#[cfg(feature = "http_client")]
+fn curl_network_error_result(e: impl std::fmt::Display) -> ExecResult {
+    let error_msg = e.to_string();
+    let exit_code = if error_msg.contains("access denied") {
+        7
+    } else if error_msg.contains("timeout") || error_msg.contains("timed out") {
+        28
+    } else if error_msg.contains("response too large") {
+        63
+    } else if error_msg.contains("invalid URL") {
+        3
+    } else {
+        1
+    };
+
+    ExecResult::err(format!("curl: {}\n", error_msg), exit_code)
+}
+
+#[cfg(feature = "http_client")]
+fn curl_data_file_error(path: &str) -> ExecResult {
+    ExecResult::err(
+        format!(
+            "curl: Failed reading data file {}: No such file or directory\n",
+            path
+        ),
+        26,
+    )
+}
+
+#[cfg(feature = "http_client")]
+fn curl_body_too_large_error() -> ExecResult {
+    ExecResult::err(
+        format!(
+            "curl: request body too large (max {} bytes)\n",
+            CURL_MAX_REQUEST_BODY_BYTES
+        ),
+        2,
+    )
+}
+
+#[cfg(feature = "http_client")]
+fn check_curl_body_size(len: usize) -> Option<ExecResult> {
+    if len > CURL_MAX_REQUEST_BODY_BYTES {
+        Some(curl_body_too_large_error())
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "http_client")]
+async fn resolve_data_body(
+    data: Option<&str>,
+    stdin: Option<&str>,
+    cwd: &std::path::Path,
+    fs: &dyn crate::fs::FileSystem,
+) -> std::result::Result<Option<Vec<u8>>, Box<ExecResult>> {
+    let Some(data) = data else {
+        return Ok(None);
+    };
+
+    if let Some(path) = data.strip_prefix('@') {
+        if path == "-" {
+            let bytes = stdin.unwrap_or("").as_bytes().to_vec();
+            if let Some(result) = check_curl_body_size(bytes.len()) {
+                return Err(Box::new(result));
+            }
+            return Ok(Some(bytes));
+        }
+
+        let resolved = resolve_path(cwd, path);
+        let meta = fs
+            .stat(&resolved)
+            .await
+            .map_err(|_| Box::new(curl_data_file_error(path)))?;
+        if meta.size > CURL_MAX_REQUEST_BODY_BYTES as u64 {
+            return Err(Box::new(curl_body_too_large_error()));
+        }
+        let bytes = fs
+            .read_file(&resolved)
+            .await
+            .map_err(|_| Box::new(curl_data_file_error(path)))?;
+        if let Some(result) = check_curl_body_size(bytes.len()) {
+            return Err(Box::new(result));
+        }
+        return Ok(Some(bytes));
+    }
+
+    let bytes = data.as_bytes().to_vec();
+    if let Some(result) = check_curl_body_size(bytes.len()) {
+        return Err(Box::new(result));
+    }
+    Ok(Some(bytes))
+}
+
+#[cfg(feature = "http_client")]
+fn append_multipart_bytes(body: &mut Vec<u8>, bytes: &[u8]) -> std::result::Result<(), String> {
+    if body.len().saturating_add(bytes.len()) > CURL_MAX_REQUEST_BODY_BYTES {
+        return Err(format!(
+            "curl: request body too large: exceeded {} bytes limit\n",
+            CURL_MAX_REQUEST_BODY_BYTES
+        ));
+    }
+    body.extend_from_slice(bytes);
+    Ok(())
+}
+
 /// Sanitize a multipart field name or filename to prevent header injection.
-/// Rejects CR/LF characters (which could inject headers) and escapes double quotes.
+/// Rejects CR/LF characters (which could inject headers) and escapes quoted-string
+/// metacharacters so names cannot terminate `Content-Disposition` parameters.
 fn sanitize_multipart_name(value: &str, label: &str) -> std::result::Result<String, String> {
     if value.contains('\r') || value.contains('\n') {
         return Err(format!(
@@ -303,7 +395,15 @@ fn sanitize_multipart_name(value: &str, label: &str) -> std::result::Result<Stri
             label
         ));
     }
-    Ok(value.replace('"', "\\\""))
+
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        if ch == '\\' || ch == '"' {
+            escaped.push('\\');
+        }
+        escaped.push(ch);
+    }
+    Ok(escaped)
 }
 
 /// Execute the actual curl request when http_client feature is enabled.
@@ -313,7 +413,7 @@ async fn execute_curl_request(
     http_client: &crate::network::HttpClient,
     url: &str,
     method: &str,
-    data: Option<&str>,
+    data: Option<&[u8]>,
     headers: &[String],
     head_only: bool,
     _silent: bool,
@@ -390,6 +490,25 @@ async fn execute_curl_request(
     // Verbose output buffer
     let mut verbose_output = String::new();
 
+    // Validate the initial URL before reading upload files or buffering bodies.
+    if (!form_fields.is_empty() || data.is_some())
+        && let Err(e) = http_client.validate_url(url).await
+    {
+        return Ok(ExecResult::err(format!("curl: {}\n", e), 4));
+    }
+
+    if let Some(data) = data
+        && data.len() > CURL_MAX_REQUEST_BODY_BYTES
+    {
+        return Ok(ExecResult::err(
+            format!(
+                "curl: request body too large: exceeded {} bytes limit\n",
+                CURL_MAX_REQUEST_BODY_BYTES
+            ),
+            26,
+        ));
+    }
+
     // Build multipart body if -F fields are present
     let multipart_body: Option<Vec<u8>> = if !form_fields.is_empty() {
         let boundary = format!(
@@ -415,7 +534,11 @@ async fn execute_curl_request(
                     Err(e) => return Ok(ExecResult::err(e, 2)),
                 };
 
-                body.extend_from_slice(format!("--{}\r\n", boundary).as_bytes());
+                if let Err(e) =
+                    append_multipart_bytes(&mut body, format!("--{}\r\n", boundary).as_bytes())
+                {
+                    return Ok(ExecResult::err(e, 26));
+                }
                 if let Some(file_path) = value.strip_prefix('@') {
                     // File upload: key=@filepath[;type=mime]
                     let (path, mime) = if let Some(semi) = file_path.find(';') {
@@ -429,7 +552,15 @@ async fn execute_curl_request(
                         (file_path, guess_mime(file_path))
                     };
                     let resolved = resolve_path(ctx.cwd, path);
-                    let file_content = ctx.fs.read_file(&resolved).await.unwrap_or_default();
+                    let metadata = match ctx.fs.stat(&resolved).await {
+                        Ok(metadata) => metadata,
+                        Err(e) => {
+                            return Ok(ExecResult::err(
+                                format!("curl: failed to read upload file {}: {}\n", path, e),
+                                26,
+                            ));
+                        }
+                    };
                     let filename = std::path::Path::new(path)
                         .file_name()
                         .map(|n| n.to_string_lossy().to_string())
@@ -441,42 +572,75 @@ async fn execute_curl_request(
                         Err(e) => return Ok(ExecResult::err(e, 2)),
                     };
 
-                    body.extend_from_slice(
-                        format!(
-                            "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n",
-                            safe_name, safe_filename
-                        )
-                        .as_bytes(),
+                    let disposition = format!(
+                        "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\n",
+                        safe_name, safe_filename
                     );
-                    body.extend_from_slice(format!("Content-Type: {}\r\n\r\n", mime).as_bytes());
-                    body.extend_from_slice(&file_content);
+                    let content_type = format!("Content-Type: {}\r\n\r\n", mime);
+                    let remaining = CURL_MAX_REQUEST_BODY_BYTES
+                        .saturating_sub(body.len())
+                        .saturating_sub(disposition.len())
+                        .saturating_sub(content_type.len())
+                        as u64;
+                    if metadata.size > remaining {
+                        return Ok(curl_body_too_large_error());
+                    }
+
+                    if let Err(e) = append_multipart_bytes(&mut body, disposition.as_bytes()) {
+                        return Ok(ExecResult::err(e, 26));
+                    }
+                    if let Err(e) = append_multipart_bytes(&mut body, content_type.as_bytes()) {
+                        return Ok(ExecResult::err(e, 26));
+                    }
+                    let file_content = match ctx.fs.read_file(&resolved).await {
+                        Ok(content) => content,
+                        Err(e) => {
+                            return Ok(ExecResult::err(
+                                format!("curl: failed to read upload file {}: {}\n", path, e),
+                                26,
+                            ));
+                        }
+                    };
+                    if let Err(e) = append_multipart_bytes(&mut body, &file_content) {
+                        return Ok(ExecResult::err(e, 26));
+                    }
                 } else {
                     // Text field: key=value
-                    body.extend_from_slice(
+                    if let Err(e) = append_multipart_bytes(
+                        &mut body,
                         format!(
                             "Content-Disposition: form-data; name=\"{}\"\r\n\r\n",
                             safe_name
                         )
                         .as_bytes(),
-                    );
-                    body.extend_from_slice(value.as_bytes());
+                    ) {
+                        return Ok(ExecResult::err(e, 26));
+                    }
+                    if let Err(e) = append_multipart_bytes(&mut body, value.as_bytes()) {
+                        return Ok(ExecResult::err(e, 26));
+                    }
                 }
-                body.extend_from_slice(b"\r\n");
+                if let Err(e) = append_multipart_bytes(&mut body, b"\r\n") {
+                    return Ok(ExecResult::err(e, 26));
+                }
             }
         }
-        body.extend_from_slice(format!("--{}--\r\n", boundary).as_bytes());
+        if let Err(e) =
+            append_multipart_bytes(&mut body, format!("--{}--\r\n", boundary).as_bytes())
+        {
+            return Ok(ExecResult::err(e, 26));
+        }
         Some(body)
     } else {
         None
     };
 
     // Make the request
-    let initial_body = if multipart_body.is_some() {
-        multipart_body.as_deref().map(|b| b.to_vec())
+    let mut current_body = if let Some(body) = multipart_body {
+        Some(body)
     } else {
-        data.map(|d| d.as_bytes().to_vec())
+        data.map(|d| d.to_vec())
     };
-    let mut current_body = initial_body;
     let mut current_method = http_method;
     let mut current_headers = header_pairs.clone();
     let mut current_url = url.to_string();
@@ -636,22 +800,7 @@ async fn execute_curl_request(
                 return Ok(ExecResult::ok(final_output));
             }
             Err(e) => {
-                let error_msg = e.to_string();
-
-                // Determine appropriate exit code based on error type
-                let exit_code = if error_msg.contains("access denied") {
-                    7 // curl: couldn't connect to host
-                } else if error_msg.contains("timeout") || error_msg.contains("timed out") {
-                    28 // curl: operation timed out
-                } else if error_msg.contains("response too large") {
-                    63 // curl: maximum file size exceeded
-                } else if error_msg.contains("invalid URL") {
-                    3 // curl: URL malformed
-                } else {
-                    1 // general error
-                };
-
-                return Ok(ExecResult::err(format!("curl: {}\n", error_msg), exit_code));
+                return Ok(curl_network_error_result(e));
             }
         }
     }
@@ -1274,13 +1423,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_curl_data_at_stdin() {
-        // -d @- should read from stdin (network not configured, but data resolution
-        // happens before the network check)
         let result =
             run_curl_with_stdin_and_fs(&["-d", "@-", "https://example.com"], Some("hello"), &[])
                 .await;
-        // Without network, we get the "network access not configured" error,
-        // but the important thing is that @- was resolved (not sent literally)
         assert!(result.stderr.contains("network access not configured"));
     }
 
@@ -1296,21 +1441,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_curl_data_at_file_not_found() {
+    async fn test_curl_data_at_file_not_found_without_network_does_not_read() {
         let result =
             run_curl_with_stdin_and_fs(&["-d", "@/missing.json", "https://example.com"], None, &[])
                 .await;
         assert_ne!(result.exit_code, 0);
-        assert_eq!(result.exit_code, 26);
-        assert!(result.stderr.contains("Failed reading data file"));
+        assert!(result.stderr.contains("network access not configured"));
+    }
+
+    #[tokio::test]
+    async fn test_curl_data_at_file_without_url_does_not_read() {
+        let result = run_curl_with_stdin_and_fs(&["-d", "@/missing.json"], None, &[]).await;
+        assert_ne!(result.exit_code, 0);
+        assert_eq!(result.exit_code, 3);
+        assert!(result.stderr.contains("no URL specified"));
     }
 
     #[tokio::test]
     async fn test_curl_data_at_stdin_none() {
-        // -d @- with no stdin should resolve to empty string
         let result =
             run_curl_with_stdin_and_fs(&["-d", "@-", "https://example.com"], None, &[]).await;
-        // Should proceed past data resolution (get network error, not a data error)
         assert!(result.stderr.contains("network access not configured"));
     }
 
@@ -1323,9 +1473,32 @@ mod tests {
         assert!(result.stderr.contains("network access not configured"));
     }
 
+    #[test]
+    fn test_sanitize_multipart_name_escapes_backslash_before_quote() {
+        let result = sanitize_multipart_name("foo\\\"; filename=evil", "field name").unwrap();
+        assert_eq!(result, "foo\\\\\\\"; filename=evil");
+    }
+
     #[cfg(feature = "http_client")]
     mod network_tests {
         use super::*;
+
+        #[tokio::test]
+        async fn test_curl_data_at_stdin_body_too_large() {
+            let fs = InMemoryFs::new();
+            let large_body = "x".repeat(CURL_MAX_REQUEST_BODY_BYTES + 1);
+            let result = resolve_data_body(
+                Some("@-"),
+                Some(&large_body),
+                std::path::Path::new("/"),
+                &fs,
+            )
+            .await;
+
+            let err = result.expect_err("oversize stdin body should be rejected");
+            assert_eq!(err.exit_code, 2);
+            assert!(err.stderr.contains("request body too large"));
+        }
 
         #[test]
         fn test_extract_filename_from_url() {
@@ -1510,6 +1683,181 @@ mod tests {
             .await;
             // Should reach network error (multipart built successfully)
             assert!(result.stderr.contains("network access not configured"));
+        }
+        struct ReadCountingFs {
+            inner: InMemoryFs,
+            reads: Arc<std::sync::atomic::AtomicUsize>,
+            reported_size: Option<u64>,
+        }
+
+        impl crate::fs::FileSystemExt for ReadCountingFs {}
+
+        #[async_trait::async_trait]
+        impl FileSystem for ReadCountingFs {
+            async fn read_file(&self, path: &std::path::Path) -> Result<Vec<u8>> {
+                self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                self.inner.read_file(path).await
+            }
+
+            async fn write_file(&self, path: &std::path::Path, content: &[u8]) -> Result<()> {
+                self.inner.write_file(path, content).await
+            }
+
+            async fn append_file(&self, path: &std::path::Path, content: &[u8]) -> Result<()> {
+                self.inner.append_file(path, content).await
+            }
+
+            async fn mkdir(&self, path: &std::path::Path, recursive: bool) -> Result<()> {
+                self.inner.mkdir(path, recursive).await
+            }
+
+            async fn remove(&self, path: &std::path::Path, recursive: bool) -> Result<()> {
+                self.inner.remove(path, recursive).await
+            }
+
+            async fn stat(&self, path: &std::path::Path) -> Result<crate::fs::Metadata> {
+                let mut metadata = self.inner.stat(path).await?;
+                if let Some(size) = self.reported_size {
+                    metadata.size = size;
+                }
+                Ok(metadata)
+            }
+
+            async fn read_dir(&self, path: &std::path::Path) -> Result<Vec<crate::fs::DirEntry>> {
+                self.inner.read_dir(path).await
+            }
+
+            async fn exists(&self, path: &std::path::Path) -> Result<bool> {
+                self.inner.exists(path).await
+            }
+
+            async fn rename(&self, from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+                self.inner.rename(from, to).await
+            }
+
+            async fn copy(&self, from: &std::path::Path, to: &std::path::Path) -> Result<()> {
+                self.inner.copy(from, to).await
+            }
+
+            async fn symlink(
+                &self,
+                target: &std::path::Path,
+                link: &std::path::Path,
+            ) -> Result<()> {
+                self.inner.symlink(target, link).await
+            }
+
+            async fn read_link(&self, path: &std::path::Path) -> Result<std::path::PathBuf> {
+                self.inner.read_link(path).await
+            }
+
+            async fn chmod(&self, path: &std::path::Path, mode: u32) -> Result<()> {
+                self.inner.chmod(path, mode).await
+            }
+
+            async fn set_modified_time(
+                &self,
+                path: &std::path::Path,
+                time: std::time::SystemTime,
+            ) -> Result<()> {
+                self.inner.set_modified_time(path, time).await
+            }
+        }
+
+        #[tokio::test]
+        async fn test_curl_multipart_blocked_url_does_not_read_upload_file() {
+            let inner = InMemoryFs::new();
+            inner
+                .write_file(std::path::Path::new("/large.bin"), b"large upload")
+                .await
+                .unwrap();
+            let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let fs: Arc<dyn FileSystem> = Arc::new(ReadCountingFs {
+                inner,
+                reads: reads.clone(),
+                reported_size: None,
+            });
+            let mut bash = crate::Bash::builder()
+                .fs(fs)
+                .network(crate::NetworkAllowlist::new())
+                .build();
+
+            let result = bash
+                .exec("curl -s -F file=@/large.bin https://blocked.example")
+                .await
+                .unwrap();
+
+            assert_ne!(result.exit_code, 0);
+            assert!(result.stderr.contains("access denied"));
+            assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0);
+        }
+
+        struct OkHandler;
+
+        #[async_trait::async_trait]
+        impl crate::network::HttpHandler for OkHandler {
+            async fn request(
+                &self,
+                _method: &str,
+                _url: &str,
+                _body: Option<&[u8]>,
+                _headers: &[(String, String)],
+            ) -> std::result::Result<crate::network::Response, String> {
+                Ok(crate::network::Response {
+                    status: 200,
+                    headers: vec![],
+                    body: b"ok".to_vec(),
+                })
+            }
+        }
+
+        #[tokio::test]
+        async fn test_curl_multipart_oversized_upload_file_rejected_before_read() {
+            let inner = InMemoryFs::new();
+            inner
+                .write_file(std::path::Path::new("/large.bin"), b"tiny sentinel")
+                .await
+                .unwrap();
+            let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let fs: Arc<dyn FileSystem> = Arc::new(ReadCountingFs {
+                inner,
+                reads: reads.clone(),
+                reported_size: Some(CURL_MAX_REQUEST_BODY_BYTES as u64 + 1),
+            });
+            let mut bash = crate::Bash::builder()
+                .fs(fs)
+                .network(crate::NetworkAllowlist::allow_all())
+                .http_handler(Box::new(OkHandler))
+                .build();
+
+            let result = bash
+                .exec("curl -s -F file=@/large.bin https://example.com")
+                .await
+                .unwrap();
+
+            assert_eq!(result.exit_code, 2);
+            assert!(result.stderr.contains("request body too large"));
+            assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0);
+        }
+
+        #[tokio::test]
+        async fn test_curl_multipart_missing_upload_file_returns_error() {
+            let mut bash = crate::Bash::builder()
+                .network(crate::NetworkAllowlist::allow_all())
+                .http_handler(Box::new(OkHandler))
+                .build();
+
+            let result = bash
+                .exec("curl -s -F file=@/missing.bin https://example.com")
+                .await
+                .unwrap();
+
+            assert_eq!(result.exit_code, 26);
+            assert!(
+                result
+                    .stderr
+                    .contains("failed to read upload file /missing.bin")
+            );
         }
     }
 }

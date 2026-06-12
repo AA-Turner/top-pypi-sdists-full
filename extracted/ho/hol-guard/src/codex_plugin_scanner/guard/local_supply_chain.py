@@ -21,7 +21,9 @@ from uuid import uuid4
 from codex_plugin_scanner.path_support import resolve_path_within_allowed_roots, resolves_within_root
 
 from .adapters.base import HarnessContext
+from .advisory_model import ProtectTargetIdentity, advisory_matches_target, build_package_url
 from .config import GuardConfig, resolve_risk_action
+from .models import GuardArtifact
 from .package_firewall_entitlement import resolve_package_firewall_entitlement
 from .receipts import build_receipt
 from .redaction import redact_text
@@ -46,7 +48,11 @@ from .runtime.runner import (
     sync_local_guard_cloud_proof,
     sync_supply_chain_bundle,
 )
-from .runtime.supply_chain_package_eval import evaluate_package_request_artifact
+from .runtime.supply_chain_package_eval import (
+    PackageRequestEvaluation,
+    SupplyChainUserCopy,
+    evaluate_package_request_artifact,
+)
 from .runtime.supply_chain_support import ecosystem_support_matrix
 from .shims import package_shim_status, package_shim_supported_managers
 from .stable_digest import stable_digest_hex
@@ -315,8 +321,13 @@ def resolve_package_firewall_entitlement_with_refresh(store: GuardStore) -> dict
         return entitlement
     if store.get_cloud_sync_profile() is None:
         return entitlement
-    if str(entitlement.get("reason") or "") not in {"guard_cloud_reconnect_required", "paid_guard_cloud_required"}:
+    if str(entitlement.get("reason") or "") not in {
+        "guard_cloud_connect_required",
+        "guard_cloud_reconnect_required",
+        "paid_guard_cloud_required",
+    }:
         return entitlement
+    now_iso = datetime.now(timezone.utc).isoformat()
     now = time.time()
     with _PACKAGE_FIREWALL_REFRESH_LOCK:
         state = _read_package_firewall_refresh_state(store.guard_home)
@@ -330,13 +341,16 @@ def resolve_package_firewall_entitlement_with_refresh(store: GuardStore) -> dict
     for refresh in (sync_local_guard_cloud_proof, sync_supply_chain_bundle):
         try:
             refresh(store)
-        except (
-            GuardSyncAuthorizationExpiredError,
-            GuardSyncNotAvailableError,
-            GuardSyncNotConfiguredError,
-            OSError,
-            RuntimeError,
-        ):
+        except GuardSyncAuthorizationExpiredError as error:
+            if str(entitlement.get("reason") or "") == "guard_cloud_connect_required":
+                store.record_latest_guard_connect_sync_result(
+                    status="retry_required",
+                    milestone="first_sync_failed",
+                    now=now_iso,
+                    reason=str(error),
+                )
+            break
+        except (GuardSyncNotAvailableError, GuardSyncNotConfiguredError, OSError, RuntimeError):
             continue
     return resolve_package_firewall_entitlement(store)
 
@@ -748,6 +762,7 @@ def build_package_protect_payload(
     store: GuardStore,
     workspace_dir: Path,
     dry_run: bool,
+    allow_saved_approval_execution: bool = False,
     now: str,
     config: GuardConfig | None,
     unsafe_raw_output: bool,
@@ -771,6 +786,20 @@ def build_package_protect_payload(
         workspace_dir=workspace_dir,
         now=now,
     )
+    artifact_hash = _package_request_artifact_hash(
+        artifact,
+        workspace_dir=workspace_dir,
+        store=store,
+        evaluation=evaluation,
+    )
+    evaluation = _apply_stored_package_policy_override(
+        evaluation,
+        store=store,
+        artifact=artifact,
+        artifact_hash=artifact_hash,
+        workspace_dir=workspace_dir,
+        now=now,
+    )
     verdict_action = _protect_action_for_decision(evaluation.decision)
     risk_signals = tuple(_evaluation_risk_signals(evaluation))
     receipt_policy_metadata = {
@@ -785,7 +814,7 @@ def build_package_protect_payload(
     receipt = build_receipt(
         harness=_LOCAL_SUPPLY_CHAIN_HARNESS,
         artifact_id=artifact.artifact_id,
-        artifact_hash=stable_digest_hex(artifact.artifact_id.encode("utf-8")),
+        artifact_hash=artifact_hash,
         policy_decision=verdict_action,
         capabilities_summary=evaluation.user_copy.summary,
         changed_capabilities=[target.package_name or target.raw_spec for target in sanitized_intent.targets],
@@ -826,7 +855,10 @@ def build_package_protect_payload(
     }
     if config is not None:
         payload["supply_chain"] = build_local_supply_chain_posture(store, config, now=now)
-    if evaluation.decision in {"block", "ask"} or dry_run:
+    effective_dry_run = dry_run and not (
+        allow_saved_approval_execution and _evaluation_uses_saved_package_approval(evaluation)
+    )
+    if evaluation.decision in {"block", "ask"} or effective_dry_run:
         store.add_receipt(receipt)
         store.set_receipt_action_envelope(receipt.receipt_id, receipt_policy_metadata)
         store.add_event(
@@ -909,6 +941,240 @@ def build_package_protect_payload(
             now,
         )
     return (payload, int(execution.returncode))
+
+
+def _apply_stored_package_policy_override(
+    evaluation: PackageRequestEvaluation,
+    *,
+    store: GuardStore,
+    artifact: GuardArtifact,
+    artifact_hash: str,
+    workspace_dir: Path,
+    now: str,
+) -> PackageRequestEvaluation:
+    decision = store.resolve_policy_decision(
+        artifact.harness,
+        artifact.artifact_id,
+        artifact_hash,
+        str(workspace_dir),
+        artifact.publisher,
+        now,
+    )
+    if not isinstance(decision, dict):
+        return evaluation
+    action = decision.get("action")
+    if action == "allow":
+        return _package_policy_override_evaluation(
+            evaluation,
+            decision="allow",
+            policy_action="allow",
+            title="Allowed by saved approval",
+            summary="HOL Guard reused your saved approval for this package request.",
+            harness_message=(
+                "HOL Guard reused your saved approval for this package request and let the install continue."
+            ),
+            reason_code="saved_package_approval",
+            reason_message="HOL Guard reused your saved approval for this package request.",
+        )
+    if action == "block":
+        return _package_policy_override_evaluation(
+            evaluation,
+            decision="block",
+            policy_action="block",
+            title="Blocked by saved policy",
+            summary="HOL Guard kept this package blocked because a saved package policy already exists.",
+            harness_message="HOL Guard kept this package blocked because a saved package policy already exists.",
+            reason_code="saved_package_block",
+            reason_message="HOL Guard kept this package blocked because a saved package policy already exists.",
+        )
+    return evaluation
+
+
+def recompute_package_protect_artifact_hash(
+    command: Sequence[str],
+    *,
+    store: GuardStore,
+    workspace_dir: Path,
+    now: str | None = None,
+) -> str | None:
+    from .runtime.package_intent_parser import parse_package_intent
+
+    intent = parse_package_intent(shlex.join(command), workspace=workspace_dir)
+    if intent is None:
+        return None
+    sanitized_intent = replace(intent, redacted_command=shlex.join(redacted_command_tokens(command)))
+    artifact = build_package_request_artifact(
+        _LOCAL_SUPPLY_CHAIN_HARNESS,
+        sanitized_intent,
+        config_path="hol-guard.toml",
+        source_scope="project",
+    )
+    evaluation_timestamp = now or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    evaluation = evaluate_package_request_artifact(
+        artifact=artifact,
+        store=store,
+        workspace_dir=workspace_dir,
+        now=evaluation_timestamp,
+    )
+    return _package_request_artifact_hash(
+        artifact,
+        workspace_dir=workspace_dir,
+        store=store,
+        evaluation=evaluation,
+    )
+
+
+def _package_target_identities(artifact: GuardArtifact) -> tuple[ProtectTargetIdentity, ...]:
+    metadata = artifact.metadata if isinstance(artifact.metadata, dict) else {}
+    targets = metadata.get("targets")
+    if not isinstance(targets, list):
+        return ()
+    identities: list[ProtectTargetIdentity] = []
+    for item in targets:
+        if not isinstance(item, dict):
+            continue
+        ecosystem = str(item.get("ecosystem") or "")
+        package_name = item.get("package_name") if isinstance(item.get("package_name"), str) else None
+        raw_spec = str(item.get("raw_spec") or package_name or "")
+        version = item.get("requested_specifier") if isinstance(item.get("requested_specifier"), str) else None
+        source_url = item.get("source_url") if isinstance(item.get("source_url"), str) else None
+        artifact_id = f"{ecosystem}:{package_name or raw_spec}"
+        artifact_name = package_name or raw_spec
+        identities.append(
+            ProtectTargetIdentity(
+                artifact_id=artifact_id,
+                artifact_name=artifact_name,
+                ecosystem=ecosystem,
+                package_name=package_name,
+                package_url=build_package_url(ecosystem, package_name, version),
+                source_url=source_url,
+            )
+        )
+    return tuple(identities)
+
+
+def _package_matched_cached_advisory_ids(store: GuardStore, artifact: GuardArtifact) -> tuple[str, ...]:
+    advisories = store.list_cached_advisories(limit=None)
+    identities = _package_target_identities(artifact)
+    matched_ids: set[str] = set()
+    for advisory in advisories:
+        for identity in identities:
+            if advisory_matches_target(advisory, identity):
+                advisory_id = advisory.get("id")
+                if isinstance(advisory_id, str) and advisory_id:
+                    matched_ids.add(advisory_id)
+                break
+    return tuple(sorted(matched_ids))
+
+
+def _package_feed_snapshot_hash(store: GuardStore) -> str | None:
+    workspace_id = store.get_cloud_workspace_id()
+    if workspace_id is None:
+        return None
+    cached_bundle = store.get_cached_supply_chain_bundle(workspace_id)
+    if not isinstance(cached_bundle, dict):
+        return None
+    bundle = cached_bundle.get("bundle")
+    if not isinstance(bundle, dict):
+        return None
+    value = bundle.get("feedSnapshotHash")
+    return value if isinstance(value, str) and value else None
+
+
+def _package_policy_gate_context(
+    store: GuardStore,
+    artifact: GuardArtifact,
+    evaluation: PackageRequestEvaluation,
+) -> dict[str, object]:
+    return {
+        "bundle_version": evaluation.bundle_version,
+        "decision": evaluation.decision,
+        "feed_snapshot_hash": _package_feed_snapshot_hash(store),
+        "matched_advisory_ids": list(_package_matched_cached_advisory_ids(store, artifact)),
+        "matched_rule_id": evaluation.matched_rule_id,
+        "policy_action": evaluation.policy_action,
+        "policy_version": evaluation.policy_version,
+    }
+
+
+def _package_request_artifact_hash(
+    artifact: GuardArtifact,
+    *,
+    workspace_dir: Path,
+    store: GuardStore,
+    evaluation: PackageRequestEvaluation,
+) -> str:
+    policy_gate = _package_policy_gate_context(store, artifact, evaluation)
+    metadata = artifact.metadata if isinstance(artifact.metadata, dict) else {}
+    targets = metadata.get("targets")
+    manifest_paths = tuple(str(item) for item in metadata.get("manifest_paths", []) if isinstance(item, str))
+    lockfile_paths = tuple(str(item) for item in metadata.get("lockfile_paths", []) if isinstance(item, str))
+    has_targets = isinstance(targets, list) and any(isinstance(item, dict) for item in targets)
+    if has_targets or (not manifest_paths and not lockfile_paths):
+        return stable_digest_hex(
+            json.dumps(
+                {
+                    "artifact_id": artifact.artifact_id,
+                    "policy_gate": policy_gate,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+    return stable_digest_hex(
+        json.dumps(
+            {
+                "artifact_id": artifact.artifact_id,
+                "manifest_paths": list(manifest_paths),
+                "lockfile_paths": list(lockfile_paths),
+                "manifest_hashes": _hash_existing_paths(workspace_dir, manifest_paths),
+                "lockfile_hashes": _hash_existing_paths(workspace_dir, lockfile_paths),
+                "policy_gate": policy_gate,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+
+
+def _evaluation_uses_saved_package_approval(evaluation: PackageRequestEvaluation) -> bool:
+    return any(reason.get("code") == "saved_package_approval" for reason in evaluation.reasons)
+
+
+def _package_policy_override_evaluation(
+    evaluation: PackageRequestEvaluation,
+    *,
+    decision: str,
+    policy_action: str,
+    title: str,
+    summary: str,
+    harness_message: str,
+    reason_code: str,
+    reason_message: str,
+) -> PackageRequestEvaluation:
+    reason = {
+        "code": reason_code,
+        "message": reason_message,
+        "severity": "low",
+        "source": "guard-local",
+    }
+    packages = tuple({**package, "decision": decision} for package in evaluation.packages)
+    return replace(
+        evaluation,
+        decision=decision,
+        policy_action=policy_action,
+        reasons=(reason, *tuple(item for item in evaluation.reasons if item != reason)),
+        packages=packages,
+        risk_summary=harness_message,
+        user_copy=SupplyChainUserCopy(
+            title=title,
+            summary=summary,
+            next_step=None,
+            dashboard_url=None,
+            harness_message=harness_message,
+        ),
+        record_monitor_evidence=False,
+    )
 
 
 def redacted_command_tokens(command: Sequence[str]) -> tuple[str, ...]:

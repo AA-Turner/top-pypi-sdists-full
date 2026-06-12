@@ -35,13 +35,20 @@ from clickhouse_connect.datatypes.base import ClickHouseType
 from clickhouse_connect.datatypes.registry import get_from_name
 from clickhouse_connect.driver import httputil, options, tzutil
 from clickhouse_connect.driver.asyncqueue import EOF_SENTINEL, AsyncSyncQueue
-from clickhouse_connect.driver.binding import bind_query, quote_identifier
+from clickhouse_connect.driver.binding import bind_query, quote_identifier, use_form_encoding
 from clickhouse_connect.driver.client import Client, _apply_arrow_tz_policy
 from clickhouse_connect.driver.common import StreamContext, coerce_bool, dict_copy
 from clickhouse_connect.driver.compression import available_compression
 from clickhouse_connect.driver.constants import CH_VERSION_WITH_PROTOCOL, PROTOCOL_VERSION_WITH_LOW_CARD
 from clickhouse_connect.driver.ctypes import RespBuffCls
-from clickhouse_connect.driver.exceptions import DatabaseError, DataError, OperationalError, ProgrammingError
+from clickhouse_connect.driver.exceptions import (
+    DatabaseError,
+    DataError,
+    OperationalError,
+    ProgrammingError,
+    error_code_from_header,
+    error_name_from_body,
+)
 from clickhouse_connect.driver.external import ExternalData
 from clickhouse_connect.driver.insert import InsertContext
 from clickhouse_connect.driver.models import ColumnDef, SettingDef
@@ -580,13 +587,14 @@ class AsyncClient(Client):
             context.block_info = True
         params.update(self._validate_settings(context.settings))
         context.rename_response_column = self._rename_response_column
+        use_form = use_form_encoding(context.final_query, context.bind_params, self.form_encode_query_params)
 
         if not context.is_insert and columns_only_re.search(context.uncommented_query):
             fmt_json_query = f"{context.final_query}\n FORMAT JSON"
             fields = {"query": fmt_json_query}
             fields.update(context.bind_params)
 
-            if self.form_encode_query_params:
+            if use_form:
                 files = {}
                 if context.external_data:
                     params.update(context.external_data.query_params)
@@ -645,7 +653,7 @@ class AsyncClient(Client):
         files = None
         data = None
 
-        if self.form_encode_query_params:
+        if use_form:
             fields = {"query": final_query}
             fields.update(context.bind_params)
 
@@ -1125,10 +1133,11 @@ class AsyncClient(Client):
         files = None
         body = None
 
-        if external_data and not self.form_encode_query_params and isinstance(final_query, bytes):
+        use_form = use_form_encoding(final_query, bind_params, self.form_encode_query_params)
+        if external_data and not use_form and isinstance(final_query, bytes):
             raise ProgrammingError("Binary query cannot be placed in URL when using External Data; enable form encoding.")
 
-        if self.form_encode_query_params:
+        if use_form:
             files = {}
             files["query"] = (None, final_query if isinstance(final_query, str) else final_query.decode())
             for k, v in bind_params.items():
@@ -1890,26 +1899,29 @@ class AsyncClient(Client):
         """
         try:
             body = ""
+            full_body = ""
             try:
                 raw_body = await response.read()
                 encoding = response.headers.get("Content-Encoding")
+                loop = asyncio.get_running_loop()
 
                 if encoding:
-                    loop = asyncio.get_running_loop()
 
                     def decompress_and_decode():
-                        decompressed = decompress_response(raw_body, encoding)
-                        return common.format_error(decompressed.decode(errors="backslashreplace")).strip()
+                        return decompress_response(raw_body, encoding).decode(errors="backslashreplace")
 
-                    body = await loop.run_in_executor(None, decompress_and_decode)
+                    full_body = await loop.run_in_executor(None, decompress_and_decode)
                 else:
-                    loop = asyncio.get_running_loop()
-                    body = await loop.run_in_executor(None, lambda: common.format_error(raw_body.decode(errors="backslashreplace")).strip())
+                    full_body = await loop.run_in_executor(None, lambda: raw_body.decode(errors="backslashreplace"))
+                body = common.format_error(full_body).strip()
             except Exception:
                 logger.warning("Failed to read error response body", exc_info=True)
 
+            err_code = response.headers.get(ex_header)
+            code = error_code_from_header(err_code)
+            name = error_name_from_body(full_body) if self.show_clickhouse_errors else None
+
             if self.show_clickhouse_errors:
-                err_code = response.headers.get(ex_header)
                 if err_code:
                     err_str = f"Received ClickHouse exception, code: {err_code}"
                 else:
@@ -1925,7 +1937,8 @@ class AsyncClient(Client):
         finally:
             response.close()
 
-        raise OperationalError(err_str) if retried else DatabaseError(err_str) from None
+        err_type = OperationalError if retried else DatabaseError
+        raise err_type(err_str, code=code, name=name) from None
 
     async def _raw_request(
         self,

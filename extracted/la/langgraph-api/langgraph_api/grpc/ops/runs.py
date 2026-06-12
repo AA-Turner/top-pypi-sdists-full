@@ -130,6 +130,8 @@ STREAM_MODE_TO_PB = {
     "custom": enum_stream_mode.custom,
     "events": enum_stream_mode.events,
     "messages-tuple": enum_stream_mode.messages_tuple,
+    "tools": enum_stream_mode.tools,
+    "lifecycle": enum_stream_mode.lifecycle,
 }
 
 STREAM_MODE_FROM_PB = {
@@ -610,18 +612,19 @@ class Runs(Authenticated):
             create_run_value,
         )
         # Automatically enforce assistant ownership for non-system assistants
-        # by calling the user's assistant search auth handler.
+        # by calling the user's assistant read auth handler.
         assistant_auth_filters: list[pb.AuthFilter] = []
         if str(assistant_id) not in SYSTEM_ASSISTANT_IDS:
             ctx_ = ctx or get_auth_ctx()
             if ctx_ is not None:
                 auth_ctx = Auth.types.AuthContext(
                     resource="assistants",
-                    action="search",
+                    action="read",
                     user=ctx_.user,
                     permissions=ctx_.permissions,
                 )
-                raw = await auth_handle_event(auth_ctx, {"metadata": {}})
+                read_value = Auth.types.AssistantsRead(assistant_id=str(assistant_id))
+                raw = await auth_handle_event(auth_ctx, read_value)
                 if raw:
                     assistant_auth_filters = _filters_to_proto(raw)
 

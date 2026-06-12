@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kagglesdk
-Version: 0.1.28
+Version: 0.1.30
 Summary: Bindings to access kaggle's external-facing APIs
 Project-URL: Homepage, https://github.com/Kaggle/kagglesdk
 Project-URL: Bug Tracker, https://github.com/Kaggle/kagglesdk/issues
@@ -211,7 +211,7 @@ Keywords: API,Kaggle
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: protobuf
 Requires-Dist: requests
 Description-Content-Type: text/markdown

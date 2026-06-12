@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sparsediffpy
-Version: 0.5.0
+Version: 0.5.1
 Summary: Python bindings for SparseDiffEngine algorithmic differentiation
 License-Expression: Apache-2.0
 Requires-Python: >=3.11

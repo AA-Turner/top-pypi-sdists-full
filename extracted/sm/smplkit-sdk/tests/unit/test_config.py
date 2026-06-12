@@ -362,25 +362,29 @@ class TestResolveConfigErrors:
                 _home_dir=tmp_path,
             )
 
-    def test_missing_environment(self, monkeypatch, tmp_path):
+    def test_missing_environment_is_allowed(self, monkeypatch, tmp_path):
+        # environment is optional — resolves to None, server derives from key.
         monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(Error, match="No environment provided"):
-            resolve_config(
-                api_key="sk_api_test",
-                service="svc",
-                _home_dir=tmp_path,
-            )
+        cfg = resolve_config(api_key="sk_api_test", service="svc", _home_dir=tmp_path)
+        assert cfg.environment is None
+        assert cfg.service == "svc"
 
-    def test_missing_service(self, monkeypatch, tmp_path):
+    def test_missing_service_is_allowed(self, monkeypatch, tmp_path):
+        # service is optional — resolves to None (never the literal "None").
         monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
         monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
-        with pytest.raises(Error, match="No service provided"):
-            resolve_config(
-                api_key="sk_api_test",
-                environment="test",
-                _home_dir=tmp_path,
-            )
+        cfg = resolve_config(api_key="sk_api_test", environment="test", _home_dir=tmp_path)
+        assert cfg.service is None
+        assert cfg.environment == "test"
+
+    def test_missing_both_env_and_service_is_allowed(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("SMPLKIT_ENVIRONMENT", raising=False)
+        monkeypatch.delenv("SMPLKIT_SERVICE", raising=False)
+        monkeypatch.delenv("SMPLKIT_PROFILE", raising=False)
+        cfg = resolve_config(api_key="sk_api_test", _home_dir=tmp_path)
+        assert cfg.environment is None
+        assert cfg.service is None
 
     def test_error_message_mentions_profile(self, monkeypatch, tmp_path):
         monkeypatch.delenv("SMPLKIT_API_KEY", raising=False)

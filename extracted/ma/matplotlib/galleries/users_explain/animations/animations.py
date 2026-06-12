@@ -60,7 +60,7 @@ import matplotlib.animation as animation
 # 4) Save or show the animation using one of the following methods:
 #
 #    - `.pyplot.show` to show the animation in a window
-#    - `.Animation.to_html5_video` to create a HTML ``<video>`` tag
+#    - `.Animation.to_html5_video` to create an HTML ``<video>`` tag
 #    - `.Animation.to_jshtml` to create HTML code with interactive JavaScript animation
 #      controls
 #    - `.Animation.save` to save the animation to a file
@@ -111,7 +111,7 @@ z2 = g * t**2 / 2 + v02 * t
 
 scat = ax.scatter(t[0], z[0], c="b", s=5, label=f'v0 = {v0} m/s')
 line2 = ax.plot(t[0], z2[0], label=f'v0 = {v02} m/s')[0]
-ax.set(xlim=[0, 3], ylim=[-4, 10], xlabel='Time [s]', ylabel='Z [m]')
+ax.set(xlim=(0, 3), ylim=(-4, 10), xlabel='Time [s]', ylabel='Z [m]')
 ax.legend()
 
 

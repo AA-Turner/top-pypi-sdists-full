@@ -19,12 +19,18 @@ from urllib3.response import HTTPResponse
 from clickhouse_connect import common
 from clickhouse_connect.datatypes import registry
 from clickhouse_connect.datatypes.base import ClickHouseType
-from clickhouse_connect.driver.binding import bind_query, quote_identifier
+from clickhouse_connect.driver.binding import bind_query, quote_identifier, use_form_encoding
 from clickhouse_connect.driver.client import Client
 from clickhouse_connect.driver.common import coerce_bool, coerce_int, dict_add, dict_copy
 from clickhouse_connect.driver.compression import available_compression
 from clickhouse_connect.driver.ctypes import RespBuffCls
-from clickhouse_connect.driver.exceptions import DatabaseError, OperationalError, ProgrammingError
+from clickhouse_connect.driver.exceptions import (
+    DatabaseError,
+    OperationalError,
+    ProgrammingError,
+    error_code_from_header,
+    error_name_from_body,
+)
 from clickhouse_connect.driver.external import ExternalData
 from clickhouse_connect.driver.httputil import (
     ResponseSource,
@@ -268,10 +274,11 @@ class HttpClient(Client):
             context.block_info = True
         params.update(self._validate_settings(context.settings))
         context.rename_response_column = self._rename_response_column
+        use_form = use_form_encoding(context.final_query, context.bind_params, self.form_encode_query_params)
         if not context.is_insert and columns_only_re.search(context.uncommented_query):
             # Mirror normal query behavior for form encoding and external data
             fmt_json_query = f"{context.final_query}\n FORMAT JSON"
-            if self.form_encode_query_params:
+            if use_form:
                 fields = {"query": fmt_json_query}
                 fields.update(context.bind_params)
                 if context.external_data:  # Deal with form encoding + external data
@@ -311,7 +318,7 @@ class HttpClient(Client):
         final_query = self._prep_query(context)
         fields = {}
         # Setup additional query parameters and body
-        if self.form_encode_query_params:
+        if use_form:
             body = b""
             fields["query"] = final_query
             fields.update(context.bind_params)
@@ -498,14 +505,19 @@ class HttpClient(Client):
         """
         try:
             body = ""
+            full_body = ""
             try:
                 raw_body = get_response_data(response)
-                body = common.format_error(raw_body.decode(errors="backslashreplace")).strip()
+                full_body = raw_body.decode(errors="backslashreplace")
+                body = common.format_error(full_body).strip()
             except Exception:
                 logger.warning("Failed to read error response body", exc_info=True)
 
+            err_code = response.headers.get(ex_header)
+            code = error_code_from_header(err_code)
+            name = error_name_from_body(full_body) if self.show_clickhouse_errors else None
+
             if self.show_clickhouse_errors:
-                err_code = response.headers.get(ex_header)
                 if err_code:
                     err_str = f"Received ClickHouse exception, code: {err_code}"
                 else:
@@ -521,7 +533,8 @@ class HttpClient(Client):
         finally:
             response.close()
 
-        raise OperationalError(err_str) if retried else DatabaseError(err_str) from None
+        err_type = OperationalError if retried else DatabaseError
+        raise err_type(err_str, code=code, name=name) from None
 
     def _raw_request(
         self,
@@ -687,11 +700,12 @@ class HttpClient(Client):
         if use_database and self.database:
             params["database"] = self.database
         fields = {}
+        use_form = use_form_encoding(final_query, bind_params, self.form_encode_query_params)
         # Setup query body
-        if external_data and not self.form_encode_query_params and isinstance(final_query, bytes):
+        if external_data and not use_form and isinstance(final_query, bytes):
             raise ProgrammingError("Binary query cannot be placed in URL when using External Data; enable form encoding.")
         # Setup additional query parameters and body
-        if self.form_encode_query_params:
+        if use_form:
             body = b""
             fields["query"] = final_query
             fields.update(bind_params)

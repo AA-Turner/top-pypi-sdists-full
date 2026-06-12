@@ -1,25 +1,26 @@
-from __future__ import absolute_import
-
 import collections
 import threading
 
 from kafka import errors as Errors
 from kafka.future import Future
+from kafka.util import Timer
 
 
 class FutureProduceResult(Future):
+    __slots__ = ('topic_partition', '_latch')
+
     def __init__(self, topic_partition):
-        super(FutureProduceResult, self).__init__()
+        super().__init__()
         self.topic_partition = topic_partition
         self._latch = threading.Event()
 
     def success(self, value):
-        ret = super(FutureProduceResult, self).success(value)
+        ret = super().success(value)
         self._latch.set()
         return ret
 
     def failure(self, error):
-        ret = super(FutureProduceResult, self).failure(error)
+        ret = super().failure(error)
         self._latch.set()
         return ret
 
@@ -29,13 +30,13 @@ class FutureProduceResult(Future):
 
 
 class FutureRecordMetadata(Future):
+    __slots__ = ('_produce_future', 'args')
     def __init__(self, produce_future, batch_index, timestamp_ms, checksum, serialized_key_size, serialized_value_size, serialized_header_size):
-        super(FutureRecordMetadata, self).__init__()
+        super().__init__()
         self._produce_future = produce_future
         # packing args as a tuple is a minor speed optimization
         self.args = (batch_index, timestamp_ms, checksum, serialized_key_size, serialized_value_size, serialized_header_size)
-        produce_future.add_callback(self._produce_success)
-        produce_future.add_errback(self.failure)
+        produce_future._add_cb_eb(self._produce_success, self.failure)
 
     def _produce_success(self, result):
         offset, produce_timestamp_ms, record_exceptions_fn = result
@@ -59,11 +60,37 @@ class FutureRecordMetadata(Future):
                                       serialized_value_size, serialized_header_size)
             self.success(metadata)
 
+    def rebind(self, new_produce_future, new_batch_index):
+        """Rebind this future to a new produce future with a new batch index.
+
+        Used when a batch is split due to MESSAGE_TOO_LARGE. The original
+        FutureRecordMetadata is rebound to the new (smaller) batch's future.
+
+        This must be called from the sender thread while the old produce_future
+        has not been completed. Any user thread blocked in get() on the old
+        produce_future's latch will be woken and will re-wait on the new one.
+        """
+        old_produce_future = self._produce_future
+        self._produce_future = new_produce_future
+        _, timestamp_ms, checksum, sk, sv, sh = self.args
+        self.args = (new_batch_index, timestamp_ms, checksum, sk, sv, sh)
+        new_produce_future._add_cb_eb(self._produce_success, self.failure)
+        # Wake any thread blocked in get() so it re-waits on the new future.
+        # The old produce_future is never completed, so its stale callbacks
+        # (registered in __init__) will never fire.
+        old_produce_future._latch.set()
+
     def get(self, timeout=None):
-        if not self.is_done and not self._produce_future.wait(timeout):
-            raise Errors.KafkaTimeoutError(
-                "Timeout after waiting for %s secs." % (timeout,))
-        assert self.is_done
+        """Wait for up to timeout seconds for future to complete."""
+        # Loop because rebind() may wake us from the old produce_future's
+        # latch before the record is actually done. A batch may be split
+        # multiple times, so each rebind wakes us and we re-wait on the
+        # (possibly new) _produce_future.
+        timer = Timer(timeout * 1000 if timeout is not None else None)
+        while not self.is_done and not timer.expired:
+            if not self._produce_future.wait(timer.timeout_secs):
+                raise Errors.KafkaTimeoutError(
+                    "Timeout after waiting for %s secs." % (timeout,))
         if self.failed():
             raise self.exception # pylint: disable-msg=raising-bad-type
         return self.value

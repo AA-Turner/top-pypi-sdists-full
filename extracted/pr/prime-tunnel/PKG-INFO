@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime-tunnel
-Version: 0.1.8
+Version: 0.1.9
 Summary: Prime Intellect Tunnel SDK - Expose local services via secure tunnels
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-tunnel

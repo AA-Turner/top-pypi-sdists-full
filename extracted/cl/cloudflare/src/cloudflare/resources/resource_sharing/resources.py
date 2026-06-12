@@ -126,7 +126,7 @@ class ResourcesResource(SyncAPIResource):
 
     def update(
         self,
-        resource_id: str,
+        share_resource_id: str,
         *,
         account_id: str,
         share_id: str,
@@ -147,7 +147,7 @@ class ResourcesResource(SyncAPIResource):
 
           share_id: Share identifier tag.
 
-          resource_id: Share Resource identifier.
+          share_resource_id: Share Resource identifier.
 
           meta: Resource Metadata.
 
@@ -163,14 +163,14 @@ class ResourcesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
-        if not resource_id:
-            raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
+        if not share_resource_id:
+            raise ValueError(f"Expected a non-empty value for `share_resource_id` but received {share_resource_id!r}")
         return self._put(
             path_template(
-                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                "/accounts/{account_id}/shares/{share_id}/resources/{share_resource_id}",
                 account_id=account_id,
                 share_id=share_id,
-                resource_id=resource_id,
+                share_resource_id=share_resource_id,
             ),
             body=maybe_transform({"meta": meta}, resource_update_params.ResourceUpdateParams),
             options=make_request_options(
@@ -215,9 +215,12 @@ class ResourcesResource(SyncAPIResource):
 
           share_id: Share identifier tag.
 
-          page: Page number.
+          page: Page number. Defaults to `1` when `per_page` is supplied without `page`. May be
+              omitted entirely along with `per_page` to receive a non-paginated response.
 
-          per_page: Number of objects to return per page.
+          per_page: Number of objects to return per page. Defaults to `20` when `page` is supplied
+              without `per_page`. May be omitted entirely along with `page` to receive a
+              non-paginated response.
 
           resource_type: Filter share resources by resource_type.
 
@@ -260,7 +263,7 @@ class ResourcesResource(SyncAPIResource):
 
     def delete(
         self,
-        resource_id: str,
+        share_resource_id: str,
         *,
         account_id: str,
         share_id: str,
@@ -280,7 +283,7 @@ class ResourcesResource(SyncAPIResource):
 
           share_id: Share identifier tag.
 
-          resource_id: Share Resource identifier.
+          share_resource_id: Share Resource identifier.
 
           extra_headers: Send extra headers
 
@@ -294,14 +297,14 @@ class ResourcesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
-        if not resource_id:
-            raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
+        if not share_resource_id:
+            raise ValueError(f"Expected a non-empty value for `share_resource_id` but received {share_resource_id!r}")
         return self._delete(
             path_template(
-                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                "/accounts/{account_id}/shares/{share_id}/resources/{share_resource_id}",
                 account_id=account_id,
                 share_id=share_id,
-                resource_id=resource_id,
+                share_resource_id=share_resource_id,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -315,7 +318,7 @@ class ResourcesResource(SyncAPIResource):
 
     def get(
         self,
-        resource_id: str,
+        share_resource_id: str,
         *,
         account_id: str,
         share_id: str,
@@ -334,7 +337,7 @@ class ResourcesResource(SyncAPIResource):
 
           share_id: Share identifier tag.
 
-          resource_id: Share Resource identifier.
+          share_resource_id: Share Resource identifier.
 
           extra_headers: Send extra headers
 
@@ -348,14 +351,14 @@ class ResourcesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
-        if not resource_id:
-            raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
+        if not share_resource_id:
+            raise ValueError(f"Expected a non-empty value for `share_resource_id` but received {share_resource_id!r}")
         return self._get(
             path_template(
-                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                "/accounts/{account_id}/shares/{share_id}/resources/{share_resource_id}",
                 account_id=account_id,
                 share_id=share_id,
-                resource_id=resource_id,
+                share_resource_id=share_resource_id,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -464,7 +467,7 @@ class AsyncResourcesResource(AsyncAPIResource):
 
     async def update(
         self,
-        resource_id: str,
+        share_resource_id: str,
         *,
         account_id: str,
         share_id: str,
@@ -485,7 +488,7 @@ class AsyncResourcesResource(AsyncAPIResource):
 
           share_id: Share identifier tag.
 
-          resource_id: Share Resource identifier.
+          share_resource_id: Share Resource identifier.
 
           meta: Resource Metadata.
 
@@ -501,14 +504,14 @@ class AsyncResourcesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
-        if not resource_id:
-            raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
+        if not share_resource_id:
+            raise ValueError(f"Expected a non-empty value for `share_resource_id` but received {share_resource_id!r}")
         return await self._put(
             path_template(
-                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                "/accounts/{account_id}/shares/{share_id}/resources/{share_resource_id}",
                 account_id=account_id,
                 share_id=share_id,
-                resource_id=resource_id,
+                share_resource_id=share_resource_id,
             ),
             body=await async_maybe_transform({"meta": meta}, resource_update_params.ResourceUpdateParams),
             options=make_request_options(
@@ -553,9 +556,12 @@ class AsyncResourcesResource(AsyncAPIResource):
 
           share_id: Share identifier tag.
 
-          page: Page number.
+          page: Page number. Defaults to `1` when `per_page` is supplied without `page`. May be
+              omitted entirely along with `per_page` to receive a non-paginated response.
 
-          per_page: Number of objects to return per page.
+          per_page: Number of objects to return per page. Defaults to `20` when `page` is supplied
+              without `per_page`. May be omitted entirely along with `page` to receive a
+              non-paginated response.
 
           resource_type: Filter share resources by resource_type.
 
@@ -598,7 +604,7 @@ class AsyncResourcesResource(AsyncAPIResource):
 
     async def delete(
         self,
-        resource_id: str,
+        share_resource_id: str,
         *,
         account_id: str,
         share_id: str,
@@ -618,7 +624,7 @@ class AsyncResourcesResource(AsyncAPIResource):
 
           share_id: Share identifier tag.
 
-          resource_id: Share Resource identifier.
+          share_resource_id: Share Resource identifier.
 
           extra_headers: Send extra headers
 
@@ -632,14 +638,14 @@ class AsyncResourcesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
-        if not resource_id:
-            raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
+        if not share_resource_id:
+            raise ValueError(f"Expected a non-empty value for `share_resource_id` but received {share_resource_id!r}")
         return await self._delete(
             path_template(
-                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                "/accounts/{account_id}/shares/{share_id}/resources/{share_resource_id}",
                 account_id=account_id,
                 share_id=share_id,
-                resource_id=resource_id,
+                share_resource_id=share_resource_id,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -653,7 +659,7 @@ class AsyncResourcesResource(AsyncAPIResource):
 
     async def get(
         self,
-        resource_id: str,
+        share_resource_id: str,
         *,
         account_id: str,
         share_id: str,
@@ -672,7 +678,7 @@ class AsyncResourcesResource(AsyncAPIResource):
 
           share_id: Share identifier tag.
 
-          resource_id: Share Resource identifier.
+          share_resource_id: Share Resource identifier.
 
           extra_headers: Send extra headers
 
@@ -686,14 +692,14 @@ class AsyncResourcesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not share_id:
             raise ValueError(f"Expected a non-empty value for `share_id` but received {share_id!r}")
-        if not resource_id:
-            raise ValueError(f"Expected a non-empty value for `resource_id` but received {resource_id!r}")
+        if not share_resource_id:
+            raise ValueError(f"Expected a non-empty value for `share_resource_id` but received {share_resource_id!r}")
         return await self._get(
             path_template(
-                "/accounts/{account_id}/shares/{share_id}/resources/{resource_id}",
+                "/accounts/{account_id}/shares/{share_id}/resources/{share_resource_id}",
                 account_id=account_id,
                 share_id=share_id,
-                resource_id=resource_id,
+                share_resource_id=share_resource_id,
             ),
             options=make_request_options(
                 extra_headers=extra_headers,

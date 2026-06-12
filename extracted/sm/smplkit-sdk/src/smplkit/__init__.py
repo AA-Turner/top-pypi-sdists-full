@@ -2,23 +2,36 @@
 
 import enum
 
-from smplkit.client import AsyncSmplClient, SmplClient
+from smplkit.account._client import AccountClient, AsyncAccountClient
+from smplkit.audit._client import AsyncAuditClient, AuditClient
+from smplkit._client import AsyncSmplClient, SmplClient
+from smplkit._context import ContextScope
 from smplkit._errors import (
     ApiErrorDetail,
     Error,
     ConnectionError,
     ConflictError,
     NotFoundError,
+    NotInstalledError,
     PaymentRequiredError,
     TimeoutError,
     ValidationError,
 )
+from smplkit.config._client import AsyncConfigClient, ConfigChangeEvent, ConfigClient
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
+from smplkit.flags._client import AsyncFlagsClient, FlagChangeEvent, FlagsClient
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
+from smplkit.jobs._client import AsyncJobsClient, JobsClient
+from smplkit.logging._client import AsyncLoggingClient, LoggerChangeEvent, LoggingClient
 from smplkit.logging._sources import LoggerSource
-from smplkit.management.client import AsyncSmplManagementClient, SmplManagementClient
-from smplkit.management.types import Color, EnvironmentClassification
+from smplkit.platform._client import AsyncPlatformClient, PlatformClient
+from smplkit.platform.types import Color, EnvironmentClassification
+
+# ContextScope is the public return type of ``SmplClient.set_context`` /
+# ``AsyncSmplClient.set_context``; surface it as ``smplkit.ContextScope`` in
+# IDE hover / help() rather than the private ``smplkit._context`` path.
+ContextScope.__module__ = "smplkit"
 
 
 class LogLevel(str, enum.Enum):
@@ -27,8 +40,7 @@ class LogLevel(str, enum.Enum):
     Members are declared in ascending order of severity, the canonical
     convention in Python's ``logging`` module and the wider ecosystem:
     ``TRACE < DEBUG < INFO < WARN < ERROR < FATAL < SILENT``. ``SILENT``
-    sits at the top because it suppresses every lower level. See
-    :mod:`smplkit.logging._levels` for the integer mapping.
+    sits at the top because it suppresses every lower level.
     """
 
     TRACE = "TRACE"
@@ -41,31 +53,48 @@ class LogLevel(str, enum.Enum):
 
 
 __all__ = [
+    "AccountClient",
     "ApiErrorDetail",
+    "AsyncAccountClient",
+    "AsyncAuditClient",
+    "AsyncConfigClient",
     "AsyncContext",
+    "AsyncFlagsClient",
+    "AsyncJobsClient",
+    "AsyncLoggingClient",
+    "AsyncPlatformClient",
     "AsyncSmplClient",
-    "AsyncSmplManagementClient",
+    "AuditClient",
     "Color",
+    "ConfigChangeEvent",
+    "ConfigClient",
     "ConfigEnvironment",
     "ConfigItem",
+    "ConflictError",
+    "ConnectionError",
     "Context",
+    "ContextScope",
     "EnvironmentClassification",
+    "Error",
+    "FlagChangeEvent",
     "FlagDeclaration",
     "FlagEnvironment",
     "FlagRule",
     "FlagValue",
+    "FlagsClient",
     "ItemType",
-    "LoggerSource",
+    "JobsClient",
     "LogLevel",
+    "LoggerChangeEvent",
+    "LoggerSource",
+    "LoggingClient",
+    "NotFoundError",
+    "NotInstalledError",
     "Op",
+    "PaymentRequiredError",
+    "PlatformClient",
     "Rule",
     "SmplClient",
-    "Error",
-    "ConnectionError",
-    "ConflictError",
-    "SmplManagementClient",
-    "NotFoundError",
-    "PaymentRequiredError",
     "TimeoutError",
     "ValidationError",
 ]

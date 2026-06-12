@@ -52,6 +52,12 @@ const DEFAULT_BSPLINE_DEGREE: usize = 3;
 /// `m=`) option is absent. Second-order (curvature) is the standard P-spline
 /// convention.
 const DEFAULT_PENALTY_ORDER: usize = 2;
+/// Default shared-marginal basis dimension for `bs="fs"`/`bs="sz"` factor smooths,
+/// matching mgcv's factor-smooth default `k=10`. A factor smooth shares one
+/// marginal across all levels; a modest basis recovers the shared signal without
+/// over-fitting each group's within-group noise (gam#903). Overridden by an
+/// explicit `k`/`basis_dim`.
+const FACTOR_SMOOTH_DEFAULT_BASIS_DIM: usize = 10;
 
 /// Default row-chunk size for the out-of-core PCA-basis smooth when the
 /// `chunk_size=` option is absent. Streams the design in row blocks to bound
@@ -534,6 +540,19 @@ pub fn build_termspec(
                     inner_options
                         .entry("double_penalty".to_string())
                         .or_insert_with(|| "false".to_string());
+                    // A `bs="sz"` factor smooth shares ONE marginal replicated
+                    // across the level-deviation blocks, so — exactly like `fs` —
+                    // the pooled knot heuristic over-equips it (~24 functions vs
+                    // mgcv's sz default k=10) and REML over-fits the shared shape
+                    // (gam#903: gam 0.068 vs mgcv 0.046 truth RMSE). The inner
+                    // smooth is built as a plain 1-D smooth below, which would
+                    // otherwise take the full pooled basis, so inject mgcv's
+                    // modest default here. An explicit user `k`/`basis_dim` wins
+                    // (it precedes `basis_dim` in the basis-count lookup, and
+                    // `or_insert` leaves a user `basis_dim` untouched).
+                    inner_options
+                        .entry("basis_dim".to_string())
+                        .or_insert_with(|| FACTOR_SMOOTH_DEFAULT_BASIS_DIM.to_string());
                 }
                 // Pop the shape constraint before `build_smooth_basis` runs so
                 // it never reaches the per-kind `validate_known_options`
@@ -1438,13 +1457,27 @@ pub fn build_smooth_basis(
         // Cap the marginal basis below the minimum per-group covariate resolution
         // so the penalty always retains residual degrees of freedom to shrink each
         // group's curvature toward its linear null space (the random-slope
-        // estimand). Groups with ample data (e.g. 40 points each) keep the full
-        // pooled flexibility; only small-sample groups are protected. The cap is
-        // skipped for the explicit `re` random-effect form, whose degree-1 marginal
-        // carries no curvature to over-fit.
+        // estimand). This small-group cap composes with a separate upper bound at
+        // mgcv's factor-smooth default k=10 (FACTOR_SMOOTH_DEFAULT_BASIS_DIM,
+        // applied below), so even ample-data groups get the modest SHARED marginal
+        // a factor smooth wants rather than the full pooled basis. The explicit
+        // `re` random-effect form takes neither cap: it is a raw linear `[1, x]`
+        // random effect (0 internal knots), handled in the branch above.
         let pooled_internal = heuristic_knots_for_column(ds.values.column(c));
         let default_internal = if type_opt == "re" {
-            pooled_internal
+            // `bs="re"` is a PARAMETRIC random effect, not a smooth of the
+            // covariate: `s(x, g, bs="re")` is the mgcv random intercept+slope
+            // `(1 + x | g)`, i.e. a per-group line `[1, x]`, penalized by an iid
+            // ridge. A degree-1 marginal with ZERO internal knots spans exactly
+            // that linear space (2 coefficients per group). Using the pooled
+            // knot heuristic here instead turned the marginal into a
+            // piecewise-linear B-spline (e.g. 6 functions/group on sleepstudy),
+            // i.e. a *smooth* with kinks rather than a random slope — many extra
+            // collinear-across-levels coefficients that ill-condition the joint
+            // Newton/REML solve (minutes-long fits, and a singular block when
+            // combined with a separate random intercept `s(g, bs="re")`). The
+            // raw linear basis is both the correct `re` semantics and fast.
+            0
         } else {
             let min_group_resolution =
                 min_per_group_unique_count(ds.values.column(c), ds.values.column(cols[group_idx]));
@@ -1457,7 +1490,26 @@ pub fn build_smooth_basis(
             // minimal smoother that can still bend if the data demand it.
             let basis_cap = min_group_resolution.saturating_sub(2).max(degree + 2);
             let internal_cap = basis_cap.saturating_sub(degree + 1);
-            pooled_internal.min(internal_cap.max(1))
+            let capped = pooled_internal.min(internal_cap.max(1));
+            // A factor smooth (`fs` AND `sz`) shares ONE marginal across ALL
+            // levels, each level's curve fit from that group's rows alone. The
+            // pooled knot heuristic (driven by the full column's sample) hands it
+            // a much richer basis than the shared signal needs — ~24
+            // functions/group on the gam#903 factor-smooth-recovery fixtures — so
+            // REML has the capacity to fit within-group noise and over-fits the
+            // shared shape (fs: edf 58 vs mgcv's k=10/edf 39; sz: gam 0.068 vs
+            // mgcv 0.046 truth RMSE), losing the truth-recovery head-to-head with
+            // the mature tool. mgcv's factor-smooth default `k=10` embodies the
+            // right convention: a modest shared marginal. Cap the marginal there
+            // (basis ≈ degree+1+internal ≈ 10) for both flavours when the
+            // small-group cap above is not already tighter, so REML is not handed
+            // noise-fitting capacity it does not need. An explicit `k`/`basis_dim`
+            // overrides this (parse_ps_internal_knots); `re` is the raw linear
+            // effect handled above.
+            let fs_default_internal = FACTOR_SMOOTH_DEFAULT_BASIS_DIM
+                .saturating_sub(degree + 1)
+                .max(1);
+            capped.min(fs_default_internal)
         };
         let (n_knots, _) = parse_ps_internal_knots(options, degree, default_internal)?;
         let marginal = BSplineBasisSpec {

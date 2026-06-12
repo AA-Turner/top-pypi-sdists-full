@@ -32,7 +32,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use super::{Builtin, Context, resolve_path};
+use super::{Builtin, Context, ExecutionDeadline, resolve_path};
 use crate::error::Result;
 use crate::fs::{FileSystem, FileType};
 use crate::interpreter::ExecResult;
@@ -445,13 +445,25 @@ impl Builtin for Python {
                 .map(|(k, v)| (k.clone(), v.clone())),
         );
 
+        // Clamp Monty's wall-clock budget to the caller's remaining execution
+        // deadline (like the TypeScript builtin) so a CPU-bound script cannot
+        // overrun a tighter bash timeout — the async timeout cannot preempt
+        // Monty's synchronous start/resume sections.
+        let mut limits = self.limits.clone();
+        if let Some(remaining) = ctx
+            .execution_extension::<ExecutionDeadline>()
+            .map(ExecutionDeadline::remaining)
+        {
+            limits.max_duration = limits.max_duration.min(remaining);
+        }
+
         run_python(
             &code,
             &filename,
             ctx.fs.clone(),
             ctx.cwd,
             &merged_env,
-            &self.limits,
+            &limits,
             self.external_fns.as_ref(),
         )
         .await
@@ -733,7 +745,7 @@ async fn handle_os_call(
                 Some(MontyObject::String(s)) => s.chars().count(),
                 _ => 0,
             };
-            match append_vfs_file(&path, &content, fs).await {
+            match fs.append_file(&path, &content).await {
                 Ok(()) => ExtFunctionResult::Return(MontyObject::Int(len as i64)),
                 Err(e) => map_vfs_error(e, &path),
             }
@@ -749,7 +761,7 @@ async fn handle_os_call(
                 }
             };
             let len = content.len();
-            match append_vfs_file(&path, &content, fs).await {
+            match fs.append_file(&path, &content).await {
                 Ok(()) => ExtFunctionResult::Return(MontyObject::Int(len as i64)),
                 Err(e) => map_vfs_error(e, &path),
             }
@@ -885,18 +897,6 @@ async fn open_vfs_file(path: &Path, mode: FileMode, fs: &Arc<dyn FileSystem>) ->
         }
     }
     Ok(())
-}
-
-async fn append_vfs_file(path: &Path, content: &[u8], fs: &Arc<dyn FileSystem>) -> Result<()> {
-    let mut existing = match fs.read_file(path).await {
-        Ok(bytes) => bytes,
-        Err(e) if e.to_string().contains("not found") || e.to_string().contains("No such file") => {
-            Vec::new()
-        }
-        Err(e) => return Err(e),
-    };
-    existing.extend_from_slice(content);
-    fs.write_file(path, &existing).await
 }
 
 /// Resolve a Python path string against cwd if relative.

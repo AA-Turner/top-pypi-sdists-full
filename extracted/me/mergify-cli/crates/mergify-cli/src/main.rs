@@ -1,24 +1,12 @@
 //! `mergify` binary entry point.
 //!
-//! Dispatch logic: every invocation is speculatively parsed with
-//! clap. The clap tree covers both worlds:
-//!
-//! - **Natively-ported commands** ([`NATIVE_COMMANDS`]) — clap
-//!   parses the full flag set and the binary runs them in process.
-//! - **Python-shimmed commands** (`stack` is the last one left)
-//!   — clap registers them as stub variants with a catch-all
-//!   `args: Vec<String>`. That way
-//!   `mergify --help` and `mergify <group> --help` list the entire
-//!   CLI surface, but the captured argv is forwarded verbatim to
-//!   the Python implementation by [`mergify_py_shim::run`].
-//!
-//! Invocations clap can't parse at all (typos, unknown groups)
-//! still fall through to the Python shim with the original argv,
-//! so its "no such command" message reaches the user.
-//!
-//! As each Python command is ported to Rust, its stub variant is
-//! promoted to a real clap definition, a matching entry lands in
-//! [`NATIVE_COMMANDS`], and the shim fallback shrinks accordingly.
+//! Every command is native — clap parses the full flag set and the
+//! binary runs the matching [`NativeCommand`] in process. Any
+//! invocation clap can't parse (unknown subcommand, missing
+//! required flag, …) exits with clap's formatted error and exit
+//! code 2; for unknown subcommands that includes a "did you mean
+//! `<closest>`?" suggestion off clap's built-in Levenshtein
+//! distance.
 
 use std::env;
 use std::path::PathBuf;
@@ -50,6 +38,14 @@ use mergify_queue::status::StatusOptions;
 use mergify_queue::unpause::UnpauseOptions;
 
 mod cli_schema;
+
+/// User-visible CLI version. `build.rs` normalises the
+/// `MERGIFY_RELEASE_VERSION` env var the release workflow sets
+/// from `$GITHUB_REF` (unset or empty => `CARGO_PKG_VERSION`,
+/// i.e. the `0.0.0` placeholder), and writes the result to the
+/// `MERGIFY_CLI_VERSION` rustc-env. Reading the normalised var
+/// directly means this side can't surface an empty string.
+const VERSION: &str = env!("MERGIFY_CLI_VERSION");
 
 fn main() -> ExitCode {
     let argv: Vec<String> = env::args().skip(1).collect();
@@ -83,53 +79,16 @@ fn main() -> ExitCode {
     }
 
     match detect_dispatch(&argv) {
-        Some(Dispatch::Native(cmd)) => run_native(cmd),
-        Some(Dispatch::Shim(forwarded)) => run_py_shim(&forwarded),
-        None => run_py_shim(&argv),
+        Dispatch::Native(cmd) => run_native(cmd),
     }
 }
 
-fn run_py_shim(argv: &[String]) -> ExitCode {
-    match mergify_py_shim::run(argv) {
-        Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(1)),
-        Err(err) => {
-            eprintln!("mergify: {err}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-/// Outcome of speculatively parsing the argv with clap.
+/// Result of `detect_dispatch`. Kept as a single-variant enum so the
+/// match in `main` is exhaustive — every dispatch path lands on a
+/// native command, but pattern-matching makes that explicit rather
+/// than implicit.
 enum Dispatch {
-    /// argv resolved to a natively-ported command — run it in-process.
     Native(NativeCommand),
-    /// argv resolved to a clap *stub* for a Python-shimmed command.
-    /// The captured argv (with the group/subcommand restored at the
-    /// front) is forwarded to Python verbatim — including `--help`,
-    /// which our stubs deliberately let pass through.
-    Shim(Vec<String>),
-}
-
-fn prepend_one(head: &str, tail: Vec<String>) -> Vec<String> {
-    let mut out = Vec::with_capacity(tail.len() + 1);
-    out.push(head.to_string());
-    out.extend(tail);
-    out
-}
-
-/// Re-inject the global `--debug` flag at the front of the forwarded
-/// argv so Python's root group sees it. Clap consumed the flag when
-/// parsing the Rust-side argv, but the Python CLI declares it at
-/// root too — leaving it off would silently drop the user's intent
-/// for shimmed commands.
-fn inject_global_flags(debug: bool, argv: Vec<String>) -> Vec<String> {
-    if !debug {
-        return argv;
-    }
-    let mut out = Vec::with_capacity(argv.len() + 1);
-    out.push("--debug".to_string());
-    out.extend(argv);
-    out
 }
 
 /// Single source of truth for the `(group, subcommand)` pairs the
@@ -157,19 +116,25 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
     ("freeze", "create"),
     ("freeze", "update"),
     ("freeze", "delete"),
+    ("stack", "checkout"),
     ("stack", "drop"),
     ("stack", "edit"),
     ("stack", "fixup"),
+    ("stack", "hooks"),
+    ("stack", "list"),
     ("stack", "move"),
     ("stack", "new"),
     ("stack", "note"),
+    ("stack", "open"),
+    ("stack", "push"),
     ("stack", "reorder"),
     ("stack", "reword"),
+    ("stack", "setup"),
     ("stack", "squash"),
-    // Internal Python migration helpers. Listed so `looks_native`
-    // routes `mergify _internal …` past the shim fallback when
-    // clap rejects it, but they stay hidden from `--help` (see
-    // the `Subcommands::Internal` variant).
+    ("stack", "sync"),
+    // Internal helpers. Stay hidden from `--help` (see the
+    // `Subcommands::Internal` variant) but still need to be
+    // dispatchable.
     ("_internal", "stack-local-commits"),
     ("_internal", "stack-remote-changes"),
     // Self-invocation target for the rebase-todo machinery — set
@@ -260,6 +225,32 @@ enum NativeCommand {
     /// [--dry-run]` — fold several commits into a target,
     /// reordering them adjacent first.
     StackSquash(StackSquashOpts),
+    /// `mergify stack checkout <NAME>` — fetch a stack of pull
+    /// requests from GitHub and create a local branch tracking
+    /// the leaf head.
+    StackCheckout(StackCheckoutOpts),
+    /// `mergify stack sync [--dry-run]` — rebase the stack onto
+    /// trunk, dropping commits whose PR has merged.
+    StackSync(StackSyncOpts),
+    /// `mergify stack push [flags...]` — upsert the stack's PRs
+    /// on GitHub. Full orchestrator: walks local commits, plans
+    /// actions, optionally rebases on trunk, pushes branches,
+    /// upserts PRs + comments, and tears down orphans.
+    StackPush(StackPushOpts),
+    /// `mergify stack list [--json] [--verbose]` — show each
+    /// commit in the current stack with its PR + CI + review
+    /// state.
+    StackList(StackListOpts),
+    /// `mergify stack open [<commit>]` — open the PR for a stack
+    /// commit in the default browser.
+    StackOpen(StackOpenOpts),
+    /// `mergify stack hooks [--setup] [--force] [-f]` — show the
+    /// status of the managed git hooks (or, with `--setup`,
+    /// install/upgrade them).
+    StackHooks(StackHooksOpts),
+    /// `mergify stack setup [--force] [--check]` — alias for
+    /// `stack hooks --setup`; `--check` reports status instead.
+    StackSetup(StackSetupOpts),
     /// `_internal rebase-todo-rewrite --action <ACTION>
     /// --sha <SHA> <TODO_PATH>` — self-invocation target set as
     /// `GIT_SEQUENCE_EDITOR` by the rebase-family stack
@@ -320,6 +311,86 @@ struct StackSquashOpts {
     target_prefix: String,
     message: Option<String>,
     dry_run: bool,
+}
+
+struct StackCheckoutOpts {
+    name: String,
+    author: Option<String>,
+    repository: Option<String>,
+    branch: Option<String>,
+    branch_prefix: Option<String>,
+    dry_run: bool,
+    /// `Some((remote, branch))` from `--trunk REMOTE/BRANCH`;
+    /// `None` falls back to `trunk::get_trunk` at runtime.
+    trunk: Option<(String, String)>,
+    /// GitHub token; resolved via `mergify_core::auth::resolve_token`
+    /// when None.
+    token: Option<String>,
+}
+
+struct StackSyncOpts {
+    author: Option<String>,
+    repository: Option<String>,
+    branch_prefix: Option<String>,
+    dry_run: bool,
+    trunk: Option<(String, String)>,
+    token: Option<String>,
+}
+
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "mirrors the Python CLI's flag surface 1:1"
+)]
+struct StackPushOpts {
+    author: Option<String>,
+    repository: Option<String>,
+    branch_prefix: Option<String>,
+    trunk: Option<(String, String)>,
+    token: Option<String>,
+    skip_rebase: bool,
+    force_rebase: bool,
+    next_only: bool,
+    dry_run: bool,
+    /// `None` = fall back to git config
+    /// `mergify-cli.stack-create-as-draft` at dispatch time.
+    create_as_draft: Option<bool>,
+    /// `None` = fall back to git config
+    /// `mergify-cli.stack-keep-pr-title-body` at dispatch time.
+    keep_pull_request_title_and_body: Option<bool>,
+    only_update_existing_pulls: bool,
+    /// `None` = fall back to git config
+    /// `mergify-cli.stack-revision-history` at dispatch time.
+    revision_history: Option<bool>,
+    no_verify: bool,
+}
+
+struct StackListOpts {
+    author: Option<String>,
+    repository: Option<String>,
+    branch_prefix: Option<String>,
+    trunk: Option<(String, String)>,
+    token: Option<String>,
+    json: bool,
+    verbose: bool,
+}
+
+struct StackOpenOpts {
+    commit: Option<String>,
+    author: Option<String>,
+    repository: Option<String>,
+    branch_prefix: Option<String>,
+    trunk: Option<(String, String)>,
+    token: Option<String>,
+}
+
+struct StackHooksOpts {
+    do_setup: bool,
+    force: bool,
+}
+
+struct StackSetupOpts {
+    force: bool,
+    check: bool,
 }
 
 struct InternalRebaseTodoRewriteOpts {
@@ -545,102 +616,33 @@ struct FreezeDeleteOpts {
     delete_reason: Option<String>,
 }
 
-/// Heuristic: does argv look like the user intended a native
-/// subcommand?
+/// Parse `argv` with clap and return the resolved native command.
 ///
-/// Used as a fallback when clap rejects the input — if the user
-/// clearly meant a native command, surface clap's error rather
-/// than silently dispatching to the Python shim. We look for two
-/// *consecutive* tokens forming a `(group, subcommand)` pair so a
-/// flag value like `--repository config` doesn't accidentally
-/// classify the invocation as native.
-fn looks_native(argv: &[String]) -> bool {
-    argv.windows(2).any(|pair| {
-        NATIVE_COMMANDS
-            .iter()
-            .any(|(g, s)| pair[0] == *g && pair[1] == *s)
-    })
-}
-
-/// Did clap exit on `--help` / `-h` / `--version`? Those return a
-/// special `Err` whose `kind()` is `DisplayHelp` /
-/// `DisplayHelpOnMissingArgumentOrSubcommand` / `DisplayVersion`;
-/// callers should always honor them and exit (printing the help /
-/// version) instead of falling through to the Python shim or
-/// surfacing them as argument errors.
-fn is_help_or_version(err: &clap::Error) -> bool {
-    matches!(
-        err.kind(),
-        clap::error::ErrorKind::DisplayHelp
-            | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
-    )
-}
-
-/// Try to recognize the invocation as a native command.
-///
-/// Returns ``None`` when the argv doesn't look like a native
-/// command — callers fall back to the Python shim, which produces
-/// the same error messages as before the port started. When the
-/// argv obviously targets a native command (per [`looks_native`])
-/// but clap can't parse it — e.g. the user gave an unknown flag
-/// or omitted a required argument — this function prints clap's
-/// formatted error to stderr and exits the process with clap's
-/// exit code (2), matching the Python CLI's behavior for argument
-/// errors.
-///
-/// Argument *values* that are accepted by clap as `String` but
-/// fail later domain validation (e.g. an `--api-url` that doesn't
-/// parse as a URL) surface as [`mergify_core::CliError`] instead
-/// — the corresponding exit code is the one chosen by the command
-/// implementation (typically [`mergify_core::ExitCode::Configuration`]
-/// = 8), not 2.
+/// Any clap parse failure — unknown subcommand, missing required
+/// argument, bad flag value — prints clap's formatted error
+/// (including the built-in "did you mean `<closest>`?" suggestion
+/// for unknown subcommands) and exits with clap's status code.
+/// `--help` / `--version` also flow through `err.exit()` which
+/// prints to stdout and exits 0.
 #[allow(clippy::too_many_lines)] // mostly mechanical match arms
-fn detect_dispatch(argv: &[String]) -> Option<Dispatch> {
-    let looks_native = looks_native(argv);
-
+fn detect_dispatch(argv: &[String]) -> Dispatch {
     let parsed = match CliRoot::try_parse_from(
         std::iter::once("mergify".to_string()).chain(argv.iter().cloned()),
     ) {
         Ok(parsed) => parsed,
-        Err(err) if is_help_or_version(&err) => {
-            // ``--help`` at the binary's root or for any natively
-            // dispatched (sub)command is handled by clap. The
-            // top-level help now lists `stack` and the shimmed
-            // `ci` subcommands too, because they're registered as
-            // clap stub variants — that's how a single
-            // `mergify --help` covers the full CLI surface.
-            // ``err.exit()`` prints to stdout and calls
-            // ``process::exit(0)``.
-            err.exit()
-        }
-        Err(err) if looks_native => {
-            // Native intent + clap rejection = surface clap's error
-            // and exit. ``err.exit()`` prints to stderr and calls
-            // ``process::exit``; does not return.
-            err.exit()
-        }
-        Err(_) => return None,
+        Err(err) => err.exit(),
     };
-
-    Some(dispatch_from_parsed(parsed))
+    dispatch_from_parsed(parsed)
 }
 
-/// Route a captured `mergify stack <args…>` invocation to either
-/// the native stack subcommand handler or the Python shim.
+/// Route a captured `mergify stack <args…>` invocation to the
+/// matching native subcommand handler.
 ///
-/// `stack` is a hybrid group during the port: today only `new` is
-/// native, every other subcommand still runs through `mergify-py-shim`.
-/// The decision is made by inspecting the first positional arg
-/// after `stack` — if it names a natively-ported subcommand, we
-/// secondary-parse the rest with clap and dispatch native;
-/// otherwise we forward the whole argv to Python verbatim.
-///
-/// `--help` for shimmed subcommands (and the bare `stack --help`)
-/// falls through to Python, which prints the full help listing
-/// including the Python-only subcommands. Adding new native stack
-/// subcommands later means adding a branch here and a matching
-/// `NATIVE_COMMANDS` entry.
-fn dispatch_stack(debug: bool, args: Vec<String>) -> Dispatch {
+/// Every stack subcommand is native; an unrecognised subcommand
+/// exits with clap's "unrecognized subcommand `<name>` … did you
+/// mean `<closest>`?" formatting.
+#[allow(clippy::too_many_lines)] // one mechanical arm per native subcommand
+fn dispatch_stack(args: Vec<String>) -> Dispatch {
     match args.first().map(String::as_str) {
         Some("new") => {
             // `args[0]` is the subcommand — clap consumes it as
@@ -714,7 +716,79 @@ fn dispatch_stack(debug: bool, args: Vec<String>) -> Dispatch {
                 }
             }
         }
-        _ => Dispatch::Shim(inject_global_flags(debug, prepend_one("stack", args))),
+        Some("checkout") => {
+            let parsed = match StackCheckoutCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackCheckout(StackCheckoutOpts::from(
+                parsed,
+            )))
+        }
+        Some("sync") => {
+            let parsed = match StackSyncCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackSync(StackSyncOpts::from(parsed)))
+        }
+        Some("push") => {
+            let parsed = match StackPushCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackPush(StackPushOpts::from(parsed)))
+        }
+        Some("list") => {
+            let parsed = match StackListCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackList(StackListOpts::from(parsed)))
+        }
+        Some("open") => {
+            let parsed = match StackOpenCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackOpen(StackOpenOpts::from(parsed)))
+        }
+        Some("hooks") => {
+            let parsed = match StackHooksCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackHooks(StackHooksOpts::from(parsed)))
+        }
+        Some("setup") => {
+            let parsed = match StackSetupCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackSetup(StackSetupOpts::from(parsed)))
+        }
+        // Unknown / missing stack subcommand. Round-trip through a
+        // synthetic clap parse on the `stack` group so the user
+        // gets clap's "unrecognized subcommand `<name>` … did you
+        // mean `<closest>`?" formatting and exit code (2) instead
+        // of a hand-rolled message.
+        other => {
+            let probe: Vec<String> = std::iter::once("stack".to_string())
+                .chain(other.map(str::to_owned))
+                .chain(args.into_iter().skip(1))
+                .collect();
+            match StackProbeCli::try_parse_from(&probe) {
+                Err(err) => err.exit(),
+                // `StackProbeCli` requires a subcommand to be
+                // *picked* from a fixed list; an unknown one
+                // triggers `Err` above. An invocation with no
+                // subcommand also triggers `Err`
+                // (`DisplayHelpOnMissingArgumentOrSubcommand`).
+                // If clap ever accepts something here, treat it
+                // as an internal invariant violation.
+                Ok(_) => unreachable!("StackProbeCli has no valid subcommand to dispatch"),
+            }
+        }
     }
 }
 
@@ -763,11 +837,51 @@ fn quarantine_get_opts(args: TestsQuarantineGetCliArgs) -> TestsQuarantineGetOpt
     }
 }
 
+/// Empty-subcommand-list clap parser used only by
+/// [`dispatch_stack`]'s "unknown subcommand" fallback. Triggering
+/// it on `mergify stack <bogus>` yields clap's "unrecognized
+/// subcommand … did you mean?" formatting and exits 2.
+#[derive(Parser)]
+#[command(
+    name = "stack",
+    about = "Manage stacked pull requests",
+    disable_help_subcommand = true
+)]
+struct StackProbeCli {
+    #[command(subcommand)]
+    command: StackProbeSubcommand,
+}
+
+#[derive(Subcommand)]
+enum StackProbeSubcommand {
+    // Names mirror the real handlers so clap's Levenshtein
+    // suggestions point at actually-supported names instead of
+    // an empty list. The variants are intentionally `Empty` — we
+    // never construct one; we only want clap's parser to know
+    // what's a valid subcommand for suggestion purposes.
+    Checkout,
+    Drop,
+    Edit,
+    Fixup,
+    Hooks,
+    List,
+    Move,
+    New,
+    Note,
+    Open,
+    Push,
+    Reorder,
+    Reword,
+    Setup,
+    Squash,
+    Sync,
+}
+
 #[allow(clippy::too_many_lines)] // mostly mechanical match arms
 fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
-    let debug = parsed.debug;
+    let _ = parsed.debug; // global flag — consulted by command impls, not here
     match parsed.command {
-        Subcommands::Stack(ShimmedArgs { args }) => dispatch_stack(debug, args),
+        Subcommands::Stack(ShimmedArgs { args }) => dispatch_stack(args),
         Subcommands::Internal(InternalArgs {
             command:
                 InternalSubcommand::StackLocalCommits(InternalStackLocalCommitsArgs {
@@ -1122,6 +1236,212 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
 }
 
 #[allow(clippy::too_many_lines)] // mostly mechanical match arms
+/// Resolved bundle of the shared per-command preamble the GitHub-
+/// API-backed stack subcommands (`list`, `open`, `sync`,
+/// `checkout`, and eventually `push`) all need. Built by
+/// [`resolve_stack_context`] from the per-command CLI flags.
+struct StackContext {
+    client: mergify_core::HttpClient,
+    slug: mergify_stack::stack_context::RepoSlug,
+    author: String,
+    branch_prefix: String,
+    trunk: (String, String),
+}
+
+async fn resolve_stack_context(
+    token: Option<&str>,
+    author: Option<&str>,
+    repository: Option<&str>,
+    trunk: Option<(String, String)>,
+    branch_prefix: Option<String>,
+) -> Result<StackContext, mergify_core::CliError> {
+    let token = mergify_core::auth::resolve_token(token)?;
+    let github_server = mergify_stack::stack_context::resolve_github_server(None)?;
+    let client = mergify_stack::remote_changes::default_client(github_server, &token)?;
+    let trunk = if let Some((remote, branch)) = trunk {
+        (remote, branch)
+    } else {
+        let t = mergify_stack::trunk::get_trunk(None).map_err(|e| {
+            mergify_core::CliError::StackNotFound(format!(
+                "could not determine trunk branch ({e}). Pass --trunk REMOTE/BRANCH."
+            ))
+        })?;
+        (t.remote, t.branch)
+    };
+    let slug = mergify_stack::stack_context::resolve_repo(None, repository, &trunk.0)?;
+    let author = if let Some(a) = author {
+        a.to_string()
+    } else {
+        let user_payload: serde_json::Value = client.get("/user").await?;
+        user_payload
+            .get("login")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                mergify_core::CliError::GitHubApi("/user response missing `login`".to_string())
+            })?
+    };
+    let branch_prefix = branch_prefix.unwrap_or_else(|| {
+        mergify_stack::stack_context::resolve_default_branch_prefix(None, &author)
+    });
+    Ok(StackContext {
+        client,
+        slug,
+        author,
+        branch_prefix,
+        trunk,
+    })
+}
+
+/// Render `stack list` output to stdout in human-readable form.
+/// Port of Python's `display_stack_list`. No colour codes — we
+/// keep it plain so log scrapers don't have to strip ANSI; users
+/// who want colour pipe through `bat -p` etc.
+fn render_stack_list_text(out: &mergify_stack::commands::list::StackListOutput, verbose: bool) {
+    println!("\nStack on {} -> {}:\n", out.branch, out.trunk);
+    if out.entries.is_empty() {
+        println!("  No commits in stack");
+        return;
+    }
+    for entry in &out.entries {
+        let short = &entry.commit_sha[..entry.commit_sha.len().min(7)];
+        let status_label = match entry.status.as_str() {
+            "merged" => "MERGED",
+            "draft" => "DRAFT",
+            "open" => "OPEN",
+            "no_pr" => "NEW",
+            other => other,
+        };
+        let conflict = if entry.mergeable == Some(false) {
+            " (conflicting)"
+        } else {
+            ""
+        };
+        if let Some(num) = entry.pull_number {
+            println!(
+                "  [{status_label}] #{num} {title} ({short}){conflict}",
+                title = entry.title,
+            );
+            if verbose && !entry.ci_checks.is_empty() {
+                let checks = entry
+                    .ci_checks
+                    .iter()
+                    .map(|c| format!("{} {}", c.status, c.name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                println!("    CI: {checks}");
+            } else if entry.ci_status != "unknown" {
+                println!("    CI: {}", entry.ci_status);
+            }
+            if verbose && !entry.reviews.is_empty() {
+                let reviewers = entry
+                    .reviews
+                    .iter()
+                    .map(|r| format!("{} {}", r.state, r.user))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                println!("    Review: {reviewers}");
+            } else if entry.review_status != "unknown" {
+                println!("    Review: {}", entry.review_status);
+            }
+            if let Some(url) = &entry.pull_url {
+                println!("    {url}");
+            }
+        } else {
+            println!("  [{status_label}] {title} ({short})", title = entry.title);
+        }
+        println!();
+    }
+}
+
+/// Install / upgrade the git hooks. Prints one human line per
+/// action performed, then a summary footer. Surfaces the same
+/// outcome ``mergify_cli/stack/setup.py`` used to print.
+fn run_stack_setup(force: bool) -> Result<(), mergify_core::CliError> {
+    use mergify_stack::commands::setup::HookAction;
+    let logs = mergify_stack::commands::setup::install(&mergify_stack::commands::setup::Options {
+        repo_dir: None,
+        force,
+    })?;
+    let mut any_legacy_needs_force = false;
+    for log in &logs {
+        for action in &log.actions {
+            match action {
+                HookAction::ScriptInstalled | HookAction::ScriptUpdated => {
+                    println!(
+                        "Updating managed hook script: mergify-hooks/{}.sh",
+                        log.hook_name
+                    );
+                }
+                HookAction::WrapperInstalled => {
+                    println!("Installing hook wrapper: {}", log.hook_name);
+                }
+                HookAction::WrapperMigrated => {
+                    println!("Migrating legacy hook to new format: {}", log.hook_name);
+                }
+                HookAction::WrapperLegacyNeedsForce => {
+                    println!(
+                        "Found legacy hook: {} (run with --force to migrate)",
+                        log.hook_name
+                    );
+                    any_legacy_needs_force = true;
+                }
+                HookAction::ScriptUpToDate | HookAction::WrapperAlreadyInstalled => {}
+            }
+        }
+    }
+    if any_legacy_needs_force {
+        println!("Some hooks are legacy. Run 'mergify stack hooks --setup --force' to migrate.");
+    }
+    Ok(())
+}
+
+/// Print the hooks status table. Mirrors ``_print_hooks_status``
+/// in ``mergify_cli/stack/cli.py``.
+fn render_hooks_status(status: &mergify_stack::commands::setup::HooksStatus) {
+    use mergify_stack::commands::setup::WrapperStatus;
+    let mut needs_setup = false;
+    let mut needs_force = false;
+
+    println!("\nGit Hooks Status:\n");
+    for h in &status.git_hooks {
+        println!("  {}:", h.hook_name);
+        let wrapper_line = match h.wrapper_status {
+            WrapperStatus::Installed => format!("    Wrapper: installed ({})", h.wrapper_path),
+            WrapperStatus::Legacy => {
+                needs_force = true;
+                "    Wrapper: legacy (needs --force to migrate)".to_string()
+            }
+            WrapperStatus::Missing => {
+                needs_setup = true;
+                "    Wrapper: not installed".to_string()
+            }
+        };
+        println!("{wrapper_line}");
+        if h.script_installed {
+            if h.script_needs_update {
+                println!("    Script:  needs update ({})", h.script_path);
+                needs_setup = true;
+            } else {
+                println!("    Script:  up to date ({})", h.script_path);
+            }
+        } else {
+            println!("    Script:  not installed");
+            needs_setup = true;
+        }
+        println!();
+    }
+    if needs_setup || needs_force {
+        println!("Run 'mergify stack hooks --setup' to install/upgrade hooks.");
+        if needs_force {
+            println!("Run 'mergify stack hooks --setup --force' to force reinstall wrappers.");
+        }
+    } else {
+        println!("All hooks are up to date.");
+    }
+}
+
+#[allow(clippy::too_many_lines)] // one match arm per native command
 fn run_native(cmd: NativeCommand) -> ExitCode {
     // Pure introspection — no async runtime, network, or shared output
     // machinery. Handle it before spinning up tokio.
@@ -1747,6 +2067,360 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 }
                 Ok(mergify_core::ExitCode::Success)
             }
+            NativeCommand::StackCheckout(opts) => {
+                let token = mergify_core::auth::resolve_token(opts.token.as_deref())?;
+                let github_server =
+                    mergify_stack::stack_context::resolve_github_server(None)?;
+                let client = mergify_stack::remote_changes::default_client(
+                    github_server,
+                    &token,
+                )?;
+
+                // Trunk: explicit --trunk wins; otherwise resolve.
+                let trunk = if let Some((remote, branch)) = opts.trunk {
+                    (remote, branch)
+                } else {
+                    let t = mergify_stack::trunk::get_trunk(None).map_err(|e| {
+                        mergify_core::CliError::StackNotFound(format!(
+                            "could not determine trunk branch ({e}). Pass --trunk REMOTE/BRANCH."
+                        ))
+                    })?;
+                    (t.remote, t.branch)
+                };
+                let remote = &trunk.0;
+
+                let slug = mergify_stack::stack_context::resolve_repo(
+                    None,
+                    opts.repository.as_deref(),
+                    remote,
+                )?;
+
+                // Author: explicit wins; else GET /user.
+                let author = if let Some(a) = opts.author.as_deref() {
+                    a.to_string()
+                } else {
+                    let user_payload: serde_json::Value = client.get("/user").await?;
+                    user_payload
+                        .get("login")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                        .ok_or_else(|| {
+                            mergify_core::CliError::GitHubApi(
+                                "/user response missing `login`".to_string(),
+                            )
+                        })?
+                };
+
+                let branch_prefix = opts.branch_prefix.unwrap_or_else(|| {
+                    mergify_stack::stack_context::resolve_default_branch_prefix(None, &author)
+                });
+
+                let outcome = mergify_stack::commands::checkout::run(
+                    &mergify_stack::commands::checkout::Options {
+                        repo_dir: None,
+                        client: &client,
+                        user: &slug.owner,
+                        repo: &slug.repo,
+                        author: &author,
+                        branch_prefix: &branch_prefix,
+                        name: &opts.name,
+                        local_branch: opts.branch.as_deref(),
+                        remote,
+                        dry_run: opts.dry_run,
+                    },
+                )
+                .await?;
+
+                match outcome {
+                    mergify_stack::commands::checkout::Outcome::NoStackedPrs => {
+                        println!("No stacked pull requests found");
+                    }
+                    mergify_stack::commands::checkout::Outcome::CheckedOut {
+                        chain,
+                        created,
+                        local_branch,
+                        upstream,
+                    } => {
+                        println!("Stacked pull requests:");
+                        for pr in &chain {
+                            println!(
+                                "* #{n} {title}  {url}",
+                                n = pr.number,
+                                title = pr.title,
+                                url = pr.html_url,
+                            );
+                            println!("  {} -> {}", pr.base_ref, pr.head_ref);
+                        }
+                        if created {
+                            println!(
+                                "Checked out '{local_branch}' tracking {upstream}",
+                            );
+                        }
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackSync(opts) => {
+                let token = mergify_core::auth::resolve_token(opts.token.as_deref())?;
+                let github_server = mergify_stack::stack_context::resolve_github_server(None)?;
+                let client =
+                    mergify_stack::remote_changes::default_client(github_server, &token)?;
+
+                let trunk = if let Some((remote, branch)) = opts.trunk {
+                    (remote, branch)
+                } else {
+                    let t = mergify_stack::trunk::get_trunk(None).map_err(|e| {
+                        mergify_core::CliError::StackNotFound(format!(
+                            "could not determine trunk branch ({e}). Pass --trunk REMOTE/BRANCH."
+                        ))
+                    })?;
+                    (t.remote, t.branch)
+                };
+                let slug = mergify_stack::stack_context::resolve_repo(
+                    None,
+                    opts.repository.as_deref(),
+                    &trunk.0,
+                )?;
+                let author = if let Some(a) = opts.author.as_deref() {
+                    a.to_string()
+                } else {
+                    let user_payload: serde_json::Value = client.get("/user").await?;
+                    user_payload
+                        .get("login")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                        .ok_or_else(|| {
+                            mergify_core::CliError::GitHubApi(
+                                "/user response missing `login`".to_string(),
+                            )
+                        })?
+                };
+                let branch_prefix = opts.branch_prefix.unwrap_or_else(|| {
+                    mergify_stack::stack_context::resolve_default_branch_prefix(None, &author)
+                });
+
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+
+                let outcome = mergify_stack::commands::sync::run(
+                    &mergify_stack::commands::sync::Options {
+                        repo_dir: None,
+                        client: &client,
+                        user: &slug.owner,
+                        repo: &slug.repo,
+                        author: &author,
+                        branch_prefix: &branch_prefix,
+                        trunk: (&trunk.0, &trunk.1),
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )
+                .await?;
+
+                match outcome {
+                    mergify_stack::commands::sync::Outcome::DryRun(status) => {
+                        if status.all_merged() {
+                            println!(
+                                "All commits in the stack have been merged into {trunk_branch}.",
+                                trunk_branch = trunk.1,
+                            );
+                            println!(
+                                "You can switch to {trunk_branch} with: git checkout {trunk_branch}",
+                                trunk_branch = trunk.1,
+                            );
+                        } else if status.up_to_date() {
+                            println!("Stack is up to date.");
+                        } else {
+                            println!("Dry run: the following merged commits would be removed:");
+                            for m in &status.merged {
+                                println!("  - {title} (#{num}, merged)", title = m.title, num = m.pull_number);
+                            }
+                            println!(
+                                "\n{} commit(s) would remain in the stack.",
+                                status.remaining.len()
+                            );
+                        }
+                    }
+                    mergify_stack::commands::sync::Outcome::Synced {
+                        status,
+                        dropped_count,
+                    } => {
+                        if status.all_merged() {
+                            println!(
+                                "All commits in the stack have been merged into {trunk_branch}.",
+                                trunk_branch = trunk.1,
+                            );
+                            println!(
+                                "You can switch to {trunk_branch} with: git checkout {trunk_branch}",
+                                trunk_branch = trunk.1,
+                            );
+                        } else if dropped_count == 0 {
+                            println!("Stack is up to date.");
+                        } else {
+                            for m in &status.merged {
+                                println!("  ✓ Dropped: {title} (#{num})", title = m.title, num = m.pull_number);
+                            }
+                            println!(
+                                "Dropped {dropped_count} merged commit(s). {} commit(s) remaining in the stack.",
+                                status.remaining.len()
+                            );
+                        }
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackPush(opts) => {
+                let ctx = resolve_stack_context(
+                    opts.token.as_deref(),
+                    opts.author.as_deref(),
+                    opts.repository.as_deref(),
+                    opts.trunk.clone(),
+                    opts.branch_prefix.clone(),
+                )
+                .await?;
+                let github_server = mergify_stack::stack_context::resolve_github_server(None)?;
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path: {e}"
+                    ))
+                })?;
+                let github_server_str = github_server.as_str().trim_end_matches('/').to_string();
+                let create_as_draft = opts.create_as_draft.unwrap_or_else(|| {
+                    mergify_stack::stack_context::resolve_default_create_as_draft(None)
+                });
+                let keep_pull_request_title_and_body =
+                    opts.keep_pull_request_title_and_body.unwrap_or_else(|| {
+                        mergify_stack::stack_context::resolve_default_keep_pr_title_body(None)
+                    });
+                let revision_history = opts.revision_history.unwrap_or_else(|| {
+                    mergify_stack::stack_context::resolve_default_revision_history(None)
+                });
+                let outcome = mergify_stack::commands::push::run(
+                    &mergify_stack::commands::push::Options {
+                        repo_dir: None,
+                        client: &ctx.client,
+                        mergify_binary: &mergify_binary,
+                        github_server: &github_server_str,
+                        trunk: (&ctx.trunk.0, &ctx.trunk.1),
+                        author: &ctx.author,
+                        branch_prefix: &ctx.branch_prefix,
+                        user: &ctx.slug.owner,
+                        repo: &ctx.slug.repo,
+                        skip_rebase: opts.skip_rebase,
+                        force_rebase: opts.force_rebase,
+                        next_only: opts.next_only,
+                        dry_run: opts.dry_run,
+                        create_as_draft,
+                        keep_pull_request_title_and_body,
+                        only_update_existing_pulls: opts.only_update_existing_pulls,
+                        revision_history,
+                        no_verify: opts.no_verify,
+                    },
+                )
+                .await?;
+                let log_lines = match outcome {
+                    mergify_stack::commands::push::Outcome::DryRun { log_lines, .. }
+                    | mergify_stack::commands::push::Outcome::Pushed { log_lines, .. } => {
+                        log_lines
+                    }
+                };
+                for line in log_lines {
+                    println!("{line}");
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackList(opts) => {
+                let ctx = resolve_stack_context(
+                    opts.token.as_deref(),
+                    opts.author.as_deref(),
+                    opts.repository.as_deref(),
+                    opts.trunk.clone(),
+                    opts.branch_prefix.clone(),
+                )
+                .await?;
+                let stack = mergify_stack::commands::list::run(
+                    &mergify_stack::commands::list::Options {
+                        repo_dir: None,
+                        client: &ctx.client,
+                        user: &ctx.slug.owner,
+                        repo: &ctx.slug.repo,
+                        author: &ctx.author,
+                        branch_prefix: &ctx.branch_prefix,
+                        trunk: (&ctx.trunk.0, &ctx.trunk.1),
+                        include_status: true,
+                    },
+                )
+                .await?;
+                if opts.json {
+                    let json = serde_json::to_string_pretty(&stack).map_err(|e| {
+                        mergify_core::CliError::Generic(format!(
+                            "serialize stack list: {e}"
+                        ))
+                    })?;
+                    println!("{json}");
+                } else {
+                    render_stack_list_text(&stack, opts.verbose);
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackOpen(opts) => {
+                let ctx = resolve_stack_context(
+                    opts.token.as_deref(),
+                    opts.author.as_deref(),
+                    opts.repository.as_deref(),
+                    opts.trunk.clone(),
+                    opts.branch_prefix.clone(),
+                )
+                .await?;
+                let outcome = mergify_stack::commands::open::run(
+                    &mergify_stack::commands::open::Options {
+                        repo_dir: None,
+                        client: &ctx.client,
+                        user: &ctx.slug.owner,
+                        repo: &ctx.slug.repo,
+                        author: &ctx.author,
+                        branch_prefix: &ctx.branch_prefix,
+                        trunk: (&ctx.trunk.0, &ctx.trunk.1),
+                        commit: opts.commit.as_deref(),
+                    },
+                )
+                .await?;
+                match outcome {
+                    mergify_stack::commands::open::Outcome::Opened {
+                        pull_number,
+                        title,
+                        pull_url,
+                    } => {
+                        println!("Opening PR #{pull_number}: {title}");
+                        println!("  {pull_url}");
+                    }
+                    mergify_stack::commands::open::Outcome::EmptyStack => {
+                        println!("No commits in stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackHooks(opts) => {
+                if opts.do_setup {
+                    run_stack_setup(opts.force)?;
+                } else {
+                    let status = mergify_stack::commands::setup::status(None)?;
+                    render_hooks_status(&status);
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackSetup(opts) => {
+                if opts.check {
+                    let status = mergify_stack::commands::setup::status(None)?;
+                    render_hooks_status(&status);
+                } else {
+                    run_stack_setup(opts.force)?;
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
             NativeCommand::InternalRebaseTodoRewrite(opts) => {
                 let action = match opts.action {
                     InternalRebaseAction::Edit => {
@@ -1941,8 +2615,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
 }
 
 #[derive(Parser)]
-#[command(name = "mergify", disable_help_subcommand = true)]
-#[command(disable_version_flag = true)]
+#[command(name = "mergify", disable_help_subcommand = true, version = VERSION)]
 struct CliRoot {
     /// Enable verbose debug logging. Mirrors the Python CLI's
     /// top-level `--debug` flag so the same invocations work
@@ -2274,6 +2947,344 @@ struct StackSquashCli {
     /// Show the plan without rebasing.
     #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
     dry_run: bool,
+}
+
+/// `mergify stack checkout <NAME>`.
+#[derive(Parser)]
+#[command(name = "checkout", about = "Checkout the pull requests stack")]
+struct StackCheckoutCli {
+    name: String,
+
+    /// Author of the stack. Defaults to the token's user.
+    #[arg(long)]
+    author: Option<String>,
+
+    /// `owner/repo`. Falls back to the URL of `--trunk`'s remote.
+    #[arg(long = "repository", alias = "repo")]
+    repository: Option<String>,
+
+    /// Local branch name. Defaults to the normalised NAME.
+    #[arg(long)]
+    branch: Option<String>,
+
+    /// Override the stack branch prefix.
+    #[arg(long = "branch-prefix")]
+    branch_prefix: Option<String>,
+
+    /// Show the plan without checking out.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+
+    /// Target trunk as `REMOTE/BRANCH`. Defaults to the resolved
+    /// trunk for the current branch.
+    #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
+    trunk: Option<(String, String)>,
+
+    /// GitHub token (falls back to `MERGIFY_TOKEN` / `GITHUB_TOKEN`
+    /// / `gh auth token`).
+    #[arg(long)]
+    token: Option<String>,
+}
+
+impl From<StackCheckoutCli> for StackCheckoutOpts {
+    fn from(cli: StackCheckoutCli) -> Self {
+        Self {
+            name: cli.name,
+            author: cli.author,
+            repository: cli.repository,
+            branch: cli.branch,
+            branch_prefix: cli.branch_prefix,
+            dry_run: cli.dry_run,
+            trunk: cli.trunk,
+            token: cli.token,
+        }
+    }
+}
+
+/// `mergify stack sync [--dry-run]`.
+#[derive(Parser)]
+#[command(
+    name = "sync",
+    about = "Sync the stack: fetch trunk, remove merged commits, rebase"
+)]
+struct StackSyncCli {
+    #[arg(long)]
+    author: Option<String>,
+
+    #[arg(long = "repository", alias = "repo")]
+    repository: Option<String>,
+
+    #[arg(long = "branch-prefix")]
+    branch_prefix: Option<String>,
+
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+
+    #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
+    trunk: Option<(String, String)>,
+
+    #[arg(long)]
+    token: Option<String>,
+}
+
+impl From<StackSyncCli> for StackSyncOpts {
+    fn from(cli: StackSyncCli) -> Self {
+        Self {
+            author: cli.author,
+            repository: cli.repository,
+            branch_prefix: cli.branch_prefix,
+            dry_run: cli.dry_run,
+            trunk: cli.trunk,
+            token: cli.token,
+        }
+    }
+}
+
+/// `mergify stack push [flags...]` — full orchestrator. The
+/// flag set mirrors the Python `stack push` click command 1:1
+/// so a user's muscle memory survives the port.
+#[derive(Parser)]
+#[command(name = "push", about = "Push/sync the stack's pull requests on GitHub")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "mirrors the Python CLI's flag surface 1:1"
+)]
+struct StackPushCli {
+    #[arg(long)]
+    author: Option<String>,
+
+    #[arg(long = "repository", alias = "repo")]
+    repository: Option<String>,
+
+    #[arg(long = "branch-prefix")]
+    branch_prefix: Option<String>,
+
+    #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
+    trunk: Option<(String, String)>,
+
+    #[arg(long)]
+    token: Option<String>,
+
+    /// Skip the rebase step. By default `stack push` rebases on
+    /// trunk before pushing when there are no approvals to
+    /// dismiss.
+    #[arg(short = 'R', long = "skip-rebase", action = clap::ArgAction::SetTrue)]
+    skip_rebase: bool,
+
+    /// Force the rebase even when PRs are approved (the rebase
+    /// will dismiss the reviews). Mutually exclusive with
+    /// `--skip-rebase`.
+    #[arg(
+        long = "force-rebase",
+        action = clap::ArgAction::SetTrue,
+        conflicts_with = "skip_rebase"
+    )]
+    force_rebase: bool,
+
+    /// Only push the bottom commit of the stack.
+    #[arg(short = 'x', long = "next-only", action = clap::ArgAction::SetTrue)]
+    next_only: bool,
+
+    /// Dry-run: render the plan + the rebase decision and exit.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+
+    /// Open new PRs as drafts. Default falls back to git config
+    /// `mergify-cli.stack-create-as-draft` (`false` when unset).
+    #[arg(
+        short = 'd',
+        long = "draft",
+        num_args = 0,
+        default_missing_value = "true"
+    )]
+    create_as_draft: Option<bool>,
+
+    /// Don't rewrite the PR title + body from the commit
+    /// message; only update the rendered Depends-On chain in
+    /// the body. Default falls back to git config
+    /// `mergify-cli.stack-keep-pr-title-body` (`false` when unset).
+    #[arg(
+        short = 'k',
+        long = "keep-pull-request-title-and-body",
+        num_args = 0,
+        default_missing_value = "true"
+    )]
+    keep_pull_request_title_and_body: Option<bool>,
+
+    /// Don't create new PRs; surface would-be-created ones in
+    /// the plan instead.
+    #[arg(
+        short = 'u',
+        long = "only-update-existing-pulls",
+        action = clap::ArgAction::SetTrue
+    )]
+    only_update_existing_pulls: bool,
+
+    /// Suppress the revision-history sticky comment update.
+    /// Default falls back to git config
+    /// `mergify-cli.stack-revision-history` (`true` when unset).
+    #[arg(
+        long = "no-revision-history",
+        num_args = 0,
+        default_missing_value = "false"
+    )]
+    revision_history: Option<bool>,
+
+    /// Pass `--no-verify` to `git push` (skips local pre-push
+    /// hooks).
+    #[arg(long = "no-verify", action = clap::ArgAction::SetTrue)]
+    no_verify: bool,
+}
+
+impl From<StackPushCli> for StackPushOpts {
+    fn from(cli: StackPushCli) -> Self {
+        Self {
+            author: cli.author,
+            repository: cli.repository,
+            branch_prefix: cli.branch_prefix,
+            trunk: cli.trunk,
+            token: cli.token,
+            skip_rebase: cli.skip_rebase,
+            force_rebase: cli.force_rebase,
+            next_only: cli.next_only,
+            dry_run: cli.dry_run,
+            create_as_draft: cli.create_as_draft,
+            keep_pull_request_title_and_body: cli.keep_pull_request_title_and_body,
+            only_update_existing_pulls: cli.only_update_existing_pulls,
+            revision_history: cli.revision_history,
+            no_verify: cli.no_verify,
+        }
+    }
+}
+
+/// `mergify stack list [--json] [--verbose]`.
+#[derive(Parser)]
+#[command(
+    name = "list",
+    about = "List the stack's commits and their associated PRs"
+)]
+struct StackListCli {
+    #[arg(long)]
+    author: Option<String>,
+
+    #[arg(long = "repository", alias = "repo")]
+    repository: Option<String>,
+
+    #[arg(long = "branch-prefix")]
+    branch_prefix: Option<String>,
+
+    #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
+    trunk: Option<(String, String)>,
+
+    #[arg(long)]
+    token: Option<String>,
+
+    /// Emit machine-readable JSON.
+    #[arg(long, action = clap::ArgAction::SetTrue)]
+    json: bool,
+
+    /// Show per-check / per-reviewer detail.
+    #[arg(short = 'v', long, action = clap::ArgAction::SetTrue)]
+    verbose: bool,
+}
+
+impl From<StackListCli> for StackListOpts {
+    fn from(cli: StackListCli) -> Self {
+        Self {
+            author: cli.author,
+            repository: cli.repository,
+            branch_prefix: cli.branch_prefix,
+            trunk: cli.trunk,
+            token: cli.token,
+            json: cli.json,
+            verbose: cli.verbose,
+        }
+    }
+}
+
+/// `mergify stack open [<commit>]`.
+#[derive(Parser)]
+#[command(name = "open", about = "Open a PR from the stack in the browser")]
+struct StackOpenCli {
+    commit: Option<String>,
+
+    #[arg(long)]
+    author: Option<String>,
+
+    #[arg(long = "repository", alias = "repo")]
+    repository: Option<String>,
+
+    #[arg(long = "branch-prefix")]
+    branch_prefix: Option<String>,
+
+    #[arg(short = 't', long = "trunk", value_parser = parse_remote_branch)]
+    trunk: Option<(String, String)>,
+
+    #[arg(long)]
+    token: Option<String>,
+}
+
+impl From<StackOpenCli> for StackOpenOpts {
+    fn from(cli: StackOpenCli) -> Self {
+        Self {
+            commit: cli.commit,
+            author: cli.author,
+            repository: cli.repository,
+            branch_prefix: cli.branch_prefix,
+            trunk: cli.trunk,
+            token: cli.token,
+        }
+    }
+}
+
+/// `mergify stack hooks [--setup] [--force]`.
+#[derive(Parser)]
+#[command(
+    name = "hooks",
+    about = "Show git hooks status and manage installation"
+)]
+struct StackHooksCli {
+    /// Install or upgrade hooks.
+    #[arg(long = "setup", action = clap::ArgAction::SetTrue)]
+    do_setup: bool,
+
+    /// Force reinstall wrappers (use with --setup).
+    #[arg(short = 'f', long = "force", action = clap::ArgAction::SetTrue)]
+    force: bool,
+}
+
+impl From<StackHooksCli> for StackHooksOpts {
+    fn from(cli: StackHooksCli) -> Self {
+        Self {
+            do_setup: cli.do_setup,
+            force: cli.force,
+        }
+    }
+}
+
+/// `mergify stack setup [--force] [--check]`.
+#[derive(Parser)]
+#[command(
+    name = "setup",
+    about = "Configure git hooks (alias for 'stack hooks --setup')"
+)]
+struct StackSetupCli {
+    /// Force reinstall of hook wrappers, even if user modified them.
+    #[arg(short = 'f', long = "force", action = clap::ArgAction::SetTrue)]
+    force: bool,
+
+    /// Check status only (use 'stack hooks' instead).
+    #[arg(long = "check", action = clap::ArgAction::SetTrue)]
+    check: bool,
+}
+
+impl From<StackSetupCli> for StackSetupOpts {
+    fn from(cli: StackSetupCli) -> Self {
+        Self {
+            force: cli.force,
+            check: cli.check,
+        }
+    }
 }
 
 impl TryFrom<StackSquashCli> for StackSquashOpts {
@@ -3086,13 +4097,51 @@ mod tests {
             .iter()
             .map(|c| c["source"].as_str().expect("source"))
             .collect();
-        assert!(
-            sources.contains("native"),
-            "native stack subcommands missing"
+        // Pure-Rust binary: every stack subcommand is native. Locked
+        // in so a regression that quietly re-introduces a non-native
+        // source (e.g. a hand-grafted shim) shows up here.
+        assert_eq!(
+            sources,
+            std::collections::BTreeSet::from(["native"]),
+            "expected only `native` stack subcommands",
         );
+    }
+
+    #[test]
+    fn version_const_matches_release_env_or_falls_back_to_cargo_pkg_version() {
+        // Mirror `build.rs` exactly: empty `MERGIFY_RELEASE_VERSION`
+        // is treated the same as unset, both collapse to
+        // `CARGO_PKG_VERSION`. The release path is exercised in
+        // `build-wheels.yml`'s stamp step (sets a non-empty calver,
+        // expects it in `--version`); this test pins both fallback
+        // branches so build.rs's normalisation can't drift.
+        let expected = match option_env!("MERGIFY_RELEASE_VERSION") {
+            Some(v) if !v.is_empty() => v,
+            _ => env!("CARGO_PKG_VERSION"),
+        };
+        assert_eq!(VERSION, expected);
+    }
+
+    #[test]
+    fn cli_root_exposes_version_flag() {
+        // Locked-in regression: a previous incarnation had
+        // `disable_version_flag = true` because the version source
+        // was wrong; switching to the env-driven const lets clap
+        // render `--version` properly. If a future refactor
+        // removes the `version = VERSION` attribute, `--version`
+        // silently becomes an unknown flag and this catches it.
+        //
+        // `try_parse_from(...).err().expect(...)` over `expect_err`
+        // because the Ok variant is `CliRoot` which doesn't
+        // implement `Debug` (and shouldn't — it carries no debug
+        // intent).
+        let err = CliRoot::try_parse_from(["mergify", "--version"])
+            .err()
+            .expect("--version exits");
+        assert_eq!(err.kind(), clap::error::ErrorKind::DisplayVersion);
         assert!(
-            sources.contains("python-shim"),
-            "pending-python stack subcommands missing"
+            err.to_string().contains(VERSION),
+            "version output should contain VERSION ({VERSION}), got: {err}",
         );
     }
 
@@ -3189,28 +4238,13 @@ mod tests {
         assert!(parsed.debug);
     }
 
-    #[test]
-    fn shimmed_dispatch_reinjects_debug_at_argv_head() {
-        // Clap consumes the root `--debug`; without re-injection,
-        // the Python side (which declares its own root `--debug`)
-        // would never see the flag.
-        let parsed = parse(&["--debug", "stack", "push"]);
-        let Dispatch::Shim(argv) = dispatch_from_parsed(parsed) else {
-            panic!("stack must dispatch to the Python shim");
-        };
-        assert_eq!(argv, vec!["--debug", "stack", "push"]);
-    }
-
-    #[test]
-    fn shimmed_dispatch_omits_debug_when_not_set() {
-        let parsed = parse(&["stack", "push"]);
-        let Dispatch::Shim(argv) = dispatch_from_parsed(parsed) else {
-            panic!("stack must dispatch to the Python shim");
-        };
-        // No `--debug` prefix when the user didn't pass one — we
-        // don't want to silently flip Python into verbose mode.
-        assert_eq!(argv, vec!["stack", "push"]);
-    }
+    // Note: the previous shimmed-dispatch tests verified that
+    // unknown stack subcommands fell through to a Python shim
+    // with the `--debug` flag re-injected. The shim is gone;
+    // unknown subcommands now exit via `clap::Error::exit()`
+    // (process::exit(2) + "did you mean?" output), which can't
+    // be unit-tested without subprocess plumbing. End-to-end
+    // smoke is covered by clap's own conformance tests.
 
     #[test]
     fn ci_junit_upload_dispatches_natively_via_deprecated_alias() {
@@ -3281,15 +4315,33 @@ mod tests {
     }
 
     #[test]
-    fn removed_flat_quarantine_commands_are_not_native() {
+    fn removed_flat_quarantine_commands_are_rejected_by_clap() {
         // The deprecated flat commands were removed; only the
-        // `quarantines` subgroup routes natively now.
-        let native = |argv: &[&str]| {
-            looks_native(&argv.iter().map(|s| (*s).to_string()).collect::<Vec<_>>())
-        };
-        assert!(!native(&["mergify", "tests", "quarantine"]));
-        assert!(!native(&["mergify", "tests", "unquarantine"]));
-        assert!(!native(&["mergify", "tests", "quarantined"]));
-        assert!(native(&["mergify", "tests", "quarantines", "add"]));
+        // `quarantines` subgroup routes natively now. Without the
+        // Python shim there's no fallback — clap rejects the
+        // unknown subcommand at parse time. Use `try_parse_from`
+        // (which returns Err instead of calling process::exit)
+        // so we can assert in-process.
+        for argv in [
+            &["mergify", "tests", "quarantine"][..],
+            &["mergify", "tests", "unquarantine"],
+            &["mergify", "tests", "quarantined"],
+        ] {
+            assert!(
+                CliRoot::try_parse_from(argv).is_err(),
+                "{argv:?} must be rejected by clap (deprecated flat command)",
+            );
+        }
+        // The replacement `quarantines` subgroup still parses
+        // (proving the regression is targeted, not blanket).
+        assert!(
+            CliRoot::try_parse_from(["mergify", "tests", "quarantines", "add", "--help"])
+                .is_err_and(|e| matches!(
+                    e.kind(),
+                    clap::error::ErrorKind::DisplayHelp
+                        | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand,
+                )),
+            "the replacement subgroup must parse (help-display Err counts as parsed)",
+        );
     }
 }

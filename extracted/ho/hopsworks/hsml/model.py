@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import warnings
 from typing import TYPE_CHECKING, Any
 
@@ -107,7 +108,7 @@ class Model:
         self._training_dataset_version = training_dataset_version
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def save(
         self,
         model_path: str,
@@ -167,7 +168,7 @@ class Model:
                     stacklevel=1,
                 )
 
-        return self._model_engine.save(
+        return self._model_engine._save(
             model_instance=self,
             model_path=model_path,
             await_registration=await_registration,
@@ -176,12 +177,25 @@ class Model:
         )
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def download(self, local_path: str | None = None) -> str:
         """Download the model files.
 
+        If local_path is not provided, the model is downloaded to a cache directory
+        under `/tmp/hopsworks/models/{project_name}/{model_name}/{version}/{id}/` and
+        reused across subsequent downloads, including across processes.
+        Cached models persist beyond program exit.
+        The cache path includes the backend model `id`, so a model version that is
+        deleted and recreated is re-downloaded automatically without manual cache
+        invalidation.
+        If the temp location is unusable (disk full, read-only, or no permission),
+        the download falls back to `~/.hopsworks/cache/models` and then the current
+        working directory.
+        Use [`Model.clear_cache`][hsml.model.Model.clear_cache] to reclaim disk space.
+
         Parameters:
-            local_path: path where to download the model files in the local filesystem
+            local_path: path where to download the model files in the local filesystem.
+                If None, downloads to cache directory (recommended for idempotent reuse).
 
         Returns:
             Absolute path to local folder containing the model files.
@@ -189,10 +203,10 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: In case the backend encounters an issue
         """
-        return self._model_engine.download(model_instance=self, local_path=local_path)
+        return self._model_engine._download(model_instance=self, local_path=local_path)
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def delete(self):
         """Delete the model.
 
@@ -203,10 +217,148 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: In case the backend encounters an issue
         """
-        self._model_engine.delete(model_instance=self)
+        self._model_engine._delete(model_instance=self)
 
     @public
-    @usage.method_logger
+    @staticmethod
+    def clear_cache(
+        project_name: str | None = None,
+        model_name: str | None = None,
+        version: int | None = None,
+    ) -> int:
+        """Clear cached downloaded models.
+
+        Utility method to clear the model cache from every fallback location
+        (temp dir, the Hopsworks home `.cache`, and the working directory).
+        Use this to free disk space when cached models are no longer needed.
+
+        The filters narrow from broad to specific:
+        `model_name` requires `project_name`, and `version` requires both
+        `project_name` and `model_name`.
+
+        Parameters:
+            project_name: If specified, only clear cache for this project.
+                If None, clears all cached models.
+            model_name: If specified (requires project_name), only clear cache
+                for this specific model. If None, clears all models in project.
+            version: If specified (requires project_name and model_name), only clear
+                cache for this specific model version. If None, clears all versions.
+
+        Returns:
+            Number of model versions removed from cache.
+
+        Raises:
+            ValueError: If `model_name` is given without `project_name`, or
+                `version` is given without both `project_name` and `model_name`.
+
+        Example:
+            ```python
+            # Clear all cached models
+            Model.clear_cache()
+
+            # Clear all models for a specific project
+            Model.clear_cache(project_name="my_project")
+
+            # Clear all versions of a specific model
+            Model.clear_cache(project_name="my_project", model_name="my_model")
+
+            # Clear a specific model version
+            Model.clear_cache(project_name="my_project", model_name="my_model", version=1)
+            ```
+        """
+        if model_name is not None and project_name is None:
+            raise ValueError(
+                "model_name requires project_name; refusing to clear cache to "
+                "avoid deleting every cached project's models."
+            )
+        if version is not None and (project_name is None or model_name is None):
+            raise ValueError(
+                "version requires both project_name and model_name; refusing to "
+                "clear cache to avoid deleting unintended models."
+            )
+
+        return sum(
+            Model._clear_cache_base(cache_base, project_name, model_name, version)
+            for cache_base in model_engine._model_cache_base_dirs()
+        )
+
+    @staticmethod
+    def _clear_cache_base(cache_base, project_name, model_name, version):
+        """Clear cached models under a single cache base directory.
+
+        See `clear_cache` for the meaning of the filter parameters.
+
+        Returns:
+            int: Number of model versions removed from this base directory.
+        """
+        removed_count = 0
+
+        if not os.path.exists(cache_base):
+            return 0
+
+        if project_name is None:
+            # Clear entire cache - count before removing
+            for project_dir in os.listdir(cache_base):
+                project_path = os.path.join(cache_base, project_dir)
+                if os.path.isdir(project_path):
+                    for model_dir in os.listdir(project_path):
+                        model_path = os.path.join(project_path, model_dir)
+                        if os.path.isdir(model_path):
+                            removed_count += len(
+                                [
+                                    d
+                                    for d in os.listdir(model_path)
+                                    if os.path.isdir(os.path.join(model_path, d))
+                                ]
+                            )
+            shutil.rmtree(cache_base)
+            return removed_count
+
+        project_path = os.path.join(cache_base, project_name)
+        if not os.path.exists(project_path):
+            return 0
+
+        if model_name is None:
+            # Clear all models in project
+            for model_dir in os.listdir(project_path):
+                model_path = os.path.join(project_path, model_dir)
+                if os.path.isdir(model_path):
+                    removed_count += len(
+                        [
+                            d
+                            for d in os.listdir(model_path)
+                            if os.path.isdir(os.path.join(model_path, d))
+                        ]
+                    )
+            shutil.rmtree(project_path)
+            return removed_count
+
+        model_path = os.path.join(project_path, model_name)
+        if not os.path.exists(model_path):
+            return 0
+
+        if version is None:
+            # Clear all versions of the model
+            removed_count = len(
+                [
+                    d
+                    for d in os.listdir(model_path)
+                    if os.path.isdir(os.path.join(model_path, d))
+                ]
+            )
+            shutil.rmtree(model_path)
+            return removed_count
+
+        # Clear specific version
+        version_path = os.path.join(model_path, str(version))
+        if os.path.exists(version_path):
+            shutil.rmtree(version_path)
+            removed_count = 1
+
+        return removed_count
+
+    @public
+    @usage._method_logger
     def deploy(
         self,
         name: str | None = None,
@@ -248,7 +400,7 @@ class Model:
         Parameters:
             name: Name of the deployment.
             description: Description of the deployment.
-            artifact_version: (**Deprecated**) Version number of the model artifact to deploy, `CREATE` to create a new model artifact
+            artifact_version: **Deprecated**. Version number of the model artifact to deploy, `CREATE` to create a new model artifact
             or `MODEL-ONLY` to reuse the shared artifact containing only the model files.
             serving_tool: Serving tool used to deploy the model server.
             script_file: Path to a custom predictor script implementing the Predict class.
@@ -297,7 +449,7 @@ class Model:
         return predictor.deploy()
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def add_tag(self, name: str, value: str | dict):
         """Attach a tag to a model.
 
@@ -311,10 +463,10 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to add the tag.
         """
-        self._model_engine.set_tag(model_instance=self, name=name, value=value)
+        self._model_engine._set_tag(model_instance=self, name=name, value=value)
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def set_tag(self, name: str, value: str | dict):
         """Deprecated: Use add_tag instead.
 
@@ -327,10 +479,10 @@ class Model:
             DeprecationWarning,
             stacklevel=2,
         )
-        self._model_engine.set_tag(model_instance=self, name=name, value=value)
+        self._model_engine._set_tag(model_instance=self, name=name, value=value)
 
     @public
-    @usage.method_logger
+    @usage._method_logger
     def delete_tag(self, name: str):
         """Delete a tag attached to a model.
 
@@ -340,7 +492,7 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to delete the tag.
         """
-        self._model_engine.delete_tag(model_instance=self, name=name)
+        self._model_engine._delete_tag(model_instance=self, name=name)
 
     @public
     def get_tag(self, name: str) -> str | None:
@@ -355,7 +507,7 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to retrieve the tag.
         """
-        return self._model_engine.get_tag(model_instance=self, name=name)
+        return self._model_engine._get_tag(model_instance=self, name=name)
 
     @public
     def get_tags(self) -> dict[str, tag.Tag]:
@@ -367,20 +519,20 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: In case of a server error.
         """
-        return self._model_engine.get_tags(model_instance=self)
+        return self._model_engine._get_tags(model_instance=self)
 
     @public
     def get_url(self):
         """Get url to the model in Hopsworks."""
         path = (
             "/p/"
-            + str(client.get_instance()._project_id)
+            + str(client._get_instance()._project_id)
             + "/models/"
             + str(self.name)
             + "/"
             + str(self.version)
         )
-        return util.get_hostname_replaced_url(sub_path=path)
+        return util._get_hostname_replaced_url(sub_path=path)
 
     @public
     def get_feature_view(
@@ -433,7 +585,7 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to retrieve the feature view provenance.
         """
-        return self._model_engine.get_feature_view_provenance(model_instance=self)
+        return self._model_engine._get_feature_view_provenance(model_instance=self)
 
     @public
     def get_training_dataset_provenance(self) -> explicit_provenance.Links:
@@ -448,7 +600,7 @@ class Model:
         Raises:
             hopsworks.client.exceptions.RestAPIError: in case the backend fails to retrieve the training dataset provenance.
         """
-        return self._model_engine.get_training_dataset_provenance(model_instance=self)
+        return self._model_engine._get_training_dataset_provenance(model_instance=self)
 
     def _get_default_serving_name(self):
         return re.sub(r"[^a-zA-Z0-9]", "", self._name)
@@ -459,8 +611,8 @@ class Model:
         if "count" in json_decamelized:
             if json_decamelized["count"] == 0:
                 return []
-            return [util.set_model_class(model) for model in json_decamelized["items"]]
-        return util.set_model_class(json_decamelized)
+            return [util._set_model_class(model) for model in json_decamelized["items"]]
+        return util._set_model_class(json_decamelized)
 
     def update_from_response_json(self, json_dict):
         json_decamelized = humps.decamelize(json_dict)
@@ -485,7 +637,7 @@ class Model:
             "metrics": self._training_metrics,
             "environment": self._environment,
             "program": self._program,
-            "featureView": util.feature_view_to_json(self._feature_view),
+            "featureView": util._feature_view_to_json(self._feature_view),
             "trainingDatasetVersion": self._training_dataset_version,
         }
 
@@ -554,7 +706,7 @@ class Model:
     def environment(self):
         """Input example of the model."""
         if self._environment is not None:
-            return self._model_engine.read_file(
+            return self._model_engine._read_file(
                 model_instance=self, resource="environment.yml"
             )
         return self._environment
@@ -578,7 +730,7 @@ class Model:
     def program(self):
         """Executable used to export the model."""
         if self._program is not None:
-            return self._model_engine.read_file(
+            return self._model_engine._read_file(
                 model_instance=self, resource=self._program
             )
         return None
@@ -601,7 +753,7 @@ class Model:
     @property
     def input_example(self):
         """input_example of the model."""
-        return self._model_engine.read_json(
+        return self._model_engine._read_json(
             model_instance=self, resource="input_example.json"
         )
 
@@ -623,7 +775,7 @@ class Model:
     @property
     def model_schema(self):
         """Model schema of the model."""
-        return self._model_engine.read_json(
+        return self._model_engine._read_json(
             model_instance=self, resource="model_schema.json"
         )
 

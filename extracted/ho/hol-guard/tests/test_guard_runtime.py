@@ -43,6 +43,7 @@ from codex_plugin_scanner.guard.models import (
 )
 from codex_plugin_scanner.guard.policy import decide_action, decide_action_with_v2
 from codex_plugin_scanner.guard.proxy import RemoteGuardProxy, StdioGuardProxy
+from codex_plugin_scanner.guard.proxy import stdio as stdio_proxy_module
 from codex_plugin_scanner.guard.receipts import build_receipt
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
 from codex_plugin_scanner.guard.runtime import secret_file_requests as secret_file_requests_module
@@ -15357,6 +15358,113 @@ def test_stdio_proxy_blocks_sensitive_file_reads_without_forwarding(tmp_path):
     assert pending[0]["artifact_type"] == "file_read_request"
 
 
+def test_stdio_proxy_respects_native_only_approval_surface_policy(tmp_path, monkeypatch):
+    store = GuardStore(tmp_path / "guard-home")
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace_dir,
+        approval_surface_policy="native-only",
+    )
+    monkeypatch.setattr(
+        stdio_proxy_module,
+        "load_guard_daemon_auth_token",
+        lambda _guard_home: (_ for _ in ()).throw(AssertionError("should not read auth token")),
+    )
+    monkeypatch.setattr(
+        stdio_proxy_module.webbrowser,
+        "open",
+        lambda _url: (_ for _ in ()).throw(AssertionError("should not open browser")),
+    )
+    proxy = StdioGuardProxy(
+        command=[
+            sys.executable,
+            "-u",
+            "-c",
+            "\n".join(
+                [
+                    "import json, sys",
+                    "for line in sys.stdin:",
+                    "    message = json.loads(line)",
+                    "    print(json.dumps({'jsonrpc': '2.0', 'id': message.get('id'), 'result': {'ok': True}}))",
+                    "    sys.stdout.flush()",
+                ]
+            ),
+        ],
+        cwd=workspace_dir,
+        guard_store=store,
+        guard_config=config,
+        approval_center_url="http://127.0.0.1:4455",
+    )
+
+    blocked = proxy.run_session(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "read_file", "arguments": {"path": ".env"}},
+            }
+        ]
+    )
+
+    assert blocked["responses"][0]["error"]["data"]["approvalCenterUrl"] == "http://127.0.0.1:4455"
+    assert blocked["responses"][0]["error"]["data"]["reviewHint"]
+
+
+def test_stdio_proxy_respects_adapter_no_browser_flow(tmp_path, monkeypatch):
+    store = GuardStore(tmp_path / "guard-home")
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    config = GuardConfig(guard_home=tmp_path / "guard-home", workspace=workspace_dir)
+    monkeypatch.setattr(
+        stdio_proxy_module,
+        "load_guard_daemon_auth_token",
+        lambda _guard_home: (_ for _ in ()).throw(AssertionError("should not read auth token")),
+    )
+    monkeypatch.setattr(
+        stdio_proxy_module.webbrowser,
+        "open",
+        lambda _url: (_ for _ in ()).throw(AssertionError("should not open browser")),
+    )
+    proxy = StdioGuardProxy(
+        command=[
+            sys.executable,
+            "-u",
+            "-c",
+            "\n".join(
+                [
+                    "import json, sys",
+                    "for line in sys.stdin:",
+                    "    message = json.loads(line)",
+                    "    print(json.dumps({'jsonrpc': '2.0', 'id': message.get('id'), 'result': {'ok': True}}))",
+                    "    sys.stdout.flush()",
+                ]
+            ),
+        ],
+        cwd=workspace_dir,
+        guard_store=store,
+        guard_config=config,
+        approval_center_url="http://127.0.0.1:4455",
+        harness="hermes",
+    )
+
+    blocked = proxy.run_session(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "read_file", "arguments": {"path": ".env"}},
+            }
+        ]
+    )
+
+    assert blocked["responses"][0]["error"]["data"]["approvalCenterUrl"] == "http://127.0.0.1:4455"
+    assert blocked["responses"][0]["error"]["data"]["reviewHint"]
+
+
 def test_stdio_proxy_handles_unknown_harness_when_queueing_sensitive_read_blocks(tmp_path):
     store = GuardStore(tmp_path / "guard-home")
     workspace_dir = tmp_path / "workspace"
@@ -17831,11 +17939,12 @@ def test_sync_local_guard_cloud_proof_refreshes_oauth_once(tmp_path, monkeypatch
 
     assert len(token_requests) == 1
     assert _request_header(token_requests[0], "User-Agent") == f"hol-guard/{guard_runner_module.__version__}"
-    assert [request.full_url for request in sync_requests] == [
+    sync_urls = [request.full_url for request in sync_requests]
+    assert sync_urls[:2] == [
         "https://hol.org/api/guard/runtime/sessions/sync",
         "https://hol.org/api/guard/receipts/sync",
-        "https://hol.org/api/v1/guard/events",
     ]
+    assert sync_urls.count("https://hol.org/api/v1/guard/events") >= 1
     assert payload["runtime_session_id"] == expected_session_id
 
 

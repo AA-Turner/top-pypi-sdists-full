@@ -12,7 +12,13 @@ import uuid
 
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore[no-redef]
 
 import yaml
 
@@ -40,11 +46,10 @@ ALLOWED_EXTERNALS = [
 ]
 ENV_LIST = """
 galaxy
-{integration, sanity, unit}-py3.10-{2.16, 2.17}
-{integration, sanity, unit}-py3.11-{2.17, 2.18, 2.19}
-{integration, sanity, unit}-py3.12-{2.17, 2.18, 2.19, 2.20, milestone, devel}
-{integration, sanity, unit}-py3.13-{2.18, 2.19, 2.20, milestone, devel}
-{integration, sanity, unit}-py3.14-{2.20, 2.20, milestone, devel}
+{integration, sanity, unit}-py3.11-{ 2.19 }
+{integration, sanity, unit}-py3.12-{2.19, 2.20, 2.21, milestone}
+{integration, sanity, unit}-py3.13-{2.19, 2.20, 2.21, milestone, devel}
+{integration, sanity, unit}-py3.14-{2.20, 2.21, milestone, devel}
 """
 # ^ py314 is NOT supported before 2.20! If is in official metadata of the
 # release branch, is not supported.
@@ -177,9 +182,9 @@ def tox_add_core_config(
     if state.conf.src_path.name == "tox.ini":  # pragma: no cover
         msg = (
             "Using a default tox.ini file with tox-ansible plugin is not recommended."
-            " Consider using a tox-ansible.ini file and specify it on the command line"
-            " (`tox --ansible -c tox-ansible.ini`) to avoid unintentionally overriding"
-            " the tox-ansible environment configurations."
+            " Consider adding a [tool.tox-ansible] section to pyproject.toml or using"
+            " a tox-ansible.ini file (`tox --ansible -c tox-ansible.ini`) to avoid"
+            " unintentionally overriding the tox-ansible environment configurations."
         )
         logger.warning(msg)
 
@@ -284,6 +289,30 @@ def in_action() -> bool:
     return os.environ.get("GITHUB_ACTIONS") == "true"
 
 
+def _load_pyproject_config(project_dir: Path) -> dict[str, Any] | None:
+    """Load tox-ansible configuration from pyproject.toml.
+
+    Looks for ``[tool.tox-ansible]`` in the project's ``pyproject.toml``.
+
+    Args:
+        project_dir: The project root directory containing pyproject.toml.
+
+    Returns:
+        The parsed ``[tool.tox-ansible]`` table, or ``None`` if the file
+        or section is not found.
+    """
+    pyproject_path = project_dir / "pyproject.toml"
+    if not pyproject_path.exists():
+        return None
+    try:
+        with pyproject_path.open("rb") as fh:
+            data = tomllib.load(fh)
+    except tomllib.TOMLDecodeError:
+        logger.warning("Failed to parse %s, skipping", pyproject_path)
+        return None
+    return data.get("tool", {}).get("tox-ansible")
+
+
 def add_ansible_matrix(state: State) -> EnvList:
     """Add the ansible matrix to the state.
 
@@ -293,16 +322,22 @@ def add_ansible_matrix(state: State) -> EnvList:
     Returns:
         The environment list.
     """
-    ansible_config = state.conf.get_section_config(
-        Section(None, "ansible"),
-        base=[],
-        of_type=AnsibleConfigSet,
-        for_env=None,
-    )
+    project_dir = state.conf.src_path.parent.resolve()
+    pyproject_config = _load_pyproject_config(project_dir)
+
+    if pyproject_config is not None:
+        skip_list: list[str] = pyproject_config.get("skip", [])
+    else:
+        ansible_config = state.conf.get_section_config(
+            Section(None, "ansible"),
+            base=[],
+            of_type=AnsibleConfigSet,
+            for_env=None,
+        )
+        skip_list = ansible_config["skip"]
+
     env_list = StrConvert().to_env_list(ENV_LIST)
-    env_list.envs = [
-        env for env in env_list.envs if all(skip not in env for skip in ansible_config["skip"])
-    ]
+    env_list.envs = [env for env in env_list.envs if all(skip not in env for skip in skip_list)]
     env_list.envs = sorted(env_list.envs, key=custom_sort)
     state.conf.core.loaders.insert(
         0,
@@ -639,21 +674,14 @@ def conf_deps(env_conf: EnvConfigSet, test_type: str) -> str:  # noqa: ARG001
         deps.append("ansible-dev-environment>=26.2.0")
         if test_type in ("integration", "unit"):
             deps.extend(OUR_DEPS)
-            try:
-                with (cwd / "test-requirements.txt").open() as fileh:
-                    deps.extend(fileh.read().splitlines())
-            except FileNotFoundError:
-                pass
-            try:
-                with (cwd / "requirements-test.txt").open() as fileh:
-                    deps.extend(fileh.read().splitlines())
-            except FileNotFoundError:
-                pass
-            try:
-                with (cwd / "requirements.txt").open() as fileh:
-                    deps.extend(fileh.read().splitlines())
-            except FileNotFoundError:
-                pass
+            if test_type == "integration":
+                deps.append("molecule>=26.4.0")
+            for req_file in ("test-requirements.txt", "requirements-test.txt", "requirements.txt"):
+                try:
+                    with (cwd / req_file).open() as fileh:
+                        deps.extend(fileh.read().splitlines())
+                except FileNotFoundError:  # noqa: PERF203
+                    pass
 
     return "\n".join(deps)
 

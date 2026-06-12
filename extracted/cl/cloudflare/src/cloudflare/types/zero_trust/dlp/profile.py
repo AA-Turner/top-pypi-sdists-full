@@ -113,6 +113,9 @@ class CustomProfileEntryCustomPromptTopicEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the custom prompt topic entry."""
+
 
 class CustomProfileEntryPredefinedEntryConfidence(BaseModel):
     ai_context_available: bool
@@ -207,6 +210,9 @@ class CustomProfileEntryExactDataEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the exact data entry."""
+
 
 class CustomProfileEntryDocumentFingerprintEntry(BaseModel):
     id: str
@@ -220,6 +226,9 @@ class CustomProfileEntryDocumentFingerprintEntry(BaseModel):
     type: Literal["document_fingerprint"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the document fingerprint entry."""
 
 
 class CustomProfileEntryWordListEntry(BaseModel):
@@ -293,6 +302,9 @@ class CustomProfileSharedEntryCustomPromptTopicEntry(BaseModel):
     type: Literal["custom_prompt_topic"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the custom prompt topic entry."""
 
 
 class CustomProfileSharedEntryPredefinedEntryConfidence(BaseModel):
@@ -389,6 +401,9 @@ class CustomProfileSharedEntryExactDataEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the exact data entry."""
+
 
 class CustomProfileSharedEntryDocumentFingerprintEntry(BaseModel):
     id: str
@@ -402,6 +417,9 @@ class CustomProfileSharedEntryDocumentFingerprintEntry(BaseModel):
     type: Literal["document_fingerprint"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the document fingerprint entry."""
 
 
 class CustomProfileSharedEntryWordListEntry(BaseModel):
@@ -513,6 +531,9 @@ class PredefinedProfileEntryCustomPromptTopicEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the custom prompt topic entry."""
+
 
 class PredefinedProfileEntryPredefinedEntryConfidence(BaseModel):
     ai_context_available: bool
@@ -607,6 +628,9 @@ class PredefinedProfileEntryExactDataEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the exact data entry."""
+
 
 class PredefinedProfileEntryDocumentFingerprintEntry(BaseModel):
     id: str
@@ -620,6 +644,9 @@ class PredefinedProfileEntryDocumentFingerprintEntry(BaseModel):
     type: Literal["document_fingerprint"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the document fingerprint entry."""
 
 
 class PredefinedProfileEntryWordListEntry(BaseModel):
@@ -712,6 +739,9 @@ class IntegrationProfileEntryCustomPromptTopicEntry(BaseModel):
     type: Literal["custom_prompt_topic"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the custom prompt topic entry."""
 
 
 class IntegrationProfileEntryPredefinedEntryConfidence(BaseModel):
@@ -807,6 +837,9 @@ class IntegrationProfileEntryExactDataEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the exact data entry."""
+
 
 class IntegrationProfileEntryDocumentFingerprintEntry(BaseModel):
     id: str
@@ -820,6 +853,9 @@ class IntegrationProfileEntryDocumentFingerprintEntry(BaseModel):
     type: Literal["document_fingerprint"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the document fingerprint entry."""
 
 
 class IntegrationProfileEntryWordListEntry(BaseModel):
@@ -883,6 +919,9 @@ class IntegrationProfileSharedEntryCustomPromptTopicEntry(BaseModel):
     type: Literal["custom_prompt_topic"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the custom prompt topic entry."""
 
 
 class IntegrationProfileSharedEntryPredefinedEntryConfidence(BaseModel):
@@ -979,6 +1018,9 @@ class IntegrationProfileSharedEntryExactDataEntry(BaseModel):
 
     updated_at: datetime
 
+    description: Optional[str] = None
+    """The optional description of the exact data entry."""
+
 
 class IntegrationProfileSharedEntryDocumentFingerprintEntry(BaseModel):
     id: str
@@ -992,6 +1034,9 @@ class IntegrationProfileSharedEntryDocumentFingerprintEntry(BaseModel):
     type: Literal["document_fingerprint"]
 
     updated_at: datetime
+
+    description: Optional[str] = None
+    """The optional description of the document fingerprint entry."""
 
 
 class IntegrationProfileSharedEntryWordListEntry(BaseModel):

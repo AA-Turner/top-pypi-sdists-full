@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from functools import partial
 
 import numpy as np
@@ -104,7 +105,7 @@ def test_xarray_blockwise_fusion_store(compute):
         ), f"False number of tasks got {len(dsk)} but expected {expected}"
         return [42 for _ in keys]
 
-    # First test that this mocking stuff works as expecged
+    # First test that this mocking stuff works as expected
     with pytest.raises(AssertionError, match="False number of tasks"):
         scheduler = partial(custom_scheduler_get, expected=42)
         dask.compute(da.ones(10), scheduler=scheduler)
@@ -136,11 +137,13 @@ def test_xarray_blockwise_fusion_store(compute):
 
 @pytest.mark.parametrize("wrap_xarray", [False, True])
 def test_shared_tasks(wrap_xarray):
+    lock = threading.Lock()
     total_calls = 0
 
     def my_func(a: np.ndarray) -> np.ndarray:
         nonlocal total_calls
-        total_calls += 1
+        with lock:
+            total_calls += 1
         return a
 
     in1 = da.zeros((5, 5), chunks=2)
@@ -179,8 +182,7 @@ def test_tokenize_without_pyarrow() -> None:
     import subprocess
     import textwrap
 
-    code = textwrap.dedent(
-        """\
+    code = textwrap.dedent("""\
         import sys
         sys.modules["pyarrow"] = None
         import xarray as xr
@@ -196,7 +198,6 @@ def test_tokenize_without_pyarrow() -> None:
         ).to_dataset()
         y['foo'] = y.foo.dims, y.foo.data + 1
         dask.optimize(y)
-        """
-    )
+        """)
     out = subprocess.run([sys.executable, "-c", code], capture_output=True)
     assert out.stderr == b""

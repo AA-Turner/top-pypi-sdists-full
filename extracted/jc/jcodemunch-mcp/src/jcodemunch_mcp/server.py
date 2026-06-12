@@ -1557,7 +1557,7 @@ def _build_tools_list() -> list[Tool]:
         ),
         Tool(
             name="tune_weights",
-            description="Learn per-repo retrieval weights from the v1.78.0 ranking ledger. Computes confidence correlations for the semantic and identity-match channels and writes overrides to ~/.code-index/tuning.jsonc. search_symbols reads those overrides at query time when the caller doesn't pass an explicit semantic_weight. Safe to re-run; idempotent for stable signal.",
+            description="Learn per-repo retrieval weights from the v1.78.0 ranking ledger. Computes confidence correlations for the semantic and identity-match channels and writes overrides to ~/.code-index/tuning.jsonc. search_symbols reads those overrides at query time when the caller doesn't pass an explicit semantic_weight. Learns from a recency window of the ledger (default 90 days) so stale events can't anchor the weights. Safe to re-run; idempotent for stable signal.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -1579,6 +1579,11 @@ def _build_tools_list() -> list[Tool]:
                         "type": "boolean",
                         "default": False,
                         "description": "Include per-signal correlations (mean confidence with/without semantic and identity channels) in the response.",
+                    },
+                    "max_age_days": {
+                        "type": "integer",
+                        "default": 90,
+                        "description": "Only learn from ledger events newer than this many days. Keeps stale events from anchoring weights to an outdated query distribution. 0 = lifetime ledger.",
                     },
                 },
             }
@@ -4116,6 +4121,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     dry_run=arguments.get("dry_run", False),
                     min_events=arguments.get("min_events", 50),
                     explain=arguments.get("explain", False),
+                    max_age_days=arguments.get("max_age_days", 90),
                     storage_path=storage_path,
                 )
             )
@@ -7277,7 +7283,7 @@ def main(argv: Optional[list[str]] = None):
 
     if args.command == "list-repos":
         from .tools.list_repos import repos_report
-        report = repos_report()
+        report = repos_report(storage_path=os.environ.get("CODE_INDEX_PATH"))
         if getattr(args, "json", False):
             print(json.dumps(report, indent=2))
         elif not report:
@@ -7299,7 +7305,7 @@ def main(argv: Optional[list[str]] = None):
         # Exit non-zero on failure so callers (e.g. the jMunch Console) can
         # detect it via the return code, not just the JSON body.
         from .tools.invalidate_cache import invalidate_cache
-        result = invalidate_cache(args.repo)
+        result = invalidate_cache(args.repo, storage_path=os.environ.get("CODE_INDEX_PATH"))
         if getattr(args, "json", False):
             print(json.dumps(result, indent=2))
         elif result.get("success"):

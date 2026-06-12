@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from enum import Enum
 from pathlib import Path
@@ -14,6 +15,8 @@ from pydantic import (
     model_validator,
 )
 from typing_extensions import Self
+
+logger = logging.getLogger(__name__)
 
 
 class Group(str, Enum):
@@ -233,11 +236,10 @@ class InternalEvalMetadata(EvalMetadataBase):
     )
     runtime_metadata: EvalRuntimeMetadata | None = Field(default=None, alias="metadata")
 
-    @model_validator(mode="after")
-    def _tag_with_inspect_evals(self) -> "InternalEvalMetadata":
-        existing = [t for t in (self.tags or []) if t.lower() != "inspect-evals"]
-        self.tags = ["inspect-evals", *existing]
-        return self
+    @property
+    def package(self) -> str:
+        """Package name for this eval (always ``"inspect-evals"``)."""
+        return "inspect-evals"
 
     @model_validator(mode="after")
     def _check_isolation_mutual_exclusion(self) -> "InternalEvalMetadata":
@@ -358,7 +360,35 @@ class ExternalEvalMetadata(EvalMetadataBase):
     """An evaluation hosted in an external repository."""
 
     source: ExternalEvalSource
+    full_title: str
+    # `title` is inherited as required from EvalMetadataBase but the
+    # `_sync_title_full_title` validator always fills it from `full_title`,
+    # so callers only need to pass `full_title`. The default "" is never
+    # observed at runtime — it exists only so mypy treats `title` as optional
+    # on this subclass.
+    title: str = ""
+    common_title: str
+    paper_title: str | None = None
     evaluation_report: EvaluationReport | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_title_full_title(cls, data: object) -> object:
+        """Allow ``title`` and ``full_title`` as interchangeable YAML keys.
+
+        New eval.yaml files use ``full_title``; existing entries and docs still
+        reference ``title`` (the base class field). Whichever key is present is
+        copied to the other so both pydantic fields are always populated.
+        """
+        if not isinstance(data, dict):
+            return data
+        has_full = "full_title" in data
+        has_title = "title" in data
+        if has_full and not has_title:
+            data["title"] = data["full_title"]
+        elif has_title and not has_full:
+            data["full_title"] = data["title"]
+        return data
 
     @model_validator(mode="after")
     def _require_task_path(self) -> "ExternalEvalMetadata":
@@ -366,6 +396,24 @@ class ExternalEvalMetadata(EvalMetadataBase):
         if missing:
             raise ValueError(
                 f"Register entries must set 'task_path' on every task; missing for: {missing}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_single_task(self) -> "ExternalEvalMetadata":
+        # Issue #1645: register entries are 1 task per evaluation. Variant
+        # tasks (subsets, judge-calibration paired with a capability eval,
+        # etc.) should each be their own register entry so the docs surface
+        # them as independently discoverable items.
+        if len(self.tasks) != 1:
+            names = [t.name for t in self.tasks]
+            # TODO: Make this a hard error once all register entries have a single task.
+            logger.warning(
+                "Register entry %r declares %d tasks %s; ideally each task "
+                "should be its own register entry (see issue #1645).",
+                getattr(self, "id", "unknown"),
+                len(self.tasks),
+                names,
             )
         return self
 
@@ -388,29 +436,11 @@ class ExternalEvalMetadata(EvalMetadataBase):
             )
         return self
 
-    @model_validator(mode="after")
-    def _tag_with_repo_name(self) -> "ExternalEvalMetadata":
-        path = (self.source.repository_url.path or "").strip("/").removesuffix(".git")
-        repo_name = path.rsplit("/", 1)[-1] if path else ""
-        if repo_name:
-            existing = [t for t in (self.tags or []) if t.lower() != repo_name.lower()]
-            self.tags = [repo_name, *existing]
-        return self
-
     @property
-    def group(self) -> Group:
-        """Derive a group for a register entry from its tags.
-
-        Register entries don't declare a ``group``. The first tag that
-        case-insensitively matches a ``Group`` enum value wins; fall back
-        to ``REASONING`` when nothing matches.
-        """
-        by_value = {g.value.lower(): g for g in Group}
-        for tag in self.tags or []:
-            match = by_value.get(tag.lower())
-            if match is not None:
-                return match
-        return Group.REASONING
+    def package(self) -> str:
+        """Package name derived from the upstream repository name."""
+        path = (self.source.repository_url.path or "").strip("/").removesuffix(".git")
+        return path.rsplit("/", 1)[-1] if path else self.id
 
     @property
     def path(self) -> str:
@@ -426,9 +456,19 @@ class EvalListing(BaseModel):
     evals: list[ExternalEvalMetadata | InternalEvalMetadata] = Field(alias="_root")
 
     @property
+    def internal_evals(self) -> list[InternalEvalMetadata]:
+        """All evaluations whose code lives inside this repo."""
+        return [e for e in self.evals if isinstance(e, InternalEvalMetadata)]
+
+    @property
+    def external_evals(self) -> list[ExternalEvalMetadata]:
+        """All evaluations whose code lives in an upstream repository."""
+        return [e for e in self.evals if isinstance(e, ExternalEvalMetadata)]
+
+    @property
     def groups(self) -> list[str]:
-        """Get all unique groups"""
-        return sorted(list(set(eval.group for eval in self.evals)))
+        """All unique groups across internal evaluations."""
+        return sorted(list(set(e.group for e in self.internal_evals)))
 
     def get_eval(
         self, eval_id: str
@@ -439,11 +479,9 @@ class EvalListing(BaseModel):
                 return eval
         return None
 
-    def get_evals_in_group(
-        self, group: str
-    ) -> list[ExternalEvalMetadata | InternalEvalMetadata]:
-        """Get all evaluations in a specific group"""
-        return [eval for eval in self.evals if eval.group == group]
+    def get_evals_in_group(self, group: str) -> list[InternalEvalMetadata]:
+        """Get all internal evaluations in a specific group."""
+        return [e for e in self.internal_evals if e.group == group]
 
     def find_task(
         self, task_name: str

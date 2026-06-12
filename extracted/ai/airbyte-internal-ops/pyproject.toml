@@ -186,6 +186,9 @@ exclude = [
     ".*dist.*",
     ".*build.*",
     ".*docs.*",
+    # Exclude standalone webapps (they have their own dependency definitions)
+    "webapps/.*",
+    "airbyte-ops-webapp/.*",
     # Exclude standalone Pulumi projects (they have their own dependency definitions)
     "infra/sentry/.*",
     "infra/agent-message-bus/.*",

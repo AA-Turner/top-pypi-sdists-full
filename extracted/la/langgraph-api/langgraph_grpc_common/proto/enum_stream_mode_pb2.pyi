@@ -61,6 +61,10 @@ class _StreamModeEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_StreamMode
     (no separate metadata events), and we do not distinguish between
     partial and complete messages.
     """
+    tools: _StreamMode.ValueType  # 10
+    """Emit tool invocation lifecycle events (Protocol v2 ``tools`` channel)."""
+    lifecycle: _StreamMode.ValueType  # 11
+    """Emit run/subgraph lifecycle status events (Protocol v2 ``lifecycle`` channel)."""
 
 class StreamMode(_StreamMode, metaclass=_StreamModeEnumTypeWrapper):
     """This is the public subset of stream modes.
@@ -113,4 +117,8 @@ In this setting, metadata is returned alongside the message itself
 (no separate metadata events), and we do not distinguish between
 partial and complete messages.
 """
+tools: StreamMode.ValueType  # 10
+"""Emit tool invocation lifecycle events (Protocol v2 ``tools`` channel)."""
+lifecycle: StreamMode.ValueType  # 11
+"""Emit run/subgraph lifecycle status events (Protocol v2 ``lifecycle`` channel)."""
 Global___StreamMode: _TypeAlias = StreamMode  # noqa: Y015

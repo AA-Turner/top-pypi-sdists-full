@@ -11,9 +11,7 @@ from typing import Any, ClassVar, Literal
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 from fsspec.utils import stringify_path
-from packaging.version import parse as parse_version
 from pandas import CategoricalDtype
 from pandas.api.types import (
     is_bool_dtype,
@@ -513,7 +511,7 @@ Expr={expr}"""
               be computed
             - simplified-physical: runs another simplification after the physical
               plan is generated
-            - fused: fuses the physical expression to reduce the nodes in thr graph.
+            - fused: fuses the physical expression to reduce the nodes in the graph.
 
             .. warning::
                 The optimizer stages are subject to change.
@@ -779,7 +777,7 @@ Expr={expr}"""
             expr.Isin(
                 self,
                 values=expr._DelayedExpr(
-                    delayed(values, name="delayed-" + _tokenize_deterministic(values))
+                    delayed(values, name=f"delayed-{_tokenize_deterministic(values)}")
                 ),
             )
         )
@@ -1313,7 +1311,7 @@ Expr={expr}"""
             For ``divisions=[0, 10, 50, 100]``, there would be three output partitions,
             where the new index contained [0, 10), [10, 50), and [50, 100), respectively.
             See https://docs.dask.org/en/latest/dataframe-design.html#partitions.
-        npartitions : int, Callable, optional
+        npartitions : int | Callable, optional
             Approximate number of partitions of output. The number of
             partitions used may be slightly lower than npartitions depending
             on data distribution, but will never be higher.
@@ -2215,7 +2213,7 @@ Expr={expr}"""
         >>> res = ddf.x.reduction(count_greater, aggregate=lambda x: x.sum(),
         ...                       chunk_kwargs={'value': 25})
         >>> res.compute()
-        25
+        np.int64(25)
 
         Aggregate both the sum and count of a Series at the same time:
 
@@ -2937,7 +2935,7 @@ class DataFrame(FrameBase):
             used to select the underlying algorithm. If a floating-point value
             is specified, that number will be used as the ``broadcast_bias``
             within the simple heuristic (a large number makes Dask more likely
-            to choose the ``broacast_join`` code path). See ``broadcast_join``
+            to choose the ``broadcast_join`` code path). See ``broadcast_join``
             for more information.
 
         Notes
@@ -3255,7 +3253,7 @@ class DataFrame(FrameBase):
             meta = expr.emulate(
                 M.apply, self, function, args=args, udf=True, axis=axis, **kwargs
             )
-            warnings.warn(meta_warning(meta))
+            warnings.warn(meta_warning(meta, method="apply"))
         return new_collection(
             self.expr.apply(function, *args, meta=meta, axis=axis, **kwargs)
         )
@@ -3622,18 +3620,6 @@ class DataFrame(FrameBase):
             Dask does not fully support referring to variables using the '@' character,
             use f-strings or the ``local_dict`` keyword argument instead.
 
-        Notes
-        -----
-        This is like the sequential version except that this will also happen
-        in many threads.  This may conflict with ``numexpr`` which will use
-        multiple threads itself.  We recommend that you set ``numexpr`` to use a
-        single thread:
-
-        .. code-block:: python
-
-            import numexpr
-            numexpr.set_num_threads(1)
-
         See also
         --------
         pandas.DataFrame.query
@@ -3690,12 +3676,20 @@ class DataFrame(FrameBase):
         return concat(modes, axis=1)
 
     @derived_from(pd.DataFrame)
-    def add_prefix(self, prefix):
-        return new_collection(expr.AddPrefix(self, prefix))
+    def add_prefix(self, prefix, axis=None):
+        if axis in (None, 1, "columns"):
+            return new_collection(expr.AddPrefix(self, prefix))
+        if axis in (0, "index"):
+            raise NotImplementedError(f"add_prefix({axis=}) is not implemented in Dask")
+        raise ValueError("axis must be either 0, 1, 'index', 'columns', or None")
 
     @derived_from(pd.DataFrame)
-    def add_suffix(self, suffix):
-        return new_collection(expr.AddSuffix(self, suffix))
+    def add_suffix(self, suffix, axis=None):
+        if axis in (None, 1, "columns"):
+            return new_collection(expr.AddSuffix(self, suffix))
+        if axis in (0, "index"):
+            raise NotImplementedError(f"add_suffix({axis=}) is not implemented in Dask")
+        raise ValueError("axis must be either 0, 1, 'index', 'columns', or None")
 
     def pivot_table(self, index, columns, values, aggfunc="mean"):
         """
@@ -4007,18 +4001,14 @@ class DataFrame(FrameBase):
             column_width = max(space, 7)
 
             header = (
-                textwrap.dedent(
-                    """\
+                textwrap.dedent("""\
              #   {{column:<{column_width}}} Non-Null Count  Dtype
-            ---  {{underl:<{column_width}}} --------------  -----"""
-                )
+            ---  {{underl:<{column_width}}} --------------  -----""")
                 .format(column_width=column_width)
                 .format(column="Column", underl="------")
             )
-            column_template = textwrap.dedent(
-                f"""\
-            {{i:^3}}  {{name:<{column_width}}} {{count}} non-null      {{dtype}}"""
-            )
+            column_template = textwrap.dedent(f"""\
+            {{i:^3}}  {{name:<{column_width}}} {{count}} non-null      {{dtype}}""")
             column_info = [
                 column_template.format(
                     i=pprint_thing(i),
@@ -4237,7 +4227,7 @@ class Series(FrameBase):
                 if meta is None:
                     warnings.warn(meta_warning(meta, method="map"))
                 return new_collection(
-                    expr.MapAlign(self, arg, op=None, na_action=na_action, meta=meta)
+                    expr.MapAlign(self, arg, na_action=na_action, meta=meta)
                 )
         if meta is None:
             meta = expr.emulate(M.map, self, arg, na_action=na_action, udf=True)
@@ -4425,7 +4415,7 @@ class Series(FrameBase):
         self._validate_axis(axis)
         if meta is no_default:
             meta = expr.emulate(M.apply, self, function, args=args, udf=True, **kwargs)
-            warnings.warn(meta_warning(meta))
+            warnings.warn(meta_warning(meta, method="apply"))
         return new_collection(self.expr.apply(function, *args, meta=meta, **kwargs))
 
     @classmethod
@@ -4698,10 +4688,12 @@ class Index(Series):
         "nanosecond",
         "microsecond",
         "millisecond",
+        "day_of_year",
         "dayofyear",
         "minute",
         "hour",
         "day",
+        "day_of_week",
         "dayofweek",
         "second",
         "week",
@@ -5381,10 +5373,6 @@ def read_parquet(
         or isinstance(filesystem, str)
         and filesystem.lower() in ("arrow", "pyarrow")
     ):
-        if parse_version(pa.__version__) < parse_version("15.0.0"):
-            raise ValueError(
-                "pyarrow>=15.0.0 is required to use the pyarrow filesystem."
-            )
         if metadata_task_size is not None:
             raise NotImplementedError(
                 "metadata_task_size is not supported when using the pyarrow filesystem."

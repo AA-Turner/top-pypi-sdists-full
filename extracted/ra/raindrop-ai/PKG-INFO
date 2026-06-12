@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.50
+Version: 0.0.52
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: httpx (>=0.24,<1)
 Requires-Dist: opentelemetry-sdk (>=1.36.0)
 Requires-Dist: protobuf (>=5.29.6,<7)
 Requires-Dist: pydantic (>=2.09,<3)
@@ -47,6 +48,25 @@ raindrop.track_ai(
     convo_id="conv-456",
 )
 ```
+
+## Payload size limits
+
+As of `0.0.52`, text fields (ai input/output, tool span I/O, LLM span
+content) are capped at **1,000,000 characters per field by default** and
+truncated with a `...[truncated by raindrop]` marker. Fields up to 1M chars
+— i.e. everything the ingest API accepts today — round-trip unchanged. The
+cap is enforced before (or during) serialization, so oversized payloads cost
+the cap — not the payload — on your calling thread, and a single capped
+ASCII field still fits under the 1 MB event-level ingest limit. Tune it via:
+
+```python
+raindrop.init(api_key="...", max_text_field_chars=250_000)
+```
+
+A stricter `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` env var is still honored
+for span content. All outbound HTTP carries finite timeouts, and the atexit
+shutdown flush runs under a 10s deadline so a dead network can never wedge
+your process exit.
 
 ## Interactions
 

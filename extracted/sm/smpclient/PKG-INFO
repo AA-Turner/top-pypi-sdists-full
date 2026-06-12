@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smpclient
-Version: 7.1.0
+Version: 7.2.0
 Summary: Simple Management Protocol (SMP) Client for remotely managing MCU firmware
 Project-URL: Homepage, https://www.intercreate.io
 Project-URL: Documentation, https://intercreate.github.io/smpclient
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: <4,>=3.10
 Requires-Dist: async-timeout>=5.0.1; python_version < '3.11'
 Requires-Dist: intelhex>=2.3.0
-Requires-Dist: smp>=4.0.2
+Requires-Dist: smp>=4.1.0
 Provides-Extra: all
 Requires-Dist: bleak<4,>=3.0.2; extra == 'all'
 Requires-Dist: bumble==0.0.228; extra == 'all'

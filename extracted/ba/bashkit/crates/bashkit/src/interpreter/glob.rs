@@ -68,9 +68,18 @@ impl Interpreter {
         if !self.is_extglob() {
             return false;
         }
-        let bytes = s.as_bytes();
-        for i in 0..bytes.len().saturating_sub(1) {
-            if matches!(bytes[i], b'@' | b'?' | b'*' | b'+' | b'!') && bytes[i + 1] == b'(' {
+        let mut escaped = false;
+        let mut chars = s.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if matches!(ch, '@' | '?' | '*' | '+' | '!') && chars.peek() == Some(&'(') {
                 return true;
             }
         }
@@ -84,12 +93,8 @@ impl Interpreter {
             return true;
         }
 
-        // Glob pattern matching with *, ?, [], and extglob support
-        if pattern.contains('*')
-            || pattern.contains('?')
-            || pattern.contains('[')
-            || self.contains_extglob(pattern)
-        {
+        // Glob pattern matching with unescaped *, ?, [], and extglob support
+        if self.contains_glob_chars(pattern) || self.contains_extglob(pattern) {
             self.glob_match(value, pattern)
         } else {
             // Literal match
@@ -165,6 +170,10 @@ impl Interpreter {
         }
 
         let extglob = self.is_extglob();
+        // THREAT[TM-DOS-039]: Once the remaining pattern has no closing bracket,
+        // every `[` is literal. Cache that state so an unmatched suffix is scanned
+        // at most once instead of from every subsequent `[` start.
+        let mut no_more_bracket_closes = !pattern.contains(']');
 
         // Check for extglob at the start of pattern
         if extglob && pattern.len() >= 2 {
@@ -184,6 +193,21 @@ impl Interpreter {
             match (pattern_chars.peek().copied(), value_chars.peek().copied()) {
                 (None, None) => return true,
                 (None, Some(_)) => return false,
+                (Some('\\'), Some(v)) => {
+                    pattern_chars.next();
+                    let literal = pattern_chars.next().unwrap_or('\\');
+                    let matches = if nocase {
+                        literal.eq_ignore_ascii_case(&v)
+                    } else {
+                        literal == v
+                    };
+                    if matches {
+                        value_chars.next();
+                    } else {
+                        return false;
+                    }
+                }
+                (Some('\\'), None) => return false,
                 (Some('*'), _) => {
                     // Check for extglob *(...)
                     let mut pc_clone = pattern_chars.clone();
@@ -244,6 +268,17 @@ impl Interpreter {
                     }
                 }
                 (Some('['), Some(v)) => {
+                    if no_more_bracket_closes || !pattern_chars.clone().any(|c| c == ']') {
+                        no_more_bracket_closes = true;
+                        pattern_chars.next();
+                        if v == '[' {
+                            value_chars.next();
+                        } else {
+                            return false;
+                        }
+                        continue;
+                    }
+
                     // Save state before consuming '[' — if bracket expr is
                     // invalid (e.g. "[]"), we fall back to literal '[' match.
                     let saved_pattern = pattern_chars.clone();
@@ -566,7 +601,21 @@ impl Interpreter {
     // ── Glob option helpers ───────────────────────────────────────────
 
     pub(crate) fn contains_glob_chars(&self, s: &str) -> bool {
-        s.contains('*') || s.contains('?') || s.contains('[')
+        let mut escaped = false;
+        for ch in s.chars() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if matches!(ch, '*' | '?' | '[') {
+                return true;
+            }
+        }
+        false
     }
 
     /// Check if dotglob shopt is enabled
@@ -832,5 +881,37 @@ impl Interpreter {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::fs::{FileSystem, InMemoryFs};
+
+    use super::Interpreter;
+
+    fn interp() -> Interpreter {
+        let fs: Arc<dyn FileSystem> = Arc::new(InMemoryFs::new());
+        Interpreter::new(fs)
+    }
+
+    #[test]
+    fn unmatched_bracket_run_matches_literals() {
+        let interp = interp();
+        let brackets = "[".repeat(65_536);
+
+        assert!(interp.pattern_matches(&brackets, &brackets));
+        assert!(!interp.pattern_matches(&format!("{brackets}x"), &brackets));
+    }
+
+    #[test]
+    fn invalid_and_valid_bracket_patterns_still_match() {
+        let interp = interp();
+
+        assert!(interp.pattern_matches("[]", "[]"));
+        assert!(interp.pattern_matches("[", "["));
+        assert!(interp.pattern_matches("a", "[a]"));
     }
 }

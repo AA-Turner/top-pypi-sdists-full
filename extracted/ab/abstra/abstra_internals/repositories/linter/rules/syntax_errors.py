@@ -1,31 +1,53 @@
-from typing import List
+from pathlib import Path
+from typing import Dict, List, Optional
 
-from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterIssue,
+    PathScopedLinterRule,
+    linter_path_key,
+)
 from abstra_internals.repositories.project.project import LocalProjectRepository
-from abstra_internals.utils.file import silent_traverse_code
+from abstra_internals.utils.ast_cache import ASTCache
 
 
 class SyntaxErrorFound(LinterIssue):
     def __init__(self, error: SyntaxError) -> None:
         self.label = str(error)
-        if error.filename is not None:
-            self.fixes = []
+        self.fixes = []
 
 
-class SyntaxErrors(LinterRule):
+class SyntaxErrors(PathScopedLinterRule):
     label = "Syntax errors"
     type = "bug"
     fix_with_ai = True
-    error = None
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
-        for entrypoint in project.iter_entrypoints():
+
+        files: Dict[str, Path] = {}
+
+        if path is not None:
+            key = linter_path_key(path)
+            if not any(linter_path_key(f) == key for f in project.project_files):
+                return []
+            files[linter_path_key(path)] = path
+        else:
+            for file in project.project_files:
+                files.setdefault(linter_path_key(file), file)
+
+        issues: List[LinterIssue] = []
+        for key, file in files.items():
             try:
-                for _ in silent_traverse_code(entrypoint, raise_on_syntax_errors=True):
-                    pass
+                ASTCache.get(file)
             except SyntaxError as e:
-                self.error = e
-                self.error.filename = str(entrypoint)
-                return [SyntaxErrorFound(e)]
-        return []
+                # ast.parse is fed the raw content, so the error carries no
+                # filename; stamp the project-relative one for the label.
+                e.filename = key
+                issue = SyntaxErrorFound(e)
+                issue.path = key
+                issues.append(issue)
+            except Exception:
+                # Unreadable/missing files are other rules' concern.
+                continue
+
+        return issues

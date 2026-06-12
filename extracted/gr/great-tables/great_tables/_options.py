@@ -125,13 +125,13 @@ def tab_options(
     stub_row_group_border_color: str | None = None,
     data_row_padding: str | None = None,
     data_row_padding_horizontal: str | None = None,
-    # summary_row_background_color: str | None = None,
-    # summary_row_text_transform: str | None = None,
-    # summary_row_padding: str | None = None,
-    # summary_row_padding_horizontal: str | None = None,
-    # summary_row_border_style: str | None = None,
-    # summary_row_border_width: str | None = None,
-    # summary_row_border_color: str | None = None,
+    summary_row_background_color: str | None = None,
+    summary_row_text_transform: str | None = None,
+    summary_row_padding: str | None = None,
+    summary_row_padding_horizontal: str | None = None,
+    summary_row_border_style: str | None = None,
+    summary_row_border_width: str | None = None,
+    summary_row_border_color: str | None = None,
     grand_summary_row_background_color: str | None = None,
     grand_summary_row_text_transform: str | None = None,
     grand_summary_row_padding: str | None = None,
@@ -149,7 +149,7 @@ def tab_options(
     # footnotes_border_lr_style: str | None = None,
     # footnotes_border_lr_width: str | None = None,
     # footnotes_border_lr_color: str | None = None,
-    # footnotes_marks: str | list[str] | None = None,
+    footnotes_marks: str | list[str] | None = None,
     # footnotes_multiline: bool | None = None,
     # footnotes_sep: str | None = None,
     source_notes_background_color: str | None = None,
@@ -571,9 +571,13 @@ def tab_options(
             css_val = modified_args["table_additional_css"].strip()
             modified_args["table_additional_css"] = [css_val] if css_val else []
 
-    new_options_info = {
-        k: replace(getattr(self._options, k), value=v) for k, v in modified_args.items()
-    }
+    # Validate and coerce option values based on their declared types
+    new_options_info = {}
+    for k, v in modified_args.items():
+        opt_info = getattr(self._options, k)
+        validated_value = opt_info._validate_value(v, option_name=k)
+        new_options_info[k] = replace(opt_info, value=validated_value)
+
     new_options = replace(self._options, **new_options_info)
 
     return self._replace(_options=new_options)
@@ -581,7 +585,8 @@ def tab_options(
 
 def opt_footnote_marks(self: GTSelf, marks: str | list[str] = "numbers") -> GTSelf:
     """
-    Option to modify the set of footnote marks
+    Option to modify the set of footnote marks.
+
     Alter the footnote marks for any footnotes that may be present in the table. Either a list
     of marks can be provided (including Unicode characters), or, a specific keyword could be
     used to signify a preset sequence. This method serves as a shortcut for using
@@ -1487,7 +1492,7 @@ def opt_stylize(
 
     # Add the `add_row_striping` parameter to the `mapped_params` dictionary
     if add_row_striping:
-        mapped_params["row_striping_include_table_body"] = ["True"]
+        mapped_params["row_striping_include_table_body"] = True
 
     if style in (2, 4, 5):
         # For styles 2, 4, and 5 we need to set the border colors and widths

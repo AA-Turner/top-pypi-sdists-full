@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -822,7 +823,11 @@ Result<EnumSpec, SchemaError> SchemaParser::ParseEnum(const picojson::object& sc
   if (!schema.at("enum").is<picojson::array>()) {
     return ResultErr<SchemaError>(SchemaErrorType::kInvalidSchema, "enum must be an array");
   }
-  for (const auto& value : schema.at("enum").get<picojson::array>()) {
+  const auto& enum_array = schema.at("enum").get<picojson::array>();
+  if (enum_array.empty()) {
+    return ResultErr<SchemaError>(SchemaErrorType::kInvalidSchema, "enum array must not be empty");
+  }
+  for (const auto& value : enum_array) {
     spec.json_values.push_back(value.serialize());
   }
   return ResultOk(std::move(spec));
@@ -1246,6 +1251,87 @@ std::string JSONSchemaConverter::NextSeparator(bool is_end) {
 
 std::string JSONSchemaConverter::GetKeyPattern() const { return kBasicString; }
 
+namespace {
+
+struct TrieNode {
+  bool is_terminal = false;
+  std::map<char, TrieNode> children;
+};
+
+std::string BuildTrieBody(const TrieNode& node) {
+  std::string result;
+  bool first = true;
+  auto add = [&](const std::string& s) {
+    if (!first) result += " | ";
+    first = false;
+    result += s;
+  };
+
+  // 1. Close quote - only if no excluded key ends here
+  if (!node.is_terminal) {
+    add("\"\\\"\"");
+  }
+
+  // 2. Negated char class - excludes edge chars + JSON specials
+  std::string neg = "[^";
+  for (const auto& [c, _] : node.children) {
+    if (c == ']' || c == '\\' || c == '^' || c == '-') {
+      neg += "\\";
+    }
+    neg += c;
+  }
+  neg += "\\0-\\x1f\\\"\\\\\\r\\n]";
+  add(neg + " " + JSONSchemaConverter::kBasicStringSub);
+
+  // 3. Escape sequence
+  add("\"\\\\\" " + JSONSchemaConverter::kBasicEscape + " " + JSONSchemaConverter::kBasicStringSub);
+
+  // 4. Trie edges - recurse
+  for (const auto& [c, child] : node.children) {
+    std::string child_body = BuildTrieBody(child);
+    std::string char_lit = "\"";
+    if (c == '"') {
+      char_lit += "\\\"";
+    } else if (c == '\\') {
+      char_lit += "\\\\";
+    } else {
+      char_lit += c;
+    }
+    char_lit += "\"";
+    add(char_lit + " " + child_body);
+  }
+
+  return "(" + result + ")";
+}
+
+}  // namespace
+
+std::string JSONSchemaConverter::GetKeyPatternExcluding(
+    const std::vector<ObjectSpec::Property>& properties, const std::string& rule_name
+) {
+  if (properties.empty()) {
+    return GetKeyPattern();
+  }
+
+  // Build trie from property names
+  // TODO(linzhang): The trie only excludes the literal unescaped spelling of each property name.
+  TrieNode root;
+  for (const auto& prop : properties) {
+    TrieNode* cur = &root;
+    for (char c : prop.name) {
+      cur = &cur->children[c];
+    }
+    cur->is_terminal = true;
+  }
+
+  // Generate EBNF body
+  std::string inner = BuildTrieBody(root);
+  std::string ws = GetWhitespacePattern();
+  std::string body = "[\"] (" + inner + ") (= " + ws + " [,}\\]:])";
+
+  return ebnf_script_creator_.AddRule(rule_name + "_addl_key", body);
+}
+
 std::string JSONSchemaConverter::GetBasicAnyRuleName() const { return kBasicAny; }
 
 void JSONSchemaConverter::AddCache(const std::string& key, const std::string& value) {
@@ -1525,7 +1611,7 @@ std::string JSONSchemaConverter::GenerateArray(
 }
 
 std::string JSONSchemaConverter::FormatPropertyKey(const std::string& key) {
-  return "\"\\\"" + key + "\\\"\"";
+  return "\"" + JSONStrToPrintableStr(picojson::value(key).serialize()) + "\"";
 }
 
 std::string JSONSchemaConverter::FormatProperty(
@@ -1603,8 +1689,12 @@ std::string JSONSchemaConverter::GetPartialRuleForProperties(
         additional_prop_pattern = additional_prop_pattern_override;
       } else {
         std::string add_value_rule = CreateRule(additional, rule_name + "_" + additional_suffix);
-        additional_prop_pattern =
-            FormatOtherProperty(GetKeyPattern(), add_value_rule, rule_name, additional_suffix);
+        additional_prop_pattern = FormatOtherProperty(
+            GetKeyPatternExcluding(properties, rule_name),
+            add_value_rule,
+            rule_name,
+            additional_suffix
+        );
       }
       std::string last_rule_body = "(" + mid_sep + " " + additional_prop_pattern + ")*";
       std::string last_rule_name =
@@ -1663,8 +1753,12 @@ std::string JSONSchemaConverter::GetPartialRuleForProperties(
         additional_prop_pattern = additional_prop_pattern_override;
       } else {
         std::string add_value_rule = CreateRule(additional, rule_name + "_" + additional_suffix);
-        additional_prop_pattern =
-            FormatOtherProperty(GetKeyPattern(), add_value_rule, rule_name, additional_suffix);
+        additional_prop_pattern = FormatOtherProperty(
+            GetKeyPatternExcluding(properties, rule_name),
+            add_value_rule,
+            rule_name,
+            additional_suffix
+        );
       }
     }
 
@@ -1778,8 +1872,12 @@ std::string JSONSchemaConverter::GetPartialRuleForProperties(
         additional_prop_pattern = additional_prop_pattern_override;
       } else {
         std::string add_value_rule = CreateRule(additional, rule_name + "_" + additional_suffix);
-        additional_prop_pattern =
-            FormatOtherProperty(GetKeyPattern(), add_value_rule, rule_name, additional_suffix);
+        additional_prop_pattern = FormatOtherProperty(
+            GetKeyPatternExcluding(properties, rule_name),
+            add_value_rule,
+            rule_name,
+            additional_suffix
+        );
       }
     }
 
@@ -2082,15 +2180,14 @@ std::string JSONSchemaConverter::GenerateConst(
 }
 
 std::string JSONSchemaConverter::GenerateEnum(const EnumSpec& spec, const std::string& rule_name) {
+  XGRAMMAR_DCHECK(!spec.json_values.empty())
+      << "GenerateEnum called with empty enum spec for rule: " << rule_name;
   std::string result = "";
   for (size_t i = 0; i < spec.json_values.size(); ++i) {
     if (i != 0) {
       result += " | ";
     }
     result += "(\"" + JSONStrToPrintableStr(spec.json_values[i]) + "\")";
-  }
-  if (result.empty()) {
-    return "\"\"";
   }
   return result;
 }
@@ -2684,6 +2781,19 @@ std::string JSONSchemaConverter::FormatFloat(double value, int precision) {
   return result;
 }
 
+static std::string EscapeDotForRegex(const std::string& s) {
+  std::string result;
+  result.reserve(s.size() + 2);
+  for (char c : s) {
+    if (c == '.') {
+      result += "\\.";
+    } else {
+      result += c;
+    }
+  }
+  return result;
+}
+
 std::string JSONSchemaConverter::GenerateFloatRangeRegex(
     std::optional<double> start, std::optional<double> end, int precision
 ) {
@@ -2718,7 +2828,7 @@ std::string JSONSchemaConverter::GenerateFloatRangeRegex(
 
   if (start && !end) {
     std::string startIntStr = FormatFloat(start.value(), precision);
-    parts.push_back(startIntStr);
+    parts.push_back(EscapeDotForRegex(startIntStr));
 
     if (startFrac > 0.0) {
       size_t dotPos = startIntStr.find('.');
@@ -2774,7 +2884,7 @@ std::string JSONSchemaConverter::GenerateFloatRangeRegex(
     }
   } else if (!start && end) {
     std::string endIntStr = FormatFloat(end.value(), precision);
-    parts.push_back(endIntStr);
+    parts.push_back(EscapeDotForRegex(endIntStr));
 
     if (endFrac > 0.0) {
       size_t dotPos = endIntStr.find('.');
@@ -2833,20 +2943,20 @@ std::string JSONSchemaConverter::GenerateFloatRangeRegex(
         parts.push_back(std::to_string(startInt));
       } else {
         std::string startStr = FormatFloat(start.value(), precision);
-        parts.push_back(startStr);
+        parts.push_back(EscapeDotForRegex(startStr));
 
         std::string endStr = FormatFloat(end.value(), precision);
         if (startStr != endStr) {
-          parts.push_back(endStr);
+          parts.push_back(EscapeDotForRegex(endStr));
         }
       }
     } else {
       std::string startStr = FormatFloat(start.value(), precision);
-      parts.push_back(startStr);
+      parts.push_back(EscapeDotForRegex(startStr));
 
       std::string endStr = FormatFloat(end.value(), precision);
       if (startStr != endStr) {
-        parts.push_back(endStr);
+        parts.push_back(EscapeDotForRegex(endStr));
       }
 
       if (endInt > startInt + 1) {
@@ -3028,6 +3138,7 @@ std::string JSONSchemaToEBNF(
     default:
       XGRAMMAR_LOG(FATAL) << "Invalid JSON format: " << static_cast<int>(json_format);
   }
+  XGRAMMAR_UNREACHABLE();
 }
 
 // Wrapper functions for testing

@@ -1,45 +1,15 @@
-from __future__ import absolute_import
-
-from contextlib import contextmanager
 import platform
 import time
 
 import pytest
 
-from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer, TopicPartition, OffsetAndMetadata
+from kafka import TopicPartition, OffsetAndMetadata
+from kafka.serializer import DefaultSerializer
 from test.testutil import env_kafka_version, random_string, maybe_skip_unsupported_compression
 
 
-@contextmanager
-def producer_factory(**kwargs):
-    producer = KafkaProducer(**kwargs)
-    try:
-        yield producer
-    finally:
-        producer.close(timeout=1)
-
-
-@contextmanager
-def consumer_factory(**kwargs):
-    consumer = KafkaConsumer(**kwargs)
-    try:
-        yield consumer
-    finally:
-        consumer.close(timeout_ms=100)
-
-
-@contextmanager
-def admin_factory(**kwargs):
-    admin = KafkaAdminClient(**kwargs)
-    try:
-        yield admin
-    finally:
-        admin.close()
-
-
-@pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 @pytest.mark.parametrize("compression", [None, 'gzip', 'snappy', 'lz4', 'zstd'])
-def test_end_to_end(kafka_broker, compression):
+def test_end_to_end(kafka_consumer_factory, kafka_producer_factory, compression):
     maybe_skip_unsupported_compression(compression)
     if compression == 'lz4':
         if env_kafka_version() < (0, 8, 2):
@@ -50,22 +20,20 @@ def test_end_to_end(kafka_broker, compression):
     if compression == 'zstd' and env_kafka_version() < (2, 1, 0):
         pytest.skip('zstd requires kafka 2.1.0 or newer')
 
-    connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
     producer_args = {
-        'bootstrap_servers': connect_str,
         'retries': 5,
         'max_block_ms': 30000,
         'compression_type': compression,
-        'value_serializer': str.encode,
+        'value_serializer': DefaultSerializer(),
     }
     consumer_args = {
-        'bootstrap_servers': connect_str,
         'group_id': None,
         'consumer_timeout_ms': 30000,
         'auto_offset_reset': 'earliest',
-        'value_deserializer': bytes.decode,
+        'value_deserializer': DefaultSerializer(),
     }
-    with producer_factory(**producer_args) as producer, consumer_factory(**consumer_args) as consumer:
+    with kafka_producer_factory(**producer_args) as producer, \
+            kafka_consumer_factory(topics=(), **consumer_args) as consumer:
         topic = random_string(5)
 
         messages = 100
@@ -86,17 +54,12 @@ def test_end_to_end(kafka_broker, compression):
         assert msgs == set(['msg %d' % (i,) for i in range(messages)])
 
 
-@pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 @pytest.mark.parametrize("compression", [None, 'gzip', 'snappy', 'lz4', 'zstd'])
-def test_kafka_producer_proper_record_metadata(kafka_broker, compression):
+def test_kafka_producer_proper_record_metadata(kafka_producer_factory, compression):
     maybe_skip_unsupported_compression(compression)
     if compression == 'zstd' and env_kafka_version() < (2, 1, 0):
         pytest.skip('zstd requires 2.1.0 or more')
-    connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
-    with producer_factory(bootstrap_servers=connect_str,
-                          retries=5,
-                          max_block_ms=30000,
-                          compression_type=compression) as producer:
+    with kafka_producer_factory(max_block_ms=30000, compression_type=compression) as producer:
         magic = producer.max_usable_produce_magic(producer.config['api_version'])
 
         # record headers are supported in 0.11.0
@@ -145,17 +108,15 @@ def test_kafka_producer_proper_record_metadata(kafka_broker, compression):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
-def test_idempotent_producer(kafka_broker):
-    connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
-    with producer_factory(bootstrap_servers=connect_str, enable_idempotence=True) as producer:
+def test_idempotent_producer(kafka_producer_factory):
+    with kafka_producer_factory(enable_idempotence=True) as producer:
         for _ in range(10):
             producer.send('idempotent_test_topic', value=b'idempotent_msg').get(timeout=1)
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
-def test_transactional_producer_messages(kafka_broker):
-    connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
-    with producer_factory(bootstrap_servers=connect_str, transactional_id='testing') as producer:
+def test_transactional_producer_messages(kafka_producer_factory, kafka_consumer_factory):
+    with kafka_producer_factory(transactional_id='testing') as producer:
         producer.init_transactions()
         producer.begin_transaction()
         producer.send('transactional_test_topic', partition=0, value=b'msg1').get()
@@ -168,40 +129,113 @@ def test_transactional_producer_messages(kafka_broker):
 
     messages = set()
     consumer_opts = {
-        'bootstrap_servers': connect_str,
         'group_id': None,
         'consumer_timeout_ms': 10000,
         'auto_offset_reset': 'earliest',
         'isolation_level': 'read_committed',
     }
-    with consumer_factory(**consumer_opts) as consumer:
+    with kafka_consumer_factory(topics=(), **consumer_opts) as consumer:
         consumer.assign([TopicPartition('transactional_test_topic', 0)])
         for msg in consumer:
             assert msg.value in {b'msg3', b'msg4'}
             messages.add(msg.value)
             if messages == {b'msg3', b'msg4'}:
                 break
-    assert messages == {b'msg3', b'msg4'}
+        assert messages == {b'msg3', b'msg4'}
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
-def test_transactional_producer_offsets(kafka_broker):
-    connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
+@pytest.mark.parametrize("max_in_flight", [1, 2, 5])
+def test_idempotent_producer_max_in_flight(kafka_producer_factory, kafka_consumer_factory, max_in_flight):
+    """Test idempotent producer with max_in_flight_requests_per_connection 1-5."""
+    with kafka_producer_factory(
+        enable_idempotence=True,
+        max_in_flight_requests_per_connection=max_in_flight,
+    ) as producer:
+        topic = random_string(5)
+        messages = 100
+        futures = []
+        for i in range(messages):
+            futures.append(producer.send(topic, value=('msg %d' % i).encode()))
+        ret = [f.get(timeout=30) for f in futures]
+        assert len(ret) == messages
+
+        # Verify ordering: offsets should be monotonically increasing per partition
+        partition_offsets = {}
+        for metadata in ret:
+            offsets = partition_offsets.setdefault(metadata.partition, [])
+            offsets.append(metadata.offset)
+        for offsets in partition_offsets.values():
+            assert offsets == sorted(offsets), "Offsets should be monotonically increasing"
+
+    # Verify all messages are readable
+    with kafka_consumer_factory(
+        topics=(),
+        group_id=None,
+        consumer_timeout_ms=30000,
+        auto_offset_reset='earliest',
+        value_deserializer=DefaultSerializer(),
+    ) as consumer:
+        consumer.subscribe([topic])
+        received = set()
+        for _ in range(messages):
+            try:
+                received.add(next(consumer).value)
+            except StopIteration:
+                break
+        assert received == set('msg %d' % i for i in range(messages))
+
+
+@pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
+def test_idempotent_producer_high_throughput(kafka_producer_factory):
+    """Test idempotent producer with max_in_flight=5 handles many concurrent batches."""
+    with kafka_producer_factory(
+        enable_idempotence=True,
+        max_in_flight_requests_per_connection=5,
+        batch_size=1024,  # Small batches to create more in-flight requests
+        linger_ms=5,
+    ) as producer:
+        topic = random_string(5)
+        messages = 500
+        futures = []
+        for i in range(messages):
+            futures.append(producer.send(topic, value=('msg %d' % i).encode(), partition=0))
+        ret = [f.get(timeout=30) for f in futures]
+        assert len(ret) == messages
+
+        # All offsets should be unique and sequential for partition 0
+        offsets = [r.offset for r in ret]
+        assert offsets == list(range(messages))
+
+
+@pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
+def test_transactional_producer_offsets(kafka_producer_factory, kafka_admin_client_factory):
     # Setting leader_epoch only supported in 2.1+
     if env_kafka_version() >= (2, 1):
         leader_epoch = 0
     else:
         leader_epoch = -1
-    offsets = {TopicPartition('transactional_test_topic', 0): OffsetAndMetadata(0, 'metadata', leader_epoch)}
-    with producer_factory(bootstrap_servers=connect_str, transactional_id='testing') as producer:
+    topic = 'transactional_test_topic'
+    tp0 = TopicPartition(topic, 0)
+    tp1 = TopicPartition(topic, 1)
+    offsets = {tp0: OffsetAndMetadata(0, 'metadata', leader_epoch)}
+    with kafka_producer_factory(transactional_id='testing') as producer:
         producer.init_transactions()
         producer.begin_transaction()
+        producer.send(topic, partition=0, value=b'msg1').get()
         producer.send_offsets_to_transaction(offsets, 'txn-test-group')
         producer.commit_transaction()
 
         producer.begin_transaction()
-        producer.send_offsets_to_transaction({TopicPartition('transactional_test_topic', 1): OffsetAndMetadata(1, 'bad', 1)}, 'txn-test-group')
+        producer.send_offsets_to_transaction({tp1: OffsetAndMetadata(1, 'bad', 1)}, 'txn-test-group')
         producer.abort_transaction()
 
-    with admin_factory(bootstrap_servers=connect_str) as admin:
-        assert admin.list_consumer_group_offsets('txn-test-group') == offsets
+    with kafka_admin_client_factory() as admin:
+        result = {
+            tp0: OffsetAndMetadata(
+                offset=0,
+                metadata='metadata',
+                leader_epoch=leader_epoch,
+            )
+        }
+        assert admin.list_group_offsets('txn-test-group') == {'txn-test-group': result}

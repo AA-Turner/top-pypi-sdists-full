@@ -49,7 +49,7 @@ DEFAULT_GALAXY_ENVIRONMENT = {
     "PYTHONPATH": "lib",
     "GALAXY_CONFIG_FILE": "{galaxy_conf}",
 }
-CELERY_BEAT_DB_FILENAME = "celery-beat-schedule"
+CELERY_BEAT_DB_FILENAME = "celerybeat-schedule"
 
 
 def relative_to_galaxy_root(cls, value: str, info: ValidationInfo) -> str:
@@ -101,6 +101,8 @@ class ConfigFile(BaseModel):
         else:
             assert self.galaxy_root is not None
             galaxy_version_file = os.path.join(self.galaxy_root, "lib", "galaxy", "version.py")
+            if not os.path.exists(galaxy_version_file):
+                galaxy_version_file = os.path.join(self.galaxy_root, "lib", "galaxy", "version", "__init__.py")
             with open(galaxy_version_file) as fh:
                 locs: Dict[str, Any] = {}
                 exec(fh.read(), {}, locs)

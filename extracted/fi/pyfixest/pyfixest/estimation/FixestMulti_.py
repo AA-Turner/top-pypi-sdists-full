@@ -7,10 +7,10 @@ from typing import Any
 
 import pandas as pd
 
+from pyfixest.demeaners import AnyDemeaner
 from pyfixest.estimation.api.utils import _ALL_SAMPLE, _AllSampleSentinel
 from pyfixest.estimation.formula.parse import Formula
 from pyfixest.estimation.internals.literals import (
-    DemeanerBackendOptions,
     QuantregMethodOptions,
     QuantregMultiOptions,
     SolverOptions,
@@ -42,8 +42,6 @@ class FixestMulti:
         copy_data: bool,
         store_data: bool,
         lean: bool,
-        fixef_tol: float,
-        fixef_maxiter: int,
         weights_type: str,
         use_compression: bool,
         reps: int | None,
@@ -68,10 +66,6 @@ class FixestMulti:
             Whether to store the data in the resulting model object or not.
         lean: bool
             Whether to store large-memory objects in the resulting model object or not.
-        fixef_tol: float
-            The tolerance for the convergence of the demeaning algorithm.
-        fixef_maxiter: int
-             The maximum iterations for the demeaning algorithm.
         weights_type: str
             The type of weights employed in the estimation. Either analytical /
             precision weights are employed (`aweights`) or
@@ -105,8 +99,6 @@ class FixestMulti:
         self._copy_data = copy_data
         self._store_data = store_data
         self._lean = lean
-        self._fixef_tol = fixef_tol
-        self._fixef_maxiter = fixef_maxiter
         self._weights_type = weights_type
         self._use_compression = use_compression
         self._reps = reps
@@ -167,6 +159,7 @@ class FixestMulti:
         quantile: float | None = None,
         quantile_tol: float = 1e-06,
         quantile_maxiter: int | None = None,
+        offset: str | None = None,
     ) -> None:
         """
         Prepare model for estimation.
@@ -191,6 +184,11 @@ class FixestMulti:
         weights : Union[None, np.ndarray], optional
             An array of weights.
             Either None or a 1D array of length N. Default is None.
+        offset : Union[None, str], optional
+            Default is None. Name of a numeric column in `data` to use as an offset
+            in Poisson regression. The offset is added to the linear predictor
+            with its coefficient fixed at 1. For exposure adjustments, pass the
+            exposure on the log scale.
         ssc : dict[str, str], optional
             A dictionary specifying the type of standard errors to use for inference.
             See `feols()` or `fepois()`.
@@ -222,6 +220,7 @@ class FixestMulti:
         self._drop_singletons = False
         self._is_multiple_estimation = False
         self._weights = weights
+        self._offset = offset
         self._has_weights = False
         if weights is not None:
             self._has_weights = True
@@ -254,7 +253,7 @@ class FixestMulti:
         vcov: str | dict[str, str] | None,
         solver: SolverOptions,
         vcov_kwargs: dict[str, Any] | None = None,
-        demeaner_backend: DemeanerBackendOptions = "numba",
+        demeaner: AnyDemeaner | None = None,
         collin_tol: float = 1e-6,
         iwls_maxiter: int = 25,
         iwls_tol: float = 1e-08,
@@ -272,13 +271,13 @@ class FixestMulti:
             - If a string, can be one of "iid", "hetero", "HC1", "HC2", "HC3", "NW", "DK".
             - If a dictionary, it should have the format {"CRV1": "clustervar"}
             for CRV1 inference or {"CRV3": "clustervar"} for CRV3 inference.
-         vcov_kwargs : Optional[dict[str, Any]], optional
+        vcov_kwargs : Optional[dict[str, Any]], optional
              Additional keyword arguments for the variance-covariance matrix. Defaults to None.
         solver: SolverOptions
             Solver to use for the estimation.
-        demeaner_backend: DemeanerBackendOptions, optional
-            The backend to use for demeaning. Can be either "numba" or "jax".
-            Defaults to "numba".
+        demeaner: Optional[AnyDemeaner]
+            The typed demeaning strategy to use for the estimation. Not relevant
+            for the "compression" estimator and quantile regression.
         collin_tol : float, optional
             The tolerance level for the multicollinearity check. Default is 1e-6.
         iwls_maxiter : int, optional
@@ -344,8 +343,6 @@ class FixestMulti:
                         "weights_type": self._weights_type,
                         "solver": solver,
                         "collin_tol": collin_tol,
-                        "fixef_tol": self._fixef_tol,
-                        "fixef_maxiter": self._fixef_maxiter,
                         "store_data": self._store_data,
                         "copy_data": self._copy_data,
                         "lean": self._lean,
@@ -364,7 +361,7 @@ class FixestMulti:
                     }:
                         model_kwargs.update(
                             {
-                                "demeaner_backend": demeaner_backend,
+                                "demeaner": demeaner,
                             }
                         )
 
@@ -379,6 +376,13 @@ class FixestMulti:
                                 "separation_check": separation_check,
                                 "tol": iwls_tol,
                                 "maxiter": iwls_maxiter,
+                            }
+                        )
+
+                    if self._method == "fepois":
+                        model_kwargs.update(
+                            {
+                                "offset": self._offset,
                             }
                         )
 

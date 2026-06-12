@@ -2857,6 +2857,37 @@ echo "result=${a:-cycle_broken}"
         );
     }
 
+    /// TM-DOS-090: malformed nameref array targets must not panic expansion.
+    #[tokio::test]
+    async fn tm_dos_090_malformed_nameref_array_target_does_not_panic() {
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            exec(
+                r#"
+arr=(zero one)
+declare -n elem='arr[1]'
+echo "elem=${elem[0]}"
+declare -n ref='['
+echo "before"
+echo "${ref[0]}"
+declare -n ref='a['
+echo "${ref[0]}"
+echo "after"
+"#,
+            ),
+        )
+        .await
+        .expect("malformed nameref target must not panic or hang");
+        assert_eq!(result.exit_code, 0);
+        assert!(
+            result.stdout.contains("elem=one")
+                && result.stdout.contains("before")
+                && result.stdout.contains("after"),
+            "malformed nameref target should expand safely: {:?}",
+            result.stdout
+        );
+    }
+
     // --- Cross-builtin: injected markers from one builtin don't affect another ---
 
     #[tokio::test]
@@ -3475,6 +3506,29 @@ mod session_limits {
         );
     }
 
+    /// TM-DOS-059: Malformed scripts count toward exec() call limit before parsing.
+    #[tokio::test]
+    async fn tm_dos_059_parse_errors_count_toward_exec_call_limit() {
+        let session = SessionLimits::new()
+            .max_exec_calls(1)
+            .max_total_commands(u64::MAX);
+        let mut bash = Bash::builder().session_limits(session).build();
+
+        let parse_err = bash.exec("if").await;
+        assert!(parse_err.is_err(), "malformed script should fail parsing");
+
+        let limit_err = bash.exec("echo should_fail").await;
+        assert!(
+            limit_err.is_err(),
+            "second exec() should fail because parse errors consume exec budget"
+        );
+        let msg = limit_err.unwrap_err().to_string();
+        assert!(
+            msg.contains("session") && msg.contains("exec"),
+            "error should mention session exec limit: {msg}"
+        );
+    }
+
     /// TM-DOS-059: Session counters persist across exec() calls (not reset).
     #[tokio::test]
     async fn tm_dos_059_counter_persistence() {
@@ -3752,6 +3806,240 @@ f
             .map(|line| line.parse::<usize>().unwrap())
             .collect();
         assert_eq!(counts, vec![0, 0]);
+    }
+
+    /// TM-INF-023: bare local declarations must shadow stale global array bindings.
+    #[tokio::test]
+    async fn tm_inf_023_bare_local_declarations_shadow_global_arrays() {
+        let mut bash = Bash::builder()
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        let script = r#"
+scalar_shadow=(GLOBAL_INDEXED)
+declare -A indexed_shadow=([k]=GLOBAL_ASSOC)
+assoc_shadow=(GLOBAL_INDEXED)
+f() {
+    local scalar_shadow
+    local -a indexed_shadow
+    local -A assoc_shadow
+    printf "scalar_star=<%s>\n" "${scalar_shadow[*]}"
+    printf "scalar_zero=<%s>\n" "${scalar_shadow[0]}"
+    printf "indexed_star=<%s>\n" "${indexed_shadow[*]}"
+    printf "indexed_key=<%s>\n" "${indexed_shadow[k]}"
+    printf "assoc_star=<%s>\n" "${assoc_shadow[*]}"
+    printf "assoc_zero=<%s>\n" "${assoc_shadow[0]}"
+}
+f
+printf "after_scalar=<%s>\n" "${scalar_shadow[*]}"
+printf "after_indexed=<%s>\n" "${indexed_shadow[*]}"
+printf "after_assoc=<%s>\n" "${assoc_shadow[*]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        let lines: Vec<&str> = result.stdout.lines().collect();
+        assert_eq!(
+            lines,
+            vec![
+                "scalar_star=<>",
+                "scalar_zero=<>",
+                "indexed_star=<>",
+                "indexed_key=<>",
+                "assoc_star=<>",
+                "assoc_zero=<>",
+                "after_scalar=<GLOBAL_INDEXED>",
+                "after_indexed=<GLOBAL_ASSOC>",
+                "after_assoc=<GLOBAL_INDEXED>",
+            ]
+        );
+    }
+
+    /// TM-DOS-060: FUNCNAME bookkeeping must not undercount array budget.
+    #[tokio::test]
+    async fn tm_dos_060_funcname_restore_preserves_array_budget() {
+        let mem = MemoryLimits::new().max_array_entries(3);
+        let mut bash = Bash::builder()
+            .memory_limits(mem)
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        let script = r#"
+arr[0]=a
+arr[1]=b
+arr[2]=c
+f() { :; }
+f
+extra[0]=x
+printf "%s %s\n" "${#arr[@]}" "${#extra[@]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout.trim(), "3 0");
+    }
+
+    /// TM-DOS-060: saved local array shadows must stay charged to array budget.
+    #[tokio::test]
+    async fn tm_dos_060_local_array_shadow_preserves_array_budget() {
+        let mem = MemoryLimits::new().max_array_entries(3);
+        let mut bash = Bash::builder()
+            .memory_limits(mem)
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        let script = r#"
+arr=(a b c)
+f() {
+    local arr=(x)
+    printf "inside=%s\n" "${#arr[@]}"
+}
+f
+printf "outside=%s:%s\n" "${#arr[@]}" "${arr[*]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(
+            result.stdout.lines().collect::<Vec<_>>(),
+            vec!["inside=0", "outside=3:a b c"]
+        );
+    }
+
+    /// TM-DOS-060: saved local associative-array shadows must stay charged.
+    #[tokio::test]
+    async fn tm_dos_060_local_assoc_array_shadow_preserves_array_budget() {
+        let mem = MemoryLimits::new().max_array_entries(3);
+        let mut bash = Bash::builder()
+            .memory_limits(mem)
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        let script = r#"
+declare -A map
+map[a]=1
+map[b]=2
+map[c]=3
+f() {
+    local -A map=([x]=9)
+    printf "inside=%s\n" "${#map[@]}"
+}
+f
+printf "outside=%s:%s\n" "${#map[@]}" "${map[a]}${map[b]}${map[c]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(
+            result.stdout.lines().collect::<Vec<_>>(),
+            vec!["inside=0", "outside=3:123"]
+        );
+    }
+
+    /// TM-DOS-060: re-shadowing the same local array in one frame must release
+    /// the replaced transient binding's budget (only the first snapshot is kept,
+    /// so later removals must not leave phantom entries charged).
+    #[tokio::test]
+    async fn tm_dos_060_repeated_local_array_shadow_does_not_drift_budget() {
+        let mem = MemoryLimits::new().max_array_entries(3);
+        let mut bash = Bash::builder()
+            .memory_limits(mem)
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        // The first `local arr=(a b c)` fills the budget. The second
+        // `local arr=(x)` replaces it; its three entries must be released so the
+        // single-element reassignment fits. Without releasing them the budget
+        // drifts upward and the second assignment is wrongly rejected.
+        let script = r#"
+f() {
+    local arr=(a b c)
+    printf "first=%s\n" "${#arr[@]}"
+    local arr=(x)
+    printf "second=%s\n" "${#arr[@]}"
+}
+f
+printf "after=%s\n" "${#arr[@]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(
+            result.stdout.lines().collect::<Vec<_>>(),
+            vec!["first=3", "second=1", "after=0"]
+        );
+    }
+
+    /// TM-DOS-060: user mutation of FUNCNAME inside a function must not leak
+    /// array budget after the function returns (interpreter metadata stays
+    /// uncharged, but user-added entries are credited back on discard).
+    #[tokio::test]
+    async fn tm_dos_060_funcname_user_mutation_does_not_leak_budget() {
+        let mem = MemoryLimits::new().max_array_entries(5);
+        let mut bash = Bash::builder()
+            .memory_limits(mem)
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        // Each call adds a user entry to FUNCNAME, which is discarded on return.
+        // If the charge leaked, the later 5-element array would not fully fit.
+        let script = r#"
+f() { FUNCNAME[7]=injected; }
+f
+f
+f
+arr=(a b c d e)
+printf "n=%s\n" "${#arr[@]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout.trim(), "n=5");
+    }
+
+    /// TM-INF-023: local compound arrays must not leak after a function returns.
+    #[tokio::test]
+    async fn tm_inf_023_function_local_arrays_do_not_leak() {
+        let mut bash = Bash::builder()
+            .session_limits(SessionLimits::unlimited())
+            .build();
+
+        let script = r#"
+outer=(global value)
+declare -A outer_map=([k]=global)
+f() {
+    local -a outer=(token value)
+    local -a secret_arr=(hidden token)
+    local -A outer_map=([k]=secret)
+    local -A secret_map=([k]=hidden)
+    printf "inside_outer=%s\n" "${outer[*]}"
+    printf "inside_secret_arr=%s\n" "${secret_arr[*]}"
+    printf "inside_outer_map=%s\n" "${outer_map[*]}"
+    printf "inside_secret_map=%s\n" "${secret_map[*]}"
+}
+f
+printf "outside_outer=%s\n" "${outer[*]}"
+printf "outside_secret_arr=%s\n" "${secret_arr[*]}"
+printf "outside_outer_map=%s\n" "${outer_map[*]}"
+printf "outside_secret_map=%s\n" "${secret_map[*]}"
+"#;
+        let result = bash.exec(script).await.unwrap();
+
+        assert_eq!(result.exit_code, 0);
+        let lines: Vec<&str> = result.stdout.lines().collect();
+        assert_eq!(
+            lines,
+            vec![
+                "inside_outer=token value",
+                "inside_secret_arr=hidden token",
+                "inside_outer_map=secret",
+                "inside_secret_map=hidden",
+                "outside_outer=global value",
+                "outside_secret_arr=",
+                "outside_outer_map=global",
+                "outside_secret_map=",
+            ]
+        );
     }
 
     /// TM-DOS-060: Array entry bomb — indexed array with many entries.
@@ -4081,6 +4369,30 @@ mod trace_events {
                         "Redacted mode should not leak secrets: {arg}"
                     );
                 }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn trace_failed_exec_does_not_leak_events_to_next_exec() {
+        let mut bash = Bash::builder().trace_mode(TraceMode::Full).build();
+
+        let failed = bash.exec(r#"grep -E "(" tenant-a-private-arg"#).await;
+        assert!(failed.is_err(), "invalid regex should fail execution");
+
+        let r = bash.exec("echo tenant-b").await.unwrap();
+        assert_eq!(r.exit_code, 0);
+
+        for event in &r.events {
+            if let TraceEventDetails::CommandStart { command, argv, .. } = &event.details {
+                assert_ne!(
+                    command, "grep",
+                    "stale failed command leaked into next exec"
+                );
+                assert!(
+                    argv.iter().all(|arg| !arg.contains("tenant-a-private-arg")),
+                    "stale failed argv leaked into next exec: {argv:?}" // debug-ok: assert context only
+                );
             }
         }
     }
@@ -4521,6 +4833,45 @@ echo ${#arr[@]}
                         || msg.contains("exceeded")
                         || msg.contains("budget"),
                     "Expected brace/range limit error, got: {}",
+                    msg
+                );
+            }
+        }
+    }
+
+    /// TM-DOS-042: Comma-list brace expansion recursion bomb.
+    /// `{a,b}{a,b}...` repeated tens of thousands of times is far under
+    /// `max_input_bytes`, but the combinatorial count cap is only charged on
+    /// recursion *return*, so the first DFS path used to descend one frame per
+    /// group and stack-overflow the worker thread before any cap fired. The
+    /// depth cap must bound the descent: this completes without panic/OOM and
+    /// with bounded output.
+    #[tokio::test]
+    async fn brace_expansion_comma_recursion_bomb() {
+        let limits = ExecutionLimits::new()
+            .max_commands(1_000)
+            .max_stdout_bytes(1_000_000);
+        let mut bash = Bash::builder().limits(limits).build();
+
+        // 50k repetitions of `{a,b}` (~250 KB source, well under the input cap).
+        let script = format!("echo {}", "{a,b}".repeat(50_000));
+        let result = bash.exec(&script).await;
+        match result {
+            Ok(r) => {
+                assert!(
+                    r.stdout.len() <= 1_000_000,
+                    "comma-list brace bomb produced {} bytes — should be capped",
+                    r.stdout.len()
+                );
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                assert!(
+                    msg.contains("brace")
+                        || msg.contains("exceeded")
+                        || msg.contains("budget")
+                        || msg.contains("too large"),
+                    "Expected a limit error, got: {}",
                     msg
                 );
             }

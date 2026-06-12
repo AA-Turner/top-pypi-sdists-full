@@ -9,6 +9,12 @@ def test_shape_2D_grayscale(cellposemodel_fixture_24layer):
     assert masks.shape == (224, 224)
 
 
+def test_shape_2D_grayscale_resample(cellposemodel_fixture_2layer):
+    img = np.zeros((224, 224))
+    masks, _, _ = cellposemodel_fixture_2layer.eval(img, diameter=20, resample=False)
+    assert masks.shape == (224, 224)
+
+
 def test_shape_2D_chan_first_diam_resize(cellposemodel_fixture_24layer):
     img = np.zeros((1, 224, 224))
     masks, flows, _ = cellposemodel_fixture_24layer.eval(img, diameter=50)
@@ -92,7 +98,7 @@ def test_shape_3D_1ch_3ndim_diam(cellposemodel_fixture_2layer):
 def test_shape_3D_2ch(cellposemodel_fixture_2layer):
     img = np.zeros((80, 2, 80, 4))
 
-    masks, flows, _ = cellposemodel_fixture_2layer.eval(img, z_axis=-1, channel_axis=1, do_3D=True)
+    masks, flows, _ = cellposemodel_fixture_2layer.eval(img, z_axis=-1, channel_axis=1, do_3D=True, bsize=128)
     assert masks.shape == (4, 80, 80), 'mask shape mismatch'
     assert flows[1].shape == (3, 4, 80, 80), 'dP shape mismatch'
     assert flows[2].shape == (4, 80, 80), 'cellprob shape mismatch'

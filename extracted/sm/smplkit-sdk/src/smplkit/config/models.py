@@ -8,11 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management.client import (
-        AsyncConfigClient as AsyncMgmtConfigClient,
-        ConfigClient as MgmtConfigClient,
-    )
+    from smplkit.config._client import AsyncConfigClient, ConfigClient
 
 logger = logging.getLogger("smplkit")
 
@@ -42,6 +38,15 @@ class ConfigItem:
         *,
         description: str | None = None,
     ) -> None:
+        """Create a typed config item.
+
+        Args:
+            name: The item key within its config.
+            value: The item's value.
+            type: The item value type, as an :class:`ItemType` or its string
+                name (``"STRING"``, ``"NUMBER"``, ``"BOOLEAN"``, ``"JSON"``).
+            description: Optional human-readable description.
+        """
         self.name = name
         self.value = value
         self.type = type if isinstance(type, ItemType) else ItemType(type)
@@ -58,8 +63,9 @@ class ConfigEnvironment:
     setters with ``environment="..."`` (e.g. ``cfg.set_string("k", "v",
     environment="production")``).
 
-    Per ADR-024 §2.4 each env entry on the wire is the flat override map
-    ``{key: rawValue}`` — no per-override ``type`` / ``description``.
+    An override stores only the raw value (``{key: raw_value}``); the declared
+    type and description come from the base item, so an item's type and
+    description are ignored when an environment override is supplied.
     """
 
     def __init__(self, values: dict[str, Any] | None = None) -> None:
@@ -114,9 +120,9 @@ def _convert_environments(value: dict[str, Any] | None) -> dict[str, ConfigEnvir
 def _environments_to_wire(environments: dict[str, ConfigEnvironment]) -> dict[str, Any]:
     """Convert a typed environments dict to the flat wire-shaped dict.
 
-    Per ADR-024 §2.4 the wire shape is ``{env: {key: rawValue}}``. The same
-    shape is what the resolver consumes, so this output is suitable for both
-    the mgmt save path and chain assembly.
+    The wire shape is ``{env: {key: rawValue}}``. The same shape is what
+    the resolver consumes, so this output is suitable for both the save
+    path and chain assembly.
     """
     return {env_id: dict(env._values_raw) for env_id, env in environments.items()}
 
@@ -145,7 +151,7 @@ class Config:
 
     def __init__(
         self,
-        client: MgmtConfigClient | ConfigClient | None = None,
+        client: ConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -194,8 +200,7 @@ class Config:
 
         For the base config this is the typed-items dict storing
         ``{key: {value, type, description}}``. For an environment override
-        it is the flat overrides dict storing ``{key: raw_value}`` per
-        ADR-024 §2.4.
+        it is the flat overrides dict storing ``{key: raw_value}``.
         """
         if environment is None:
             return self._items_raw
@@ -208,10 +213,14 @@ class Config:
     def set(self, item: ConfigItem, *, environment: str | None = None) -> None:
         """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment.
 
-        Per ADR-024 §2.4 environment overrides on the wire carry only the
-        raw value — the declared ``type`` / ``description`` come from the
-        base item — so the ``ConfigItem``'s type and description are
-        ignored when ``environment`` is supplied.
+        An environment override stores only the raw value; the declared type
+        and description come from the base item, so the ``ConfigItem``'s type
+        and description are ignored when ``environment`` is supplied.
+
+        Args:
+            item: The :class:`ConfigItem` to set. Its name is the item key.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
         """
         if environment is None:
             raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
@@ -222,31 +231,75 @@ class Config:
             self._items_target(environment)[item.name] = item.value
 
     def remove(self, name: str, *, environment: str | None = None) -> None:
-        """Remove an item by name.  When ``environment`` is given, removes the per-environment override only."""
+        """Remove an item by name.  When ``environment`` is given, removes the per-environment override only.
+
+        Removing an item that isn't present is a no-op.
+
+        Args:
+            name: The item key to remove.
+            environment: When given, remove only this environment's override
+                for ``name``, leaving the base item intact.
+        """
         self._items_target(environment).pop(name, None)
 
     def set_string(
         self, name: str, value: str, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a STRING item (or environment override)."""
+        """Convenience: set a STRING item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: The string value.
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.STRING, description=description), environment=environment)
 
     def set_number(
         self, name: str, value: int | float, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a NUMBER item (or environment override)."""
+        """Convenience: set a NUMBER item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: The numeric value (``int`` or ``float``).
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.NUMBER, description=description), environment=environment)
 
     def set_boolean(
         self, name: str, value: bool, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a BOOLEAN item (or environment override)."""
+        """Convenience: set a BOOLEAN item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: The boolean value.
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.BOOLEAN, description=description), environment=environment)
 
     def set_json(
         self, name: str, value: Any, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a JSON item (or environment override)."""
+        """Convenience: set a JSON item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: Any JSON-serializable value (dict, list, or primitive).
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.JSON, description=description), environment=environment)
 
     def save(self) -> None:
@@ -346,7 +399,7 @@ class AsyncConfig:
 
     def __init__(
         self,
-        client: AsyncMgmtConfigClient | AsyncConfigClient | None = None,
+        client: AsyncConfigClient | None = None,
         *,
         id: str | None = None,
         name: str,
@@ -395,8 +448,7 @@ class AsyncConfig:
 
         For the base config this is the typed-items dict storing
         ``{key: {value, type, description}}``. For an environment override
-        it is the flat overrides dict storing ``{key: raw_value}`` per
-        ADR-024 §2.4.
+        it is the flat overrides dict storing ``{key: raw_value}``.
         """
         if environment is None:
             return self._items_raw
@@ -409,10 +461,14 @@ class AsyncConfig:
     def set(self, item: ConfigItem, *, environment: str | None = None) -> None:
         """Set (or replace) an item.  When ``environment`` is given, sets an override on that environment.
 
-        Per ADR-024 §2.4 environment overrides on the wire carry only the
-        raw value — the declared ``type`` / ``description`` come from the
-        base item — so the ``ConfigItem``'s type and description are
-        ignored when ``environment`` is supplied.
+        An environment override stores only the raw value; the declared type
+        and description come from the base item, so the ``ConfigItem``'s type
+        and description are ignored when ``environment`` is supplied.
+
+        Args:
+            item: The :class:`ConfigItem` to set. Its name is the item key.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
         """
         if environment is None:
             raw: dict[str, Any] = {"value": item.value, "type": item.type.value}
@@ -423,31 +479,75 @@ class AsyncConfig:
             self._items_target(environment)[item.name] = item.value
 
     def remove(self, name: str, *, environment: str | None = None) -> None:
-        """Remove an item by name.  When ``environment`` is given, removes the per-environment override only."""
+        """Remove an item by name.  When ``environment`` is given, removes the per-environment override only.
+
+        Removing an item that isn't present is a no-op.
+
+        Args:
+            name: The item key to remove.
+            environment: When given, remove only this environment's override
+                for ``name``, leaving the base item intact.
+        """
         self._items_target(environment).pop(name, None)
 
     def set_string(
         self, name: str, value: str, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a STRING item (or environment override)."""
+        """Convenience: set a STRING item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: The string value.
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.STRING, description=description), environment=environment)
 
     def set_number(
         self, name: str, value: int | float, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a NUMBER item (or environment override)."""
+        """Convenience: set a NUMBER item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: The numeric value (``int`` or ``float``).
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.NUMBER, description=description), environment=environment)
 
     def set_boolean(
         self, name: str, value: bool, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a BOOLEAN item (or environment override)."""
+        """Convenience: set a BOOLEAN item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: The boolean value.
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.BOOLEAN, description=description), environment=environment)
 
     def set_json(
         self, name: str, value: Any, *, description: str | None = None, environment: str | None = None
     ) -> None:
-        """Convenience: set a JSON item (or environment override)."""
+        """Convenience: set a JSON item (or environment override).
+
+        Args:
+            name: The item key to set.
+            value: Any JSON-serializable value (dict, list, or primitive).
+            description: Optional human-readable description. Ignored when
+                setting an environment override.
+            environment: When given, set the value as an override on this
+                environment rather than on the base config.
+        """
         self.set(ConfigItem(name, value, ItemType.JSON, description=description), environment=environment)
 
     async def save(self) -> None:

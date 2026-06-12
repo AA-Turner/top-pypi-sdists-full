@@ -12,13 +12,14 @@
 # *******************************************************
 import functools
 import logging
+from typing import Any, Callable
 
 from .worker_logger import comet_worker_logger
 
 LOGGER = logging.getLogger(__file__)
 
 
-def comet_worker(func):
+def comet_worker(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     This decorator enables you to monitor resource usage for each distributed worker during a distributed training job.
     By applying this decorator, you can annotate any training function to integrate Comet’s resource tracking.
@@ -40,7 +41,7 @@ def comet_worker(func):
     """
 
     @functools.wraps(func)
-    def wrapper_decorator(*args, **kwargs):
+    def wrapper_decorator(*args: Any, **kwargs: Any) -> Any:
         if len(args) == 1:
             config = args[0]
         else:
@@ -52,6 +53,8 @@ def comet_worker(func):
             )
 
         with comet_worker_logger(ray_config=config):
-            func(*args, **kwargs)
+            # Forward the wrapped function's return value so the decorator is
+            # transparent (the outer signature advertises ``Callable[..., Any]``).
+            return func(*args, **kwargs)
 
     return wrapper_decorator

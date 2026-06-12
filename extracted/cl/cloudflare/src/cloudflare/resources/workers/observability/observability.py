@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from .queries import (
+    QueriesResource,
+    AsyncQueriesResource,
+    QueriesResourceWithRawResponse,
+    AsyncQueriesResourceWithRawResponse,
+    QueriesResourceWithStreamingResponse,
+    AsyncQueriesResourceWithStreamingResponse,
+)
 from .telemetry import (
     TelemetryResource,
     AsyncTelemetryResource,
@@ -20,6 +28,14 @@ from .destinations import (
     DestinationsResourceWithStreamingResponse,
     AsyncDestinationsResourceWithStreamingResponse,
 )
+from .shared_queries import (
+    SharedQueriesResource,
+    AsyncSharedQueriesResource,
+    SharedQueriesResourceWithRawResponse,
+    AsyncSharedQueriesResourceWithRawResponse,
+    SharedQueriesResourceWithStreamingResponse,
+    AsyncSharedQueriesResourceWithStreamingResponse,
+)
 
 __all__ = ["ObservabilityResource", "AsyncObservabilityResource"]
 
@@ -32,6 +48,14 @@ class ObservabilityResource(SyncAPIResource):
     @cached_property
     def destinations(self) -> DestinationsResource:
         return DestinationsResource(self._client)
+
+    @cached_property
+    def queries(self) -> QueriesResource:
+        return QueriesResource(self._client)
+
+    @cached_property
+    def shared_queries(self) -> SharedQueriesResource:
+        return SharedQueriesResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> ObservabilityResourceWithRawResponse:
@@ -61,6 +85,14 @@ class AsyncObservabilityResource(AsyncAPIResource):
     @cached_property
     def destinations(self) -> AsyncDestinationsResource:
         return AsyncDestinationsResource(self._client)
+
+    @cached_property
+    def queries(self) -> AsyncQueriesResource:
+        return AsyncQueriesResource(self._client)
+
+    @cached_property
+    def shared_queries(self) -> AsyncSharedQueriesResource:
+        return AsyncSharedQueriesResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> AsyncObservabilityResourceWithRawResponse:
@@ -94,6 +126,14 @@ class ObservabilityResourceWithRawResponse:
     def destinations(self) -> DestinationsResourceWithRawResponse:
         return DestinationsResourceWithRawResponse(self._observability.destinations)
 
+    @cached_property
+    def queries(self) -> QueriesResourceWithRawResponse:
+        return QueriesResourceWithRawResponse(self._observability.queries)
+
+    @cached_property
+    def shared_queries(self) -> SharedQueriesResourceWithRawResponse:
+        return SharedQueriesResourceWithRawResponse(self._observability.shared_queries)
+
 
 class AsyncObservabilityResourceWithRawResponse:
     def __init__(self, observability: AsyncObservabilityResource) -> None:
@@ -106,6 +146,14 @@ class AsyncObservabilityResourceWithRawResponse:
     @cached_property
     def destinations(self) -> AsyncDestinationsResourceWithRawResponse:
         return AsyncDestinationsResourceWithRawResponse(self._observability.destinations)
+
+    @cached_property
+    def queries(self) -> AsyncQueriesResourceWithRawResponse:
+        return AsyncQueriesResourceWithRawResponse(self._observability.queries)
+
+    @cached_property
+    def shared_queries(self) -> AsyncSharedQueriesResourceWithRawResponse:
+        return AsyncSharedQueriesResourceWithRawResponse(self._observability.shared_queries)
 
 
 class ObservabilityResourceWithStreamingResponse:
@@ -120,6 +168,14 @@ class ObservabilityResourceWithStreamingResponse:
     def destinations(self) -> DestinationsResourceWithStreamingResponse:
         return DestinationsResourceWithStreamingResponse(self._observability.destinations)
 
+    @cached_property
+    def queries(self) -> QueriesResourceWithStreamingResponse:
+        return QueriesResourceWithStreamingResponse(self._observability.queries)
+
+    @cached_property
+    def shared_queries(self) -> SharedQueriesResourceWithStreamingResponse:
+        return SharedQueriesResourceWithStreamingResponse(self._observability.shared_queries)
+
 
 class AsyncObservabilityResourceWithStreamingResponse:
     def __init__(self, observability: AsyncObservabilityResource) -> None:
@@ -132,3 +188,11 @@ class AsyncObservabilityResourceWithStreamingResponse:
     @cached_property
     def destinations(self) -> AsyncDestinationsResourceWithStreamingResponse:
         return AsyncDestinationsResourceWithStreamingResponse(self._observability.destinations)
+
+    @cached_property
+    def queries(self) -> AsyncQueriesResourceWithStreamingResponse:
+        return AsyncQueriesResourceWithStreamingResponse(self._observability.queries)
+
+    @cached_property
+    def shared_queries(self) -> AsyncSharedQueriesResourceWithStreamingResponse:
+        return AsyncSharedQueriesResourceWithStreamingResponse(self._observability.shared_queries)

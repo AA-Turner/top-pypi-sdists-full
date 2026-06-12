@@ -20,6 +20,7 @@ from pydantic import ConfigDict, Field
 from typing_extensions import Self
 
 from datamodel_code_generator import cached_path_exists
+from datamodel_code_generator._internal_utils import get_most_of_parent, to_hashable
 from datamodel_code_generator.imports import (
     IMPORT_ANNOTATED,
     IMPORT_OPTIONAL,
@@ -513,10 +514,33 @@ class DataModelFieldBase(_BaseModel):
             new_data_type.parent = self
 
 
+def _nested_model_default_factory(field: DataModelFieldBase, model_cls: type[DataModel]) -> str | None:
+    """Return the nested model name usable as a default_factory for optional fields."""
+    for data_type in field.data_type.data_types or (field.data_type,):
+        if data_type.is_dict:
+            continue
+        if data_type.reference and isinstance(data_type.reference.source, model_cls):
+            return data_type.alias or data_type.reference.source.class_name
+    return None
+
+
+def _build_environment(loader: Any) -> Environment:
+    """Build a Jinja environment with built-in filters."""
+    from jinja2 import Environment, select_autoescape  # noqa: PLC0415
+
+    env = Environment(
+        loader=loader,
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    env.filters["escape_docstring"] = escape_docstring  # For old custom templates
+    env.filters["format_docstring"] = format_docstring
+    return env
+
+
 @lru_cache(maxsize=16)
 def _get_environment(template_subdir: Path, custom_template_dir: Path | None) -> Environment:
     """Get or create a cached Jinja2 Environment for the given directories."""
-    from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape  # noqa: PLC0415
+    from jinja2 import ChoiceLoader, FileSystemLoader  # noqa: PLC0415
 
     loaders: list[FileSystemLoader] = []
 
@@ -528,13 +552,7 @@ def _get_environment(template_subdir: Path, custom_template_dir: Path | None) ->
     loaders.append(FileSystemLoader(str(TEMPLATE_DIR / template_subdir)))
 
     loader: ChoiceLoader | FileSystemLoader = ChoiceLoader(loaders) if len(loaders) > 1 else loaders[0]
-    env = Environment(
-        loader=loader,
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    env.filters["escape_docstring"] = escape_docstring  # For old custom templates
-    env.filters["format_docstring"] = format_docstring
-    return env
+    return _build_environment(loader)
 
 
 @lru_cache
@@ -556,19 +574,13 @@ def _get_template_with_custom_dir(template_file_path: Path, custom_template_dir:
 @lru_cache(maxsize=16)
 def _get_environment_with_absolute_path(absolute_template_dir: Path, builtin_subdir: Path) -> Environment:
     """Get or create a cached Jinja2 Environment for absolute path templates."""
-    from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape  # noqa: PLC0415
+    from jinja2 import ChoiceLoader, FileSystemLoader  # noqa: PLC0415
 
     loaders: list[FileSystemLoader] = [
         FileSystemLoader(str(absolute_template_dir)),
         FileSystemLoader(str(TEMPLATE_DIR / builtin_subdir)),
     ]
-    env = Environment(
-        loader=ChoiceLoader(loaders),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    env.filters["escape_docstring"] = escape_docstring  # For old custom templates
-    env.filters["format_docstring"] = format_docstring
-    return env
+    return _build_environment(ChoiceLoader(loaders))
 
 
 @lru_cache
@@ -809,8 +821,6 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         if cached is not None:
             return cached
 
-        from datamodel_code_generator.parser.base import to_hashable  # noqa: PLC0415
-
         render_class_name = class_name if class_name is not None or not use_default else "M"
         result = tuple(to_hashable(v) for v in (self.render(class_name=render_class_name), self.imports))
         self._dedup_key_cache[cache_key] = result
@@ -843,8 +853,6 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
 
     def replace_children_in_models(self, models: list[DataModel], new_ref: Reference) -> None:
         """Replace reference children if their parent model is in models list."""
-        from datamodel_code_generator.parser.base import get_most_of_parent  # noqa: PLC0415
-
         for child in self.reference.children[:]:
             if isinstance(child, DataType) and get_most_of_parent(child) in models:
                 child.replace_reference(new_ref)

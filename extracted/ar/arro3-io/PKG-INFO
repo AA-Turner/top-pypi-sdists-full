@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arro3-io
-Version: 0.8.0
+Version: 0.8.1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Rust

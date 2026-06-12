@@ -151,6 +151,8 @@ class OfflineQueryRequest(_message.Message):
         "required_resolver_tags",
         "observed_at_lower_bound",
         "observed_at_upper_bound",
+        "inserted_at_lower_bound",
+        "inserted_at_upper_bound",
         "planner_options",
         "env_overrides",
         "store_online",
@@ -213,6 +215,8 @@ class OfflineQueryRequest(_message.Message):
     REQUIRED_RESOLVER_TAGS_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    INSERTED_AT_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    INSERTED_AT_UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
@@ -246,6 +250,8 @@ class OfflineQueryRequest(_message.Message):
     required_resolver_tags: _containers.RepeatedScalarFieldContainer[str]
     observed_at_lower_bound: str
     observed_at_upper_bound: str
+    inserted_at_lower_bound: str
+    inserted_at_upper_bound: str
     planner_options: _containers.MessageMap[str, _struct_pb2.Value]
     env_overrides: _containers.ScalarMap[str, str]
     store_online: bool
@@ -281,6 +287,8 @@ class OfflineQueryRequest(_message.Message):
         required_resolver_tags: _Optional[_Iterable[str]] = ...,
         observed_at_lower_bound: _Optional[str] = ...,
         observed_at_upper_bound: _Optional[str] = ...,
+        inserted_at_lower_bound: _Optional[str] = ...,
+        inserted_at_upper_bound: _Optional[str] = ...,
         planner_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         env_overrides: _Optional[_Mapping[str, str]] = ...,
         store_online: bool = ...,

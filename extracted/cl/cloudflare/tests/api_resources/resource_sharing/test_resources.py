@@ -95,7 +95,7 @@ class TestResources:
     @parametrize
     def test_method_update(self, client: Cloudflare) -> None:
         resource = client.resource_sharing.resources.update(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
             meta={},
@@ -105,7 +105,7 @@ class TestResources:
     @parametrize
     def test_raw_response_update(self, client: Cloudflare) -> None:
         response = client.resource_sharing.resources.with_raw_response.update(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
             meta={},
@@ -119,7 +119,7 @@ class TestResources:
     @parametrize
     def test_streaming_response_update(self, client: Cloudflare) -> None:
         with client.resource_sharing.resources.with_streaming_response.update(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
             meta={},
@@ -136,7 +136,7 @@ class TestResources:
     def test_path_params_update(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.update(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
                 meta={},
@@ -144,15 +144,15 @@ class TestResources:
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.update(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="",
                 meta={},
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `resource_id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_resource_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.update(
-                resource_id="",
+                share_resource_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
                 meta={},
@@ -221,7 +221,7 @@ class TestResources:
     @parametrize
     def test_method_delete(self, client: Cloudflare) -> None:
         resource = client.resource_sharing.resources.delete(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -230,7 +230,7 @@ class TestResources:
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
         response = client.resource_sharing.resources.with_raw_response.delete(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -243,7 +243,7 @@ class TestResources:
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
         with client.resource_sharing.resources.with_streaming_response.delete(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         ) as response:
@@ -259,21 +259,21 @@ class TestResources:
     def test_path_params_delete(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.delete(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.delete(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="",
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `resource_id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_resource_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.delete(
-                resource_id="",
+                share_resource_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
@@ -281,7 +281,7 @@ class TestResources:
     @parametrize
     def test_method_get(self, client: Cloudflare) -> None:
         resource = client.resource_sharing.resources.get(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -290,7 +290,7 @@ class TestResources:
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
         response = client.resource_sharing.resources.with_raw_response.get(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -303,7 +303,7 @@ class TestResources:
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
         with client.resource_sharing.resources.with_streaming_response.get(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         ) as response:
@@ -319,21 +319,21 @@ class TestResources:
     def test_path_params_get(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.get(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.get(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="",
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `resource_id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_resource_id` but received ''"):
             client.resource_sharing.resources.with_raw_response.get(
-                resource_id="",
+                share_resource_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
@@ -415,7 +415,7 @@ class TestAsyncResources:
     @parametrize
     async def test_method_update(self, async_client: AsyncCloudflare) -> None:
         resource = await async_client.resource_sharing.resources.update(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
             meta={},
@@ -425,7 +425,7 @@ class TestAsyncResources:
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.resource_sharing.resources.with_raw_response.update(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
             meta={},
@@ -439,7 +439,7 @@ class TestAsyncResources:
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncCloudflare) -> None:
         async with async_client.resource_sharing.resources.with_streaming_response.update(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
             meta={},
@@ -456,7 +456,7 @@ class TestAsyncResources:
     async def test_path_params_update(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.update(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
                 meta={},
@@ -464,15 +464,15 @@ class TestAsyncResources:
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.update(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="",
                 meta={},
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `resource_id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_resource_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.update(
-                resource_id="",
+                share_resource_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
                 meta={},
@@ -541,7 +541,7 @@ class TestAsyncResources:
     @parametrize
     async def test_method_delete(self, async_client: AsyncCloudflare) -> None:
         resource = await async_client.resource_sharing.resources.delete(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -550,7 +550,7 @@ class TestAsyncResources:
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.resource_sharing.resources.with_raw_response.delete(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -563,7 +563,7 @@ class TestAsyncResources:
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
         async with async_client.resource_sharing.resources.with_streaming_response.delete(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         ) as response:
@@ -579,21 +579,21 @@ class TestAsyncResources:
     async def test_path_params_delete(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.delete(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.delete(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="",
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `resource_id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_resource_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.delete(
-                resource_id="",
+                share_resource_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
@@ -601,7 +601,7 @@ class TestAsyncResources:
     @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
         resource = await async_client.resource_sharing.resources.get(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -610,7 +610,7 @@ class TestAsyncResources:
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.resource_sharing.resources.with_raw_response.get(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         )
@@ -623,7 +623,7 @@ class TestAsyncResources:
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
         async with async_client.resource_sharing.resources.with_streaming_response.get(
-            resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+            share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             share_id="3fd85f74b32742f1bff64a85009dda07",
         ) as response:
@@ -639,21 +639,21 @@ class TestAsyncResources:
     async def test_path_params_get(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.get(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.get(
-                resource_id="023e105f4ecef8ad9ca31a8372d0c353",
+                share_resource_id="023e105f4ecef8ad9ca31a8372d0c353",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="",
             )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `resource_id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `share_resource_id` but received ''"):
             await async_client.resource_sharing.resources.with_raw_response.get(
-                resource_id="",
+                share_resource_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
                 share_id="3fd85f74b32742f1bff64a85009dda07",
             )

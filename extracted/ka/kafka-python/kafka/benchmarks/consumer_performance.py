@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # Adapted from https://github.com/mrafayaleem/kafka-jython
 
-from __future__ import absolute_import, print_function
-
 import argparse
 import pprint
 import sys
@@ -13,7 +11,7 @@ import traceback
 from kafka import KafkaConsumer
 
 
-class ConsumerPerformance(object):
+class ConsumerPerformance:
     @staticmethod
     def run(args):
         try:
@@ -35,15 +33,13 @@ class ConsumerPerformance(object):
             print('Initializing Consumer...')
             props['bootstrap_servers'] = args.bootstrap_servers
             props['auto_offset_reset'] = 'earliest'
-            if 'group_id' not in props:
-                props['group_id'] = 'kafka-consumer-benchmark'
             if 'consumer_timeout_ms' not in props:
                 props['consumer_timeout_ms'] = 10000
             props['metrics_sample_window_ms'] = args.stats_interval * 1000
             for k, v in props.items():
                 print('---> {0}={1}'.format(k, v))
             consumer = KafkaConsumer(args.topic, **props)
-            print('---> group_id={0}'.format(consumer.config['group_id']))
+            print('---> topic={0}'.format(args.topic))
             print('---> report stats every {0} secs'.format(args.stats_interval))
             print('---> raw metrics? {0}'.format(args.raw_metrics))
             timer_stop = threading.Event()
@@ -54,14 +50,14 @@ class ConsumerPerformance(object):
             print('-> OK!')
             print()
 
-            start_time = time.time()
+            start_time = time.monotonic()
             records = 0
             for msg in consumer:
                 records += 1
                 if records >= args.num_records:
                     break
 
-            end_time = time.time()
+            end_time = time.monotonic()
             timer_stop.set()
             timer.join()
             print('Consumed {0} records'.format(records))
@@ -75,7 +71,7 @@ class ConsumerPerformance(object):
 
 class StatsReporter(threading.Thread):
     def __init__(self, interval, consumer, event=None, raw_metrics=False):
-        super(StatsReporter, self).__init__()
+        super().__init__()
         self.interval = interval
         self.consumer = consumer
         self.event = event
@@ -86,12 +82,12 @@ class StatsReporter(threading.Thread):
         if self.raw_metrics:
             pprint.pprint(metrics)
         else:
-            print('{records-consumed-rate} records/sec ({bytes-consumed-rate} B/sec),'
-                  ' {fetch-latency-avg} latency,'
-                  ' {fetch-rate} fetch/s,'
-                  ' {fetch-size-avg} fetch size,'
-                  ' {records-lag-max} max record lag,'
-                  ' {records-per-request-avg} records/req'
+            print('{records-consumed-rate:.0f} records/sec ({bytes-consumed-rate:.0f} B/sec),'
+                  ' {fetch-latency-avg:.0f}ms avg latency,'
+                  ' {fetch-rate:.0f} avg fetch requests/sec,'
+                  ' {fetch-size-avg:.0f} avg fetch size,'
+                  ' {records-lag-max:.0f} max record lag,'
+                  ' {records-per-request-avg:.0f} avg records/req'
                   .format(**metrics['consumer-fetch-manager-metrics']))
 
 
@@ -110,10 +106,10 @@ def get_args_parser():
         description='This tool is used to verify the consumer performance.')
 
     parser.add_argument(
-        '--bootstrap-servers', type=str, nargs='+', default=(),
+        '-b', '--bootstrap-servers', type=str, nargs='+', default=(),
         help='host:port for cluster bootstrap servers')
     parser.add_argument(
-        '--topic', type=str,
+        '-t', '--topic', type=str,
         help='Topic for consumer test (default: kafka-python-benchmark-test)',
         default='kafka-python-benchmark-test')
     parser.add_argument(
@@ -121,7 +117,7 @@ def get_args_parser():
         help='number of messages to consume (default: 1000000)',
         default=1000000)
     parser.add_argument(
-        '--consumer-config', type=str, nargs='+', default=(),
+        '-c', '--consumer-config', type=str, nargs='+', default=(),
         help='kafka consumer related configuration properties like '
              'bootstrap_servers,client_id etc..')
     parser.add_argument(

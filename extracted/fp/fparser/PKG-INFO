@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: fparser
-Version: 0.2.2
+Version: 0.2.3
 Summary: Python implementation of a Fortran parser
 Author: Pearu Peterson, Rupert Ford
-Author-email: Andrew Porter <andrew.porter@stfc.ac.uk>
-License: BSD-3-Clause
+Author-email: Andrew Porter <andrew.porter@stfc.ac.uk>, Sergi Siso <sergi.siso@stfc.ac.uk>
+License-Expression: BSD-3-Clause
 Keywords: fortran,parser
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
@@ -22,7 +22,6 @@ Classifier: Operating System :: MacOS
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: setuptools_scm
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == "doc"
 Requires-Dist: sphinxcontrib.bibtex; extra == "doc"
@@ -34,6 +33,13 @@ Requires-Dist: pytest>=3.3.0; extra == "tests"
 Dynamic: license-file
 
 # News #
+  * 10/06/2026 Version 0.2.3 released (adds support for preprocessor line markers,
+    improved handling of labelled DO loops and support for F2008 extension to
+    Proc_Decl).
+  * 01/04/2026 Version 0.2.2 released (adds support for more types of directive and
+    support for the Fortran2008 unlimited-repeat format specifier).
+  * Good to know: fparser with Python 3.14 is approximately a factor of two faster than
+    it is with older Python versions.
   * 29/09/2025 Version 0.2.1 released (bug fixes for string handling and
     loops in array constructors, support for a new, Directive node).
   * 26/11/2024 Version 0.2.0 released (support for statements behind OMP sentinels, non-standard

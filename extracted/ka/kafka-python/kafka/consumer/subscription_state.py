@@ -1,27 +1,15 @@
-from __future__ import absolute_import
-
-import abc
+from abc import ABC, abstractmethod
 from collections import OrderedDict
-try:
-    from collections.abc import Sequence
-except ImportError:
-    from collections import Sequence
-try:
-    # enum in stdlib as of py3.4
-    from enum import IntEnum  # pylint: disable=import-error
-except ImportError:
-    # vendored backport module
-    from kafka.vendor.enum34 import IntEnum
+from collections.abc import Sequence
+from enum import IntEnum
 import logging
 import random
 import re
 import threading
 import time
 
-from kafka.vendor import six
-
 import kafka.errors as Errors
-from kafka.protocol.list_offsets import OffsetResetStrategy
+from kafka.protocol.consumer import OffsetResetStrategy
 from kafka.structs import OffsetAndMetadata
 from kafka.util import ensure_valid_topic_name, synchronized
 
@@ -35,7 +23,7 @@ class SubscriptionType(IntEnum):
     USER_ASSIGNED = 3
 
 
-class SubscriptionState(object):
+class SubscriptionState:
     """
     A class for tracking the topics, partitions, and offsets for the consumer.
     A partition is "assigned" either directly with assign_from_user() (manual
@@ -130,8 +118,15 @@ class SubscriptionState(object):
                 any listener set in a previous call to subscribe. It is
                 guaranteed, however, that the partitions revoked/assigned
                 through this interface are from topics subscribed in this call.
+
+        Raises:
+            ValueError: if neither topics nor pattern provided.
+            IllegalStateError: if both topics and pattern provided.
+            TypeError: if topics is not a list/sequence, or listener is not
+                a AsyncConsumerRebalanceListener or ConsumerRebalanceListener.
         """
-        assert topics or pattern, 'Must provide topics or pattern'
+        if not topics and not pattern:
+            raise ValueError('Must provide topics or pattern')
         if (topics and pattern):
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
 
@@ -146,8 +141,10 @@ class SubscriptionState(object):
             self._set_subscription_type(SubscriptionType.AUTO_TOPICS)
             self.change_subscription(topics)
 
-        if listener and not isinstance(listener, ConsumerRebalanceListener):
-            raise TypeError('listener must be a ConsumerRebalanceListener')
+        if listener and not isinstance(
+                listener, (ConsumerRebalanceListener, AsyncConsumerRebalanceListener)):
+            raise TypeError(
+                'listener must be a ConsumerRebalanceListener or AsyncConsumerRebalanceListener')
         self.rebalance_listener = listener
 
     @synchronized
@@ -167,7 +164,7 @@ class SubscriptionState(object):
         if not self.partitions_auto_assigned():
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
 
-        if isinstance(topics, six.string_types):
+        if isinstance(topics, str):
             topics = [topics]
 
         if self.subscription == set(topics):
@@ -201,20 +198,22 @@ class SubscriptionState(object):
         """Reset the group's subscription to only contain topics subscribed by this consumer."""
         if not self.partitions_auto_assigned():
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
-        assert self.subscription is not None, 'Subscription required'
+        if self.subscription is None:
+            raise Errors.IllegalStateError('Subscription required')
         self._group_subscription.intersection_update(self.subscription)
 
     @synchronized
     def assign_from_user(self, partitions):
         """Manually assign a list of TopicPartitions to this consumer.
 
-        This interface does not allow for incremental assignment and will
-        replace the previous assignment (if there was one).
-
-        Manual topic assignment through this method does not use the consumer's
-        group management functionality. As such, there will be no rebalance
-        operation triggered when group membership or cluster and topic metadata
-        change. Note that it is not possible to use both manual partition
+        The new assignment replaces the previous one (this is not an
+        incremental-add API), but ``TopicPartitionState`` is preserved
+        for any partition that's present in both the old and new
+        assignment. Manual topic assignment through this method does
+        not use the consumer's group management functionality. As
+        such, there will be no rebalance operation triggered when
+        group membership or cluster and topic metadata change. Note
+        that it is not possible to use both manual partition
         assignment with assign() and group assignment with subscribe().
 
         Arguments:
@@ -224,23 +223,33 @@ class SubscriptionState(object):
             IllegalStateError: if consumer has already called subscribe()
         """
         self._set_subscription_type(SubscriptionType.USER_ASSIGNED)
-        if self._user_assignment != set(partitions):
-            self._user_assignment = set(partitions)
-            self._set_assignment({partition: self.assignment.get(partition, TopicPartitionState())
-                                  for partition in partitions})
+        if self._user_assignment == set(partitions):
+            return
+        self._user_assignment = set(partitions)
+        self._apply_assignment(partitions)
 
     @synchronized
     def assign_from_subscribed(self, assignments):
-        """Update the assignment to the specified partitions
+        """Update the assignment to the specified partitions.
 
         This method is called by the coordinator to dynamically assign
-        partitions based on the consumer's topic subscription. This is different
-        from assign_from_user() which directly sets the assignment from a
-        user-supplied TopicPartition list.
+        partitions based on the consumer's topic subscription. Differs
+        from :meth:`assign_from_user` which directly sets the assignment
+        from a user-supplied TopicPartition list.
+
+        Preserves ``TopicPartitionState`` (position, paused flag,
+        preferred read replica, fetch buffers tied to the partition)
+        for any partition present in both the prior and new assignments.
+
+        Validation raises ``ValueError`` BEFORE any mutation if a
+        partition's topic isn't subscribed.
 
         Arguments:
-            assignments (list of TopicPartition): partitions to assign to this
-                consumer instance.
+            assignments (list of TopicPartition): the *full* new
+                assignment (not a diff). Partitions present in both
+                the old and new assignment retain their state;
+                revoked partitions are dropped; new partitions get
+                fresh state.
         """
         if not self.partitions_auto_assigned():
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
@@ -249,22 +258,46 @@ class SubscriptionState(object):
             if tp.topic not in self.subscription:
                 raise ValueError("Assigned partition %s for non-subscribed topic." % (tp,))
 
-        # randomized ordering should improve balance for short-lived consumers
-        self._set_assignment({partition: TopicPartitionState() for partition in assignments}, randomize=True)
+        # randomize new-partition insertion order so short-lived
+        # consumers (CLI tools, one-shot jobs) that re-run from scratch
+        # don't keep starting on the same partition. The Fetcher
+        # iterates fetchable_partitions() in self.assignment insertion
+        # order; without the shuffle, partition 0 of the
+        # alphabetically-first topic always wins the first fetch and
+        # short-lived runs that bail before exhausting it never see
+        # later partitions.
+        self._apply_assignment(assignments, randomize=True)
         log.info("Updated partition assignment: %s", assignments)
 
-    def _set_assignment(self, partition_states, randomize=False):
-        """Batch partition assignment by topic (self.assignment is OrderedDict)"""
-        self.assignment.clear()
-        topics = [tp.topic for tp in six.iterkeys(partition_states)]
+    def _apply_assignment(self, partitions, randomize=False):
+        """Mutate ``self.assignment`` in place to contain exactly
+        ``partitions``, preserving the existing ``TopicPartitionState``
+        for any partition present in both the old and new sets.
+
+        Shared between :meth:`assign_from_user` and
+        :meth:`assign_from_subscribed` - the algorithm is identical;
+        only the validation around it differs.
+
+        When ``randomize=True``, the *newly-added* partitions are
+        inserted in random order. Kept partitions retain their
+        existing position regardless. This is intended for the
+        coordinator-driven path (assign_from_subscribed) - see the
+        comment at that call site for rationale.
+        """
+        new_set = set(partitions)
+        # Drop revoked partitions (we mutate self.assignment, so list()
+        # the keys first to avoid "dict changed size during iteration").
+        for tp in list(self.assignment.keys()):
+            if tp not in new_set:
+                del self.assignment[tp]
+        # Add new partitions; kept partitions retain their existing
+        # TopicPartitionState (positions, paused flag, KIP-392 cache,
+        # etc.).
+        new_partitions = [tp for tp in partitions if tp not in self.assignment]
         if randomize:
-            random.shuffle(topics)
-        topic_partitions = OrderedDict({topic: [] for topic in topics})
-        for tp in six.iterkeys(partition_states):
-            topic_partitions[tp.topic].append(tp)
-        for topic in six.iterkeys(topic_partitions):
-            for tp in topic_partitions[topic]:
-                self.assignment[tp] = partition_states[tp]
+            random.shuffle(new_partitions)
+        for tp in new_partitions:
+            self.assignment[tp] = TopicPartitionState()
 
     @synchronized
     def unsubscribe(self):
@@ -324,7 +357,7 @@ class SubscriptionState(object):
     def fetchable_partitions(self):
         """Return ordered list of TopicPartitions that should be Fetched."""
         fetchable = list()
-        for partition, state in six.iteritems(self.assignment):
+        for partition, state in self.assignment.items():
             if state.is_fetchable():
                 fetchable.append(partition)
         return fetchable
@@ -338,7 +371,7 @@ class SubscriptionState(object):
     def all_consumed_offsets(self):
         """Returns consumed offsets as {TopicPartition: OffsetAndMetadata}"""
         all_consumed = {}
-        for partition, state in six.iteritems(self.assignment):
+        for partition, state in self.assignment.items():
             if state.has_valid_position:
                 all_consumed[partition] = state.position
         return all_consumed
@@ -371,7 +404,7 @@ class SubscriptionState(object):
 
     @synchronized
     def has_all_fetch_positions(self):
-        for state in six.itervalues(self.assignment):
+        for state in self.assignment.values():
             if not state.has_valid_position:
                 return False
         return True
@@ -379,7 +412,7 @@ class SubscriptionState(object):
     @synchronized
     def missing_fetch_positions(self):
         missing = set()
-        for partition, state in six.iteritems(self.assignment):
+        for partition, state in self.assignment.items():
             if state.is_missing_position():
                 missing.add(partition)
         return missing
@@ -391,7 +424,7 @@ class SubscriptionState(object):
     @synchronized
     def reset_missing_positions(self):
         partitions_with_no_offsets = set()
-        for tp, state in six.iteritems(self.assignment):
+        for tp, state in self.assignment.items():
             if state.is_missing_position():
                 if self._default_offset_reset_strategy == OffsetResetStrategy.NONE:
                     partitions_with_no_offsets.add(tp)
@@ -404,10 +437,63 @@ class SubscriptionState(object):
     @synchronized
     def partitions_needing_reset(self):
         partitions = set()
-        for tp, state in six.iteritems(self.assignment):
+        for tp, state in self.assignment.items():
             if state.awaiting_reset and state.is_reset_allowed():
                 partitions.add(tp)
         return partitions
+
+    @synchronized
+    def next_offset_reset_retry_time(self):
+        times = [state.next_allowed_retry_time
+                 for state in self.assignment.values()
+                 if state.awaiting_reset and state.next_allowed_retry_time is not None]
+        return min(times) if times else None
+
+    @synchronized
+    def maybe_validate_position_for_current_leader(self, partition, current_leader_epoch):
+        if partition not in self.assignment:
+            return False
+        return self.assignment[partition].maybe_validate_position(current_leader_epoch)
+
+    @synchronized
+    def request_position_validation(self, partition):
+        if partition not in self.assignment:
+            return False
+        return self.assignment[partition].request_position_validation()
+
+    @synchronized
+    def partitions_needing_validation(self):
+        partitions = set()
+        for tp, state in self.assignment.items():
+            if state.awaiting_validation and state.is_validation_allowed():
+                partitions.add(tp)
+        return partitions
+
+    @synchronized
+    def next_offset_validation_retry_time(self):
+        times = [state.next_allowed_retry_time
+                 for state in self.assignment.values()
+                 if state.awaiting_validation and state.next_allowed_retry_time is not None]
+        return min(times) if times else None
+
+    @synchronized
+    def set_validation_pending(self, partitions, next_allowed_retry_time):
+        for partition in partitions:
+            self.assignment[partition].set_validation_pending(next_allowed_retry_time)
+
+    @synchronized
+    def validation_failed(self, partitions, next_allowed_retry_time):
+        for partition in partitions:
+            self.assignment[partition].validation_failed(next_allowed_retry_time)
+
+    @synchronized
+    def complete_validation(self, partition, validated_position=None):
+        if partition in self.assignment:
+            self.assignment[partition].complete_validation(validated_position)
+
+    @synchronized
+    def is_offset_validation_needed(self, partition):
+        return partition in self.assignment and self.assignment[partition].awaiting_validation
 
     @synchronized
     def is_assigned(self, partition):
@@ -430,6 +516,24 @@ class SubscriptionState(object):
         self.assignment[partition].resume()
 
     @synchronized
+    def mark_pending_revocation(self, partitions):
+        """KIP-429: gate ``is_fetchable()`` for each partition's state
+        so the fetcher would skip them while an on_partitions_revoked /
+        on_partitions_lost listener runs. Called immediately before
+        invoking the listener. The flag is single-shot - the
+        surrounding ``assign_from_subscribed`` drops the
+        ``TopicPartitionState`` for revoked partitions when the
+        listener returns.
+
+        Currently a no-op while the user thread is blocked in ``_net.run``
+        during rebalance and so the only path that calls ``send_fetches``
+        cannot fire. Kept as a defensive gate in case this changes in
+        the future."""
+        for tp in partitions:
+            if tp in self.assignment:
+                self.assignment[tp].mark_pending_revocation()
+
+    @synchronized
     def reset_failed(self, partitions, next_retry_time):
         for partition in partitions:
             self.assignment[partition].reset_failed(next_retry_time)
@@ -448,7 +552,7 @@ class SubscriptionState(object):
         return self.assignment[partition].position
 
 
-class TopicPartitionState(object):
+class TopicPartitionState:
     def __init__(self):
         self.paused = False # whether this partition has been paused by the user
         self.reset_strategy = None # the reset strategy if awaiting_reset is set
@@ -456,10 +560,29 @@ class TopicPartitionState(object):
         self.highwater = None
         self.drop_pending_record_batch = False
         self.next_allowed_retry_time = None
+        # KIP-320: offset validation state. _awaiting_validation gates fetches
+        # until OffsetForLeaderEpoch confirms the position is consistent with
+        # the current leader's log; mutually exclusive with awaiting_reset.
+        self._awaiting_validation = False
+        # KIP-392: preferred read replica chosen by the broker (rack-aware).
+        # ``_preferred_read_replica_expiration`` is a monotonic deadline; after
+        # it passes we fall back to the leader and re-learn. Cleared on
+        # replica-related errors so the next fetch goes to the leader.
+        self._preferred_read_replica = None
+        self._preferred_read_replica_expiration = None
+        # KIP-429 (Java parity): set while an on_partitions_revoked /
+        # on_partitions_lost listener is running for this partition.
+        # Gates fetches so records aren't pulled for a partition the
+        # user is in the middle of releasing. The TopicPartitionState
+        # is dropped from the assignment when the listener returns,
+        # so the flag only matters for the listener-call window.
+        self._pending_revocation = False
 
     def _set_position(self, offset):
-        assert self.has_valid_position, 'Valid position required'
-        assert isinstance(offset, OffsetAndMetadata)
+        if not self.has_valid_position:
+            raise Errors.IllegalStateError('Valid position required')
+        if not isinstance(offset, OffsetAndMetadata):
+            raise TypeError('offset must be OffsetAndMetadata')
         self._position = offset
 
     def _get_position(self):
@@ -468,13 +591,16 @@ class TopicPartitionState(object):
     position = property(_get_position, _set_position, None, "last position")
 
     def reset(self, strategy):
-        assert strategy is not None
+        if strategy is None:
+            raise ValueError('strategy cannot be None')
         self.reset_strategy = strategy
         self._position = None
         self.next_allowed_retry_time = None
+        self._awaiting_validation = False
+        self.clear_preferred_read_replica()
 
     def is_reset_allowed(self):
-        return self.next_allowed_retry_time is None or self.next_allowed_retry_time < time.time()
+        return self.next_allowed_retry_time is None or self.next_allowed_retry_time < time.monotonic()
 
     @property
     def awaiting_reset(self):
@@ -498,6 +624,8 @@ class TopicPartitionState(object):
         self.reset_strategy = None
         self.drop_pending_record_batch = True
         self.next_allowed_retry_time = None
+        self._awaiting_validation = False
+        self.clear_preferred_read_replica()
 
     def pause(self):
         self.paused = True
@@ -505,12 +633,105 @@ class TopicPartitionState(object):
     def resume(self):
         self.paused = False
 
+    def mark_pending_revocation(self):
+        """KIP-429: gate fetches while an on_partitions_revoked /
+        on_partitions_lost listener is in progress for this partition.
+        Single-shot: the surrounding ``assign_from_subscribed`` drops
+        the state object once the listener returns."""
+        self._pending_revocation = True
+
     def is_fetchable(self):
-        return not self.paused and self.has_valid_position
+        return (not self.paused
+                and not self._pending_revocation
+                and self.has_valid_position
+                and not self._awaiting_validation)
+
+    def preferred_read_replica(self):
+        """Return the currently-cached preferred read replica (KIP-392),
+        or None if unset/expired. Lazily clears the cache on expiry."""
+        if self._preferred_read_replica is None:
+            return None
+        if (self._preferred_read_replica_expiration is not None
+                and time.monotonic() >= self._preferred_read_replica_expiration):
+            self.clear_preferred_read_replica()
+            return None
+        return self._preferred_read_replica
+
+    def update_preferred_read_replica(self, node_id, expiration_time):
+        """Cache the broker's chosen preferred read replica until ``expiration_time``
+        (monotonic). ``node_id == -1`` (or None) clears the cache.
+
+        Returns True if the cached replica actually changed (caller can log).
+        """
+        if node_id is None or node_id < 0:
+            changed = self._preferred_read_replica is not None
+            self.clear_preferred_read_replica()
+            return changed
+        if node_id == self._preferred_read_replica:
+            return False
+        self._preferred_read_replica = node_id
+        self._preferred_read_replica_expiration = expiration_time
+        return True
+
+    def clear_preferred_read_replica(self):
+        """Clear the cached preferred read replica. Returns the previously-
+        cached node_id (or None) so the caller can log the eviction."""
+        previous = self._preferred_read_replica
+        self._preferred_read_replica = None
+        self._preferred_read_replica_expiration = None
+        return previous
+
+    @property
+    def awaiting_validation(self):
+        return self._awaiting_validation
+
+    def maybe_validate_position(self, current_leader_epoch):
+        """Mark for validation if current leader has advanced beyond our position's epoch.
+
+        Returns True if the partition is now awaiting validation.
+        """
+        if self.awaiting_reset:
+            return False
+        if self._position is None:
+            return False
+        if current_leader_epoch is None or current_leader_epoch < 0:
+            return False
+        # Positions without a known epoch (legacy data, post-seek to bare offset)
+        # can't be validated; treat as already-fetchable.
+        if self._position.leader_epoch < 0:
+            return False
+        if self._position.leader_epoch >= current_leader_epoch:
+            return False
+        self.clear_preferred_read_replica()
+        self._awaiting_validation = True
+        self.next_allowed_retry_time = None
+        return True
+
+    def request_position_validation(self):
+        """Force validation (e.g., after FENCED/UNKNOWN epoch errors from the broker)."""
+        if self._position is None or self._position.leader_epoch < 0:
+            return False
+        self._awaiting_validation = True
+        self.next_allowed_retry_time = None
+        return True
+
+    def is_validation_allowed(self):
+        return self.next_allowed_retry_time is None or self.next_allowed_retry_time < time.monotonic()
+
+    def set_validation_pending(self, next_allowed_retry_time):
+        self.next_allowed_retry_time = next_allowed_retry_time
+
+    def validation_failed(self, next_allowed_retry_time):
+        self.next_allowed_retry_time = next_allowed_retry_time
+
+    def complete_validation(self, validated_position=None):
+        self._awaiting_validation = False
+        self.next_allowed_retry_time = None
+        if validated_position is not None:
+            self._position = validated_position
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ConsumerRebalanceListener(object):
+class ConsumerRebalanceListener(ABC):
     """
     A callback interface that the user can implement to trigger custom actions
     when the set of partitions assigned to the consumer changes.
@@ -541,8 +762,15 @@ class ConsumerRebalanceListener(object):
     it may want to automatically trigger a flush of this cache, before the new
     owner takes over consumption.
 
-    This callback will execute in the user thread as part of the Consumer.poll()
-    whenever partition assignment changes.
+    Threading: callbacks run on the consumer's IO event loop, the same loop
+    that drives heartbeats. Sync listener methods must return promptly --
+    blocking IO inside a sync listener will block heartbeats for the duration
+    and can cause the consumer to be kicked from the group if the listener
+    runs longer than ``session_timeout_ms``. For listeners that need to do
+    blocking work (e.g. flushing state to a database), prefer
+    :class:`AsyncConsumerRebalanceListener`, which lets you ``await`` while
+    keeping the loop responsive, or wrap the blocking call in your own
+    worker thread.
 
     It is guaranteed that all consumer processes will invoke
     on_partitions_revoked() prior to any process invoking
@@ -551,7 +779,7 @@ class ConsumerRebalanceListener(object):
     taking over that partition has their on_partitions_assigned() callback
     called to load the state.
     """
-    @abc.abstractmethod
+    @abstractmethod
     def on_partitions_revoked(self, revoked):
         """
         A callback method the user can implement to provide handling of offset
@@ -561,8 +789,11 @@ class ConsumerRebalanceListener(object):
         should be committed in this callback to either Kafka or a custom offset
         store to prevent duplicate data.
 
-        NOTE: This method is only called before rebalances. It is not called
-        prior to KafkaConsumer.close()
+        NOTE: This method is called before each rebalance and also when the
+        consumer is closing (KafkaConsumer.close()), so that offsets / state
+        can be committed before the partitions are given up. If the group
+        membership has already been lost (forced eviction),
+        on_partitions_lost() is called instead.
 
         Arguments:
             revoked (list of TopicPartition): the partitions that were assigned
@@ -570,7 +801,7 @@ class ConsumerRebalanceListener(object):
         """
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def on_partitions_assigned(self, assigned):
         """
         A callback method the user can implement to provide handling of
@@ -587,3 +818,80 @@ class ConsumerRebalanceListener(object):
                 consumer (may include partitions that were previously assigned)
         """
         pass
+
+    def on_partitions_lost(self, lost):
+        """KIP-429: called when the consumer has been forcibly removed
+        from the group (heartbeat session expiry, ``UnknownMemberIdError``,
+        ``IllegalGenerationError``, ``FencedInstanceIdError``) and the
+        partitions cannot be cleanly committed. ``on_partitions_revoked``
+        implies the user *can* still commit; ``on_partitions_lost`` makes
+        explicit that the member has been booted and any in-flight state
+        for these partitions should be discarded.
+
+        Default behaviour is to delegate to ``on_partitions_revoked`` so
+        listeners written before KIP-429 keep working unchanged. Override
+        for cleanup that is specific to the forced-eviction case (e.g.
+        skipping a commit attempt that will fail anyway).
+
+        Arguments:
+            lost (set of TopicPartition): the partitions that were
+                assigned but have been lost due to forced eviction.
+        """
+        return self.on_partitions_revoked(lost)
+
+
+class AsyncConsumerRebalanceListener(ABC):
+    """
+    Async variant of :class:`ConsumerRebalanceListener`.
+
+    Implement this when your rebalance hooks need to perform IO that would
+    otherwise block the consumer's event loop -- e.g. flushing state to a
+    database, calling an external service, or coordinating with other async
+    code. The coordinator detects coroutine functions and ``await`` s them
+    instead of calling inline, so other tasks on the loop (notably the
+    heartbeat coroutine) continue to run while your listener is suspended.
+
+    Same lifecycle and ordering guarantees as the sync listener: all
+    consumers in the group invoke ``on_partitions_revoked`` before any
+    invokes ``on_partitions_assigned``. Both methods must be defined as
+    ``async def``; otherwise use :class:`ConsumerRebalanceListener`.
+    """
+    @abstractmethod
+    async def on_partitions_revoked(self, revoked):
+        """Async-callback for the start of a rebalance operation.
+
+        See :meth:`ConsumerRebalanceListener.on_partitions_revoked` for
+        semantics. The coordinator awaits this method, so non-blocking IO
+        via ``await`` keeps the heartbeat loop responsive during the call.
+
+        Arguments:
+            revoked (set of TopicPartition): the partitions that were
+                assigned to the consumer on the last rebalance.
+        """
+        pass
+
+    @abstractmethod
+    async def on_partitions_assigned(self, assigned):
+        """Async-callback for the completion of a partition re-assignment.
+
+        See :meth:`ConsumerRebalanceListener.on_partitions_assigned` for
+        semantics.
+
+        Arguments:
+            assigned (set of TopicPartition): the partitions assigned to
+                the consumer (may include partitions that were previously
+                assigned).
+        """
+        pass
+
+    async def on_partitions_lost(self, lost):
+        """Async variant of
+        :meth:`ConsumerRebalanceListener.on_partitions_lost`. Default
+        implementation awaits ``on_partitions_revoked`` for backward
+        compatibility with listeners written before KIP-429.
+
+        Arguments:
+            lost (set of TopicPartition): the partitions that were
+                assigned but have been lost due to forced eviction.
+        """
+        await self.on_partitions_revoked(lost)

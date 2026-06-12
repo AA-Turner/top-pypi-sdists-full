@@ -49,7 +49,9 @@ from .imports import (
     is_mlu_available,
     is_msamp_available,
     is_musa_available,
+    is_neuron_available,
     is_npu_available,
+    is_rocm_available,
     is_torchao_available,
     is_transformer_engine_available,
     is_xpu_available,
@@ -614,7 +616,9 @@ class DistributedType(str, enum.Enum):
         - **MULTI_HPU** -- Distributed on multiple HPUs.
         - **MULTI_NEURON** -- Distributed on multiple Neuron cores.
         - **DEEPSPEED** -- Using DeepSpeed.
+        - **FSDP** -- Using Fully Sharded Data Parallelism (FSDP).
         - **XLA** -- Using TorchXLA.
+        - **MEGATRON_LM** -- Using Megatron-LM.
     """
 
     # Subclassing str as well as Enum allows the `DistributedType` to be JSON-serializable out of the box.
@@ -1439,6 +1443,17 @@ class DeepSpeedPlugin:
         self.fill_match("fp16.enabled", must_match=False, **kwargs)
         self.fill_match("bf16.enabled", must_match=False, **kwargs)
 
+        # On ROCm, bf16 DeepSpeed training can silently produce NaN weights because
+        # bf16 has no NaN/Inf safety net (unlike fp16 loss scaling). Accumulating
+        # gradients in fp32 for the collective avoids the overflow path.
+        if mixed_precision in ("bf16", "fp8") and is_rocm_available() and "communication_data_type" not in ds_config:
+            ds_config["communication_data_type"] = "fp32"
+            logger.info(
+                "ROCm + DeepSpeed + bf16 detected: setting "
+                "`communication_data_type='fp32'` to avoid bf16 overflow corrupting "
+                "weights. Set it explicitly in your DeepSpeed config to override."
+            )
+
     def set_deepspeed_weakref(self):
         from .imports import is_transformers_available
 
@@ -1629,7 +1644,7 @@ class FullyShardedDataParallelPlugin:
             A technique to reduce memory usage by clearing activations of certain layers and recomputing them during a
             backward pass. Effectively, this trades extra computation time for reduced memory usage.
         cpu_ram_efficient_loading (`bool`, defaults to `None`):
-            If True, only the first process loads the pretrained model checkoint while all other processes have empty
+            If True, only the first process loads the pretrained model checkpoint while all other processes have empty
             weights. Only applicable for Transformers. When using this, `sync_module_states` needs to be `True`.
         transformer_cls_names_to_wrap (`Optional[List[str]]`, defaults to `None`):
             A list of transformer layer class names to wrap. Only applicable when `auto_wrap_policy` is
@@ -1778,7 +1793,7 @@ class FullyShardedDataParallelPlugin:
     cpu_ram_efficient_loading: bool = field(
         default=None,
         metadata={
-            "help": "If True, only the first process loads the pretrained model checkoint while all other processes have empty weights. "
+            "help": "If True, only the first process loads the pretrained model checkpoint while all other processes have empty weights. "
             "Only applicable for 🤗 Transformers. When using this, `sync_module_states` needs to be `True`. Defaults to `False`."
         },
     )
@@ -1974,6 +1989,8 @@ class FullyShardedDataParallelPlugin:
                 device = torch.xpu.current_device()
             elif is_hpu_available():
                 device = torch.hpu.current_device()
+            elif is_neuron_available():
+                device = torch.neuron.current_device()
             else:
                 raise RuntimeError(
                     "There are currently no available devices found, must be one of 'XPU', 'CUDA', 'MLU', 'NPU', 'MUSA', or 'HPU'."
@@ -2230,7 +2247,7 @@ class DeepSpeedSequenceParallelConfig:
     sp_attn_implementation: Optional[str] = field(
         default=None,
         metadata={
-            "help": "Attention implementation to use. Can be one of 'flash_attention_2', 'flash_attention_3' or 'sdpa'. Defaults to `sdpa`."
+            "help": "Attention implementation to use. Can be one of 'flash_attention_2', 'flash_attention_3', 'sdpa', or a hub-hosted kernel (e.g. 'kernels-community/flash-attn2'). Defaults to `sdpa`."
         },
     )
 
@@ -2253,14 +2270,24 @@ class DeepSpeedSequenceParallelConfig:
         if self.sp_attn_implementation is None:
             self.sp_attn_implementation = os.environ.get("PARALLELISM_CONFIG_SP_ATTN_IMPLEMENTATION", None)
 
-        if self.sp_attn_implementation is not None and self.sp_attn_implementation not in [
-            "flash_attention_2",
-            "flash_attention_3",
-            "sdpa",
-        ]:
-            raise ValueError(
-                f"Invalid sp_attn_implementation: {self.sp_attn_implementation}. Must be one of 'flash_attention_2', 'flash_attention_3' or 'sdpa'."
-            )
+        _builtin_sp_attn = ["flash_attention_2", "flash_attention_3", "sdpa"]
+        # Also allow hub-hosted flash attention kernels (e.g. "kernels-community/flash-attn2").
+        # These register into transformers' ALL_ATTENTION_FUNCTIONS at model load time and
+        # DeepSpeed validates against that registry directly.
+        _unsupported_sp_attn = ["eager", "flex_attention"]
+        if self.sp_attn_implementation is not None:
+            if self.sp_attn_implementation in _unsupported_sp_attn:
+                raise ValueError(
+                    f"Invalid sp_attn_implementation: {self.sp_attn_implementation}. "
+                    f"'eager' and 'flex_attention' are not supported with sequence parallelism."
+                )
+            if self.sp_attn_implementation not in _builtin_sp_attn:
+                if "/" not in self.sp_attn_implementation or "flash-attn" not in self.sp_attn_implementation:
+                    raise ValueError(
+                        f"Invalid sp_attn_implementation: {self.sp_attn_implementation}. "
+                        f"Must be one of {_builtin_sp_attn} or a hub-hosted flash attention kernel "
+                        f"(e.g. 'kernels-community/flash-attn2')."
+                    )
 
 
 @dataclass

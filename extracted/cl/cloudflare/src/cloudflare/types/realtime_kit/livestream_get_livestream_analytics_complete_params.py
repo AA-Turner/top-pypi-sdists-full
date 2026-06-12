@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
-from datetime import datetime
-from typing_extensions import Required, Annotated, TypedDict
-
-from ..._utils import PropertyInfo
+from typing_extensions import Required, TypedDict
 
 __all__ = ["LivestreamGetLivestreamAnalyticsCompleteParams"]
 
@@ -15,8 +11,17 @@ class LivestreamGetLivestreamAnalyticsCompleteParams(TypedDict, total=False):
     account_id: Required[str]
     """The account identifier tag."""
 
-    end_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
-    """Specify the end time range in ISO format to access the livestream analytics."""
+    end_time: int
+    """
+    Specify the end time as a Unix timestamp in seconds to access the livestream
+    analytics.
+    """
 
-    start_time: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
-    """Specify the start time range in ISO format to access the livestream analytics."""
+    filters: str
+    """Optional filters for livestream analytics."""
+
+    start_time: int
+    """
+    Specify the start time as a Unix timestamp in seconds to access the livestream
+    analytics.
+    """

@@ -1,24 +1,22 @@
 Metadata-Version: 2.4
 Name: XBlock
-Version: 6.1.0
+Version: 6.2.0
 Summary: XBlock Core Library
-Home-page: https://github.com/openedx/XBlock
-Author: edX
-Author-email: oscm@edx.org
-License: Apache 2.0
+Author-email: edX <oscm@edx.org>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/openedx/XBlock
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.TXT
-License-File: NOTICE.txt
-License-File: AUTHORS
+Requires-Dist: edx-opaque-keys
 Requires-Dist: fs
 Requires-Dist: lxml
 Requires-Dist: mako
@@ -27,22 +25,11 @@ Requires-Dist: python-dateutil
 Requires-Dist: pytz
 Requires-Dist: pyyaml
 Requires-Dist: simplejson
-Requires-Dist: webob
-Requires-Dist: web-fragments
+Requires-Dist: webob>=1.6.0
 Provides-Extra: django
 Requires-Dist: openedx-django-pyfs>=1.0.5; extra == "django"
 Requires-Dist: lazy; extra == "django"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
 
 XBlock
 ######

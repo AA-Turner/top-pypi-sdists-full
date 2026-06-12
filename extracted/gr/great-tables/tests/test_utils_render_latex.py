@@ -3,7 +3,7 @@ from unittest import mock
 import pandas as pd
 import os
 
-from great_tables import GT, exibble
+from great_tables import GT, exibble, loc
 from great_tables.data import gtcars
 
 from great_tables._utils_render_latex import (
@@ -494,20 +494,142 @@ def test_snap_render_as_latex_floating_table(snapshot):
     assert snapshot == latex_str
 
 
-def test_render_as_latex_stub_raises():
+def test_render_as_latex_with_stub():
     gt_tbl = GT(exibble, rowname_col="row")
-    with pytest.raises(NotImplementedError) as exc_info:
-        _render_as_latex(data=gt_tbl._build_data(context="latex"))
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
 
-    assert (
-        "The table stub (row names and/or row groups) are not yet supported in LaTeX output."
-        in exc_info.value.args[0]
-    )
+    # Check that stub column is present
+    assert "l|" in latex_str
+
+    # Check that row names are present
+    assert "row\\_1" in latex_str
+
+    # Check proper structuring with top and bottom rules
+    assert "\\toprule" in latex_str
+    assert "\\bottomrule" in latex_str
 
 
-def test_render_as_latex_rowgroup_raises():
+def test_render_as_latex_with_rowgroups():
     gt_tbl = GT(exibble, groupname_col="group")
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    # Row group headers should be present
+    assert "\\multicolumn" in latex_str
+
+    # Check that row group names are present
+    assert "grp\\_a" in latex_str
+    assert "grp\\_b" in latex_str
+
+    # Check for midrule associated with group headers
+    assert "\\midrule\\addlinespace[2.5pt]" in latex_str
+
+
+def test_render_as_latex_with_stub_and_rowgroups():
+    gt_tbl = GT(exibble, rowname_col="row", groupname_col="group")
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    # Check that stub column is present
+    assert "l|" in latex_str
+
+    # Row group headers should be present
+    assert "\\multicolumn" in latex_str
+
+    # Check that both row names and groups are present
+    assert "row\\_1" in latex_str
+    assert "grp\\_a" in latex_str
+
+
+def test_render_as_latex_no_stub_no_groups():
+    gt_tbl = GT(exibble)
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    # There should be no stub separator
+    assert "l|" not in latex_str
+
+    # There should be no multicolumn command for row groups
+    assert "\\multicolumn" not in latex_str
+
+
+def test_render_as_latex_groups_as_column():
+    gt_tbl = GT(exibble, groupname_col="group").tab_options(row_group_as_column=True)
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    # There should be a stub separator for the group column
+    assert "l|" in latex_str
+
+    # There should not be a multicolumn command
+    assert "\\multicolumn" not in latex_str
+
+    # Group labels should appear in cells
+    assert "grp\\_a" in latex_str
+    assert "grp\\_b" in latex_str
+
+
+def test_render_as_latex_stub_and_groups_as_column():
+    gt_tbl = GT(exibble, rowname_col="row", groupname_col="group").tab_options(
+        row_group_as_column=True
+    )
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    # Should have two stub columns (group and rowname)
+    assert "ll|" in latex_str
+
+    # There should not be a multicolumn command
+    assert "\\multicolumn" not in latex_str
+
+    # Both row names and groups should be present
+    assert "row\\_1" in latex_str
+    assert "grp\\_a" in latex_str
+
+
+def test_render_as_latex_footnotes_raises():
+    gt_tbl = GT(exibble).tab_footnote("A footnote", locations=loc.body(columns="num", rows=[0]))
+
     with pytest.raises(NotImplementedError) as exc_info:
         _render_as_latex(data=gt_tbl._build_data(context="latex"))
 
-    assert "Row groups are not yet supported in LaTeX output." in exc_info.value.args[0]
+    assert "Footnotes are not yet supported in LaTeX output." in exc_info.value.args[0]
+
+
+def test_snap_render_as_latex_stub_only(snapshot):
+    gt_tbl = GT(exibble, rowname_col="row")
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    assert snapshot == latex_str
+
+
+def test_snap_render_as_latex_groups_only(snapshot):
+    gt_tbl = GT(exibble, groupname_col="group")
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    assert snapshot == latex_str
+
+
+def test_snap_render_as_latex_stub_and_groups(snapshot):
+    gt_tbl = GT(exibble, rowname_col="row", groupname_col="group")
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    assert snapshot == latex_str
+
+
+def test_snap_render_as_latex_no_stub_no_groups(snapshot):
+    gt_tbl = GT(exibble)
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    assert snapshot == latex_str
+
+
+def test_snap_render_as_latex_groups_as_column(snapshot):
+    gt_tbl = GT(exibble, groupname_col="group").tab_options(row_group_as_column=True)
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    assert snapshot == latex_str
+
+
+def test_snap_render_as_latex_stub_and_groups_as_column(snapshot):
+    gt_tbl = GT(exibble, rowname_col="row", groupname_col="group").tab_options(
+        row_group_as_column=True
+    )
+    latex_str = _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+    assert snapshot == latex_str

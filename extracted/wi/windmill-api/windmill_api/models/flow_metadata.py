@@ -34,6 +34,8 @@ class FlowMetadata:
         visible_to_runner_only (Union[Unset, bool]):
         on_behalf_of_email (Union[Unset, str]):
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
     """
 
     path: str
@@ -52,6 +54,7 @@ class FlowMetadata:
     visible_to_runner_only: Union[Unset, bool] = UNSET
     on_behalf_of_email: Union[Unset, str] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -75,6 +78,10 @@ class FlowMetadata:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -109,6 +116,8 @@ class FlowMetadata:
             field_dict["on_behalf_of_email"] = on_behalf_of_email
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
 
         return field_dict
 
@@ -149,6 +158,8 @@ class FlowMetadata:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         flow_metadata = cls(
             path=path,
             edited_by=edited_by,
@@ -166,6 +177,7 @@ class FlowMetadata:
             visible_to_runner_only=visible_to_runner_only,
             on_behalf_of_email=on_behalf_of_email,
             labels=labels,
+            inherited_labels=inherited_labels,
         )
 
         flow_metadata.additional_properties = d

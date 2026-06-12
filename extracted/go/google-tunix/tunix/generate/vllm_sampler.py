@@ -16,11 +16,13 @@
 
 import atexit
 import dataclasses
+import gc
 from itertools import count
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from absl import logging
+from flax import nnx
 import jax
 import jaxtyping
 import numpy as np
@@ -65,6 +67,9 @@ class VllmConfig:
   data_parallel_size: int = -1
   tensor_parallel_size: int = -1
   expert_parallel_size: int = 1
+  # Default to True to ensure old weights are deleted to free up HBM memory
+  delete_dst_buffers: bool = True
+  reshard_chunk_size: Optional[int] = None
 
   # vLLM engine args that can be directly passed in without additional processing, e.g. max_model_len, async_scheduling, etc.
   engine_kwargs: dataclasses.InitVar[Optional[Dict[str, Any]]] = None
@@ -91,7 +96,7 @@ class VllmConfig:
     illegal = self._RESERVED_KEYS & engine_kwargs.keys()
     if illegal:
       raise ValueError(
-          f"VllmConfig fields must be set directly on VllmConfig, not passed"
+          "VllmConfig fields must be set directly on VllmConfig, not passed"
           f" via engine_kwargs: {sorted(illegal)}"
       )
     self._processed_engine_kwargs = engine_kwargs
@@ -138,7 +143,9 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
     if config.init_with_random_weights:
       os.environ["JAX_RANDOM_WEIGHTS"] = "1"
 
-    self.tokenizer = tok_adapter.TokenizerAdapter(tokenizer)
+    self.tokenizer = tokenizer
+    if not isinstance(tokenizer, tok_adapter.TokenizerAdapter):
+      self.tokenizer = tok_adapter.TokenizerAdapter(tokenizer)
     self.config = config
     self.args = self._vllm_config(config)
     self._driver: VLLMInProcessDriver | None = None
@@ -173,7 +180,6 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
       )
 
   # TODO(b/434969743): Optimize weight sharing between trainer and vllm sampler.
-  # TODO(b/434975493): Consider Release KV cache on the fly
   def update_params(
       self,
       updated_weights: jaxtyping.PyTree,
@@ -181,8 +187,21 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
   ):
     del filter_types
 
+    if self.llm is not None:
+      self.llm.reset_prefix_cache()
+      self.llm.collective_rpc("delete_kv_cache") # will free hbm
+    elif self._driver is not None:
+      self._driver.llm_engine.reset_prefix_cache()
+      self._driver.llm_engine.collective_rpc("delete_kv_cache")
+
+    # Synchronization point before weight sync
+    jax.effects_barrier()
+
     if self.to_hf_key_mappings:
-      # Mapped Weight Sync (e.g. Vanilla -> vLLM)
+      preprocess_fn = self.config.mapping_config.preprocess_src_state
+      if preprocess_fn:
+        updated_weights = preprocess_fn(updated_weights)
+
       utils.transfer_state_with_mappings(
           src_state=updated_weights,
           dst_state=self.transformer_state,
@@ -190,6 +209,8 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
           key_mapping_hook_fns=self.to_hf_hook_fns,
           transpose_keys=self.to_hf_transpose_keys,
           reshard_fn=reshard.reshard_pytree,
+          delete_dst_buffers=self.config.delete_dst_buffers,
+          reshard_chunk_size=self.config.reshard_chunk_size,
           num_kv_heads=(
               None
               if not self._model_runner
@@ -200,6 +221,7 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
               if not self._model_runner
               else self._model_runner.model_config.get_head_size()
           ),
+          tp_size=self.args.get("tensor_parallel_size", 1),
       )
     else:
       # Direct Weight Sync (e.g. MaxText -> MaxText)
@@ -221,7 +243,22 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
           src_state=updated_weights,
           dst_state=self.transformer_state,
           reshard_fn=reshard.reshard_pytree,
+          delete_dst_buffers=True,  # Ensure old weights are deleted to free up HBM memory
+          reshard_chunk_size=self.config.reshard_chunk_size,
       )
+
+    if hasattr(self._model_runner, "state_leaves"):
+      if isinstance(self._model_runner.state, nnx.State):
+        self._model_runner.state_leaves = tuple(
+            jax.tree_util.tree_leaves(self._model_runner.state)
+        )
+      else:
+        self._model_runner.state_leaves = self._model_runner.state
+
+    if self.llm is not None:
+      self.llm.collective_rpc("reinitialize_kv_cache")
+    elif self._driver is not None:
+      self._driver.llm_engine.collective_rpc("reinitialize_kv_cache")
 
   def load_checkpoint(self, path_or_weights: str | jaxtyping.PyTree):
     # TODO(b/434741253): Consider support orbax checkpoint loading
@@ -321,10 +358,13 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
         input_strings, request_outputs
     ):
       for idx, single_output in enumerate(multi_sampling_output.outputs):
-        # vLLM still returns 1 eos id even if we ask it to stop at eos.
-        if single_output.token_ids[-1] == self.tokenizer.eos_id():
-          single_output.token_ids = single_output.token_ids[:-1]
-          single_output.logprobs = single_output.logprobs[:-1]
+        # KEEP the eos token in the returned token_ids — needed so multi-turn
+        # consumers (agentic engine) can reconstruct the exact sequence the
+        # next turn's prompt was rendered from. Combined with
+        # `include_stop_str_in_output=True`, vLLM emits one eos at the end of
+        # each generation. Stripping it (the previous behavior) made
+        # trainer-side concatenation miss `<|im_end|>` at every turn boundary
+        # and produced 30+ nat sampler-trainer logp diffs.
 
         out_tokens[idx].append(
             np.array(single_output.token_ids, dtype=np.int32)
@@ -433,6 +473,14 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
         sampling_params.prompt_logprobs = 0
       sampling_params.stop_token_ids = [self.tokenizer.eos_id()]
       sampling_params.skip_special_tokens = True
+      # Keep the stop token in the returned ``token_ids`` so multi-turn
+      # consumers can reconstruct the exact sequence the model was sampled
+      # on. This makes the trainer-side concatenation align with what
+      # ``apply_chat_template`` produces for the next turn's prompt; without
+      # it, the trailing ``<|im_end|>`` (or equivalent eos token) is missing
+      # at every turn boundary in the recorded sequence, biasing logp
+      # recomputation against the model's actual sampling context.
+      sampling_params.include_stop_str_in_output = True
 
       if top_p is not None:
         sampling_params.top_p = top_p
@@ -448,21 +496,22 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
           logging.log_first_n(
               logging.INFO,
               "Received additional kwargs that are not explicitly defined in"
-              f" the method signature: {sampling_kwargs}. These will be forwarded to the"
-              " underlying sampler, but please ensure that they are valid.",
-              1
-          )   
+              f" the method signature: {sampling_kwargs}. These will be"
+              " forwarded to the underlying sampler, but please ensure that"
+              " they are valid.",
+              1,
+          )
           for key, value in sampling_kwargs.items():
             logging.log_first_n(
                 logging.DEBUG,
                 f"Sampler kwargs setting key {key} with value {value}.",
-                len(sampling_kwargs)
+                len(sampling_kwargs),
             )
             setattr(sampling_params, key, value)
         except (AttributeError, TypeError) as e:
           logging.info(
-              f"Failed to update sampling_params with kwargs: {sampling_kwargs}."
-              f" Error: {e}",
+              "Failed to update sampling_params with kwargs:"
+              f" {sampling_kwargs}. Error: {e}",
           )
 
       self.sampling_params = sampling_params
@@ -480,6 +529,10 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
     decoded_outputs, out_logprobs, out_tokens = self.detokenize(
         input_strings, outputs
     )
+    if self.config.return_logprobs and (
+        out_logprobs is None or out_logprobs[0] is None
+    ):
+      raise ValueError("Logprobs are not returned from the vLLM.")
 
     max_tokens_length = max(len(x) for x in prompt_ids)
 
@@ -502,5 +555,5 @@ class VllmSampler(base_sampler.BaseSampler):  # pylint: disable=invalid-name
         logits=None,
         tokens=out_tokens[0],
         padded_prompt_tokens=all_input_ids,
-        logprobs=out_logprobs[0],
+        logprobs=out_logprobs[0] if self.config.return_logprobs else None,
     )

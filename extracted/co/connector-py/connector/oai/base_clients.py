@@ -8,8 +8,9 @@ from typing import Any
 from gql import Client
 from gql.client import AsyncClientSession
 from gql.dsl import DSLSchema
+from gql.transport.exceptions import TransportQueryError
 from gql.transport.httpx import HTTPXAsyncTransport as GqlHTTPXAsyncTransport
-from graphql import DocumentNode, GraphQLSchema, build_client_schema, build_schema
+from graphql import DocumentNode, ExecutionResult, GraphQLSchema, build_client_schema, build_schema
 from httpx import Response
 from typing_extensions import Self
 
@@ -59,11 +60,7 @@ class RateLimitedClient(AsyncClient):
                 try:
                     response.raise_for_status()
                 except Exception as e:
-                    error_check = (
-                        self.rate_limiter.config.rate_limit_error_check
-                        or RateLimiter.is_rate_limit_error
-                    )
-                    if error_check(e) or RateLimiter.is_transient_error(e):
+                    if self.rate_limiter.is_retryable_error(e):
                         raise e
                     else:
                         return response
@@ -131,11 +128,7 @@ class RateLimitedClient(AsyncClient):
                         try:
                             response.raise_for_status()
                         except Exception as e:
-                            error_check = (
-                                self.rate_limiter.config.rate_limit_error_check
-                                or RateLimiter.is_rate_limit_error
-                            )
-                            if error_check(e) or RateLimiter.is_transient_error(e):
+                            if self.rate_limiter.is_retryable_error(e):
                                 raise e
                             else:
                                 return response
@@ -221,6 +214,20 @@ class RateLimitedHTTPXAsyncTransport(HTTPXAsyncTransport):
                 extra_args=extra_args,
                 upload_files=upload_files,
             )
+            # gql's httpx transport returns an ExecutionResult for any response with a
+            # parseable GraphQL body — even rate-limited ones (e.g. HTTP 429 with an
+            # `errors` payload). The TransportQueryError is normally raised by
+            # AsyncClientSession.execute, *above* this rate limiter, so retryable
+            # errors must be raised here for the RateLimiter to classify and retry.
+            if isinstance(result, ExecutionResult) and result.errors:
+                error = TransportQueryError(
+                    str(result.errors[0]),
+                    errors=result.errors,
+                    data=result.data,
+                    extensions=result.extensions,
+                )
+                if self.rate_limiter.is_retryable_error(error):
+                    raise error
             return result
 
         # Use the rate limiter to execute the request

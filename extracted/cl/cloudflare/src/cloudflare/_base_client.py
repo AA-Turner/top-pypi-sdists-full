@@ -536,7 +536,7 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
                         f"Expected query input to be a dictionary for multipart requests but got {type(json_data)} instead."
                     )
 
-                if options.multipart_syntax == 'json':
+                if options.multipart_syntax == "json":
                     json_data = cast("Mapping[str, object]", json_data)
                     if is_mapping_t(files):
                         files = {

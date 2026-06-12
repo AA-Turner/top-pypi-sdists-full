@@ -4,6 +4,7 @@ from enum import Enum
 class CreateProtectionRuleJsonBodyRulesItem(str, Enum):
     DISABLEDIRECTDEPLOYMENT = "DisableDirectDeployment"
     DISABLEWORKSPACEFORKING = "DisableWorkspaceForking"
+    RESTRICTANONYMOUSAPPDEPLOYMENT = "RestrictAnonymousAppDeployment"
     RESTRICTDEPLOYTODEPLOYERS = "RestrictDeployToDeployers"
 
     def __str__(self) -> str:

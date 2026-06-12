@@ -97,8 +97,9 @@ if TYPE_CHECKING:
     from mindroom.matrix.client_visible_messages import ResolvedVisibleMessage
     from mindroom.matrix.identity import MatrixID
     from mindroom.message_target import MessageTarget
+    from mindroom.response_payload_preparation import ResponsePayloadPreparation, ResponsePayloadPreparer
     from mindroom.stop import StopManager
-    from mindroom.streaming_delivery import StreamInputChunk
+    from mindroom.streaming import StreamInputChunk
     from mindroom.tool_system.events import ToolTraceEntry
     from mindroom.tool_system.runtime_context import ToolRuntimeSupport
     from mindroom.tool_system.worker_routing import ToolExecutionIdentity
@@ -274,7 +275,7 @@ class ResponseRequest:
     matrix_run_metadata: Mapping[str, Any] | None = None
     system_enrichment_items: tuple[EnrichmentItem, ...] = ()
     requires_model_history_refresh: bool = False
-    prepare_after_lock: Callable[[ResponseRequest], Awaitable[ResponseRequest]] | None = None
+    payload_preparation: ResponsePayloadPreparation | None = None
     on_lifecycle_lock_acquired: Callable[[], None] | None = None
     pipeline_timing: DispatchPipelineTiming | None = None
     queued_notice_reservation: QueuedHumanNoticeReservation | None = None
@@ -326,6 +327,7 @@ class ResponseRunnerDeps:
     delivery_gateway: DeliveryGateway
     post_response_effects: PostResponseEffectsSupport
     state_writer: ConversationStateWriter
+    request_preparer: ResponsePayloadPreparer
 
 
 @dataclass(frozen=True)
@@ -351,6 +353,48 @@ class ResponseRunner:
         init=False,
     )
     _in_flight_response_count: int = field(default=0, init=False)
+    _inbox_response_tasks: set[asyncio.Task[None]] = field(default_factory=set, init=False)
+
+    def track_inbox_response(self, response: Coroutine[Any, Any, None], *, name: str) -> asyncio.Task[None]:
+        """Own one detached inbox response until it completes or a drain settles it."""
+        task = asyncio.create_task(response, name=name)
+        self._inbox_response_tasks.add(task)
+        task.add_done_callback(self._finish_inbox_response_task)
+        return task
+
+    def _finish_inbox_response_task(self, task: asyncio.Task[None]) -> None:
+        self._inbox_response_tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            self.deps.logger.error(
+                "inbox_response_task_failed",
+                task_name=task.get_name(),
+                exception_type=error.__class__.__name__,
+                error=str(error),
+            )
+
+    async def drain_inbox_responses(self, *, cancel_after_seconds: float | None = None) -> bool:
+        """Settle detached inbox responses: graceful drains await, bounded drains cancel.
+
+        Returns False when a bounded drain had to cancel or abandon running work.
+        A bounded drain may take up to two cancel_after_seconds windows: one
+        waiting for completion and one letting cancelled tasks run cleanup.
+        """
+        tasks = [task for task in self._inbox_response_tasks if not task.done()]
+        if not tasks:
+            return True
+        if cancel_after_seconds is None:
+            await asyncio.gather(*tasks, return_exceptions=True)
+            return True
+        _done, pending = await asyncio.wait(tasks, timeout=cancel_after_seconds)
+        if not pending:
+            return True
+        for task in pending:
+            task.cancel()
+        await asyncio.wait(pending, timeout=cancel_after_seconds)
+        return False
 
     def _client(self) -> nio.AsyncClient:
         """Return the current Matrix client required for response coordination."""
@@ -713,9 +757,9 @@ class ResponseRunner:
         """Refresh thread history and rebuild any history-derived payload once locked."""
         try:
             request = await self._refresh_model_history_after_lock(request)
-            if request.prepare_after_lock is None:
+            if request.payload_preparation is None:
                 return request
-            return await request.prepare_after_lock(request)
+            return await self.deps.request_preparer.prepare(request)
         except Exception as exc:
             raise PostLockRequestPreparationError from exc
 
@@ -859,6 +903,7 @@ class ResponseRunner:
             request.room_id,
             self.deps.runtime.config,
             self.deps.runtime_paths,
+            thread_id=resolved_target.resolved_thread_id,
         )
         use_streaming = await should_use_streaming(
             self._client(),
@@ -1395,6 +1440,7 @@ class ResponseRunner:
         runtime_model = self.deps.runtime.config.resolve_runtime_model(
             entity_name=self.deps.agent_name,
             room_id=resolved_target.room_id,
+            thread_id=response_thread_id,
             runtime_paths=self.deps.runtime_paths,
         )
         tool_dispatch = self.deps.tool_runtime.build_dispatch_context(

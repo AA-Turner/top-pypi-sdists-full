@@ -12,27 +12,28 @@ classifiers = [
   "Topic :: Internet :: Proxy Servers",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Development Status :: 5 - Production/Stable",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
-dependencies = ["aiohttp>=3.9.3", "cryptography>=2.5"]
+dependencies = ["aiohttp>=3.9.3", "cryptography>=38.0.0"]
 description = "SNI proxy with TCP multiplexer"
 keywords = ["sni", "proxy", "multiplexer", "tls"]
 license = { text = "GPL v3" }
 name = "snitun"
 readme = "README.md"
-requires-python = ">=3.12"
-version = "0.45.2"
+requires-python = ">=3.13"
+version = "0.46.1"
 
 [project.optional-dependencies]
-lint = ["ruff==0.14.10"]
+lint = ["ruff==0.15.15"]
 test = [
   "covdefaults==2.3.0",
   "pytest-aiohttp==1.1.0",
-  "pytest-codspeed==4.2.0",
-  "pytest-cov==7.0.0",
+  "pytest-codspeed==5.0.3",
+  "pytest-cov==7.1.0",
   "pytest-timeout==2.4.0",
-  "pytest==9.0.2",
+  "pytest==9.0.3",
+  "trustme==1.2.1",
 ]
 
 [project.urls]
@@ -46,7 +47,7 @@ asyncio_mode = "auto"
 fix = true
 line-length = 88
 show-fixes = true
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 ignore = [

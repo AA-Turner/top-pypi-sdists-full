@@ -10,6 +10,7 @@ Tornado-based server "on the side".
 
 The framework being used must support web sockets.
 """
+# sphinx_gallery_thumbnail_path = '_static/embedding_webagg.png'
 
 import argparse
 import io
@@ -31,8 +32,8 @@ import tornado.websocket
 import numpy as np
 
 import matplotlib as mpl
-from matplotlib.backends.backend_webagg import (
-    FigureManagerWebAgg, new_figure_manager_given_figure)
+from matplotlib.backends.backend_webagg import (FigureManagerWebAgg,
+                                                new_figure_manager_given_figure)
 from matplotlib.figure import Figure
 
 

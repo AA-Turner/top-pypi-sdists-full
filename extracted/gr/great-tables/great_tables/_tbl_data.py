@@ -32,15 +32,14 @@ if TYPE_CHECKING:
     PlSelectExpr = Selector
     PlExpr = pl.Expr
 
-    PdSeries = pd.Series
+    PdSeries = pd.Series[Any]
     PlSeries = pl.Series
-    PyArrowArray = pa.Array
-    PyArrowChunkedArray = pa.ChunkedArray
+    PyArrowArray = pa.Array[Any]
+    PyArrowChunkedArray = pa.ChunkedArray[Any]
 
     PdNA = pd.NA
     PlNull = pl.Null
 
-    NpNan = np.nan
     NpInteger = np.integer
 
     DataFrameLike = Union[PdDataFrame, PlDataFrame, PyArrowTable]
@@ -88,9 +87,6 @@ else:
     class PlNull(AbstractBackend):
         _backends = [("polars", "Null")]
 
-    class NpNan(AbstractBackend):
-        _backends = [("numpy", "nan")]
-
     class NpInteger(AbstractBackend):
         _backends = [("numpy", "integer")]
 
@@ -118,10 +114,6 @@ else:
 
 def _raise_not_implemented(data: Any):
     raise NotImplementedError(f"Unsupported data type: {type(data)}")
-
-
-def _raise_pandas_required(msg: Any):
-    raise ImportError(msg)
 
 
 def _re_version(raw_version: str) -> tuple[int, int, int]:
@@ -224,7 +216,15 @@ def _get_cell(data: DataFrameLike, row: int, column: str) -> Any:
 
 @_get_cell.register(PlDataFrame)
 def _(data: Any, row: int, column: str) -> Any:
-    return data[column][row]
+    import polars as pl
+
+    res = data[column][row]
+
+    # container dtypes (pl.List, pl.Array) return a pl.Series
+    if isinstance(res, pl.Series):
+        return res.to_list()
+
+    return res
 
 
 @_get_cell.register(PdDataFrame)
@@ -570,12 +570,19 @@ def _(df: PlDataFrame):
     import polars.selectors as cs
 
     list_cols = [
-        name for name, dtype in df.schema.items() if issubclass(dtype.base_type(), pl.List)
+        name
+        for name, dtype in df.schema.items()
+        if issubclass(dtype.base_type(), (pl.List, pl.Array))
+    ]
+
+    duration_cols = [
+        name for name, dtype in df.schema.items() if issubclass(dtype.base_type(), pl.Duration)
     ]
 
     return df.with_columns(
         cs.by_name(list_cols).map_elements(lambda x: str(x.to_list()), return_dtype=pl.String),
-        cs.all().exclude(list_cols).cast(pl.Utf8),
+        cs.by_name(duration_cols).map_elements(str, return_dtype=pl.String),
+        cs.all().exclude(list_cols + duration_cols).cast(pl.Utf8),
     )
 
 
@@ -759,7 +766,7 @@ def _(df: PyArrowTable, x: Any) -> bool:
     import pyarrow as pa
 
     arr = pa.array([x])
-    return arr.is_null().to_pylist()[0] or arr.is_nan().to_pylist()[0]
+    return arr.is_null(nan_is_null=True).to_pylist()[0]
 
 
 @singledispatch
@@ -828,24 +835,31 @@ def _(df: PyArrowTable) -> PyArrowTable:
 
 @singledispatch
 def to_frame(ser: "list[Any] | SeriesLike", name: Optional[str] = None) -> DataFrameLike:
-    # TODO: remove pandas. currently, we support converting a list to a pd.DataFrame
-    # in order to support backwards compatibility in the vals.fmt_* functions.
-
-    try:
-        import pandas as pd
-    except ImportError:
-        _raise_pandas_required(
-            "Passing a plain list of values currently requires the library pandas. "
-            "You can avoid this error by passing a polars Series."
-        )
-
     if not isinstance(ser, list):
         raise NotImplementedError(f"Unsupported type: {type(ser)}")
 
     if not name:
         raise ValueError("name must be specified, when converting a list to a DataFrame.")
 
-    return pd.DataFrame({name: ser})
+    # Try available DataFrame libraries: prefer polars, then pandas
+    try:
+        import polars as pl
+
+        return pl.DataFrame({name: ser}, strict=False)
+    except ImportError:
+        pass
+
+    try:
+        import pandas as pd
+
+        return pd.DataFrame({name: ser})
+    except ImportError:
+        pass
+
+    raise ImportError(
+        "Passing a plain list of values requires either polars or pandas to be installed. "
+        "You can also pass a polars Series or pandas Series directly."
+    )
 
 
 @to_frame.register
@@ -932,3 +946,25 @@ def _(df: PyArrowTable, expr: Callable[[PyArrowTable], PyArrowTable]) -> dict[st
         )
 
     return {col: res.column(col)[0].as_py() for col in res.column_names}
+
+
+@singledispatch
+def get_rows(ser: SeriesLike, indexes: list[int]) -> SeriesLike:
+    """Returns values of the series at `indexes` position.`"""
+    raise NotImplementedError(f"Unsupported type: {type(ser)}")
+
+
+@get_rows.register
+def _(ser: PdSeries, indexes: list[int]) -> PdSeries:
+    return ser.iloc[indexes]
+
+
+@get_rows.register
+def _(ser: PlSeries, indexes: list[int]) -> PlSeries:
+    return ser[indexes]
+
+
+@get_rows.register(PyArrowArray)
+@get_rows.register(PyArrowChunkedArray)
+def _(ser: Any, indexes: list[int]) -> PyArrowArray | PyArrowChunkedArray:
+    return ser.take(indexes)

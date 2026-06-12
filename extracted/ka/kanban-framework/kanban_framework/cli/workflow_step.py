@@ -12,7 +12,7 @@ from kanban_framework.infra.scheduler import Scheduler
 from kanban_framework.infra.consts import Consts
 from kanban_framework.domain.task import TaskManager
 from kanban_framework.domain.workflow import WorkflowEngine
-from kanban_framework.cli.run_helpers import _resolve, _auto_track_step
+from kanban_framework.cli.run_helpers import _resolve
 
 
 def handle_next_step(args: list[str], fs: Filesystem, tm: TaskManager,
@@ -131,7 +131,6 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
 
     from kanban_framework.domain.state_machine import mark_step
     progress = mark_step(fs, task_id, step_id, status)
-    _auto_track_step(fs, task_id, step_id, status, session_id)
 
     result = {
         "task_id": task_id, "step_id": step_id, "status": status,

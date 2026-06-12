@@ -1,9 +1,7 @@
-from __future__ import absolute_import
-
 import sys
 
 
-class MetricConfig(object):
+class MetricConfig:
     """Configuration values for metrics"""
     __slots__ = ('quota', '_samples', 'event_window', 'time_window_ms', 'tags')
 

@@ -289,6 +289,7 @@ pub(crate) fn check_help_version(
 ) -> Option<ExecResult> {
     for arg in args {
         match arg.as_str() {
+            "--" => break,
             "--help" => return Some(ExecResult::ok(help_text.to_string())),
             "--version" => {
                 if let Some(ver) = version {
@@ -387,6 +388,42 @@ impl BuiltinRegistry {
 #[derive(Default)]
 pub struct ExecutionExtensions {
     values: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+}
+
+/// Per-exec wall-clock deadline for builtins with synchronous VM sections.
+#[derive(Debug, Clone)]
+pub(crate) struct ExecutionDeadline {
+    #[allow(dead_code)]
+    started_at: std::time::Instant,
+    timeout: std::time::Duration,
+}
+
+impl ExecutionDeadline {
+    /// Create a deadline anchored at the start of `Bash::exec*`.
+    pub(crate) fn new(timeout: std::time::Duration) -> Self {
+        Self {
+            started_at: std::time::Instant::now(),
+            timeout,
+        }
+    }
+
+    /// Remaining budget; never returns zero so downstream VM timers stay active.
+    #[allow(dead_code)]
+    pub(crate) fn remaining(&self) -> std::time::Duration {
+        let remaining = self.timeout.saturating_sub(self.started_at.elapsed());
+        if remaining.is_zero() {
+            std::time::Duration::from_millis(1)
+        } else {
+            remaining
+        }
+    }
+
+    /// Whether the wall-clock budget is exhausted. Builtins with synchronous
+    /// loops the async timeout cannot preempt poll this to abort.
+    #[allow(dead_code)]
+    pub(crate) fn is_expired(&self) -> bool {
+        self.started_at.elapsed() >= self.timeout
+    }
 }
 
 impl ExecutionExtensions {
@@ -841,6 +878,7 @@ impl<'a> BashkitContext<'a> {
     fn into_exec_result(self) -> ExecResult {
         ExecResult {
             stdout: self.stdout,
+            stdout_bytes: None,
             stderr: self.stderr,
             exit_code: self.exit_code,
             ..Default::default()
@@ -1105,6 +1143,13 @@ mod tests {
     fn check_help_version_stops_at_non_flag() {
         let args = vec!["file.txt".to_string(), "--help".to_string()];
         let r = check_help_version(&args, "usage\n", None);
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn check_help_version_stops_at_option_delimiter() {
+        let args = vec!["--".to_string(), "--help".to_string()];
+        let r = check_help_version(&args, "usage\n", Some("v1"));
         assert!(r.is_none());
     }
 

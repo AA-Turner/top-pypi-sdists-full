@@ -16,14 +16,17 @@ from ..exceptions import (
     MultiplexerTransportDecrypt,
     MultiplexerTransportError,
 )
-from ..utils.asyncio import asyncio_timeout
+from ..utils.asyncio import (
+    RangedTimeout,
+    create_eager_task,
+    make_task_waiter_future,
+)
 from ..utils.ipaddress import bytes_to_ip_address
 from .channel import MultiplexerChannel
 from .const import (
     OUTGOING_QUEUE_HIGH_WATERMARK,
     OUTGOING_QUEUE_LOW_WATERMARK,
     OUTGOING_QUEUE_MAX_BYTES_CHANNEL,
-    PEER_TCP_TIMEOUT,
 )
 from .crypto import CryptoTransport
 from .message import (
@@ -35,12 +38,23 @@ from .message import (
     CHANNEL_FLOW_RESUME,
     HEADER_SIZE,
     HEADER_STRUCT,
+    MIN_PROTOCOL_VERSION_FOR_ENCRYPTED_NEW,
     MultiplexerChannelId,
     MultiplexerMessage,
 )
 from .queue import MultiplexerMultiChannelQueue
 
 _LOGGER = logging.getLogger(__name__)
+
+PEER_TCP_MIN_TIMEOUT = 90
+PEER_TCP_MAX_TIMEOUT = 120
+MIN_SIZE_THROTTLE = 8192
+
+# If the payload is larger than 8192, use writelines to write the payload
+# to the stream. In Python 3.11+, writelines is a zero-copy operation.
+# For small payloads, the overhead of writelines is higher than the
+# overhead of write, so we only use writelines for larger payloads.
+MAX_PAYLOAD_FOR_WRITE = 8192
 
 
 class Multiplexer:
@@ -56,8 +70,11 @@ class Multiplexer:
         "_peer_protocol_version",
         "_processing_task",
         "_queue",
+        "_ranged_timeout",
+        "_read_task",
         "_reader",
         "_throttling",
+        "_write_task",
         "_writer",
     ]
 
@@ -79,38 +96,57 @@ class Multiplexer:
         self._reader = reader
         self._writer = writer
         self._peer_protocol_version = peer_protocol_version
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self._queue = MultiplexerMultiChannelQueue(
             OUTGOING_QUEUE_MAX_BYTES_CHANNEL,
             OUTGOING_QUEUE_LOW_WATERMARK,
             OUTGOING_QUEUE_HIGH_WATERMARK,
         )
         self._healthy = asyncio.Event()
+        self._healthy.set()
         self._channel_tasks: set[asyncio.Task[None]] = set()
-        self._processing_task = self._loop.create_task(self._runner())
         self._channels: dict[MultiplexerChannelId, MultiplexerChannel] = {}
         self._new_connections = new_connections
         self._throttling = 1 / throttling if throttling else None
+        self._ranged_timeout = RangedTimeout(
+            PEER_TCP_MIN_TIMEOUT,
+            PEER_TCP_MAX_TIMEOUT,
+            self._on_timeout,
+        )
+        # Create the reader/writer loops last, after every attribute their
+        # bodies and teardown (finally) paths touch is assigned. They are not
+        # eager-started on purpose: an eager task whose body runs to completion
+        # synchronously - e.g. the transport is already closing at construction
+        # - would execute its finally (which cancels the sibling task) before
+        # that sibling, and the rest of this instance, were assigned, raising
+        # AttributeError out of __init__.
+        self._read_task = self._loop.create_task(self._read_from_peer_loop())
+        self._write_task = self._loop.create_task(self._write_to_peer_loop())
 
     @property
     def is_connected(self) -> bool:
         """Return True is they is connected."""
-        return not self._processing_task.done()
+        return not self._write_task.done()
+
+    def _on_timeout(self) -> None:
+        """Handle timeout."""
+        _LOGGER.error("Timed out reading and writing to peer")
+        self._write_task.cancel()
 
     def wait(self) -> asyncio.Future[None]:
         """Block until the connection is closed.
 
         Return a awaitable object.
         """
-        return asyncio.shield(self._processing_task)
+        return make_task_waiter_future(self._write_task)
 
     def shutdown(self) -> None:
         """Shutdown connection."""
-        if self._processing_task.done():
+        if self._write_task.done():
             return
 
         _LOGGER.debug("Cancel connection")
-        self._processing_task.cancel()
+        self._write_task.cancel()
         self._graceful_channel_shutdown()
 
     def _graceful_channel_shutdown(self) -> None:
@@ -130,7 +166,7 @@ class Multiplexer:
             )
 
             # Wait until pong is received
-            async with asyncio_timeout.timeout(PEER_TCP_TIMEOUT):
+            async with asyncio.timeout(PEER_TCP_MIN_TIMEOUT):
                 await self._healthy.wait()
 
         except TimeoutError:
@@ -143,90 +179,72 @@ class Multiplexer:
             self._loop.call_soon(self.shutdown)
             raise MultiplexerTransportError from None
 
-    async def _runner(self) -> None:
-        """Runner task of processing stream."""
+    async def _read_from_peer_loop(self) -> None:
+        """Read from peer loop."""
         transport = self._writer.transport
-        from_peer = None
-        to_peer = None
-
-        # Process stream
-        self._healthy.set()
         try:
             while not transport.is_closing():
-                if not from_peer:
-                    from_peer = self._loop.create_task(
-                        self._reader.readexactly(HEADER_SIZE),
-                    )
-
-                if not to_peer:
-                    to_peer = self._loop.create_task(self._queue.get())
-
-                # Wait until data need to be processed
-                async with asyncio_timeout.timeout(PEER_TCP_TIMEOUT):
-                    await asyncio.wait(
-                        [from_peer, to_peer],
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-
-                # From peer
-                if from_peer.done():
-                    if from_peer_exc := from_peer.exception():
-                        raise from_peer_exc
-                    await self._read_message(from_peer.result())
-                    from_peer = None
-
-                # To peer
-                if to_peer.done():
-                    if to_peer_exc := to_peer.exception():
-                        raise to_peer_exc
-                    if msg := to_peer.result():
-                        self._write_message(msg)
-                    to_peer = None
-
-                    # Flush buffer
-                    await self._writer.drain()
-
-                # throttling
-                if not self._throttling:
-                    continue
-                await asyncio.sleep(self._throttling)
-
-        except (asyncio.CancelledError, TimeoutError):
+                await self._read_message()
+                self._ranged_timeout.reschedule()
+        except asyncio.CancelledError:
             _LOGGER.debug("Receive canceling")
-            with suppress(OSError):
-                self._writer.write_eof()
-                await self._writer.drain()
-
+            raise
         except (
             MultiplexerTransportClose,
             asyncio.IncompleteReadError,
-            ConnectionResetError,
             OSError,
         ):
             _LOGGER.debug("Transport was closed")
-
         finally:
-            # Cleanup peer writer
-            if to_peer and not to_peer.done():
-                to_peer.cancel()
+            self._write_task.cancel()
 
-            # Cleanup peer reader
-            if from_peer:
-                if not from_peer.done():
-                    from_peer.cancel()
-                else:
-                    # Avoid exception was never retrieved
-                    from_peer.exception()
-
+    async def _write_to_peer_loop(self) -> None:
+        """Write to peer loop."""
+        transport = self._writer.transport
+        try:
+            while not transport.is_closing():
+                data_len = 0
+                if to_peer := await self._queue.get():
+                    data_len = self._write_message(to_peer)
+                await self._writer.drain()
+                self._ranged_timeout.reschedule()
+                if to_peer is not None and self._throttling is not None:
+                    # Throttle the connection to ensure
+                    # we have enough time to get back
+                    # pause messages to not overrun the
+                    # remote input queue. If the message
+                    # is large (>= MIN_SIZE_THROTTLE) we use
+                    # self._throttling for the sleep value,
+                    # otherwise for small messages we use 0 as to
+                    # still yield to the event loop but not have to
+                    # schedule the task again since the overhead of
+                    # the task scheduling creates a significant CPU
+                    # overhead.
+                    to_sleep = 0 if data_len < MIN_SIZE_THROTTLE else self._throttling
+                    await asyncio.sleep(to_sleep)
+        except asyncio.CancelledError:
+            _LOGGER.debug("Write canceling")
+            with suppress(OSError):
+                self._writer.write_eof()
+                await self._writer.drain()
+            # Don't swallow cancellation
+            if (current_task := asyncio.current_task()) and current_task.cancelling():
+                raise
+        except (MultiplexerTransportClose, OSError):
+            _LOGGER.debug("Transport was closed")
+        finally:
+            self._read_task.cancel()
+            # Cancel the idle timeout so it cannot fire (and log a
+            # spurious error) after the connection has already closed.
+            self._ranged_timeout.cancel()
             # Cleanup transport
-            if not transport.is_closing():
+            if not self._writer.transport.is_closing():
                 with suppress(OSError):
                     self._writer.close()
-
             self._graceful_channel_shutdown()
             _LOGGER.debug("Multiplexer connection is closed")
 
-    def _write_message(self, message: MultiplexerMessage) -> None:
+    def _write_message(self, message: MultiplexerMessage) -> int:
         """Write message to peer."""
         id_, flow_type, data, extra = message
         data_len = len(data)
@@ -238,16 +256,33 @@ class Multiplexer:
         )
         try:
             encrypted_header = self._crypto.encrypt(header)
-            self._writer.write(
-                encrypted_header + data if data_len else encrypted_header,
-            )
+            if (
+                flow_type == CHANNEL_FLOW_NEW
+                and data_len
+                and self._peer_protocol_version
+                >= MIN_PROTOCOL_VERSION_FOR_ENCRYPTED_NEW
+            ):
+                # The NEW message data carries the source IP; encrypt it as its
+                # own unit so the address is never sent in clear. Encrypting the
+                # header and data separately is byte-identical to one call for
+                # the streaming CBC cipher and is required for AEAD ciphers,
+                # which can only verify a complete unit.
+                self._writer.write(encrypted_header + self._crypto.encrypt(data))
+            elif data_len and data_len > MAX_PAYLOAD_FOR_WRITE:
+                self._writer.writelines((encrypted_header, data))
+            elif data_len:
+                self._writer.write(b"".join((encrypted_header, data)))
+            else:
+                self._writer.write(encrypted_header)
         except RuntimeError:
             raise MultiplexerTransportClose from None
+        return data_len
 
-    async def _read_message(self, header: bytes) -> None:
+    async def _read_message(self) -> None:
         """Read message from peer."""
-        if not header:
-            raise MultiplexerTransportClose
+        header = await self._reader.readexactly(
+            HEADER_SIZE + self._crypto.overhead,
+        )
 
         channel_id: bytes
         flow_type: int
@@ -257,13 +292,35 @@ class Multiplexer:
             channel_id, flow_type, data_size, extra = HEADER_STRUCT.unpack(
                 self._crypto.decrypt(header),
             )
-        except (struct.error, MultiplexerTransportDecrypt):
+        except struct.error:  # pragma: no cover - defensive, header is fixed size
             _LOGGER.warning("Wrong message header received")
             return
+        except MultiplexerTransportDecrypt:
+            # Only an authenticated cipher (AES-GCM) raises here; a bad tag
+            # means the framing is corrupt or tampered with and the stream can
+            # no longer be trusted.
+            raise MultiplexerTransportClose from None
 
         # Read message data
         if data_size:
-            data = await self._reader.readexactly(data_size)
+            if (
+                flow_type == CHANNEL_FLOW_NEW
+                and self._peer_protocol_version
+                >= MIN_PROTOCOL_VERSION_FOR_ENCRYPTED_NEW
+            ):
+                # The NEW data was encrypted as its own unit (see
+                # _write_message); decrypt it to recover the source IP.
+                data = await self._reader.readexactly(
+                    data_size + self._crypto.overhead,
+                )
+                try:
+                    data = self._crypto.decrypt(data)
+                except MultiplexerTransportDecrypt:
+                    # Authenticated ciphers reject a tampered/corrupt unit; the
+                    # stream can no longer be trusted (CBC never raises here).
+                    raise MultiplexerTransportClose from None
+            else:
+                data = await self._reader.readexactly(data_size)
         else:
             data = b""
 
@@ -273,10 +330,6 @@ class Multiplexer:
         )
 
         # Process message to queue
-        await self._process_message(message)
-
-    async def _process_message(self, message: MultiplexerMessage) -> None:
-        """Process received message."""
         # DATA
         flow_type = message.flow_type
         if flow_type == CHANNEL_FLOW_DATA:
@@ -305,7 +358,19 @@ class Multiplexer:
                 _LOGGER.warning("Request new Channel is not allow")
                 return
 
-            ip_address = bytes_to_ip_address(message.extra[1:5])
+            # Protocol >= 2 carries "family marker + packed address" in the
+            # (decrypted) data; older peers keep the IPv4 address in extra.
+            if self._peer_protocol_version >= MIN_PROTOCOL_VERSION_FOR_ENCRYPTED_NEW:
+                family, packed = message.data[:1], message.data[1:]
+                # Reject a truncated address rather than silently decoding it to
+                # the empty (0.0.0.0) sentinel and mis-attributing the source.
+                expected = 16 if family == b"6" else 4
+                if len(packed) < expected:
+                    _LOGGER.warning("Received malformed NEW channel address")
+                    return
+                ip_address = bytes_to_ip_address(packed[:expected])
+            else:
+                ip_address = bytes_to_ip_address(message.extra[1:5])
             channel = MultiplexerChannel(
                 self._queue,
                 ip_address,
@@ -359,13 +424,13 @@ class Multiplexer:
 
     def _create_channel_task(self, coro: Coroutine[Any, Any, None]) -> None:
         """Create a new task for channel."""
-        task = self._loop.create_task(coro)
+        task = create_eager_task(coro, loop=self._loop)
         self._channel_tasks.add(task)
         task.add_done_callback(self._channel_tasks.remove)
 
     async def create_channel(
         self,
-        ip_address: ipaddress.IPv4Address,
+        ip_address: ipaddress.IPv4Address | ipaddress.IPv6Address,
         pause_resume_reader_callback: Callable[[bool], None],
     ) -> MultiplexerChannel:
         """Create a new channel for transport."""
@@ -379,7 +444,7 @@ class Multiplexer:
         message = channel.init_new()
 
         try:
-            async with asyncio_timeout.timeout(5):
+            async with asyncio.timeout(5):
                 await self._queue.put(channel.id, message)
         except TimeoutError:
             raise MultiplexerTransportError from None
@@ -398,7 +463,11 @@ class Multiplexer:
 
         message = channel.init_close()
         try:
-            self._queue.put_nowait_force(channel.id, message)
+            # Best-effort CLOSE delivery: the queue-side channel may already be
+            # gone (drained-then-removed during a concurrent close), in which
+            # case put_nowait_force raises RuntimeError. Cleanup below is enough.
+            with suppress(RuntimeError):
+                self._queue.put_nowait_force(channel.id, message)
         finally:
             self._delete_channel_and_queue(channel.id)
 

@@ -4,7 +4,6 @@ from dask._compatibility import import_optional_dependency
 
 import_optional_dependency("pandas")
 import_optional_dependency("numpy")
-# import_optional_dependency("pyarrow")
 
 from packaging.version import Version
 
@@ -14,6 +13,7 @@ from dask._pandas_compat import (
     PANDAS_GE_220,
     PANDAS_GE_230,
     PANDAS_GE_300,
+    PANDAS_GE_310,
     PANDAS_VERSION,
     IndexingError,
     assert_categorical_equal,
@@ -26,7 +26,7 @@ from dask._pandas_compat import (
     is_string_dtype,
     makeDataFrame,
     makeDateIndex,
-    makeMissingDataframe,
+    makeMissingDataFrame,
     makeMixedDataFrame,
     makeTimeDataFrame,
     makeTimedeltaIndex,
@@ -39,19 +39,12 @@ from dask._pandas_compat import (
 
 try:
     import pyarrow as pa
+
+    PYARROW_VERSION = Version(pa.__version__)
+    HAS_PYARROW = PYARROW_VERSION >= Version("16.0.0")
 except ImportError:
+    PYARROW_VERSION = Version("0.0.0")
     HAS_PYARROW = False
-else:
-    HAS_PYARROW = True
-
-
-if HAS_PYARROW:
-    PYARROW_VERSION: Version | None = Version(pa.__version__)
-    # we know that Version should be non-None when PYARROW_VERSION is True.
-    PYARROW_GE_2101: bool | None = PYARROW_VERSION.release >= (21, 0, 1)  # type: ignore[union-attr]
-else:
-    PYARROW_VERSION = None
-    PYARROW_GE_2101 = None
 
 
 __all__ = [
@@ -61,6 +54,7 @@ __all__ = [
     "PANDAS_GE_220",
     "PANDAS_GE_230",
     "PANDAS_GE_300",
+    "PANDAS_GE_310",
     "assert_categorical_equal",
     "assert_numpy_array_equal",
     "makeDataFrame",
@@ -68,7 +62,7 @@ __all__ = [
     "makeTimeSeries",
     "makeDateIndex",
     "makeTimedeltaIndex",
-    "makeMissingDataframe",
+    "makeMissingDataFrame",
     "makeMixedDataFrame",
     "check_groupby_axis_deprecation",
     "check_observed_deprecation",
@@ -79,6 +73,5 @@ __all__ = [
     "IndexingError",
     "HAS_PYARROW",
     "PYARROW_VERSION",
-    "PYARROW_GE_2101",
     "tm",
 ]

@@ -1,28 +1,39 @@
-"""Smpl Logging SDK module — wraps generated logging client."""
+"""Smpl Logging SDK module — wraps generated logging client.
+
+``LoggingClient`` / ``AsyncLoggingClient`` are re-exported from the top-level
+``smplkit`` package only (alongside ``ConfigClient`` / ``FlagsClient``), not
+from here.
+"""
 
 from __future__ import annotations
 
+from smplkit.logging._client import (
+    AsyncLogGroupsClient,
+    AsyncLoggersClient,
+    LogGroupsClient,
+    LoggersClient,
+)
 from smplkit.logging._sources import LoggerSource
 from smplkit.logging.adapters.base import LoggingAdapter
 from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
-from smplkit.logging.client import (
-    AsyncLoggingClient,
-    LoggingClient,
-)
 from smplkit.logging.models import (
     AsyncSmplLogGroup,
     AsyncSmplLogger,
+    LoggerEnvironment,
     SmplLogGroup,
     SmplLogger,
 )
 
 __all__ = [
-    "AsyncLoggingClient",
+    "AsyncLogGroupsClient",
+    "AsyncLoggersClient",
     "AsyncSmplLogGroup",
     "AsyncSmplLogger",
+    "LogGroupsClient",
+    "LoggerEnvironment",
     "LoggerSource",
+    "LoggersClient",
     "LoggingAdapter",
-    "LoggingClient",
     "SmplLogGroup",
     "SmplLogger",
     "StdlibLoggingAdapter",

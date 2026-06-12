@@ -11,6 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from kanban_framework.infra.filesystem import Filesystem
+
 _SKIP_NAMES = {"node_modules", "__pycache__", ".DS_Store", "src"}
 _SKIP_EXTS = {".pid", ".log"}
 _SCRIPTS = {"api.py"}

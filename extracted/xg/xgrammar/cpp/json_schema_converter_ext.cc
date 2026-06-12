@@ -111,6 +111,15 @@ std::string XMLToolCallingConverter::GetBasicAnyRuleName() const {
   return kBasicAny;
 }
 
+std::string XMLToolCallingConverter::GetKeyPatternExcluding(
+    const std::vector<ObjectSpec::Property>& properties, const std::string& rule_name
+) {
+  if (nested_object_level_ <= 1) {
+    return GetKeyPattern();
+  }
+  return JSONSchemaConverter::GetKeyPatternExcluding(properties, rule_name);
+}
+
 std::string XMLToolCallingConverter::NextSeparator(bool is_end) {
   if (nested_object_level_ <= 1) {
     return GetWhitespacePattern();
@@ -196,6 +205,8 @@ std::string XMLToolCallingConverter::GenerateConst(
 std::string XMLToolCallingConverter::GenerateEnum(
     const EnumSpec& spec, const std::string& rule_name
 ) {
+  XGRAMMAR_DCHECK(!spec.json_values.empty())
+      << "GenerateEnum called with empty enum spec for rule: " << rule_name;
   if (nested_object_level_ <= 1) {
     std::string result;
     for (size_t i = 0; i < spec.json_values.size(); ++i) {

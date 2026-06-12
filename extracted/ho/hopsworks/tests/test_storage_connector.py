@@ -15,6 +15,7 @@
 #
 
 import base64
+import os
 from pathlib import WindowsPath
 
 import pytest
@@ -101,11 +102,11 @@ class TestS3Connector:
         assert sc.arguments == {}
 
     def test_default_path(self, mocker):
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
         mocker.patch(
-            "hsfs.storage_connector.StorageConnector.refetch", return_value=None
+            "hsfs.storage_connector.StorageConnector._refetch", return_value=None
         )
-        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine.read")
+        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine._read")
 
         # act
         sc = storage_connector.S3Connector(
@@ -116,7 +117,7 @@ class TestS3Connector:
         assert "s3://test-bucket" in mock_engine_read.call_args[0][3]
 
     def test_get_path(self, mocker):
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
         sc = storage_connector.S3Connector(
             id=1, name="test_connector", featurestore_id=1, bucket="test-bucket"
         )
@@ -128,7 +129,7 @@ class TestS3Connector:
         assert result == "s3://test-bucket/some/location"
 
     def test_get_path_storage_connector_with_path(self, mocker):
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
         sc = storage_connector.S3Connector(
             id=1,
             name="test_connector",
@@ -142,6 +143,139 @@ class TestS3Connector:
 
         # assert
         assert result == "s3://test-bucket/abc/def/some/location"
+
+
+class TestUnityCatalogConnector:
+    def test_from_response_json(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_unity_catalog"]["response"]
+
+        # Act
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Assert
+        assert sc.id == 1
+        assert sc.name == "test_unity_catalog"
+        assert sc._featurestore_id == 67
+        assert sc.description == "Unity Catalog connector description"
+        assert sc.type == storage_connector.StorageConnector.UNITY_CATALOG
+        assert sc.workspace_url == "https://test.cloud.databricks.com"
+        # access_token itself is write-only on the backend; the server never
+        # returns it on GET. hasAccessToken signals that one is on file.
+        assert sc.access_token is None
+        assert sc.has_access_token is True
+        assert sc.auth_method == "PAT"
+        assert sc.default_catalog == "test_catalog"
+        assert sc.aws_region == "us-west-2"
+        assert sc.arguments == {"arg1": "val1"}
+
+    def test_from_response_json_oauth_workspace(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"][
+            "get_unity_catalog_oauth_workspace"
+        ]["response"]
+
+        # Act
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Assert
+        assert sc.auth_method == "OAUTH_M2M"
+        assert sc.oauth_endpoint == "WORKSPACE"
+        assert sc.client_id == "test-sp-client-id"
+        assert sc.client_secret is None
+        assert sc.has_client_secret is True
+        assert sc.account_id is None
+        assert sc.account_host is None
+
+    def test_from_response_json_oauth_account(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_unity_catalog_oauth_account"][
+            "response"
+        ]
+
+        # Act
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Assert
+        assert sc.auth_method == "OAUTH_M2M"
+        assert sc.oauth_endpoint == "ACCOUNT"
+        assert sc.client_id == "test-sp-client-id"
+        assert sc.client_secret is None
+        assert sc.has_client_secret is True
+        assert sc.account_id == "12345678-1234-1234-1234-1234567890ab"
+        assert sc.account_host == "accounts.cloud.databricks.com"
+
+    def test_from_response_json_basic_info(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_unity_catalog_basic_info"][
+            "response"
+        ]
+
+        # Act
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Assert
+        assert sc.id == 1
+        assert sc.name == "test_unity_catalog"
+        assert sc._featurestore_id == 67
+        assert sc.description is None
+        assert sc.workspace_url is None
+        assert sc.access_token is None
+        assert sc.default_catalog is None
+        assert sc.aws_region is None
+        assert sc.arguments == {}
+
+    def test_connector_options(self):
+        sc = storage_connector.UnityCatalogConnector(
+            id=1,
+            name="uc",
+            featurestore_id=1,
+            workspace_url="https://ws.cloud.databricks.com",
+            access_token="dapi-xyz",
+            default_catalog="sales",
+        )
+        opts = sc.connector_options()
+        assert opts["workspace_url"] == "https://ws.cloud.databricks.com"
+        assert opts["default_catalog"] == "sales"
+
+    def test_spark_options_not_supported(self):
+        sc = storage_connector.UnityCatalogConnector(
+            id=1, name="uc", featurestore_id=1, workspace_url="https://x.com"
+        )
+        with pytest.raises(NotImplementedError):
+            sc.spark_options()
+
+    def test_legacy_construction_defaults_pat(self):
+        # Connectors built before OAuth support landed have no auth_method
+        # field at all. They must keep working as PAT.
+        sc = storage_connector.UnityCatalogConnector(
+            id=1,
+            name="uc",
+            featurestore_id=1,
+            workspace_url="https://ws.cloud.databricks.com",
+            access_token="dapi-xyz",
+        )
+        assert sc.auth_method == "PAT"
+        assert sc.oauth_endpoint is None
+        assert sc.client_id is None
+        assert sc.has_access_token is True
+        assert sc.has_client_secret is False
+
+    def test_oauth_construction_defaults_workspace_endpoint(self):
+        # auth_method=OAUTH_M2M without oauth_endpoint defaults to WORKSPACE,
+        # matching the frontend default.
+        sc = storage_connector.UnityCatalogConnector(
+            id=1,
+            name="uc",
+            featurestore_id=1,
+            workspace_url="https://ws.cloud.databricks.com",
+            auth_method="OAUTH_M2M",
+            client_id="cid",
+            client_secret="csec",
+        )
+        assert sc.oauth_endpoint == "WORKSPACE"
+        assert sc.client_secret == "csec"
+        assert sc.has_client_secret is True
 
 
 class TestRedshiftConnector:
@@ -211,9 +345,9 @@ class TestRedshiftConnector:
             database_name="db",
         )
 
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
-        mocker.patch("hsfs.core.storage_connector_api.StorageConnectorApi.refetch")
-        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine.read")
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
+        mocker.patch("hsfs.core.storage_connector_api.StorageConnectorApi._refetch")
+        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine._read")
 
         query = "select * from table"
         sc.read(query=query)
@@ -264,8 +398,8 @@ class TestAdlsConnector:
         assert sc._spark_options == {}
 
     def test_default_path(self, mocker):
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
-        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine.read")
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
+        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine._read")
         # act
         sc = storage_connector.AdlsConnector(
             id=1,
@@ -286,8 +420,8 @@ class TestAdlsConnector:
 
 class TestSnowflakeConnector:
     def test_read_query_option(self, mocker):
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
-        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine.read")
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
+        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine._read")
 
         snowflake_connector = storage_connector.SnowflakeConnector(
             id=1, name="test_connector", featurestore_id=1, table="snowflake_table"
@@ -540,11 +674,11 @@ class TestKafkaConnector:
     # Unit test for storage connector created by user (i.e. without the external flag)
     def test_kafka_options_user_sc(self, mocker, backend_fixtures):
         # Arrange
-        mocker.patch("hopsworks_common.client.get_instance")
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
+        mocker.patch("hopsworks_common.client._get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka"]["response"]
 
-        mock_engine_get_instance.return_value.add_file.return_value = (
+        mock_engine_get_instance.return_value._add_file.return_value = (
             "result_from_add_file"
         )
 
@@ -568,8 +702,8 @@ class TestKafkaConnector:
 
     def test_kafka_options_internal(self, mocker, backend_fixtures):
         # Arrange
-        mocker.patch("hsfs.engine.get_instance")
-        mock_client_get_instance = mocker.patch("hopsworks_common.client.get_instance")
+        mocker.patch("hsfs.engine._get_instance")
+        mock_client_get_instance = mocker.patch("hopsworks_common.client._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_internal"]["response"]
 
         mock_client_get_instance.return_value._get_jks_trust_store_path.return_value = (
@@ -600,12 +734,12 @@ class TestKafkaConnector:
 
     def test_kafka_options_external(self, mocker, backend_fixtures):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_external"]["response"]
 
         sc = storage_connector.StorageConnector.from_response_json(json)
 
-        mock_engine_get_instance.return_value.add_file.return_value = (
+        mock_engine_get_instance.return_value._add_file.return_value = (
             "result_from_add_file"
         )
 
@@ -627,11 +761,11 @@ class TestKafkaConnector:
 
     def test_spark_options(self, mocker, backend_fixtures):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
-        mock_client_get_instance = mocker.patch("hopsworks_common.client.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
+        mock_client_get_instance = mocker.patch("hopsworks_common.client._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_internal"]["response"]
 
-        mock_engine_get_instance.return_value.get_spark_version.return_value = "3.1.0"
+        mock_engine_get_instance.return_value._get_spark_version.return_value = "3.1.0"
 
         mock_client_get_instance.return_value._get_jks_trust_store_path.return_value = (
             "result_from_get_jks_trust_store_path"
@@ -661,12 +795,12 @@ class TestKafkaConnector:
 
     def test_spark_options_spark_35(self, mocker, backend_fixtures):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
-        mock_client_get_instance = mocker.patch("hopsworks_common.client.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
+        mock_client_get_instance = mocker.patch("hopsworks_common.client._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_internal"]["response"]
 
-        mock_engine_get_instance.return_value.get_spark_version.return_value = "3.5.0"
-        mock_engine_get_instance.return_value.add_file.return_value = (
+        mock_engine_get_instance.return_value._get_spark_version.return_value = "3.5.0"
+        mock_engine_get_instance.return_value._add_file.return_value = (
             "result_from_add_file"
         )
 
@@ -709,16 +843,16 @@ class TestKafkaConnector:
             "kafka.ssl.keystore.key": "test_ssl_key",
         }
 
-        mock_engine_get_instance.return_value.add_file.assert_not_called()
-        mock_engine_get_instance.return_value.add_file.assert_not_called()
+        mock_engine_get_instance.return_value._add_file.assert_not_called()
+        mock_engine_get_instance.return_value._add_file.assert_not_called()
 
     def test_spark_options_external(self, mocker, backend_fixtures):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_external"]["response"]
 
-        mock_engine_get_instance.return_value.get_spark_version.return_value = "3.1.0"
-        mock_engine_get_instance.return_value.add_file.return_value = (
+        mock_engine_get_instance.return_value._get_spark_version.return_value = "3.1.0"
+        mock_engine_get_instance.return_value._add_file.return_value = (
             "result_from_add_file"
         )
 
@@ -742,12 +876,12 @@ class TestKafkaConnector:
 
     def test_spark_options_spark_35_external(self, mocker, backend_fixtures):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
-        mock_client_get_instance = mocker.patch("hopsworks_common.client.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
+        mock_client_get_instance = mocker.patch("hopsworks_common.client._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_external"]["response"]
 
-        mock_engine_get_instance.return_value.get_spark_version.return_value = "3.5.0"
-        mock_engine_get_instance.return_value.add_file.return_value = (
+        mock_engine_get_instance.return_value._get_spark_version.return_value = "3.5.0"
+        mock_engine_get_instance.return_value._add_file.return_value = (
             "result_from_add_file"
         )
 
@@ -790,25 +924,25 @@ class TestKafkaConnector:
             "kafka.ssl.keystore.key": "test_ssl_key",
         }
 
-        mock_engine_get_instance.return_value.add_file.assert_any_call(
+        mock_engine_get_instance.return_value._add_file.assert_any_call(
             "test_ssl_truststore_location", distribute=False
         )
-        mock_engine_get_instance.return_value.add_file.assert_any_call(
+        mock_engine_get_instance.return_value._add_file.assert_any_call(
             "test_ssl_keystore_location", distribute=False
         )
 
     def test_confluent_options(self, mocker, backend_fixtures):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
         json = backend_fixtures["storage_connector"]["get_kafka_internal"]["response"]
 
-        mock_engine_get_instance.return_value.add_file.return_value = (
+        mock_engine_get_instance.return_value._add_file.return_value = (
             "result_from_add_file"
         )
 
         sc = storage_connector.StorageConnector.from_response_json(json)
 
-        mock_client = mocker.patch("hopsworks_common.client.get_instance")
+        mock_client = mocker.patch("hopsworks_common.client._get_instance")
         mock_client.return_value._write_pem.return_value = (
             "test_ssl_ca_location",
             "test_ssl_certificate_location",
@@ -830,9 +964,9 @@ class TestKafkaConnector:
 
     def test_confluent_options_jaas_single_quotes(self, mocker):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
-        mock_engine_get_instance.return_value.add_file.return_value = None
-        mocker.patch("hopsworks_common.client.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
+        mock_engine_get_instance.return_value._add_file.return_value = None
+        mocker.patch("hopsworks_common.client._get_instance")
         sc = storage_connector.KafkaConnector(
             1,
             "kafka_connector",
@@ -861,9 +995,9 @@ class TestKafkaConnector:
 
     def test_confluent_options_jaas_double_quotes(self, mocker):
         # Arrange
-        mock_engine_get_instance = mocker.patch("hsfs.engine.get_instance")
-        mock_engine_get_instance.return_value.add_file.return_value = None
-        mocker.patch("hopsworks_common.client.get_instance")
+        mock_engine_get_instance = mocker.patch("hsfs.engine._get_instance")
+        mock_engine_get_instance.return_value._add_file.return_value = None
+        mocker.patch("hopsworks_common.client._get_instance")
         sc = storage_connector.KafkaConnector(
             1,
             "kafka_connector",
@@ -929,15 +1063,15 @@ class TestGcsConnector:
         assert sc.encryption_key_hash is None
 
     def test_python_support_validation(self, backend_fixtures):
-        engine.set_instance("python", python.Engine())
+        engine._set_instance("python", python.Engine())
         json = backend_fixtures["storage_connector"]["get_gcs_basic_info"]["response"]
         sc = storage_connector.StorageConnector.from_response_json(json)
         with pytest.raises(NotImplementedError):
             sc.read()
 
     def test_default_path(self, mocker):
-        mocker.patch("hsfs.engine.get_instance", return_value=spark.Engine())
-        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine.read")
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
+        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine._read")
         # act
         sc = storage_connector.GcsConnector(
             id=1, name="test_connector", featurestore_id=1, bucket="test-bucket"
@@ -991,7 +1125,7 @@ class TestBigQueryConnector:
 
     def test_credentials_base64_encoded(self, mocker, backend_fixtures, tmp_path):
         # Arrange
-        engine.set_instance("spark", spark.Engine())
+        engine._set_instance("spark", spark.Engine())
         mocker.patch("hopsworks_common.client._is_external", return_value=False)
 
         credentials = '{"type": "service_account", "project_id": "test"}'
@@ -1022,7 +1156,7 @@ class TestBigQueryConnector:
 
     def test_python_support_validation(self, backend_fixtures):
         # Arrange
-        engine.set_instance("python", python.Engine())
+        engine._set_instance("python", python.Engine())
         json = backend_fixtures["storage_connector"]["get_big_query_basic_info"][
             "response"
         ]
@@ -1034,7 +1168,7 @@ class TestBigQueryConnector:
 
     def test_query_validation(self, mocker, backend_fixtures, tmp_path):
         # Arrange
-        engine.set_instance("spark", spark.Engine())
+        engine._set_instance("spark", spark.Engine())
         mocker.patch("hopsworks_common.client._is_external", return_value=False)
 
         credentials = '{"type": "service_account", "project_id": "test"}'
@@ -1055,7 +1189,7 @@ class TestBigQueryConnector:
 
     def test_connector_options(self, backend_fixtures):
         # Arrange
-        engine.set_instance("python", python.Engine())
+        engine._set_instance("python", python.Engine())
         json = backend_fixtures["storage_connector"]["get_big_query_query"]["response"]
         sc = storage_connector.StorageConnector.from_response_json(json)
 
@@ -1099,6 +1233,7 @@ class TestSqlConnector:
 
         # Assert
         assert options["driver"] == expected_driver
+        assert options["url"] == f"jdbc:{expected_scheme}://localhost:3306/testdb"
 
     @pytest.mark.parametrize(
         "database_type, expected_driver, expected_scheme",
@@ -1112,19 +1247,45 @@ class TestSqlConnector:
     ):
         # Arrange
         connector = self._make_connector(database_type)
-        mock_read = mocker.patch("hsfs.engine.get_instance")
-        mocker.patch.object(connector, "refetch")
+        mock_read = mocker.patch("hsfs.engine._get_instance")
+        mocker.patch.object(connector, "_refetch")
 
         # Act
         connector.read(query="SELECT 1")
 
         # Assert
-        call_options = mock_read.return_value.read.call_args[0][2]
+        call_options = mock_read.return_value._read.call_args[0][2]
         assert call_options["url"] == f"jdbc:{expected_scheme}://localhost:3306/testdb"
+
+    def test_read_oracle_jdbc_url(self, mocker):
+        """read() should pass the Oracle ``jdbc:oracle:thin:@host:port/service`` URL to the engine."""
+        # Arrange
+        connector = storage_connector.SqlConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+        mock_engine = mocker.patch("hsfs.engine._get_instance")
+        mocker.patch.object(connector, "_refetch")
+
+        # Act
+        connector.read(query="SELECT 1 FROM DUAL")
+
+        # Assert
+        call_options = mock_engine.return_value._read.call_args[0][2]
+        assert call_options["url"] == "jdbc:oracle:thin:@myhost:1521/ORCL"
+        assert call_options["driver"] == "oracle.jdbc.driver.OracleDriver"
+        assert call_options["query"] == "SELECT 1 FROM DUAL"
 
     def test_unsupported_database_type_raises(self):
         with pytest.raises(ValueError, match="Unsupported database_type"):
-            self._make_connector("ORACLE")
+            self._make_connector("UNSUPPORTED_DB")
 
     def test_spark_options_includes_arguments(self):
         # Arrange
@@ -1170,3 +1331,940 @@ class TestSqlConnector:
 
         # Assert: the explicit driver wins
         assert options["driver"] == "com.mysql.cj.jdbc.Driver"
+
+
+class TestOracleConnector:
+    def test_from_response_json(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_oracle"]["response"]
+
+        # Act
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Assert
+        assert isinstance(sc, storage_connector.SqlConnector)
+        assert sc.id == 1
+        assert sc.name == "test_oracle"
+        assert sc._featurestore_id == 67
+        assert sc.description == "Oracle connector description"
+        assert sc.database_type == "ORACLE"
+        assert sc._host == "test_host"
+        assert sc._port == 1521
+        assert sc._database == "test_database"
+        assert sc._user == "test_user"
+        assert sc._password == "test_password"
+        assert sc._wallet_path == "/Projects/test_project/Resources/wallet.zip"
+        assert sc._wallet_password == "test_wallet_password"
+        assert sc._arguments == {"test_name": "test_value"}
+
+    def test_from_response_json_basic_info(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_oracle_basic_info"][
+            "response"
+        ]
+
+        # Act
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Assert
+        assert isinstance(sc, storage_connector.SqlConnector)
+        assert sc.id == 1
+        assert sc.name == "test_oracle"
+        assert sc._featurestore_id == 67
+        assert sc.description is None
+        assert sc.database_type == "ORACLE"
+        assert sc._host is None
+        assert sc._database is None
+
+    def test_spark_options(self):
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+        opts = sc.spark_options()
+        assert opts["url"] == "jdbc:oracle:thin:@myhost:1521/ORCL"
+        assert opts["driver"] == "oracle.jdbc.driver.OracleDriver"
+        assert opts["user"] == "scott"
+        assert opts["password"] == "tiger"
+
+    def test_connector_options(self):
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+        opts = sc.connector_options()
+        assert opts["host"] == "myhost"
+        assert opts["port"] == 1521
+        assert opts["service_name"] == "ORCL"
+        assert opts["user"] == "scott"
+        assert opts["password"] == "tiger"
+
+    def test_spark_options_wallet_uses_tcps(self):
+        """When wallet_path is set, spark_options should use tcps URL."""
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+            wallet_path="/Projects/myproj/Resources/wallet.zip",
+        )
+        opts = sc.spark_options()
+        assert opts["url"] == "jdbc:oracle:thin:@tcps://myhost:1521/ORCL"
+        # Wallet JDBC properties are set in read(), not spark_options()
+        assert "oracle.net.wallet_location" not in opts
+
+    def test_read_wallet_sets_jdbc_properties(self, mocker, tmp_path):
+        """read() should download/extract wallet and set Oracle JDBC wallet properties."""
+        import zipfile
+
+        # Create a local wallet zip to simulate what add_file returns
+        wallet_zip = tmp_path / "wallet.zip"
+        with zipfile.ZipFile(str(wallet_zip), "w") as zf:
+            zf.writestr("cwallet.sso", "fake")
+
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+            wallet_path="/Projects/myproj/Resources/wallet.zip",
+            wallet_password="walletpass",
+        )
+
+        mock_engine = mocker.patch("hsfs.engine._get_instance")
+        mock_engine.return_value._add_file.return_value = str(wallet_zip)
+        mocker.patch.object(sc, "_refetch")
+
+        sc.read(query="SELECT 1")
+
+        # Verify add_file was called with distribute=False
+        mock_engine.return_value._add_file.assert_called_once_with(
+            "/Projects/myproj/Resources/wallet.zip", distribute=False
+        )
+
+        # Oracle reads always go through _read_jdbc_on_driver so wallet files
+        # (which only exist on the driver) are accessible.
+        call_options = mock_engine.return_value._read_jdbc_on_driver.call_args[0][0]
+        assert call_options["url"] == "jdbc:oracle:thin:@tcps://myhost:1521/ORCL"
+        assert "oracle.net.wallet_location" in call_options
+        expected_dir = str(tmp_path / "wallet")
+        assert expected_dir in call_options["oracle.net.wallet_location"]
+        assert call_options["oracle.net.tns_admin"] == expected_dir
+        assert call_options["oracle.net.wallet_password"] == "walletpass"
+        assert os.path.isfile(os.path.join(expected_dir, "cwallet.sso"))
+
+    def test_connector_options_wallet(self):
+        """connector_options should include wallet_path and wallet_password."""
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+            wallet_path="/Projects/myproj/Resources/wallet.zip",
+            wallet_password="walletpass",
+        )
+        opts = sc.connector_options()
+        assert opts["wallet_path"] == "/Projects/myproj/Resources/wallet.zip"
+        assert opts["wallet_password"] == "walletpass"
+
+    def test_spark_options_wallet_only_uses_tns_alias_url(self):
+        """Wallet-only Oracle: URL carries the TNS alias only, no host:port."""
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            database="mydb_high",  # TNS alias from tnsnames.ora
+            user="scott",
+            password="tiger",
+            wallet_path="/Projects/myproj/Resources/wallet.zip",
+        )
+        opts = sc.spark_options()
+        assert opts["url"] == "jdbc:oracle:thin:@mydb_high"
+
+    def test_spark_options_no_host_no_wallet_raises(self):
+        """Oracle connector without host/port AND without wallet is invalid."""
+        from hopsworks_common.client.exceptions import DataSourceException
+
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+        with pytest.raises(DataSourceException):
+            sc.spark_options()
+
+    def test_get_tables_defaults_to_user_schema_for_oracle(self, mocker):
+        """For Oracle, get_tables(None) defaults to the user's schema, not service_name."""
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+        mock_get_tables = mocker.patch.object(
+            sc._data_source_api, "_get_tables", return_value=[]
+        )
+
+        sc.get_tables()
+
+        mock_get_tables.assert_called_once_with(sc, "SCOTT")
+
+    def test_get_tables_oracle_explicit_database_overrides_default(self, mocker):
+        """Explicit database to get_tables should not be replaced by the user."""
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            host="myhost",
+            port=1521,
+            database="ORCL",
+            user="scott",
+            password="tiger",
+        )
+        mock_get_tables = mocker.patch.object(
+            sc._data_source_api, "_get_tables", return_value=[]
+        )
+
+        sc.get_tables("SH")
+
+        mock_get_tables.assert_called_once_with(sc, "SH")
+
+    def test_get_tables_oracle_without_user_raises(self):
+        """Oracle without a configured user has no sensible default schema."""
+        sc = storage_connector.SqlConnector(
+            id=1,
+            name="test",
+            featurestore_id=1,
+            database_type="ORACLE",
+            database="mydb_high",
+            wallet_path="/Projects/myproj/Resources/wallet.zip",
+        )
+        with pytest.raises(
+            ValueError, match="schema/owner is required for Oracle connectors"
+        ):
+            sc.get_tables()
+
+
+class TestSapHanaConnector:
+    def test_from_response_json(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_sap_hana"]["response"]
+
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        assert isinstance(sc, storage_connector.SapHanaConnector)
+        assert sc.id == 1
+        assert sc.name == "test_sap_hana"
+        assert sc._featurestore_id == 67
+        assert sc.description == "SAP HANA connector description"
+        assert sc.host == "hana.example.com"
+        assert sc.port == 39015
+        assert sc.database == "HXE"
+        assert sc.schema == "SYSTEM"
+        assert sc.table == "TBL"
+        assert sc.user == "SYSTEM"
+        assert sc.password == "test_password"
+        assert sc.application == "hopsworks"
+        assert sc.options == {"fetchsize": "1000"}
+
+    def test_from_response_json_basic_info(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_sap_hana_basic_info"][
+            "response"
+        ]
+
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        assert isinstance(sc, storage_connector.SapHanaConnector)
+        assert sc.id == 1
+        assert sc.name == "test_sap_hana"
+        assert sc.host is None
+        assert sc.port == storage_connector.SapHanaConnector.DEFAULT_PORT
+        assert sc.database is None
+        assert sc.schema is None
+        assert sc.table is None
+        assert sc.user is None
+        assert sc.password is None
+        assert sc.application is None
+        assert sc.options == {}
+
+    def test_spark_options_url_includes_database_and_schema(self):
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            host="hana.example.com",
+            port=39015,
+            database="HXE",
+            schema="ANALYTICS",
+            user="SYSTEM",
+            password="pw",
+            table="TBL",
+        )
+
+        opts = sc.spark_options()
+
+        assert opts["driver"] == storage_connector.SapHanaConnector.DRIVER
+        assert (
+            opts["url"]
+            == "jdbc:sap://hana.example.com:39015/?databaseName=HXE&currentschema=ANALYTICS"
+        )
+        assert opts["user"] == "SYSTEM"
+        assert opts["password"] == "pw"
+        assert opts["dbtable"] == "TBL"
+
+    def test_spark_options_no_database_no_schema(self):
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            host="hana.example.com",
+            user="SYSTEM",
+            password="pw",
+        )
+
+        opts = sc.spark_options()
+
+        assert opts["url"] == "jdbc:sap://hana.example.com:39015/"
+        assert "dbtable" not in opts
+
+    def test_default_port_applied(self):
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            host="hana.example.com",
+        )
+        assert sc.port == 39015
+
+    def test_arguments_merged_into_spark_options(self):
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            host="hana.example.com",
+            arguments=[{"name": "fetchsize", "value": "5000"}],
+        )
+
+        opts = sc.spark_options()
+
+        assert opts["fetchsize"] == "5000"
+
+    def test_read_query_overrides_dbtable(self, mocker):
+        mocker.patch("hsfs.engine._get_instance", return_value=spark.Engine())
+        mock_engine_read = mocker.patch("hsfs.engine.spark.Engine._read")
+
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            host="hana.example.com",
+            user="SYSTEM",
+            password="pw",
+            table="TBL",
+        )
+        # SapHanaConnector.read() refetches before reading (so a connector
+        # loaded as basic info refreshes its credentials); stub it out so
+        # the test doesn't try to talk to a backend.
+        mocker.patch.object(sc, "_refetch")
+        query = "SELECT * FROM ANALYTICS.TBL"
+        sc.read(query=query)
+
+        called_options = mock_engine_read.call_args[0][2]
+        assert called_options["query"] == query
+        assert "dbtable" not in called_options
+
+    def test_connector_options_minimal(self):
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+            host="hana.example.com",
+            user="SYSTEM",
+            password="pw",
+            database="HXE",
+            schema="ANALYTICS",
+        )
+
+        props = sc.connector_options()
+
+        assert props["address"] == "hana.example.com"
+        assert props["port"] == 39015
+        assert props["user"] == "SYSTEM"
+        assert props["password"] == "pw"
+        assert props["databaseName"] == "HXE"
+        assert props["currentSchema"] == "ANALYTICS"
+
+    def test_spark_options_without_host_raises(self):
+        """Mirror the Oracle/JdbcConnector pattern.
+
+        A connector loaded as basic info (no host yet) must fail fast on
+        spark_options() instead of producing an unusable
+        ``jdbc:sap://None:port/`` URL.
+        """
+        from hopsworks_common.client.exceptions import DataSourceException
+
+        sc = storage_connector.SapHanaConnector(
+            id=1,
+            name="test_connector",
+            featurestore_id=1,
+        )
+        with pytest.raises(DataSourceException, match="requires a host"):
+            sc.spark_options()
+
+
+class TestMongoDBConnector:
+    """Cover the MongoDBConnector — from_response_json, URI builder, options."""
+
+    def test_from_response_json(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_mongodb"]["response"]
+
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        assert sc.id == 1
+        assert sc.name == "test_mongodb"
+        assert sc._featurestore_id == 67
+        assert sc.description == "MongoDB connector description"
+        assert sc.connection_string == "mongodb+srv://hopsworks.example.mongodb.net"
+        assert sc.database == "sample_mflix"
+        assert sc.collection == "comments"
+        assert sc.user == "test_user"
+        assert sc.password == "test_password"
+        assert sc.auth_source == "admin"
+        assert sc.auth_mechanism == "SCRAM-SHA-256"
+        assert sc.options == {"maxPoolSize": "10"}
+
+    def test_from_response_json_basic_info(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_mongodb_basic_info"][
+            "response"
+        ]
+
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        assert sc.id == 1
+        assert sc.name == "test_mongodb"
+        assert sc._featurestore_id == 67
+        assert sc.description is None
+        assert sc.connection_string is None
+        assert sc.database is None
+        assert sc.collection is None
+        assert sc.user is None
+        assert sc.password is None
+        assert sc.auth_source is None
+        assert sc.auth_mechanism is None
+        assert sc.options == {}
+
+    def test_connection_uri_auth_params_without_user(self):
+        # Reviewer note: authSource / authMechanism are valid independent
+        # of userinfo (e.g. X.509 client-cert auth has no username).
+        # Always append them when set.
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+            auth_mechanism="MONGODB-X509",
+        )
+
+        assert sc._connection_uri() == (
+            "mongodb://host:27017/?authMechanism=MONGODB-X509"
+        )
+
+    def test_connection_uri_adds_path_separator_before_query(self):
+        # Bug regression: previously `mongodb://host:27017?authSource=admin`
+        # was produced (no `/` between host and `?`), which is invalid per
+        # the MongoDB URI spec and rejected by pymongo's parser.
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+            user="alice",
+            auth_source="admin",
+        )
+
+        uri = sc._connection_uri()
+        # The path separator `/` precedes the query string `?`.
+        assert "/?" in uri
+        assert uri.endswith("/?authSource=admin")
+
+    def test_connection_uri_preserves_existing_query_and_path(self):
+        # If the stored connection string already carries query params or
+        # a path, we preserve them and append our own params.
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017/dbX?retryWrites=true",
+            user="alice",
+            auth_source="admin",
+        )
+
+        uri = sc._connection_uri()
+        assert uri == (
+            "mongodb://alice@host:27017/dbX?retryWrites=true&authSource=admin"
+        )
+
+    def test_connection_uri_no_user_no_auth_returns_base(self):
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+        )
+        # No userinfo, no extra params — but we still insert the path
+        # separator so the URI is spec-valid.
+        assert sc._connection_uri() == "mongodb://host:27017/"
+
+    def test_connection_uri_missing_connection_string_raises(self):
+        from hopsworks_common.client.exceptions import DataSourceException
+
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+        )
+        with pytest.raises(DataSourceException, match="requires a connection_string"):
+            sc._connection_uri()
+
+    def test_spark_options(self):
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb+srv://cluster.example.mongodb.net",
+            database="sample_mflix",
+            collection="comments",
+            user="alice",
+            password="secret",
+            options={"maxPoolSize": "10"},
+        )
+
+        opts = sc.spark_options()
+        # The connection URI is set under `connection.uri` (the
+        # mongo-spark-connector option name); database + collection are
+        # passed through as defaults; persisted options are merged.
+        assert opts["connection.uri"].startswith("mongodb+srv://alice:secret@")
+        assert opts["database"] == "sample_mflix"
+        assert opts["collection"] == "comments"
+
+    def test_get_tables_without_database_raises(self):
+        """MongoDB get_tables() with no database configured and no argument raises."""
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+        )
+        with pytest.raises(ValueError, match="Database name is required for MongoDB"):
+            sc.get_tables()
+
+    def test_get_tables_uses_connector_default_database(self, mocker):
+        """MongoDB get_tables() defaults to the connector's database when none is passed."""
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+            database="sample_mflix",
+        )
+        mock_get_tables = mocker.patch.object(
+            sc._data_source_api, "_get_tables", return_value=[]
+        )
+
+        sc.get_tables()
+
+        mock_get_tables.assert_called_once_with(sc, "sample_mflix")
+
+    def test_connector_options_forwards_self_options(self):
+        # Reviewer note: connector_options() previously returned only
+        # {host: uri}. self.options (operator-set pymongo kwargs) must be
+        # forwarded so values like maxPoolSize / serverSelectionTimeoutMS
+        # reach the driver.
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+            user="alice",
+            options={
+                "maxPoolSize": 10,
+                "serverSelectionTimeoutMS": 5000,
+                "host": "ignored",  # explicit-host key dropped to avoid clash
+            },
+        )
+
+        opts = sc.connector_options()
+        assert opts["host"].startswith("mongodb://alice@host:27017/")
+        # `host` from self.options is dropped — already set from URI builder.
+        assert opts["host"] != "ignored"
+        assert opts["maxPoolSize"] == 10
+        assert opts["serverSelectionTimeoutMS"] == 5000
+
+    def test_connector_options_drops_none_values(self):
+        sc = storage_connector.MongoDBConnector(
+            id=1,
+            name="m",
+            featurestore_id=1,
+            connection_string="mongodb://host:27017",
+            options={"maxPoolSize": None, "tlsAllowInvalidCertificates": True},
+        )
+        opts = sc.connector_options()
+        assert "maxPoolSize" not in opts
+
+
+class TestStorageConnectorToDict:
+    """Tests that to_dict() produces the camelCase payload the backend expects."""
+
+    def test_hopsfs_to_dict(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_hopsfs"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Act
+        d = sc.to_dict()
+
+        # Assert
+        assert d["type"] == "featurestoreHopsfsConnectorDTO"
+        assert d["storageConnectorType"] == "HOPSFS"
+        assert d["name"] == "test_hopsfs"
+        assert d["description"] == "HOPSFS connector description"
+        assert d["hopsfsPath"] == "test_path"
+        assert d["datasetName"] == "test_dataset_name"
+
+    def test_s3_to_dict(self, backend_fixtures):
+        # Arrange
+        json = backend_fixtures["storage_connector"]["get_s3"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        # Act
+        d = sc.to_dict()
+
+        # Assert
+        assert d["type"] == "featurestoreS3ConnectorDTO"
+        assert d["storageConnectorType"] == "S3"
+        assert d["bucket"] == "test_bucket"
+        assert d["accessKey"] == "test_access_key"
+        assert d["secretKey"] == "test_secret_key"
+        assert d["serverEncryptionAlgorithm"] == "test_server_encryption_algorithm"
+        assert d["serverEncryptionKey"] == "test_server_encryption_key"
+        assert d["sessionToken"] == "test_session_token"
+        assert d["iamRole"] == "test_iam_role"
+        assert d["arguments"] == [{"name": "test_name", "value": "test_value"}]
+
+    def test_s3_to_dict_minimal(self):
+        sc = storage_connector.S3Connector(
+            id=None,
+            name="my_s3",
+            featurestore_id=67,
+            bucket="my-bucket",
+            region="eu-north-1",
+        )
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreS3ConnectorDTO"
+        assert d["storageConnectorType"] == "S3"
+        assert d["bucket"] == "my-bucket"
+        assert d["region"] == "eu-north-1"
+        assert d["arguments"] == []
+
+    def test_redshift_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_redshift"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreRedshiftConnectorDTO"
+        assert d["storageConnectorType"] == "REDSHIFT"
+        assert d["clusterIdentifier"] == "test_cluster_identifier"
+        assert d["databaseDriver"] == "test_database_driver"
+        assert d["databaseEndpoint"] == "test_database_endpoint"
+        assert d["databaseName"] == "test_database_name"
+        assert d["databasePort"] == "test_database_port"
+        assert d["tableName"] == "test_table_name"
+        assert d["databaseUserName"] == "test_database_user_name"
+        assert d["autoCreate"] == "test_auto_create"
+        assert d["databasePassword"] == "test_database_password"
+        assert d["databaseGroup"] == "test_database_group"
+        assert d["iamRole"] == "test_iam_role"
+        assert d["expiration"] == "test_expiration"
+        # fixture passes arguments as a raw string (non-list); passed through as-is
+        assert d["arguments"] == "test_arguments"
+
+    def test_adls_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_adls"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreAdlsConnectorDTO"
+        assert d["storageConnectorType"] == "ADLS"
+        assert d["generation"] == "test_generation"
+        assert d["directoryId"] == "test_directory_id"
+        assert d["applicationId"] == "test_application_id"
+        assert d["serviceCredential"] == "test_service_credential"
+        assert d["accountName"] == "test_account_name"
+        assert d["containerName"] == "test_container_name"
+        assert d["sparkOptions"] == [{"name": "test_name", "value": "test_value"}]
+
+    def test_snowflake_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_snowflake"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreSnowflakeConnectorDTO"
+        assert d["storageConnectorType"] == "SNOWFLAKE"
+        assert d["url"] == "test_url"
+        assert d["user"] == "test_user"
+        assert d["password"] == "test_password"
+        assert d["token"] == "test_token"
+        assert d["database"] == "test_database"
+        assert d["schema"] == "test_schema"
+        assert d["table"] == "test_table"
+        assert d["warehouse"] == "test_warehouse"
+        assert d["role"] == "test_role"
+        assert d["application"] == "test_application"
+        assert d["passphrase"] == "test_passphrase"
+        assert d["sfOptions"] == [{"name": "test_name", "value": "test_value"}]
+
+    def test_sap_hana_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_sap_hana"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featureStoreSapHanaConnectorDTO"
+        assert d["storageConnectorType"] == "SAP_HANA"
+        assert d["host"] == "hana.example.com"
+        assert d["port"] == 39015
+        assert d["database"] == "HXE"
+        assert d["schema"] == "SYSTEM"
+        assert d["table"] == "TBL"
+        assert d["user"] == "SYSTEM"
+        assert d["password"] == "test_password"
+        assert d["application"] == "hopsworks"
+        assert d["arguments"] == [{"name": "fetchsize", "value": "1000"}]
+
+    def test_jdbc_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_jdbc"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreJdbcConnectorDTO"
+        assert d["storageConnectorType"] == "JDBC"
+        assert d["connectionString"] == "test_conn_string"
+        assert len(d["arguments"]) == 4
+        assert d["arguments"][0]["name"] == "sslTrustStore"
+
+    def test_kafka_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_kafka"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreKafkaConnectorDTO"
+        assert d["storageConnectorType"] == "KAFKA"
+        assert d["bootstrapServers"] == "test_bootstrap_servers"
+        assert d["securityProtocol"] == "test_security_protocol"
+        assert d["sslTruststoreLocation"] == "test_ssl_truststore_location"
+        assert d["sslTruststorePassword"] == "test_ssl_truststore_password"
+        assert d["sslKeystoreLocation"] == "test_ssl_keystore_location"
+        assert d["sslKeystorePassword"] == "test_ssl_keystore_password"
+        assert d["sslKeyPassword"] == "test_ssl_key_password"
+        assert (
+            d["sslEndpointIdentificationAlgorithm"]
+            == "test_ssl_endpoint_identification_algorithm"
+        )
+        assert d["options"] == [
+            {"name": "test_option_name", "value": "test_option_value"}
+        ]
+
+    def test_kafka_external_flag_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_kafka_external"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["externalKafka"] is True
+
+    def test_gcs_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_gcs"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featureStoreGcsConnectorDTO"
+        assert d["storageConnectorType"] == "GCS"
+        assert d["keyPath"] == "test_key_path"
+        assert d["bucket"] == "test_bucket"
+        assert d["algorithm"] == "test_algorithm"
+        assert d["encryptionKey"] == "test_encryption_key"
+        assert d["encryptionKeyHash"] == "test_encryption_key_hash"
+
+    def test_bigquery_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_big_query_table"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreBigqueryConnectorDTO"
+        assert d["storageConnectorType"] == "BIGQUERY"
+        assert d["keyPath"] == "test_key_path"
+        assert d["parentProject"] == "test_parent_project"
+        assert d["dataset"] == "test_dataset"
+        assert d["queryTable"] == "test_query_table"
+        assert d["queryProject"] == "test_query_project"
+        assert d["arguments"] == [{"name": "test_name", "value": "test_value"}]
+
+    def test_sql_oracle_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_oracle"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreSqlConnectorDTO"
+        assert d["storageConnectorType"] == "SQL"
+        assert d["databaseType"] == "ORACLE"
+        assert d["host"] == "test_host"
+        assert d["port"] == 1521
+        assert d["database"] == "test_database"
+        assert d["user"] == "test_user"
+        assert d["password"] == "test_password"
+        assert d["walletPath"] == "/Projects/test_project/Resources/wallet.zip"
+        assert d["walletPassword"] == "test_wallet_password"
+        assert d["arguments"] == [{"name": "test_name", "value": "test_value"}]
+
+    def test_mongodb_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_mongodb"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreMongoConnectorDTO"
+        assert d["storageConnectorType"] == "MONGODB"
+        assert d["connectionString"] == "mongodb+srv://hopsworks.example.mongodb.net"
+        assert d["database"] == "sample_mflix"
+        assert d["collection"] == "comments"
+        assert d["user"] == "test_user"
+        assert d["password"] == "test_password"
+        assert d["authSource"] == "admin"
+        assert d["authMechanism"] == "SCRAM-SHA-256"
+        assert d["options"] == [{"name": "maxPoolSize", "value": "10"}]
+
+    def test_unity_catalog_pat_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_unity_catalog"]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["type"] == "featurestoreUnityCatalogConnectorDTO"
+        assert d["storageConnectorType"] == "UNITY_CATALOG"
+        assert d["workspaceUrl"] == "https://test.cloud.databricks.com"
+        assert d["authMethod"] == "PAT"
+        assert d["defaultCatalog"] == "test_catalog"
+        assert d["awsRegion"] == "us-west-2"
+        assert d["arguments"] == [{"name": "arg1", "value": "val1"}]
+        # server-only boolean must not be sent back
+        assert "hasAccessToken" not in d
+        assert "hasClientSecret" not in d
+
+    def test_unity_catalog_oauth_workspace_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"][
+            "get_unity_catalog_oauth_workspace"
+        ]["response"]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["authMethod"] == "OAUTH_M2M"
+        assert d["oauthEndpoint"] == "WORKSPACE"
+        assert d["clientId"] == "test-sp-client-id"
+        assert "hasClientSecret" not in d
+
+    def test_unity_catalog_oauth_account_to_dict(self, backend_fixtures):
+        json = backend_fixtures["storage_connector"]["get_unity_catalog_oauth_account"][
+            "response"
+        ]
+        sc = storage_connector.StorageConnector.from_response_json(json)
+
+        d = sc.to_dict()
+
+        assert d["authMethod"] == "OAUTH_M2M"
+        assert d["oauthEndpoint"] == "ACCOUNT"
+        assert d["accountId"] == "12345678-1234-1234-1234-1234567890ab"
+        assert d["accountHost"] == "accounts.cloud.databricks.com"
+
+
+class TestStorageConnectorSave:
+    def test_save_calls_api_create(self, mocker):
+        mock_create = mocker.patch(
+            "hsfs.core.storage_connector_api.StorageConnectorApi._create",
+            return_value=storage_connector.S3Connector(
+                id=42, name="my_s3", featurestore_id=67, bucket="my-bucket"
+            ),
+        )
+        sc = storage_connector.S3Connector(
+            id=None, name="my_s3", featurestore_id=67, bucket="my-bucket"
+        )
+
+        result = sc.save()
+
+        mock_create.assert_called_once_with(sc)
+        assert result.id == 42
+
+    def test_update_calls_api_update(self, mocker):
+        mock_update = mocker.patch(
+            "hsfs.core.storage_connector_api.StorageConnectorApi._update",
+            return_value=storage_connector.S3Connector(
+                id=1, name="my_s3", featurestore_id=67, bucket="new-bucket"
+            ),
+        )
+        sc = storage_connector.S3Connector(
+            id=1, name="my_s3", featurestore_id=67, bucket="old-bucket"
+        )
+
+        result = sc.update()
+
+        mock_update.assert_called_once_with(sc)
+        assert result.bucket == "new-bucket"

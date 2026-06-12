@@ -685,6 +685,122 @@ class TestLineage(unittest.TestCase):
         self.assertEqual(node.downstream[0].reference_node_name, "t")
         self.assertEqual(node.downstream[0].downstream[0].name, "quarterly_sales.empid")
 
+    def test_unpivot(self) -> None:
+        sql = """
+        SELECT id, metric_name, score
+        FROM sales UNPIVOT (score FOR metric_name IN (jan, feb))
+        """
+        schema = {"sales": {"id": "int", "jan": "int", "feb": "int"}}
+
+        node = lineage("score", sql, schema=schema, dialect="snowflake")
+        self.assertEqual([d.name for d in node.downstream], ["SALES.JAN", "SALES.FEB"])
+
+        node = lineage("metric_name", sql, schema=schema, dialect="snowflake")
+        self.assertEqual([d.name for d in node.downstream], ["SALES.JAN", "SALES.FEB"])
+
+        node = lineage("id", sql, schema=schema, dialect="snowflake")
+        self.assertEqual([d.name for d in node.downstream], ["SALES.ID"])
+
+    def test_unpivot_with_cte(self) -> None:
+        sql = """
+        WITH src AS (
+          SELECT id, jan, feb FROM sales
+        )
+        SELECT id, metric_name, score
+        FROM src UNPIVOT (score FOR metric_name IN (jan, feb))
+        """
+        schema = {"sales": {"id": "int", "jan": "int", "feb": "int"}}
+
+        node = lineage("score", sql, schema=schema, dialect="snowflake")
+        self.assertEqual([d.name for d in node.downstream], ["SRC.JAN", "SRC.FEB"])
+        self.assertEqual(node.downstream[0].downstream[0].name, "SALES.JAN")
+        self.assertEqual(node.downstream[1].downstream[0].name, "SALES.FEB")
+
+        node = lineage("id", sql, schema=schema, dialect="snowflake")
+        self.assertEqual(node.downstream[0].name, "SRC.ID")
+        self.assertEqual(node.downstream[0].downstream[0].name, "SALES.ID")
+
+    def test_unpivot_multi_column(self) -> None:
+        sql = """
+        SELECT product, semesters, first_half_sales, second_half_sales
+        FROM produce
+        UNPIVOT((first_half_sales, second_half_sales) FOR semesters IN ((q1, q2) AS 'semester_1', (q3, q4) AS 'semester_2'))
+        """
+        schema = {
+            "produce": {
+                "product": "string",
+                "q1": "int64",
+                "q2": "int64",
+                "q3": "int64",
+                "q4": "int64",
+            }
+        }
+
+        node = lineage("first_half_sales", sql, schema=schema, dialect="bigquery")
+        self.assertEqual([d.name for d in node.downstream], ["produce.q1", "produce.q3"])
+
+        node = lineage("second_half_sales", sql, schema=schema, dialect="bigquery")
+        self.assertEqual([d.name for d in node.downstream], ["produce.q2", "produce.q4"])
+
+        node = lineage("semesters", sql, schema=schema, dialect="bigquery")
+        self.assertEqual(
+            [d.name for d in node.downstream],
+            ["produce.q1", "produce.q2", "produce.q3", "produce.q4"],
+        )
+
+        node = lineage("product", sql, schema=schema, dialect="bigquery")
+        self.assertEqual([d.name for d in node.downstream], ["produce.product"])
+
+    def test_unpivot_with_alias_columns(self) -> None:
+        sql = """
+        WITH src AS (
+          SELECT empid, dept, jan, feb FROM monthly_sales
+        )
+        SELECT m, s, e FROM src UNPIVOT(sales FOR month IN (jan, feb)) AS t(e, d, m, s)
+        """
+        schema = {"monthly_sales": {"empid": "int", "dept": "text", "jan": "int", "feb": "int"}}
+
+        for renamed in ("s", "m"):
+            node = lineage(renamed, sql, schema=schema, dialect="snowflake")
+            self.assertEqual([d.name for d in node.downstream], ["SRC.JAN", "SRC.FEB"])
+            self.assertEqual(node.downstream[0].downstream[0].name, "MONTHLY_SALES.JAN")
+            self.assertEqual(node.downstream[1].downstream[0].name, "MONTHLY_SALES.FEB")
+
+        node = lineage("e", sql, schema=schema, dialect="snowflake")
+        self.assertEqual(node.downstream[0].name, "SRC.EMPID")
+        self.assertEqual(node.downstream[0].downstream[0].name, "MONTHLY_SALES.EMPID")
+
+        # Physical table source: the pre-pivot columns come from the schema
+        sql = "SELECT m, s, e FROM monthly_sales UNPIVOT(sales FOR month IN (jan, feb)) AS t(e, d, m, s)"
+
+        for renamed in ("s", "m"):
+            node = lineage(renamed, sql, schema=schema, dialect="snowflake")
+            self.assertEqual(
+                [d.name for d in node.downstream], ["MONTHLY_SALES.JAN", "MONTHLY_SALES.FEB"]
+            )
+
+        node = lineage("e", sql, schema=schema, dialect="snowflake")
+        self.assertEqual([d.name for d in node.downstream], ["MONTHLY_SALES.EMPID"])
+
+        # Without a schema the star can't be expanded, so the positional renames are
+        # unknowable and must not be applied (else `d` would misalign to jan/feb)
+        sql = """
+        WITH src AS (SELECT * FROM monthly_sales)
+        SELECT d FROM src UNPIVOT(sales FOR month IN (jan, feb)) AS t(e, d, m, s)
+        """
+        node = lineage("d", sql, dialect="snowflake")
+        self.assertEqual([d.name for d in node.downstream], ["SRC.D"])
+
+    def test_pivot_with_alias_columns(self) -> None:
+        sql = """
+        SELECT x FROM (SELECT value, category FROM sample_data) AS sd
+        PIVOT (SUM(value) FOR category IN ('a', 'b')) AS p(x, y)
+        """
+        node = lineage("x", sql)
+
+        self.assertEqual(node.downstream[0].name, "sd.value")
+        self.assertEqual(node.downstream[0].downstream[0].name, "sample_data.value")
+
     def test_table_udtf_snowflake(self) -> None:
         lateral_flatten = """
         SELECT f.value:external_id::string AS external_id

@@ -518,6 +518,37 @@ async fn dump_data_respects_row_cap() {
     );
 }
 
+/// `.dump` output cap is enforced cumulatively across all tables, not just
+/// per-query (DeepSec #1869). With a tiny max_output_bytes, a dump that
+/// would fit under max_result_bytes per table still hits the invocation cap.
+#[tokio::test]
+async fn dump_output_cap_enforced_across_multiple_tables() {
+    let limits = SqliteLimits::default()
+        .max_rows_per_query(1000)
+        .max_result_bytes(64 * 1024)
+        .max_output_bytes(120) // too small for schema + any data rows
+        .max_duration(std::time::Duration::ZERO);
+    let r = run_with_limits(
+        &[
+            ":memory:",
+            "CREATE TABLE a(v TEXT); CREATE TABLE b(v TEXT);\
+             INSERT INTO a VALUES ('row-aaa'), ('row-bbb');\
+             INSERT INTO b VALUES ('row-ccc'), ('row-ddd');\n.dump",
+        ],
+        None,
+        limits,
+    )
+    .await;
+    assert_eq!(r.exit_code, 1, "should fail due to output cap");
+    // Error must be plain text, not a debug-formatted struct.
+    let msg = &r.stderr;
+    assert!(
+        msg.contains("output exceeds byte cap") || msg.contains("sqlite:"),
+        "unexpected stderr: {msg}"
+    );
+    assert!(!msg.contains("{:?}"), "debug shape leaked into stderr"); // debug-ok: testing that debug shapes are absent
+}
+
 #[tokio::test]
 async fn value_byte_cap_rejects_large_cell_before_rendering() {
     let limits = SqliteLimits::default()
@@ -639,6 +670,20 @@ async fn detach_statement_blocked() {
 }
 
 #[tokio::test]
+async fn attach_blocked_with_leading_bom() {
+    let r = run(
+        &[
+            ":memory:",
+            "\u{feff}ATTACH DATABASE '/tmp/other.db' AS other",
+        ],
+        None,
+    )
+    .await;
+    assert_eq!(r.exit_code, 1, "stderr: {}", r.stderr);
+    assert!(r.stderr.contains("ATTACH/DETACH is not supported"));
+}
+
+#[tokio::test]
 async fn attach_blocked_even_with_leading_comment() {
     // The argv parser rejects values that begin with `-`, so a leading
     // line-comment would fail in arg parsing rather than in the policy.
@@ -713,9 +758,13 @@ async fn pragma_schema_qualified_match() {
     // deny list — otherwise the policy is trivial to bypass.
     for sql in [
         "PRAGMA main.cache_size = 100",
+        "PRAGMA main . cache_size = 100",
         "PRAGMA main.\"cache_size\" = 100",
+        "PRAGMA \"cache_size\" = 100",
         "PRAGMA temp.[cache_size]",
         "PRAGMA main.`cache_size`",
+        "PRAGMA/**/cache_size = 100",
+        "PRAGMA /*x*/ cache_size = 100",
     ] {
         let r = run(&[":memory:", sql], None).await;
         assert_eq!(r.exit_code, 1, "{sql} stderr: {}", r.stderr);

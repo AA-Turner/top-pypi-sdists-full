@@ -22,7 +22,7 @@ from smplkit._generated.config.models.config_item_definition import (
     ConfigItemDefinition,
 )
 from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
-from smplkit.config.client import (
+from smplkit.config._client import (
     _check_response_status,
     _maybe_reraise_network_error,
 )

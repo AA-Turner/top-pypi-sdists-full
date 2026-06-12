@@ -1,7 +1,7 @@
 """Bounded in-memory buffer + worker thread for fire-and-forget audit emits.
 
-ADR-047 §2.6. The buffer caps at ``MAX_BUFFER_SIZE`` to bound memory
-consumption under sustained back-pressure. When full, the oldest queued
+The buffer caps at ``MAX_BUFFER_SIZE`` to bound memory consumption under
+sustained back-pressure. When full, the oldest queued
 event is dropped to make room — recent events are more useful for
 debugging than ancient ones, and the loss is acknowledged as part of the
 async-emit trade-off.
@@ -80,13 +80,19 @@ class AuditEventBuffer:
         # while a just-popped item is still mid-roundtrip and an
         # immediately following list() call would miss the event.
         self._in_flight = 0
-        self._worker = threading.Thread(target=self._run, name="smplkit-audit-flush", daemon=True)
-        self._worker.start()
+        # The worker thread is started lazily on the first ``enqueue`` rather
+        # than at construction. A buffer that never records — e.g. an audit
+        # client used only for reads, discovery, or forwarder CRUD (such as
+        # ``mgmt.audit``) — therefore spawns no background thread to leak.
+        self._worker: threading.Thread | None = None
 
     # ------------------------------------------------------------------ public
 
     def enqueue(self, body: Any, idempotency_key: str | None = None) -> None:
-        """Add an event to the buffer. May drop the oldest item if full."""
+        """Add an event to the buffer. May drop the oldest item if full.
+
+        Starts the worker thread on first use (see ``__init__``).
+        """
         with self._lock:
             if self._closed:
                 return
@@ -100,6 +106,9 @@ class AuditEventBuffer:
                 )
             self._queue.append(_PendingEvent(body=body, idempotency_key=idempotency_key))
             depth = len(self._queue)
+            if self._worker is None:
+                self._worker = threading.Thread(target=self._run, name="smplkit-audit-flush", daemon=True)
+                self._worker.start()
         if depth >= self._watermark:
             self._wake.set()
 
@@ -123,12 +132,13 @@ class AuditEventBuffer:
             time.sleep(0.05)
 
     def close(self, timeout: float | None = 5.0) -> None:
-        """Mark closed, drain, then stop the worker thread."""
+        """Mark closed, drain, then stop the worker thread (if it ever started)."""
         self.flush(timeout=timeout)
         with self._lock:
             self._closed = True
         self._wake.set()
-        self._worker.join(timeout=timeout)
+        if self._worker is not None:
+            self._worker.join(timeout=timeout)
 
     # ----------------------------------------------------------------- internals
 

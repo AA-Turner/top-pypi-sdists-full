@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semgrep
-Version: 1.165.0
+Version: 1.166.0
 Summary: Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.
 Author-email: "Semgrep Inc." <support@semgrep.com>
 License-Expression: LGPL-2.1-or-later
@@ -39,7 +39,7 @@ Requires-Dist: opentelemetry-instrumentation-requests~=0.58b0
 Requires-Dist: opentelemetry-instrumentation-threading~=0.58b0
 Requires-Dist: packaging>=21.0
 Requires-Dist: peewee~=3.14
-Requires-Dist: pyjwt[crypto]~=2.12.0
+Requires-Dist: pyjwt[crypto]~=2.13.0
 Requires-Dist: requests~=2.22
 Requires-Dist: rich>=13.5.2
 Requires-Dist: ruamel.yaml>=0.18.15

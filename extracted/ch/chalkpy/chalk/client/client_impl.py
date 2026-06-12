@@ -635,7 +635,8 @@ def _upload_table_parquet(
 
 
 def _convert_datetime_param(
-    param_name: Literal["lower_bound", "upper_bound"], param: datetime | str | None
+    param_name: Literal["lower_bound", "upper_bound", "lower_bound_inserted_at", "upper_bound_inserted_at"],
+    param: datetime | str | None,
 ) -> datetime | None:
     """Takes an API parameter representing an optional datetime value and converts it into a datetime object."""
     if param is None:
@@ -665,7 +666,7 @@ def _convert_datetime_param(
 
 
 def _convert_datetime_or_timedelta_param(
-    param_name: Literal["lower_bound", "upper_bound"],
+    param_name: Literal["lower_bound", "upper_bound", "lower_bound_inserted_at", "upper_bound_inserted_at"],
     param: datetime | timedelta | str | None,
 ):
     if isinstance(param, timedelta):
@@ -2602,6 +2603,8 @@ https://docs.chalk.ai/cli/apply
         sample_features: Optional[List[FeatureReference]] = None,
         lower_bound: datetime | timedelta | str | None = None,
         upper_bound: datetime | timedelta | str | None = None,
+        lower_bound_inserted_at: datetime | timedelta | str | None = None,
+        upper_bound_inserted_at: datetime | timedelta | str | None = None,
         store_plan_stages: bool = False,
         explain: bool = False,
         tags: Optional[List[str]] = None,
@@ -2651,6 +2654,12 @@ https://docs.chalk.ai/cli/apply
 
         lower_bound = _convert_datetime_or_timedelta_param("lower_bound", lower_bound)
         upper_bound = _convert_datetime_or_timedelta_param("upper_bound", upper_bound)
+        lower_bound_inserted_at = _convert_datetime_or_timedelta_param(
+            "lower_bound_inserted_at", lower_bound_inserted_at
+        )
+        upper_bound_inserted_at = _convert_datetime_or_timedelta_param(
+            "upper_bound_inserted_at", upper_bound_inserted_at
+        )
         try:
             import polars as pl
         except ImportError:
@@ -2789,6 +2798,8 @@ https://docs.chalk.ai/cli/apply
             sample_features=sample_features,
             lower_bound=lower_bound,
             upper_bound=upper_bound,
+            lower_bound_inserted_at=lower_bound_inserted_at,
+            upper_bound_inserted_at=upper_bound_inserted_at,
             store_plan_stages=store_plan_stages,
             tags=tags,
             required_resolver_tags=required_resolver_tags,
@@ -4248,6 +4259,8 @@ https://docs.chalk.ai/cli/apply
         sample_features: Optional[List[FeatureReference]] = None,
         lower_bound: datetime | timedelta | None = None,
         upper_bound: datetime | timedelta | None = None,
+        lower_bound_inserted_at: datetime | timedelta | None = None,
+        upper_bound_inserted_at: datetime | timedelta | None = None,
         store_plan_stages: bool = False,
         explain: bool = False,
         tags: Optional[List[str]] = None,
@@ -4308,6 +4321,8 @@ https://docs.chalk.ai/cli/apply
 
         lower_bound_str = process_bound(lower_bound)
         upper_bound_str = process_bound(upper_bound)
+        lower_bound_inserted_at_str = process_bound(lower_bound_inserted_at)
+        upper_bound_inserted_at_str = process_bound(upper_bound_inserted_at)
         if branch is ...:
             branch = self._branch
 
@@ -4331,6 +4346,8 @@ https://docs.chalk.ai/cli/apply
             sample_features=sample_features,
             observed_at_lower_bound=lower_bound_str,
             observed_at_upper_bound=upper_bound_str,
+            inserted_at_lower_bound=lower_bound_inserted_at_str,
+            inserted_at_upper_bound=upper_bound_inserted_at_str,
             store_plan_stages=store_plan_stages,
             correlation_id=correlation_id,
             query_context=query_context,

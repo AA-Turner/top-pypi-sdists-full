@@ -1,8 +1,12 @@
+import re
+
 from copy import deepcopy
-from csv import reader
 from json import loads
 from lxml import etree
 from xmldiff import actions
+
+
+DIFF_SPLIT = re.compile('(?:"[^"]*"|[^, ])+|(?<![^,])(?![^,])')
 
 
 class Patcher:
@@ -47,7 +51,7 @@ class Patcher:
     def _handle_MoveNode(self, action, tree):
         node = tree.xpath(action.node, namespaces=self.nsmap)[0]
         node.getparent().remove(node)
-        target = tree.xpath(action.target)[0]
+        target = tree.xpath(action.target, namespaces=self.nsmap)[0]
         target.insert(action.position, node)
 
     def _handle_UpdateTextIn(self, action, tree):
@@ -119,7 +123,7 @@ class DiffParser:
         line = line[1:-1]
         # Split the line on commas (ignoring commas in quoted strings) and
         # strip extraneous spaces. The first is the action, the rest params.
-        parts = [x.strip() for x in next(reader([line]))]
+        parts = DIFF_SPLIT.findall(line)
         action = parts[0]
         params = parts[1:]
         # Get the method, and return the result of calling it
@@ -138,10 +142,10 @@ class DiffParser:
     def _handle_move(self, node, target, position):
         return actions.MoveNode(node, target, int(position))
 
-    def _handle_update_text(self, node, text):
+    def _handle_update_text(self, node, text, oldtext=None):
         return actions.UpdateTextIn(node, loads(text))
 
-    def _handle_update_text_after(self, node, text):
+    def _handle_update_text_after(self, node, text, oldtext=None):
         return actions.UpdateTextAfter(node, loads(text))
 
     def _handle_update_attribute(self, node, name, value):

@@ -17,33 +17,40 @@ import subprocess
 from typing import Any, Callable
 
 import sqlalchemy
+from google.api_core import exceptions as google_api_exceptions
 from google.cloud import secretmanager
 from google.cloud.sql.connector import Connector
 from google.cloud.sql.connector.enums import IPTypes
 
 from airbyte_ops_mcp.constants import (
     CONNECTION_RETRIEVER_PG_CONNECTION_DETAILS_SECRET_ID,
-    DEFAULT_CLOUD_SQL_PROXY_PORT,
+    ENV_K_SERVICE,
 )
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials
 
 PG_DRIVER = "pg8000"
-PROXY_CHECK_TIMEOUT = 0.5  # seconds
-DIRECT_CONNECTION_TIMEOUT = 5  # seconds - timeout for direct VPC/Tailscale connections
+DIRECT_CONNECTION_TIMEOUT = 5  # seconds
 
 
-class CloudSqlProxyNotRunningError(Exception):
-    """Raised when proxy mode is enabled but the Cloud SQL Proxy is not running."""
-
-    pass
-
-
-class VpnNotConnectedError(Exception):
-    """Raised when direct connection mode requires VPN but it's not connected."""
+class CloudRunProdDbAccessNotConfiguredError(Exception):
+    """Raised when Cloud Run is missing prod DB access infrastructure."""
 
     pass
 
 
-def _is_tailscale_connected() -> bool:
+class ProdDbSecretAccessError(Exception):
+    """Raised when credentials cannot read prod DB connection details."""
+
+    pass
+
+
+class ProdDbCloudSqlIamError(Exception):
+    """Raised when credentials cannot authorize against the Cloud SQL instance."""
+
+    pass
+
+
+def is_tailscale_connected() -> bool:
     """Check if Tailscale VPN is likely connected.
 
     This is a best-effort check that works on Linux and macOS.
@@ -80,9 +87,7 @@ def _is_tailscale_connected() -> bool:
                 timeout=2,
             )
             if result.returncode == 0:
-                import json as json_module
-
-                status = json_module.loads(result.stdout)
+                status = json.loads(result.stdout)
                 # BackendState "Running" indicates connected
                 return status.get("BackendState") == "Running"
         except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError):
@@ -91,66 +96,14 @@ def _is_tailscale_connected() -> bool:
     return False
 
 
-def _check_vpn_or_proxy_available() -> None:
-    """Check if either VPN or proxy is available for database access.
-
-    This function checks if the environment is properly configured for
-    database access. It fails fast with a helpful error message if neither
-    Tailscale VPN nor the Cloud SQL Proxy appears to be available.
-
-    Raises:
-        VpnNotConnectedError: If no VPN or proxy is detected
-    """
-    # If proxy mode is explicitly enabled, don't check VPN
-    if os.getenv("CI") or os.getenv("USE_CLOUD_SQL_PROXY"):
-        return
-
-    # Check if Tailscale is connected
-    if _is_tailscale_connected():
-        return
-
-    # Neither proxy mode nor Tailscale detected
-    raise VpnNotConnectedError(
-        "No VPN or proxy detected for database access.\n\n"
-        "To connect to the Airbyte Cloud Prod DB Replica, you need either:\n\n"
-        "1. Tailscale VPN connected (for direct VPC access)\n"
-        "   - Install Tailscale: https://tailscale.com/download\n"
-        "   - Connect to the Airbyte network\n\n"
-        "2. Cloud SQL Proxy running locally\n"
-        "   - Start the proxy:\n"
-        "       airbyte-ops cloud db start-proxy\n"
-        "       uvx --from=airbyte-internal-ops airbyte-ops cloud db start-proxy\n"
-        "   - Set env vars: export USE_CLOUD_SQL_PROXY=1 DB_PORT=15432\n"
-    )
+def _is_cloud_run() -> bool:
+    """Return whether the process is running in Cloud Run."""
+    return bool(os.getenv(ENV_K_SERVICE))
 
 
-def _check_proxy_is_running(host: str, port: int) -> None:
-    """Check if the Cloud SQL Proxy is running and accepting connections.
-
-    This performs a quick socket connection check to fail fast if the proxy
-    is not running, rather than waiting for a long connection timeout.
-
-    Args:
-        host: The host to connect to (typically 127.0.0.1)
-        port: The port to connect to
-
-    Raises:
-        CloudSqlProxyNotRunningError: If the proxy is not accepting connections
-    """
-    try:
-        with socket.create_connection((host, port), timeout=PROXY_CHECK_TIMEOUT):
-            pass  # Connection successful, proxy is running
-    except (OSError, TimeoutError, ConnectionRefusedError) as e:
-        raise CloudSqlProxyNotRunningError(
-            f"Cloud SQL Proxy is not running on {host}:{port}. "
-            f"Proxy mode is enabled (CI or USE_CLOUD_SQL_PROXY env var is set), "
-            f"but nothing is listening on the expected port.\n\n"
-            f"To start the proxy, run:\n"
-            f"  airbyte-ops cloud db start-proxy --port {port}\n"
-            f"  uvx --from=airbyte-internal-ops airbyte-ops cloud db start-proxy --port {port}\n\n"
-            f"Or unset USE_CLOUD_SQL_PROXY to use direct VPC connection.\n\n"
-            f"Original error: {e}"
-        ) from e
+def _cloud_sql_connector_ip_type() -> IPTypes:
+    """Return the Cloud SQL Connector IP type for direct connections."""
+    return IPTypes.PUBLIC
 
 
 # Lazy-initialized to avoid import-time GCP auth
@@ -161,7 +114,7 @@ def _get_connector() -> Connector:
     """Get the Cloud SQL connector, initializing lazily on first use."""
     global _connector
     if _connector is None:
-        _connector = Connector()
+        _connector = Connector(credentials=get_gcp_credentials())
     return _connector
 
 
@@ -179,7 +132,14 @@ def _get_secret_value(
     Returns:
         The value of the latest version of the secret
     """
-    response = gsm_client.access_secret_version(name=f"{secret_id}/versions/latest")
+    try:
+        response = gsm_client.access_secret_version(name=f"{secret_id}/versions/latest")
+    except google_api_exceptions.PermissionDenied as e:
+        raise ProdDbSecretAccessError(
+            "Unable to read prod DB connection details from Secret Manager. "
+            "Grant the runtime identity roles/secretmanager.secretAccessor on "
+            f"{secret_id}."
+        ) from e
     return response.payload.data.decode("UTF-8")
 
 
@@ -187,14 +147,27 @@ def get_database_creator(pg_connection_details: dict) -> Callable:
     """Create a database connection creator function."""
 
     def creator() -> Any:
-        return _get_connector().connect(
-            pg_connection_details["database_address"],
-            PG_DRIVER,
-            user=pg_connection_details["pg_user"],
-            password=pg_connection_details["pg_password"],
-            db=pg_connection_details["database_name"],
-            ip_type=IPTypes.PRIVATE,
-        )
+        try:
+            return _get_connector().connect(
+                pg_connection_details["database_address"],
+                PG_DRIVER,
+                user=pg_connection_details["pg_user"],
+                password=pg_connection_details["pg_password"],
+                db=pg_connection_details["database_name"],
+                ip_type=_cloud_sql_connector_ip_type(),
+            )
+        except google_api_exceptions.PermissionDenied as e:
+            raise ProdDbCloudSqlIamError(
+                "Unable to authorize Cloud SQL access for the prod DB replica. "
+                "Grant the runtime identity roles/cloudsql.client on prod-ab-cloud-proj."
+            ) from e
+        except (OSError, TimeoutError) as e:
+            if _is_cloud_run():
+                raise CloudRunProdDbAccessNotConfiguredError(
+                    "Cloud Run could not reach the prod DB replica public IP. "
+                    "Verify Cloud SQL public IP access and egress are available."
+                ) from e
+            raise
 
     return creator
 
@@ -204,21 +177,7 @@ def get_pool(
 ) -> sqlalchemy.Engine:
     """Get a SQLAlchemy connection pool for the Airbyte Cloud database.
 
-    This function supports two connection modes:
-    1. Direct connection via Cloud SQL Python Connector (default, requires VPC/Tailscale)
-    2. Connection via Cloud SQL Auth Proxy (when CI or USE_CLOUD_SQL_PROXY env var is set)
-
-    For proxy mode, start the proxy with:
-        airbyte-ops cloud db start-proxy
-
-    Environment variables:
-        CI: If set, uses proxy connection mode
-        USE_CLOUD_SQL_PROXY: If set, uses proxy connection mode
-        DB_PORT: Port for proxy connection (default: 15432)
-
-    Raises:
-        VpnNotConnectedError: If direct mode is used but no VPN/proxy is detected
-        CloudSqlProxyNotRunningError: If proxy mode is enabled but the proxy is not running
+    This function connects with the Cloud SQL Python Connector in public IP mode.
 
     Args:
         gsm_client: GCP Secret Manager client for retrieving credentials
@@ -226,30 +185,12 @@ def get_pool(
     Returns:
         SQLAlchemy Engine connected to the Prod DB Replica
     """
-    # Fail fast if no VPN or proxy is available
-    _check_vpn_or_proxy_available()
-
     pg_connection_details = json.loads(
         _get_secret_value(
             gsm_client, CONNECTION_RETRIEVER_PG_CONNECTION_DETAILS_SECRET_ID
         )
     )
 
-    if os.getenv("CI") or os.getenv("USE_CLOUD_SQL_PROXY"):
-        # Connect via Cloud SQL Auth Proxy, running on localhost
-        # Port can be configured via DB_PORT env var (default: DEFAULT_CLOUD_SQL_PROXY_PORT)
-        host = "127.0.0.1"
-        port = int(os.getenv("DB_PORT", str(DEFAULT_CLOUD_SQL_PROXY_PORT)))
-
-        # Fail fast if proxy is not running
-        _check_proxy_is_running(host, port)
-
-        return sqlalchemy.create_engine(
-            f"postgresql+{PG_DRIVER}://{pg_connection_details['pg_user']}:{pg_connection_details['pg_password']}@{host}:{port}/{pg_connection_details['database_name']}",
-        )
-
-    # Default: Connect via Cloud SQL Python Connector (requires VPC/Tailscale access)
-    # Use a timeout to fail faster if the connection can't be established
     return sqlalchemy.create_engine(
         f"postgresql+{PG_DRIVER}://",
         creator=get_database_creator(pg_connection_details),

@@ -204,7 +204,7 @@ class PythonInfo:  # noqa: PLR0904
         # if we're not in a virtual environment, this is already a system python, so return the original executable
         # note we must choose the original and not the pure executable as shim scripts might throw us off
         if not (self.real_prefix or (self.base_prefix is not None and self.base_prefix != self.prefix)):
-            return self.original_executable
+            return self._resolve_executable_symlink(self.original_executable)
 
         # if this is NOT a virtual environment, can't determine easily, bail out
         if self.real_prefix is not None:
@@ -220,10 +220,47 @@ class PythonInfo:  # noqa: PLR0904
 
         # We're not in a venv and base_executable exists; use it directly
         if os.path.exists(base_executable):  # pragma: >=3.11 cover
-            return base_executable
+            return self._resolve_executable_symlink(base_executable)
 
         # Try fallback for POSIX virtual environments
         return self._try_posix_fallback_executable(base_executable)  # pragma: >=3.11 cover
+
+    def _resolve_executable_symlink(self, path: str, *, framework: bool | None = None) -> str:
+        """
+        Resolve symlinks of the executable itself, but never of its parent directories.
+
+        Mirrors CPython's ``getpath.realpath`` (and ``venv`` in python/cpython#115237): an executable-only symlink
+        resolves to the real interpreter so its home can be located, while a fully symlinked interpreter tree is
+        kept as-is. Like ``getpath``, resolution stops as soon as the stdlib landmark is reachable from the current
+        directory - an alias such as Debian's ``/usr/bin/python3`` is a usable home and stays untouched.
+        """
+        result = os.path.abspath(path)
+        if self.os != "posix":  # CPython only does this where HAVE_READLINK
+            return result
+        if framework is None:
+            framework = bool(sysconfig.get_config_var("PYTHONFRAMEWORK"))
+        if framework:  # macOS framework builds self-locate via dyld from the real binary; e.g. for Homebrew
+            return result  # resolving would pin the versioned Cellar path into the recorded home
+        real_path = os.path.realpath(result)
+        if not os.path.exists(real_path):  # symlink loop or broken symlink
+            return result
+        while os.path.islink(result):
+            if self._stdlib_landmark_exists(os.path.dirname(result)):
+                return result
+            link = os.readlink(result)
+            candidate = link if os.path.isabs(link) else os.path.normpath(os.path.join(os.path.dirname(result), link))
+            # normpath through a symlinked directory may point at a different file - stop resolving there
+            if not (os.path.exists(candidate) and os.path.samefile(real_path, candidate)):
+                return result
+            result = candidate
+        return result
+
+    @staticmethod
+    def _stdlib_landmark_exists(dir_path: str) -> bool:
+        lib_name = os.path.basename(os.path.dirname(os.__file__))
+        return any(
+            os.path.exists(os.path.join(dir_path, os.pardir, lib, lib_name, "os.py")) for lib in ("lib", "lib64")
+        )
 
     def _try_posix_fallback_executable(self, base_executable: str) -> str | None:
         """Find a versioned Python binary as fallback for POSIX virtual environments."""

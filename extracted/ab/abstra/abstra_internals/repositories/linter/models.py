@@ -1,4 +1,26 @@
-from typing import List, Sequence
+from pathlib import Path
+from typing import List, Optional, Sequence
+
+from abstra_internals.settings import Settings
+
+
+def normalize_linter_path(path: Path) -> Path:
+    if not path.is_absolute():
+        path = Settings.root_path / path
+    return path.resolve()
+
+
+def linter_path_key(path: Path) -> str:
+    """Stable string key used to scope issues to a file (LinterIssue.path).
+
+    Root-relative posix path; falls back to the absolute posix path for
+    files outside the project root (the file_outside_project case).
+    """
+    resolved = normalize_linter_path(path)
+    try:
+        return resolved.relative_to(Settings.root_path.resolve()).as_posix()
+    except ValueError:
+        return resolved.as_posix()
 
 
 class LinterFix:
@@ -26,6 +48,11 @@ class LinterFix:
 class LinterIssue:
     label: str
     fixes: List[LinterFix]
+    # File this issue is scoped to (linter_path_key format). None means
+    # project-global (e.g. "abstra missing in requirements.txt"). Used by the
+    # repository to merge path-scoped re-runs without dropping other files'
+    # issues.
+    path: Optional[str] = None
 
     def make_label(self):
         return self.label
@@ -87,6 +114,11 @@ class LinterRule:
             issues=list(self.find_issues()),
             fix_with_ai=self.fix_with_ai,
         )
+
+
+class PathScopedLinterRule(LinterRule):
+    def find_issues(self, path: Optional[Path] = None) -> Sequence[LinterIssue]:
+        raise NotImplementedError
 
 
 rules = []

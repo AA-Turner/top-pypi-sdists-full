@@ -1,7 +1,7 @@
 import ast
 import os
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, Iterable, List, Set, Tuple
 
 from dotenv import dotenv_values, load_dotenv, parser, set_key, unset_key
 
@@ -61,10 +61,16 @@ class EnvVarsRepository:
 
     @classmethod
     def get_env_vars_in_code(cls) -> Dict[str, Set[Tuple[Path, ast.expr]]]:
-        used_env_vars: Dict[str, Set[Tuple[Path, ast.expr]]] = {}
         project = LocalProjectRepository().load()
+        return cls.get_env_vars_in_files(project.project_files)
 
-        for python_file in project.project_files:
+    @classmethod
+    def get_env_vars_in_files(
+        cls, files: Iterable[Path]
+    ) -> Dict[str, Set[Tuple[Path, ast.expr]]]:
+        used_env_vars: Dict[str, Set[Tuple[Path, ast.expr]]] = {}
+
+        for python_file in files:
             try:
                 function_calls = function_called_args(python_file, ["os"], "getenv")
                 subscript_calls = subscript_called_args(python_file, ["os"], "environ")

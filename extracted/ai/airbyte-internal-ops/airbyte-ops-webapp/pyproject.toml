@@ -1,0 +1,53 @@
+[project]
+name = "airbyte-ops-webapp"
+version = "0.1.0"
+description = "FastMCP app for Airbyte internal operations"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "airbyte>=0.45.0,<1.0.0",
+    "airbyte-internal-ops",
+    "fastmcp[apps]>=3.2.4,<3.3.0",
+    "prefab-ui>=0.19.2",
+    "pydantic>=2.0.0",
+    "starlette>=1.0.0",
+    "uvicorn>=0.46.0",
+]
+
+[tool.uv.sources]
+airbyte-internal-ops = { path = "..", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "SIM", "RUF"]
+ignore = ["E501", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.deptry]
+exclude = [
+    ".*\\.venv/.*",
+    ".*venv/.*",
+    ".*__pycache__.*",
+    ".*\\.pytest_cache.*",
+    ".*\\.git.*",
+    ".*dist.*",
+    ".*build.*",
+]
+pep621_dev_dependency_groups = ["dev"]
+known_first_party = ["airbyte_ops_webapp"]
+ignore = ["DEP004", "DEP002"]
+
+[tool.deptry.package_module_name_map]
+airbyte-internal-ops = ["airbyte_ops_mcp"]

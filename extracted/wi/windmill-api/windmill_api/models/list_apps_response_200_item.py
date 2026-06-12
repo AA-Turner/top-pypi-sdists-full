@@ -30,6 +30,8 @@ class ListAppsResponse200Item:
         starred (Union[Unset, bool]):
         raw_app (Union[Unset, bool]):
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
     """
 
     id: int
@@ -43,6 +45,7 @@ class ListAppsResponse200Item:
     starred: Union[Unset, bool] = UNSET
     raw_app: Union[Unset, bool] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -62,6 +65,10 @@ class ListAppsResponse200Item:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -83,6 +90,8 @@ class ListAppsResponse200Item:
             field_dict["raw_app"] = raw_app
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
 
         return field_dict
 
@@ -113,6 +122,8 @@ class ListAppsResponse200Item:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         list_apps_response_200_item = cls(
             id=id,
             workspace_id=workspace_id,
@@ -125,6 +136,7 @@ class ListAppsResponse200Item:
             starred=starred,
             raw_app=raw_app,
             labels=labels,
+            inherited_labels=inherited_labels,
         )
 
         list_apps_response_200_item.additional_properties = d

@@ -32,6 +32,7 @@ from ._resolver import (
     backfill_type_hints,
     collect_documented_type_aliases,
     get_all_type_hints,
+    get_descriptor_type_hint,
     get_instance_var_annotations,
     get_obj_location,
 )
@@ -67,11 +68,10 @@ def process_signature(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0917
     obj = getattr(obj, "__init__", getattr(obj, "__new__", None)) if inspect.isclass(obj) else obj
     try:
         has_annotations = getattr(obj, "__annotations__", None)
-    except NameError:
-        # PEP 649 (Python 3.14+): accessing __annotations__ may raise NameError when annotations
-        # reference TYPE_CHECKING-only names. Setting __annotations__ clears __annotate__, so we
-        # only reach here when annotations come from the original function definition. If __annotate__
-        # is callable, the function has annotations; proceed so sphinx_signature can use FORWARDREF.
+    except (NameError, TypeError, AttributeError):
+        # PEP 649 (Python 3.14+): annotation expressions only run on access and may fail at runtime
+        # (TYPE_CHECKING-only names, subscripting a non-generic class). __annotate__ still signals
+        # annotations exist, and sphinx_signature renders them without evaluation via FORWARDREF.
         has_annotations = getattr(obj, "__annotate__", None)
     if not has_annotations:
         return None
@@ -158,6 +158,7 @@ def process_docstring(  # noqa: PLR0913, PLR0917
     original_obj = obj
     obj = obj.fget if isinstance(obj, property) else obj
     if not callable(obj):
+        _maybe_inject_descriptor_type(app, what, obj, lines)
         return
     if inspect.isclass(obj):
         backfill_attrs_annotations(obj)
@@ -206,6 +207,20 @@ def process_docstring(  # noqa: PLR0913, PLR0917
         del app.config._annotation_globals  # noqa: SLF001
         del app.config._typehints_env  # noqa: SLF001
         del app.config._typehints_module_prefix  # noqa: SLF001
+
+
+def _maybe_inject_descriptor_type(app: Sphinx, what: str, obj: Any, lines: list[str]) -> None:
+    """C data descriptors document as plain attributes; lift their type from the stub."""
+    if what != "attribute" or not (inspect.isgetsetdescriptor(obj) or inspect.ismemberdescriptor(obj)):
+        return
+    if any(line.startswith(":type:") for line in lines):
+        return
+    if (hint := get_descriptor_type_hint(obj)) is None:
+        return
+    formatted = add_type_css_class(
+        format_annotation(hint, app.config, short_literals=app.config.python_display_short_literal_types)
+    )
+    lines.extend(["", f":type: {formatted}"])
 
 
 def _inject_overload_signatures(
@@ -325,9 +340,9 @@ def _inject_arg_signature(  # noqa: PLR0913, PLR0917
     doc_description = _extract_doc_description(annotation) if annotation is not None else None
 
     if arg_name.endswith("_"):
-        arg_name = f"{arg_name[:-1]}\\_"
-
-    insert_index = fmt.find_param(lines, arg_name)
+        arg_name, insert_index = _find_trailing_underscore_param(lines, arg_name, fmt)
+    else:
+        insert_index = fmt.find_param(lines, arg_name)
 
     if (
         insert_index is not None
@@ -374,6 +389,21 @@ def _inject_arg_signature(  # noqa: PLR0913, PLR0917
         )
 
     lines.insert(insert_index, type_annotation)
+
+
+def _find_trailing_underscore_param(lines: list[str], arg_name: str, fmt: Any) -> tuple[str, int | None]:
+    escaped_name = f"{arg_name[:-1]}\\_"
+    if (insert_index := fmt.find_param(lines, escaped_name)) is not None:
+        return escaped_name, insert_index
+    if (insert_index := fmt.find_param(lines, arg_name)) is None:
+        return escaped_name, None
+    # napoleon only escapes the trailing underscore when strip_signature_backslash is on, and docutils
+    # swallows an unescaped one as reference markup — see issue #708
+    rewritten = lines[insert_index].replace(f" {arg_name}:", f" {escaped_name}:", 1)
+    if rewritten == lines[insert_index]:
+        return arg_name, insert_index
+    lines[insert_index] = rewritten
+    return escaped_name, insert_index
 
 
 def _remove_preexisting_type(lines: list[str], preexisting_line: str) -> int:

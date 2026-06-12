@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-import commonmark
+from multimark import markdown_to_html, markdown_to_latex
 
 
 class BaseText:
@@ -45,27 +45,38 @@ class Html(Text):
     """HTML text"""
 
     def to_html(self) -> str:
+        if "{{" in self.text and "}}" in self.text:
+            from great_tables._helpers import UnitStr
+
+            unit_str = UnitStr.from_str(self.text)
+            return unit_str.to_html()
         return self.text
 
     def to_latex(self) -> str:
-        from ._utils_render_latex import _not_implemented
-
-        _not_implemented(
-            "Using the `html()` helper function won't convert HTML to LaTeX. Escaping HTML string instead."
-        )
-
-        return _latex_escape(self.text)
+        # html() is an HTML-only construct; for LaTeX, strip tags and escape
+        stripped = re.sub(r"<[^>]+>", "", self.text)
+        return _latex_escape(stripped)
 
 
 def _md_html(x: str) -> str:
-    str = commonmark.commonmark(x)
-    return re.sub(r"^<p>|</p>\n$", "", str)
+    if "{{" in x and "}}" in x:
+        from great_tables._helpers import UnitStr
+
+        unit_str = UnitStr.from_str(x)
+        processed_text = unit_str.to_html()
+    else:
+        processed_text = x
+
+    str_result = markdown_to_html(processed_text, unsafe=True)
+    if str_result is None:
+        return processed_text
+    return re.sub(r"^<p>|</p>\n$", "", str_result)
 
 
 def _md_latex(x: str) -> str:
-    # TODO: Implement commonmark to LaTeX conversion (through a different library as
-    # commonmark-py does not support it)
-    raise NotImplementedError("Markdown to LaTeX conversion is not supported yet")
+    result = markdown_to_latex(x, extensions=["strikethrough"])
+    # Strip trailing newline that cmark adds
+    return result.rstrip("\n")
 
 
 def _process_text(x: str | BaseText | None, context: str = "html") -> str:

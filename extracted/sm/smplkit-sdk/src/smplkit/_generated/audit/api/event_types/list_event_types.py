@@ -106,11 +106,10 @@ def sync_detailed(
 
     Args:
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
-            results to (e.g. `production,staging`). When omitted, results are scoped to your single
-            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
-            more than one. The reserved value `smplkit` selects platform change events that smplkit
-            records about your own resources (flags, configuration, and so on); these are not tied to
-            a deployment environment and are readable regardless of which environments you manage.
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access. The reserved value `smplkit` selects platform change events smplkit records
+            about your own resources; it is included by default when your plan grants change history,
+            and requesting it explicitly without that entitlement returns 402.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -171,11 +170,10 @@ def sync(
 
     Args:
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
-            results to (e.g. `production,staging`). When omitted, results are scoped to your single
-            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
-            more than one. The reserved value `smplkit` selects platform change events that smplkit
-            records about your own resources (flags, configuration, and so on); these are not tied to
-            a deployment environment and are readable regardless of which environments you manage.
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access. The reserved value `smplkit` selects platform change events smplkit records
+            about your own resources; it is included by default when your plan grants change history,
+            and requesting it explicitly without that entitlement returns 402.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -231,11 +229,10 @@ async def asyncio_detailed(
 
     Args:
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
-            results to (e.g. `production,staging`). When omitted, results are scoped to your single
-            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
-            more than one. The reserved value `smplkit` selects platform change events that smplkit
-            records about your own resources (flags, configuration, and so on); these are not tied to
-            a deployment environment and are readable regardless of which environments you manage.
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access. The reserved value `smplkit` selects platform change events smplkit records
+            about your own resources; it is included by default when your plan grants change history,
+            and requesting it explicitly without that entitlement returns 402.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -294,11 +291,10 @@ async def asyncio(
 
     Args:
         filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
-            results to (e.g. `production,staging`). When omitted, results are scoped to your single
-            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
-            more than one. The reserved value `smplkit` selects platform change events that smplkit
-            records about your own resources (flags, configuration, and so on); these are not tied to
-            a deployment environment and are readable regardless of which environments you manage.
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access. The reserved value `smplkit` selects platform change events smplkit records
+            about your own resources; it is included by default when your plan grants change history,
+            and requesting it explicitly without that entitlement returns 402.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.

@@ -277,6 +277,11 @@ class ListExperimentsResponseBody(TypedDict):
     next_cursor: Optional[str]
 
 
+class LlmEvaluatorContext(TypedDict):
+    type: Literal["llm_evaluator"]
+    evaluatorNodeId: NotRequired[str]
+
+
 class LocalUserData(TypedDict):
     email: str
     username: str
@@ -330,6 +335,7 @@ class PlaygroundCustomProviderModelContext(TypedDict):
 class PlaygroundInstanceContext(TypedDict):
     instanceId: int
     model: NotRequired[Union[PlaygroundBuiltinModelContext, PlaygroundCustomProviderModelContext]]
+    experimentId: NotRequired[str]
 
 
 class Project(TypedDict):
@@ -1230,6 +1236,8 @@ class HTTPValidationError(TypedDict):
 
 class PlaygroundContext(TypedDict):
     type: Literal["playground"]
+    recordExperiments: NotRequired[bool]
+    repetitions: NotRequired[int]
     instances: NotRequired[Sequence[PlaygroundInstanceContext]]
 
 
@@ -1508,6 +1516,7 @@ class ChatRegenerateMessage(TypedDict):
                 AgentSpanContext,
                 PlaygroundContext,
                 CodeEvaluatorContext,
+                LlmEvaluatorContext,
                 DatasetContext,
                 GraphQLContext,
                 WebAccessContext,
@@ -1515,6 +1524,7 @@ class ChatRegenerateMessage(TypedDict):
         ]
     ]
     editPermission: NotRequired[Literal["manual", "bypass"]]
+    requestedSkills: NotRequired[Sequence[str]]
 
 
 class ChatSubmitMessage(TypedDict):
@@ -1533,6 +1543,7 @@ class ChatSubmitMessage(TypedDict):
                 AgentSpanContext,
                 PlaygroundContext,
                 CodeEvaluatorContext,
+                LlmEvaluatorContext,
                 DatasetContext,
                 GraphQLContext,
                 WebAccessContext,
@@ -1540,6 +1551,7 @@ class ChatSubmitMessage(TypedDict):
         ]
     ]
     editPermission: NotRequired[Literal["manual", "bypass"]]
+    requestedSkills: NotRequired[Sequence[str]]
 
 
 class CreateAnnotationConfigResponseBody(TypedDict):

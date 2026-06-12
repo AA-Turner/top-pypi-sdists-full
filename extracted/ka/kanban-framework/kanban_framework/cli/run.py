@@ -28,7 +28,7 @@ from kanban_framework.cli.run_helpers import (
     _get_agents_for_phase,
     _apply_trigger_conditions,
     _get_time_summary,
-    _append_time_token_to_retrospective,
+    _append_time_to_retrospective,
     _knowledge_health_on_archive,
     _move_to_archive,
     _check_brainstorming_gate,
@@ -69,6 +69,19 @@ def cmd_run(args: list[str]) -> dict:
                                       mode=getattr(task, 'mode', None), workflow=cfg.workflow,
                                       kanban_dir=fs.kanban_dir)
         if next_p is None:
+            # user_decision is a decision point, not a terminal phase
+            if task.phase_id == Phase.USER_DECISION.value:
+                return {
+                    "task_id": task_id,
+                    "phase": task.phase_id,
+                    "message": (
+                        "已到达 user_decision 阶段，请使用以下命令之一决策：\n"
+                        "  kanban decide <TID> --action approve_and_archive  # 归档\n"
+                        "  kanban decide <TID> --action feedback_and_restart # 反馈后重跑\n"
+                        "  kanban decide <TID> --action abort                  # 终止"
+                    ),
+                    "valid_actions": ["approve_and_archive", "feedback_and_restart", "abort"],
+                }
             return {
                 "task_id": task_id,
                 "phase": task.phase_id,
@@ -77,24 +90,34 @@ def cmd_run(args: list[str]) -> dict:
         target = next_p
 
     # IR-16: brainstorming gate before plan → plan_review
+    # Only check after plan steps have actually run (progress.json records completions).
+    # Skip gate if plan phase hasn't started executing yet (#619).
     brainstorming = None
     target_str = target.value if isinstance(target, Phase) else str(target)
     if task.phase_id == Phase.PLAN.value and target_str == Phase.PLAN_REVIEW.value:
-        brainstorming = _check_brainstorming_gate(task.description, cfg.workflow, getattr(task, 'mode', None), fs.kanban_dir)
-        if not brainstorming["passed"]:
-            return {
-                "task_id": task_id,
-                "phase": task.phase_id,
-                "message": (
-                    "brainstorming gate blocked: task description lacks "
-                    + ", ".join(m["label"] for m in brainstorming["missing"])
-                ),
-                "brainstorming_gate": brainstorming,
-                "required_action": (
-                    "complete Plan Step A (superpowers:brainstorming) to "
-                    "produce spec.md before transitioning to plan_review"
-                ),
-            }
+        from kanban_framework.domain.step_progress import load_progress
+        progress = load_progress(fs, task_id)
+        plan_steps_done = any(
+            s.get("status") == "completed"
+            for sid, s in progress.get("steps", {}).items()
+            if sid.startswith("plan.")
+        )
+        if plan_steps_done:
+            brainstorming = _check_brainstorming_gate(task.description, cfg.workflow, getattr(task, 'mode', None), fs.kanban_dir)
+            if not brainstorming["passed"]:
+                return {
+                    "task_id": task_id,
+                    "phase": task.phase_id,
+                    "message": (
+                        "brainstorming gate blocked: task description lacks "
+                        + ", ".join(m["label"] for m in brainstorming["missing"])
+                    ),
+                    "brainstorming_gate": brainstorming,
+                    "required_action": (
+                        "complete Plan Step A (superpowers:brainstorming) to "
+                        "produce spec.md before transitioning to plan_review"
+                    ),
+                }
 
     # Record knowledge usage before phase transition (#478)
     try:
@@ -196,6 +219,37 @@ def cmd_run(args: list[str]) -> dict:
     return result
 
 
+def _open_editor(path) -> bool:
+    """Try to open a file in the user's preferred editor. Returns True if successful."""
+    import os
+    import platform
+    import subprocess
+    import shutil
+    p = str(path)
+    editors = []
+    if platform.system() == "Darwin":
+        editors.append(["open", p])
+    elif platform.system() == "Windows":
+        editors.append(["cmd", "/c", "start", "", p])
+    else:
+        editors.append(["xdg-open", p])
+    for ed_name in ("EDITOR", "VISUAL"):
+        ed = os.environ.get(ed_name)
+        if ed:
+            editors.insert(0, [ed, p])
+    cmds = editors + [
+        [c, p] for c in ["code", "subl", "vim", "nano"]
+        if shutil.which(c)
+    ]
+    for cmd in cmds:
+        try:
+            subprocess.Popen(cmd, start_new_session=True)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 # ── decide ───────────────────────────────────────────────────────
 
 def cmd_decide(args: list[str]) -> dict:
@@ -218,7 +272,7 @@ def cmd_decide(args: list[str]) -> dict:
         return {"error": "task_id required"}
     fs, _, tm, we = _resolve()
     task = tm.show(task_id)
-    valid_actions = {"approve_and_archive", "abort", "restart_from_plan", "restart_from_execute"}
+    valid_actions = {"approve_and_archive", "feedback_and_restart", "abort"}
     if action not in valid_actions:
         return {"error": f"unknown action: {action}", "valid_actions": sorted(valid_actions)}
 
@@ -260,7 +314,7 @@ def cmd_decide(args: list[str]) -> dict:
         tm.update(task_id, phase="archive", status="archived")
         time_summary = _get_time_summary(task_id)
         # Write artifacts BEFORE moving directory (#262)
-        _append_time_token_to_retrospective(task_id)
+        _append_time_to_retrospective(task_id)
         _knowledge_health_on_archive(task_id)
         _move_to_archive(fs, task_id)
         # Auto-archive inbox items (Issue #108)
@@ -276,19 +330,38 @@ def cmd_decide(args: list[str]) -> dict:
             result["inbox_archived"] = inbox_result.get("archived_count")
         return result
     elif action == "abort":
-        tm.update(task_id, phase="archive", status="cancelled")
-        time_summary = _get_time_summary(task_id)
+        tm.update(task_id, phase="archive", status="archived")
         _move_to_archive(fs, task_id)
         return {
             "task_id": task_id,
             "action": action,
-            "message": f"user decision: {action} — executed",
-            "time": time_summary,
+            "message": f"task {task_id} aborted and archived",
         }
-    elif action == "restart_from_plan":
-        tm.update(task_id, phase="plan", status="in_progress", iteration=task.iteration + 1)
-    elif action == "restart_from_execute":
-        tm.update(task_id, phase="execute", status="in_progress", iteration=task.iteration + 1)
+    elif action == "feedback_and_restart":
+        inbox_path = fs.task_dir(task_id) / "inbox.md"
+        inbox_path.parent.mkdir(parents=True, exist_ok=True)
+        if not inbox_path.exists():
+            inbox_path.write_text(
+                f"# Task Inbox — {task_id}\n\n"
+                f"## 用户反馈\n\n"
+                f"请在此写下调整意见和新需求。\n\n",
+                encoding="utf-8",
+            )
+        # Reset task to execute so user can directly kanban run after feedback
+        tm.update(task_id, phase="execute", status="in_progress",
+                  iteration=task.iteration + 1)
+        _opened = _open_editor(inbox_path)
+        return {
+            "task_id": task_id,
+            "action": action,
+            "inbox_path": str(inbox_path),
+            "opened_in_editor": _opened,
+            "message": (
+                f"任务已重置到 execute。请在 inbox.md 中写下反馈意见。\n"
+                f"文件路径: {inbox_path}\n"
+                f"写完后告诉我: '跟进 {task_id} 的 inbox 内容'"
+            ),
+        }
 
     return {
         "task_id": task_id,
@@ -424,7 +497,6 @@ def cmd_nlp(args: list[str]) -> dict:
             {"command": "rollback",              "example": "/kanban rollback <task_id>"},
             {"command": "clean",                 "example": "/kanban clean [<task_id>|--all|--before <date>]"},
             {"command": "time",                  "example": "/kanban time [<task_id>]"},
-            {"command": "tokens",                "example": "/kanban tokens <task_id>"},
             {"command": "progress",              "example": "/kanban progress <task_id>"},
             {"command": "subtask",               "example": "/kanban subtask start|done <task_id> <subtask_id>"},
             {"command": "dashboard",             "example": "/kanban dashboard [start|stop|status|restart]"},

@@ -854,6 +854,7 @@ impl<'a> Parser<'a> {
                             parts: vec![WordPart::Literal(w.clone())],
                             quoted: true,
                             has_unquoted_glob: false,
+                            part_quoted: Vec::new(),
                         });
                         self.advance();
                     }
@@ -955,6 +956,7 @@ impl<'a> Parser<'a> {
                         parts: vec![WordPart::Literal(w.clone())],
                         quoted: true,
                         has_unquoted_glob: false,
+                        part_quoted: Vec::new(),
                     });
                     self.advance();
                 }
@@ -1538,6 +1540,7 @@ impl<'a> Parser<'a> {
                             parts: vec![WordPart::Literal(w_clone)],
                             quoted: true,
                             has_unquoted_glob: false,
+                            part_quoted: Vec::new(),
                         }
                     } else {
                         let mut parsed = self.parse_word(w_clone);
@@ -1987,10 +1990,49 @@ impl<'a> Parser<'a> {
         s
     }
 
+    /// Find the assignment operator, ignoring `=` characters inside array subscripts.
+    fn assignment_operator_pos(word: &str) -> Option<usize> {
+        let mut bracket_depth = 0usize;
+        let mut in_single_quote = false;
+        let mut in_double_quote = false;
+        let mut escaped = false;
+
+        for (pos, c) in word.char_indices() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+
+            if bracket_depth > 0 && c == '\\' {
+                escaped = true;
+                continue;
+            }
+
+            match c {
+                '\'' if bracket_depth > 0 && !in_double_quote => {
+                    in_single_quote = !in_single_quote;
+                }
+                '"' if bracket_depth > 0 && !in_single_quote => {
+                    in_double_quote = !in_double_quote;
+                }
+                '[' if !in_single_quote && !in_double_quote => {
+                    bracket_depth += 1;
+                }
+                ']' if bracket_depth > 0 && !in_single_quote && !in_double_quote => {
+                    bracket_depth -= 1;
+                }
+                '=' if bracket_depth == 0 => return Some(pos),
+                _ => {}
+            }
+        }
+
+        None
+    }
+
     /// Check if a word is an assignment (NAME=value, NAME+=value, or NAME[index]=value)
     /// Returns (name, optional_index, value, is_append)
     fn is_assignment(word: &str) -> Option<(&str, Option<&str>, &str, bool)> {
-        let eq_pos = word.find('=')?;
+        let eq_pos = Self::assignment_operator_pos(word)?;
         let mut lhs = &word[..eq_pos];
         let is_append = lhs.ends_with('+');
         if is_append {
@@ -2061,6 +2103,7 @@ impl<'a> Parser<'a> {
                             parts: vec![WordPart::Literal(elem_clone)],
                             quoted: true,
                             has_unquoted_glob: false,
+                            part_quoted: Vec::new(),
                         }
                     } else if matches!(
                         &self.current_token,
@@ -2159,6 +2202,7 @@ impl<'a> Parser<'a> {
                 parts: vec![WordPart::Literal(inner.to_string())],
                 quoted: true,
                 has_unquoted_glob: false,
+                part_quoted: Vec::new(),
             }
         } else {
             self.parse_word(value_str)
@@ -2456,6 +2500,7 @@ impl<'a> Parser<'a> {
                                 parts: vec![WordPart::Literal(w)],
                                 quoted: true,
                                 has_unquoted_glob: false,
+                                part_quoted: Vec::new(),
                             }
                         } else {
                             let mut word = self.parse_word(w);
@@ -2476,6 +2521,7 @@ impl<'a> Parser<'a> {
                             parts: vec![WordPart::Literal(w)],
                             quoted: true,
                             has_unquoted_glob: false,
+                            part_quoted: Vec::new(),
                         }
                     } else {
                         let mut word = self.parse_word(w);
@@ -2720,6 +2766,7 @@ impl<'a> Parser<'a> {
                     parts: vec![WordPart::Literal(w.clone())],
                     quoted: true,
                     has_unquoted_glob: false,
+                    part_quoted: Vec::new(),
                 };
                 self.advance();
                 Ok(word)
@@ -2785,14 +2832,14 @@ impl<'a> Parser<'a> {
                     }
                 }
 
-                let cmd_str = self
-                    .source_slice(body_start_offset, body_end_offset)
-                    .unwrap_or_default();
+                let body_len = body_end_offset.saturating_sub(body_start_offset);
+                self.tick_units(body_len)?;
 
                 // THREAT[TM-DOS-021]: Charge nested process-substitution parsers
-                // against the same depth/fuel/timeout budget. A fresh child parser
-                // without inherited current depth or fuel debit lets repeated `<(...)`
-                // recurse until stack overflow before normal parser limits fire.
+                // against the same depth/fuel/timeout budget. Borrow the original
+                // source slice instead of cloning it so nested `<(...)` cannot retain
+                // repeated near-full-size String bodies; charge body bytes because the
+                // child lexer must rescan whitespace/comments that produce no tokens.
                 if self.current_depth >= self.max_depth {
                     return Err(Error::parse(format!(
                         "AST nesting too deep ({} levels, max {})",
@@ -2800,33 +2847,35 @@ impl<'a> Parser<'a> {
                         self.max_depth
                     )));
                 }
-                let mut inner_parser = Parser::with_limits_and_timeout(
-                    &cmd_str,
-                    self.max_depth,
-                    self.fuel,
-                    self.timeout,
-                );
-                inner_parser.current_depth = self.current_depth + 1;
-                inner_parser.started_at = self.started_at;
-                let commands = match inner_parser.parse_script() {
-                    Ok(script) => {
-                        self.fuel = inner_parser.fuel;
-                        script.commands
-                    }
-                    Err(err) if Self::is_parser_budget_error(&err) => {
-                        self.fuel = inner_parser.fuel;
-                        return Err(err);
-                    }
-                    Err(_) => {
-                        self.fuel = inner_parser.fuel;
-                        Vec::new()
-                    }
+                let inner_result = {
+                    let cmd_src = self
+                        .input
+                        .get(body_start_offset..body_end_offset)
+                        .unwrap_or("");
+                    let mut inner_parser = Parser::with_limits_and_timeout(
+                        cmd_src,
+                        self.max_depth,
+                        self.fuel,
+                        self.timeout,
+                    );
+                    inner_parser.current_depth = self.current_depth + 1;
+                    inner_parser.started_at = self.started_at;
+                    let result = inner_parser.parse_script();
+                    (result, inner_parser.fuel)
+                };
+                let (parse_result, remaining_fuel) = inner_result;
+                self.fuel = remaining_fuel;
+                let commands = match parse_result {
+                    Ok(script) => script.commands,
+                    Err(err) if Self::is_parser_budget_error(&err) => return Err(err),
+                    Err(_) => Vec::new(),
                 };
 
                 Ok(Word {
                     parts: vec![WordPart::ProcessSubstitution { commands, is_input }],
                     quoted: false,
                     has_unquoted_glob: false,
+                    part_quoted: Vec::new(),
                 })
             }
             _ => Err(self.error("expected word")),
@@ -2856,6 +2905,7 @@ impl<'a> Parser<'a> {
                 parts: vec![WordPart::Literal(w.clone())],
                 quoted: true,
                 has_unquoted_glob: false,
+                part_quoted: Vec::new(),
             }),
             _ => None,
         }
@@ -2888,8 +2938,16 @@ impl<'a> Parser<'a> {
     /// Parse a word string into a Word with proper parts (variables, literals)
     fn parse_word(&self, s: String) -> Word {
         let mut parts = Vec::new();
+        let mut part_quoted = Vec::new();
         let mut chars = s.chars().peekable();
         let mut current = String::new();
+        let mut in_quoted_segment = false;
+        macro_rules! push_part {
+            ($part:expr) => {{
+                parts.push($part);
+                part_quoted.push(in_quoted_segment);
+            }};
+        }
 
         while let Some(ch) = chars.next() {
             if ch == '\x00' {
@@ -2897,10 +2955,14 @@ impl<'a> Parser<'a> {
                 if let Some(literal_ch) = chars.next() {
                     current.push(literal_ch);
                 }
+            } else if ch == '\u{1e}' {
+                in_quoted_segment = true;
+            } else if ch == '\u{1f}' {
+                in_quoted_segment = false;
             } else if ch == '$' {
                 // Flush current literal
                 if !current.is_empty() {
-                    parts.push(WordPart::Literal(std::mem::take(&mut current)));
+                    push_part!(WordPart::Literal(std::mem::take(&mut current)));
                 }
 
                 // Check for $'...' - ANSI-C quoting
@@ -2932,7 +2994,7 @@ impl<'a> Parser<'a> {
                             ansi.push(c);
                         }
                     }
-                    parts.push(WordPart::Literal(ansi));
+                    push_part!(WordPart::Literal(ansi));
                 } else if chars.peek() == Some(&'(') {
                     // Check for $( - command substitution or arithmetic
                     chars.next(); // consume first '('
@@ -2960,7 +3022,7 @@ impl<'a> Parser<'a> {
                         if expr.ends_with(')') {
                             expr.pop();
                         }
-                        parts.push(WordPart::ArithmeticExpansion(expr));
+                        push_part!(WordPart::ArithmeticExpansion(expr));
                     } else {
                         // Command substitution $(...)
                         let mut cmd_str = String::new();
@@ -2985,7 +3047,7 @@ impl<'a> Parser<'a> {
                         let inner_parser =
                             Parser::with_limits(&cmd_str, remaining_depth, self.fuel);
                         if let Ok(script) = inner_parser.parse() {
-                            parts.push(WordPart::CommandSubstitution(script.commands));
+                            push_part!(WordPart::CommandSubstitution(script.commands));
                         }
                     }
                 } else if chars.peek() == Some(&'{') {
@@ -3018,17 +3080,17 @@ impl<'a> Parser<'a> {
                                 chars.next();
                             }
                             if index == "@" || index == "*" {
-                                parts.push(WordPart::ArrayLength(var_name));
+                                push_part!(WordPart::ArrayLength(var_name));
                             } else {
                                 // ${#arr[n]} - length of element (same as ${#arr[n]})
-                                parts.push(WordPart::Length(format!("{}[{}]", var_name, index)));
+                                push_part!(WordPart::Length(format!("{}[{}]", var_name, index)));
                             }
                         } else {
                             // Consume closing }
                             if chars.peek() == Some(&'}') {
                                 chars.next();
                             }
-                            parts.push(WordPart::Length(var_name));
+                            push_part!(WordPart::Length(var_name));
                         }
                     } else if chars.peek() == Some(&'!') {
                         // Check for ${!arr[@]} or ${!arr[*]} - array indices
@@ -3066,15 +3128,15 @@ impl<'a> Parser<'a> {
                                 chars.next();
                             }
                             if index == "@" || index == "*" {
-                                parts.push(WordPart::ArrayIndices(var_name));
+                                push_part!(WordPart::ArrayIndices(var_name));
                             } else {
                                 // ${!arr[n]} - not standard, treat as variable
-                                parts.push(WordPart::Variable(format!("!{}[{}]", var_name, index)));
+                                push_part!(WordPart::Variable(format!("!{}[{}]", var_name, index)));
                             }
                         } else if chars.peek() == Some(&'}') {
                             // ${!var} - indirect expansion (no operator)
                             chars.next(); // consume '}'
-                            parts.push(WordPart::IndirectExpansion {
+                            push_part!(WordPart::IndirectExpansion {
                                 name: var_name,
                                 operator: None,
                                 operand: String::new(),
@@ -3098,7 +3160,7 @@ impl<'a> Parser<'a> {
                                     '?' => ParameterOp::Error,
                                     _ => unreachable!(),
                                 };
-                                parts.push(WordPart::IndirectExpansion {
+                                push_part!(WordPart::IndirectExpansion {
                                     name: var_name,
                                     operator: Some(operator),
                                     operand,
@@ -3114,7 +3176,7 @@ impl<'a> Parser<'a> {
                                     }
                                     suffix.push(chars.next().unwrap());
                                 }
-                                parts.push(WordPart::Variable(format!("!{}{}", var_name, suffix)));
+                                push_part!(WordPart::Variable(format!("!{}{}", var_name, suffix)));
                             }
                         } else if matches!(
                             chars.peek(),
@@ -3130,7 +3192,7 @@ impl<'a> Parser<'a> {
                                 '?' => ParameterOp::Error,
                                 _ => unreachable!(),
                             };
-                            parts.push(WordPart::IndirectExpansion {
+                            push_part!(WordPart::IndirectExpansion {
                                 name: var_name,
                                 operator: Some(operator),
                                 operand,
@@ -3150,9 +3212,9 @@ impl<'a> Parser<'a> {
                             if suffix.ends_with('*') || suffix.ends_with('@') {
                                 let full_prefix =
                                     format!("{}{}", var_name, &suffix[..suffix.len() - 1]);
-                                parts.push(WordPart::PrefixMatch(full_prefix));
+                                push_part!(WordPart::PrefixMatch(full_prefix));
                             } else {
-                                parts.push(WordPart::Variable(format!("!{}{}", var_name, suffix)));
+                                push_part!(WordPart::Variable(format!("!{}{}", var_name, suffix)));
                             }
                         }
                     } else {
@@ -3236,7 +3298,7 @@ impl<'a> Parser<'a> {
                                             '?' => ParameterOp::Error,
                                             _ => unreachable!(),
                                         };
-                                        parts.push(WordPart::ParameterExpansion {
+                                        push_part!(WordPart::ParameterExpansion {
                                             name: arr_name,
                                             operator,
                                             operand,
@@ -3268,7 +3330,7 @@ impl<'a> Parser<'a> {
                                         if chars.peek() == Some(&'}') {
                                             chars.next();
                                         }
-                                        parts.push(WordPart::ArraySlice {
+                                        push_part!(WordPart::ArraySlice {
                                             name: var_name,
                                             offset,
                                             length,
@@ -3286,7 +3348,7 @@ impl<'a> Parser<'a> {
                                         '?' => ParameterOp::Error,
                                         _ => unreachable!(),
                                     };
-                                    parts.push(WordPart::ParameterExpansion {
+                                    push_part!(WordPart::ParameterExpansion {
                                         name: arr_name,
                                         operator,
                                         operand,
@@ -3297,13 +3359,13 @@ impl<'a> Parser<'a> {
                                     if chars.peek() == Some(&'}') {
                                         chars.next();
                                     }
-                                    parts.push(WordPart::ArrayAccess {
+                                    push_part!(WordPart::ArrayAccess {
                                         name: var_name,
                                         index,
                                     });
                                 }
                             } else {
-                                parts.push(WordPart::ArrayAccess {
+                                push_part!(WordPart::ArrayAccess {
                                     name: var_name,
                                     index,
                                 });
@@ -3324,7 +3386,7 @@ impl<'a> Parser<'a> {
                                                 '?' => ParameterOp::Error,
                                                 _ => unreachable!(),
                                             };
-                                            parts.push(WordPart::ParameterExpansion {
+                                            push_part!(WordPart::ParameterExpansion {
                                                 name: var_name,
                                                 operator,
                                                 operand,
@@ -3356,7 +3418,7 @@ impl<'a> Parser<'a> {
                                             if chars.peek() == Some(&'}') {
                                                 chars.next();
                                             }
-                                            parts.push(WordPart::Substring {
+                                            push_part!(WordPart::Substring {
                                                 name: var_name,
                                                 offset,
                                                 length,
@@ -3375,7 +3437,7 @@ impl<'a> Parser<'a> {
                                         '?' => ParameterOp::Error,
                                         _ => unreachable!(),
                                     };
-                                    parts.push(WordPart::ParameterExpansion {
+                                    push_part!(WordPart::ParameterExpansion {
                                         name: var_name,
                                         operator,
                                         operand,
@@ -3387,7 +3449,7 @@ impl<'a> Parser<'a> {
                                     if chars.peek() == Some(&'#') {
                                         chars.next();
                                         let op = self.read_brace_operand(&mut chars);
-                                        parts.push(WordPart::ParameterExpansion {
+                                        push_part!(WordPart::ParameterExpansion {
                                             name: var_name,
                                             operator: ParameterOp::RemovePrefixLong,
                                             operand: op,
@@ -3395,7 +3457,7 @@ impl<'a> Parser<'a> {
                                         });
                                     } else {
                                         let op = self.read_brace_operand(&mut chars);
-                                        parts.push(WordPart::ParameterExpansion {
+                                        push_part!(WordPart::ParameterExpansion {
                                             name: var_name,
                                             operator: ParameterOp::RemovePrefixShort,
                                             operand: op,
@@ -3408,7 +3470,7 @@ impl<'a> Parser<'a> {
                                     if chars.peek() == Some(&'%') {
                                         chars.next();
                                         let op = self.read_brace_operand(&mut chars);
-                                        parts.push(WordPart::ParameterExpansion {
+                                        push_part!(WordPart::ParameterExpansion {
                                             name: var_name,
                                             operator: ParameterOp::RemoveSuffixLong,
                                             operand: op,
@@ -3416,7 +3478,7 @@ impl<'a> Parser<'a> {
                                         });
                                     } else {
                                         let op = self.read_brace_operand(&mut chars);
-                                        parts.push(WordPart::ParameterExpansion {
+                                        push_part!(WordPart::ParameterExpansion {
                                             name: var_name,
                                             operator: ParameterOp::RemoveSuffixShort,
                                             operand: op,
@@ -3477,7 +3539,7 @@ impl<'a> Parser<'a> {
                                             replacement,
                                         }
                                     };
-                                    parts.push(WordPart::ParameterExpansion {
+                                    push_part!(WordPart::ParameterExpansion {
                                         name: var_name,
                                         operator: op,
                                         operand: String::new(),
@@ -3495,7 +3557,7 @@ impl<'a> Parser<'a> {
                                     if chars.peek() == Some(&'}') {
                                         chars.next();
                                     }
-                                    parts.push(WordPart::ParameterExpansion {
+                                    push_part!(WordPart::ParameterExpansion {
                                         name: var_name,
                                         operator: op,
                                         operand: String::new(),
@@ -3513,7 +3575,7 @@ impl<'a> Parser<'a> {
                                     if chars.peek() == Some(&'}') {
                                         chars.next();
                                     }
-                                    parts.push(WordPart::ParameterExpansion {
+                                    push_part!(WordPart::ParameterExpansion {
                                         name: var_name,
                                         operator: op,
                                         operand: String::new(),
@@ -3527,7 +3589,7 @@ impl<'a> Parser<'a> {
                                         if chars.peek() == Some(&'}') {
                                             chars.next();
                                         }
-                                        parts.push(WordPart::Transformation {
+                                        push_part!(WordPart::Transformation {
                                             name: var_name,
                                             operator: op,
                                         });
@@ -3535,13 +3597,13 @@ impl<'a> Parser<'a> {
                                         if chars.peek() == Some(&'}') {
                                             chars.next();
                                         }
-                                        parts.push(WordPart::Variable(var_name));
+                                        push_part!(WordPart::Variable(var_name));
                                     }
                                 }
                                 '}' => {
                                     chars.next();
                                     if !var_name.is_empty() {
-                                        parts.push(WordPart::Variable(var_name));
+                                        push_part!(WordPart::Variable(var_name));
                                     }
                                 }
                                 _ => {
@@ -3553,18 +3615,18 @@ impl<'a> Parser<'a> {
                                         chars.next();
                                     }
                                     if !var_name.is_empty() {
-                                        parts.push(WordPart::Variable(var_name));
+                                        push_part!(WordPart::Variable(var_name));
                                     }
                                 }
                             }
                         } else if !var_name.is_empty() {
-                            parts.push(WordPart::Variable(var_name));
+                            push_part!(WordPart::Variable(var_name));
                         }
                     }
                 } else if let Some(&c) = chars.peek() {
                     // Check for special single-character variables ($?, $#, $@, $*, $!, $$, $-, $0-$9)
                     if matches!(c, '?' | '#' | '@' | '*' | '!' | '$' | '-') || c.is_ascii_digit() {
-                        parts.push(WordPart::Variable(chars.next().unwrap().to_string()));
+                        push_part!(WordPart::Variable(chars.next().unwrap().to_string()));
                     } else {
                         // $VAR format
                         let mut var_name = String::new();
@@ -3576,7 +3638,7 @@ impl<'a> Parser<'a> {
                             }
                         }
                         if !var_name.is_empty() {
-                            parts.push(WordPart::Variable(var_name));
+                            push_part!(WordPart::Variable(var_name));
                         } else {
                             // Just a literal $
                             current.push('$');
@@ -3593,18 +3655,19 @@ impl<'a> Parser<'a> {
 
         // Flush remaining literal
         if !current.is_empty() {
-            parts.push(WordPart::Literal(current));
+            push_part!(WordPart::Literal(current));
         }
 
         // If no parts, create an empty literal
         if parts.is_empty() {
-            parts.push(WordPart::Literal(String::new()));
+            push_part!(WordPart::Literal(String::new()));
         }
 
         Word {
             parts,
             quoted: false,
             has_unquoted_glob: false,
+            part_quoted,
         }
     }
 
@@ -4027,6 +4090,42 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_array_append_assignment_with_equal_in_subscript_parses_as_assignment() {
+        let parser = Parser::new("arr[i=0]+=x");
+        let script = parser.parse().expect("script should parse");
+        let cmd = match &script.commands[0] {
+            Command::Simple(cmd) => cmd,
+            other => panic!("expected simple command, got: {other:?}"),
+        };
+        assert_eq!(cmd.assignments.len(), 1);
+        assert_eq!(cmd.assignments[0].name, "arr");
+        assert_eq!(cmd.assignments[0].index.as_deref(), Some("i=0"));
+        assert!(cmd.assignments[0].append);
+        match &cmd.assignments[0].value {
+            AssignmentValue::Scalar(word) => assert_eq!(word.to_string(), "x"),
+            AssignmentValue::Array(_) => panic!("expected scalar assignment"),
+        }
+    }
+
+    #[test]
+    fn test_assoc_append_assignment_with_equal_in_subscript_parses_as_assignment() {
+        let parser = Parser::new("assoc[key=value]+=x");
+        let script = parser.parse().expect("script should parse");
+        let cmd = match &script.commands[0] {
+            Command::Simple(cmd) => cmd,
+            other => panic!("expected simple command, got: {other:?}"),
+        };
+        assert_eq!(cmd.assignments.len(), 1);
+        assert_eq!(cmd.assignments[0].name, "assoc");
+        assert_eq!(cmd.assignments[0].index.as_deref(), Some("key=value"));
+        assert!(cmd.assignments[0].append);
+        match &cmd.assignments[0].value {
+            AssignmentValue::Scalar(word) => assert_eq!(word.to_string(), "x"),
+            AssignmentValue::Array(_) => panic!("expected scalar assignment"),
+        }
+    }
+
     fn nested_process_substitution(levels: usize) -> String {
         let mut script = String::from("cat ");
         for _ in 0..levels {
@@ -4075,6 +4174,19 @@ mod tests {
     }
 
     #[test]
+    fn test_process_substitution_whitespace_body_consumes_fuel_budget() {
+        let script = format!("cat <({}echo x)", " ".repeat(256));
+        let parser = Parser::with_limits(&script, 100, 200);
+        let err = parser
+            .parse()
+            .expect_err("process substitution body scanning must consume parser fuel");
+        assert!(
+            err.to_string().contains("parser fuel exhausted"),
+            "expected parser fuel error, got: {err}"
+        );
+    }
+
+    #[test]
     fn test_nested_coproc_respects_ast_depth_limit() {
         let parser = Parser::with_limits("coproc coproc echo x", 1, usize::MAX);
         let err = parser.parse().unwrap_err();
@@ -4101,6 +4213,31 @@ mod tests {
         assert!(
             err.to_string().contains("parser fuel exhausted"),
             "expected heredoc rest-of-line reinjection to consume parser fuel, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_array_subscript_single_double_quote_character_does_not_panic() {
+        let parser = Parser::new(r#"echo "${arr[\"]}""#);
+        let result = parser.parse();
+
+        assert!(
+            result.is_ok(),
+            "single-character quoted subscript should not panic: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_double_quoted_param_expansion_obeys_parser_depth_limit() {
+        let parser = Parser::with_limits(r#"echo "${a:-${b:-${c}}}""#, 2, usize::MAX);
+        let err = parser
+            .parse()
+            .expect_err("nested parameter expansion should be rejected");
+
+        assert!(
+            err.to_string()
+                .contains("parameter expansion nesting too deep"),
+            "expected parameter expansion depth error, got: {err}"
         );
     }
 

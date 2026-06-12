@@ -1,0 +1,21 @@
+name: ops-webapp
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi Infrastructure as Code for the Airbyte Ops Webapp shared Cloud Run service.
+
+  This project manages:
+  - Reuse of the bootstrapped Artifact Registry repository and OAuth secret
+  - Cloud Run service for the shared n=1 pre-production/prod host
+  - External HTTP(S) load balancer with a managed certificate
+  - DNS A record for ops.internal.airbyte.ai in the internal.airbyte.ai Cloud DNS zone
+
+config:
+  gcp:project:
+    description: GCP project ID for the Ops Webapp runtime infrastructure
+    value: internal-airbyte-ai-infra
+  gcp:region:
+    description: GCP region
+    value: us-west3

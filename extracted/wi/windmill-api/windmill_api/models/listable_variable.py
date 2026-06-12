@@ -32,6 +32,8 @@ class ListableVariable:
         is_refreshed (Union[Unset, bool]):
         expires_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
         ws_specific (Union[Unset, bool]):
         edited_at (Union[Unset, datetime.datetime]):
         edited_by (Union[Unset, str]):
@@ -51,6 +53,7 @@ class ListableVariable:
     is_refreshed: Union[Unset, bool] = UNSET
     expires_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     ws_specific: Union[Unset, bool] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     edited_by: Union[Unset, str] = UNSET
@@ -77,6 +80,10 @@ class ListableVariable:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         ws_specific = self.ws_specific
         edited_at: Union[Unset, str] = UNSET
@@ -115,6 +122,8 @@ class ListableVariable:
             field_dict["expires_at"] = expires_at
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
         if ws_specific is not UNSET:
             field_dict["ws_specific"] = ws_specific
         if edited_at is not UNSET:
@@ -162,6 +171,8 @@ class ListableVariable:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         ws_specific = d.pop("ws_specific", UNSET)
 
         _edited_at = d.pop("edited_at", UNSET)
@@ -188,6 +199,7 @@ class ListableVariable:
             is_refreshed=is_refreshed,
             expires_at=expires_at,
             labels=labels,
+            inherited_labels=inherited_labels,
             ws_specific=ws_specific,
             edited_at=edited_at,
             edited_by=edited_by,

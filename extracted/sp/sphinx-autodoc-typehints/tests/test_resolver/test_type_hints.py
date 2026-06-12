@@ -12,8 +12,13 @@ from pathlib import Path
 from typing import Any, Union, get_args, get_origin
 from unittest.mock import MagicMock, patch
 
-import pytest
+if sys.version_info >= (3, 14):  # pragma: >=3.14 cover
+    import annotationlib
 
+import pytest
+from conftest import make_docstring_app
+
+from sphinx_autodoc_typehints import process_docstring
 from sphinx_autodoc_typehints._annotations import MyTypeAliasForwardRef
 from sphinx_autodoc_typehints._resolver._type_hints import (
     _TYPE_GUARD_IMPORTS_RESOLVED,
@@ -26,6 +31,7 @@ from sphinx_autodoc_typehints._resolver._type_hints import (
     _run_guarded_import,
     _should_skip_guarded_import_resolution,
     get_all_type_hints,
+    get_descriptor_type_hint,
 )
 
 STUB_ROOT = Path(__file__).parent.parent / "roots" / "test-pyi-stubs"
@@ -61,6 +67,34 @@ def test_get_type_hint_recursion_error() -> None:
 
     with patch("sphinx_autodoc_typehints._resolver._type_hints.get_type_hints", side_effect=RecursionError):
         assert _get_type_hint([], "test", func, {}) == {}
+
+
+@pytest.fixture
+def non_subscriptable_generic_func() -> Any:  # pragma: >=3.14 cover
+    # dont_inherit keeps this file's `from __future__ import annotations` (PEP 563) out of the
+    # compiled module so its annotations stay lazily evaluated (PEP 649)
+    source = "class NotGeneric: ...\n\n\ndef func(g: NotGeneric[int]) -> None: ...\n"
+    ns: dict[str, Any] = {}
+    exec(compile(source, "<mod_712>", "exec", dont_inherit=True), ns)  # noqa: S102
+    return ns["func"]
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="PEP 649 lazy annotation evaluation is Python 3.14+")
+def test_get_type_hint_unevaluatable_annotation_falls_back_to_forward_ref(
+    non_subscriptable_generic_func: Any,
+) -> None:  # pragma: >=3.14 cover
+    """Annotations whose evaluation raises TypeError degrade to ForwardRef proxies (issue #712)."""
+    result = _get_type_hint([], "test.func", non_subscriptable_generic_func, {})
+    assert result["g"].__forward_arg__ == "NotGeneric[int]"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="PEP 649 lazy annotation evaluation is Python 3.14+")
+def test_get_type_hint_forward_ref_fallback_failure_returns_empty(
+    non_subscriptable_generic_func: Any,
+) -> None:  # pragma: >=3.14 cover
+    """When even the FORWARDREF format cannot evaluate the annotations, fall back to no hints."""
+    with patch("sphinx_autodoc_typehints._resolver._type_hints.annotationlib.get_annotations", side_effect=TypeError):
+        assert _get_type_hint([], "test.func", non_subscriptable_generic_func, {}) == {}
 
 
 def test_execute_guarded_code_catches_exception() -> None:
@@ -185,6 +219,56 @@ def test_get_all_type_hints_preserves_stub_type_aliases(c_ext_mod: Any) -> None:
     assert result["callback"].name == "GreetHook"
 
 
+def test_descriptor_type_hint_resolves_from_stub(c_ext_mod: Any) -> None:
+    assert get_descriptor_type_hint(c_ext_mod.Encoder.depth) is int
+
+
+def test_descriptor_type_hint_preserves_stub_type_aliases(c_ext_mod: Any) -> None:
+    hint = get_descriptor_type_hint(c_ext_mod.Encoder.hook)
+    args = get_args(hint)
+    assert len(args) == 2
+    encoder_hook = args[0] if isinstance(args[0], MyTypeAliasForwardRef) else args[1]
+    assert encoder_hook.name == "EncoderHook"
+
+
+def test_descriptor_type_hint_resolves_class_annotation(c_ext_mod: Any) -> None:
+    assert get_descriptor_type_hint(c_ext_mod.Encoder.flags) is int
+
+
+def test_descriptor_type_hint_inside_version_guard(c_ext_mod: Any) -> None:
+    assert get_descriptor_type_hint(c_ext_mod.Encoder.guarded) is bool
+
+
+def test_descriptor_type_hint_for_non_class_stub_node(c_ext_mod: Any) -> None:
+    fake_class = type("greet", (), {"__module__": c_ext_mod.__name__, "__qualname__": "greet"})
+    descriptor = types.SimpleNamespace(__objclass__=fake_class, __name__="depth")
+    assert get_descriptor_type_hint(descriptor) is None
+
+
+def test_descriptor_type_hint_for_name_missing_from_stub(c_ext_mod: Any) -> None:
+    descriptor = types.SimpleNamespace(__objclass__=c_ext_mod.Encoder, __name__="missing")
+    assert get_descriptor_type_hint(descriptor) is None
+
+
+def test_process_docstring_injects_descriptor_type(c_ext_mod: Any) -> None:
+    app = make_docstring_app()
+    lines = ["current nesting depth"]
+    process_docstring(app, "attribute", "c_ext_mod.Encoder.depth", c_ext_mod.Encoder.depth, None, lines)
+    assert lines[0] == "current nesting depth"
+    assert lines[-1].startswith(":type: ")
+    assert "int" in lines[-1]
+
+
+def test_descriptor_type_hint_without_stub_is_none() -> None:
+    import array  # noqa: PLC0415
+
+    assert get_descriptor_type_hint(array.array.typecode) is None
+
+
+def test_descriptor_type_hint_ignores_non_descriptors() -> None:
+    assert get_descriptor_type_hint(object()) is None
+
+
 def test_get_all_type_hints_resolves_c_extension_class_new(c_ext_mod: Any) -> None:
     result = get_all_type_hints([], c_ext_mod.Encoder.__new__, "c_ext_mod.Encoder.__new__", {})
     default_type = result["default"]
@@ -221,3 +305,38 @@ def test_stub_annotations_not_polluted_on_repeated_calls(tmp_path: Path) -> None
         for name in [n for n in sys.modules if n.startswith("stubpkg")]:
             del sys.modules[name]
         _TYPE_GUARD_IMPORTS_RESOLVED.discard("stubpkg.mod")
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="annotationlib requires Python 3.14+")
+def test_get_type_hint_uses_annotationlib_on_name_error() -> None:  # pragma: >=3.14 cover
+    """_get_type_hint falls back to annotationlib.get_annotations on 3.14+ NameError."""
+    sentinel = {"x": int}
+
+    def dummy() -> None: ...
+
+    with (
+        patch(
+            "sphinx_autodoc_typehints._resolver._type_hints.get_type_hints",
+            side_effect=NameError("name 'Foo' is not defined"),
+        ),
+        patch.object(annotationlib, "get_annotations", return_value=sentinel) as mock_get_ann,
+    ):
+        result = _get_type_hint([], "dummy", dummy, {})
+
+    mock_get_ann.assert_called_once_with(dummy, format=annotationlib.Format.FORWARDREF)
+    assert result is sentinel
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 14), reason="Tests pre-3.14 fallback path")
+def test_get_type_hint_falls_back_to_dunder_annotations_before_314() -> None:  # pragma: <3.14 cover
+    """_get_type_hint falls back to __annotations__ on pre-3.14 NameError."""
+
+    def dummy(x: int) -> str: ...
+
+    with patch(
+        "sphinx_autodoc_typehints._resolver._type_hints.get_type_hints",
+        side_effect=NameError("name 'Foo' is not defined"),
+    ):
+        result = _get_type_hint([], "dummy", dummy, {})
+
+    assert result == dummy.__annotations__

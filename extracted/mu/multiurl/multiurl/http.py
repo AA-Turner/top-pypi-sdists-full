@@ -11,8 +11,9 @@ import datetime
 import json
 import logging
 import os
-import random
 import time
+from dataclasses import dataclass
+from typing import Optional
 
 import pytz
 import requests
@@ -20,14 +21,15 @@ from dateutil.parser import parse as parse_date
 
 from .base import DownloaderBase
 from .multipart import DecodeMultipart, PartFilter, compute_byte_ranges
+from .retry import robust
 
 LOG = logging.getLogger(__name__)
 
 
+@dataclass
 class ServerCapabilities:
-    def __init__(self, accept_ranges, accept_multiple_ranges):
-        self.accept_ranges = accept_ranges
-        self.accept_multiple_ranges = accept_multiple_ranges
+    accept_ranges: bool
+    accept_multiple_ranges: bool
 
 
 def NoFilter(x):
@@ -339,40 +341,79 @@ class SinglePartHTTPDownloader(HTTPDownloaderBase):
 
 
 class PartHTTPDownloader(HTTPDownloaderBase):
-    _server_capabilities = None
+    def __init__(
+        self,
+        *args,
+        accept_ranges: Optional[bool] = None,
+        accept_multiple_ranges: Optional[bool] = None,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        *args :
+            Positional arguments forwarded to `HTTPDownloaderBase`.
+        accept_ranges : bool, optional
+            Whether the server supports byte-range requests. If `None`,
+            the capability is probed from the response headers at request time.
+        accept_multiple_ranges : bool, optional
+            Whether the server supports multiple byte ranges in a single
+            request. Requires `accept_ranges=True`. If `None` and
+            `accept_ranges` is provided, defaults to the same value.
+        **kwargs :
+            Keyword arguments forwarded to `HTTPDownloaderBase`.
+
+        Raises
+        ------
+        ValueError
+            If `accept_multiple_ranges` is set without `accept_ranges`,
+            or if `accept_multiple_ranges=True` while `accept_ranges=False`.
+        """
+        super().__init__(*args, **kwargs)
+        if accept_ranges is None and accept_multiple_ranges is not None:
+            raise ValueError(
+                "When 'accept_multiple_ranges' is set, 'accept_ranges' must also be set, too."
+            )
+        if not accept_ranges and accept_multiple_ranges:
+            raise ValueError(
+                "When 'accept_multiple_ranges' is set to True, 'accept_ranges' must also be True."
+            )
+
+        self._server_capabilities = None
+        if accept_ranges is not None:
+            if accept_multiple_ranges is None:
+                accept_multiple_ranges = accept_ranges
+            self._server_capabilities = ServerCapabilities(
+                accept_ranges=accept_ranges,
+                accept_multiple_ranges=accept_multiple_ranges,
+            )
 
     def __repr__(self):
         return f"PartHTTPDownloader({self.url, self.parts})"
 
     @property
-    def server_capabilities(self):
+    def server_capabilities(self) -> ServerCapabilities:
         if self._server_capabilities is None:
             self._server_capabilities = ServerCapabilities(
                 accept_ranges=False,
-                accept_multiple_ranges=None,
+                accept_multiple_ranges=False,
             )
             headers = self.headers()
             if headers.get("accept-ranges") == "bytes":
                 self._server_capabilities.accept_ranges = True
+                self._server_capabilities.accept_multiple_ranges = True
 
-            # Special case for Azure
-            # The server does not announce byte-range support, but supports it
-            # The server will ignore multiple ranges and return everything
-            # https://docs.microsoft.com/en-us/rest/api/storageservices/specifying-the-range-header-for-blob-service-operations
-            if headers.get("server", "unknown").startswith("Windows-Azure-Blob"):
-                self._server_capabilities = ServerCapabilities(
-                    accept_ranges=True,
-                    accept_multiple_ranges=False,
-                )
-
-            # Special case for AWS
-            # The server will ignore multiple ranges and return everything
-            if headers.get("server", "unknown").startswith("AmazonS3"):
-                self._server_capabilities = ServerCapabilities(
-                    accept_ranges=True,
-                    accept_multiple_ranges=False,
-                )
-
+            # Special case for Azure:
+            #   The server does not announce byte-range support, but supports it
+            #   The server will ignore multiple ranges and return everything
+            #   https://docs.microsoft.com/en-us/rest/api/storageservices/specifying-the-range-header-for-blob-service-operations
+            # Special case for AWS:
+            #   The server will ignore multiple ranges and return everything
+            if headers.get("server", "unknown").startswith(
+                "Windows-Azure-Blob"
+            ) or headers.get("server", "unknown").startswith("AmazonS3"):
+                self._server_capabilities.accept_ranges = True
+                self._server_capabilities.accept_multiple_ranges = False
         return self._server_capabilities
 
     def mutate(self, *args, **kwargs):
@@ -431,10 +472,10 @@ class PartHTTPDownloader(HTTPDownloaderBase):
 
         def iterate_requests(chunk_size):
             for bytes_ranges, parts in splits:
-                if accept_multiple_ranges is False:
-                    request = self.issue_request(bytes_ranges.split(",")[0])
-                else:
+                if accept_multiple_ranges:
                     request = self.issue_request(bytes_ranges)
+                else:
+                    request = self.issue_request(bytes_ranges.split(",")[0])
 
                 stream = DecodeMultipart(
                     self.url,
@@ -443,104 +484,11 @@ class PartHTTPDownloader(HTTPDownloaderBase):
                     verify=self.verify,
                     timeout=self.timeout,
                     headers=self.http_headers,
+                    maximum_retries=self.maximum_retries,
+                    retry_after=self.retry_after,
+                    mirrors=self.mirrors,
                 )
 
                 yield from stream(chunk_size)
 
         return filter(iterate_requests)
-
-
-RETRIABLE = (
-    requests.codes.internal_server_error,
-    requests.codes.bad_gateway,
-    requests.codes.service_unavailable,
-    requests.codes.gateway_timeout,
-    requests.codes.too_many_requests,
-    requests.codes.request_timeout,
-)
-
-
-def robust(call, maximum_tries=500, retry_after=120, mirrors=None):
-    def retriable(code):
-        return code in RETRIABLE
-
-    def wrapped(url, *args, **kwargs):
-        tries = 0
-        main_url = url
-
-        if isinstance(retry_after, (list, tuple)):
-            sleep_min, sleep_max, sleep_incremental_ratio = retry_after
-        elif isinstance(retry_after, (int, float)):
-            sleep_min = sleep_max = retry_after
-            sleep_incremental_ratio = 1
-        else:
-            raise TypeError("retry_after must be int, float, tuple, or list")
-
-        assert sleep_min >= 0 and sleep_incremental_ratio > 0
-        assert (
-            sleep_min == sleep_max
-            if sleep_incremental_ratio == 1
-            else sleep_min < sleep_max
-        )
-        sleep = sleep_min if sleep_incremental_ratio >= 1 else sleep_max
-
-        while True:
-            tries += 1
-
-            if tries >= maximum_tries:
-                # Last attempt, don't do anything
-                return call(main_url, *args, **kwargs)
-
-            try:
-                r = call(main_url, *args, **kwargs)
-            except requests.exceptions.SSLError:
-                raise
-            except (
-                requests.exceptions.ConnectionError,
-                requests.exceptions.ReadTimeout,
-                requests.exceptions.ChunkedEncodingError,
-            ) as e:
-                r = None
-                LOG.warning(
-                    "Recovering from connection error [%s], attempt %s of %s",
-                    e,
-                    tries,
-                    maximum_tries,
-                )
-
-            if r is not None:
-                if not retriable(r.status_code):
-                    return r
-                LOG.warning(
-                    "Recovering from HTTP error [%s %s], attempt %s of %s",
-                    r.status_code,
-                    r.reason,
-                    tries,
-                    maximum_tries,
-                )
-
-            alternate = None
-            replace = 0
-            if mirrors is not None:
-                for key, values in mirrors.items():
-                    if url.startswith(key):
-                        alternate = values
-                        replace = len(key)
-                        if not isinstance(alternate, (list, tuple)):
-                            alternate = [alternate]
-
-            if alternate is not None:
-                mirror = random.choice(alternate)
-                LOG.warning("Retrying using mirror %s", mirror)
-                main_url = f"{mirror}{url[replace:]}"
-            else:
-                LOG.warning("Retrying in %s seconds", sleep)
-                time.sleep(sleep)
-                sleep = (
-                    min(sleep * sleep_incremental_ratio, sleep_max)
-                    if sleep_incremental_ratio >= 1
-                    else max(sleep_min, sleep * sleep_incremental_ratio)
-                )
-                LOG.info("Retrying now...")
-
-    return wrapped

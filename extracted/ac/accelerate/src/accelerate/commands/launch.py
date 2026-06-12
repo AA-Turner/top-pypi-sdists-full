@@ -585,7 +585,7 @@ def launch_command_parser(subparsers=None):
         "--fsdp_cpu_ram_efficient_loading",
         default="true",
         type=str,
-        help="If True, only the first process loads the pretrained model checkoint while all other processes have empty weights. "
+        help="If True, only the first process loads the pretrained model checkpoint while all other processes have empty weights. "
         "Only applicable for 🤗 Transformers. When using this, `--fsdp_sync_module_states` needs to True. "
         "(useful only when `use_fsdp` flag is passed).",
     )
@@ -972,7 +972,7 @@ def launch_command_parser(subparsers=None):
         "--parallelism_config_sp_attn_implementation",
         type=str,
         default="sdpa",
-        help="Attention implementation to use. Can be one of 'flash_attention_2', 'flash_attention_3' or 'sdpa'. Defaults to `sdpa`.",
+        help="Attention implementation to use. Can be one of 'flash_attention_2', 'flash_attention_3', 'sdpa', or a hub-hosted kernel (e.g. 'kernels-community/flash-attn2'). Defaults to `sdpa`.",
     )
 
     # Other arguments of the training scripts
@@ -1265,6 +1265,8 @@ def _validate_launch_command(args):
                             key = "fsdp_" + key
                         elif name == "fp8_config" and not key.startswith("fp8"):
                             key = "fp8_" + key
+                        elif name == "dynamo_config" and not key.startswith("dynamo_"):
+                            key = "dynamo_" + key
                         if hasattr(args, "nondefault") and key not in args.nondefault:
                             setattr(args, key, value)
                 elif (

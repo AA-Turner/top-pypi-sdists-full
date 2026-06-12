@@ -52,6 +52,7 @@ from .literals import (
     ProvisionedControlPlaneTierType,
     RepairActionType,
     ResolveConflictsType,
+    SpreadLevelType,
     SsoIdentityTypeType,
     SupportTypeType,
     TaintEffectType,
@@ -208,6 +209,8 @@ __all__ = (
     "EncryptionConfigTypeDef",
     "EncryptionConfigUnionTypeDef",
     "ErrorDetailTypeDef",
+    "EtcdPlacementRequestTypeDef",
+    "EtcdPlacementResponseTypeDef",
     "FargateProfileHealthTypeDef",
     "FargateProfileIssueTypeDef",
     "FargateProfileSelectorOutputTypeDef",
@@ -586,10 +589,12 @@ class ConnectorConfigRequestTypeDef(TypedDict):
 
 class ControlPlanePlacementRequestTypeDef(TypedDict):
     groupName: NotRequired[str]
+    spreadLevel: NotRequired[SpreadLevelType]
 
 
 class ControlPlanePlacementResponseTypeDef(TypedDict):
     groupName: NotRequired[str]
+    spreadLevel: NotRequired[SpreadLevelType]
 
 
 class CreateAccessConfigRequestTypeDef(TypedDict):
@@ -882,6 +887,14 @@ class ErrorDetailTypeDef(TypedDict):
     errorCode: NotRequired[ErrorCodeType]
     errorMessage: NotRequired[str]
     resourceIds: NotRequired[list[str]]
+
+
+class EtcdPlacementRequestTypeDef(TypedDict):
+    spreadLevel: NotRequired[SpreadLevelType]
+
+
+class EtcdPlacementResponseTypeDef(TypedDict):
+    spreadLevel: NotRequired[SpreadLevelType]
 
 
 class FargateProfileIssueTypeDef(TypedDict):
@@ -1339,18 +1352,6 @@ class RegisterClusterRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
-class OutpostConfigRequestTypeDef(TypedDict):
-    outpostArns: Sequence[str]
-    controlPlaneInstanceType: str
-    controlPlanePlacement: NotRequired[ControlPlanePlacementRequestTypeDef]
-
-
-class OutpostConfigResponseTypeDef(TypedDict):
-    outpostArns: list[str]
-    controlPlaneInstanceType: str
-    controlPlanePlacement: NotRequired[ControlPlanePlacementResponseTypeDef]
-
-
 class CreateEksAnywhereSubscriptionRequestTypeDef(TypedDict):
     name: str
     term: EksAnywhereSubscriptionTermTypeDef
@@ -1589,6 +1590,22 @@ class EncryptionConfigOutputTypeDef(TypedDict):
 class EncryptionConfigTypeDef(TypedDict):
     resources: NotRequired[Sequence[str]]
     provider: NotRequired[ProviderTypeDef]
+
+
+class OutpostConfigRequestTypeDef(TypedDict):
+    outpostArns: Sequence[str]
+    controlPlaneInstanceType: str
+    controlPlanePlacement: NotRequired[ControlPlanePlacementRequestTypeDef]
+    etcdInstanceType: NotRequired[str]
+    etcdPlacement: NotRequired[EtcdPlacementRequestTypeDef]
+
+
+class OutpostConfigResponseTypeDef(TypedDict):
+    outpostArns: list[str]
+    controlPlaneInstanceType: str
+    controlPlanePlacement: NotRequired[ControlPlanePlacementResponseTypeDef]
+    etcdInstanceType: NotRequired[str]
+    etcdPlacement: NotRequired[EtcdPlacementResponseTypeDef]
 
 
 class FargateProfileHealthTypeDef(TypedDict):

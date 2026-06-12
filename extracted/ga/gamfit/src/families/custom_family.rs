@@ -12676,13 +12676,66 @@ fn shrink_active_joint_block_trust_radii(
     factor: f64,
 ) -> f64 {
     assert_eq!(block_radii.len(), block_step_norms.len());
+    // Joint-Newton step-rejection radius shrink. Must guarantee strict
+    // monotone decrease of `max(block_radii)` until the floor, otherwise the
+    // next trust-region attempt computes a step byte-identical to the rejected
+    // one and the inner loop stalls forever (gam joint-Newton fully-rejected
+    // cycles, root cause behind the 8-cycle bail at FULLY_REJECTED_STALL_MAX_CYCLES).
+    //
+    // Two cooperating mechanisms:
+    //   * For every block that participates in the shrink, the new radius is
+    //     pulled below the rejected step's magnitude (`0.5 · step_norm`),
+    //     matching the analogous clamp in `update_joint_trust_region_radius`'s
+    //     reject branch. This forces the next step to be strictly smaller
+    //     than the current one even when `radius * factor` is still larger
+    //     than `step_norm` (which happens whenever the dogleg/truncate path
+    //     returned a Newton step shorter than the block's radius).
+    //   * Block participation: by default only shrink blocks whose step hit
+    //     the per-block trust boundary (the boundary block was the one the
+    //     trust radius actually constrained — interior blocks took their
+    //     natural Newton step and shrinking their radius is wasted). BUT when
+    //     every boundary block already sits at the 1e-12 floor, further
+    //     shrinking those blocks is a no-op (they'd just re-clamp to the
+    //     floor), so we *must* shrink the interior blocks instead to actually
+    //     change the joint step. Without this carve-out the deadlock was:
+    //     boundary block pinned at 1e-12, interior block radius held at its
+    //     pre-stall value, `max(block_radii)` held by the interior block, the
+    //     dogleg/truncate produces an identical joint δ every cycle, every
+    //     trust attempt rejects on the same objective check, the cycle burns
+    //     to `inner_loop_hard_ceiling` (1200) cycles wasting ~120 s per
+    //     outer ρ-evaluation — the Rust CI Test hang and the
+    //     `rust_margslope_aniso_duchon16d_*` large-scale 2400 s timeout.
+    const RADIUS_FLOOR: f64 = 1.0e-12;
     let any_boundary_block = block_radii
         .iter()
         .zip(block_step_norms)
         .any(|(radius, step_norm)| joint_block_step_hit_trust_boundary(*step_norm, *radius));
+    let all_boundary_blocks_at_floor = any_boundary_block
+        && block_radii
+            .iter()
+            .zip(block_step_norms)
+            .filter(|(radius, step_norm)| {
+                joint_block_step_hit_trust_boundary(**step_norm, **radius)
+            })
+            .all(|(radius, _)| *radius <= RADIUS_FLOOR * (1.0 + 1.0e-12));
     for (radius, step_norm) in block_radii.iter_mut().zip(block_step_norms) {
-        if !any_boundary_block || joint_block_step_hit_trust_boundary(*step_norm, *radius) {
-            *radius = (*radius * factor).clamp(1.0e-12, 1.0e6);
+        let at_boundary = joint_block_step_hit_trust_boundary(*step_norm, *radius);
+        let participates = if all_boundary_blocks_at_floor {
+            // Boundary-at-floor stall: the boundary blocks cannot shrink any
+            // further, so participate every block (including interior ones)
+            // so the joint step magnitude actually changes.
+            true
+        } else if any_boundary_block {
+            at_boundary
+        } else {
+            true
+        };
+        if participates {
+            let mut new_radius = *radius * factor;
+            if step_norm.is_finite() && *step_norm > 0.0 {
+                new_radius = new_radius.min(0.5 * *step_norm);
+            }
+            *radius = new_radius.clamp(RADIUS_FLOOR, 1.0e6);
         }
     }
     block_radii.iter().copied().fold(0.0_f64, f64::max)
@@ -13491,6 +13544,28 @@ mod trust_region_subproblem_tests {
 /// spectral-range branch already gets this for free via
 /// `JointSpectralNewtonStep::nullity`; the constrained branch never runs the
 /// eigensolve otherwise, so it computes it here on the already-penalized `lhs`.
+/// PSD part of a symmetric matrix: eigendecompose and clamp negative
+/// eigenvalues to zero. Used by the step consumers that REQUIRE a convex
+/// model (the constrained active-set QP and the SPD-PCG matvec) when folding
+/// the exact divided-difference Jeffreys curvature `H_Φ`, which is indefinite
+/// exactly where `Φ` is (gam#979). On a PSD input this is the identity (up to
+/// eigendecomposition round-off). Falls back to the zero matrix if the
+/// eigendecomposition fails — the safe unaugmented step, never a wrong one.
+fn symmetric_psd_projection(matrix: &Array2<f64>) -> Array2<f64> {
+    let p = matrix.nrows();
+    let mut sym = matrix.clone();
+    symmetrize_dense_in_place(&mut sym);
+    let Ok((evals, evecs)) = FaerEigh::eigh(&sym, Side::Lower) else {
+        return Array2::zeros((p, p));
+    };
+    if evals.iter().all(|lam| *lam >= 0.0) {
+        return sym;
+    }
+    let clamped = Array1::from_iter(evals.iter().map(|lam| lam.max(0.0)));
+    let scaled = &evecs * &clamped.view().insert_axis(ndarray::Axis(0));
+    scaled.dot(&evecs.t())
+}
+
 fn symmetric_penalized_hessian_nullity(lhs: &Array2<f64>) -> Option<usize> {
     let p = lhs.nrows();
     if p == 0 || lhs.ncols() != p {
@@ -14829,6 +14904,35 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         let mut residual_descent_history: std::collections::VecDeque<f64> =
             std::collections::VecDeque::with_capacity(RESIDUAL_DESCENT_WINDOW);
         let mut tr_clamped_during_stall: bool = false;
+        // Fully-rejected stall guard. The residual-stall guard below
+        // (post-grad-reload) only fires on cycles that produced an accepted
+        // step, because every termination check it gates lives after the
+        // `if !accepted { continue; }` exit at the bottom of the trust-region
+        // attempt loop. When every cycle in a row is fully rejected — all
+        // JOINT_TRUST_MAX_ATTEMPTS trial steps fail the line-search check —
+        // none of those guards ever see the iterate, the cycle loop spins
+        // up to `inner_loop_hard_ceiling` cycles, and the inner solver burns
+        // ~120 s of wall-clock per outer ρ-evaluation that the outer
+        // optimizer will reject anyway. The signature is exact and local:
+        // (i) every trust attempt this cycle was rejected on the actual
+        // objective check (`objective_rejects == JOINT_TRUST_MAX_ATTEMPTS`,
+        // `model_rejects == 0`, `likelihood_rejects == 0`), AND (ii) the joint
+        // trust radius has NOT shrunk relative to the previous fully-rejected
+        // cycle. Condition (ii) is what proves no progress is possible: β is
+        // reverted to its pre-cycle value on every fully-rejected cycle, so
+        // with an identical Newton system AND an identical trust radius the
+        // next cycle's trust-region search is byte-deterministically the
+        // same as this one's. The radius can stall above the 1e-12 floor
+        // when `shrink_active_joint_block_trust_radii` only shrinks blocks
+        // that hit their per-block boundary — an interior block keeps its
+        // radius forever, so `max(block_radii)` is held by that block while
+        // the boundary block's radius collapses to 1e-12 without changing
+        // the max. After `FULLY_REJECTED_STALL_MAX_CYCLES` consecutive cycles
+        // with both conditions, exit non-converged so the outer optimizer
+        // rejects this ρ cleanly instead of waiting for the cycle cap.
+        const FULLY_REJECTED_STALL_MAX_CYCLES: usize = 8;
+        let mut prev_rejected_trust_radius: Option<f64> = None;
+        let mut consecutive_held_rejected_cycles: usize = 0;
         let mut last_joint_math: Option<JointNewtonMathDiagnostic> = None;
         // Cross-cycle cache of the joint Jeffreys/Firth triple `(β_key, ∇Φ, H_Φ)`
         // (gam#729/#826/#808). Computing `(∇Φ, H_Φ)` costs `p` family
@@ -15213,11 +15317,23 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     // gam#826/#872/#715). Skipped when the cheap pre-check certifies
                     // well-conditioning: ∇Φ = 0 and H_Φ = 0 there, so neither
                     // rhs_step nor lhs change.
+                    // PSD PROJECTION (gam#979). The exact divided-difference H_Φ is
+                    // indefinite exactly where Φ is (mixed-sign reduced spectrum at
+                    // off-mode trial points). The unconstrained dense-spectral path
+                    // consumes it exactly — the Moré–Sorensen subproblem handles
+                    // indefiniteness rigorously — but THIS active-set QP requires a
+                    // convex model (an indefinite QP cycles its active set and the
+                    // inner grinds the budget). Use the PSD part of H_Φ here: honest
+                    // magnitudes (unlike the old `K²` vec-Gram phantom), guaranteed
+                    // solvable QP, and the exact ∇Φ in the rhs keeps the fixed point
+                    // unchanged — only the convergence rate on indefinite stretches
+                    // degrades to the damped-Newton rate the constrained path always
+                    // had.
                     if let Some((grad_phi, hphi)) = head_jeffreys_term.as_ref()
                         && grad_phi.len() == rhs_step.len()
                     {
                         rhs_step += grad_phi;
-                        lhs += hphi;
+                        lhs += &symmetric_psd_projection(hphi);
                     }
                     // Self-vanishing Levenberg–Marquardt damping for the
                     // CONSTRAINED active-set QP, mirroring the spectral-range
@@ -15360,9 +15476,15 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                             }
                             _ => None,
                         };
+                    // PSD PROJECTION for the SPD-PCG matvec (gam#979): the exact
+                    // divided-difference H_Φ can be indefinite at off-mode trial
+                    // points, which breaks the SPD-CG contract. The matvec uses its
+                    // PSD part; the dense spectral fallback below keeps the EXACT
+                    // (possibly indefinite) H_Φ — the Moré–Sorensen subproblem
+                    // handles it rigorously.
                     let inner_jeffreys_hphi: Option<Arc<Array2<f64>>> = inner_jeffreys_term
                         .as_ref()
-                        .map(|(_grad_phi, hphi)| Arc::new(hphi.clone()));
+                        .map(|(_grad_phi, hphi)| Arc::new(symmetric_psd_projection(hphi)));
                     let pcg_started = std::time::Instant::now();
                     let pcg_requested = matrix_free_joint_requested && !joint_hessian_is_dense;
                     let mut spectral_nullity_for_step = 0usize;
@@ -16408,7 +16530,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             let line_search_elapsed = line_search_started.elapsed();
             if accepted && converged {
                 log::info!(
-                    "[PIRLS/joint-Newton/cycle-summary] cycle={} accepted=false hessian_qp={:.3}s line_search={:.3}s line_search_attempts={} reject_model={} reject_likelihood={} reject_objective={} first_likelihood_reject={} grad_reload=0.000s total={:.3}s",
+                    "[PIRLS/joint-Newton/cycle-summary] cycle={} accepted=true hessian_qp={:.3}s line_search={:.3}s line_search_attempts={} reject_model={} reject_likelihood={} reject_objective={} first_likelihood_reject={} grad_reload=0.000s total={:.3}s",
                     cycle,
                     hessian_and_qp_elapsed.as_secs_f64(),
                     line_search_elapsed.as_secs_f64(),
@@ -16466,6 +16588,71 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     converged = true;
                     break;
                 }
+                // Fully-rejected stall guard. See the constant declaration
+                // at the top of this function for the full rationale. The
+                // condition is: every trust attempt this cycle failed the
+                // *actual-objective* line search (model_rejects ==
+                // likelihood_rejects == 0, objective_rejects ==
+                // JOINT_TRUST_MAX_ATTEMPTS) AND the joint trust radius did
+                // not shrink relative to the previous fully-rejected cycle.
+                // Both together prove the next cycle's Newton system,
+                // trust radius, and trust-region search are bytewise
+                // identical to this cycle's — there is no descent direction
+                // the local quadratic model can reconcile at this β. After
+                // FULLY_REJECTED_STALL_MAX_CYCLES such cycles, exit
+                // non-converged so the outer optimizer rejects this ρ.
+                let all_attempts_objective_rejected = objective_rejects == JOINT_TRUST_MAX_ATTEMPTS
+                    && model_rejects == 0
+                    && likelihood_rejects == 0;
+                let radius_held_since_last_reject = match prev_rejected_trust_radius {
+                    Some(prev) => {
+                        joint_trust_radius.is_finite()
+                            && prev.is_finite()
+                            && joint_trust_radius >= prev * (1.0 - 1e-12)
+                    }
+                    None => false,
+                };
+                if all_attempts_objective_rejected && radius_held_since_last_reject {
+                    consecutive_held_rejected_cycles =
+                        consecutive_held_rejected_cycles.saturating_add(1);
+                } else {
+                    consecutive_held_rejected_cycles = 0;
+                }
+                prev_rejected_trust_radius = Some(joint_trust_radius);
+                if consecutive_held_rejected_cycles >= FULLY_REJECTED_STALL_MAX_CYCLES {
+                    let last_math_summary = last_joint_math
+                        .as_ref()
+                        .map(|math| {
+                            format!(
+                                "last_newton_math={{old_kkt={:.3e}, linearized_next={:.3e}, actual={:+.3e}, pred={:+.3e}, rho={:+.3e}, scalar_relerr={:.3e}, step_inf={:.3e}, proposal_inf={:.3e}}}",
+                                math.old_kkt_inf,
+                                math.linearized_next_kkt_inf,
+                                math.actual_reduction,
+                                math.predicted_reduction,
+                                math.trust_ratio,
+                                math.scalar_model_relative_error(),
+                                math.step_inf,
+                                math.proposal_inf,
+                            )
+                        })
+                        .unwrap_or_else(|| "last_newton_math=<none>".to_string());
+                    log::warn!(
+                        "[PIRLS/joint-Newton convergence] cycle {:>3} | fully-rejected stall \
+                         early-exit: every trust-region attempt rejected on the actual-objective \
+                         check for {} consecutive cycles with joint trust radius held at {:.3e} \
+                         throughout. Reverted β + held trust radius mean the next cycle's Newton \
+                         step is byte-identical to this one's; no descent direction is reachable \
+                         from this iterate under the current local model. {}. Returning \
+                         unconverged with finite β so the outer optimizer rejects this ρ \
+                         evaluation before inner_max_cycles.",
+                        cycle,
+                        consecutive_held_rejected_cycles,
+                        joint_trust_radius,
+                        last_math_summary,
+                    );
+                    converged = false;
+                    break;
+                }
                 // CONTINUE rather than break (gam#826/#872/#715). The comment
                 // above documents the intent — "retry the joint Newton loop from
                 // the same state after a failed trust-region search" — but the old
@@ -16507,6 +16694,12 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 accepted_joint_workspace.take(),
             )?;
             let grad_reload_elapsed = grad_reload_started.elapsed();
+            // Reset the fully-rejected stall guard's bookkeeping: an accepted
+            // cycle moved β and may have grown the trust radius, so the next
+            // rejected-cycle comparison must start fresh rather than carry
+            // forward a stale radius snapshot from the previous reject streak.
+            prev_rejected_trust_radius = None;
+            consecutive_held_rejected_cycles = 0;
             // Accepted-cycle timing breakdown is debug-only. The per-cycle
             // info line below already includes total cycle time; emitting a
             // four-phase split on every verbose cycle adds a redundant info
@@ -19666,6 +19859,7 @@ fn build_custom_family_inner_assembly<'dp>(
     rho_prior: crate::types::RhoPrior,
     deriv_provider: Box<dyn HessianDerivativeProvider + 'dp>,
     ext_bundle: Option<ExtCoordBundle>,
+    firth_value: Option<f64>,
 ) -> Result<(crate::estimate::reml::assembly::InnerAssembly<'dp>, usize), String> {
     use crate::estimate::reml::assembly::{
         InnerAssembly, PenaltyBlockDesc, penalty_coords_from_blocks,
@@ -19747,7 +19941,11 @@ fn build_custom_family_inner_assembly<'dp>(
         deriv_provider: Some(deriv_provider),
         tk_correction: 0.0,
         tk_gradient: None,
-        firth: None,
+        // Tier-B Firth fold (gam#979): the inner mode minimizes
+        // `−ℓ + ½βᵀSβ − Φ`, so the LAML cost must subtract the same gated
+        // `Φ(β̂)` or the envelope-based analytic outer gradient and the value
+        // describe different criteria at every Firth-active mode.
+        firth: firth_value.map(crate::estimate::reml::unified::ExactJeffreysTerm::value_only),
         nullspace_dim: None,
         barrier_config: None,
         ext_coords,
@@ -20048,6 +20246,10 @@ fn unified_joint_cost_gradient(
     eval_mode: EvalMode,
     ext_bundle: Option<ExtCoordBundle>,
     first_order_trace_skip: Option<Array1<f64>>,
+    // Gated Tier-B Jeffreys value `Φ(β̂)`, folded into the LAML cost
+    // (`cost −= Φ`) so the outer criterion matches the Φ-augmented inner
+    // objective (gam#979). `None` when the term is unavailable/gated to zero.
+    firth_value: Option<f64>,
 ) -> Result<
     (
         f64,
@@ -20080,6 +20282,7 @@ fn unified_joint_cost_gradient(
         rho_prior,
         deriv_provider,
         ext_bundle,
+        firth_value,
     )?;
     let rho_slice = rho
         .as_slice()
@@ -20138,6 +20341,10 @@ fn unified_joint_efs_eval(
         rho_prior,
         deriv_provider,
         ext_bundle,
+        // The EFS screening path evaluates the Φ-less criterion with an
+        // unaugmented operator throughout; it stays self-consistent without
+        // the Tier-B Firth fold.
+        None,
     )?;
     let rho_slice = rho
         .as_slice()
@@ -20420,9 +20627,13 @@ fn joint_outer_evaluate(
     // no active Jeffreys curvature (empty system, unavailable exact derivatives,
     // or the conditioning gate proved the term zero), not a user-selected
     // robustness-off mode.
-    robust_jeffreys_hphi: Option<Array2<f64>>,
+    // Gated Jeffreys VALUE `Φ(β̂)` paired with the curvature `H_Φ` from the same
+    // term evaluation. The value is folded into the LAML cost (`cost −= Φ`) so
+    // the outer criterion is the Laplace approximation of the SAME
+    // Firth-augmented objective the inner Newton converged on (gam#979).
+    robust_jeffreys_phi_hphi: Option<(f64, Array2<f64>)>,
     // Companion mode-response drift `D_β H_Φ[δβ]` for the outer gradient's trace
-    // identity. `Some` exactly when `robust_jeffreys_hphi` is `Some` (same
+    // identity. `Some` exactly when `robust_jeffreys_phi_hphi` is `Some` (same
     // under-identified span); installing it wraps the derivative provider so the
     // first-order trace gains the `½ tr[(H+S_λ+H_Φ)⁻¹ D_β H_Φ[v_k]]` term that
     // makes the analytic gradient match the augmented objective. `None` ⇒ the
@@ -20432,6 +20643,11 @@ fn joint_outer_evaluate(
     let joint_trace_diagonal_ridge = moderidge + if !strict_spd { extra_logdet_ridge } else { 0.0 };
     let scaled_joint_trace_diagonal_ridge = rho_curvature_scale * joint_trace_diagonal_ridge;
 
+    let (robust_jeffreys_phi, robust_jeffreys_hphi): (Option<f64>, Option<Array2<f64>>) =
+        match robust_jeffreys_phi_hphi {
+            Some((phi, hphi)) => (Some(phi), Some(hphi)),
+            None => (None, None),
+        };
     // Pre-scale the outer-REML Jeffreys curvature into the same rescaled space as
     // the penalties so the projected-logdet path and the operator agree. `None`
     // (flag OFF / no under-identified span) keeps the released outer REML exact.
@@ -20661,6 +20877,7 @@ fn joint_outer_evaluate(
         } else {
             first_order_trace_skip
         },
+        robust_jeffreys_phi,
     )?;
     if !objective.is_finite() {
         log::warn!(
@@ -22873,8 +23090,9 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
     let has_configured_rho_prior = !matches!(rho_prior, crate::types::RhoPrior::Flat);
     let robust_jeffreys_hphi =
         custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?;
-    let batched_gradient_contract_allows_override =
-        batched_outer_gradient_contract_allows_override(robust_jeffreys_hphi.as_ref());
+    let batched_gradient_contract_allows_override = batched_outer_gradient_contract_allows_override(
+        robust_jeffreys_hphi.as_ref().map(|(_phi, hphi)| hphi),
+    );
     let mut batched_gradient_override: Option<Array1<f64>> = None;
     if !has_configured_rho_prior
         && batched_gradient_contract_allows_override
@@ -24174,7 +24392,7 @@ fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send + Sync + 'st
     states: &[ParameterBlockState],
     specs: &[ParameterBlockSpec],
     ranges: &[(usize, usize)],
-) -> Result<Option<Array2<f64>>, String> {
+) -> Result<Option<(f64, Array2<f64>)>, String> {
     if !family.joint_jeffreys_term_required() {
         return Ok(None);
     }
@@ -24182,9 +24400,13 @@ fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send + Sync + 'st
         Some(z) => z,
         None => return Ok(None),
     };
-    let hphi = custom_family_joint_jeffreys_term(family, states, specs, ranges, &z_joint)?
-        .map(|(_phi, _grad, hphi)| hphi);
-    Ok(hphi)
+    // Return the gated VALUE alongside the curvature: the outer LAML must fold
+    // `−Φ(β̂)` into its cost (the inner mode is Φ-augmented-stationary, so the
+    // envelope identity only holds for the Φ-folded criterion — gam#979), and
+    // value/curvature must come from the SAME term evaluation.
+    let phi_and_hphi = custom_family_joint_jeffreys_term(family, states, specs, ranges, &z_joint)?
+        .map(|(phi, _grad, hphi)| (phi, hphi));
+    Ok(phi_and_hphi)
 }
 
 fn batched_outer_gradient_contract_allows_override(
@@ -26663,52 +26885,53 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // infinite-width intervals that masquerade as a fit — see the finite-mode
     // check after the refit). The result carries the existing escalation's
     // degraded / sampled-not-certified flagging so confidence is honest.
-    let (rho_star, outer_grad_norm, outer_iters, nonconvergence_escalation, outer_certificate) = match outer_result {
-        Ok(outer_result) => {
-            // Geometry-driven terminal escalation. When the outer smoothing
-            // optimizer cannot certify convergence, the objective is always
-            // *proper* (Jeffreys/PC term unconditionally armed), so a
-            // non-convergence here is a geometry signal (indefinite / non-smooth
-            // LAML landscape that stalled Strong-Wolfe) — not a reason to fail.
-            // Instead we AUTO-ESCALATE to sampling the proper posterior about the
-            // best mode the inner solve reached (the never-fail bottom rung; see
-            // `hmc::sample_gaussian_mode_posterior`). The fast Arc/EFS path is
-            // untouched: this branch is only reached after the optimizer reports
-            // non-convergence, so nice landscapes never pay any sampling cost.
-            let nonconvergence_escalation = !outer_result.converged;
-            if nonconvergence_escalation {
-                log::info!(
-                    "[robust] outer smoothing did not certify convergence (plan={} iters={} |g|={}); \
+    let (rho_star, outer_grad_norm, outer_iters, nonconvergence_escalation, outer_certificate) =
+        match outer_result {
+            Ok(outer_result) => {
+                // Geometry-driven terminal escalation. When the outer smoothing
+                // optimizer cannot certify convergence, the objective is always
+                // *proper* (Jeffreys/PC term unconditionally armed), so a
+                // non-convergence here is a geometry signal (indefinite / non-smooth
+                // LAML landscape that stalled Strong-Wolfe) — not a reason to fail.
+                // Instead we AUTO-ESCALATE to sampling the proper posterior about the
+                // best mode the inner solve reached (the never-fail bottom rung; see
+                // `hmc::sample_gaussian_mode_posterior`). The fast Arc/EFS path is
+                // untouched: this branch is only reached after the optimizer reports
+                // non-convergence, so nice landscapes never pay any sampling cost.
+                let nonconvergence_escalation = !outer_result.converged;
+                if nonconvergence_escalation {
+                    log::info!(
+                        "[robust] outer smoothing did not certify convergence (plan={} iters={} |g|={}); \
                      AUTO-ESCALATE to never-fail posterior sampling about the best mode",
-                    outer_result.plan_used,
+                        outer_result.plan_used,
+                        outer_result.iterations,
+                        outer_result.final_grad_norm_report(),
+                    );
+                }
+                (
+                    outer_result.rho,
+                    outer_result.final_grad_norm,
                     outer_result.iterations,
-                    outer_result.final_grad_norm_report(),
-                );
+                    nonconvergence_escalation,
+                    outer_result.criterion_certificate,
+                )
             }
-            (
-                outer_result.rho,
-                outer_result.final_grad_norm,
-                outer_result.iterations,
-                nonconvergence_escalation,
-                outer_result.criterion_certificate,
-            )
-        }
-        Err(e) if outer_startup_failure_is_escalatable(&e) => {
-            log::warn!(
-                "[robust] outer smoothing raised at startup validation on a structurally-audited \
+            Err(e) if outer_startup_failure_is_escalatable(&e) => {
+                log::warn!(
+                    "[robust] outer smoothing raised at startup validation on a structurally-audited \
                  design (post-audit numerical pathology, gam#860): {e}.{last_error_detail} \
                  AUTO-ESCALATE to never-fail posterior sampling about the initial ρ seed; the \
                  degraded refit below still raises if even the seed produces a non-finite mode.",
-            );
-            (rho0.clone(), None, 0, true, None)
-        }
-        Err(e) => {
-            return Err(format!(
+                );
+                (rho0.clone(), None, 0, true, None)
+            }
+            Err(e) => {
+                return Err(format!(
                 "outer smoothing optimization failed after exhausting strategy fallbacks: {e}.{last_error_detail}"
             )
             .into());
-        }
-    };
+            }
+        };
     screening_cap.store(0, Ordering::Relaxed);
 
     let per_block = split_labeled_log_lambdas(&rho_star, &label_layout)?;
@@ -27656,9 +27879,147 @@ mod tests {
             epsilon = 1e-12,
             max_relative = 1e-12
         );
+        // Post gh#752/#901 contract: the trace kernel is the FULL spectral
+        // pseudo-inverse `M⁺ = (H+Sλ)⁺` over range(H+Sλ). On a NONSINGULAR `M`
+        // (this fixture) that is exactly `M⁻¹`, so the projected route and the
+        // full-space operator route compute the same generalized determinant
+        // and the same ρ-trace — the projection must be INVARIANT here. (The
+        // historical assertion that they differ encoded the pre-#752 range(Sλ)
+        // reduction, which dropped the penalty-null likelihood curvature and
+        // was itself the bug. The case where the routes genuinely diverge — a
+        // singular `M` whose ker(H+Sλ) the pseudo-logdet must drop — is
+        // asserted in `joint_outer_gradient_projected_trace_drops_joint_null`.)
+        assert_relative_eq!(
+            projected.gradient[0],
+            unprojected.gradient[0],
+            epsilon = 1e-8,
+            max_relative = 1e-8
+        );
+    }
+
+    /// The discriminating case for `project_hessian_logdet`: a joint Hessian
+    /// whose ker(H) overlaps ker(Sλ), so `M = H + Sλ` is genuinely singular.
+    /// The projected route must drop the unidentified direction (pseudo-logdet
+    /// + `M⁺` trace kernel over range(M)) and produce the exact closed-form
+    /// gradient; a full-space `M⁻¹` route has no finite answer here. This is
+    /// the routing guard the nonsingular fixture above cannot provide (there
+    /// the two routes coincide by design).
+    #[test]
+    fn joint_outer_gradient_projected_trace_drops_joint_null() {
+        let ranges = vec![(0, 3)];
+        let rho = array![0.0];
+        let beta = array![1.0, -1.0, 3.0];
+        let s_lambda = array![[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0]];
+        // ker(h) = span(e3) = ker(s_lambda) ⇒ M = H + Sλ is singular with the
+        // unidentified direction e3.
+        let h = array![[4.0, 0.2, 0.0], [0.2, 9.0, 0.0], [0.0, 0.0, 0.0]];
+        let spec = ParameterBlockSpec {
+            name: "surface".to_string(),
+            design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Array2::zeros((
+                1, 3,
+            )))),
+            offset: Array1::zeros(1),
+            penalties: vec![PenaltyMatrix::Dense(s_lambda.clone())],
+            nullspace_dims: vec![1],
+            initial_log_lambdas: rho.clone(),
+            initial_beta: Some(beta.clone()),
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        };
+        let specs = vec![spec];
+        let inner = BlockwiseInnerResult {
+            block_states: vec![ParameterBlockState {
+                beta: beta.clone(),
+                eta: Array1::zeros(1),
+            }],
+            active_sets: vec![None],
+            log_likelihood: 0.0,
+            penalty_value: 0.5 * beta.dot(&fast_av(&s_lambda, &beta)),
+            cycles: 1,
+            converged: true,
+            block_logdet_h: 0.0,
+            block_logdet_s: 0.0,
+            s_lambdas: vec![s_lambda.clone()],
+            joint_workspace: None,
+            kkt_residual: None,
+            active_constraints: None,
+        };
+        let per_block = vec![rho.clone()];
+        let options = BlockwiseFitOptions {
+            use_remlobjective: true,
+            use_outer_hessian: false,
+            ..BlockwiseFitOptions::default()
+        };
+        let no_dh =
+            |_direction: &Array1<f64>| -> Result<Option<DriftDerivResult>, String> { Ok(None) };
+        let no_d2h = |_u: &Array1<f64>,
+                      _v: &Array1<f64>|
+         -> Result<Option<DriftDerivResult>, String> { Ok(None) };
+
+        let projected = joint_outer_evaluate(
+            &inner,
+            &specs,
+            &per_block,
+            &rho,
+            &beta,
+            JointHessianSource::Dense(h.clone()),
+            &ranges,
+            3,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            true,
+            true,
+            false,
+            true,
+            EvalMode::ValueAndGradient,
+            &options,
+            crate::types::RhoPrior::Flat,
+            PseudoLogdetMode::Smooth,
+            &no_dh,
+            None,
+            &no_d2h,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("projected outer evaluation succeeds on a singular joint Hessian");
+
+        let (_, kernel) = joint_penalty_subspace_trace_parts(
+            &JointHessianSource::Dense(h.clone()),
+            &ranges,
+            std::slice::from_ref(&s_lambda),
+            3,
+            0.0,
+            None,
+        )
+        .expect("projection kernel builds");
+        let projected_trace = kernel
+            .expect("rank-deficient joint Hessian has a positive subspace")
+            .trace_projected_logdet(&s_lambda);
+        let expected_gradient =
+            0.5 * beta.dot(&fast_av(&s_lambda, &beta)) + 0.5 * projected_trace - 0.5 * 2.0;
+
         assert!(
-            (projected.gradient[0] - unprojected.gradient[0]).abs() > 1e-2,
-            "the full-space trace must not silently replace the projected trace"
+            projected.objective.is_finite(),
+            "pseudo-logdet objective must stay finite when ker(H+Sλ) is dropped"
+        );
+        assert_relative_eq!(
+            projected.gradient[0],
+            expected_gradient,
+            epsilon = 1e-10,
+            max_relative = 1e-10
         );
     }
 
@@ -31287,6 +31648,7 @@ mod tests {
 
     #[test]
     fn outer_lamlgradient_matches_finite_differencewhen_joint_exact_path_is_active() {
+        crate::solver::visualizer::init_logging();
         let BinomialLocationScaleWiggleOuterFixture {
             family,
             specs,
@@ -34159,6 +34521,59 @@ mod tests {
         assert!(
             block_linearized < 1.0e-6,
             "block-local curvature metric must let the time block neutralize its KKT defect; got {block_linearized:.3e}"
+        );
+    }
+
+    #[test]
+    fn shrink_active_joint_block_trust_radii_strictly_decreases_max_radius() {
+        // Regression for the joint-Newton fully-rejected stall. Before the
+        // fix, when a boundary block's radius was already at the 1e-12 floor
+        // and an interior block held the max, `shrink_active_joint_block_trust_radii`
+        // returned the same `max(block_radii)` on every call — the trust
+        // region never actually shrank, the dogleg recomputed an identical
+        // joint δ, and the inner solver burned `inner_loop_hard_ceiling`
+        // cycles before the 8-cycle stall guard finally bailed it out. The
+        // fix must guarantee that every call strictly decreases the joint
+        // trust radius until the floor.
+        let mut block_radii = vec![1.0, 1.0e-12];
+        // Boundary block (#1) sits at the radius floor with step at boundary;
+        // interior block (#0) has step well inside its radius. Before the
+        // fix: only block #1 participates, its radius re-clamps to 1e-12,
+        // returned max stays at 1.0 — byte-identical to the previous call.
+        let block_step_norms = vec![1.0e-3, 1.0e-12];
+        let old_max = block_radii.iter().copied().fold(0.0_f64, f64::max);
+        let new_max =
+            shrink_active_joint_block_trust_radii(&mut block_radii, &block_step_norms, 0.25);
+        assert!(
+            new_max < old_max,
+            "joint trust radius must strictly decrease when a step is rejected (was {old_max:.3e}, now {new_max:.3e})"
+        );
+        // Interior block must have shrunk below its current step norm so the
+        // next dogleg step is forced strictly smaller in that block.
+        assert!(
+            block_radii[0] < block_step_norms[0],
+            "interior block radius must drop below its step norm to force a strictly smaller next step (radius {:.3e}, step {:.3e})",
+            block_radii[0],
+            block_step_norms[0]
+        );
+    }
+
+    #[test]
+    fn shrink_active_joint_block_trust_radii_pulls_radius_below_step_norm() {
+        // The accept-path radius update (`update_joint_trust_region_radius`)
+        // pulls the new radius below `0.5 * step_norm` on rejection so the
+        // next step is provably smaller; the reject-path block shrink must
+        // do the same. Otherwise an interior block with `step_norm <<
+        // factor * radius` re-takes the identical Newton step on the next
+        // dogleg attempt and the trust-region globalization is degenerate.
+        let mut block_radii = vec![1.0];
+        let block_step_norms = vec![1.0e-3];
+        let new_max =
+            shrink_active_joint_block_trust_radii(&mut block_radii, &block_step_norms, 0.25);
+        assert!(
+            new_max <= 0.5 * block_step_norms[0],
+            "shrunken radius must be ≤ 0.5 · step_norm to force a strictly smaller next step (was {new_max:.3e}, step {:.3e})",
+            block_step_norms[0]
         );
     }
 

@@ -513,14 +513,20 @@ def _handle_edit(km: KnowledgeManager, args: list[str]) -> dict:
 
 def _handle_similar(km: KnowledgeManager, args: list[str]) -> dict:
     tags: list[str] = []
+    query = ""
     i = 0
     while i < len(args):
         if args[i] == "--tags" and i + 1 < len(args):
             tags = args[i + 1].split(","); i += 2
+        elif not args[i].startswith("-") and not query:
+            query = args[i]; i += 1
         else:
             i += 1
-    results = km.find_similar_pitfalls(tags)
-    return {"tags": tags, "similar": results, "count": len(results)}
+    if query:
+        results = km.search_hybrid(query, limit=20)
+    else:
+        results = km.find_similar_pitfalls(tags)
+    return {"query": query, "tags": tags, "similar": results, "count": len(results)}
 
 
 def _handle_usage(km: KnowledgeManager, args: list[str]) -> dict:
@@ -532,6 +538,8 @@ def _handle_usage(km: KnowledgeManager, args: list[str]) -> dict:
             entry_id = args[i + 1]; i += 2
         elif args[i] == "--task-id" and i + 1 < len(args):
             task_id = args[i + 1]; i += 2
+        elif not args[i].startswith("-") and not entry_id:
+            entry_id = args[i]; i += 1
         else:
             i += 1
     km.record_usage(entry_id, task_id)

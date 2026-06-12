@@ -54,7 +54,7 @@ async def cron_scheduler():
     logger.info("Starting cron scheduler")
     while True:
         try:
-            async with connect(supports_core_api=False) as conn:
+            async with connect() as conn:
                 async for item in Crons.next(conn):
                     # gRPC path yields (cron, enc_ctx) tuples;
                     # non-gRPC path yields plain Cron dicts.

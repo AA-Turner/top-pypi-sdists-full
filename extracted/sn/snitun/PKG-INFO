@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snitun
-Version: 0.45.2
+Version: 0.46.1
 Summary: SNI proxy with TCP multiplexer
 Author-email: "Nabu Casa, Inc." <opensource@nabucasa.com>
 License: GPL v3
@@ -15,22 +15,23 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: Proxy Servers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.12
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.9.3
-Requires-Dist: cryptography>=2.5
+Requires-Dist: cryptography>=38.0.0
 Provides-Extra: lint
-Requires-Dist: ruff==0.14.10; extra == "lint"
+Requires-Dist: ruff==0.15.15; extra == "lint"
 Provides-Extra: test
 Requires-Dist: covdefaults==2.3.0; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
-Requires-Dist: pytest-codspeed==4.2.0; extra == "test"
-Requires-Dist: pytest-cov==7.0.0; extra == "test"
+Requires-Dist: pytest-codspeed==5.0.3; extra == "test"
+Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: pytest==9.0.2; extra == "test"
+Requires-Dist: pytest==9.0.3; extra == "test"
+Requires-Dist: trustme==1.2.1; extra == "test"
 Dynamic: license-file
 
 # SniTun
@@ -39,33 +40,58 @@ End-to-End encryption with SNI proxy on top of a TCP multiplexer
 
 ## Connection flow
 
-```
-                   [ CLIENT ] --AUTH/CONFIG--> [ SESSION MASTER ] (Trusted connection)
-                   [ CLIENT ] <--FERNET-TOKEN- [ SESSION MASTER ]
-                   [ CLIENT ] --------FERNET-TOKEN---------------------> [ SNITUN ] (Insecure connection)
-                   [ CLIENT ] <-------CHALLENGE-RESPONSE-(AES/CBC)-----> [ SNITUN ]
+```mermaid
+sequenceDiagram
+    participant E as Endpoint
+    participant C as Client
+    participant M as Session Master
+    participant S as SniTun
+    participant D as Device
 
+    Note over C,M: Trusted connection
+    C->>M: Auth / config
+    M-->>C: Fernet token
 
-             <--->                                                                  <------------------------------>
-[ ENDPOINT ] <---> [ CLIENT ] <---------MULTIPLEXER---(AES/CBC)--------> [ SNITUN ] <------EXTERNAL-CONECTIONS-----> [ DEVICE ]
-    |        <--->                                                                  <------------------------------>     |
-    |                                                                                                                    |
-    | <--------------------------------------------------END-TO-END-SSL------------------------------------------------->|
-                                                      (Trusted connection)
+    Note over C,S: Insecure connection
+    C->>S: Fernet token
+    S->>C: Challenge (AES/CBC)
+    C->>S: Response (AES/CBC)
+
+    Note over C,S: Client enters multiplexer mode
+    D->>S: External connection (TLS / SNI)
+    S->>C: Forward over multiplexer (AES/CBC)
+    C->>E: Open local connection
+
+    Note over E,D: End-to-end SSL (trusted connection)
 ```
 
 ## Fernet token
 
-The session master creates a Fernet token from the client's configuration (AES/whitelist) and attaches the hostname and a UTC timestamp until which the token is valid.
+The session master encrypts the client's configuration into a [Fernet](https://cryptography.io/en/latest/fernet/) token. The session master and the SniTun server share the Fernet key(s), so only the SniTun server can decrypt the token; the client just relays it when it connects.
+
+The token payload is a JSON object:
 
 ```json
 {
-  "valid": 1923841,
+  "valid": 1924948800.0,
   "hostname": "myname.ui.nabu.casa",
-  "aes_key": "hexstring",
-  "aes_iv": "hexstring"
+  "aes_key": "401933e35f9f43d18db1d1de2e5d2e9a9f4c3b2a1d0e9f8c7b6a5d4c3b2a1f0e",
+  "aes_iv": "9b2c4d6e8f0a1b3c5d7e9f0a1b2c3d4e",
+  "protocol_version": 2,
+  "cipher": "aes-gcm",
+  "alias": ["www.myname.ui.nabu.casa"]
 }
 ```
+
+| Field              | Type     | Description                                                                                                                                                                            |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `valid`            | float    | Expiry as a UTC Unix timestamp in seconds. The SniTun server rejects the token once this time has passed.                                                                              |
+| `hostname`         | string   | Primary hostname (matched against the TLS SNI) that this peer serves.                                                                                                                  |
+| `aes_key`          | string   | Hex-encoded 32-byte key (AES-256) used to encrypt the multiplexer header.                                                                                                              |
+| `aes_iv`           | string   | Hex-encoded 16-byte initialization vector. Used by `aes-cbc`; ignored by `aes-gcm`/`aes-gcm-siv` (which use a random per-frame nonce).                                                 |
+| `protocol_version` | int      | Multiplexer protocol version the client speaks (see [Protocol versioning considerations](#protocol-versioning-considerations)). Optional; the server assumes `0` when omitted.         |
+| `cipher`           | string   | Multiplexer cipher: `aes-cbc` (default), `aes-gcm`, or `aes-gcm-siv` (both authenticated). Optional; the server assumes `aes-cbc` when omitted. Both ends must be configured the same. |
+| `alias`            | string[] | Additional hostnames the peer also serves. Optional.                                                                                                                                   |
 
 The SniTun server must be able to decrypt this token to validate the client's authenticity. SniTun then initiates a challenge-response handling to validate the AES key and ensure that it is the same client that requested the Fernet token from the session master.
 
@@ -77,21 +103,30 @@ The SniTun server creates a SHA256 hash from a random 40-bit value. This value i
 
 ## Multiplexer Protocol
 
-The header is encrypted using AES/CBC. The payload should be SSL. The ID changes for every TCP connection and is unique for each connection. The size is for the data payload.
+The header is encrypted using the cipher selected by the token (see [Fernet token](#fernet-token)): `aes-cbc` (default) or the authenticated `aes-gcm`/`aes-gcm-siv`. The payload should be SSL. The ID changes for every TCP connection and is unique for each connection. The size is for the data payload.
 
-The extra information could include the caller IP address for a new message. Otherwise, it is random bits.
+With `aes-gcm` or `aes-gcm-siv` each encrypted unit (the header, and the encrypted `New` data) is framed as `nonce(12) || ciphertext || tag(16)`, so the header occupies 60 bytes on the wire instead of 32 and the source IP in a `New` message carries its own nonce and tag. The tag makes the header — including `SIZE` — tamper-evident, which AES-CBC cannot detect.
 
-```
-|________________________________________________________|
-|-----------------HEADER---------------------------------|______________________________________________|
-|------ID-----|--FLAG--|--SIZE--|---------EXTRA ---------|--------------------DATA----------------------|
-|   16 bytes  | 1 byte | 4 bytes|       11 bytes         |                  variable                    |
-|--------------------------------------------------------|----------------------------------------------|
+`aes-gcm` builds its nonce deterministically as `direction(4) || counter(8)`: a per-direction prefix (the client takes `0`, the server takes `1`) followed by a 64-bit per-frame counter. This guarantees the nonce is unique within a session without the birthday risk of a random 96-bit nonce, and the opposite prefixes keep the two directions — which share one AES key — in disjoint nonce ranges. Because the counter restarts at `0` for every connection, **`aes-gcm` requires a fresh AES key per session**: reusing a key across reconnects would repeat nonces, which is catastrophic for GCM. `aes-gcm-siv` ([RFC 8452](https://datatracker.ietf.org/doc/html/rfc8452)) is nonce-misuse resistant — a repeated nonce only reveals whether two units were identical — so it keeps a stateless random nonce and stays safe even when an AES key can outlive a single connection. It requires OpenSSL 3.0+; servers without it should keep using `aes-gcm` with a per-session key.
+
+The extra information could include the caller IP address for a `New` message on protocol version < 2. From protocol version 2 the caller IP is sent in the (encrypted) data instead — see the `New` message type below. Otherwise, it is random bits.
+
+The 32-byte header is followed by a variable-length data payload (byte offsets shown):
+
+```mermaid
+packet-beta
+0-15: "ID (16 bytes)"
+16-16: "FLAG (1 byte)"
+17-20: "SIZE (4 bytes)"
+21-31: "EXTRA (11 bytes)"
+32-63: "DATA (variable)"
 ```
 
 Message Flags/Types:
 
-- `0x01`: New | The extra data includes the first byte as an ASCII value of 4 or 6, followed by the caller IP in bytes.
+- `0x01`: New | Carries the caller IP address.
+  - Protocol version < 2: the `EXTRA` field holds the first byte as an ASCII `4` (IPv6 is not supported), followed by the 4-byte IPv4 address; the `data` payload is empty.
+  - Protocol version >= 2: the address is sent in the encrypted `data` payload (its own encrypted unit, following the header) as a one-byte family marker (`4` or `6`) followed by the packed address (4 bytes for IPv4, 16 for IPv6), padded with random bytes to an AES block boundary. This keeps the caller IP off the wire in clear text and allows IPv6 to be carried.
 - `0x02`: DATA
 - `0x04`: Close
 - `0x08`: Ping | The extra data is a `ping` or `pong` response to a ping.
@@ -115,3 +150,10 @@ The following environment variables, which, to be effective, must be set before 
 - The client is responsible for setting the `protocol_version` key in the token. If no `protocol_version` is provided, the server must assume protocol version 0.
 - The server side must always be updated first when incrementing the protocol version as the client assumes that the server is always running a protocol version that it supports.
 - When new message types are added to the Multiplexer, the protocol version must be incremented.
+- Both ends of a connection must agree on the protocol version, since some versions change the wire format (see below). The negotiated version is symmetric.
+
+Versions:
+
+- `0`: Base protocol. No flow control. Caller IPv4 in the header `EXTRA` field.
+- `1`: Adds reader pause/resume (`0x16`/`0x32`) for flow control.
+- `2`: Sends the caller IP in the encrypted `New` message data instead of `EXTRA`, which keeps it off the wire in clear and adds IPv6 support.

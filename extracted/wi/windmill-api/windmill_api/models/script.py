@@ -69,6 +69,8 @@ class Script:
         on_behalf_of_email (Union[Unset, str]):
         modules (Union[Unset, None, ScriptModules]): Additional script modules keyed by relative file path
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
     """
 
     hash_: str
@@ -116,6 +118,7 @@ class Script:
     on_behalf_of_email: Union[Unset, str] = UNSET
     modules: Union[Unset, None, "ScriptModules"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -185,6 +188,10 @@ class Script:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -267,6 +274,8 @@ class Script:
             field_dict["modules"] = modules
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
 
         return field_dict
 
@@ -379,6 +388,8 @@ class Script:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         script = cls(
             hash_=hash_,
             path=path,
@@ -425,6 +436,7 @@ class Script:
             on_behalf_of_email=on_behalf_of_email,
             modules=modules,
             labels=labels,
+            inherited_labels=inherited_labels,
         )
 
         script.additional_properties = d

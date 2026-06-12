@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.140
+Version: 1.4.145
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -441,6 +441,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `ads.list_ad_accounts()` | List ad accounts |
+| `ads.list_ad_catalog_product_sets()` | List a catalog's product sets |
+| `ads.list_ad_catalogs()` | List Meta product catalogs |
 | `ads.list_ads()` | List ads |
 | `ads.list_ads_business_centers()` | List TikTok Business Centers |
 | `ads.list_conversion_associations()` | List campaigns associated with a conversion destination |
@@ -623,7 +625,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `messages.list_inbox_conversations()` | List conversations |
-| `messages.create_inbox_conversation()` | Create conversation |
+| `messages.create_inbox_conversation()` | Create conversation (send a WhatsApp template) |
 | `messages.get_inbox_conversation()` | Get conversation |
 | `messages.get_inbox_conversation_messages()` | List messages |
 | `messages.update_inbox_conversation()` | Update conversation status |
@@ -697,6 +699,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `whatsapp.create_whats_app_group_chat()` | Create group |
 | `whatsapp.create_whats_app_group_invite_link()` | Create invite link |
 | `whatsapp.create_whats_app_template()` | Create template |
+| `whatsapp.get_whats_app_blocked_users()` | List blocked users |
 | `whatsapp.get_whats_app_business_profile()` | Get business profile |
 | `whatsapp.get_whats_app_dataset()` | Get CTWA conversions dataset |
 | `whatsapp.get_whats_app_display_name()` | Get display name status |
@@ -711,9 +714,11 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `whatsapp.delete_whats_app_template()` | Delete template |
 | `whatsapp.add_whats_app_group_participants()` | Add participants |
 | `whatsapp.approve_whats_app_group_join_requests()` | Approve join requests |
+| `whatsapp.block_whats_app_users()` | Block users |
 | `whatsapp.reject_whats_app_group_join_requests()` | Reject join requests |
 | `whatsapp.remove_whats_app_group_participants()` | Remove participants |
 | `whatsapp.send_whats_app_conversion()` | Send WhatsApp conversion event |
+| `whatsapp.unblock_whats_app_users()` | Unblock users |
 | `whatsapp.upload_whats_app_profile_photo()` | Upload profile picture |
 
 ### WhatsApp Calling

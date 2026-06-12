@@ -1,8 +1,13 @@
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 
 from abstra_internals.controllers.language_server import get_diagnostics
-from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterIssue,
+    PathScopedLinterRule,
+    linter_path_key,
+    normalize_linter_path,
+)
 from abstra_internals.repositories.project.project import LocalProjectRepository
 
 
@@ -16,22 +21,32 @@ class TypeCheckIssue(LinterIssue):
         self.fixes = []
 
 
-class TypeCheckingRule(LinterRule):
+class TypeCheckingRule(PathScopedLinterRule):
     label = "Type checking"
     type = "info"
     fix_with_ai = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues: List[LinterIssue] = []
 
+        # Dedupe by normalized path: stages may share the same file, and the
+        # LSP diagnostics pass is the most expensive rule in the py group.
+        entrypoints: Dict[str, Path] = {}
         for entrypoint in project.iter_entrypoints():
-            path = Path(entrypoint)
-            if not path.is_file() or path.suffix != ".py":
+            entrypoints.setdefault(linter_path_key(entrypoint), entrypoint)
+
+        if path is not None:
+            key = linter_path_key(path)
+            entrypoints = {key: entrypoints[key]} if key in entrypoints else {}
+
+        for key, entrypoint in entrypoints.items():
+            file = normalize_linter_path(entrypoint)
+            if not file.is_file() or file.suffix != ".py":
                 continue
 
             try:
-                code = path.read_text(encoding="utf-8")
+                code = file.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
 
@@ -44,6 +59,8 @@ class TypeCheckingRule(LinterRule):
                 message = diag.get("message", "Type error")
                 messages.append(f"  Line {line}: {message}")
             if messages:
-                issues.append(TypeCheckIssue(str(path), messages))
+                issue = TypeCheckIssue(key, messages)
+                issue.path = key
+                issues.append(issue)
 
         return issues

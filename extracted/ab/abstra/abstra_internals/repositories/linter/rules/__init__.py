@@ -14,6 +14,7 @@ from .env_in_bundle import EnvInBundle
 from .file_outside_project import FileOutsideProjectRoot
 from .html_and_jinja2_syntax import HtmlAndJinja2Syntax
 from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
+from .internal_page_reference import InternalPageReference
 from .invalid_package_in_requirements import InvalidPackageInRequirements
 from .js_syntax import JsSyntax
 from .local_package_in_requirements import LocalPackageInRequirements
@@ -55,6 +56,7 @@ _html_and_jinja2_syntax = HtmlAndJinja2Syntax()
 _css_syntax = CssSyntax()
 _js_syntax = JsSyntax()
 _abstra_dir_reference = AbstraDirReference()
+_internal_page_reference = InternalPageReference()
 
 _new_version: List[LinterRule] = []
 if not os.getenv("ABSTRA_RUNNING_IN_BUNDLED_APP"):
@@ -78,6 +80,7 @@ run_after_py_change: List[LinterRule] = [
     _file_outside_project,
     _imports_analyzer,
     _abstra_dir_reference,
+    _internal_page_reference,
     *_new_version,
 ]
 

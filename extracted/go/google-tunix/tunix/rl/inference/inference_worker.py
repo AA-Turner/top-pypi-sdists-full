@@ -55,7 +55,7 @@ class InferenceWorker:
       completion_tokens: jax.Array,
       pad_id: int,
       eos_id: int,
-      completion_mask: jax.Array | None = None,
+      temperature: float = 1.0,
   ) -> jax.Array:
     graphdef, state = self._model_states.get("reference")
     if graphdef is None:
@@ -67,9 +67,9 @@ class InferenceWorker:
         completion_tokens=completion_tokens,
         pad_id=pad_id,
         eos_id=eos_id,
-        completion_mask=completion_mask,
         stop_gradient=True,
         return_logits=False,
+        temperature=temperature,
     )
 
   def get_values(
@@ -78,7 +78,6 @@ class InferenceWorker:
       completion_tokens: jax.Array,
       pad_id: int,
       eos_id: int,
-      completion_mask: jax.Array | None = None,
   ) -> jax.Array:
     graphdef, state = self._model_states.get("critic")
     critic_model = nnx.merge(graphdef, state)
@@ -90,7 +89,6 @@ class InferenceWorker:
         completion_tokens,
         pad_id,
         eos_id,
-        completion_mask=completion_mask,
     )
 
   def get_model(self, role: str) -> nnx.Module:

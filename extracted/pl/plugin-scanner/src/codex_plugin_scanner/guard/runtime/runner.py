@@ -1120,6 +1120,8 @@ def sync_receipts(
     persist_sync_summary: bool = True,
     persist_connect_state: bool = True,
     auth_context: dict[str, object] | None = None,
+    home_dir: Path | None = None,
+    workspace_dir: Path | None = None,
 ) -> dict[str, object]:
     """Push local receipts to the configured sync endpoint."""
 
@@ -1360,6 +1362,15 @@ def sync_receipts(
     if remote_policy_sync_blocked:
         summary["remote_policy_sync_blocked"] = True
     summary["guard_events_v1"] = sync_guard_events(store, auth_context=resolved_auth_context)
+    from ..aibom_cli import sync_aibom_snapshots_if_due
+
+    summary["aibom_inventory"] = sync_aibom_snapshots_if_due(
+        store,
+        generated_at=now,
+        auth_context=resolved_auth_context,
+        home_dir=home_dir,
+        workspace_dir=workspace_dir,
+    )
     if persist_sync_summary:
         store.set_sync_payload("sync_summary", summary, now)
     if persist_connect_state:
@@ -1888,39 +1899,39 @@ def sync_local_guard_cloud_proof(
     auth_context: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Publish the local Guard runtime session before syncing receipts."""
-
-    resolved_auth_context = auth_context if auth_context is not None else _resolve_guard_sync_auth_context(store)
-    runtime_summary = sync_runtime_session(
-        store,
-        session=_local_guard_runtime_session(),
-        auth_context=resolved_auth_context,
-    )
-    receipts_summary = sync_receipts(
-        store,
-        persist_sync_summary=False,
-        persist_connect_state=False,
-        auth_context=resolved_auth_context,
-    )
-    summary = dict(receipts_summary)
-    summary.update(
-        {
-            "runtime_session_id": runtime_summary.get("runtime_session_id"),
-            "runtime_session_synced_at": runtime_summary.get("runtime_session_synced_at"),
-            "runtime_sessions_visible": runtime_summary.get("runtime_sessions_visible"),
-            "local_guard_online_at": runtime_summary.get("local_guard_online_at")
-            or receipts_summary.get("local_guard_online_at"),
-            "runtime_harness": runtime_summary.get("runtime_harness"),
-            "runtime_surface": runtime_summary.get("runtime_surface"),
-            "runtime_workspace": runtime_summary.get("runtime_workspace"),
-            "runtime_device_id": runtime_summary.get("runtime_device_id"),
-            "runtime": runtime_summary,
-            "receipts": dict(receipts_summary),
-        }
-    )
-    recorded_at = str(summary.get("synced_at") or summary.get("runtime_session_synced_at") or _now())
-    store.set_sync_payload("sync_summary", summary, recorded_at)
-    store.record_latest_guard_connect_sync_success(sync_payload=summary, now=recorded_at)
-    return summary
+    with store.hold_cloud_sync_lock():
+        resolved_auth_context = auth_context if auth_context is not None else _resolve_guard_sync_auth_context(store)
+        runtime_summary = sync_runtime_session(
+            store,
+            session=_local_guard_runtime_session(),
+            auth_context=resolved_auth_context,
+        )
+        receipts_summary = sync_receipts(
+            store,
+            persist_sync_summary=False,
+            persist_connect_state=False,
+            auth_context=resolved_auth_context,
+        )
+        summary = dict(receipts_summary)
+        summary.update(
+            {
+                "runtime_session_id": runtime_summary.get("runtime_session_id"),
+                "runtime_session_synced_at": runtime_summary.get("runtime_session_synced_at"),
+                "runtime_sessions_visible": runtime_summary.get("runtime_sessions_visible"),
+                "local_guard_online_at": runtime_summary.get("local_guard_online_at")
+                or receipts_summary.get("local_guard_online_at"),
+                "runtime_harness": runtime_summary.get("runtime_harness"),
+                "runtime_surface": runtime_summary.get("runtime_surface"),
+                "runtime_workspace": runtime_summary.get("runtime_workspace"),
+                "runtime_device_id": runtime_summary.get("runtime_device_id"),
+                "runtime": runtime_summary,
+                "receipts": dict(receipts_summary),
+            }
+        )
+        recorded_at = str(summary.get("synced_at") or summary.get("runtime_session_synced_at") or _now())
+        store.set_sync_payload("sync_summary", summary, recorded_at)
+        store.record_latest_guard_connect_sync_success(sync_payload=summary, now=recorded_at)
+        return summary
 
 
 def sync_pain_signals(
@@ -2272,18 +2283,17 @@ def _oauth_authorization_error_requires_fresh_sign_in(error: Exception) -> bool:
 
 def clear_revoked_guard_oauth_sign_in(store: GuardStore) -> bool:
     """Return True when refresh proves the local OAuth grant was revoked and cleared."""
-    if store.get_oauth_local_credentials(allow_primary=True) is None:
-        return False
     try:
-        credentials = store.get_oauth_local_credentials(allow_primary=True)
-        if credentials is None:
-            return False
-        _resolve_guard_sync_auth_context_from_oauth_credentials(store, credentials)
+        with _guard_sync_auth_lock(store):
+            credentials = store.get_oauth_local_credentials(allow_primary=True)
+            if credentials is None:
+                return False
+            _resolve_guard_sync_auth_context_from_oauth_credentials(store, credentials)
     except GuardSyncAuthorizationExpiredError as error:
         if _oauth_authorization_error_requires_fresh_sign_in(error):
             return store.get_oauth_local_credentials(allow_primary=True) is None
         return False
-    except (RuntimeError, OSError):
+    except (RuntimeError, OSError, TimeoutError):
         return False
     return False
 
@@ -2330,6 +2340,15 @@ def _refresh_guard_oauth_access_token(
     dpop_nonce: str | None = None
     nonce_retry_count = 0
     while True:
+        try:
+            dpop_proof = _sign_guard_dpop_proof(
+                request_url=token_endpoint,
+                method="POST",
+                dpop_key_material=dpop_key_material,
+                nonce=dpop_nonce,
+            )
+        except (RuntimeError, TypeError, ValueError) as error:
+            raise GuardSyncAuthorizationExpiredError(f"{_guard_oauth_reauthorization_message()} {error}") from error
         request = urllib.request.Request(
             token_endpoint,
             data=request_body,
@@ -2338,12 +2357,7 @@ def _refresh_guard_oauth_access_token(
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Accept": "application/json",
                 "User-Agent": _GUARD_SYNC_USER_AGENT,
-                "DPoP": _sign_guard_dpop_proof(
-                    request_url=token_endpoint,
-                    method="POST",
-                    dpop_key_material=dpop_key_material,
-                    nonce=dpop_nonce,
-                ),
+                "DPoP": dpop_proof,
             },
         )
         try:
@@ -2507,10 +2521,14 @@ def _resolve_guard_sync_auth_context_from_oauth_credentials(
     }
 
 
-def _resolve_guard_sync_auth_context(store: GuardStore) -> dict[str, object]:
+def _resolve_guard_sync_auth_context(
+    store: GuardStore,
+    *,
+    allow_primary_repair: bool = True,
+) -> dict[str, object]:
     with _guard_sync_auth_lock(store):
         oauth_health = store.get_oauth_local_credential_health()
-        oauth_credentials = store.get_oauth_local_credentials(allow_primary=True)
+        oauth_credentials = store.get_oauth_local_credentials(allow_primary=allow_primary_repair)
         if oauth_credentials is not None:
             return _resolve_guard_sync_auth_context_from_oauth_credentials(store, oauth_credentials)
         if bool(oauth_health.get("configured")):
@@ -2519,7 +2537,7 @@ def _resolve_guard_sync_auth_context(store: GuardStore) -> dict[str, object]:
                 return _resolve_guard_sync_auth_context_from_oauth_credentials(
                     store,
                     recoverable_credentials,
-                    persist_recovered_secret=True,
+                    persist_recovered_secret=allow_primary_repair,
                 )
             raise GuardSyncAuthorizationExpiredError(_guard_oauth_reauthorization_message())
         credentials = store.get_sync_credentials()
@@ -2610,9 +2628,23 @@ def _guard_sync_request_with_nonce(
     )
 
 
+def _read_guard_cloud_error_message(payload: dict[str, object]) -> str | None:
+    guard_error = payload.get("guardError")
+    if isinstance(guard_error, dict):
+        for key in ("msg", "message"):
+            nested = guard_error.get(key)
+            if isinstance(nested, str) and nested.strip():
+                return nested.strip()
+    for key in ("err", "message", "error"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def _sync_http_error_message(error: urllib.error.HTTPError) -> str:
     try:
-        raw_body = error.read().decode("utf-8")
+        raw_body = error.read().decode("utf-8", errors="replace")
     except OSError:
         raw_body = ""
     try:
@@ -2620,9 +2652,9 @@ def _sync_http_error_message(error: urllib.error.HTTPError) -> str:
     except json.JSONDecodeError:
         payload = None
     if isinstance(payload, dict):
-        message = payload.get("error")
-        if isinstance(message, str) and message.strip():
-            return message.strip()
+        message = _read_guard_cloud_error_message(payload)
+        if message is not None:
+            return message
     normalized_body = raw_body.strip()
     if normalized_body:
         return normalized_body

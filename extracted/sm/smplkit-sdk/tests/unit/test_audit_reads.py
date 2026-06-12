@@ -1,6 +1,6 @@
 """Tests for the audit runtime read surfaces — ``client.audit.events.list``,
-``client.audit.events.get``, ``client.audit.resource_types.list``, and
-``client.audit.event_types.list``.
+``client.audit.events.get``, ``client.audit.resource_types.list``,
+``client.audit.event_types.list``, and ``client.audit.categories.list``.
 
 The fire-and-forget ``record`` path is covered in ``test_audit.py`` and
 ``test_audit_coverage.py``; this file covers the synchronous read
@@ -16,10 +16,11 @@ import httpx
 import pytest
 
 from smplkit import Error, NotFoundError
-from smplkit.audit import Event, EventType, ResourceType
-from smplkit.audit.client import (
+from smplkit.audit import Category, Event, EventType, ResourceType
+from smplkit.audit._client import (
     AsyncAuditClient,
     AuditClient,
+    CategoryListPage,
     EventListPage,
     EventTypeListPage,
     ResourceTypeListPage,
@@ -73,6 +74,14 @@ def _event_type_resource(*, key: str, created_at: str = "2026-04-12T15:23:01Z") 
         "id": key,
         "type": "event_type",
         "attributes": {"event_type": key, "created_at": created_at},
+    }
+
+
+def _category_resource(*, key: str, created_at: str = "2026-04-12T15:23:01Z") -> dict[str, Any]:
+    return {
+        "id": key,
+        "type": "category",
+        "attributes": {"category": key, "created_at": created_at},
     }
 
 
@@ -438,6 +447,113 @@ class TestEventTypesList:
 
 
 # ---------------------------------------------------------------------------
+# categories.list
+# ---------------------------------------------------------------------------
+
+
+class TestCategoriesList:
+    def test_returns_sorted_rows(self):
+        def handler(req: httpx.Request) -> httpx.Response:
+            assert req.method == "GET"
+            assert "/api/v1/categories" in str(req.url)
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        _category_resource(key="billing"),
+                        _category_resource(key="security"),
+                    ],
+                    "meta": {"pagination": {"page": 1, "size": 1000}},
+                },
+            )
+
+        c = _client_with_handler(handler)
+        try:
+            page = c.categories.list()
+            assert isinstance(page, CategoryListPage)
+            assert len(page) == 2
+            assert [r.id for r in page] == ["billing", "security"]
+            assert [r.category for r in page] == ["billing", "security"]
+            assert page.pagination == {"page": 1, "size": 1000}
+        finally:
+            c._close()
+
+    def test_pagination_params_propagate(self):
+        captured: list[str] = []
+
+        def handler(req):
+            captured.append(str(req.url))
+            return httpx.Response(
+                200,
+                json={
+                    "data": [_category_resource(key="billing")],
+                    "meta": {"pagination": {"page": 2, "size": 1, "total": 3, "total_pages": 3}},
+                },
+            )
+
+        c = _client_with_handler(handler)
+        try:
+            page = c.categories.list(page_size=1, page_number=2, meta_total=True)
+            url = captured[0]
+            assert "page%5Bsize%5D=1" in url or "page[size]=1" in url
+            assert "page%5Bnumber%5D=2" in url or "page[number]=2" in url
+            assert "meta%5Btotal%5D=true" in url or "meta[total]=true" in url
+            assert page.pagination == {"page": 2, "size": 1, "total": 3, "total_pages": 3}
+        finally:
+            c._close()
+
+    def test_empty_response(self):
+        def handler(req):
+            return httpx.Response(
+                200,
+                json={"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}},
+            )
+
+        c = _client_with_handler(handler)
+        try:
+            page = c.categories.list()
+            assert len(page) == 0
+            assert page.pagination == {"page": 1, "size": 1000}
+            assert list(page) == []
+        finally:
+            c._close()
+
+    def test_5xx_raises_generic_error(self):
+        def handler(req):
+            return httpx.Response(500, json={"errors": [{"status": "500"}]})
+
+        c = _client_with_handler(handler)
+        try:
+            with pytest.raises(Error):
+                c.categories.list()
+        finally:
+            c._close()
+
+    def test_unexpected_2xx_status_raises_error(self):
+        def handler(req):
+            return httpx.Response(204)
+
+        c = _client_with_handler(handler)
+        try:
+            with pytest.raises(Error):
+                c.categories.list()
+        finally:
+            c._close()
+
+    def test_category_list_page_len_and_iter(self):
+        # Direct __len__/__iter__ check — coverage gate requires every wrapper line.
+        page = CategoryListPage(
+            categories=[
+                Category._from_resource(_category_resource(key="billing")),
+                Category._from_resource(_category_resource(key="security")),
+            ],
+            pagination={"page": 1, "size": 2},
+        )
+        assert len(page) == 2
+        assert [r.id for r in page] == ["billing", "security"]
+
+
+# ---------------------------------------------------------------------------
 # Models — fallback paths
 # ---------------------------------------------------------------------------
 
@@ -458,6 +574,11 @@ class TestModels:
         body = {"id": "x.y", "attributes": {"created_at": "2026-04-12T15:23:01Z"}}
         a = EventType._from_resource(body)
         assert a.event_type == "x.y"
+
+    def test_category_falls_back_to_id_when_attribute_missing(self):
+        body = {"id": "billing", "attributes": {"created_at": "2026-04-12T15:23:01Z"}}
+        cat = Category._from_resource(body)
+        assert cat.category == "billing"
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +665,8 @@ class TestEnvironmentHeaderInjection:
         try:
             client.resource_types.list()
             client.event_types.list()
-            assert seen == ["production", "production"]
+            client.categories.list()
+            assert seen == ["production", "production", "production"]
         finally:
             client._close()
 
@@ -674,6 +796,30 @@ class TestEventsListEnvironments:
             client._close()
 
 
+class TestEventsListSearch:
+    """``search`` → ``filter[search]`` free-text filter on events.list."""
+
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list()
+            url = seen[0]
+            assert "filter%5Bsearch%5D" not in url
+            assert "filter[search]" not in url
+        finally:
+            client._close()
+
+    def test_supplied_threads_filter_search(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(search="inv-42")
+            assert "filter%5Bsearch%5D=inv-42" in seen[0]
+        finally:
+            client._close()
+
+
 class TestResourceTypesListEnvironments:
     def test_omitted_by_default(self):
         handler, seen = _list_url_capture(_DISCOVERY_BODY)
@@ -737,36 +883,76 @@ class TestEventTypesListEnvironments:
             client._close()
 
 
+class TestCategoriesListEnvironments:
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.categories.list()
+            assert "filter%5Benvironment%5D" not in seen[0]
+        finally:
+            client._close()
+
+    def test_single_value(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.categories.list(environments=["production"])
+            assert "filter%5Benvironment%5D=production" in seen[0]
+        finally:
+            client._close()
+
+    def test_multiple_values_comma_join(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.categories.list(environments=["production", "smplkit"])
+            assert "filter%5Benvironment%5D=production%2Csmplkit" in seen[0]
+        finally:
+            client._close()
+
+
 # ---------------------------------------------------------------------------
 # AsyncAuditClient surface
 # ---------------------------------------------------------------------------
 
 
-def test_async_client_exposes_read_namespaces():
-    """The runtime ``AsyncAuditClient`` mirrors the sync one — the same
-    events / resource_types / event_types surfaces must reach async callers."""
+def test_async_client_exposes_async_namespaces():
+    """The async client exposes the full surface as genuinely-async sub-clients
+    (events / resource_types / event_types / categories / forwarders)."""
+    from smplkit.audit._client import (
+        AsyncCategoriesClient,
+        AsyncEventsClient,
+        AsyncEventTypesClient,
+        AsyncResourceTypesClient,
+    )
+    from smplkit.audit._forwarders import AsyncForwardersClient
+
     client = AsyncAuditClient(api_key="sk_api_test", base_url="https://audit.example.com")
     try:
-        assert client.events is not None
-        assert client.resource_types is not None
-        assert client.event_types is not None
+        assert isinstance(client.events, AsyncEventsClient)
+        assert isinstance(client.resource_types, AsyncResourceTypesClient)
+        assert isinstance(client.event_types, AsyncEventTypesClient)
+        assert isinstance(client.categories, AsyncCategoriesClient)
+        assert isinstance(client.forwarders, AsyncForwardersClient)
     finally:
         import asyncio
 
-        asyncio.run(client._close())
+        asyncio.run(client.aclose())
 
 
-def test_async_client_threads_environment_to_inner():
-    """The async runtime client forwards the configured environment to the
-    underlying sync client so the env header is stamped for async callers too."""
+def test_async_client_stamps_environment_on_own_transport():
+    """The async client stamps the configured environment on its own
+    transport (no sync-delegate inner client anymore)."""
     client = AsyncAuditClient(
         api_key="sk_api_test",
         base_url="https://audit.example.com",
         environment="production",
     )
     try:
-        assert client._inner._environment == "production"
-        assert client._inner._auth._headers["X-Smplkit-Environment"] == "production"
+        assert client._environment == "production"
+        assert client._auth._headers["X-Smplkit-Environment"] == "production"
+        assert client._owns_transport is True
     finally:
         import asyncio
 

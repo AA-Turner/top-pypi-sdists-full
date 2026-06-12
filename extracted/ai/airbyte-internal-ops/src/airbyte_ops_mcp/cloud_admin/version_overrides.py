@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import requests as _requests
 from airbyte import constants
@@ -43,9 +43,6 @@ from airbyte_ops_mcp.cloud_admin.models import (
 from airbyte_ops_mcp.cloud_admin.payment_config import (
     get_organization_info,
 )
-from airbyte_ops_mcp.cloud_admin.registry_lookup import (
-    resolve_canonical_name_to_definition_id,
-)
 from airbyte_ops_mcp.cloud_admin.version_guard import (
     check_existing_pins,
 )
@@ -57,8 +54,15 @@ from airbyte_ops_mcp.tier_cache import TierFilter, get_org_tier, resolve_workspa
 
 logger = logging.getLogger(__name__)
 
-# Slack channel for version override audit trail (mirrors Retool notifications).
 _VERSION_OVERRIDE_SLACK_CHANNEL = "C06D5RCLBV4"
+
+VersionOverrideScope: TypeAlias = Literal["actor", "workspace", "organization"]
+VersionOverrideConnectorType: TypeAlias = Literal["source", "destination"]
+VersionOverrideResult: TypeAlias = (
+    VersionOverrideOperationResult
+    | WorkspaceVersionOverrideResult
+    | OrganizationVersionOverrideResult
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,18 @@ class ResolvedCloudAuth:
     bearer_token: str | None = None
     client_id: str | None = None
     client_secret: str | None = None
+
+
+@dataclass(frozen=True)
+class VersionOverrideTarget:
+    """Normalized target for a connector version override operation."""
+
+    scope: VersionOverrideScope
+    organization_id: str
+    connector_type: VersionOverrideConnectorType
+    workspace_id: str | None = None
+    actor_id: str | None = None
+    connector_name: str | None = None
 
 
 def build_tier_warning(customer_tier: str) -> str | None:
@@ -200,6 +216,40 @@ def _fetch_organization_name(
     return None
 
 
+def _fetch_actor_notification_context(
+    *,
+    auth: ResolvedCloudAuth,
+    actor_id: str,
+    actor_type: VersionOverrideConnectorType,
+    config_api_root: str,
+) -> tuple[str | None, str | None]:
+    """Best-effort fetch of actor and connector display names for Slack."""
+    try:
+        access_token = _get_access_token(
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            bearer_token=auth.bearer_token,
+            config_api_root=config_api_root,
+        )
+        response = _requests.post(
+            f"{config_api_root}/{actor_type}s/get",
+            json={f"{actor_type}Id": actor_id},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": USER_AGENT,
+                "Content-Type": "application/json",
+            },
+            timeout=10,
+        )
+        if not response.ok:
+            return None, None
+        actor_data = response.json()
+        return actor_data.get("name"), actor_data.get(f"{actor_type}Name")
+    except (PyAirbyteInputError, _requests.RequestException, ValueError, KeyError):
+        logger.debug("Could not fetch actor details for notification", exc_info=True)
+        return None, None
+
+
 def _resolve_slack_tag(email: str) -> str:
     """Best-effort resolve an email to a Slack `<@USER_ID>` mention.
 
@@ -317,14 +367,527 @@ def _notify_version_override_slack(
         slack_tag = _resolve_slack_tag(admin_user_email)
         lines.append(f">*Approved by:* {slack_tag}")
 
-    text = "\n".join(lines)
     try:
-        post_channel_message(_VERSION_OVERRIDE_SLACK_CHANNEL, text)
+        post_channel_message(_VERSION_OVERRIDE_SLACK_CHANNEL, "\n".join(lines))
     except (SlackAPIError, _requests.RequestException):
         logger.warning(
             "Failed to post version-override notification to Slack",
             exc_info=True,
         )
+
+
+def _validate_version_override_target(target: VersionOverrideTarget) -> None:
+    """Fail when target IDs are incompatible with `target.scope`."""
+    if target.scope == "actor":
+        if not target.workspace_id:
+            raise PyAirbyteInputError(
+                message="Actor-scope version override target requires workspace_id.",
+            )
+        if not target.actor_id:
+            raise PyAirbyteInputError(
+                message="Actor-scope version override target requires actor_id.",
+            )
+        if target.connector_name is not None:
+            raise PyAirbyteInputError(
+                message="Actor-scope version override target must not include connector_name.",
+            )
+        return
+
+    if target.scope == "workspace":
+        if not target.workspace_id:
+            raise PyAirbyteInputError(
+                message="Workspace-scope version override target requires workspace_id.",
+            )
+        if not target.connector_name:
+            raise PyAirbyteInputError(
+                message="Workspace-scope version override target requires connector_name.",
+            )
+        if target.actor_id is not None:
+            raise PyAirbyteInputError(
+                message="Workspace-scope version override target must not include actor_id.",
+            )
+        return
+
+    if not target.connector_name:
+        raise PyAirbyteInputError(
+            message="Organization-scope version override target requires connector_name.",
+        )
+    if target.workspace_id is not None:
+        raise PyAirbyteInputError(
+            message="Organization-scope version override target must not include workspace_id.",
+        )
+    if target.actor_id is not None:
+        raise PyAirbyteInputError(
+            message="Organization-scope version override target must not include actor_id.",
+        )
+
+
+def _resolve_target_context(
+    target: VersionOverrideTarget,
+) -> tuple[str, bool | None, str | None]:
+    """Resolve customer tier, EU region, and error message for `target`."""
+    if target.scope in ("actor", "workspace"):
+        assert target.workspace_id is not None
+        ws_resolution = resolve_workspace(target.workspace_id)
+        if not ws_resolution.organization_id:
+            return (
+                ws_resolution.customer_tier,
+                ws_resolution.is_eu,
+                "Could not resolve organization for workspace.",
+            )
+        if ws_resolution.organization_id != target.organization_id:
+            return (
+                ws_resolution.customer_tier,
+                ws_resolution.is_eu,
+                "Target organization_id does not match workspace organization.",
+            )
+        return ws_resolution.customer_tier, ws_resolution.is_eu, None
+
+    tier_result = get_org_tier(target.organization_id)
+    return tier_result.customer_tier, None, None
+
+
+def _guard_existing_pins(
+    *,
+    auth: ResolvedCloudAuth,
+    target: VersionOverrideTarget,
+    version: str | None,
+    unset: bool,
+    force: bool,
+    config_api_root: str,
+) -> str | None:
+    """Return a blocking message when an existing pin guard fails."""
+    if unset or version is None:
+        return None
+
+    try:
+        access_token = _get_access_token(
+            auth.client_id,
+            auth.client_secret,
+            auth.bearer_token,
+            config_api_root,
+        )
+        if target.scope == "actor":
+            assert target.actor_id is not None
+            get_endpoint = f"{config_api_root}/{target.connector_type}s/get"
+            get_resp = _requests.post(
+                get_endpoint,
+                json={f"{target.connector_type}Id": target.actor_id},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "User-Agent": USER_AGENT,
+                    "Content-Type": "application/json",
+                },
+                timeout=30,
+            )
+            get_resp.raise_for_status()
+            actor_definition_id = get_resp.json().get(
+                f"{target.connector_type}DefinitionId"
+            )
+            if not actor_definition_id:
+                return "Could not find connector definition ID for actor."
+            scopes = [
+                (_ScopeType.ACTOR, target.actor_id, "actor"),
+                (_ScopeType.WORKSPACE, target.workspace_id or "", "workspace"),
+                (_ScopeType.ORGANIZATION, target.organization_id, "organization"),
+            ]
+        else:
+            assert target.connector_name is not None
+            actor_definition_id = api_client._resolve_connector_definition_id(
+                connector_name=target.connector_name,
+                connector_type=target.connector_type,
+                config_api_root=config_api_root,
+                access_token=access_token,
+            )
+            if target.scope == "workspace":
+                scopes = [
+                    (_ScopeType.WORKSPACE, target.workspace_id or "", "workspace"),
+                    (_ScopeType.ORGANIZATION, target.organization_id, "organization"),
+                ]
+            else:
+                scopes = [
+                    (_ScopeType.ORGANIZATION, target.organization_id, "organization"),
+                ]
+
+        guard = check_existing_pins(
+            scopes=scopes,
+            actor_definition_id=actor_definition_id,
+            config_api_root=config_api_root,
+            access_token=access_token,
+            target_version=version,
+            force=force,
+        )
+    except (
+        PyAirbyteInputError,
+        CloudAuthError,
+        _requests.exceptions.HTTPError,
+    ) as e:
+        return f"Pin guard check failed: {e}"
+
+    return guard.error_msg
+
+
+def apply_version_override_to_config_api(
+    *,
+    auth: ResolvedCloudAuth,
+    target: VersionOverrideTarget,
+    version: str | None,
+    unset: bool,
+    override_reason: str | None,
+    override_reason_reference_url: str | None,
+    user_email: str | None,
+    config_api_root: str | None = None,
+) -> bool:
+    """Apply a normalized version override target to the Config API."""
+    _validate_version_override_target(target)
+    resolved_config_api_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
+
+    if target.scope == "actor":
+        assert target.workspace_id is not None
+        assert target.actor_id is not None
+        return api_client.set_connector_version_override(
+            connector_id=target.actor_id,
+            connector_type=target.connector_type,
+            config_api_root=resolved_config_api_root,
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            workspace_id=target.workspace_id,
+            version=version,
+            unset=unset,
+            override_reason=override_reason,
+            override_reason_reference_url=override_reason_reference_url,
+            user_email=user_email,
+            bearer_token=auth.bearer_token,
+        )
+
+    if target.scope == "workspace":
+        assert target.workspace_id is not None
+        assert target.connector_name is not None
+        return api_client.set_workspace_connector_version_override(
+            workspace_id=target.workspace_id,
+            connector_name=target.connector_name,
+            connector_type=target.connector_type,
+            config_api_root=resolved_config_api_root,
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            bearer_token=auth.bearer_token,
+            version=version,
+            unset=unset,
+            override_reason=override_reason,
+            override_reason_reference_url=override_reason_reference_url,
+            user_email=user_email,
+        )
+
+    assert target.connector_name is not None
+    return api_client.set_organization_connector_version_override(
+        organization_id=target.organization_id,
+        connector_name=target.connector_name,
+        connector_type=target.connector_type,
+        config_api_root=resolved_config_api_root,
+        client_id=auth.client_id,
+        client_secret=auth.client_secret,
+        bearer_token=auth.bearer_token,
+        version=version,
+        unset=unset,
+        override_reason=override_reason,
+        override_reason_reference_url=override_reason_reference_url,
+        user_email=user_email,
+    )
+
+
+def set_version_override(
+    *,
+    auth: ResolvedCloudAuth,
+    target: VersionOverrideTarget,
+    approval_comment_url: str | None,
+    version: str | None,
+    unset: bool,
+    override_reason: str | None,
+    override_reason_reference_url: str | None,
+    issue_url: str | None,
+    ai_agent_session_url: str | None,
+    customer_tier_filter: TierFilter,
+    force: bool = False,
+    config_api_root: str | None = None,
+) -> VersionOverrideResult:
+    """Set or clear a connector version override through one normalized path."""
+    _validate_version_override_target(target)
+    result_kwargs = _result_identity_kwargs(target)
+
+    admin_user_email, auth_error = _validate_admin_and_authorization(
+        issue_url=issue_url,
+        approval_comment_url=approval_comment_url,
+    )
+    if auth_error is not None:
+        return _build_version_override_result(
+            target=target,
+            success=False,
+            message=auth_error,
+            result_kwargs=result_kwargs,
+        )
+
+    customer_tier, is_eu, context_error = _resolve_target_context(target)
+    tier_warning = build_tier_warning(customer_tier)
+    if context_error is not None:
+        return _build_version_override_result(
+            target=target,
+            success=False,
+            message=context_error,
+            customer_tier=customer_tier,
+            is_eu=is_eu,
+            tier_warning=tier_warning,
+            result_kwargs=result_kwargs,
+        )
+
+    tier_ok, tier_error = validate_tier_filter(customer_tier, customer_tier_filter)
+    if not tier_ok:
+        return _build_version_override_result(
+            target=target,
+            success=False,
+            message=tier_error or "Tier filter mismatch",
+            customer_tier=customer_tier,
+            is_eu=is_eu,
+            tier_warning=tier_warning,
+            result_kwargs=result_kwargs,
+        )
+
+    enhanced_override_reason = _build_audit_reason(
+        override_reason=override_reason,
+        issue_url=issue_url,
+        approval_comment_url=approval_comment_url,
+        ai_agent_session_url=ai_agent_session_url,
+        unset=unset,
+    )
+    resolved_config_api_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
+    guard_error = _guard_existing_pins(
+        auth=auth,
+        target=target,
+        version=version,
+        unset=unset,
+        force=force,
+        config_api_root=resolved_config_api_root,
+    )
+    if guard_error is not None:
+        return _build_version_override_result(
+            target=target,
+            success=False,
+            message=guard_error,
+            customer_tier=customer_tier,
+            is_eu=is_eu,
+            tier_warning=tier_warning,
+            result_kwargs=result_kwargs,
+        )
+
+    try:
+        result = apply_version_override_to_config_api(
+            auth=auth,
+            target=target,
+            version=version,
+            unset=unset,
+            override_reason=enhanced_override_reason,
+            override_reason_reference_url=override_reason_reference_url,
+            user_email=admin_user_email,
+            config_api_root=resolved_config_api_root,
+        )
+    except PyAirbyteInputError as e:
+        return _build_version_override_result(
+            target=target,
+            success=False,
+            message=str(e),
+            customer_tier=customer_tier,
+            is_eu=is_eu,
+            tier_warning=tier_warning,
+            result_kwargs=result_kwargs,
+        )
+
+    message = _version_override_success_message(
+        target=target,
+        result=result,
+        version=version,
+        unset=unset,
+    )
+    if tier_warning:
+        message = f"{tier_warning} {message}"
+
+    if not unset or result:
+        scope_id = {
+            "actor": target.actor_id,
+            "workspace": target.workspace_id,
+            "organization": target.organization_id,
+        }[target.scope]
+        assert scope_id is not None
+        actor_display_name: str | None = None
+        connector_def_name: str | None = None
+        if target.scope == "actor":
+            assert target.actor_id is not None
+            actor_display_name, connector_def_name = _fetch_actor_notification_context(
+                auth=auth,
+                actor_id=target.actor_id,
+                actor_type=target.connector_type,
+                config_api_root=resolved_config_api_root,
+            )
+
+        organization_name = _fetch_organization_name(
+            target.organization_id,
+            resolved_config_api_root,
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            bearer_token=auth.bearer_token,
+        )
+        connector_name = connector_def_name or (
+            f"{target.connector_type} ({target.actor_id})"
+            if target.scope == "actor"
+            else target.connector_name
+        )
+        assert connector_name is not None
+        _notify_version_override_slack(
+            action="removed" if unset else "set",
+            scope_type=target.scope,
+            scope_id=scope_id,
+            connector_name=connector_name,
+            connector_type=target.connector_type,
+            version=version,
+            admin_user_email=admin_user_email,
+            override_reason=override_reason,
+            issue_url=issue_url,
+            ai_agent_session_url=ai_agent_session_url,
+            override_reason_reference_url=override_reason_reference_url,
+            workspace_id=target.workspace_id,
+            organization_name=organization_name,
+            actor_name=actor_display_name,
+        )
+
+    return _build_version_override_result(
+        target=target,
+        success=True,
+        message=message,
+        version=version if not unset else None,
+        new_version=version if target.scope == "actor" and not unset else None,
+        is_pinned_after=None if unset else True,
+        customer_tier=customer_tier,
+        is_eu=is_eu,
+        tier_warning=tier_warning,
+        result_kwargs=result_kwargs,
+    )
+
+
+@dataclass(frozen=True)
+class _VersionOverrideResultKwargs:
+    """Shared identity fields for the historical result models."""
+
+    connector_id: str | None = None
+    workspace_id: str | None = None
+    organization_id: str | None = None
+    connector_name: str | None = None
+
+
+def _result_identity_kwargs(
+    target: VersionOverrideTarget,
+) -> _VersionOverrideResultKwargs:
+    """Return identity fields shared by result models."""
+    if target.scope == "actor":
+        assert target.actor_id is not None
+        return _VersionOverrideResultKwargs(connector_id=target.actor_id)
+    if target.scope == "workspace":
+        assert target.workspace_id is not None
+        assert target.connector_name is not None
+        return _VersionOverrideResultKwargs(
+            workspace_id=target.workspace_id,
+            connector_name=target.connector_name,
+        )
+    assert target.connector_name is not None
+    return _VersionOverrideResultKwargs(
+        organization_id=target.organization_id,
+        connector_name=target.connector_name,
+    )
+
+
+def _build_version_override_result(
+    *,
+    target: VersionOverrideTarget,
+    success: bool,
+    message: str,
+    result_kwargs: _VersionOverrideResultKwargs,
+    connector_type: VersionOverrideConnectorType | None = None,
+    version: str | None = None,
+    new_version: str | None = None,
+    is_pinned_after: bool | None = None,
+    customer_tier: str | None = None,
+    is_eu: bool | None = None,
+    tier_warning: str | None = None,
+) -> VersionOverrideResult:
+    """Build the historical result model for `target.scope`."""
+    if connector_type is None:
+        connector_type = target.connector_type
+    if target.scope == "actor":
+        assert result_kwargs.connector_id is not None
+        return VersionOverrideOperationResult(
+            success=success,
+            message=message,
+            connector_id=result_kwargs.connector_id,
+            connector_type=connector_type,
+            new_version=new_version,
+            is_pinned_after=is_pinned_after,
+            customer_tier=customer_tier,
+            is_eu=is_eu,
+            tier_warning=tier_warning,
+        )
+    if target.scope == "workspace":
+        assert result_kwargs.workspace_id is not None
+        assert result_kwargs.connector_name is not None
+        return WorkspaceVersionOverrideResult(
+            success=success,
+            message=message,
+            workspace_id=result_kwargs.workspace_id,
+            connector_name=result_kwargs.connector_name,
+            connector_type=connector_type,
+            version=version,
+            customer_tier=customer_tier,
+            is_eu=is_eu,
+            tier_warning=tier_warning,
+        )
+    assert result_kwargs.organization_id is not None
+    assert result_kwargs.connector_name is not None
+    return OrganizationVersionOverrideResult(
+        success=success,
+        message=message,
+        organization_id=result_kwargs.organization_id,
+        connector_name=result_kwargs.connector_name,
+        connector_type=connector_type,
+        version=version,
+        customer_tier=customer_tier,
+        tier_warning=tier_warning,
+    )
+
+
+def _version_override_success_message(
+    *,
+    target: VersionOverrideTarget,
+    result: bool,
+    version: str | None,
+    unset: bool,
+) -> str:
+    """Return a human-readable success message for `target.scope`."""
+    if target.scope == "actor":
+        if unset:
+            if result:
+                return "Successfully cleared version override. Connector will now use default version."
+            return "No version override was active (nothing to clear)"
+        return f"Successfully pinned connector to version {version}"
+
+    assert target.connector_name is not None
+    if target.scope == "workspace":
+        if unset:
+            if result:
+                return f"Successfully cleared workspace-level version override for {target.connector_name}."
+            return f"No workspace-level version override was active for {target.connector_name} (nothing to clear)"
+        return f"Successfully pinned {target.connector_name} to version {version} at workspace level."
+
+    if unset:
+        if result:
+            return f"Successfully cleared organization-level version override for {target.connector_name}."
+        return f"No organization-level version override was active for {target.connector_name} (nothing to clear)"
+    return f"Successfully pinned {target.connector_name} to version {version} at organization level."
 
 
 def get_connector_version_info(
@@ -393,18 +956,6 @@ def set_actor_version_override(
     checks are enforced here. The returned `VersionOverrideOperationResult`
     is the same shape produced by the corresponding MCP tool.
     """
-    admin_user_email, auth_error = _validate_admin_and_authorization(
-        issue_url=issue_url,
-        approval_comment_url=approval_comment_url,
-    )
-    if auth_error is not None:
-        return VersionOverrideOperationResult(
-            success=False,
-            message=auth_error,
-            connector_id=actor_id,
-            connector_type=actor_type,
-        )
-
     ws_resolution = resolve_workspace(workspace_id)
     if not ws_resolution.organization_id:
         return VersionOverrideOperationResult(
@@ -414,234 +965,28 @@ def set_actor_version_override(
             connector_type=actor_type,
         )
 
-    customer_tier = ws_resolution.customer_tier
-    is_eu = (
-        ws_resolution.dataplane_name == "EU" if ws_resolution.dataplane_name else None
-    )
-    tier_warning = build_tier_warning(customer_tier)
-
-    tier_ok, tier_error = validate_tier_filter(customer_tier, customer_tier_filter)
-    if not tier_ok:
-        return VersionOverrideOperationResult(
-            success=False,
-            message=tier_error or "Tier filter mismatch",
-            connector_id=actor_id,
-            connector_type=actor_type,
-            customer_tier=customer_tier,
-            is_eu=is_eu,
-            tier_warning=tier_warning,
-        )
-
-    enhanced_override_reason = _build_audit_reason(
-        override_reason=override_reason,
-        issue_url=issue_url,
-        approval_comment_url=approval_comment_url,
-        ai_agent_session_url=ai_agent_session_url,
-        unset=unset,
-    )
-
-    resolved_config_api_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
-    try:
-        current_version_data = api_client.get_connector_version(
-            connector_id=actor_id,
-            connector_type=actor_type,
-            config_api_root=resolved_config_api_root,
-            client_id=auth.client_id,
-            client_secret=auth.client_secret,
-            bearer_token=auth.bearer_token,
-        )
-        current_version = current_version_data["dockerImageTag"]
-        was_pinned_before = current_version_data["isVersionOverrideApplied"]
-    except CloudAuthError as e:
-        return VersionOverrideOperationResult(
-            success=False,
-            message=f"Failed to resolve credentials or get connector: {e}",
-            connector_id=actor_id,
-            connector_type=actor_type,
-        )
-
-    if not unset and version:
-        try:
-            access_token = _get_access_token(
-                auth.client_id, auth.client_secret, auth.bearer_token
-            )
-            get_endpoint = f"{resolved_config_api_root}/{actor_type}s/get"
-            get_resp = _requests.post(
-                get_endpoint,
-                json={f"{actor_type}Id": actor_id},
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "User-Agent": USER_AGENT,
-                    "Content-Type": "application/json",
-                },
-                timeout=30,
-            )
-            get_resp.raise_for_status()
-            actor_definition_id = get_resp.json().get(f"{actor_type}DefinitionId")
-            if not actor_definition_id:
-                return VersionOverrideOperationResult(
-                    success=False,
-                    message=f"Could not find {actor_type}DefinitionId in connector info for actor {actor_id}",
-                    connector_id=actor_id,
-                    connector_type=actor_type,
-                    previous_version=current_version,
-                    was_pinned_before=was_pinned_before,
-                )
-
-            guard = check_existing_pins(
-                scopes=[
-                    (_ScopeType.ACTOR, actor_id, "actor"),
-                    (_ScopeType.WORKSPACE, workspace_id, "workspace"),
-                    (
-                        _ScopeType.ORGANIZATION,
-                        ws_resolution.organization_id,
-                        "organization",
-                    ),
-                ],
-                actor_definition_id=actor_definition_id,
-                config_api_root=resolved_config_api_root,
-                access_token=access_token,
-                target_version=version,
-                force=force,
-            )
-            if guard.blocked:
-                assert guard.error_msg is not None
-                return VersionOverrideOperationResult(
-                    success=False,
-                    message=guard.error_msg,
-                    connector_id=actor_id,
-                    connector_type=actor_type,
-                    previous_version=current_version,
-                    was_pinned_before=was_pinned_before,
-                )
-        except (
-            PyAirbyteInputError,
-            CloudAuthError,
-            _requests.exceptions.HTTPError,
-        ) as e:
-            return VersionOverrideOperationResult(
-                success=False,
-                message=f"Pin guard check failed: {e}",
-                connector_id=actor_id,
-                connector_type=actor_type,
-                previous_version=current_version,
-                was_pinned_before=was_pinned_before,
-            )
-
-    try:
-        result = api_client.set_connector_version_override(
-            connector_id=actor_id,
-            connector_type=actor_type,
-            config_api_root=resolved_config_api_root,
-            client_id=auth.client_id,
-            client_secret=auth.client_secret,
+    result = set_version_override(
+        auth=auth,
+        target=VersionOverrideTarget(
+            scope="actor",
+            organization_id=ws_resolution.organization_id,
             workspace_id=workspace_id,
-            version=version,
-            unset=unset,
-            override_reason=enhanced_override_reason,
-            override_reason_reference_url=override_reason_reference_url,
-            user_email=admin_user_email,
-            bearer_token=auth.bearer_token,
-        )
-
-        updated_version_data = api_client.get_connector_version(
-            connector_id=actor_id,
+            actor_id=actor_id,
             connector_type=actor_type,
-            config_api_root=resolved_config_api_root,
-            client_id=auth.client_id,
-            client_secret=auth.client_secret,
-            bearer_token=auth.bearer_token,
-        )
-        new_version = updated_version_data["dockerImageTag"] if not unset else None
-        is_pinned_after = updated_version_data["isVersionOverrideApplied"]
-
-        if unset:
-            if result:
-                message = "Successfully cleared version override. Connector will now use default version."
-            else:
-                message = "No version override was active (nothing to clear)"
-        else:
-            message = f"Successfully pinned connector to version {version}"
-
-        if tier_warning:
-            message = f"{tier_warning} {message}"
-
-        # Only notify when something actually changed (skip no-op unsets).
-        if not unset or result:
-            # Best-effort: resolve human-readable names for the notification.
-            actor_display_name: str | None = None
-            connector_def_name: str | None = None
-            try:
-                access_token = _get_access_token(
-                    auth.client_id, auth.client_secret, auth.bearer_token
-                )
-                get_endpoint = f"{resolved_config_api_root}/{actor_type}s/get"
-                get_resp = _requests.post(
-                    get_endpoint,
-                    json={f"{actor_type}Id": actor_id},
-                    headers={
-                        "Authorization": f"Bearer {access_token}",
-                        "User-Agent": USER_AGENT,
-                        "Content-Type": "application/json",
-                    },
-                    timeout=10,
-                )
-                if get_resp.ok:
-                    actor_data = get_resp.json()
-                    actor_display_name = actor_data.get("name")
-                    connector_def_name = actor_data.get(f"{actor_type}Name")
-            except Exception:
-                logger.debug(
-                    "Could not fetch actor details for notification", exc_info=True
-                )
-
-            org_name = _fetch_organization_name(
-                ws_resolution.organization_id,
-                resolved_config_api_root,
-                client_id=auth.client_id,
-                client_secret=auth.client_secret,
-                bearer_token=auth.bearer_token,
-            )
-
-            _notify_version_override_slack(
-                action="removed" if unset else "set",
-                scope_type="actor",
-                scope_id=actor_id,
-                connector_name=connector_def_name or f"{actor_type} ({actor_id})",
-                connector_type=actor_type,
-                version=version,
-                admin_user_email=admin_user_email,
-                override_reason=override_reason,
-                issue_url=issue_url,
-                ai_agent_session_url=ai_agent_session_url,
-                override_reason_reference_url=override_reason_reference_url,
-                workspace_id=workspace_id,
-                organization_name=org_name,
-                actor_name=actor_display_name,
-            )
-
-        return VersionOverrideOperationResult(
-            success=True,
-            message=message,
-            connector_id=actor_id,
-            connector_type=actor_type,
-            previous_version=current_version,
-            new_version=new_version,
-            was_pinned_before=was_pinned_before,
-            is_pinned_after=is_pinned_after,
-            customer_tier=customer_tier,
-            is_eu=is_eu,
-            tier_warning=tier_warning,
-        )
-    except PyAirbyteInputError as e:
-        return VersionOverrideOperationResult(
-            success=False,
-            message=str(e),
-            connector_id=actor_id,
-            connector_type=actor_type,
-            previous_version=current_version,
-            was_pinned_before=was_pinned_before,
-        )
+        ),
+        approval_comment_url=approval_comment_url,
+        version=version,
+        unset=unset,
+        override_reason=override_reason,
+        override_reason_reference_url=override_reason_reference_url,
+        issue_url=issue_url,
+        ai_agent_session_url=ai_agent_session_url,
+        customer_tier_filter=customer_tier_filter,
+        force=force,
+        config_api_root=config_api_root,
+    )
+    assert isinstance(result, VersionOverrideOperationResult)
+    return result
 
 
 def set_workspace_version_override(
@@ -666,19 +1011,6 @@ def set_workspace_version_override(
     Pins (or clears) the override for ALL instances of `connector_name` in
     `workspace_id`.
     """
-    admin_user_email, auth_error = _validate_admin_and_authorization(
-        issue_url=issue_url,
-        approval_comment_url=approval_comment_url,
-    )
-    if auth_error is not None:
-        return WorkspaceVersionOverrideResult(
-            success=False,
-            message=auth_error,
-            workspace_id=workspace_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-        )
-
     ws_resolution = resolve_workspace(workspace_id)
     if not ws_resolution.organization_id:
         return WorkspaceVersionOverrideResult(
@@ -689,156 +1021,28 @@ def set_workspace_version_override(
             connector_type=connector_type,
         )
 
-    customer_tier = ws_resolution.customer_tier
-    is_eu = (
-        ws_resolution.dataplane_name == "EU" if ws_resolution.dataplane_name else None
-    )
-    tier_warning = build_tier_warning(customer_tier)
-
-    tier_ok, tier_error = validate_tier_filter(customer_tier, customer_tier_filter)
-    if not tier_ok:
-        return WorkspaceVersionOverrideResult(
-            success=False,
-            message=tier_error or "Tier filter mismatch",
+    result = set_version_override(
+        auth=auth,
+        target=VersionOverrideTarget(
+            scope="workspace",
+            organization_id=ws_resolution.organization_id,
             workspace_id=workspace_id,
             connector_name=connector_name,
             connector_type=connector_type,
-            customer_tier=customer_tier,
-            is_eu=is_eu,
-            tier_warning=tier_warning,
-        )
-
-    enhanced_override_reason = _build_audit_reason(
-        override_reason=override_reason,
-        issue_url=issue_url,
+        ),
         approval_comment_url=approval_comment_url,
-        ai_agent_session_url=ai_agent_session_url,
+        version=version,
         unset=unset,
+        override_reason=override_reason,
+        override_reason_reference_url=override_reason_reference_url,
+        issue_url=issue_url,
+        ai_agent_session_url=ai_agent_session_url,
+        customer_tier_filter=customer_tier_filter,
+        force=force,
+        config_api_root=config_api_root,
     )
-
-    resolved_config_api_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
-
-    if not unset and version:
-        try:
-            access_token = _get_access_token(
-                auth.client_id, auth.client_secret, auth.bearer_token
-            )
-            actor_definition_id = resolve_canonical_name_to_definition_id(
-                connector_name
-            )
-
-            guard = check_existing_pins(
-                scopes=[
-                    (_ScopeType.WORKSPACE, workspace_id, "workspace"),
-                    (
-                        _ScopeType.ORGANIZATION,
-                        ws_resolution.organization_id,
-                        "organization",
-                    ),
-                ],
-                actor_definition_id=actor_definition_id,
-                config_api_root=resolved_config_api_root,
-                access_token=access_token,
-                target_version=version,
-                force=force,
-            )
-            if guard.blocked:
-                assert guard.error_msg is not None
-                return WorkspaceVersionOverrideResult(
-                    success=False,
-                    message=guard.error_msg,
-                    workspace_id=workspace_id,
-                    connector_name=connector_name,
-                    connector_type=connector_type,
-                )
-        except (PyAirbyteInputError, CloudAuthError) as e:
-            return WorkspaceVersionOverrideResult(
-                success=False,
-                message=f"Pin guard check failed: {e}",
-                workspace_id=workspace_id,
-                connector_name=connector_name,
-                connector_type=connector_type,
-            )
-
-    try:
-        result = api_client.set_workspace_connector_version_override(
-            workspace_id=workspace_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-            config_api_root=resolved_config_api_root,
-            client_id=auth.client_id,
-            client_secret=auth.client_secret,
-            bearer_token=auth.bearer_token,
-            version=version,
-            unset=unset,
-            override_reason=enhanced_override_reason,
-            override_reason_reference_url=override_reason_reference_url,
-            user_email=admin_user_email,
-        )
-
-        if unset:
-            if result:
-                message = f"Successfully cleared workspace-level version override for {connector_name}."
-            else:
-                message = f"No workspace-level version override was active for {connector_name} (nothing to clear)"
-        else:
-            message = f"Successfully pinned {connector_name} to version {version} at workspace level."
-
-        if tier_warning:
-            message = f"{tier_warning} {message}"
-
-        # Only notify when something actually changed (skip no-op unsets).
-        if not unset or result:
-            org_name = _fetch_organization_name(
-                ws_resolution.organization_id,
-                resolved_config_api_root,
-                client_id=auth.client_id,
-                client_secret=auth.client_secret,
-                bearer_token=auth.bearer_token,
-            )
-
-            _notify_version_override_slack(
-                action="removed" if unset else "set",
-                scope_type="workspace",
-                scope_id=workspace_id,
-                connector_name=connector_name,
-                connector_type=connector_type,
-                version=version,
-                admin_user_email=admin_user_email,
-                override_reason=override_reason,
-                issue_url=issue_url,
-                ai_agent_session_url=ai_agent_session_url,
-                override_reason_reference_url=override_reason_reference_url,
-                organization_name=org_name,
-            )
-
-        return WorkspaceVersionOverrideResult(
-            success=True,
-            message=message,
-            workspace_id=workspace_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-            version=version if not unset else None,
-            customer_tier=customer_tier,
-            is_eu=is_eu,
-            tier_warning=tier_warning,
-        )
-    except PyAirbyteInputError as e:
-        return WorkspaceVersionOverrideResult(
-            success=False,
-            message=str(e),
-            workspace_id=workspace_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-        )
-    except CloudAuthError as e:
-        return WorkspaceVersionOverrideResult(
-            success=False,
-            message=f"Authentication failed: {e}",
-            workspace_id=workspace_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-        )
+    assert isinstance(result, WorkspaceVersionOverrideResult)
+    return result
 
 
 def set_organization_version_override(
@@ -863,157 +1067,24 @@ def set_organization_version_override(
     Pins (or clears) the override for ALL instances of `connector_name` in
     every workspace under `organization_id`.
     """
-    admin_user_email, auth_error = _validate_admin_and_authorization(
-        issue_url=issue_url,
-        approval_comment_url=approval_comment_url,
-    )
-    if auth_error is not None:
-        return OrganizationVersionOverrideResult(
-            success=False,
-            message=auth_error,
+    result = set_version_override(
+        auth=auth,
+        target=VersionOverrideTarget(
+            scope="organization",
             organization_id=organization_id,
             connector_name=connector_name,
             connector_type=connector_type,
-        )
-
-    tier_result = get_org_tier(organization_id)
-    customer_tier = tier_result.customer_tier
-    tier_warning = build_tier_warning(customer_tier)
-
-    tier_ok, tier_error = validate_tier_filter(customer_tier, customer_tier_filter)
-    if not tier_ok:
-        return OrganizationVersionOverrideResult(
-            success=False,
-            message=tier_error or "Tier filter mismatch",
-            organization_id=organization_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-            customer_tier=customer_tier,
-            tier_warning=tier_warning,
-        )
-
-    enhanced_override_reason = _build_audit_reason(
-        override_reason=override_reason,
-        issue_url=issue_url,
+        ),
         approval_comment_url=approval_comment_url,
-        ai_agent_session_url=ai_agent_session_url,
+        version=version,
         unset=unset,
+        override_reason=override_reason,
+        override_reason_reference_url=override_reason_reference_url,
+        issue_url=issue_url,
+        ai_agent_session_url=ai_agent_session_url,
+        customer_tier_filter=customer_tier_filter,
+        force=force,
+        config_api_root=config_api_root,
     )
-
-    resolved_config_api_root = config_api_root or constants.CLOUD_CONFIG_API_ROOT
-
-    if not unset and version:
-        try:
-            access_token = _get_access_token(
-                auth.client_id, auth.client_secret, auth.bearer_token
-            )
-            actor_definition_id = resolve_canonical_name_to_definition_id(
-                connector_name
-            )
-
-            guard = check_existing_pins(
-                scopes=[
-                    (_ScopeType.ORGANIZATION, organization_id, "organization"),
-                ],
-                actor_definition_id=actor_definition_id,
-                config_api_root=resolved_config_api_root,
-                access_token=access_token,
-                target_version=version,
-                force=force,
-            )
-            if guard.blocked:
-                assert guard.error_msg is not None
-                return OrganizationVersionOverrideResult(
-                    success=False,
-                    message=guard.error_msg,
-                    organization_id=organization_id,
-                    connector_name=connector_name,
-                    connector_type=connector_type,
-                )
-        except (PyAirbyteInputError, CloudAuthError) as e:
-            return OrganizationVersionOverrideResult(
-                success=False,
-                message=f"Pin guard check failed: {e}",
-                organization_id=organization_id,
-                connector_name=connector_name,
-                connector_type=connector_type,
-            )
-
-    try:
-        result = api_client.set_organization_connector_version_override(
-            organization_id=organization_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-            config_api_root=resolved_config_api_root,
-            client_id=auth.client_id,
-            client_secret=auth.client_secret,
-            bearer_token=auth.bearer_token,
-            version=version,
-            unset=unset,
-            override_reason=enhanced_override_reason,
-            override_reason_reference_url=override_reason_reference_url,
-            user_email=admin_user_email,
-        )
-
-        if unset:
-            if result:
-                message = f"Successfully cleared organization-level version override for {connector_name}."
-            else:
-                message = f"No organization-level version override was active for {connector_name} (nothing to clear)"
-        else:
-            message = f"Successfully pinned {connector_name} to version {version} at organization level."
-
-        if tier_warning:
-            message = f"{tier_warning} {message}"
-
-        # Only notify when something actually changed (skip no-op unsets).
-        if not unset or result:
-            org_name = _fetch_organization_name(
-                organization_id,
-                resolved_config_api_root,
-                client_id=auth.client_id,
-                client_secret=auth.client_secret,
-                bearer_token=auth.bearer_token,
-            )
-
-            _notify_version_override_slack(
-                action="removed" if unset else "set",
-                scope_type="organization",
-                scope_id=organization_id,
-                connector_name=connector_name,
-                connector_type=connector_type,
-                version=version,
-                admin_user_email=admin_user_email,
-                override_reason=override_reason,
-                issue_url=issue_url,
-                ai_agent_session_url=ai_agent_session_url,
-                override_reason_reference_url=override_reason_reference_url,
-                organization_name=org_name,
-            )
-
-        return OrganizationVersionOverrideResult(
-            success=True,
-            message=message,
-            organization_id=organization_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-            version=version if not unset else None,
-            customer_tier=customer_tier,
-            tier_warning=tier_warning,
-        )
-    except PyAirbyteInputError as e:
-        return OrganizationVersionOverrideResult(
-            success=False,
-            message=str(e),
-            organization_id=organization_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-        )
-    except CloudAuthError as e:
-        return OrganizationVersionOverrideResult(
-            success=False,
-            message=f"Authentication failed: {e}",
-            organization_id=organization_id,
-            connector_name=connector_name,
-            connector_type=connector_type,
-        )
+    assert isinstance(result, OrganizationVersionOverrideResult)
+    return result

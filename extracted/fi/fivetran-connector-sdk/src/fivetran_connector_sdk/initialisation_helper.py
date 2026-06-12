@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -16,20 +17,21 @@ def init(project_dir: str, template: str, non_interactive: bool):
     connector_path = os.path.join(project_dir, ROOT_FILENAME)
     if non_interactive:
         print_library_log("overriding existing files; --non-interactive is set")
-        confirm = "y"
+        run_project_setup = True
+    elif os.path.isfile(connector_path):
+        print_library_log(
+            f"skipping connector project creation; {ROOT_FILENAME} already exists at {project_dir}",
+            log_icon=Logging.LogIcon.STEP,
+        )
+        print_library_log(
+            "to force setup of connector files, pass the --non-interactive flag",
+            log_icon=Logging.LogIcon.STEP,
+        )
+        run_project_setup = False
     else:
-        if os.path.isfile(connector_path):
-            print_library_log(
-                f"{ROOT_FILENAME} already exists at {project_dir}",
-                log_icon=Logging.LogIcon.STEP,
-            )
-            confirm = "n"
-        else:
-            confirm = input(f"create new connector project at {project_dir}? (Y/n): ").strip()
+        run_project_setup = True
     try:
-        if confirm.lower() == "n":
-            print_library_log("skipping connector project creation", log_icon=Logging.LogIcon.STEP)
-        else:
+        if run_project_setup:
             setup_connector(project_dir, template, non_interactive)
             print_library_log("project initialized", log_icon=Logging.LogIcon.SUCCESS)
             print_library_log("Time to make a great connector; Happy coding")
@@ -86,6 +88,41 @@ def install_agent_plugin(agent_key: str) -> bool:
     return True
 
 
+def is_agent_plugin_install_supported(agent_key: str) -> bool:
+    config = AGENT_PLUGINS[agent_key]
+    min_supported_version = config.get("min_supported_version")
+    if min_supported_version is None:
+        return True
+
+    try:
+        result = subprocess.run([config["cli_command"], "--version"], capture_output=True, text=True, timeout=30)
+    except (subprocess.TimeoutExpired, OSError):
+        return True
+
+    if result.returncode != 0:
+        return True
+
+    output = result.stdout or result.stderr
+    match = re.search(r"(\d{1,5})\.(\d{1,5})\.(\d{1,5})", output)
+    if not match:
+        return True
+
+    version = tuple(int(part) for part in match.groups())
+    if version >= min_supported_version:
+        return True
+
+    detected_version = ".".join(str(part) for part in version)
+    min_version = ".".join(str(part) for part in min_supported_version)
+    print_library_log(
+        f"detected {config['display_name']} {detected_version}; plugin setup requires {config['display_name']} {min_version} or newer",
+        level=Logging.Level.WARNING,
+        log_icon=Logging.LogIcon.FAILURE,
+    )
+    print_library_log(f"update {config['display_name']} and rerun agent setup", log_icon=Logging.LogIcon.STEP)
+    print_library_log(f"install manually: {TOOLS_GITHUB_REPO_URL}", log_icon=Logging.LogIcon.STEP)
+    return False
+
+
 def setup_ai_agent():
     installed = detect_installed_agents()
 
@@ -122,6 +159,8 @@ def setup_ai_agent():
         print_library_log(f"install manually: {TOOLS_GITHUB_REPO_URL}", log_icon=Logging.LogIcon.STEP)
     else:
         agent_key = agent_list[choice_num - 1][0]
+        if not is_agent_plugin_install_supported(agent_key):
+            return
         if not install_agent_plugin(agent_key):
             print_library_log(
                 "agent plugin setup failed; skipping plugin setup",

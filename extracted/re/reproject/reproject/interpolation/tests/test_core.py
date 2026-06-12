@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import itertools
+import logging
 
 import dask.array as da
 import numpy as np
@@ -12,8 +13,8 @@ from astropy.wcs.wcs import FITSFixedWarning
 from astropy.wcs.wcsapi import HighLevelWCSWrapper, SlicedLowLevelWCS
 from numpy.testing import assert_allclose
 
-from reproject.array_utils import ArrayWrapper
-from reproject.interpolation.high_level import reproject_interp
+from reproject._array_utils import ArrayWrapper
+from reproject.interpolation._high_level import reproject_interp
 from reproject.tests.helpers import array_footprint_to_hdulist
 
 # TODO: add reference comparisons
@@ -662,8 +663,8 @@ def test_broadcast_reprojection(input_extra_dims, output_shape, input_as_wcs, ou
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
-        array_ref.shape = image_stack.shape
-        footprint_ref.shape = image_stack.shape
+        array_ref = array_ref.reshape(image_stack.shape)
+        footprint_ref = footprint_ref.reshape(image_stack.shape)
 
     # Test different ways of providing the output shape
     if output_shape == "single":
@@ -706,8 +707,8 @@ def test_blocked_broadcast_reprojection(input_extra_dims, output_shape, parallel
     # Test both single and multiple dimensions being broadcast
     if input_extra_dims == 2:
         image_stack = image_stack.reshape((2, 2, *image_stack.shape[-2:]))
-        array_ref.shape = image_stack.shape
-        footprint_ref.shape = image_stack.shape
+        array_ref = array_ref.reshape(image_stack.shape)
+        footprint_ref = footprint_ref.reshape(image_stack.shape)
 
     # Test different ways of providing the output shape
     if output_shape == "single":
@@ -1001,6 +1002,10 @@ def test_reproject_parallel_broadcasting(caplog, dask_method):
 
     # Unit test for reprojecting using parallelization along broadcasted
     # dimensions
+
+    # Ensure caplog captures INFO regardless of the global pytest log
+    # configuration, since this test relies on it.
+    caplog.set_level(logging.INFO, logger="reproject._common")
 
     array_in = np.ones((350, 250, 150))
     wcs_in = WCS(naxis=2)

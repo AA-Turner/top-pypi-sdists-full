@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paddlex
-Version: 3.6.1
+Version: 3.7.1
 Summary: Low-code development tool based on PaddlePaddle.
 Author: PaddlePaddle Authors
 Author-email: 
@@ -199,7 +199,7 @@ Requires-Dist: transformers<5.0.0; extra == "genai-vllm-server"
 Requires-Dist: uvloop; extra == "genai-vllm-server"
 Requires-Dist: vllm==0.10.2; extra == "genai-vllm-server"
 Provides-Extra: paddle2onnx
-Requires-Dist: paddle2onnx==2.1.0; extra == "paddle2onnx"
+Requires-Dist: paddle2onnx==2.0.2rc3; extra == "paddle2onnx"
 Provides-Extra: serving
 Requires-Dist: aiohttp>=3.9; extra == "serving"
 Requires-Dist: bce-python-sdk>=0.9; extra == "serving"

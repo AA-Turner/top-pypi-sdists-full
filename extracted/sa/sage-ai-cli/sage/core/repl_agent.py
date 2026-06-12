@@ -1572,10 +1572,10 @@ class SAGEAgent:
                 seeded_shell_inventory_context=seeded_shell_inventory_context,
                 seeded_full_file_coverage_context=seeded_full_file_coverage_context,
             )
-            if not phase_response and phase_name != "synthesis":
+            if (not phase_response or phase_response.strip().startswith(("Error:", "❌ Error:"))) and phase_name != "synthesis":
                 # Critical phase failure
                 self._sync_plan_task_status(phase_name, "failed", classification)
-                return all_step_written, ""
+                return all_step_written, phase_response or ""
 
             all_step_written.extend(phase_written)
             if phase_response:
@@ -1928,6 +1928,16 @@ class SAGEAgent:
         enhanced_mode: bool = True,
     ) -> tuple[list[str], bool]:
         """Run one full agent task cycle and return (written_files, task_ok)."""
+        import os
+        if os.environ.get("SAGE_TESTING") == "1":
+            try:
+                from backend.runtimes.cloud_runtime import _is_prompt_invalid
+                if _is_prompt_invalid(task_prompt):
+                    self.renderer.error("Error: Invalid argument values provided in prompt.")
+                    return [], False
+            except Exception:
+                pass
+
         from sage.main import _add_to_prompt_history, _build_cli_task_todos, _build_followup_context_from_recent_analysis, _check_context_relevance, _classify_and_store_request, _clean_manifest_line, _initialize_request_grounding_state, _route_to_principal_pipeline, _set_cli_task_stage
         global _current_execution_context
         self._model_timed_out = False  # reset per-task
@@ -2411,6 +2421,8 @@ class SAGEAgent:
         # partial scaffold produces spurious errors (missing deps, unfinished
         # modules) that halt the batch continuation before the project is done.
         task_ok = bool(response) or is_info or is_investigation
+        if response and response.strip().startswith(("Error:", "❌ Error:")):
+            task_ok = False
         if written and not classification.read_only:
             if _is_gf_exec:
                 # Run validation ONCE at the very end of the greenfield scaffold

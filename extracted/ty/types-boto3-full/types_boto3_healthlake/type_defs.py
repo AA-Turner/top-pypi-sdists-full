@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_healthlake.type_defs import IdentityProviderConfigurationTypeDef
+    from types_boto3_healthlake.type_defs import AnalyticsConfigurationTypeDef
 
-    data: IdentityProviderConfigurationTypeDef = ...
+    data: AnalyticsConfigurationTypeDef = ...
     ```
 """
 
@@ -22,11 +22,13 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    AnalyticsStatusType,
     AuthorizationStrategyType,
     CmkTypeType,
     DatastoreStatusType,
     ErrorCategoryType,
     JobStatusType,
+    NlpStatusType,
     ValidationLevelType,
 )
 
@@ -37,6 +39,7 @@ else:
 
 
 __all__ = (
+    "AnalyticsConfigurationTypeDef",
     "CreateFHIRDatastoreRequestTypeDef",
     "CreateFHIRDatastoreResponseTypeDef",
     "DatastoreFilterTypeDef",
@@ -68,8 +71,12 @@ __all__ = (
     "ListFHIRImportJobsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "NlpConfigurationTypeDef",
     "OutputDataConfigTypeDef",
     "PreloadDataConfigTypeDef",
+    "ProfileConfigurationOutputTypeDef",
+    "ProfileConfigurationTypeDef",
+    "ProfileConfigurationUnionTypeDef",
     "ResponseMetadataTypeDef",
     "S3ConfigurationTypeDef",
     "SseConfigurationTypeDef",
@@ -81,8 +88,14 @@ __all__ = (
     "TagTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateFHIRDatastoreRequestTypeDef",
+    "UpdateFHIRDatastoreResponseTypeDef",
     "WaiterConfigTypeDef",
 )
+
+
+class AnalyticsConfigurationTypeDef(TypedDict):
+    Status: NotRequired[AnalyticsStatusType]
 
 
 class IdentityProviderConfigurationTypeDef(TypedDict):
@@ -115,6 +128,14 @@ TimestampTypeDef = Union[datetime, str]
 class ErrorCauseTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
     ErrorCategory: NotRequired[ErrorCategoryType]
+
+
+class NlpConfigurationTypeDef(TypedDict):
+    Status: NotRequired[NlpStatusType]
+
+
+class ProfileConfigurationOutputTypeDef(TypedDict):
+    DefaultProfiles: NotRequired[list[str]]
 
 
 class DeleteFHIRDatastoreRequestTypeDef(TypedDict):
@@ -167,6 +188,10 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class S3ConfigurationTypeDef(TypedDict):
     S3Uri: str
     KmsKeyId: str
+
+
+class ProfileConfigurationTypeDef(TypedDict):
+    DefaultProfiles: NotRequired[Sequence[str]]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -271,6 +296,11 @@ class OutputDataConfigTypeDef(TypedDict):
     S3Configuration: NotRequired[S3ConfigurationTypeDef]
 
 
+ProfileConfigurationUnionTypeDef = Union[
+    ProfileConfigurationTypeDef, ProfileConfigurationOutputTypeDef
+]
+
+
 class ListFHIRDatastoresRequestTypeDef(TypedDict):
     Filter: NotRequired[DatastoreFilterTypeDef]
     NextToken: NotRequired[str]
@@ -299,6 +329,9 @@ class DatastorePropertiesTypeDef(TypedDict):
     PreloadDataConfig: NotRequired[PreloadDataConfigTypeDef]
     IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
     ErrorCause: NotRequired[ErrorCauseTypeDef]
+    NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
+    AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
+    ProfileConfiguration: NotRequired[ProfileConfigurationOutputTypeDef]
 
 
 class ExportJobPropertiesTypeDef(TypedDict):
@@ -346,6 +379,15 @@ class StartFHIRImportJobRequestTypeDef(TypedDict):
     ValidationLevel: NotRequired[ValidationLevelType]
 
 
+class UpdateFHIRDatastoreRequestTypeDef(TypedDict):
+    DatastoreId: str
+    DatastoreName: NotRequired[str]
+    AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
+    NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
+    ProfileConfiguration: NotRequired[ProfileConfigurationUnionTypeDef]
+    IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
+
+
 class DescribeFHIRDatastoreResponseTypeDef(TypedDict):
     DatastoreProperties: DatastorePropertiesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -355,6 +397,11 @@ class ListFHIRDatastoresResponseTypeDef(TypedDict):
     DatastorePropertiesList: list[DatastorePropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class UpdateFHIRDatastoreResponseTypeDef(TypedDict):
+    DatastoreProperties: DatastorePropertiesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeFHIRExportJobResponseTypeDef(TypedDict):

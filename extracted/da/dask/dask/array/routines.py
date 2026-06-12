@@ -260,7 +260,7 @@ def rot90(m, k=1, axes=(0, 1)):
         return flip(flip(m, axes[0]), axes[1])
 
     axes_list = list(range(0, m.ndim))
-    (axes_list[axes[0]], axes_list[axes[1]]) = (axes_list[axes[1]], axes_list[axes[0]])
+    axes_list[axes[0]], axes_list[axes[1]] = (axes_list[axes[1]], axes_list[axes[0]])
 
     if k == 1:
         return transpose(flip(m, axes[1]), axes_list)
@@ -1267,7 +1267,7 @@ def histogramdd(sample, bins, range=None, normed=None, weights=None, density=Non
         have an entry for each dimension. Unlike
         :func:`numpy.histogramdd`, if `bins` does not define bin
         edges, this argument is required (this function will not
-        automatically use the min and max of of the value in a given
+        automatically use the min and max of the value in a given
         dimension because the input data may be lazy in dask).
     normed : bool, optional
         An alias for the density argument that behaves identically. To
@@ -1319,7 +1319,7 @@ def histogramdd(sample, bins, range=None, normed=None, weights=None, density=Non
     >>> w = da.random.uniform(0, 1, size=(1000,), chunks=x.chunksize[0])
     >>> h, edges = da.histogramdd(x, bins=bins, range=ranges, weights=w)
     >>> np.isclose(h.sum().compute(), w.sum().compute())
-    True
+    np.True_
 
     Using a sequence of 1D arrays as the input:
 
@@ -1569,7 +1569,7 @@ def cov(
     # Unlike NumPy, these checks don't include:
     #    - if fweights are all integers
     #    - if either fweights or aweights are all non-negative
-    # These checks potientially expensive for distributed arrays.
+    # These checks potentially expensive for distributed arrays.
     w = None
     if fweights is not None:
         fweights = asarray(fweights, dtype=float)
@@ -2356,7 +2356,7 @@ def aligned_coarsen_chunks(chunks: list[int], multiple: int) -> tuple[int, ...]:
     new_chunks = np.array([*new_chunks, *remainder])
     # remove 0-sized chunks
     new_chunks = new_chunks[new_chunks > 0]
-    return tuple(new_chunks)
+    return tuple(new_chunks.tolist())
 
 
 @wraps(chunk.coarsen)

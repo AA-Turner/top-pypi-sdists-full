@@ -312,7 +312,25 @@ def classify_prompt(
     Common path: pure regex. LLM fallback only when regex confidence
     is below threshold AND `generate` is supplied.
     """
+    # Avoid routing web/mobile framework builds to the game pipeline (e.g. `--framework flutter --name game`)
+    # unless a specific game engine is named.
+    has_web_mobile_framework = False
+    try:
+        from sage.core.principal_engineer import STACK_KEYWORDS
+        prompt_lower = prompt.lower()
+        for stack, kws in STACK_KEYWORDS.items():
+            if stack == "game-engine":
+                continue
+            if any(kw in prompt_lower for kw in kws):
+                has_web_mobile_framework = True
+                break
+    except Exception:
+        pass
+
     hit = _scan(prompt)
+    if has_web_mobile_framework and not hit.engine:
+        return "webapp", None
+
     conf = hit.confidence()
 
     # Default target is "web" (the engines' historical default). The

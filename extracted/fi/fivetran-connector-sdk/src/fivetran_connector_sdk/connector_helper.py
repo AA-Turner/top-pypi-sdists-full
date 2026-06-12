@@ -4,6 +4,7 @@ import ast
 import json
 import sys
 import time
+import atexit
 import socket
 import threading
 import platform
@@ -11,7 +12,6 @@ import subprocess
 import requests as rq
 import pathspec
 
-from http import HTTPStatus
 from typing import Optional, Tuple
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -117,6 +117,7 @@ def _get_rss_bytes() -> int:
 
 
 def _monitor_memory():
+    global _peak_rss_bytes
     limit_bytes = constants.MEMORY_LIMIT_BYTES
     logged_rss_failure = False
     # Verify RSS reading works before entering the monitor loop.
@@ -142,7 +143,11 @@ def _monitor_memory():
     while True:
         try:
             rss = _get_rss_bytes()
-            if rss != -1 and rss > limit_bytes:
+            if rss == -1:
+                continue
+            if rss > _peak_rss_bytes:
+                _peak_rss_bytes = rss
+            if rss > limit_bytes:
                 used_gb = rss / (1024 ** 3)
                 print_library_log(
                     f"memory usage of connector code exceeded the allowed limit "
@@ -167,10 +172,22 @@ def _monitor_memory():
                     Logging.Level.WARNING
                 )
                 logged_rss_failure = True
-        time.sleep(1)
+        finally:
+            time.sleep(1)
 
 
 _memory_monitor_started = False
+_peak_rss_bytes = 0
+
+
+def _print_peak_memory():
+    try:
+        if _peak_rss_bytes > 0:
+            peak_gb = _peak_rss_bytes / (1024 ** 3)
+            print_library_log(f"peak memory used by the debug process: {peak_gb:.2f} GB", Logging.Level.INFO)
+    except Exception:
+        pass
+
 
 def apply_memory_limit():
     """Monitors RSS every second and hard-kills the process if it exceeds the limit.
@@ -186,6 +203,12 @@ def apply_memory_limit():
         _memory_monitor_started = True
     except Exception:
         print_library_log("memory limit could not be enforced; debug will continue without memory constraint",
+                          Logging.Level.WARNING)
+        return
+    try:
+        atexit.register(_print_peak_memory)
+    except Exception:
+        print_library_log("peak memory reporting could not be registered; memory limit is still enforced",
                           Logging.Level.WARNING)
 
 

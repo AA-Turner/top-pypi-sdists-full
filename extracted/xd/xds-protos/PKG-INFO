@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xds-protos
-Version: 1.81.0
+Version: 1.81.1
 Summary: Generated Python code from envoyproxy/data-plane-api
 Author-email: The gRPC Authors <grpc-io@googlegroups.com>
 License-Expression: Apache-2.0

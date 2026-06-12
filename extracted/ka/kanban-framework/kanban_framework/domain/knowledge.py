@@ -86,8 +86,6 @@ class KnowledgeManager:
                 _ensure_schema_impl(self._conn)
             from kanban_framework.domain.knowledge_backend import BuiltinBackend
             self._backend = BuiltinBackend(self)
-            import threading
-            threading.Thread(target=_get_jieba, daemon=True).start()
         else:
             _ensure_schema_impl(self._conn)
             _ensure_domains_impl(self._conn)

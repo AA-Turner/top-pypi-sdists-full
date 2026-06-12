@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: kaldialign
-Version: 0.10.0
+Version: 0.11.0
 Summary: Kaldi alignment methods wrapped into Python
 Home-page: https://github.com/pzelasko/kaldialign
 Author: Piotr Żelasko

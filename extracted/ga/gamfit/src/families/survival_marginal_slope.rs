@@ -20530,25 +20530,50 @@ pub fn fit_survival_marginal_slope_terms(
         };
         let n_rows = spec.time_block.design_entry.nrows();
         let preflight = (|| -> Result<(), String> {
+            // The preflight densifies five operator-backed designs
+            // simultaneously to run the parametric cross-block compile.
+            // Without a per-matrix cap, a tensor-product time block at
+            // n=320 000 (e.g. 68 age knots × 8 timewiggle knots) materializes
+            // to ~1.4 GiB per matrix and OOMs the host before the
+            // observability-only diagnostic ever produces a verdict. Cap each
+            // matrix at the strict-mode single-materialization budget
+            // (`ResourcePolicy::analytic_operator_required`); when any block
+            // exceeds it the closure returns `Err` and the surrounding
+            // `warn!`-on-fail handler skips the preflight just like any other
+            // densification refusal — the downstream
+            // `canonicalize_for_identifiability` audit remains the source of
+            // truth for the same diagnostic.
+            const PREFLIGHT_MATERIALIZATION_BUDGET_BYTES: usize = 256 * 1024 * 1024;
             let mut dq0 = spec
                 .time_block
                 .design_entry
-                .try_to_dense_by_chunks("smgs phase-4b preflight time_entry")?;
+                .try_to_dense_by_chunks_budgeted(
+                    "smgs phase-4b preflight time_entry",
+                    PREFLIGHT_MATERIALIZATION_BUDGET_BYTES,
+                )?;
             let mut dq1 = spec
                 .time_block
                 .design_exit
-                .try_to_dense_by_chunks("smgs phase-4b preflight time_exit")?;
+                .try_to_dense_by_chunks_budgeted(
+                    "smgs phase-4b preflight time_exit",
+                    PREFLIGHT_MATERIALIZATION_BUDGET_BYTES,
+                )?;
             let mut dqd1 = spec
                 .time_block
                 .design_derivative_exit
-                .try_to_dense_by_chunks("smgs phase-4b preflight time_deriv")?;
-            let m_dq = marginal_design
-                .design
-                .try_to_dense_by_chunks("smgs phase-4b preflight marginal")?;
+                .try_to_dense_by_chunks_budgeted(
+                    "smgs phase-4b preflight time_deriv",
+                    PREFLIGHT_MATERIALIZATION_BUDGET_BYTES,
+                )?;
+            let m_dq = marginal_design.design.try_to_dense_by_chunks_budgeted(
+                "smgs phase-4b preflight marginal",
+                PREFLIGHT_MATERIALIZATION_BUDGET_BYTES,
+            )?;
             let m_dqd1 = ndarray::Array2::<f64>::zeros(m_dq.dim());
-            let g_dg = logslope_design
-                .design
-                .try_to_dense_by_chunks("smgs phase-4b preflight logslope")?;
+            let g_dg = logslope_design.design.try_to_dense_by_chunks_budgeted(
+                "smgs phase-4b preflight logslope",
+                PREFLIGHT_MATERIALIZATION_BUDGET_BYTES,
+            )?;
             // Channel-aware per-subject Fisher Gram (T8). Pilot primary
             // state at β=0: q0 = offset_entry + marginal_offset, q1 =
             // offset_exit + marginal_offset, qd1 = derivative_offset_exit,
@@ -20915,18 +20940,36 @@ pub fn fit_survival_marginal_slope_terms(
     // Aborting here would defeat the canonical reduction. We emit an info-
     // level diagnostic with the (block, ncols, rank) tuple so the rank-deficit
     // is visible in the log without being fatal.
-    {
+    // The joint rank diagnostic densifies time/marginal/logslope and
+    // stacks them into a single n × p_joint matrix for column-pivoted QR.
+    // At large n the time block alone (n × p_time, where p_time grows
+    // multiplicatively with the time-tensor + timewiggle basis) materializes
+    // to multiple GiB and OOMs the host before the rrqr / W-metric SVD even
+    // starts. The block is explicitly "Diagnostic only" — any rank
+    // deficiency at this point is handled by the canonical-gauge pipeline in
+    // `canonicalize_for_identifiability` (called centrally before the inner
+    // Newton). When the dense footprint exceeds the strict-mode
+    // single-materialization budget we skip the whole block with a `warn!`
+    // and leave the canonical-gauge pipeline as the source of truth, mirror-
+    // ing the smgs phase-4b preflights above.
+    const RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES: usize = 256 * 1024 * 1024;
+    let rank_diagnostic_outcome: Result<(), String> = (|| -> Result<(), String> {
         use crate::linalg::faer_ndarray::rrqr_with_permutation;
         let time_dense = spec
             .time_block
             .design_exit
-            .try_to_dense_by_chunks("survival-marginal-slope joint rank diagnostic time")?;
-        let marginal_dense = marginal_design
-            .design
-            .try_to_dense_by_chunks("survival-marginal-slope joint rank diagnostic marginal")?;
-        let logslope_dense = logslope_design
-            .design
-            .try_to_dense_by_chunks("survival-marginal-slope joint rank diagnostic logslope")?;
+            .try_to_dense_by_chunks_budgeted(
+                "survival-marginal-slope joint rank diagnostic time",
+                RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES,
+            )?;
+        let marginal_dense = marginal_design.design.try_to_dense_by_chunks_budgeted(
+            "survival-marginal-slope joint rank diagnostic marginal",
+            RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES,
+        )?;
+        let logslope_dense = logslope_design.design.try_to_dense_by_chunks_budgeted(
+            "survival-marginal-slope joint rank diagnostic logslope",
+            RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES,
+        )?;
         let score_warp_dense = score_warp_prepared
             .as_ref()
             .map(|sw| sw.runtime.design_at_training_with_residual(&z_primary))
@@ -21035,7 +21078,16 @@ pub fn fit_survival_marginal_slope_terms(
                 columns: m,
             });
         }
-        joint_training_design_preflight(&segments, &spec.weights)?;
+        joint_training_design_preflight(&segments, &spec.weights)
+            .map_err(|e| format!("survival-marginal-slope joint preflight failed: {e}"))?;
+        Ok(())
+    })();
+    if let Err(reason) = rank_diagnostic_outcome {
+        if reason.contains("refusing to densify") {
+            log::warn!("[survival-marginal-slope joint rank diagnostic] skipped: {reason}");
+        } else {
+            return Err(reason);
+        }
     }
     // Penalty seeds for the flex/aux blocks beyond the core (time/marginal/
     // logslope). The absorbed influence block (#461) contributes ONE trailing
@@ -21221,120 +21273,136 @@ pub fn fit_survival_marginal_slope_terms(
         // propagates as Err and skips phase-4b; observability preflight
         // and downstream canonicalize_for_identifiability still gate
         // on the audit.
-        let attempt =
-            (|| -> Result<Option<(CompiledSurvivalDesignsVMExact, Gauge)>, String> {
-                let n_rows = spec.time_block.design_entry.nrows();
-                let p_time = spec.time_block.design_entry.ncols();
-                let p_marg = marginal_design.design.ncols();
-                let p_log = logslope_design.design.ncols();
-                // Single-term partition for the time block: SMGS's time
-                // penalty list is over the full time β (one composite
-                // smoothness penalty), so a single-term partition is
-                // correct here.
-                let time_partition: Vec<std::ops::Range<usize>> =
-                    std::iter::once(0..p_time).collect();
-                let marg_penalty_ranges: Vec<_> = marginal_design
-                    .penalties
-                    .iter()
-                    .map(|p| p.col_range.clone())
-                    .collect();
-                let log_penalty_ranges: Vec<_> = logslope_design
-                    .penalties
-                    .iter()
-                    .map(|p| p.col_range.clone())
-                    .collect();
-                let marginal_partition =
-                    extract_term_partition_from_penalty_ranges(p_marg, &marg_penalty_ranges);
-                let logslope_partition =
-                    extract_term_partition_from_penalty_ranges(p_log, &log_penalty_ranges);
-                // Densify the operator-side designs once.
-                let mut dq0 = spec
-                    .time_block
-                    .design_entry
-                    .try_to_dense_by_chunks("smgs phase-4b active: time_entry")?;
-                let mut dq1 = spec
-                    .time_block
-                    .design_exit
-                    .try_to_dense_by_chunks("smgs phase-4b active: time_exit")?;
-                let mut dqd1 = spec
-                    .time_block
-                    .design_derivative_exit
-                    .try_to_dense_by_chunks("smgs phase-4b active: time_deriv")?;
-                let m_dq = marginal_design
-                    .design
-                    .try_to_dense_by_chunks("smgs phase-4b active: marginal")?;
-                let m_dqd1 = ndarray::Array2::<f64>::zeros(m_dq.dim());
-                let g_dg = logslope_design
-                    .design
-                    .try_to_dense_by_chunks("smgs phase-4b active: logslope")?;
-                // Pilot primary state for the timewiggle Jacobian overwrite
-                // below (offset-only β=0 state: q0 = offset_entry +
-                // marginal_offset, q1 = offset_exit + marginal_offset, qd1 =
-                // derivative_offset_exit, g = logslope_offset). The #808
-                // reduction itself uses the RAW stacked design + the
-                // operating-point row metric `cross_block_pilot_w`, so it does
-                // NOT depend on this pilot primary state; the state is only
-                // needed to evaluate the timewiggle basis geometry when the base
-                // time basis is disabled (`timewiggle(...)`), so the offset-only
-                // state is sufficient and guard-safe.
-                let mut q0_pilot = spec.time_block.offset_entry.clone();
-                let mut q1_pilot = spec.time_block.offset_exit.clone();
-                let qd1_pilot = spec.time_block.derivative_offset_exit.clone();
-                let g_pilot = spec.logslope_offset.clone();
-                for i in 0..n_rows {
-                    q0_pilot[i] += spec.marginal_offset[i];
-                    q1_pilot[i] += spec.marginal_offset[i];
-                }
-                // Replace the zero placeholder timewiggle tail columns with the
-                // analytic basis-derived time Jacobian at the pilot state.
-                // Without this, the time-channel slots are structurally zero
-                // when `timewiggle(...)` disables the base time basis, and the
-                // raw stacked design's time block is degenerate.
-                if let Some(timewiggle) = spec.timewiggle_block.as_ref() {
-                    overwrite_timewiggle_time_slots_at_pilot(
-                        &mut dq0, &mut dq1, &mut dqd1, timewiggle, &q0_pilot, &q1_pilot, &qd1_pilot,
-                    )?;
-                }
+        let attempt = (|| -> Result<Option<(CompiledSurvivalDesignsVMExact, Gauge)>, String> {
+            let n_rows = spec.time_block.design_entry.nrows();
+            let p_time = spec.time_block.design_entry.ncols();
+            let p_marg = marginal_design.design.ncols();
+            let p_log = logslope_design.design.ncols();
+            // Single-term partition for the time block: SMGS's time
+            // penalty list is over the full time β (one composite
+            // smoothness penalty), so a single-term partition is
+            // correct here.
+            let time_partition: Vec<std::ops::Range<usize>> = std::iter::once(0..p_time).collect();
+            let marg_penalty_ranges: Vec<_> = marginal_design
+                .penalties
+                .iter()
+                .map(|p| p.col_range.clone())
+                .collect();
+            let log_penalty_ranges: Vec<_> = logslope_design
+                .penalties
+                .iter()
+                .map(|p| p.col_range.clone())
+                .collect();
+            let marginal_partition =
+                extract_term_partition_from_penalty_ranges(p_marg, &marg_penalty_ranges);
+            let logslope_partition =
+                extract_term_partition_from_penalty_ranges(p_log, &log_penalty_ranges);
+            // Densify the operator-side designs once. Cap each densification
+            // at the strict-mode single-materialization budget so a
+            // tensor-product time block at large n does not OOM the host
+            // before the closure can return Err — phase-4b is gracefully
+            // skipped via the surrounding `warn!`-on-fail match, leaving the
+            // downstream `canonicalize_for_identifiability` audit as the
+            // gate.
+            const ACTIVE_MATERIALIZATION_BUDGET_BYTES: usize = 256 * 1024 * 1024;
+            let mut dq0 = spec
+                .time_block
+                .design_entry
+                .try_to_dense_by_chunks_budgeted(
+                    "smgs phase-4b active: time_entry",
+                    ACTIVE_MATERIALIZATION_BUDGET_BYTES,
+                )?;
+            let mut dq1 = spec
+                .time_block
+                .design_exit
+                .try_to_dense_by_chunks_budgeted(
+                    "smgs phase-4b active: time_exit",
+                    ACTIVE_MATERIALIZATION_BUDGET_BYTES,
+                )?;
+            let mut dqd1 = spec
+                .time_block
+                .design_derivative_exit
+                .try_to_dense_by_chunks_budgeted(
+                    "smgs phase-4b active: time_deriv",
+                    ACTIVE_MATERIALIZATION_BUDGET_BYTES,
+                )?;
+            let m_dq = marginal_design.design.try_to_dense_by_chunks_budgeted(
+                "smgs phase-4b active: marginal",
+                ACTIVE_MATERIALIZATION_BUDGET_BYTES,
+            )?;
+            let m_dqd1 = ndarray::Array2::<f64>::zeros(m_dq.dim());
+            let g_dg = logslope_design.design.try_to_dense_by_chunks_budgeted(
+                "smgs phase-4b active: logslope",
+                ACTIVE_MATERIALIZATION_BUDGET_BYTES,
+            )?;
+            // Pilot primary state for the timewiggle Jacobian overwrite
+            // below (offset-only β=0 state: q0 = offset_entry +
+            // marginal_offset, q1 = offset_exit + marginal_offset, qd1 =
+            // derivative_offset_exit, g = logslope_offset). The #808
+            // reduction itself uses the RAW stacked design + the
+            // operating-point row metric `cross_block_pilot_w`, so it does
+            // NOT depend on this pilot primary state; the state is only
+            // needed to evaluate the timewiggle basis geometry when the base
+            // time basis is disabled (`timewiggle(...)`), so the offset-only
+            // state is sufficient and guard-safe.
+            let mut q0_pilot = spec.time_block.offset_entry.clone();
+            let mut q1_pilot = spec.time_block.offset_exit.clone();
+            let qd1_pilot = spec.time_block.derivative_offset_exit.clone();
+            let g_pilot = spec.logslope_offset.clone();
+            for i in 0..n_rows {
+                q0_pilot[i] += spec.marginal_offset[i];
+                q1_pilot[i] += spec.marginal_offset[i];
+            }
+            // Replace the zero placeholder timewiggle tail columns with the
+            // analytic basis-derived time Jacobian at the pilot state.
+            // Without this, the time-channel slots are structurally zero
+            // when `timewiggle(...)` disables the base time basis, and the
+            // raw stacked design's time block is degenerate.
+            if let Some(timewiggle) = spec.timewiggle_block.as_ref() {
+                overwrite_timewiggle_time_slots_at_pilot(
+                    &mut dq0, &mut dq1, &mut dqd1, timewiggle, &q0_pilot, &q1_pilot, &qd1_pilot,
+                )?;
+            }
 
-                // Closed-form Gram path on the RAW STACKED design (#808).
-                //
-                // History: the 4-channel `build_primary_grams_gpu_or_cpu` view
-                // (marginal→q0/q1, logslope→g) has a structural Gram that is
-                // block-diagonal *by channel*, so marginal⊥logslope structurally
-                // and the overlap is invisible (build-1, no drops). The η₁
-                // row-Jacobian view (build-2) row-scales the SHARED matern basis
-                // by DIFFERENT per-row factors (marginal: c(g); logslope:
-                // q1·c1(g)+s_f·z) which are NOT proportional across rows, so it
-                // *breaks* the raw collinearity and the Gram comes back FULL RANK
-                // (DIAG: W-rank=26/26, alias_dirs=0, despite g_pilot moving to
-                // [0.31,0.54]) — also no drops.
-                //
-                // The alias is a collinearity of the RAW columns: marginal and
-                // logslope share the same `matern(PC1,PC2,PC3)` basis evaluated on
-                // the same PCs, so the raw stacked design `[time_exit | marginal |
-                // logslope]` is genuinely W-rank-deficient (the preflight,
-                // `joint_training_design_preflight`, measures exactly this: rank
-                // 19/26, 7 alias dirs, dominant cols logslope[0,3] +
-                // marginal[1,2,4,5,6]). Detect + reduce in THAT metric: build the
-                // Gram on the raw stacked design weighted by the operating-point
-                // IRLS row metric `cross_block_pilot_w` (the metric the inner
-                // penalised Hessian's near-singularity, cond≈5.8e6, actually
-                // tracks; reduces to the preflight's unweighted SVD when weights
-                // are uniform and the pilot is flat). `compile_from_raw_grams`
-                // then resolves the overlap with cross-block carry (R terms —
-                // keep time+marginal high-priority, reparameterise logslope as the
-                // W-orthogonal complement; NOT the falsified v2 whole-block
-                // deletion). Sound: the raw marginal≈logslope collinearity is a
-                // genuine confound (same PC-surface direction represented in both
-                // the mean and the log-slope channel; the inner cannot separate
-                // them → near-singular H_pen), and cross-block carry is the
-                // standard identifiability resolution, here at the operating-point
-                // W rather than at β=0.
-                {
-                    use crate::families::identifiability_compiler::{
-                        BlockOrder as IdBlockOrder, compile_from_raw_grams,
-                    };
-                    let closed_form = (|| -> Result<
+            // Closed-form Gram path on the RAW STACKED design (#808).
+            //
+            // History: the 4-channel `build_primary_grams_gpu_or_cpu` view
+            // (marginal→q0/q1, logslope→g) has a structural Gram that is
+            // block-diagonal *by channel*, so marginal⊥logslope structurally
+            // and the overlap is invisible (build-1, no drops). The η₁
+            // row-Jacobian view (build-2) row-scales the SHARED matern basis
+            // by DIFFERENT per-row factors (marginal: c(g); logslope:
+            // q1·c1(g)+s_f·z) which are NOT proportional across rows, so it
+            // *breaks* the raw collinearity and the Gram comes back FULL RANK
+            // (DIAG: W-rank=26/26, alias_dirs=0, despite g_pilot moving to
+            // [0.31,0.54]) — also no drops.
+            //
+            // The alias is a collinearity of the RAW columns: marginal and
+            // logslope share the same `matern(PC1,PC2,PC3)` basis evaluated on
+            // the same PCs, so the raw stacked design `[time_exit | marginal |
+            // logslope]` is genuinely W-rank-deficient (the preflight,
+            // `joint_training_design_preflight`, measures exactly this: rank
+            // 19/26, 7 alias dirs, dominant cols logslope[0,3] +
+            // marginal[1,2,4,5,6]). Detect + reduce in THAT metric: build the
+            // Gram on the raw stacked design weighted by the operating-point
+            // IRLS row metric `cross_block_pilot_w` (the metric the inner
+            // penalised Hessian's near-singularity, cond≈5.8e6, actually
+            // tracks; reduces to the preflight's unweighted SVD when weights
+            // are uniform and the pilot is flat). `compile_from_raw_grams`
+            // then resolves the overlap with cross-block carry (R terms —
+            // keep time+marginal high-priority, reparameterise logslope as the
+            // W-orthogonal complement; NOT the falsified v2 whole-block
+            // deletion). Sound: the raw marginal≈logslope collinearity is a
+            // genuine confound (same PC-surface direction represented in both
+            // the mean and the log-slope channel; the inner cannot separate
+            // them → near-singular H_pen), and cross-block carry is the
+            // standard identifiability resolution, here at the operating-point
+            // W rather than at β=0.
+            {
+                use crate::families::identifiability_compiler::{
+                    BlockOrder as IdBlockOrder, compile_from_raw_grams,
+                };
+                let closed_form = (|| -> Result<
                     Option<(
                         crate::families::identifiability_compiler::CompiledMap,
                         (usize, usize, usize),
@@ -21543,97 +21611,91 @@ pub fn fit_survival_marginal_slope_terms(
                         Ok(Some((map, (w_time, w_marg, w_log))))
                     }
                 })();
-                    match closed_form {
-                        Ok(Some((map, (wt, wm, wl)))) => {
-                            let drops = (
-                                p_time.saturating_sub(wt),
-                                p_marg.saturating_sub(wm),
-                                p_log.saturating_sub(wl),
-                            );
-                            // Populate the post-accept recompile context.
-                            // The recompile hook rebuilds from the densified
-                            // matrices at converged β; the initial drops field
-                            // is purely diagnostic.
-                            recompile_ctx = Some(SmgsRecompileAfterAcceptContext {
-                                dq0: dq0.clone(),
-                                dq1: dq1.clone(),
-                                dqd1: dqd1.clone(),
-                                m_dq: m_dq.clone(),
-                                m_dqd1: m_dqd1.clone(),
-                                g_dg: g_dg.clone(),
-                                time_partition: time_partition.clone(),
-                                marginal_partition: marginal_partition.clone(),
-                                logslope_partition: logslope_partition.clone(),
-                                offset_entry: spec.time_block.offset_entry.clone(),
-                                offset_exit: spec.time_block.offset_exit.clone(),
-                                derivative_offset_exit: spec
-                                    .time_block
-                                    .derivative_offset_exit
-                                    .clone(),
-                                z_primary: z_primary.clone(),
-                                weights: spec.weights.clone(),
-                                event: spec.event_target.clone(),
-                                derivative_guard,
-                                probit_scale,
-                                drops_by_block_initial: drops,
-                            });
-                            if drops.0 + drops.1 + drops.2 == 0 {
-                                log::info!(
-                                    "[smgs phase-4b compiled-map] compile_from_raw_grams ok with no drops \
+                match closed_form {
+                    Ok(Some((map, (wt, wm, wl)))) => {
+                        let drops = (
+                            p_time.saturating_sub(wt),
+                            p_marg.saturating_sub(wm),
+                            p_log.saturating_sub(wl),
+                        );
+                        // Populate the post-accept recompile context.
+                        // The recompile hook rebuilds from the densified
+                        // matrices at converged β; the initial drops field
+                        // is purely diagnostic.
+                        recompile_ctx = Some(SmgsRecompileAfterAcceptContext {
+                            dq0: dq0.clone(),
+                            dq1: dq1.clone(),
+                            dqd1: dqd1.clone(),
+                            m_dq: m_dq.clone(),
+                            m_dqd1: m_dqd1.clone(),
+                            g_dg: g_dg.clone(),
+                            time_partition: time_partition.clone(),
+                            marginal_partition: marginal_partition.clone(),
+                            logslope_partition: logslope_partition.clone(),
+                            offset_entry: spec.time_block.offset_entry.clone(),
+                            offset_exit: spec.time_block.offset_exit.clone(),
+                            derivative_offset_exit: spec.time_block.derivative_offset_exit.clone(),
+                            z_primary: z_primary.clone(),
+                            weights: spec.weights.clone(),
+                            event: spec.event_target.clone(),
+                            derivative_guard,
+                            probit_scale,
+                            drops_by_block_initial: drops,
+                        });
+                        if drops.0 + drops.1 + drops.2 == 0 {
+                            log::info!(
+                                "[smgs phase-4b compiled-map] compile_from_raw_grams ok with no drops \
                                  (time {p_time}→{wt}, marginal {p_marg}→{wm}, logslope {p_log}→{wl}); \
                                  production path = compiled_map, skipping apply"
-                                );
-                                return Ok(None);
-                            }
-                            log::info!(
-                                "[smgs phase-4b compiled-map] applying CompiledMap T: \
+                            );
+                            return Ok(None);
+                        }
+                        log::info!(
+                            "[smgs phase-4b compiled-map] applying CompiledMap T: \
                              time {p_time}→{wt}, marginal {p_marg}→{wm}, logslope {p_log}→{wl} \
                              (drops time={}, marginal={}, logslope={}); \
                              production path = compiled_map",
-                                drops.0,
-                                drops.1,
-                                drops.2,
-                            );
-                            let time_pens_bw: Vec<crate::terms::smooth::BlockwisePenalty> = spec
-                                .time_block
-                                .penalties
-                                .iter()
-                                .map(|p| {
-                                    crate::terms::smooth::BlockwisePenalty::new(
-                                        0..p_time,
-                                        p.clone(),
-                                    )
-                                })
-                                .collect();
-                            let applied: CompiledSurvivalDesignsVMExact =
-                                apply_compiled_map_to_designs(
-                                    &map,
-                                    spec.time_block.design_entry.clone(),
-                                    spec.time_block.design_exit.clone(),
-                                    spec.time_block.design_derivative_exit.clone(),
-                                    marginal_design.design.clone(),
-                                    logslope_design.design.clone(),
-                                    &time_pens_bw,
-                                    &marginal_design.penalties,
-                                    &logslope_design.penalties,
-                                )?;
-                            let ordering = [
-                                IdBlockOrder::Time,
-                                IdBlockOrder::Marginal,
-                                IdBlockOrder::Logslope,
-                            ];
-                            let lift = Gauge::from_compiled_map(&map, &ordering);
-                            return Ok(Some((applied, lift)));
-                        }
-                        Ok(None) => {
-                            return Ok(None);
-                        }
-                        Err(reason) => {
-                            return Err(format!("closed-form path unavailable: {reason}"));
-                        }
+                            drops.0,
+                            drops.1,
+                            drops.2,
+                        );
+                        let time_pens_bw: Vec<crate::terms::smooth::BlockwisePenalty> = spec
+                            .time_block
+                            .penalties
+                            .iter()
+                            .map(|p| {
+                                crate::terms::smooth::BlockwisePenalty::new(0..p_time, p.clone())
+                            })
+                            .collect();
+                        let applied: CompiledSurvivalDesignsVMExact =
+                            apply_compiled_map_to_designs(
+                                &map,
+                                spec.time_block.design_entry.clone(),
+                                spec.time_block.design_exit.clone(),
+                                spec.time_block.design_derivative_exit.clone(),
+                                marginal_design.design.clone(),
+                                logslope_design.design.clone(),
+                                &time_pens_bw,
+                                &marginal_design.penalties,
+                                &logslope_design.penalties,
+                            )?;
+                        let ordering = [
+                            IdBlockOrder::Time,
+                            IdBlockOrder::Marginal,
+                            IdBlockOrder::Logslope,
+                        ];
+                        let lift = Gauge::from_compiled_map(&map, &ordering);
+                        return Ok(Some((applied, lift)));
+                    }
+                    Ok(None) => {
+                        return Ok(None);
+                    }
+                    Err(reason) => {
+                        return Err(format!("closed-form path unavailable: {reason}"));
                     }
                 }
-            })();
+            }
+        })();
         match attempt {
             Ok(Some((applied, lift))) => {
                 // V+M-exact compiled .design swapped into clones of the

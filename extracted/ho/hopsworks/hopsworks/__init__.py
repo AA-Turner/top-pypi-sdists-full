@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import getpass
+import importlib
 import logging
 import os
 import sys
@@ -24,9 +25,6 @@ import warnings
 from pathlib import Path
 from typing import Literal
 
-from hopsworks.connection import Connection
-from hopsworks.core import project_api, secret_api
-from hopsworks.decorators import NoHopsworksConnectionError
 from hopsworks_apigen import public
 from hopsworks_common import client, constants, project, usage, version
 from hopsworks_common.client.exceptions import (
@@ -35,31 +33,29 @@ from hopsworks_common.client.exceptions import (
     RestAPIError,
 )
 from hopsworks_common.constants import CLIENT
+
+# Lightweight imports happen eagerly. Heavy submodules (`hsfs`, `hsml`,
+# `hopsworks.connection`, …) are loaded on first attribute access via the
+# PEP 562 ``__getattr__`` below. This keeps ``import hopsworks`` cheap for
+# entry points (the ``hops`` CLI, dependent libraries' import-time checks)
+# that don't need the full feature-store / model-registry surface area.
+from hopsworks_common.core import env_var_api, project_api, secret_api
+from hopsworks_common.decorators import NoHopsworksConnectionError
 from requests.exceptions import SSLError
 
 
-# Needs to run before import of hsml and hsfs
+# Needs to run before import of hsml and hsfs (consumed transitively by some
+# clients that explicitly do ``import hopsworks; hopsworks.hsfs``).
 warnings.filterwarnings(action="ignore", category=UserWarning, module=r".*psycopg2")
-
-import hsfs  # noqa: E402
-import hsml  # noqa: E402
-
-
-sys.modules["hopsworks.hsfs"] = hsfs
-sys.modules["hopsworks.hsml"] = hsml
 
 
 __version__ = version.__version__
 
-connection = Connection.connection
-
-_hw_connection = Connection.connection
 
 _connected_project = None
 _secrets_api = None
+_env_vars_api = None
 _project_api = None
-
-udf = hsfs.hopsworks_udf.udf
 
 
 def hw_formatwarning(message, category, filename, lineno, line=None):
@@ -70,10 +66,131 @@ warnings.formatwarning = hw_formatwarning
 
 __all__ = ["connection", "udf"]
 
+
+# ─── Lazy attribute resolution ───────────────────────────────────────────────
+# Map name → factory. Factories are callables so we can side-effect
+# ``sys.modules`` for ``hopsworks.hsfs`` / ``hopsworks.hsml`` aliases on first
+# touch, matching the previous behaviour of the eager imports.
+
+
+def _load_hsfs():  # type: ignore[no-untyped-def]
+    mod = importlib.import_module("hsfs")
+    sys.modules.setdefault("hopsworks.hsfs", mod)
+    return mod
+
+
+def _load_hsml():  # type: ignore[no-untyped-def]
+    mod = importlib.import_module("hsml")
+    sys.modules.setdefault("hopsworks.hsml", mod)
+    return mod
+
+
+def _load_connection_class():  # type: ignore[no-untyped-def]
+    from hopsworks_common.connection import Connection
+
+    return Connection
+
+
+def _load_build_spark():  # type: ignore[no-untyped-def]
+    from hopsworks.spark import build_spark  # noqa: F401
+
+    return build_spark
+
+
+_LAZY = {
+    "hsfs": _load_hsfs,
+    "hsml": _load_hsml,
+    "Connection": _load_connection_class,
+    "build_spark": _load_build_spark,
+    "connection": lambda: _load_connection_class()._connection,
+    # ``udf`` is the public entry point for hopsworks UDFs; pulling it through
+    # ``hsfs`` keeps the lazy-load path consistent.
+    "udf": lambda: _load_hsfs().hopsworks_udf.udf,
+}
+
+
+def __getattr__(name):  # type: ignore[no-untyped-def]
+    """PEP 562 lazy attribute access.
+
+    ``import hopsworks`` no longer triggers ``hsfs`` / ``hsml`` /
+    ``great_expectations``; the first time anyone reads
+    ``hopsworks.connection`` / ``hopsworks.udf`` / ``hopsworks.hsfs`` /
+    ``hopsworks.hsml``, the relevant module is imported and cached on the
+    package object so subsequent accesses are free.
+    """
+    factory = _LAZY.get(name)
+    if factory is None:
+        raise AttributeError(f"module 'hopsworks' has no attribute {name!r}")
+    value = factory()
+    # Cache so subsequent attribute lookups skip ``__getattr__`` entirely.
+    globals()[name] = value
+    return value
+
+
+# PEP 562 ``__getattr__`` only fires on attribute access, not when the import
+# machinery resolves a dotted module path. Without this finder,
+# ``from hopsworks.hsfs.builtin_transformations import X`` raises
+# ``ModuleNotFoundError: No module named 'hopsworks.hsfs'`` — the public
+# ``hopsworks.hsfs[.*]`` / ``hopsworks.hsml[.*]`` aliases have been supported
+# since #292 (Aug 2024) and downstream code (e.g. loadtest, customer notebooks)
+# depends on them. A meta-path finder restores the alias contract while keeping
+# the lazy goal: ``hsfs`` / ``hsml`` are only imported when something actually
+# references them, not on ``import hopsworks``.
+import importlib.util  # noqa: E402
+
+
+_ALIAS_TO_REAL = {"hopsworks.hsfs": "hsfs", "hopsworks.hsml": "hsml"}
+
+
+class _AliasLoader:
+    """No-op loader that hands back an already-executed module."""
+
+    def __init__(self, real_module):  # type: ignore[no-untyped-def]
+        self._real = real_module
+
+    def create_module(self, spec):  # type: ignore[no-untyped-def]
+        return self._real
+
+    def exec_module(self, module):  # type: ignore[no-untyped-def]
+        pass  # real module was already executed by importlib.import_module
+
+
+class _HsfsHsmlAliasFinder:
+    """Route ``hopsworks.hsfs[.*]`` and ``hopsworks.hsml[.*]`` to the real packages."""
+
+    def find_spec(self, fullname, path=None, target=None):  # type: ignore[no-untyped-def]
+        for alias, real in _ALIAS_TO_REAL.items():
+            if fullname == alias or fullname.startswith(alias + "."):
+                real_name = real + fullname[len(alias) :]
+                real_mod = importlib.import_module(real_name)
+                return importlib.util.spec_from_loader(fullname, _AliasLoader(real_mod))
+        return None
+
+
+# Append (not prepend) so the standard ``PathFinder`` and pytest's assertion
+# rewriter still run first for ordinary modules; our finder only fires for the
+# two alias namespaces, which no real on-disk subpackage shadows.
+if not any(isinstance(f, _HsfsHsmlAliasFinder) for f in sys.meta_path):
+    sys.meta_path.append(_HsfsHsmlAliasFinder())
+
+
+def _make_connection(*args, **kwargs):  # type: ignore[no-untyped-def]
+    """Factory: create a new Connection via the lazy-loaded Connection class."""
+    return _load_connection_class()._connection(*args, **kwargs)
+
+
+# Holds the active Connection instance after login(); points to _make_connection
+# when logged out so the login() flow can always call _hw_connection(...) to
+# create a fresh connection regardless of prior auth state.
+_hw_connection = _make_connection
+
+# Logs go to stderr so stdout carries only a command's payload.
+# A library writing INFO to stdout breaks any caller that parses stdout (the
+# `hops` CLI `--json` output, shell pipelines): the banner lands in the data.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s: %(message)s",
-    stream=sys.stdout,
+    stream=sys.stderr,
 )
 
 
@@ -164,7 +281,7 @@ def login(
         _hw_connection = _hw_connection(
             hostname_verification=hostname_verification, engine=engine
         )
-        _connected_project = _hw_connection.get_project()
+        _connected_project = _hw_connection._get_project()
         _initialize_module_apis()
         print("\nLogged in to project, explore it here " + _connected_project.get_url())
         return _connected_project
@@ -379,24 +496,27 @@ def _prompt_project(valid_connection, project, is_saas):
             raise ProjectException(f"Could not find project {project}") from x
 
 
+@public
 def logout():
     """Cleans up and closes the connection for hopsworks."""
     global _hw_connection
     global _project_api
     global _secrets_api
+    global _env_vars_api
 
     if _is_connection_active():
-        _hw_connection.close()
+        _hw_connection._close()
 
-    client.stop()
+    client._stop()
     _project_api = None
     _secrets_api = None
-    _hw_connection = Connection.connection
+    _env_vars_api = None
+    _hw_connection = _make_connection
 
 
 def _is_connection_active():
     global _hw_connection
-    return isinstance(_hw_connection, Connection)
+    return isinstance(_hw_connection, _load_connection_class())
 
 
 @public
@@ -424,13 +544,18 @@ def get_current_project() -> project.Project:
 def _initialize_module_apis():
     global _project_api
     global _secrets_api
+    global _env_vars_api
     _project_api = project_api.ProjectApi()
     _secrets_api = secret_api.SecretsApi()
+    _env_vars_api = env_var_api.EnvVarsApi()
 
 
 @public
 def create_project(
-    name: str, description: str | None = None, feature_store_topic: str | None = None
+    name: str,
+    description: str | None = None,
+    feature_store_topic: str | None = None,
+    namespace: str | None = None,
 ) -> project.Project | None:
     """Create a new project.
 
@@ -447,6 +572,8 @@ def create_project(
         name: The name of the project.
         description: Description of the project.
         feature_store_topic: Feature store topic name.
+        namespace: Kubernetes namespace to use for the project. If ``None`` the
+            backend derives one from the project name.
 
     Returns:
         The Project object to perform operations on.
@@ -458,7 +585,7 @@ def create_project(
         raise NoHopsworksConnectionError
 
     new_project = _hw_connection._project_api._create_project(
-        name, description, feature_store_topic
+        name, description, feature_store_topic, namespace
     )
     if _connected_project is None:
         _connected_project = new_project
@@ -487,15 +614,40 @@ def get_secrets_api() -> secret_api.SecretsApi:
     return _secrets_api
 
 
+@public
+def get_env_vars_api() -> env_var_api.EnvVarsApi:
+    """Get the environment variables api.
+
+    Returns:
+        The environment variables API handle.
+    """
+    global _env_vars_api
+    if not _is_connection_active():
+        raise NoHopsworksConnectionError
+    return _env_vars_api
+
+
 def _set_active_project(project):
-    _client = client.get_instance()
+    _client = client._get_instance()
     if _client._is_external():
-        _client.provide_project(project.name)
+        _client._provide_project(project.name)
 
 
+@public
 def disable_usage_logging():
-    usage.disable()
+    """Disable anonymous usage logging for this SDK session.
+
+    Usage logging is already disabled by default; call this to be explicit or
+    after it has been enabled elsewhere.
+    """
+    usage._disable()
 
 
-def get_sdk_info():
-    return usage.get_env()
+@public
+def get_sdk_info() -> str:
+    """Return the environment information the SDK reports for usage logging.
+
+    Returns:
+        A JSON string describing the SDK and runtime environment.
+    """
+    return usage._get_env()

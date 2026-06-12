@@ -183,7 +183,8 @@ root ::= ("[" [ \n\t]* (basic_integer [ \n\t]* "," [ \n\t]* basic_integer) ([ \n
         },
         basic_json_rules_ebnf
         + r"""root_addl ::= basic_number | basic_string | basic_boolean | basic_null | basic_array | basic_object
-root_part_1 ::= ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* root_addl)*
+root_addl_key ::= ["] (("\"" | [^bf\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "b" ("\"" | [^a\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "a" ("\"" | [^r\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "r" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))) | "f" ("\"" | [^o\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "o" ("\"" | [^o\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "o" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))))) (= [ \n\t]* [,}\]:])
+root_part_1 ::= ([ \n\t]* "," [ \n\t]* root_addl_key [ \n\t]* ":" [ \n\t]* root_addl)*
 root_part_0 ::= [ \n\t]* "," [ \n\t]* "\"bar\"" [ \n\t]* ":" [ \n\t]* basic_integer root_part_1
 root ::= "{" [ \n\t]* (("\"foo\"" [ \n\t]* ":" [ \n\t]* basic_integer root_part_0)) [ \n\t]* "}"
 """,
@@ -241,6 +242,21 @@ root ::= "{" "" (("\"bars\"" ": " root_prop_0 root_part_0)) "" "}"
     instance = MainModel(foo="a", values=1, bars="a", str_values='a\n\r"', field=Field.FOO)
     check_schema_with_grammar(schema, ebnf_grammar, any_whitespace=False)
     check_schema_with_instance(schema, instance, any_whitespace=False)
+
+
+def test_empty_enum_rejected():
+    """Empty enum [] should raise error, not produce invalid grammar."""
+    schema_obj = '{"type":"object","properties":{"x":{"type":"string","enum":[]}},"required":["x"]}'
+    with pytest.raises(RuntimeError):
+        xgr.Grammar.from_json_schema(schema_obj)
+
+    schema_str = '{"type":"string","enum":[]}'
+    with pytest.raises(RuntimeError):
+        xgr.Grammar.from_json_schema(schema_str)
+
+    schema_int = '{"type":"integer","enum":[]}'
+    with pytest.raises(RuntimeError):
+        xgr.Grammar.from_json_schema(schema_int)
 
 
 def test_optional():
@@ -307,10 +323,11 @@ def test_all_optional_non_strict():
 
     ebnf_grammar_non_strict = basic_json_rules_ebnf_no_space + (
         r"""root_addl ::= basic_number | basic_string | basic_boolean | basic_null | basic_array | basic_object
-root_part_2 ::= (", " basic_string ": " root_addl)*
+root_addl_key ::= ["] (("\"" | [^ns\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "n" ("\"" | [^u\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "u" ("\"" | [^m\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "m" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))) | "s" ("\"" | [^it\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "i" ("\"" | [^z\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "z" ("\"" | [^e\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "e" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))) | "t" ("\"" | [^a\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "a" ("\"" | [^t\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "t" ("\"" | [^e\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "e" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))))))) (= [ \n\t]* [,}\]:])
+root_part_2 ::= (", " root_addl_key ": " root_addl)*
 root_part_1 ::= root_part_2 | ", " "\"num\"" ": " basic_number root_part_2
 root_part_0 ::= root_part_1 | ", " "\"state\"" ": " basic_boolean root_part_1
-root ::= ("{" "" (("\"size\"" ": " basic_integer root_part_0) | ("\"state\"" ": " basic_boolean root_part_1) | ("\"num\"" ": " basic_number root_part_2) | basic_string ": " root_addl root_part_2) "" "}") | "{" "}"
+root ::= ("{" "" (("\"size\"" ": " basic_integer root_part_0) | ("\"state\"" ": " basic_boolean root_part_1) | ("\"num\"" ": " basic_number root_part_2) | root_addl_key ": " root_addl root_part_2) "" "}") | "{" "}"
 """
     )
 
@@ -528,15 +545,31 @@ def test_reference_schema():
     }
     instance_circular_complex = {
         # fmt: off
-        "value": {"name": "root", "next": {
-            "id": 1, "child": {"name": "level1", "next": {
-                "id": 2, "child": {"name": "level2", "next": {
-                    "id": 3, "child": {"name": "level3", "next": {
-                        "id": 4, "child": {"name": "level4", "next": {"id": 5}}
-                    }}
-                }}
-            }}
-        }}
+        "value": {
+            "name": "root",
+            "next": {
+                "id": 1,
+                "child": {
+                    "name": "level1",
+                    "next": {
+                        "id": 2,
+                        "child": {
+                            "name": "level2",
+                            "next": {
+                                "id": 3,
+                                "child": {
+                                    "name": "level3",
+                                    "next": {
+                                        "id": 4,
+                                        "child": {"name": "level4", "next": {"id": 5}},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
         # fmt: on
     }
     instance_circular_rejected = {
@@ -757,7 +790,8 @@ root ::= "{" [ \n\t]* (("\"value\"" [ \n\t]* ":" [ \n\t]* basic_string root_part
         r"""root_prop_1 ::= (("[" [ \n\t]* basic_integer ([ \n\t]* "," [ \n\t]* basic_integer)* [ \n\t]* "]") | ("[" [ \n\t]* "]"))
 root_prop_2 ::= ("{" [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_integer ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* basic_integer)* [ \n\t]* "}") | "{" [ \n\t]* "}"
 root_addl ::= basic_number | basic_string | basic_boolean | basic_null | basic_array | basic_object
-root_part_2 ::= ([ \n\t]* "," [ \n\t]* basic_string [ \n\t]* ":" [ \n\t]* root_addl)*
+root_addl_key ::= ["] (("\"" | [^aov\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "a" ("\"" | [^r\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "r" ("\"" | [^r\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "r" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))) | "o" ("\"" | [^b\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "b" ("\"" | [^j\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "j" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))) | "v" ("\"" | [^a\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "a" ("\"" | [^l\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "l" ("\"" | [^u\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "u" ("\"" | [^e\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub | "e" ([^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub))))))) (= [ \n\t]* [,}\]:])
+root_part_2 ::= ([ \n\t]* "," [ \n\t]* root_addl_key [ \n\t]* ":" [ \n\t]* root_addl)*
 root_part_1 ::= [ \n\t]* "," [ \n\t]* "\"obj\"" [ \n\t]* ":" [ \n\t]* root_prop_2 root_part_2
 root_part_0 ::= [ \n\t]* "," [ \n\t]* "\"arr\"" [ \n\t]* ":" [ \n\t]* root_prop_1 root_part_1
 root ::= "{" [ \n\t]* (("\"value\"" [ \n\t]* ":" [ \n\t]* basic_string root_part_0)) [ \n\t]* "}"
@@ -1489,6 +1523,70 @@ def test_object_error_handle():
     )
 
 
+def test_additional_properties_type_enforcement():
+    """Regression test for #208: additionalProperties: true must still
+    enforce declared types for defined (non-required) properties."""
+
+    # Case 1: additionalProperties: true + empty required + wrong type -> REJECT
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}},
+        "additionalProperties": True,
+        "required": [],
+    }
+    check_schema_with_instance(
+        schema, '{"a": "wrong"}', is_accepted=False, any_whitespace=False, strict_mode=False
+    )
+
+    # Case 2: Same schema + correct type -> ACCEPT
+    check_schema_with_instance(
+        schema, '{"a": 42}', is_accepted=True, any_whitespace=False, strict_mode=False
+    )
+
+    # Case 3: Same schema + truly additional property (unknown key) -> ACCEPT
+    check_schema_with_instance(
+        schema, '{"b": "anything"}', is_accepted=True, any_whitespace=False, strict_mode=False
+    )
+
+    # Case 4: Defined prop correct type + additional prop -> ACCEPT
+    check_schema_with_instance(
+        schema,
+        '{"a": 42, "extra": "val"}',
+        is_accepted=True,
+        any_whitespace=False,
+        strict_mode=False,
+    )
+
+    # Case 5: Multiple defined properties, partial required, wrong type on non-required -> REJECT
+    schema2 = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "age": {"type": "integer"}},
+        "additionalProperties": True,
+        "required": ["name"],
+    }
+    check_schema_with_instance(
+        schema2,
+        '{"name": "Alice", "age": "twenty"}',
+        is_accepted=False,
+        any_whitespace=False,
+        strict_mode=False,
+    )
+
+    # Case 6: Same schema + correct types -> ACCEPT
+    check_schema_with_instance(
+        schema2,
+        '{"name": "Alice", "age": 30}',
+        is_accepted=True,
+        any_whitespace=False,
+        strict_mode=False,
+    )
+
+    # Case 7: Empty object should be accepted (no required properties in schema 1)
+    check_schema_with_instance(
+        schema, "{}", is_accepted=True, any_whitespace=False, strict_mode=False
+    )
+
+
 def test_generate_range_regex():
     # Basic range tests
     assert _generate_range_regex(12, 16) == r"^((1[2-6]))$"
@@ -2158,36 +2256,59 @@ def test_generate_float_regex():
 
     assert (
         _generate_float_regex(1.5, 5.75)
-        == r"^(1.5|5.75|(([2-4]))(\.\d{1,6})?|1\.6\d{0,5}|1\.7\d{0,5}|1\.8\d{0,5}|1\.9\d{0,5}|5\.0\d{0,5}|5\.1\d{0,5}|5\.2\d{0,5}|5\.3\d{0,5}|5\.4\d{0,5}|5\.5\d{0,5}|5\.6\d{0,5}|5\.70\d{0,4}|5\.71\d{0,4}|5\.72\d{0,4}|5\.73\d{0,4}|5\.74\d{0,4})$"
+        == r"^(1\.5|5\.75|(([2-4]))(\.\d{1,6})?|1\.6\d{0,5}|1\.7\d{0,5}|1\.8\d{0,5}|1\.9\d{0,5}|5\.0\d{0,5}|5\.1\d{0,5}|5\.2\d{0,5}|5\.3\d{0,5}|5\.4\d{0,5}|5\.5\d{0,5}|5\.6\d{0,5}|5\.70\d{0,4}|5\.71\d{0,4}|5\.72\d{0,4}|5\.73\d{0,4}|5\.74\d{0,4})$"
     )
 
     assert (
         _generate_float_regex(-3.14, 2.71828)
-        == r"^(-3.14|2.71828|(-([1-3])|0|(1))(\.\d{1,6})?|-3\.0\d{0,5}|-3\.10\d{0,4}|-3\.11\d{0,4}|-3\.12\d{0,4}|-3\.13\d{0,4}|2\.0\d{0,5}|2\.1\d{0,5}|2\.2\d{0,5}|2\.3\d{0,5}|2\.4\d{0,5}|2\.5\d{0,5}|2\.6\d{0,5}|2\.70\d{0,4}|2\.710\d{0,3}|2\.711\d{0,3}|2\.712\d{0,3}|2\.713\d{0,3}|2\.714\d{0,3}|2\.715\d{0,3}|2\.716\d{0,3}|2\.717\d{0,3}|2\.7180\d{0,2}|2\.7181\d{0,2}|2\.71820\d{0,1}|2\.71821\d{0,1}|2\.71822\d{0,1}|2\.71823\d{0,1}|2\.71824\d{0,1}|2\.71825\d{0,1}|2\.71826\d{0,1}|2\.71827\d{0,1})$"
+        == r"^(-3\.14|2\.71828|(-([1-3])|0|(1))(\.\d{1,6})?|-3\.0\d{0,5}|-3\.10\d{0,4}|-3\.11\d{0,4}|-3\.12\d{0,4}|-3\.13\d{0,4}|2\.0\d{0,5}|2\.1\d{0,5}|2\.2\d{0,5}|2\.3\d{0,5}|2\.4\d{0,5}|2\.5\d{0,5}|2\.6\d{0,5}|2\.70\d{0,4}|2\.710\d{0,3}|2\.711\d{0,3}|2\.712\d{0,3}|2\.713\d{0,3}|2\.714\d{0,3}|2\.715\d{0,3}|2\.716\d{0,3}|2\.717\d{0,3}|2\.7180\d{0,2}|2\.7181\d{0,2}|2\.71820\d{0,1}|2\.71821\d{0,1}|2\.71822\d{0,1}|2\.71823\d{0,1}|2\.71824\d{0,1}|2\.71825\d{0,1}|2\.71826\d{0,1}|2\.71827\d{0,1})$"
     )
 
     assert (
         _generate_float_regex(0.5, None)
-        == r"^(0.5|0\.6\d{0,5}|0\.7\d{0,5}|0\.8\d{0,5}|0\.9\d{0,5}|([1-9]|[1-9]\d*)(\.\d{1,6})?)$"
+        == r"^(0\.5|0\.6\d{0,5}|0\.7\d{0,5}|0\.8\d{0,5}|0\.9\d{0,5}|([1-9]|[1-9]\d*)(\.\d{1,6})?)$"
     )
 
     assert (
         _generate_float_regex(None, -1.5)
-        == r"^(-1.5|-1\.6\d{0,5}|-1\.7\d{0,5}|-1\.8\d{0,5}|-1\.9\d{0,5}|(-[3-9]|-[1-9]\d*)(\.\d{1,6})?)$"
+        == r"^(-1\.5|-1\.6\d{0,5}|-1\.7\d{0,5}|-1\.8\d{0,5}|-1\.9\d{0,5}|(-[3-9]|-[1-9]\d*)(\.\d{1,6})?)$"
     )
 
     assert _generate_float_regex(None, None) == r"^-?\d+(\.\d{1,6})?$"
 
-    assert _generate_float_regex(3.14159, 3.14159) == r"^(3.14159)$"
+    assert _generate_float_regex(3.14159, 3.14159) == r"^(3\.14159)$"
 
     assert _generate_float_regex(10.5, 2.5) == r"^()$"
 
-    assert _generate_float_regex(5.123456, 5.123457) == r"^(5.123456|5.123457)$"
+    assert _generate_float_regex(5.123456, 5.123457) == r"^(5\.123456|5\.123457)$"
 
     assert (
         _generate_float_regex(-0.000001, 0.000001)
-        == r"^(-0.000001|0.000001|-0\.000000\d{0,0}|0\.000000\d{0,0})$"
+        == r"^(-0\.000001|0\.000001|-0\.000000\d{0,0}|0\.000000\d{0,0})$"
     )
+
+
+def test_float_minimum_no_wildcard_in_grammar():
+    """Float minimum/maximum boundary values should not produce regex wildcard in grammar."""
+    schema = '{"type":"number","minimum":0.5}'
+    grammar = xgr.Grammar.from_json_schema(schema)
+    grammar_str = str(grammar)
+    # The root rule should use literal "." not wildcard [\0-\U0010ffff]
+    for line in grammar_str.split("\n"):
+        if line.startswith("root"):
+            assert "[\\0-\\U0010ffff]" not in line, f"Wildcard found in: {line}"
+
+    schema2 = '{"type":"number","maximum":9.5}'
+    grammar2 = xgr.Grammar.from_json_schema(schema2)
+    for line in str(grammar2).split("\n"):
+        if line.startswith("root"):
+            assert "[\\0-\\U0010ffff]" not in line, f"Wildcard found in: {line}"
+
+    schema3 = '{"type":"number","minimum":0.5,"maximum":9.5}'
+    grammar3 = xgr.Grammar.from_json_schema(schema3)
+    for line in str(grammar3).split("\n"):
+        if line.startswith("root"):
+            assert "[\\0-\\U0010ffff]" not in line, f"Wildcard found in: {line}"
 
 
 def test_limited_whitespace_cnt():
@@ -2273,6 +2394,38 @@ def test_utf8_string_in_const():
     schema = {"const": "常数constじょうすう\n\r\t"}
     grammar = xgr.Grammar.from_json_schema(schema)
     assert _is_grammar_accept_string(grammar, '"常数constじょうすう\\n\\r\\t"')
+
+
+def test_control_char_in_property_key():
+    vocab = [bytes([i]) for i in range(256)]
+    metadata = json.dumps(
+        {
+            "vocab_type": 0,
+            "vocab_size": 256,
+            "prepend_space_in_tokenization": False,
+            "add_prefix_space": False,
+            "stop_token_ids": [0],
+        }
+    )
+    tokenizer_info = xgr.TokenizerInfo.from_vocab_and_metadata(vocab, metadata)
+    schema = {
+        "type": "object",
+        "properties": {"key\x01ctrl": {"type": "string"}},
+        "required": ["key\x01ctrl"],
+    }
+
+    compiler = xgr.GrammarCompiler(tokenizer_info)
+    grammar = compiler.compile_json_schema(json.dumps(schema))
+
+    matcher = xgr.GrammarMatcher(grammar)
+    for token_id in b'{"key':
+        assert matcher.accept_token(token_id)
+    assert not matcher.accept_token(1)
+
+    matcher = xgr.GrammarMatcher(grammar)
+    for token_id in b'{"key':
+        assert matcher.accept_token(token_id)
+    assert matcher.accept_token(ord("\\"))
 
 
 def test_utf8_object_array_in_enum():

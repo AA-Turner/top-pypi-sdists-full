@@ -70,6 +70,64 @@ def build_editable_install_commands(editable_paths: list[str]) -> list[str]:
     return cmds
 
 
+# VM setup commands shared by the chronos dev and test runners.
+ENSURE_FUSE3_COMMAND = (
+    "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1"
+)
+DISCOVER_WORLD_PACKAGES_COMMAND = (
+    'python3 -c "import importlib.metadata; '
+    "eps = importlib.metadata.entry_points(group='plato.worlds'); "
+    "print(' '.join(set(ep.dist.name for ep in eps)))\" 2>/dev/null || true"
+)
+CLEAN_WORLD_BUILD_ARTIFACTS_COMMAND = "rm -rf /world/dist /world/*.egg-info /world/src/*.egg-info /world/build"
+
+WORLD_DEPS_REQUIREMENTS_PATH = "/tmp/plato-world-deps.txt"
+WORLD_DEPS_CONSTRAINTS_PATH = "/tmp/plato-world-deps-constraints.txt"
+
+# Never (re)install these from the world's dependency list: the editable /sdk
+# install must not be replaced by a PyPI wheel.
+_WORLD_DEPS_EXCLUDED = ("plato-sdk-v2", "plato-sdk")
+
+
+def build_world_deps_sync_command(world_path: str = "/world") -> str:
+    """Build a uv command that installs the world's declared runtime deps.
+
+    Editable world installs use --no-deps (deps are pre-baked in the image),
+    so a dependency added to pyproject.toml after the image was built is
+    missing in dev mode. This reads the synced pyproject on the VM, drops
+    plato-sdk packages, and installs the rest — a no-op when already
+    satisfied.
+
+    The install is constrained to the currently installed plato-sdk version
+    so a transitive dependency on the SDK can't replace the editable /sdk
+    (or silently upgrade a baked) install with a PyPI wheel; a genuinely
+    conflicting transitive constraint fails the resolve loudly instead.
+    """
+    excluded = ", ".join(f"'{name}'" for name in _WORLD_DEPS_EXCLUDED)
+    script = f"""
+import re, tomllib, importlib.metadata
+deps = tomllib.load(open('{world_path}/pyproject.toml', 'rb')).get('project', {{}}).get('dependencies', [])
+name = lambda d: re.split(r'[\\[<>=!~;@ ]', d.strip(), maxsplit=1)[0].lower().replace('_', '-')
+excluded = {{{excluded}}}
+out = '\\n'.join(d for d in deps if name(d) not in excluded)
+if out:
+    print(out)
+pins = []
+for p in sorted(excluded):
+    try:
+        pins.append(p + '==' + importlib.metadata.version(p))
+    except Exception:
+        pass
+open('{WORLD_DEPS_CONSTRAINTS_PATH}', 'w').write(''.join(p + '\\n' for p in pins))
+"""
+    return _with_vm_path(
+        f"{VENV_PYTHON} -c {shlex.quote(script)} > {WORLD_DEPS_REQUIREMENTS_PATH} && "
+        f"if test -s {WORLD_DEPS_REQUIREMENTS_PATH}; then "
+        f"uv pip install --python {VENV_PYTHON} -r {WORLD_DEPS_REQUIREMENTS_PATH} "
+        f"-c {WORLD_DEPS_CONSTRAINTS_PATH} -q; fi"
+    )
+
+
 def build_editable_sdk_install_command(package_name: str, version: str | None, sdk_path: str = "/sdk") -> str:
     """Build the uv commands to install editable SDK plus a published agent package.
 

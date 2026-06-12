@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from hsfs import feature_group as fg
     from hsfs.core import data_source_data as dsd
     from hsfs.core.explicit_provenance import Links
+    from hsfs.core.inferred_metadata import InferredMetadata
     from hsfs.training_dataset import TrainingDataset
 
 
@@ -60,6 +61,7 @@ class DataSource:
         group: str | None = None,
         table: str | None = None,
         path: str | None = None,
+        format: str | None = None,
         storage_connector: sc.StorageConnector | dict[str, Any] | None = None,
         metrics: list[str] | None = None,
         dimensions: list[str] | None = None,
@@ -74,6 +76,7 @@ class DataSource:
             group: Group or schema name for the data source.
             table: Table name for the data source.
             path: File system path for the data source.
+            format: Format of the data source (e.g., "hudi", "delta", "csv", "parquet", "orc", "avro").
             storage_connector: Storage connector object holds configuration for accessing the data source.
             metrics: List of metric column names for the data source.
             dimensions: List of dimension column names for the data source.
@@ -85,6 +88,7 @@ class DataSource:
         self._group = group
         self._table = table
         self._path = path
+        self._format = format
         if storage_connector is not None and isinstance(storage_connector, dict):
             self._storage_connector = sc.StorageConnector.from_response_json(
                 storage_connector
@@ -142,6 +146,7 @@ class DataSource:
             "group": self._group,
             "table": self._table,
             "path": self._path,
+            "format": self._format,
             "metrics": self._metrics,
             "dimensions": self._dimensions,
             "restEndpoint": (
@@ -209,6 +214,16 @@ class DataSource:
     @path.setter
     def path(self, path: str) -> None:
         self._path = path
+
+    @public
+    @property
+    def format(self) -> str | None:
+        """Get or set the format of the data source."""
+        return self._format
+
+    @format.setter
+    def format(self, format: str) -> None:
+        self._format = format
 
     @public
     @property
@@ -306,6 +321,42 @@ class DataSource:
             A dictionary containing metadata about the data source.
         """
         return self._storage_connector.get_metadata(self)
+
+    @public
+    def infer_metadata(
+        self,
+        preview_data: dsd.DataSourceData | None = None,
+    ) -> InferredMetadata:
+        """Use platform intelligence to infer feature metadata for this data source.
+
+        Calls the same backend used by the "Infer metadata" button in the UI
+        when creating an external feature group: an LLM proposes per-column
+        renames, Hopsworks types, descriptions, and a suggested primary key
+        and event time.
+
+        Example:
+            ```python
+            fs = ...
+
+            table = fs.get_data_source("test_data_source").get_tables()[0]
+
+            inferred = table.infer_metadata()
+            for f in inferred.features:
+                print(f.original_name, "->", f.new_name, f.type, f.description)
+            print("primary key:", inferred.suggested_primary_key)
+            print("event time:", inferred.suggested_event_time)
+            ```
+
+        Parameters:
+            preview_data: Pre-fetched preview data to skip a server round-trip; if `None`, a preview is fetched via `get_data`.
+
+        Returns:
+            An object containing the suggested feature renames, types, descriptions, primary key, and event time.
+
+        Raises:
+            hopsworks.client.exceptions.PlatformIntelligenceException: If platform intelligence is not enabled on the cluster, or the LLM call fails.
+        """
+        return self._storage_connector.infer_metadata(self, preview_data=preview_data)
 
     @public
     def get_feature_groups_provenance(self) -> Links | None:
@@ -425,3 +476,8 @@ class DataSource:
                 storage_connector._query_table = self.table
         if storage_connector.type == sc.StorageConnector.SQL and self.database:
             storage_connector._database = self.database
+        if storage_connector.type == sc.StorageConnector.MONGODB:
+            if self.database:
+                storage_connector._database = self.database
+            if self.table:
+                storage_connector._collection = self.table

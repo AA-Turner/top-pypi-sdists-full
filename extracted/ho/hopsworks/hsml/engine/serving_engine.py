@@ -36,6 +36,21 @@ from hsml.engine import local_engine
 from tqdm.auto import tqdm
 
 
+def _render_chunk(chunk) -> str:
+    r"""Render a single log chunk's content with a trailing newline.
+
+    Adding a newline here (rather than relying on the upstream pipeline) lets
+    ``read_logs(...)`` produce output you can pipe straight to ``grep`` or
+    ``awk`` without each block getting glued to the next one. We only add the
+    separator when content does not already end in ``\n`` so we never
+    double-space lines that already carry their own terminator.
+    """
+    content = chunk.content or ""
+    if content and not content.endswith("\n"):
+        content += "\n"
+    return content
+
+
 class ServingEngine:
     START_STEPS = [
         PREDICTOR_STATE.CONDITION_TYPE_STOPPED,
@@ -97,7 +112,7 @@ class ServingEngine:
             )
         return None
 
-    def start(self, deployment_instance, await_status: int) -> bool:
+    def _start(self, deployment_instance, await_status: int) -> bool:
         (done, state) = self._check_status(
             deployment_instance, PREDICTOR_STATE.STATUS_RUNNING
         )
@@ -130,7 +145,7 @@ class ServingEngine:
                         update_progress,
                     )
 
-                self._serving_api.post(
+                self._serving_api._post(
                     deployment_instance, DEPLOYMENT.ACTION_START
                 )  # start deployment
 
@@ -141,7 +156,7 @@ class ServingEngine:
                     update_progress,
                 )
             except RestAPIError as re:
-                self.stop(deployment_instance, await_status=0)
+                self._stop(deployment_instance, await_status=0)
                 raise re
 
         if state.status == PREDICTOR_STATE.STATUS_RUNNING:
@@ -152,7 +167,7 @@ class ServingEngine:
             else:
                 print("Start making predictions by using `.predict()`")
 
-    def stop(self, deployment_instance, await_status: int) -> bool:
+    def _stop(self, deployment_instance, await_status: int) -> bool:
         (done, state) = self._check_status(
             deployment_instance, PREDICTOR_STATE.STATUS_STOPPED
         )
@@ -179,7 +194,7 @@ class ServingEngine:
                     pbar.set_description(desc)
 
             update_progress(state, num_instances)
-            self._serving_api.post(
+            self._serving_api._post(
                 deployment_instance, DEPLOYMENT.ACTION_STOP
             )  # stop deployment
 
@@ -348,7 +363,7 @@ class ServingEngine:
             else:
                 # if it's a file, download it
                 local_file_path = os.path.join(to_local_path, basename)
-                self._engine.download(entry.path, local_file_path)
+                self._engine._download(entry.path, local_file_path)
                 n_files += 1
                 update_download_progress(n_dirs=n_dirs, n_files=n_files)
 
@@ -367,7 +382,7 @@ class ServingEngine:
         )
         update_download_progress(n_dirs=n_dirs, n_files=n_files, done=True)
 
-    def download_artifact_files(self, deployment_instance, local_path=None):
+    def _download_artifact_files(self, deployment_instance, local_path=None):
         if deployment_instance.id is None:
             raise ModelServingException(
                 "Deployment is not created yet. To create the deployment use `.save()`"
@@ -425,15 +440,15 @@ class ServingEngine:
 
         return local_path
 
-    def create(self, deployment_instance):
+    def _create(self, deployment_instance):
         try:
-            self._serving_api.put(deployment_instance)
+            self._serving_api._put(deployment_instance)
             print("Deployment created, explore it at " + deployment_instance.get_url())
         except RestAPIError as re:
             raise_err = True
             if re.error_code == ModelServingException.ERROR_CODE_DUPLICATED_ENTRY:
                 msg = "Deployment with the same name already exists"
-                existing_deployment = self._serving_api.get(deployment_instance.name)
+                existing_deployment = self._serving_api._get(deployment_instance.name)
                 if (
                     existing_deployment.model_name == deployment_instance.model_name
                     and existing_deployment.model_version
@@ -455,7 +470,7 @@ class ServingEngine:
         if deployment_instance.is_stopped():
             print("Before making predictions, start the deployment by using `.start()`")
 
-    def update(self, deployment_instance, await_update):
+    def _update(self, deployment_instance, await_update):
         state = deployment_instance.get_state()
         if state is None:
             return
@@ -472,7 +487,7 @@ class ServingEngine:
             or state.status == PREDICTOR_STATE.STATUS_FAILED
         ):
             # if running, it's fine
-            self._serving_api.put(deployment_instance)
+            self._serving_api._put(deployment_instance)
             print("Deployment updated, applying changes to running instances...")
             state = self._poll_deployment_status(  # wait for status
                 deployment_instance, PREDICTOR_STATE.STATUS_RUNNING, await_update
@@ -497,22 +512,22 @@ class ServingEngine:
             or state.status == PREDICTOR_STATE.STATUS_STOPPED
         ):
             # if stopped, it's fine
-            self._serving_api.put(deployment_instance)
+            self._serving_api._put(deployment_instance)
             print("Deployment updated, explore it at " + deployment_instance.get_url())
             return
 
         raise ValueError("Unknown deployment status: " + state.status)
 
-    def save(self, deployment_instance, await_update: int):
+    def _save(self, deployment_instance, await_update: int):
         if deployment_instance.id is None:
             # if new deployment
-            self.create(deployment_instance)
+            self._create(deployment_instance)
             return
 
         # if existing deployment
-        self.update(deployment_instance, await_update)
+        self._update(deployment_instance, await_update)
 
-    def delete(self, deployment_instance, force=False):
+    def _delete(self, deployment_instance, force=False):
         state = deployment_instance.get_state()
         if state is None:
             return
@@ -526,12 +541,12 @@ class ServingEngine:
                 "Deployment not stopped, please stop it first by using `.stop()` or check its status with .get_state()"
             )
 
-        self._serving_api.delete(deployment_instance)
+        self._serving_api._delete(deployment_instance)
         print("Deployment deleted successfully")
 
-    def get_state(self, deployment_instance):
+    def _get_state(self, deployment_instance):
         try:
-            state = self._serving_api.get_state(deployment_instance)
+            state = self._serving_api._get_state(deployment_instance)
         except RestAPIError as re:
             if re.error_code == ModelServingException.ERROR_CODE_SERVING_NOT_FOUND:
                 raise ModelServingException("Deployment not found") from re
@@ -539,8 +554,8 @@ class ServingEngine:
         deployment_instance._predictor._set_state(state)
         return state
 
-    def get_logs(self, deployment_instance, component, tail):
-        state = self.get_state(deployment_instance)
+    def _get_logs(self, deployment_instance, component, tail):
+        state = self._get_state(deployment_instance)
         if state is None:
             return None
 
@@ -565,11 +580,189 @@ class ServingEngine:
             end="\n\n",
         )
 
-        return self._serving_api.get_logs(deployment_instance, component, tail)
+        return self._serving_api._get_logs(deployment_instance, component, tail)
+
+    # ----- Programmatic log APIs (read_logs / tail_logs) ---------------------
+    # These never print and never short-circuit on deployment state. The
+    # OpenSearch source returns logs even when the deployment is stopped, so
+    # the legacy "deployment is stopping → return None" guard would just hide
+    # data that is in fact retrievable.
+
+    def _read_logs(
+        self,
+        deployment_instance,
+        component: str = "predictor",
+        tail: int = 100,
+        source: str = "opensearch",
+        since: str | None = None,
+        until: str | None = None,
+        pod: str | None = None,
+    ) -> str:
+        """Return deployment logs as a single plain-text string.
+
+        Programmatic counterpart to :py:meth:`get_logs`. Never prints; the
+        caller decides what to do with the returned value.
+
+        Parameters:
+            deployment_instance: The deployment whose logs to read.
+            component: Which deployment component to read (``predictor``, ``transformer``).
+            tail: Maximum number of recent log entries to fetch.
+            source: Log source (``opensearch`` or ``kubernetes``).
+            since: ISO-8601 lower bound for log timestamps, if any.
+            until: ISO-8601 upper bound for log timestamps, if any.
+            pod: Specific pod name to read logs for, if any.
+
+        Returns:
+            All matching log chunks concatenated into a single string.
+        """
+        chunks = self._serving_api._get_logs(
+            deployment_instance,
+            component,
+            tail,
+            source=source,
+            since=since,
+            until=until,
+            pod=pod,
+        )
+        return self._format_log_chunks(chunks or [])
+
+    def _tail_logs(
+        self,
+        deployment_instance,
+        component: str = "predictor",
+        interval: float = 2.0,
+        source: str = "opensearch",
+        since: str | None = "now",
+        timeout: float | None = None,
+        stop_on_status=None,
+    ):
+        """Yield only newly observed log chunks as plain text.
+
+        v1 streaming is client-side polling: each tick calls
+        :py:meth:`read_logs` with a moving ``since`` cursor and yields the
+        portion not already seen. Deduplication is by (timestamp, doc_id)
+        on the OpenSearch path and by content hash for the Kubernetes path
+        (which has neither field). The generator stops when:
+
+        - ``timeout`` (seconds, optional) elapses,
+        - ``stop_on_status`` matches the current ``deployment.get_state().status``, or
+        - the caller breaks out of the loop / closes the generator.
+
+        Parameters:
+            deployment_instance: The deployment whose logs to tail.
+            component: Which deployment component to tail (``predictor``, ``transformer``).
+            interval: Seconds between successive polls.
+            source: Log source (``opensearch`` or ``kubernetes``).
+            since: ISO-8601 starting cursor, or ``"now"`` for new-only.
+            timeout: Stop after this many seconds, if set.
+            stop_on_status: Stop when the deployment status matches this value.
+
+        Yields:
+            Log text observed since the previous yield.
+        """
+        # OpenSearch documents are uniquely identified by ``doc_id`` and
+        # ordered by ``timestamp``; this state suffices to dedupe across
+        # successive overlapping windows.
+        seen_doc_ids: set[str] = set()
+        last_timestamp: str | None = since if (since and since != "now") else None
+        # Kubernetes path has no doc id / timestamp, so dedupe by content
+        # hash instead. Bound the set so a chatty deployment doesn't keep
+        # the dedupe state growing forever.
+        seen_hashes: set[int] = set()
+        seen_hashes_cap = 4096
+
+        # ``since="now"`` is a UX shorthand: start streaming brand-new lines
+        # only. Resolved here on the first call to a real ISO-8601 timestamp
+        # so subsequent polls are time-bounded the same way.
+        if since == "now":
+            from datetime import datetime, timezone
+
+            last_timestamp = datetime.now(tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+
+        deadline = (time.monotonic() + timeout) if timeout else None
+
+        while True:
+            chunks = (
+                self._serving_api._get_logs(
+                    deployment_instance,
+                    component,
+                    # Bounded per-poll fetch. Larger values just mean more work
+                    # for the dedupe pass; the SDK still yields only what's new.
+                    tail=200,
+                    source=source,
+                    since=last_timestamp,
+                    until=None,
+                    pod=None,
+                )
+                or []
+            )
+
+            new_chunks = []
+            for chunk in chunks:
+                if chunk.doc_id is not None:
+                    if chunk.doc_id in seen_doc_ids:
+                        continue
+                    seen_doc_ids.add(chunk.doc_id)
+                else:
+                    key = hash((chunk.instance_name, chunk.content))
+                    if key in seen_hashes:
+                        continue
+                    if len(seen_hashes) >= seen_hashes_cap:
+                        # Drop the oldest half — set has no ordering, so we
+                        # just clear and start fresh; worst case we re-yield
+                        # at most ``seen_hashes_cap / 2`` already-seen lines
+                        # once before steady state is restored.
+                        seen_hashes = set()
+                    seen_hashes.add(key)
+                new_chunks.append(chunk)
+                if chunk.timestamp is not None and (
+                    last_timestamp is None or chunk.timestamp > last_timestamp
+                ):
+                    last_timestamp = chunk.timestamp
+
+            if new_chunks:
+                yield self._format_log_chunks(new_chunks)
+
+            if stop_on_status is not None:
+                state = self._get_state(deployment_instance)
+                if state is not None and state.status == stop_on_status:
+                    return
+
+            if deadline is not None and time.monotonic() >= deadline:
+                return
+
+            time.sleep(interval)
+
+    @staticmethod
+    def _format_log_chunks(chunks) -> str:
+        r"""Merge a list of ``DeployableComponentLogs`` into one plain string.
+
+        When more than one distinct ``instance_name`` is present, prefix each
+        block with ``==> <instance> <==\n`` (tail-style). Single-instance
+        responses join contents directly so ``read_logs(...)`` round-trips
+        cleanly through grep/awk.
+        """
+        if not chunks:
+            return ""
+        instance_names = {c.instance_name for c in chunks if c.instance_name}
+        if len(instance_names) <= 1:
+            return "".join(_render_chunk(c) for c in chunks)
+        # Group chronologically per instance, then concatenate.
+        by_instance: dict[str, list] = {}
+        for c in chunks:
+            by_instance.setdefault(c.instance_name or "", []).append(c)
+        parts = []
+        for instance, items in by_instance.items():
+            parts.append(f"==> {instance} <==\n")
+            for c in items:
+                parts.append(_render_chunk(c))
+        return "".join(parts)
 
     # Model inference
 
-    def predict(
+    def _predict(
         self,
         deployment_instance,
         data: dict | list[InferInput],
@@ -592,7 +785,7 @@ class ServingEngine:
         serving_tool = deployment_instance.predictor.serving_tool
         through_hopsworks = serving_tool != PREDICTOR.SERVING_TOOL_KSERVE
         try:
-            return self._serving_api.send_inference_request(
+            return self._serving_api._send_inference_request(
                 deployment_instance, payload, through_hopsworks
             )
         except RestAPIError as re:
@@ -651,13 +844,24 @@ class ServingEngine:
                     raise ModelServingException(
                         "Inference data cannot contain an empty list."
                     )
-                if not isinstance(payload[0], list):
+                # KServe V1 instances may be lists (columnar predictors) or
+                # objects/dicts (custom predictors that key on field names).
+                # Accept both; only reject bare scalars and empty entries.
+                first = payload[0]
+                if isinstance(first, list):
+                    if len(first) == 0:
+                        raise ModelServingException(
+                            "Inference data cannot contain an empty list."
+                        )
+                elif isinstance(first, dict):
+                    if len(first) == 0:
+                        raise ModelServingException(
+                            "Inference data cannot contain an empty object."
+                        )
+                else:
                     raise ModelServingException(
-                        "Instances field should contain a 2-dim list."
-                    )
-                if len(payload[0]) == 0:
-                    raise ModelServingException(
-                        "Inference data cannot contain an empty list."
+                        "Instances field should contain a list of lists or a "
+                        "list of objects."
                     )
             else:  # not Dict
                 if isinstance(data, InferInput) or (

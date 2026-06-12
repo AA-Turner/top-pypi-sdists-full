@@ -80,6 +80,8 @@ class ListSchedulesWithJobsResponse200Item:
         dynamic_skip (Union[Unset, None, str]): Path to a script that validates scheduled datetimes. Receives
             scheduled_for datetime and returns boolean to skip (true) or run (false)
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
         jobs (Union[Unset, List['ListSchedulesWithJobsResponse200ItemJobsItem']]):
     """
 
@@ -115,6 +117,7 @@ class ListSchedulesWithJobsResponse200Item:
     cron_version: Union[Unset, None, str] = UNSET
     dynamic_skip: Union[Unset, None, str] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     jobs: Union[Unset, List["ListSchedulesWithJobsResponse200ItemJobsItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -173,6 +176,10 @@ class ListSchedulesWithJobsResponse200Item:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         jobs: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.jobs, Unset):
@@ -241,6 +248,8 @@ class ListSchedulesWithJobsResponse200Item:
             field_dict["dynamic_skip"] = dynamic_skip
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
         if jobs is not UNSET:
             field_dict["jobs"] = jobs
 
@@ -379,6 +388,8 @@ class ListSchedulesWithJobsResponse200Item:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         jobs = []
         _jobs = d.pop("jobs", UNSET)
         for jobs_item_data in _jobs or []:
@@ -419,6 +430,7 @@ class ListSchedulesWithJobsResponse200Item:
             cron_version=cron_version,
             dynamic_skip=dynamic_skip,
             labels=labels,
+            inherited_labels=inherited_labels,
             jobs=jobs,
         )
 

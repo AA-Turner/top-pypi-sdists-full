@@ -1,8 +1,15 @@
 import threading
 from abc import ABC, abstractmethod
-from typing import List
+from pathlib import Path
+from typing import List, Optional, Tuple
 
-from abstra_internals.repositories.linter.models import LinterCheck, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterCheck,
+    LinterIssue,
+    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
+)
 from abstra_internals.repositories.linter.rules import rules
 
 
@@ -19,7 +26,7 @@ class LinterRepository(ABC):
 
     @abstractmethod
     def update_specific_checks(
-        self, target_rules: List[LinterRule]
+        self, target_rules: List[LinterRule], paths: Optional[List[Path]] = None
     ) -> List[LinterCheck]:
         pass
 
@@ -52,6 +59,10 @@ BLOCKING_TYPES = {"error", "security", "bug"}
 class LocalLinterRepository(LinterRepository):
     def __init__(self):
         self.checks: List[LinterCheck] = []
+        # Single-flight lock: prevents concurrent callers (boot _initial_lint
+        # racing the first HTTP /check, or overlapping save-triggered lints)
+        # from each spawning their own thread-per-rule fan-out.
+        self._run_lock = threading.Lock()
 
     def find_issues_in_codebase(self) -> List[LinterCheck]:
         """
@@ -81,40 +92,109 @@ class LocalLinterRepository(LinterRepository):
             Retrieve all linter checks
             Retrieving all linter checks...
         """
-        if len(self.checks) == 0:
-            self.update_checks()
-        return self.checks
+        if self.checks:
+            return self.checks
+        # Non-blocking acquire: if another caller is already running the
+        # fan-out, return the current state (possibly empty during boot)
+        # instead of spawning a second fan-out or blocking the HTTP thread.
+        # The /events WebSocket backfills the populated checks on completion.
+        if not self._run_lock.acquire(blocking=False):
+            return self.checks
+        try:
+            if self.checks:
+                return self.checks
+            # Call _run_rules directly (NOT update_checks) — _run_lock is
+            # non-reentrant and we already hold it.
+            self._run_rules(rules, merge=False)
+            return self.checks
+        finally:
+            self._run_lock.release()
 
     def update_checks(self):
-        return self._run_rules(rules, merge=False)
+        with self._run_lock:
+            return self._run_rules(rules, merge=False)
 
     def update_specific_checks(
-        self, target_rules: List[LinterRule]
+        self, target_rules: List[LinterRule], paths: Optional[List[Path]] = None
     ) -> List[LinterCheck]:
-        return self._run_rules(target_rules, merge=True)
+        with self._run_lock:
+            return self._run_rules(target_rules, merge=True, paths=paths)
 
-    def _execute_rules(self, target_rules: List[LinterRule]) -> List[LinterCheck]:
+    def _execute_rules(
+        self, target_rules: List[LinterRule], paths: Optional[List[Path]] = None
+    ) -> Tuple[List[LinterCheck], List[Tuple[LinterRule, List[LinterIssue]]]]:
+        """Run rules on threads. Returns (full_checks, scoped_results).
+
+        Rules that support path-scoping run only on `paths` (when given) and
+        land in scoped_results — their issues must be merged per-path into the
+        existing check instead of replacing it.
+        """
         new_checks: List[LinterCheck] = []
+        scoped_results: List[Tuple[LinterRule, List[LinterIssue]]] = []
         threads = []
 
+        def check_rule_scoped(rule: PathScopedLinterRule, scope: List[Path]):
+            issues: List[LinterIssue] = []
+            for path in scope:
+                issues.extend(rule.find_issues(path))
+            scoped_results.append((rule, issues))
+
         for rule in target_rules:
-            thread = threading.Thread(
-                target=check_rule,
-                args=(rule, new_checks),
-                name=f"LinterCheck[{rule.name}]",
-            )
+            if paths is not None and isinstance(rule, PathScopedLinterRule):
+                thread = threading.Thread(
+                    target=check_rule_scoped,
+                    args=(rule, paths),
+                    name=f"LinterCheck[{rule.name}]",
+                )
+            else:
+                thread = threading.Thread(
+                    target=check_rule,
+                    args=(rule, new_checks),
+                    name=f"LinterCheck[{rule.name}]",
+                )
             thread.start()
             threads.append(thread)
 
         for thread in threads:
             thread.join()
 
-        return new_checks
+        return new_checks, scoped_results
+
+    def _merge_scoped_check(
+        self,
+        rule: LinterRule,
+        new_issues: List[LinterIssue],
+        scope_keys: set,
+    ) -> LinterCheck:
+        """Build the updated check for a path-scoped run: keep the previous
+        issues outside the re-linted paths (other files + project-global ones,
+        with their live fix objects) and swap in the fresh issues."""
+        old_check = next((c for c in self.checks if c.name == rule.name), None)
+        kept_issues = (
+            [i for i in old_check.issues if i.path not in scope_keys]
+            if old_check
+            else []
+        )
+        return LinterCheck(
+            name=rule.name,
+            label=rule.label,
+            type=rule.type,
+            issues=kept_issues + new_issues,
+            fix_with_ai=rule.fix_with_ai,
+        )
 
     def _run_rules(
-        self, target_rules: List[LinterRule], merge: bool
+        self,
+        target_rules: List[LinterRule],
+        merge: bool,
+        paths: Optional[List[Path]] = None,
     ) -> List[LinterCheck]:
-        new_checks = self._execute_rules(target_rules)
+        new_checks, scoped_results = self._execute_rules(target_rules, paths=paths)
+
+        if scoped_results:
+            scope_keys = {linter_path_key(p) for p in paths or []}
+            for rule, issues in scoped_results:
+                new_checks.append(self._merge_scoped_check(rule, issues, scope_keys))
 
         if merge:
             updated_names = {c.name for c in new_checks}
@@ -208,14 +288,19 @@ class LocalLinterRepository(LinterRepository):
 
     def _update_check_for_rule(self, rule_name: str):
         """Re-run the check for a specific rule and update the cache."""
-        for rule in rules:
-            if rule.name == rule_name:
-                new_check = rule.check()
-                self.checks = [
-                    new_check if check.name == rule_name else check
-                    for check in self.checks
-                ]
-                break
+        # Hold the single-flight lock: this re-runs rule.check() and rebinds
+        # self.checks, which would otherwise race a concurrent fan-out.
+        # fix_issue_in_codebase is the only caller and does not hold the
+        # lock, so there is no re-entrancy.
+        with self._run_lock:
+            for rule in rules:
+                if rule.name == rule_name:
+                    new_check = rule.check()
+                    self.checks = [
+                        new_check if check.name == rule_name else check
+                        for check in self.checks
+                    ]
+                    break
 
     def fix_all_linters(self):
         for check in self.checks:
@@ -249,7 +334,7 @@ class ProductionLinterRepository(LinterRepository):
         raise NotImplementedError("Linters are not available in production.")
 
     def update_specific_checks(
-        self, target_rules: List[LinterRule]
+        self, target_rules: List[LinterRule], paths: Optional[List[Path]] = None
     ) -> List[LinterCheck]:
         raise NotImplementedError("Linters are not available in production.")
 

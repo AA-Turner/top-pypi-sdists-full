@@ -125,8 +125,13 @@ quartodoc:
         - GT.tab_spanner_delim
         - GT.tab_stub
         - GT.tab_stubhead
+        - GT.tab_footnote
         - GT.tab_source_note
         - GT.tab_style
+        - GT.text_transform
+        - GT.text_replace
+        - GT.text_case_match
+        - GT.text_case_when
         - GT.tab_options
     - title: Formatting column data
       desc: >
@@ -138,10 +143,12 @@ quartodoc:
         - GT.fmt_number
         - GT.fmt_integer
         - GT.fmt_percent
+        - GT.fmt_partsper
         - GT.fmt_scientific
         - GT.fmt_engineering
         - GT.fmt_currency
         - GT.fmt_bytes
+        - GT.fmt_duration
         - GT.fmt_roman
         - GT.fmt_date
         - GT.fmt_time
@@ -157,6 +164,9 @@ quartodoc:
         - GT.data_color
         - GT.sub_missing
         - GT.sub_zero
+        - GT.sub_small_vals
+        - GT.sub_large_vals
+        - GT.sub_values
     - title: Modifying columns
       desc: >
         The `cols_*()` methods allow for modifications that act on entire columns. This includes
@@ -173,14 +183,21 @@ quartodoc:
         - GT.cols_move
         - GT.cols_move_to_start
         - GT.cols_move_to_end
+        - GT.cols_reorder
         - GT.cols_hide
         - GT.cols_unhide
         - GT.cols_merge
+        - GT.cols_merge_uncert
+        - GT.cols_merge_range
+        - GT.cols_merge_n_pct
     - title: Adding rows
       desc: >
-        The [`grand_summary_rows()`](`great_tables.GT.grand_summary_rows`) function will add rows to
-        summarize data in your table, such as totals or averages.
+        The [`summary_rows()`](`great_tables.GT.summary_rows`) function adds rows to summarize
+        data within each row group, while
+        [`grand_summary_rows()`](`great_tables.GT.grand_summary_rows`) summarizes across the
+        entire table.
       contents:
+        - GT.summary_rows
         - GT.grand_summary_rows
 
     - title: Location Targeting and Styling Classes
@@ -198,9 +215,11 @@ quartodoc:
         - loc.spanner_labels
         - loc.column_labels
         - loc.grand_summary_stub
+        - loc.summary_stub
         - loc.stub
         - loc.row_groups
         - loc.grand_summary
+        - loc.summary
         - loc.body
         - loc.footer
         - loc.source_notes
@@ -239,14 +258,15 @@ quartodoc:
         - GT.opt_table_outline
         - GT.opt_table_font
         - GT.opt_stylize
+        - GT.opt_footnote_marks
         - GT.opt_css
     - title: Export
       desc: >
         There may come a day when you need to export a table to some specific format. A great method
-        for that is `save()`, which allows us to save the table as a standalone image file. You can
-        also get the table code as an HTML fragment with the `*_raw_html()` methods.
+        for that is `gtsave()`, which allows us to save the table as a standalone image file or PDF.
+        You can also get the table code as an HTML fragment with the `*_raw_html()` methods.
       contents:
-        - GT.save
+        - GT.gtsave
         - GT.show
         - GT.as_raw_html
         - GT.write_raw_html
@@ -271,6 +291,7 @@ quartodoc:
         - vals.fmt_currency
         - vals.fmt_roman
         - vals.fmt_bytes
+        - vals.fmt_duration
         - vals.fmt_date
         - vals.fmt_time
         - vals.fmt_markdown

@@ -1,30 +1,52 @@
-"""Smpl Audit SDK runtime namespace.
+"""Smpl Audit SDK namespace.
 
-ADR-047. The audit subsystem records who did what to which resource and
-when. The runtime client owns event recording and read-side queries:
+The audit subsystem records who did what to which resource and when. A
+single :class:`AuditClient` (sync) / :class:`AsyncAuditClient` (async)
+exposes the full surface and is reachable as ``client.audit`` on
+:class:`smplkit.SmplClient` or constructed directly via
+:class:`AuditClient`.
 
-* ``client.audit.events.record(..., flush=False)`` — enqueue an audit
-  event for asynchronous delivery; pass ``flush=True`` to block until
-  the buffer drains.
-* ``client.audit.events.flush(timeout=...)`` — drain the buffer.
-* ``client.audit.events.list(...)`` / ``client.audit.events.get(id)`` —
-  query the audit log.
-* ``client.audit.resource_types.list(...)`` and
-  ``client.audit.event_types.list(...)`` — distinct-value listings that
-  back the Activity tab filter dropdowns.
+The client owns event recording and read-side queries plus SIEM forwarder
+CRUD:
 
-SIEM forwarder CRUD lives on :class:`smplkit.SmplManagementClient`
-under ``mgmt.audit.forwarders.*``. See ``smplkit.management.audit``.
+* ``audit.events.record(..., flush=False)`` — enqueue an audit event for
+  asynchronous delivery; pass ``flush=True`` to block until the buffer drains.
+* ``audit.events.flush(timeout=...)`` — drain the buffer.
+* ``audit.events.list(...)`` / ``audit.events.get(id)`` — query the audit log.
+* ``audit.resource_types.list(...)``, ``audit.event_types.list(...)``, and
+  ``audit.categories.list(...)`` — distinct-value listings that back the
+  Activity tab filter dropdowns.
+* ``audit.forwarders.new/get/list/save/delete`` — manage SIEM forwarders.
 
-The shared dataclasses (``Event``, ``Forwarder``, ``HttpConfiguration``,
-``HttpHeader``, ``ResourceType``, ``EventType``) plus the
-``ForwarderType``, ``HttpMethod``, and ``TransformType`` enums live in
-:mod:`smplkit.audit.models` and are re-exported here for convenience —
-both the runtime and the management clients return them.
+The shared dataclasses (``Event``, ``Forwarder``, ``AsyncForwarder``,
+``HttpConfiguration``, ``HttpHeader``, ``ResourceType``, ``EventType``,
+``Category``) plus the ``ForwarderType``, ``HttpMethod``, and
+``TransformType`` enums live in :mod:`smplkit.audit.models` and are
+re-exported here for convenience.
 """
 
-from smplkit.audit.client import AsyncAuditClient, AuditClient
+from smplkit.audit._client import (
+    AsyncCategoriesClient,
+    AsyncEventsClient,
+    AsyncEventTypesClient,
+    AsyncResourceTypesClient,
+    CategoriesClient,
+    CategoryListPage,
+    EventListPage,
+    EventsClient,
+    EventTypeListPage,
+    EventTypesClient,
+    ResourceTypeListPage,
+    ResourceTypesClient,
+)
+from smplkit.audit._forwarders import (
+    AsyncForwardersClient,
+    ForwarderListPage,
+    ForwardersClient,
+)
 from smplkit.audit.models import (
+    AsyncForwarder,
+    Category,
     Event,
     EventType,
     Forwarder,
@@ -38,16 +60,31 @@ from smplkit.audit.models import (
 )
 
 __all__ = [
-    "AsyncAuditClient",
-    "AuditClient",
+    "AsyncCategoriesClient",
+    "AsyncEventTypesClient",
+    "AsyncEventsClient",
+    "AsyncForwarder",
+    "AsyncForwardersClient",
+    "AsyncResourceTypesClient",
+    "CategoriesClient",
+    "Category",
+    "CategoryListPage",
     "Event",
+    "EventListPage",
     "EventType",
+    "EventTypeListPage",
+    "EventTypesClient",
+    "EventsClient",
     "Forwarder",
     "ForwarderEnvironment",
+    "ForwarderListPage",
     "ForwarderType",
+    "ForwardersClient",
     "HttpConfiguration",
     "HttpHeader",
     "HttpMethod",
     "ResourceType",
+    "ResourceTypeListPage",
+    "ResourceTypesClient",
     "TransformType",
 ]

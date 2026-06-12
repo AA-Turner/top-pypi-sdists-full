@@ -1,12 +1,14 @@
 import webbrowser
 from pathlib import Path
-from typing import List, Set
+from typing import List, Optional, Set
 
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
+from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.env_vars import EnvVarsRepository
 
 
@@ -27,7 +29,7 @@ class EnvInCodeNotInEnvFile(LinterIssue):
         self.fixes = [AddEnvToEnvFile(env_var)]
 
 
-class MissingEnv(LinterRule):
+class MissingEnv(PathScopedLinterRule):
     label: str = "Missing env vars"
     type: str = "info"
     internal_envs: Set[str] = {
@@ -38,8 +40,16 @@ class MissingEnv(LinterRule):
         "ABSTRA_SELENIUM_URL",
     }
 
-    def find_issues(self) -> List[LinterIssue]:
-        env_vars_in_code_dict = EnvVarsRepository.get_env_vars_in_code()
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
+        if path is not None:
+            project = LocalProjectRepository().load()
+            key = linter_path_key(path)
+            if not any(linter_path_key(f) == key for f in project.project_files):
+                return []
+            env_vars_in_code_dict = EnvVarsRepository.get_env_vars_in_files([path])
+        else:
+            env_vars_in_code_dict = EnvVarsRepository.get_env_vars_in_code()
+
         env_vars_in_code: Set[str] = set(env_vars_in_code_dict.keys())
         env_vars_in_env_file: Set[str] = set(
             [ev.name for ev in EnvVarsRepository.list()]
@@ -54,8 +64,10 @@ class MissingEnv(LinterRule):
                 code_path = f"{filename}:{expr.lineno}"
                 if code_path not in code_paths:
                     code_paths.add(code_path)
-                    issues.append(
-                        EnvInCodeNotInEnvFile(filename, expr.lineno, missing_env_var)
+                    issue = EnvInCodeNotInEnvFile(
+                        filename, expr.lineno, missing_env_var
                     )
+                    issue.path = linter_path_key(filename)
+                    issues.append(issue)
 
         return issues

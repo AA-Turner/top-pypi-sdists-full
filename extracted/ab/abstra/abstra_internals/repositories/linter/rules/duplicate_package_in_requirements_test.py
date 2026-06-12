@@ -44,7 +44,7 @@ class TestDuplicatePackagesInRequirements(BaseTest):
         self.assertEqual(len(issues), 1)
         self.assertEqual(len(issues[0].fixes), 2)
 
-        issues[0].fixes[1].fix()
+        issues[0].fixes[0].fix()
 
         issues = DuplicatePackagesInRequirements().find_issues()
         self.assertEqual(len(issues), 0)
@@ -70,7 +70,7 @@ class TestDuplicatePackagesInRequirements(BaseTest):
         self.assertEqual(len(issues), 1)
         self.assertEqual(len(issues[0].fixes), 2)
 
-        issues[0].fixes[0].fix()
+        issues[0].fixes[1].fix()
 
         issues = DuplicatePackagesInRequirements().find_issues()
         self.assertEqual(len(issues), 0)

@@ -15,31 +15,41 @@ TLS_HANDSHAKE_CONTENT_TYPE = 0x16
 TLS_HANDSHAKE_TYPE_CLIENT_HELLO = 0x01
 
 
-async def payload_reader(reader: asyncio.StreamReader) -> bytes | None:
-    """Read data from reader."""
-    try:
-        header = await reader.read(6)
-    except ConnectionResetError:
-        raise ParseSNIError from None
+async def payload_reader(
+    reader: asyncio.StreamReader,
+    initial: bytes = b"",
+) -> bytes | None:
+    """Read data from reader.
 
-    if not header:
-        raise ParseSNIError
-    if len(header) < 5:
-        raise ParseSNIError
+    ``initial`` carries any bytes already read from the stream (for example
+    the payload that followed a stripped PROXY protocol header) so they are
+    not lost.
+    """
+    data = initial
+    # We need at least 6 bytes: the 5-byte TLS record header plus the
+    # handshake type byte (read below as data[5]). read() returns whatever is
+    # available, so loop until we have enough or the peer stops sending. A
+    # short read or EOF means there is no usable ClientHello -> bail (None).
+    # A reset/broken connection raises OSError here, which the caller handles.
+    while len(data) < 6:
+        chunk = await reader.read(MAX_READ_SIZE)
+        if not chunk:
+            return None
+        data += chunk
 
     if (
-        header[0] != TLS_HANDSHAKE_CONTENT_TYPE
-        or header[5] != TLS_HANDSHAKE_TYPE_CLIENT_HELLO
+        data[0] != TLS_HANDSHAKE_CONTENT_TYPE
+        or data[5] != TLS_HANDSHAKE_TYPE_CLIENT_HELLO
     ):
         return None
 
-    tls_size = (header[3] << 8) + header[4] + TLS_HEADER_LEN
-    data = header
+    tls_size = (data[3] << 8) + data[4] + TLS_HEADER_LEN
     while (data_size := len(data)) < tls_size and data_size <= MAX_BUFFER_SIZE:
-        try:
-            data += await reader.read(MAX_READ_SIZE)
-        except ConnectionResetError:
-            raise ParseSNIError from None
+        chunk = await reader.read(MAX_READ_SIZE)
+        if not chunk:
+            # EOF before the full record arrived; avoid spinning on read().
+            return None
+        data += chunk
 
     return data
 

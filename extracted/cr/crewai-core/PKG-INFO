@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-core
-Version: 1.14.6
+Version: 1.14.7
 Summary: Shared utilities for CrewAI — version, paths, user-data, telemetry, printer.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -16,7 +16,7 @@ Requires-Dist: opentelemetry-sdk~=1.34.0
 Requires-Dist: packaging>=23.0
 Requires-Dist: portalocker~=2.7.0
 Requires-Dist: pydantic<2.13,>=2.11.9
-Requires-Dist: pyjwt<3,>=2.9.0
+Requires-Dist: pyjwt<3,>=2.13.0
 Requires-Dist: rich>=13.7.1
 Requires-Dist: tomli~=2.0.2
 Description-Content-Type: text/markdown

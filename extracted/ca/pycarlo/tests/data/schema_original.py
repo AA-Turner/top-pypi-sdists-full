@@ -308,19 +308,48 @@ class AgentGraphNodeKind(sgqlc.types.Enum):
     __choices__ = ("AGENT", "CHAIN", "LLM", "TASK", "TOOL", "UNKNOWN", "WORKFLOW")
 
 
-class AgentHealthCodeStatus(sgqlc.types.Enum):
-    """Code-aware judge verdict on whether the issue was located in
-    source code.
+class AgentHealthCheckResolution(sgqlc.types.Enum):
+    """Verifier verdict on whether the underlying problem is already
+    fixed.
 
     Enumeration Choices:
 
-    * `CONFIRMED`None
-    * `LOCATED`None
-    * `REFUTED`None
+    * `INCONCLUSIVE`None
+    * `OPEN`None
+    * `RESOLVED`None
     """
 
     __schema__ = schema
-    __choices__ = ("CONFIRMED", "LOCATED", "REFUTED")
+    __choices__ = ("INCONCLUSIVE", "OPEN", "RESOLVED")
+
+
+class AgentHealthCheckType(sgqlc.types.Enum):
+    """Which verifier produced a check on an evidence row.  More values
+    may be added as new verifiers ship; treat unknown values as an
+    unspecified verifier rather than an error.
+
+    Enumeration Choices:
+
+    * `CODE_REF`None
+    * `PR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CODE_REF", "PR")
+
+
+class AgentHealthCheckValidity(sgqlc.types.Enum):
+    """Verifier verdict on whether the evidence describes a real problem.
+
+    Enumeration Choices:
+
+    * `INCONCLUSIVE`None
+    * `INVALID`None
+    * `VALID`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("INCONCLUSIVE", "INVALID", "VALID")
 
 
 class AgentHealthConfidence(sgqlc.types.Enum):
@@ -370,7 +399,9 @@ class AgentHealthEvidenceCategory(sgqlc.types.Enum):
 
 class AgentHealthEvidenceSource(sgqlc.types.Enum):
     """Signal origin; a row can carry several when cross-source signals
-    merge.
+    merge.  PR_DIFF only appears on reports produced before PR
+    information became a check (verifier verdict) on the evidence row
+    rather than a signal source.
 
     Enumeration Choices:
 
@@ -1073,6 +1104,7 @@ class AlertsFilterFieldName(sgqlc.types.Enum):
 
     * `AUDIENCE`None
     * `DATABASE`None
+    * `DBT_ENVIRONMENT`None
     * `DOMAIN`None
     * `HAS_AZURE_DEVOPS_WORK_ITEMS`None
     * `HAS_DATADOG_INCIDENTS`None
@@ -1098,6 +1130,7 @@ class AlertsFilterFieldName(sgqlc.types.Enum):
     __choices__ = (
         "AUDIENCE",
         "DATABASE",
+        "DBT_ENVIRONMENT",
         "DOMAIN",
         "HAS_AZURE_DEVOPS_WORK_ITEMS",
         "HAS_DATADOG_INCIDENTS",
@@ -4669,6 +4702,7 @@ class JobExecutionStatus(sgqlc.types.Enum):
 class JobPerformanceFacet(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `DBT_ENVIRONMENT`None
     * `DBT_PROJECT`None
     * `DOMAIN`None
     * `ETL_CONTAINER`None
@@ -4680,6 +4714,7 @@ class JobPerformanceFacet(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "DBT_ENVIRONMENT",
         "DBT_PROJECT",
         "DOMAIN",
         "ETL_CONTAINER",
@@ -7579,6 +7614,52 @@ class TimeRangeUnit(sgqlc.types.Enum):
     __choices__ = ("DAY", "MONTH", "WEEK")
 
 
+class ToolCallMetricGroup(sgqlc.types.Enum):
+    """Metric groups for tool-call time series queries.      Each group
+    maps to a set of individual ToolCallTimeSeriesMetric values via
+    TOOL_CALL_METRIC_GROUP_TO_METRICS.
+
+    Enumeration Choices:
+
+    * `ERRORS`None
+    * `LATENCY`None
+    * `VOLUME`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERRORS", "LATENCY", "VOLUME")
+
+
+class ToolCallTimeSeriesMetric(sgqlc.types.Enum):
+    """Per-tool span-level metrics for tool-call time series queries.
+    Unlike TraceTimeSeriesMetric (trace-grained, read from
+    agent_traces), these     are computed over tool-call spans
+    (is_tool_call=true) and segmented by tool     name (the span
+    name). A tool span errors when its status code is 2.
+
+    Enumeration Choices:
+
+    * `CALL_COUNT`None
+    * `ERROR_COUNT`None
+    * `ERROR_RATE`None
+    * `LATENCY_AVG`None
+    * `LATENCY_P50`None
+    * `LATENCY_P95`None
+    * `LATENCY_P99`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CALL_COUNT",
+        "ERROR_COUNT",
+        "ERROR_RATE",
+        "LATENCY_AVG",
+        "LATENCY_P50",
+        "LATENCY_P95",
+        "LATENCY_P99",
+    )
+
+
 class TraceBucketSize(sgqlc.types.Enum):
     """Time bucket sizes for time series aggregation.
 
@@ -8712,6 +8793,7 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
         "slo_statuses",
         "from_agent_monitor",
         "triage_priorities",
+        "dbt_environment_names",
     )
     types = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AlertType)), graphql_name="types"
@@ -8845,6 +8927,16 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     with no triage row, or whose latest row is in a terminal non-
     COMPLETED state (``ERROR``), or is ``COMPLETED`` with
     null/unmapped scores.
+    """
+
+    dbt_environment_names = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="dbtEnvironmentNames"
+    )
+    """Return alerts for dbt jobs that ran in any of the named dbt
+    environments (e.g. "Production"). A name is matched across every
+    dbt project that defines an environment with that name. Only dbt
+    job alerts can match. Omit or pass null to apply no environment
+    filter; an empty list matches no alerts.
     """
 
 
@@ -11491,6 +11583,146 @@ class GetNodeDetailInput(sgqlc.types.Input):
 
     to_timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="toTimestamp")
     """End of the active filter period (inclusive)"""
+
+
+class GetToolCallOverviewInput(sgqlc.types.Input):
+    """Input parameters for getToolCallOverview query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "include_previous_period_comparison",
+        "filters",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (exclusive)"""
+
+    include_previous_period_comparison = sgqlc.types.Field(
+        Boolean, graphql_name="includePreviousPeriodComparison"
+    )
+    """Include comparison to previous period of equal length (default:
+    true)
+    """
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Optional filters to refine results (model, workflow, task, or
+    conversation at span level)
+    """
+
+
+class GetToolCallTimeSeriesInput(sgqlc.types.Input):
+    """Input parameters for getToolCallTimeSeries query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "bucket_size",
+        "metric_group",
+        "top_n",
+        "tool_names",
+        "filters",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (exclusive)"""
+
+    bucket_size = sgqlc.types.Field(
+        sgqlc.types.non_null(TraceBucketSize), graphql_name="bucketSize"
+    )
+    """Size of time buckets (MINUTE, HOUR, DAY, WEEK)"""
+
+    metric_group = sgqlc.types.Field(
+        sgqlc.types.non_null(ToolCallMetricGroup), graphql_name="metricGroup"
+    )
+    """Metric group to return. Each group maps to a set of metrics:
+    VOLUME (call count), LATENCY (avg/p50/p95/p99), ERRORS (error
+    count + error rate).
+    """
+
+    top_n = sgqlc.types.Field(Int, graphql_name="topN")
+    """Cap the number of returned tool series to the top-N tools by call
+    count. Ignored when toolNames is provided.
+    """
+
+    tool_names = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="toolNames"
+    )
+    """Optional explicit set of tool names to return; overrides topN when
+    provided.
+    """
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Optional filters to refine results (model, workflow, task, or
+    conversation at span level)
+    """
+
+
+class GetTopToolsInput(sgqlc.types.Input):
+    """Input parameters for getTopTools query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "limit",
+        "filters",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query
+    """
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (exclusive)"""
+
+    limit = sgqlc.types.Field(Int, graphql_name="limit")
+    """Maximum number of tools to return, ranked by call count"""
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Optional filters to refine results (model, workflow, task, or
+    conversation at span level)
+    """
 
 
 class GetTraceExplanationInput(sgqlc.types.Input):
@@ -18704,18 +18936,54 @@ class AgentHealthCard(sgqlc.types.Type):
     needs_human_review = sgqlc.types.Field(Boolean, graphql_name="needsHumanReview")
 
 
-class AgentHealthCodeRef(sgqlc.types.Type):
-    """Source-code location an evidence row was traced to by the code-
-    aware judge.
+class AgentHealthCheck(sgqlc.types.Type):
+    """One verifier's verdict on an evidence row, plus the proof behind
+    it.  `validity` (is the finding real?) and `resolution` (already
+    fixed?) are independent axes — a verifier fills the axis it can
+    judge and leaves the other INCONCLUSIVE. The proof fields
+    (filePath, symbol, prNumber, url, mergedAt) are populated per
+    check type: code_ref checks carry the code location, pr checks
+    carry the pull-request reference.
     """
 
     __schema__ = schema
-    __field_names__ = ("path", "symbol")
-    path = sgqlc.types.Field(String, graphql_name="path")
-    """Repository-relative file path."""
+    __field_names__ = (
+        "type",
+        "validity",
+        "resolution",
+        "description",
+        "file_path",
+        "symbol",
+        "pr_number",
+        "url",
+        "merged_at",
+    )
+    type = sgqlc.types.Field(AgentHealthCheckType, graphql_name="type")
+    """Which verifier produced this check."""
+
+    validity = sgqlc.types.Field(AgentHealthCheckValidity, graphql_name="validity")
+    """Is the finding real? INVALID means a proven false positive."""
+
+    resolution = sgqlc.types.Field(AgentHealthCheckResolution, graphql_name="resolution")
+    """Is the underlying problem still open, or already fixed/addressed?"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Human-readable one-liner: what this check proves."""
+
+    file_path = sgqlc.types.Field(String, graphql_name="filePath")
+    """Repository-relative file path the evidence was traced to."""
 
     symbol = sgqlc.types.Field(String, graphql_name="symbol")
     """Function / class symbol within the file."""
+
+    pr_number = sgqlc.types.Field(Int, graphql_name="prNumber")
+    """Pull request number, for PR checks."""
+
+    url = sgqlc.types.Field(String, graphql_name="url")
+    """Link to the proof (e.g. the pull request)."""
+
+    merged_at = sgqlc.types.Field(DateTime, graphql_name="mergedAt")
+    """When the referenced pull request merged, for PR checks."""
 
 
 class AgentHealthEvidence(sgqlc.types.Type):
@@ -18736,8 +19004,8 @@ class AgentHealthEvidence(sgqlc.types.Type):
         "confidence_score",
         "source",
         "source_detector",
-        "code_status",
-        "code_refs",
+        "checks",
+        "checks_status",
         "samples",
     )
     id = sgqlc.types.Field(String, graphql_name="id")
@@ -18784,13 +19052,21 @@ class AgentHealthEvidence(sgqlc.types.Type):
     source_detector = sgqlc.types.Field(String, graphql_name="sourceDetector")
     """Which detector rule fired."""
 
-    code_status = sgqlc.types.Field(AgentHealthCodeStatus, graphql_name="codeStatus")
-    """Code-aware judge verdict. Null when code analysis did not run."""
-
-    code_refs = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthCodeRef)), graphql_name="codeRefs"
+    checks = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthCheck)), graphql_name="checks"
     )
-    """Source-code locations the fact was traced to."""
+    """Verifier verdicts on this evidence row (code-aware judge, recent-
+    PR check). Empty when no verifier ran; null on reports produced
+    before verification shipped.
+    """
+
+    checks_status = sgqlc.types.Field(Boolean, graphql_name="checksStatus")
+    """Rollup over checks: false when a verifier proved the finding a
+    false positive, or resolved with nothing still open — true
+    otherwise, including unverified rows. Filter the open-issues view
+    on this; the why lives in each check's validity/resolution. Null
+    on reports produced before verification shipped.
+    """
 
     samples = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthEvidenceSample")),
@@ -19042,6 +19318,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "related_evidence_ids",
         "evidence",
         "recommended_actions",
+        "action_context",
     )
     finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
     """UUID of the child finding carrying this issue (fresh every run)."""
@@ -19085,12 +19362,21 @@ class AgentHealthIssue(sgqlc.types.Type):
     )
     """Fixes addressing this issue, resolved inline."""
 
+    action_context = sgqlc.types.Field(String, graphql_name="actionContext")
+    """Self-contained handoff body for acting on this issue (a ticket
+    description, a coding-agent prompt): agent identity and window,
+    the narrative, cited evidence with trace deep-links and verifier
+    checks, and recommended actions. Currently markdown, but the
+    format may evolve — treat as opaque rich text. Null on reports
+    produced before the bundle shipped.
+    """
+
 
 class AgentHealthRecommendedAction(sgqlc.types.Type):
     """A remediation addressing one or more issues."""
 
     __schema__ = schema
-    __field_names__ = ("id", "title", "sub_bullets", "addresses_issue_ids", "remediation_context")
+    __field_names__ = ("id", "title", "sub_bullets", "addresses_issue_ids")
     id = sgqlc.types.Field(String, graphql_name="id")
     """Action id."""
 
@@ -19107,10 +19393,28 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
     )
     """Issue id(s) this fix resolves."""
 
-    remediation_context = sgqlc.types.Field(String, graphql_name="remediationContext")
-    """Reserved free-form remediation context for future automated fixes;
-    null for now.
+
+class AgentHealthWorkflowSummary(sgqlc.types.Type):
+    """Per-workflow rollup of an agent's latest health report, for list
+    views.
     """
+
+    __schema__ = schema
+    __field_names__ = ("workflow_name", "issue_count", "health", "detection_time")
+    workflow_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflowName")
+    """Workflow within the agent the report covers."""
+
+    issue_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issueCount")
+    """Issues on the latest report; 0 means a clean report."""
+
+    health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
+    """Worst-severity rollup of the latest report: the report's own
+    health when present, otherwise the max severity across its issues.
+    Null only when neither is known.
+    """
+
+    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
+    """When the latest report was produced."""
 
 
 class AgentLogEntry(sgqlc.types.Type):
@@ -35615,6 +35919,7 @@ class LineageMulesoftJobAttributes(sgqlc.types.Type):
         "mcon",
         "resource_id",
         "resource_name",
+        "application_name",
         "status",
         "last_run_finished_at",
     )
@@ -35629,6 +35934,11 @@ class LineageMulesoftJobAttributes(sgqlc.types.Type):
 
     resource_name = sgqlc.types.Field(String, graphql_name="resourceName")
     """Name of the Mulesoft ETL container"""
+
+    application_name = sgqlc.types.Field(String, graphql_name="applicationName")
+    """Name of the MuleSoft application (Anypoint deployment) this flow
+    belongs to
+    """
 
     status = sgqlc.types.Field(String, graphql_name="status")
     """Status of most recent flow execution"""
@@ -61811,6 +62121,10 @@ class PiiScanFinding(sgqlc.types.Type):
         "last_scanned_at",
         "job_execution_uuid",
         "scanned_row_count",
+        "first_detected_at",
+        "bulk_monitor_uuid",
+        "bulk_monitor_name",
+        "alert_uuid",
     )
     table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
 
@@ -61832,12 +62146,20 @@ class PiiScanFinding(sgqlc.types.Type):
 
     scanned_row_count = sgqlc.types.Field(Int, graphql_name="scannedRowCount")
 
+    first_detected_at = sgqlc.types.Field(DateTime, graphql_name="firstDetectedAt")
+
+    bulk_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="bulkMonitorUuid")
+
+    bulk_monitor_name = sgqlc.types.Field(String, graphql_name="bulkMonitorName")
+
+    alert_uuid = sgqlc.types.Field(UUID, graphql_name="alertUuid")
+
 
 class PiiScanFindingsSummary(sgqlc.types.Type):
     """Latest nonzero PII scan findings for a PII bulk monitor"""
 
     __schema__ = schema
-    __field_names__ = ("findings", "latest_scan_time", "has_more")
+    __field_names__ = ("findings", "latest_scan_time", "has_more", "totals", "tables")
     findings = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanFinding))),
         graphql_name="findings",
@@ -61846,6 +62168,87 @@ class PiiScanFindingsSummary(sgqlc.types.Type):
     latest_scan_time = sgqlc.types.Field(DateTime, graphql_name="latestScanTime")
 
     has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+
+    totals = sgqlc.types.Field(
+        sgqlc.types.non_null("PiiScanInventoryTotals"), graphql_name="totals"
+    )
+
+    tables = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiScanTableSummary"))),
+        graphql_name="tables",
+    )
+
+
+class PiiScanInventoryTotals(sgqlc.types.Type):
+    """Server-side aggregate totals for PII scan findings"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "total_tables_with_pii",
+        "total_columns_with_pii",
+        "total_findings",
+        "monitor_count",
+        "pii_types",
+        "first_detected_at",
+        "last_scanned_at",
+    )
+    total_tables_with_pii = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalTablesWithPii"
+    )
+
+    total_columns_with_pii = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalColumnsWithPii"
+    )
+
+    total_findings = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalFindings")
+
+    monitor_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorCount")
+
+    pii_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="piiTypes",
+    )
+
+    first_detected_at = sgqlc.types.Field(DateTime, graphql_name="firstDetectedAt")
+
+    last_scanned_at = sgqlc.types.Field(DateTime, graphql_name="lastScannedAt")
+
+
+class PiiScanTableSummary(sgqlc.types.Type):
+    """Server-side aggregate summary for one table with PII findings"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "table_mcon",
+        "full_table_id",
+        "finding_count",
+        "column_count",
+        "pii_types",
+        "max_match_rate",
+        "first_detected_at",
+        "last_scanned_at",
+        "monitor_count",
+    )
+    table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+
+    finding_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="findingCount")
+
+    column_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="columnCount")
+
+    pii_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="piiTypes",
+    )
+
+    max_match_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="maxMatchRate")
+
+    first_detected_at = sgqlc.types.Field(DateTime, graphql_name="firstDetectedAt")
+
+    last_scanned_at = sgqlc.types.Field(DateTime, graphql_name="lastScannedAt")
+
+    monitor_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorCount")
 
 
 class PiiTypeInfo(sgqlc.types.Type):
@@ -62668,6 +63071,7 @@ class Query(sgqlc.types.Type):
         "get_agent_health_findings",
         "get_agent_health_card",
         "get_latest_agent_health_finding",
+        "get_latest_agent_health_finding_summaries",
         "get_available_platform_agents",
         "evaluate_platform_agent_data_source",
         "get_node_attributes",
@@ -62678,6 +63082,9 @@ class Query(sgqlc.types.Type):
         "get_agent_graph_insights",
         "get_trace_time_series",
         "get_trace_overview",
+        "get_tool_call_overview",
+        "get_tool_call_time_series",
+        "get_top_tools",
         "get_conversations_filters",
         "get_conversations_filters_data",
         "get_conversations",
@@ -62732,6 +63139,7 @@ class Query(sgqlc.types.Type):
         "get_datadog_services",
         "get_pii_types",
         "get_pii_scan_findings",
+        "get_pii_scan_inventory",
         "bulk_monitor",
         "bulk_monitors",
         "get_bulk_monitor",
@@ -63898,6 +64306,42 @@ class Query(sgqlc.types.Type):
       Disambiguates agents with identical names across trace tables.
     """
 
+    get_latest_agent_health_finding_summaries = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthWorkflowSummary))),
+        graphql_name="getLatestAgentHealthFindingSummaries",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Per-workflow summaries of the newest agent-health
+    report for an (agent_name, trace_table_mcon) combo — the
+    lightweight companion to getLatestAgentHealthFinding for list
+    views. One entry per workflow that has at least one report
+    (workflows with no report yet are absent), sorted by workflow
+    name, carrying the issue count and worst-severity rollup instead
+    of the full issue/evidence tree.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Observability agent name.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
+      Disambiguates agents with identical names across trace tables.
+    """
+
     get_available_platform_agents = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AvailablePlatformAgentData))),
         graphql_name="getAvailablePlatformAgents",
@@ -64156,6 +64600,83 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetTraceOverviewInput!`)None
+    """
+
+    get_tool_call_overview = sgqlc.types.Field(
+        "ToolCallOverviewMetricsWithComparison",
+        graphql_name="getToolCallOverview",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetToolCallOverviewInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get aggregate tool-call metrics over tool spans for
+    a time range: total tool calls, average calls per trace, tool
+    error rate, and the most-invoked tool with its share of calls.
+    Optionally includes comparison to the previous period.
+
+    Arguments:
+
+    * `input` (`GetToolCallOverviewInput!`)None
+    """
+
+    get_tool_call_time_series = sgqlc.types.Field(
+        sgqlc.types.list_of("ToolCallTimeSeriesType"),
+        graphql_name="getToolCallTimeSeries",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetToolCallTimeSeriesInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get per-tool time series metrics over tool spans.
+    Returns time-bucketed, gap-filled series segmented by tool name —
+    call volume, latency percentiles, or error count/rate depending on
+    the metric group. Series are capped at the top-N tools by call
+    count unless an explicit toolNames set is given.
+
+    Arguments:
+
+    * `input` (`GetToolCallTimeSeriesInput!`)None
+    """
+
+    get_top_tools = sgqlc.types.Field(
+        sgqlc.types.list_of("TopTool"),
+        graphql_name="getTopTools",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetTopToolsInput), graphql_name="input", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get ranked per-tool aggregate stats over tool spans
+    for a time range: call count and share, average/p95 latency, and
+    error count/rate. Sorted by call count descending. Powers the top-
+    tools bar chart and the tools legend.
+
+    Arguments:
+
+    * `input` (`GetTopToolsInput!`)None
     """
 
     get_conversations_filters = sgqlc.types.Field(
@@ -65837,6 +66358,29 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `bulk_monitor_uuid` (`UUID!`)None
+    * `limit` (`Int`)None (default: `500`)
+    """
+
+    get_pii_scan_inventory = sgqlc.types.Field(
+        sgqlc.types.non_null(PiiScanFindingsSummary),
+        graphql_name="getPiiScanInventory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "bulk_monitor_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="bulkMonitorUuid", default=None),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=500)),
+            )
+        ),
+    )
+    """(experimental) Return PII findings inventory totals and latest
+    nonzero findings across accessible PII bulk monitors, optionally
+    scoped to one bulk monitor.
+
+    Arguments:
+
+    * `bulk_monitor_uuid` (`UUID`)None
     * `limit` (`Int`)None (default: `500`)
     """
 
@@ -91681,6 +92225,74 @@ class ToolCallBlock(sgqlc.types.Type):
     """Unique ID for this tool call (if available)"""
 
 
+class ToolCallOverviewMetrics(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "total_tool_calls",
+        "avg_calls_per_trace",
+        "tool_error_rate",
+        "top_tool_name",
+        "top_tool_share_pct",
+    )
+    total_tool_calls = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalToolCalls")
+
+    avg_calls_per_trace = sgqlc.types.Field(Float, graphql_name="avgCallsPerTrace")
+
+    tool_error_rate = sgqlc.types.Field(Float, graphql_name="toolErrorRate")
+
+    top_tool_name = sgqlc.types.Field(String, graphql_name="topToolName")
+
+    top_tool_share_pct = sgqlc.types.Field(Float, graphql_name="topToolSharePct")
+
+
+class ToolCallOverviewMetricsWithComparison(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "total_tool_calls",
+        "avg_calls_per_trace",
+        "tool_error_rate",
+        "top_tool_name",
+        "top_tool_share_pct",
+        "prev_period",
+    )
+    total_tool_calls = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalToolCalls")
+
+    avg_calls_per_trace = sgqlc.types.Field(Float, graphql_name="avgCallsPerTrace")
+
+    tool_error_rate = sgqlc.types.Field(Float, graphql_name="toolErrorRate")
+
+    top_tool_name = sgqlc.types.Field(String, graphql_name="topToolName")
+
+    top_tool_share_pct = sgqlc.types.Field(Float, graphql_name="topToolSharePct")
+
+    prev_period = sgqlc.types.Field(ToolCallOverviewMetrics, graphql_name="prevPeriod")
+
+
+class ToolCallTimeSeriesType(sgqlc.types.Type):
+    """Per-tool time series for a single tool-call metric.  One object is
+    returned per (metric, tool) combination, so a per-tool chart
+    renders one line/area per distinct toolName.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("metric", "tool_name", "buckets")
+    metric = sgqlc.types.Field(
+        sgqlc.types.non_null(ToolCallTimeSeriesMetric), graphql_name="metric"
+    )
+    """The tool-call metric this series represents"""
+
+    tool_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="toolName")
+    """The tool this series represents"""
+
+    buckets = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("TraceTimeSeriesBucketType"))
+        ),
+        graphql_name="buckets",
+    )
+    """Time-bucketed data points (gap-filled; null value where no data)"""
+
+
 class ToolDetail(sgqlc.types.Type):
     """Per-tool statistics derived from agent traces."""
 
@@ -91715,6 +92327,32 @@ class TopQueryGroupsResponseType(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(QueryGroupSummaryType)),
         graphql_name="topQueryGroups",
     )
+
+
+class TopTool(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "tool_name",
+        "call_count",
+        "share_pct",
+        "avg_latency_seconds",
+        "p95_latency_seconds",
+        "error_count",
+        "error_rate",
+    )
+    tool_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="toolName")
+
+    call_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="callCount")
+
+    share_pct = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="sharePct")
+
+    avg_latency_seconds = sgqlc.types.Field(Float, graphql_name="avgLatencySeconds")
+
+    p95_latency_seconds = sgqlc.types.Field(Float, graphql_name="p95LatencySeconds")
+
+    error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
+
+    error_rate = sgqlc.types.Field(Float, graphql_name="errorRate")
 
 
 class Trace(sgqlc.types.Type):
@@ -101759,11 +102397,11 @@ class Finding(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
         "created_time",
+        "updated_time",
         "uuid",
         "title",
         "summary",
         "detection_time",
-        "updated_time",
         "detail_payload",
         "actions",
         "confidence_score",
@@ -101798,6 +102436,8 @@ class Finding(sgqlc.types.Type, Node):
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Public finding identifier."""
 
@@ -101809,8 +102449,6 @@ class Finding(sgqlc.types.Type, Node):
 
     detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
     """When the agent run produced this finding."""
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
 
     detail_payload = sgqlc.types.Field(
         sgqlc.types.non_null(JSONString), graphql_name="detailPayload"
@@ -103109,7 +103747,13 @@ class Monitor(
     IComparisonMonitor,
 ):
     __schema__ = schema
-    __field_names__ = ("supports_sensitivity_update", "is_tunable", "tuning_unavailable_reason")
+    __field_names__ = (
+        "supports_sensitivity_update",
+        "is_tunable",
+        "tuning_unavailable_reason",
+        "finding",
+        "parent_finding",
+    )
     supports_sensitivity_update = sgqlc.types.Field(
         Boolean, graphql_name="supportsSensitivityUpdate"
     )
@@ -103127,6 +103771,18 @@ class Monitor(
     )
     """When ``isTunable`` is false, the reason tuning is currently
     unavailable. Null when tuning is available.
+    """
+
+    finding = sgqlc.types.Field(Finding, graphql_name="finding")
+    """The observability-agent finding that created this monitor. Null
+    for monitors not created by an agent finding.
+    """
+
+    parent_finding = sgqlc.types.Field(Finding, graphql_name="parentFinding")
+    """The top-level container finding above the finding that created
+    this monitor (the root of the finding's parent chain). Null when
+    the creating finding has no parent, or when the monitor was not
+    created by a finding.
     """
 
 

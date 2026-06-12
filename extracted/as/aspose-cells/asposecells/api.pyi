@@ -1843,7 +1843,7 @@ class AutoShapeType:
 
 
 class Axis:
-    '''Encapsulates the object that represents an axis of chart.
+    '''Encapsulates the object that represents an axis of a chart.
     From the following codes , you can learn how to set unit, maximum and minimum value  of Axis.'''
 
     def getDisplayUnit(self) -> int:
@@ -2660,7 +2660,7 @@ class BubbleSizeRepresents:
     '''Represents what the bubble size represents on a bubble chart.'''
 
     SIZE_IS_AREA : BubbleSizeRepresents
-    '''Represents the value of :meth:`Series.getBubbleSizes()` is area of the bubble.'''
+    '''Represents the value of :meth:`Series.getBubbleSizes()`, which is the area of the bubble.'''
 
     SIZE_IS_WIDTH : BubbleSizeRepresents
     '''Represents the value of :meth:`Series.getBubbleSizes()` is width of the bubble.'''
@@ -6243,7 +6243,7 @@ class Chart:
         raise NotImplementedError()
 
     def setDisplayNaAsBlank(self, value : bool) -> None:
-        '''Indicates whether displaying #N/A as blank value.
+        '''Indicates whether to display #N/A as a blank value.
         :param value: '''
         raise NotImplementedError()
 
@@ -6269,7 +6269,7 @@ class Chart:
 
     @overload
     def calculate(self) -> None:
-        '''Calculates the custom position of plot area, axes if the position of them are auto assigned.'''
+        '''Calculates the custom positions of the plot area and axes if their positions are auto-assigned.'''
         raise NotImplementedError()
 
     @overload
@@ -6283,7 +6283,7 @@ class Chart:
         raise NotImplementedError()
 
     def getDisplayNaAsBlank(self) -> bool:
-        '''Indicates whether displaying #N/A as blank value.'''
+        '''Indicates whether to display #N/A as a blank value.'''
         raise NotImplementedError()
 
     def getIs3D(self) -> bool:
@@ -6358,7 +6358,7 @@ class Chart:
         raise NotImplementedError()
 
     def changeTemplate(self, data : list[int]) -> None:
-        '''Change chart type with preset template.
+        '''Change chart type with a preset template.
         :param data: The data of chart template file(.crtx).'''
         raise NotImplementedError()
 
@@ -6418,7 +6418,8 @@ class Chart:
         raise NotImplementedError()
 
     def setPerspective(self, value : int) -> None:
-        '''Returns or sets the perspective for the 3-D chart view. Must be between 0 and 100.
+        '''Returns or sets the perspective for the three鈥慸imensional chart view.
+        Must be between 0 and 100.
         This property is ignored if the RightAngleAxes property is True.
         :param value: '''
         raise NotImplementedError()
@@ -6475,7 +6476,8 @@ class Chart:
         raise NotImplementedError()
 
     def getPerspective(self) -> int:
-        '''Returns or sets the perspective for the 3-D chart view. Must be between 0 and 100.
+        '''Returns or sets the perspective for the three鈥慸imensional chart view.
+        Must be between 0 and 100.
         This property is ignored if the RightAngleAxes property is True.'''
         raise NotImplementedError()
 
@@ -6637,7 +6639,7 @@ class Chart:
 
     def getSubTitle(self) -> Title:
         '''Gets the chart's sub-title.
-        Only for ODS format file.'''
+        Only applies to ODS files.'''
         raise NotImplementedError()
 
     def getLine(self) -> Line:
@@ -6696,11 +6698,11 @@ class ChartArea:
         raise NotImplementedError()
 
     def getFont(self) -> Font:
-        '''Gets a :meth:`ChartArea.getFont()` object of the specified chartarea object.'''
+        '''Gets a :meth:`ChartArea.getFont()` object of the specified ChartArea object.'''
         raise NotImplementedError()
 
     def getXRatioToChart(self) -> float:
-        '''Gets or gets the horizontal offset from its upper left corner column, in units of ratio of the chart area.'''
+        '''Gets the horizontal offset from the upper-left corner column, as a ratio of the chart area.'''
         raise NotImplementedError()
 
     def setYRatioToChart(self, value : float) -> None:
@@ -6754,7 +6756,7 @@ class ChartArea:
         raise NotImplementedError()
 
     def setXRatioToChart(self, value : float) -> None:
-        '''Gets or gets the horizontal offset from its upper left corner column, in units of ratio of the chart area.
+        '''Sets the horizontal offset from the upper-left corner column, as a ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -7030,7 +7032,7 @@ class ChartFrame:
     '''Encapsulates the object that represents the frame object in a chart.'''
 
     def getYRatioToChart(self) -> float:
-        '''Gets the y coordinate of the upper left corner in units of ratio of the chart area.'''
+        '''Gets the y coordinate of the upper left corner in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def getWidthRatioToChart(self) -> float:
@@ -7072,7 +7074,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getYPixel(self) -> int:
-        '''Gets the y coordinate of the upper left corner in units of Pixel.'''
+        '''Gets the y coordinate of the upper left corner in units of pixels.'''
         raise NotImplementedError()
 
     def getDefaultHeight(self) -> int:
@@ -7084,7 +7086,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getDefaultHeightRatioToChart(self) -> float:
-        '''Represents height of default position in units of Fraction of the chart area.'''
+        '''Represents height of the default position in units of the fraction of the chart area.'''
         raise NotImplementedError()
 
     def getDefaultWidth(self) -> int:
@@ -7101,7 +7103,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def setYPixel(self, value : int) -> None:
-        '''Sets the y coordinate of the upper left corner in units of Pixel.
+        '''Sets the y coordinate of the upper left corner in units of pixels.
         :param value: '''
         raise NotImplementedError()
 
@@ -7119,7 +7121,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def setHeightRatioToChart(self, value : float) -> None:
-        '''Sets the height of frame in units of ratio of the chart area.
+        '''Sets the height of the frame in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -7129,7 +7131,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def setYRatioToChart(self, value : float) -> None:
-        '''Sets the y coordinate of the upper left corner in units of ratio of the chart area.
+        '''Sets the y coordinate of the upper left corner in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -7169,12 +7171,12 @@ class ChartFrame:
         raise NotImplementedError()
 
     def setHeightPixel(self, value : int) -> None:
-        '''Sets the height of frame in units of Pixel.
+        '''Sets the height of the frame in units of pixels.
         :param value: '''
         raise NotImplementedError()
 
     def isDefaultPosBeSet(self) -> bool:
-        '''Indicates whether default position(DefaultX, DefaultY, DefaultWidth and DefaultHeight) are set.'''
+        '''Indicates whether default position (DefaultX, DefaultY, DefaultWidth and DefaultHeight) is set.'''
         raise NotImplementedError()
 
     def setX(self, value : int) -> None:
@@ -7190,7 +7192,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getDefaultYRatioToChart(self) -> float:
-        '''Represents y of default position in units of Fraction of the chart area.'''
+        '''Represents y of the default position in units of the fraction of the chart area.'''
         raise NotImplementedError()
 
     def getDefaultY(self) -> int:
@@ -7232,7 +7234,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getHeightRatioToChart(self) -> float:
-        '''Gets the height of frame in units of ratio of the chart area.'''
+        '''Gets the height of the frame in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def getChart(self) -> Chart:
@@ -7252,7 +7254,7 @@ class ChartFrame:
         raise NotImplementedError()
 
     def getHeightPixel(self) -> int:
-        '''Gets the height of frame in units of Pixel.'''
+        '''Gets the height of the frame in units of pixels.'''
         raise NotImplementedError()
 
 
@@ -7361,17 +7363,17 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getInnerArcEndPointXPx(self) -> float:
-        '''Gets the x coordinate of ending point for the pie section after calls Chart.Calculate() method.
-        Applies to Doughnut chart.'''
+        '''Gets the x coordinate of the ending point for the pie section after calling the Chart.Calculate() method.
+        Applies to Doughnut charts.'''
         raise NotImplementedError()
 
     def getArcEndPointXPx(self) -> float:
-        '''Gets the x coordinate of ending point for the pie section after calls Chart.Calculate() method.
-        Applies to Pie and Doughnut  chart.'''
+        '''Gets the x coordinate of the ending point for the pie section after calling the Chart.Calculate() method.
+        Applies to Pie and Doughnut charts.'''
         raise NotImplementedError()
 
     def getShapeWidthPx(self) -> int:
-        '''Gets the width in units of pixels after calls Chart.Calculate() method.'''
+        '''Gets the width in units of pixels after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getArea(self) -> Area:
@@ -7388,7 +7390,7 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getBorderWidthPx(self) -> int:
-        '''Gets the width of border in units of pixels after calls Chart.Calculate() method.'''
+        '''Gets the width of border in units of pixels after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getArcStartPointYPx(self) -> float:
@@ -7414,8 +7416,8 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getArcStartPointXPx(self) -> float:
-        '''Gets the x coordinate of starting point for the pie section after calls Chart.Calculate() method.
-        Applies to Pie and Doughnut  chart.'''
+        '''Gets the x coordinate of starting point for the pie section after calling the Chart.Calculate() method.
+        Applies to Pie and Doughnut charts.'''
         raise NotImplementedError()
 
     def getShapeYPx(self) -> int:
@@ -7434,7 +7436,8 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getOnCategoryAxisPointYPx(self, index : int) -> float:
-        '''Gets y-coordinate of the point on category axis after calls Chart.Calculate() method. Only applies to Area chart.
+        '''Gets y-coordinate of the point on category axis after calling the Chart.Calculate() method.
+        Only applies to Area chart.
         :param index: '''
         raise NotImplementedError()
 
@@ -7443,21 +7446,21 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getShapeX(self) -> int:
-        '''Gets the x coordinate of the upper left corner in units of 1/4000 of chart's width after calls Chart.Calculate() method.'''
+        '''Gets the x coordinate of the upper left corner in units of 1/4000 of chart's width after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getTopPointYPx(self, index : int) -> float:
-        '''Gets y-coordinate of the top point of shape after calls Chart.Calculate() method.
-        Applies 3D charts: Column3D, Bar3D, Cone, Cylinder, Pyramid and Area3D
+        '''Gets y-coordinate of the top point of the shape after calling the Chart.Calculate() method.
+        Applies 3D charts: Column3D, Bar3D, Cone, Cylinder, Pyramid, and Area3D.
         :param index: '''
         raise NotImplementedError()
 
     def getShapeXPx(self) -> int:
-        '''Gets the x coordinate of the upper left corner in units of pixels after calls Chart.Calculate() method.'''
+        '''Gets the x coordinate of the upper left corner in units of pixels after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getBottomPointXPx(self, index : int) -> float:
-        '''Gets x-coordinate of the bottom point of shape after calls Chart.Calculate() method.
+        '''Gets x-coordinate of the bottom point of shape after calling the Chart.Calculate() method.
         Applies 3D charts: Column3D, Bar3D, Cone, Cylinder, Pyramid
         :param index: '''
         raise NotImplementedError()
@@ -7487,7 +7490,7 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getShapeWidth(self) -> int:
-        '''Gets the width in units of 1/4000 of chart's width after calls Chart.Calculate() method.'''
+        '''Gets the width in units of 1/4000 of the chart's width after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def isInSecondaryPlot(self) -> bool:
@@ -7510,7 +7513,8 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getOnCategoryAxisPointCount(self) -> int:
-        '''Gets the number of the points on category axis after calls Chart.Calculate() method. Only applies to area chart.'''
+        '''Gets the number of the points on the category axis after calling the Chart.Calculate() method.
+        Only applies to area charts.'''
         raise NotImplementedError()
 
     def setInSecondaryPlot(self, value : bool) -> None:
@@ -7530,7 +7534,7 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getTopPointCount(self) -> int:
-        '''Gets the number of top points after calls Chart.Calculate() method.'''
+        '''Gets the number of top points after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getExplosion(self) -> int:
@@ -7542,12 +7546,12 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getStartAngle(self) -> float:
-        '''Gets the starting angle for the pie section, measured in degrees clockwise from the x-axis after calls Chart.Calculate() method.
+        '''Gets the starting angle for the pie section, measured in degrees clockwise from the x-axis after calling the Chart.Calculate() method.
         Applies to Pie chart.'''
         raise NotImplementedError()
 
     def getDoughnutInnerRadius(self) -> int:
-        '''Gets the inner radius of doughnut slice in units of pixels after calls Chart.Calculate() method.
+        '''Gets the inner radius of doughnut slice in units of pixels after calling the Chart.Calculate() method.
         Applies to Doughnut chart.'''
         raise NotImplementedError()
 
@@ -7561,8 +7565,8 @@ class ChartPoint:
         raise NotImplementedError()
 
     def getInnerArcStartPointXPx(self) -> float:
-        '''Gets the x coordinate of starting point for the pie section after calls Chart.Calculate() method.
-        Applies to Doughnut chart.'''
+        '''Gets the x coordinate of the starting point for the pie section after calling the Chart.Calculate() method.
+        Applies to the Doughnut chart.'''
         raise NotImplementedError()
 
     def getInnerArcEndPointYPx(self) -> float:
@@ -7588,7 +7592,7 @@ class ChartPointCollection:
         raise NotImplementedError()
 
     def removeAt(self, index : int) -> None:
-        '''Removes point at the index of the series..
+        '''Removes point at the index of the series.
         :param index: The index of the point.'''
         raise NotImplementedError()
 
@@ -7616,9 +7620,8 @@ class ChartSplitType:
     '''Represents the way the two sections of either a pie of pie chart or a bar of pie chart are split.'''
 
     POSITION : ChartSplitType
-    '''Represents the data points shall be split between the pie
-    and the second chart by putting the last Split Position
-    of the data points in the second chart'''
+    '''Represents the data points.
+    The data points shall be split between the pie and the second chart by putting the last split position of the data points in the second chart.'''
 
     VALUE : ChartSplitType
     '''Represents the data points shall be split between the pie
@@ -7626,10 +7629,7 @@ class ChartSplitType:
     value less than Split Position in the second chart.'''
 
     PERCENT_VALUE : ChartSplitType
-    '''Represents the data points shall be split between the pie
-    and the second chart by putting the points with
-    percentage less than Split Position percent in the
-    second chart.'''
+    '''Represents the data points that shall be split between the pie and the second chart by putting the points with a percentage less than the Split Position percent in the second chart.'''
 
     CUSTOM : ChartSplitType
     '''Represents the data points shall be split between the pie
@@ -7637,8 +7637,7 @@ class ChartSplitType:
     values.'''
 
     AUTO : ChartSplitType
-    '''Represents the data points shall be split using the default
-    mechanism for this chart type.'''
+    '''Represents the data points that shall be split using the default mechanism for this chart type.'''
 
 
 class ChartTextDirectionType:
@@ -7651,7 +7650,7 @@ class ChartTextDirectionType:
     '''Vertical direction type.'''
 
     ROTATE_90 : ChartTextDirectionType
-    '''Rotate 90-degree angle.'''
+    '''Rotate by a ninety-degree angle.'''
 
     ROTATE_270 : ChartTextDirectionType
     '''Rotate 270-degree angle.'''
@@ -7796,7 +7795,7 @@ class ChartType:
     '''Enumerates all chart types used in Excel.'''
 
     AREA : ChartType
-    '''Represents Area Chart.'''
+    '''Represents an Area Chart.'''
 
     AREA_STACKED : ChartType
     '''Represents Stacked Area Chart.'''
@@ -7814,7 +7813,7 @@ class ChartType:
     '''Represents 3D 100% Stacked Area Chart.'''
 
     BAR : ChartType
-    '''Represents Bar Chart: Clustered Bar Chart.'''
+    '''Represents a Bar Chart: Clustered Bar Chart.'''
 
     BAR_STACKED : ChartType
     '''Represents Stacked Bar Chart.'''
@@ -7832,7 +7831,7 @@ class ChartType:
     '''Represents 3D 100% Stacked Bar Chart.'''
 
     BUBBLE : ChartType
-    '''Represents Bubble Chart.'''
+    '''Represents a Bubble Chart.'''
 
     BUBBLE_3_D : ChartType
     '''Represents 3D Bubble Chart.'''
@@ -7844,7 +7843,7 @@ class ChartType:
     '''Represents Stacked Column Chart.'''
 
     COLUMN_100_PERCENT_STACKED : ChartType
-    '''Represents 100% Stacked Column Chart.'''
+    '''Represents a 100% Stacked Column Chart.'''
 
     COLUMN_3_D : ChartType
     '''Represents 3D Column Chart.'''
@@ -7874,19 +7873,19 @@ class ChartType:
     '''Represents Stacked Conical Bar Chart.'''
 
     CONICAL_BAR_100_PERCENT_STACKED : ChartType
-    '''Represents 100% Stacked Conical Bar Chart.'''
+    '''Represents a 100% Stacked Conical Bar Chart.'''
 
     CONICAL_COLUMN_3_D : ChartType
     '''Represents 3D Conical Column Chart.'''
 
     CYLINDER : ChartType
-    '''Represents Cylinder Chart.'''
+    '''Represents a Cylinder Chart.'''
 
     CYLINDER_STACKED : ChartType
     '''Represents Stacked Cylinder Chart.'''
 
     CYLINDER_100_PERCENT_STACKED : ChartType
-    '''Represents 100% Stacked Cylinder Chart.'''
+    '''Represents a 100% Stacked Cylinder Chart.'''
 
     CYLINDRICAL_BAR : ChartType
     '''Represents Cylindrical Bar Chart.'''
@@ -7934,7 +7933,7 @@ class ChartType:
     '''Represents 3D Pie Chart.'''
 
     PIE_PIE : ChartType
-    '''Represents Pie of Pie Chart.'''
+    '''Represents the pie of a pie chart.'''
 
     PIE_EXPLODED : ChartType
     '''Represents Exploded Pie Chart.'''
@@ -7946,7 +7945,7 @@ class ChartType:
     '''Represents Bar of Pie Chart.'''
 
     PYRAMID : ChartType
-    '''Represents Pyramid Chart.'''
+    '''Represents a Pyramid Chart.'''
 
     PYRAMID_STACKED : ChartType
     '''Represents Stacked Pyramid Chart.'''
@@ -7970,19 +7969,19 @@ class ChartType:
     '''Represents Radar Chart.'''
 
     RADAR_WITH_DATA_MARKERS : ChartType
-    '''Represents Radar Chart with data markers.'''
+    '''Represents a Radar Chart with data markers.'''
 
     RADAR_FILLED : ChartType
     '''Represents Filled Radar Chart.'''
 
     SCATTER : ChartType
-    '''Represents Scatter Chart.'''
+    '''Represents a Scatter Chart.'''
 
     SCATTER_CONNECTED_BY_CURVES_WITH_DATA_MARKER : ChartType
     '''Represents Scatter Chart connected by curves, with data markers.'''
 
     SCATTER_CONNECTED_BY_CURVES_WITHOUT_DATA_MARKER : ChartType
-    '''Represents Scatter Chart connected by curves, without data markers.'''
+    '''Represents a Scatter Chart connected by curves, without data markers.'''
 
     SCATTER_CONNECTED_BY_LINES_WITH_DATA_MARKER : ChartType
     '''Represents Scatter Chart connected by lines, with data markers.'''
@@ -11261,15 +11260,17 @@ class DataLabels:
     '''Encapsulates a collection of all the DataLabel objects for the specified Series.'''
 
     def getShowBubbleSize(self) -> bool:
-        '''Represents a specified chart's data label percentage value display behavior. True displays the percentage value. False to hide.'''
+        '''Represents a specified chart's data label percentage value display behavior.
+        True displays the percentage value.
+        False hides the percentage value.'''
         raise NotImplementedError()
 
     def getText(self) -> str:
-        '''Gets the text of data label.'''
+        '''Gets the text of the data label.'''
         raise NotImplementedError()
 
     def setText(self, value : str) -> None:
-        '''Sets the text of data label.
+        '''Sets the text of the data label.
         :param value: '''
         raise NotImplementedError()
 
@@ -11289,8 +11290,9 @@ class DataLabels:
         raise NotImplementedError()
 
     def setShowSeriesName(self, value : bool) -> None:
-        '''Indicates whether the series name displays for the data labels on a chart.
-        True to show the series name. False to hide.
+        '''Indicates whether the series name displays on the data labels on a chart.
+        True to show the series name.
+        False to hide.
         :param value: '''
         raise NotImplementedError()
 
@@ -11299,7 +11301,7 @@ class DataLabels:
         raise NotImplementedError()
 
     def getShowCellRange(self) -> bool:
-        '''Indicates whether showing cell range as the data labels.'''
+        '''Indicates whether to show cell range as the data labels.'''
         raise NotImplementedError()
 
     def setBackgroundMode(self, value : int) -> None:
@@ -11348,7 +11350,9 @@ class DataLabels:
         raise NotImplementedError()
 
     def setShowBubbleSize(self, value : bool) -> None:
-        '''Represents a specified chart's data label percentage value display behavior. True displays the percentage value. False to hide.
+        '''Represents a specified chart's data label percentage value display behavior.
+        True displays the percentage value.
+        False hides the percentage value.
         :param value: '''
         raise NotImplementedError()
 
@@ -11386,17 +11390,18 @@ class DataLabels:
         raise NotImplementedError()
 
     def getShowSeriesName(self) -> bool:
-        '''Indicates whether the series name displays for the data labels on a chart.
-        True to show the series name. False to hide.'''
+        '''Indicates whether the series name displays on the data labels on a chart.
+        True to show the series name.
+        False to hide.'''
         raise NotImplementedError()
 
     def isNeverOverlap(self) -> bool:
-        '''Indicates whether datalabels never overlap when performing Pie Chart to image.
-        Note: this property is only meaningful when Pie Chart to image.'''
+        '''Indicates whether Datalabels never overlap when performing a Pie Chart to image.
+        Note: this property is only meaningful when a Pie Chart to image.'''
         raise NotImplementedError()
 
     def setShowCellRange(self, value : bool) -> None:
-        '''Indicates whether showing cell range as the data labels.
+        '''Indicates whether to show cell range as the data labels.
         :param value: '''
         raise NotImplementedError()
 
@@ -11414,8 +11419,8 @@ class DataLabels:
         raise NotImplementedError()
 
     def setNeverOverlap(self, value : bool) -> None:
-        '''Indicates whether datalabels never overlap when performing Pie Chart to image.
-        Note: this property is only meaningful when Pie Chart to image.
+        '''Indicates whether Datalabels never overlap when performing a Pie Chart to image.
+        Note: this property is only meaningful when a Pie Chart to image.
         :param value: '''
         raise NotImplementedError()
 
@@ -11537,7 +11542,7 @@ class DataLabelsSeparatorType:
     '''Represents comma(",")'''
 
     SEMICOLON : DataLabelsSeparatorType
-    '''Represents semicolon(";")'''
+    '''Represents a semicolon(";")'''
 
     PERIOD : DataLabelsSeparatorType
     '''Represents period(".")'''
@@ -12621,31 +12626,31 @@ class DisplayUnitType:
     '''Display unit is None.'''
 
     HUNDREDS : DisplayUnitType
-    '''Specifies the values on the chart shall be divided by 100.'''
+    '''Specifies that the values on the chart shall be divided by 100.'''
 
     THOUSANDS : DisplayUnitType
     '''Specifies the values on the chart shall be divided by 1,000.'''
 
     TEN_THOUSANDS : DisplayUnitType
-    '''Specifies the values on the chart shall be divided by 10,000.'''
+    '''Specifies that the values on the chart shall be divided by 10,000.'''
 
     HUNDRED_THOUSANDS : DisplayUnitType
     '''Specifies the values on the chart shall be divided by 100,000.'''
 
     MILLIONS : DisplayUnitType
-    '''Specifies the values on the chart shall be divided by 1,000,000.'''
+    '''Specifies that the values on the chart shall be divided by 1,000,000.'''
 
     TEN_MILLIONS : DisplayUnitType
     '''Specifies the values on the chart shall be divided by 10,000,000.'''
 
     HUNDRED_MILLIONS : DisplayUnitType
-    '''Specifies the values on the chart shall be divided by 100,000,000.'''
+    '''Specifies that the values on the chart shall be divided by 100,000,000.'''
 
     BILLIONS : DisplayUnitType
     '''Specifies the values on the chart shall be divided by 1,000,000,000.'''
 
     TRILLIONS : DisplayUnitType
-    '''Specifies the values on the chart shall be divided by 1,000,000,000,000.'''
+    '''Specifies that the values on the chart shall be divided by 1,000,000,000,000.'''
 
     PERCENTAGE : DisplayUnitType
     '''The values on the chart shall be divided by 0.01.'''
@@ -12874,7 +12879,7 @@ class DrawObjectEventHandler:
 
 
 class DropBars:
-    '''Represents the up/down bars in a chart.'''
+    '''Represents the up and down bars in a chart.'''
 
     def getBorder(self) -> Line:
         '''Gets the border :class:`Line`.'''
@@ -13736,7 +13741,7 @@ class ErrorBar:
         raise NotImplementedError()
 
     def getAmount(self) -> float:
-        '''Represents amount of error bar.'''
+        '''Represents the amount of error bar.'''
         raise NotImplementedError()
 
     def setDisplayType(self, value : int) -> None:
@@ -13756,7 +13761,7 @@ class ErrorBar:
         raise NotImplementedError()
 
     def setAmount(self, value : float) -> None:
-        '''Represents amount of error bar.
+        '''Represents the amount of error bar.
         :param value: '''
         raise NotImplementedError()
 
@@ -20847,7 +20852,8 @@ class LabelPositionType:
     '''Applies only to 2D/3D pie charts'''
 
     MOVED : LabelPositionType
-    '''User moved the data labels. This is only for reading chart from template file.'''
+    '''User moved the data labels.
+    This is only for reading the chart from the template file.'''
 
 
 class Legend:
@@ -20965,19 +20971,19 @@ class LegendPositionType:
     '''Displays the legend to the bottom of the chart's plot area.'''
 
     CORNER : LegendPositionType
-    '''Displays the legend to the corner of the chart's plot area.'''
+    '''Displays the legend in the corner of the chart's plot area.'''
 
     LEFT : LegendPositionType
     '''Displays the legend to the left of the chart's plot area.'''
 
     NOT_DOCKED : LegendPositionType
-    '''Represents that the legend is not docked.'''
+    '''Indicates that the legend is not docked.'''
 
     RIGHT : LegendPositionType
     '''Displays the legend to the right of the chart's plot area.'''
 
     TOP : LegendPositionType
-    '''Displays the legend to the top of the chart's plot area.'''
+    '''Displays the legend at the top of the chart's plot area.'''
 
 
 class License:
@@ -21976,6 +21982,11 @@ class ListColumn:
 class ListColumnCollection:
     '''Represents a list of all the :class:`ListColumn` objects in the table.'''
 
+    def removeAt(self, index : int) -> None:
+        '''Remove :class:`ListColumn` by index.
+        :param index: The index.'''
+        raise NotImplementedError()
+
     @overload
     def get(self, index : int) -> ListColumn:
         '''Gets the ListColumn by the index.
@@ -22227,6 +22238,11 @@ class ListObject:
 
 class ListObjectCollection:
     '''Represents a collection of :class:`ListObject` objects in the worksheet.'''
+
+    def removeAt(self, index : int) -> None:
+        '''Remove :class:`ListObject` by index.
+        :param index: The index.'''
+        raise NotImplementedError()
 
     @overload
     def get(self, index : int) -> ListObject:
@@ -23223,7 +23239,7 @@ class MapChartRegionType:
     '''Automatic'''
 
     DATA_ONLY : MapChartRegionType
-    '''Only data.'''
+    '''Contains only data.'''
 
     COUNTRY_REGION_LIST : MapChartRegionType
     '''Country region list.'''
@@ -23411,7 +23427,8 @@ class Marker:
         raise NotImplementedError()
 
     def getMarkerStyle(self) -> int:
-        '''Represents the marker style. Applies to line chart, scatter chart, or radar chart.
+        '''Represents the marker style.
+        Applies to a line chart, a scatter chart, or a radar chart.
         See :class:`ChartMarkerType`'''
         raise NotImplementedError()
 
@@ -23430,7 +23447,8 @@ class Marker:
         raise NotImplementedError()
 
     def setMarkerSizePx(self, value : int) -> None:
-        '''Represents the marker size in unit of pixels. Applies to line chart, scatter chart, or radar chart.
+        '''Represents the marker size in units of pixels.
+        Applies to line charts, scatter charts, or radar charts.
         :param value: '''
         raise NotImplementedError()
 
@@ -23459,7 +23477,8 @@ class Marker:
         raise NotImplementedError()
 
     def setMarkerStyle(self, value : int) -> None:
-        '''Represents the marker style. Applies to line chart, scatter chart, or radar chart.
+        '''Represents the marker style.
+        Applies to a line chart, a scatter chart, or a radar chart.
         See :class:`ChartMarkerType`
         :param value: '''
         raise NotImplementedError()
@@ -23474,7 +23493,8 @@ class Marker:
         raise NotImplementedError()
 
     def getMarkerSizePx(self) -> int:
-        '''Represents the marker size in unit of pixels. Applies to line chart, scatter chart, or radar chart.'''
+        '''Represents the marker size in units of pixels.
+        Applies to line charts, scatter charts, or radar charts.'''
         raise NotImplementedError()
 
     def getBorder(self) -> Line:
@@ -28147,7 +28167,7 @@ class PivotAreaFilter:
         raise NotImplementedError()
 
     def getFieldIndex(self) -> int:
-        '''Gets the index of the field to which this filter refers.
+        '''Gets the index of the field which this filter refers to.
         A value of -2 indicates the values field.'''
         raise NotImplementedError()
 
@@ -31897,7 +31917,7 @@ class PlotArea:
         raise NotImplementedError()
 
     def getHeightRatioToChart(self) -> float:
-        '''Gets the height of the plot-area bounding box in units of the ratio of the chart area.'''
+        '''Gets the height of the plot area bounding box in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def setXRatioToChart(self, value : float) -> None:
@@ -31928,7 +31948,7 @@ class PlotArea:
         raise NotImplementedError()
 
     def setHeightRatioToChart(self, value : float) -> None:
-        '''Sets the height of the plot-area bounding box in units of the ratio of the chart area.
+        '''Sets the height of the plot area bounding box in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -32019,7 +32039,7 @@ class PlotDataByType:
 
 
 class PlotEmptyCellsType:
-    '''Represents all plot empty cells type of a chart.'''
+    '''Represents all plot empty cell types of a chart.'''
 
     NOT_PLOTTED : PlotEmptyCellsType
     '''Not plotted(leave gap)'''
@@ -32112,17 +32132,42 @@ class PowerQueryFormulaFunction:
 class PowerQueryFormulaItem:
     '''Represents the item of the power query formula.'''
 
-    def getValue(self) -> str:
-        '''Gets the value of the item.'''
+    def isLiteral(self) -> bool:
+        '''Gets whether this item is a literal value.'''
         raise NotImplementedError()
 
     def getName(self) -> str:
         '''Gets the name of the item.'''
         raise NotImplementedError()
 
+    def getItemType(self) -> int:
+        '''Gets the type of this item (Function, Parameter, List, Literal, or Unknown).
+        See :class:`PowerQueryFormulaItemType`'''
+        raise NotImplementedError()
+
+    def isFunction(self) -> bool:
+        '''Gets whether this item is a function.'''
+        raise NotImplementedError()
+
+    def isList(self) -> bool:
+        '''Gets whether this item is a list.'''
+        raise NotImplementedError()
+
     def setValue(self, value : str) -> None:
         '''Gets the value of the item.
         :param value: '''
+        raise NotImplementedError()
+
+    def getValue(self) -> str:
+        '''Gets the value of the item.'''
+        raise NotImplementedError()
+
+    def isParameter(self) -> bool:
+        '''Gets whether this item is a parameter.'''
+        raise NotImplementedError()
+
+    def getTextValue(self) -> str:
+        '''Gets the text value of the item.'''
         raise NotImplementedError()
 
 
@@ -32140,6 +32185,25 @@ class PowerQueryFormulaItemCollection:
         '''Gets :class:`PowerQueryFormulaItem` by the name of the item.
         :param name: The name of the item.'''
         raise NotImplementedError()
+
+
+class PowerQueryFormulaItemType:
+    '''Represents the type of a Power Query formula item.'''
+
+    UNKNOWN : PowerQueryFormulaItemType
+    '''Unknown or default type.'''
+
+    FUNCTION : PowerQueryFormulaItemType
+    '''The item is a function (contains => arrow).'''
+
+    PARAMETER : PowerQueryFormulaItemType
+    '''The item is a parameter.'''
+
+    LIST : PowerQueryFormulaItemType
+    '''The item is a list (starts with {).'''
+
+    LITERAL : PowerQueryFormulaItemType
+    '''The item is a literal value (string, number, boolean, null).'''
 
 
 class PowerQueryFormulaParameter:
@@ -35673,8 +35737,7 @@ class SeriesCollection:
 
     def getCategoryData(self) -> str:
         '''Gets the range of category Axis values.
-        It can be a range of cells (such as, "d1:e10"),
-        or a sequence of values (such as,"{2,6,8,10}").'''
+        It can be a range of cells (such as "d1:e10") or a sequence of values (such as "{2,6,8,10}").'''
         raise NotImplementedError()
 
     def get(self, index : int) -> Series:
@@ -35715,8 +35778,7 @@ class SeriesCollection:
 
     def setCategoryData(self, value : str) -> None:
         '''Sets the range of category Axis values.
-        It can be a range of cells (such as, "d1:e10"),
-        or a sequence of values (such as,"{2,6,8,10}").
+        It can be a range of cells (such as "d1:e10") or a sequence of values (such as "{2,6,8,10}").
         :param value: '''
         raise NotImplementedError()
 
@@ -35769,7 +35831,7 @@ class SeriesCollection:
         raise NotImplementedError()
 
     def setSeriesNames(self, startIndex : int, area : str, isVertical : bool) -> None:
-        '''Sets the name of all the serieses in the chart.
+        '''Sets the names of all the series in the chart.
         :param startIndex: The index of the first series which you want to set the name.
         :param area: Specifies the area for the series name.
         :param isVertical: >Specifies whether to plot the series from a range of cell values by row or by column.'''
@@ -37819,6 +37881,20 @@ class ShapeCollection:
         raise NotImplementedError()
 
 
+class ShapeDisplayType:
+    '''Represents how the application displays shapes in this workbook. Shapes might include charts,
+    images, and other object data that the application supports.'''
+
+    ALL : ShapeDisplayType
+    '''Indicates that all shapes be shown in the workbook.'''
+
+    PLACEHOLDERS : ShapeDisplayType
+    '''Indicates that the application show placeholders for shapes in the workbook.'''
+
+    NONE : ShapeDisplayType
+    '''Indicates that all shapes be hidden in the workbook.'''
+
+
 
 class ShapeGuide:
     '''Encapsulates a shape guide specifies the presence of a shape guide that will be used to
@@ -38744,6 +38820,12 @@ class Slicer:
         See :class:`SlicerStyleType`'''
         raise NotImplementedError()
 
+    def selectItems(self, labels : list[str], append : bool) -> None:
+        '''
+        :param labels: Selected labels.
+        :param append: '''
+        raise NotImplementedError()
+
     def getAlternativeText(self) -> str:
         ''':deprecated: Use Shape.AlternativeText property instead.'''
         raise NotImplementedError()
@@ -38845,6 +38927,10 @@ class Slicer:
         '''Returns or sets the width of each column in the slicer in unit of points.'''
         raise NotImplementedError()
 
+    def clearFilter(self) -> None:
+        '''Remove filters'''
+        raise NotImplementedError()
+
     def getColumnWidthPixel(self) -> int:
         '''Gets the width of聽each column in聽the slicer, in unit of聽pixels.聽'''
         raise NotImplementedError()
@@ -38913,8 +38999,7 @@ class Slicer:
         raise NotImplementedError()
 
     def refresh(self) -> None:
-        '''Refreshing the slicer.
-        Meanwhile, Refreshing and Calculating PivotTables which this slicer based on.'''
+        '''Refreshing the items of the slicer from the associated pivot tables.'''
         raise NotImplementedError()
 
     def getHeightPixel(self) -> int:
@@ -38976,7 +39061,7 @@ class SlicerCacheItem:
     '''Represent slicer data source item'''
 
     def getSelected(self) -> bool:
-        '''Specifies whether the SlicerItem is selected or not.'''
+        '''Specifies whether the :class:`SlicerCacheItem` is selected or not.'''
         raise NotImplementedError()
 
     def getValue(self) -> str:
@@ -38984,7 +39069,7 @@ class SlicerCacheItem:
         raise NotImplementedError()
 
     def setSelected(self, value : bool) -> None:
-        '''Specifies whether the SlicerItem is selected or not.
+        '''Specifies whether the :class:`SlicerCacheItem` is selected or not.
         :param value: '''
         raise NotImplementedError()
 
@@ -43750,7 +43835,7 @@ class TickLabelAlignmentType:
     '''Specifies that the text is centered.'''
 
     LEFT : TickLabelAlignmentType
-    '''Specifies that the text is left-aligned..'''
+    '''Specifies that the text is left-aligned.'''
 
     RIGHT : TickLabelAlignmentType
     '''Specifies that the text is right-aligned..'''
@@ -43786,7 +43871,7 @@ class TickLabelPositionType:
     '''Position type is low.'''
 
     NEXT_TO_AXIS : TickLabelPositionType
-    '''Position type is next to axis.'''
+    '''Position type is next to the axis.'''
 
     NONE : TickLabelPositionType
     '''Position type is none.'''
@@ -43811,7 +43896,7 @@ class TickLabels:
 
     def getOffset(self) -> int:
         '''Gets the distance of labels from the category axis.
-        Only for category (x) axis.'''
+        This applies only to the category (x) axis.'''
         raise NotImplementedError()
 
     def getNumberFormatLinked(self) -> bool:
@@ -43885,7 +43970,7 @@ class TickLabels:
         raise NotImplementedError()
 
     def getRotationAngle(self) -> int:
-        '''Represents text rotation angle in clockwise.'''
+        '''Represents text rotation angle clockwise.'''
         raise NotImplementedError()
 
     def setDirectionType(self, value : int) -> None:
@@ -43913,12 +43998,12 @@ class TickLabels:
 
     def setOffset(self, value : int) -> None:
         '''Sets the distance of labels from the category axis.
-        Only for category (x) axis.
+        This applies only to the category (x) axis.
         :param value: '''
         raise NotImplementedError()
 
     def setRotationAngle(self, value : int) -> None:
-        '''Represents text rotation angle in clockwise.
+        '''Represents text rotation angle clockwise.
         :param value: '''
         raise NotImplementedError()
 
@@ -44309,12 +44394,12 @@ class Title:
     '''Encapsulates the object that represents the title of chart or axis.'''
 
     def setOverLay(self, value : bool) -> None:
-        '''Represents overlay centered title on chart without resizing chart.
+        '''Represents an overlay centered title on a chart without resizing the chart.
         :param value: '''
         raise NotImplementedError()
 
     def getOverLay(self) -> bool:
-        '''Represents overlay centered title on chart without resizing chart.'''
+        '''Represents an overlay centered title on a chart without resizing the chart.'''
         raise NotImplementedError()
 
     def getXRatioToChart(self) -> float:
@@ -44327,7 +44412,7 @@ class Title:
         raise NotImplementedError()
 
     def setText(self, value : str) -> None:
-        '''Sets the text of display unit label.
+        '''Sets the text of the display unit label.
         :param value: '''
         raise NotImplementedError()
 
@@ -44368,7 +44453,7 @@ class Title:
         raise NotImplementedError()
 
     def getText(self) -> str:
-        '''Gets the text of display unit label.'''
+        '''Gets the text of the display unit label.'''
         raise NotImplementedError()
 
     def getX(self) -> int:
@@ -44701,7 +44786,7 @@ class TrendlineCollection:
 
     @overload
     def add(self, type : int) -> int:
-        '''Adds a :class:`Trendline` object to this collection with specified type.
+        '''Adds a :class:`Trendline` object to this collection with the specified type.
         :param type: :class:`TrendlineType`. Trendline type.
         :returns: :class:`Trendline` object index.'''
         raise NotImplementedError()
@@ -46001,17 +46086,17 @@ class Walls:
     '''Encapsulates the object that represents the walls of a 3-D chart.'''
 
     def getCubePointXPx(self, index : int) -> float:
-        '''Gets x-coordinate of the apex point of walls cube after calls Chart.Calculate() method.
+        '''Gets x-coordinate of the apex point of walls cube after calling the Chart.Calculate() method.
         The number of apex points of walls cube is eight
         :param index: '''
         raise NotImplementedError()
 
     def getCenterY(self) -> int:
-        '''Gets the y coordinate of the left-bottom corner of Wall center in units of 1/4000 of chart's height after calls Chart.Calculate() method.'''
+        '''Gets the y coordinate of the left-bottom corner of Wall center in units of 1/4000 of chart's height after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getCenterXPx(self) -> int:
-        '''Gets the x coordinate of the left-bottom corner of Wall center in units of pixels after calls Chart.Calculate() method.'''
+        '''Gets the x coordinate of the left-bottom corner of Wall center in units of pixels after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getCenterX(self) -> int:
@@ -46029,7 +46114,7 @@ class Walls:
         raise NotImplementedError()
 
     def getWidthPx(self) -> int:
-        '''Gets the width of left to right in units of pixels after calls Chart.Calculate() method.'''
+        '''Gets the width of left to right in units of pixels after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getHeight(self) -> int:
@@ -46049,11 +46134,11 @@ class Walls:
         raise NotImplementedError()
 
     def getHeightPx(self) -> int:
-        '''Gets the height of top to bottom in units of pixels after calls Chart.Calculate() method.'''
+        '''Gets the height from top to bottom in units of pixels after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
     def getDepth(self) -> int:
-        '''Gets the depth front to back in units of 1/4000 of chart's width after calls Chart.Calculate() method.'''
+        '''Gets the depth front to back in units of 1/4000 of chart's width after calling the Chart.Calculate() method.'''
         raise NotImplementedError()
 
 
@@ -47761,6 +47846,12 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
+    def setShapeDisplayType(self, value : int) -> None:
+        '''Sets how the application displays shapes in this workbook
+        See :class:`ShapeDisplayType`
+        :param value: '''
+        raise NotImplementedError()
+
     def getWindowHeightInch(self) -> float:
         '''The height of the window, in unit of inch.'''
         raise NotImplementedError()
@@ -47800,6 +47891,11 @@ class WorkbookSettings:
 
     def getNumberDecimalSeparator(self) -> str:
         '''Gets the decimal separator for formatting/parsing numeric values. Default is the decimal separator of current Region.'''
+        raise NotImplementedError()
+
+    def getShapeDisplayType(self) -> int:
+        '''Gets how the application displays shapes in this workbook
+        See :class:`ShapeDisplayType`'''
         raise NotImplementedError()
 
     def isMinimized(self) -> bool:
@@ -48511,12 +48607,12 @@ class Worksheet:
         '''Represents auto filter for the specified worksheet.'''
         raise NotImplementedError()
 
-    def getTabId(self) -> int:
-        '''Specifies the internal identifier for the sheet.'''
-        raise NotImplementedError()
-
     def getOleObjects(self) -> OleObjectCollection:
         '''Represents a collection of :class:`OleObject` in a worksheet.'''
+        raise NotImplementedError()
+
+    def getTabId(self) -> int:
+        '''Specifies the internal identifier for the sheet.'''
         raise NotImplementedError()
 
     @overload
@@ -48593,12 +48689,12 @@ class Worksheet:
         '''Indicates whether the Transition Formula Entry (Lotus compatibility) option is enabled.'''
         raise NotImplementedError()
 
-    def getSparklineGroups(self) -> SparklineGroupCollection:
-        '''Gets the sparkline groups in the worksheet.'''
-        raise NotImplementedError()
-
     def getCheckBoxes(self) -> CheckBoxCollection:
         '''Gets a :class:`CheckBox` collection.'''
+        raise NotImplementedError()
+
+    def getSparklineGroups(self) -> SparklineGroupCollection:
+        '''Gets the sparkline groups in the worksheet.'''
         raise NotImplementedError()
 
     def getActiveCell(self) -> str:
@@ -48745,6 +48841,11 @@ class Worksheet:
         :param value: '''
         raise NotImplementedError()
 
+    def setShowDataTypeIcons(self, value : bool) -> None:
+        '''Indicates whether to show data type icons.
+        :param value: '''
+        raise NotImplementedError()
+
     def getViewType(self) -> int:
         '''Gets the view type.
         See :class:`ViewType`'''
@@ -48761,6 +48862,10 @@ class Worksheet:
         :param criteriaRange: The criteria range.
         :param copyTo: The range where copying data to.
         :param uniqueRecordOnly: Only displaying or copying unique rows.'''
+        raise NotImplementedError()
+
+    def getShowDataTypeIcons(self) -> bool:
+        '''Indicates whether to show data type icons.'''
         raise NotImplementedError()
 
     def getGridlineColor(self) -> Color:

@@ -1,18 +1,13 @@
-from __future__ import absolute_import
-
-from kafka.admin.new_topic import NewTopic
-
-
 class CreateTopic:
+    COMMAND = 'create'
+    HELP = 'Create a Kafka Topic'
 
     @classmethod
-    def add_subparser(cls, subparsers):
-        parser = subparsers.add_parser('create', help='Create a Kafka Topic')
+    def add_arguments(cls, parser):
         parser.add_argument('-t', '--topic', type=str, required=True)
         parser.add_argument('--num-partitions', type=int, default=-1)
         parser.add_argument('--replication-factor', type=int, default=-1)
-        parser.set_defaults(command=cls.command)
 
     @classmethod
     def command(cls, client, args):
-        return client.create_topics([NewTopic(args.topic, args.num_partitions, args.replication_factor)])
+        return client.create_topics({args.topic: {'num_partitions': args.num_partitions, 'replication_factor': args.replication_factor}})

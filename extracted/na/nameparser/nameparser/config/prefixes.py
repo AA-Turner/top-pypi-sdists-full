@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 #: Name pieces that appear before a last name. Prefixes join to the piece
 #: that follows them to make one new piece. They can be chained together, e.g
 #: "von der" and "de la". Because they only appear in middle or last names,

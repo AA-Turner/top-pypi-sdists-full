@@ -151,6 +151,8 @@ _GUARD_CLOUD_RESET_STATE_KEYS = (
     "alert_preferences",
     "team_policy_pack",
     "guard_events_v1_summary",
+    "aibom_guard_events_backoff",
+    "aibom_sync_summary",
     "runtime_session_summary",
     "supply_chain_bundle_summary",
     "supply_chain_bundle_entitlement",
@@ -179,6 +181,8 @@ _SECRET_FINGERPRINT_PREFIX = "pbkdf2-sha256$"
 _SECRET_FINGERPRINT_SALT = b"hol-guard-secret-fingerprint:v1"
 _OAUTH_REFRESH_LOCK_TIMEOUT_SECONDS = 30.0
 _OAUTH_REFRESH_LOCK_POLL_SECONDS = 0.05
+_CLOUD_SYNC_LOCK_TIMEOUT_SECONDS = 30.0
+_CLOUD_SYNC_LOCK_POLL_SECONDS = 0.05
 _GUARD_STORE_PRIVATE_DIR_MODE = 0o700
 _GUARD_STORE_PRIVATE_FILE_MODE = 0o600
 
@@ -949,6 +953,44 @@ class GuardStore:
                 with suppress(OSError):
                     _release_advisory_file_lock(handle)
 
+    @contextmanager
+    def hold_cloud_sync_lock(
+        self,
+        *,
+        timeout_seconds: float = _CLOUD_SYNC_LOCK_TIMEOUT_SECONDS,
+    ) -> Iterator[None]:
+        lock_path = self.guard_home / "cloud-sync.lock"
+        deadline = time.monotonic() + max(timeout_seconds, 0.0)
+        with lock_path.open("a+b") as handle:
+            while True:
+                try:
+                    _acquire_advisory_file_lock(handle)
+                    break
+                except BlockingIOError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("Timed out waiting for Guard Cloud sync lock.") from None
+                    time.sleep(_CLOUD_SYNC_LOCK_POLL_SECONDS)
+            try:
+                yield
+            finally:
+                with suppress(OSError):
+                    _release_advisory_file_lock(handle)
+
+    def cloud_sync_in_progress(self) -> bool:
+        lock_path = self.guard_home / "cloud-sync.lock"
+        with lock_path.open("a+b") as handle:
+            try:
+                # This is an advisory probe, not a reservation: callers must still
+                # acquire hold_cloud_sync_lock() for the actual sync critical section.
+                _acquire_advisory_file_lock(handle)
+            except BlockingIOError:
+                return True
+            try:
+                return False
+            finally:
+                with suppress(OSError):
+                    _release_advisory_file_lock(handle)
+
     def _initialize(self) -> None:
         statements = (
             """
@@ -1105,6 +1147,13 @@ class GuardStore:
               event_name text not null,
               payload_json text not null,
               occurred_at text not null
+            )
+            """,
+            """
+            create table if not exists guard_remote_once_receipts (
+              receipt_id text primary key,
+              request_id text not null,
+              claimed_at text not null
             )
             """,
             """
@@ -2157,6 +2206,19 @@ class GuardStore:
             connection.execute(
                 "update runtime_receipts set policy_decision = ? where receipt_id = ?",
                 (policy_decision, receipt_id),
+            )
+
+    def update_receipt_approval_context(
+        self,
+        receipt_id: str,
+        *,
+        approval_source: str | None,
+        approval_request_id: str | None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "update runtime_receipts set approval_source = ?, approval_request_id = ? where receipt_id = ?",
+                (approval_source, approval_request_id, receipt_id),
             )
 
     @staticmethod
@@ -3457,6 +3519,42 @@ class GuardStore:
                 """,
                 (event_name, json.dumps(payload), now),
             )
+
+    def claim_remote_once_receipt(
+        self,
+        receipt_id: str,
+        *,
+        request_id: str,
+        claimed_at: str,
+    ) -> bool:
+        with self._connect() as connection:
+            connection.execute("begin immediate")
+            try:
+                connection.execute(
+                    """
+                    insert into guard_remote_once_receipts (receipt_id, request_id, claimed_at)
+                    values (?, ?, ?)
+                    """,
+                    (receipt_id, request_id, claimed_at),
+                )
+            except sqlite3.IntegrityError:
+                return False
+            return True
+
+    def release_remote_once_receipt(self, receipt_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "delete from guard_remote_once_receipts where receipt_id = ?",
+                (receipt_id,),
+            )
+
+    def has_remote_once_receipt(self, receipt_id: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "select 1 from guard_remote_once_receipts where receipt_id = ?",
+                (receipt_id,),
+            ).fetchone()
+        return row is not None
 
     def list_events(self, limit: int = 100, event_name: str | None = None) -> list[dict[str, object]]:
         query = """

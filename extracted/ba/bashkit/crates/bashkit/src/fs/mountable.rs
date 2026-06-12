@@ -26,7 +26,7 @@ use std::io::ErrorKind;
 /// The bashkit VFS is always POSIX-style on every host, so we cannot use the
 /// platform-aware predicate.
 fn is_posix_absolute(path: &Path) -> bool {
-    path.has_root()
+    path.as_os_str().as_encoded_bytes().starts_with(b"/")
 }
 
 /// Filesystem with Unix-style mount points.
@@ -223,11 +223,19 @@ impl MountableFs {
     /// # }
     /// ```
     pub fn mount(&self, path: impl AsRef<Path>, fs: Arc<dyn FileSystem>) -> Result<()> {
+        // THREAT[TM-DOS-058]: Reject direct self-mounts before they can create
+        // unbounded recursive delegation through read/write/usage traversal.
+        if std::ptr::addr_eq(
+            Arc::as_ptr(&fs).cast::<()>(),
+            self as *const Self as *const (),
+        ) {
+            return Err(IoError::other("cannot mount filesystem into itself").into());
+        }
+
         // Validate against the *input* path: the bashkit VFS is always
-        // POSIX-style, so mount points must start with `/`. We use
-        // `Path::has_root()` rather than `Path::is_absolute()` because the
-        // latter requires a drive prefix on Windows and rejects `/foo`,
-        // which would silently break Windows hosts.
+        // POSIX-style, so mount points must start with `/`. Use a raw
+        // slash-prefix check, not platform-aware Path predicates: on Windows,
+        // rooted drive/UNC paths are not valid VFS mount points.
         if !is_posix_absolute(path.as_ref()) {
             return Err(IoError::other("mount path must be absolute").into());
         }
@@ -556,6 +564,23 @@ mod tests {
     use super::*;
     use crate::fs::InMemoryFs;
 
+    #[test]
+    fn test_rejects_self_mount() {
+        let root = Arc::new(InMemoryFs::new());
+        let mfs = Arc::new(MountableFs::new(root));
+        let self_fs = Arc::clone(&mfs) as Arc<dyn FileSystem>;
+
+        let err = mfs
+            .mount("/", self_fs)
+            .expect_err("mounting MountableFs into itself must be rejected");
+
+        assert!(
+            err.to_string()
+                .contains("cannot mount filesystem into itself"),
+            "unexpected error: {err}"
+        );
+    }
+
     #[tokio::test]
     async fn test_mount_and_access() {
         let root = Arc::new(InMemoryFs::new());
@@ -699,6 +724,13 @@ mod tests {
     }
 
     #[test]
+    fn test_is_posix_absolute_rejects_windows_rooted_paths() {
+        assert!(!is_posix_absolute(Path::new(r"C:\workspace")));
+        assert!(!is_posix_absolute(Path::new(r"\workspace")));
+        assert!(!is_posix_absolute(Path::new(r"\\server\share\workspace")));
+    }
+
+    #[test]
     fn test_mount_accepts_posix_absolute_path_on_any_host() {
         // Regression: mount("/workspace", ...) must succeed on Windows.
         // Before the `has_root` switch, `Path::is_absolute` rejected POSIX
@@ -709,6 +741,19 @@ mod tests {
         let mfs = MountableFs::new(root);
         mfs.mount("/workspace", mounted.clone()).unwrap();
         mfs.mount("/data/sub", mounted).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_mount_rejects_windows_rooted_path() {
+        let root = Arc::new(InMemoryFs::new());
+        let mounted = Arc::new(InMemoryFs::new());
+
+        let mfs = MountableFs::new(root);
+        let err = mfs.mount(r"C:\workspace", mounted).unwrap_err();
+        assert!(
+            err.to_string().contains("absolute"),
+            "expected 'absolute' in error, got: {err}"
+        );
     }
 
     #[tokio::test]

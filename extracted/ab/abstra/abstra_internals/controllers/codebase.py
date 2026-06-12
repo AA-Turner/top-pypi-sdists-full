@@ -140,6 +140,8 @@ class CodebaseController:
             "ruff.toml",
         }
 
+        stages_by_path = project.get_stages_by_file_path_map()
+
         return [
             AbstraLibApiEditorCodebaseFilesGetResponseItem(
                 file=self.file_node(
@@ -152,7 +154,7 @@ class CodebaseController:
                         id=stage.id,
                         type=stage.type_name,
                     )
-                    for stage in project.get_stages_by_file_path(child_path)
+                    for stage in stages_by_path.get(child_path.absolute().resolve(), [])
                     if stage.type_name != "component"
                 ],
             )

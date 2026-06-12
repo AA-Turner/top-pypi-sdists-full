@@ -1,4 +1,4 @@
-use crate::auditwheel::{AuditedArtifact, PlatformTag, Policy};
+use crate::auditwheel::{AuditWheelMode, AuditedArtifact, PlatformTag, Policy};
 use crate::binding_generator::{
     BinBindingGenerator, BindingGenerator, CffiBindingGenerator, Pyo3BindingGenerator,
     UniFfiBindingGenerator, generate_binding,
@@ -287,15 +287,15 @@ impl<'a> BuildOrchestrator<'a> {
                 let interp = &self.context.python.interpreter[0];
                 match bindings.stable_abi {
                     Some(stable_abi) => {
-                        let wheel_tag = stable_abi.kind.wheel_tag();
+                        let abi_tag = stable_abi.kind.wheel_tag();
 
                         match stable_abi.version {
                             StableAbiVersion::Version(major, minor) => {
-                                vec![format!("cp{major}{minor}-{wheel_tag}-{platform}")]
+                                vec![format!("cp{major}{minor}-{abi_tag}-{platform}")]
                             }
                             StableAbiVersion::CurrentPython => {
                                 vec![format!(
-                                    "cp{major}{minor}-{wheel_tag}-{platform}",
+                                    "cp{major}{minor}-{abi_tag}-{platform}",
                                     major = interp.major,
                                     minor = interp.minor
                                 )]
@@ -378,8 +378,9 @@ impl<'a> BuildOrchestrator<'a> {
         }
     }
 
-    /// Split interpreters into abi3-capable and non-abi3 groups, build the
-    /// appropriate wheel type for each group, and return all built wheels.
+    /// Split interpreters into stable-abi-capable and non-stable-abi groups,
+    /// build the appropriate wheel type for each group, and return all built
+    /// wheels.
     #[instrument(skip_all)]
     pub(crate) fn build_stable_abi_wheels(
         &self,
@@ -393,7 +394,7 @@ impl<'a> BuildOrchestrator<'a> {
             .interpreter
             .iter()
             .filter(|interp| {
-                interp.has_stable_api()
+                interp.has_stable_api(stable_abi.kind)
                     && min_version.is_none_or(|(major, minor)| {
                         (interp.major as u8, interp.minor as u8) >= (major, minor)
                     })
@@ -405,7 +406,7 @@ impl<'a> BuildOrchestrator<'a> {
             .interpreter
             .iter()
             .filter(|interp| {
-                !interp.has_stable_api()
+                !interp.has_stable_api(stable_abi.kind)
                     || min_version.is_some_and(|(major, minor)| {
                         (interp.major as u8, interp.minor as u8) < (major, minor)
                     })
@@ -427,16 +428,18 @@ impl<'a> BuildOrchestrator<'a> {
                 .collect();
             if let Some((major, minor)) = min_version {
                 bail!(
-                    "None of the found Python interpreters ({}) are compatible with the abi3 \
+                    "None of the found Python interpreters ({}) are compatible with the {} \
                      minimum version (>= {}.{}). Please install a compatible Python interpreter.",
                     interp_names.join(", "),
+                    stable_abi.kind,
                     major,
                     minor,
                 );
             } else {
                 bail!(
-                    "No compatible Python interpreters found for abi3 build. \
+                    "No compatible Python interpreters found for {} build. \
                      Found: {}",
+                    stable_abi.kind,
                     interp_names.join(", "),
                 );
             }
@@ -532,8 +535,8 @@ impl<'a> BuildOrchestrator<'a> {
         Ok(wheel_path)
     }
 
-    /// For abi3 we only need to build a single wheel and we don't even need a python interpreter
-    /// for it
+    /// For abi3 and abi3t we only need to build a single wheel and we don't
+    /// even need a python interpreter for it
     #[instrument(skip_all)]
     pub(crate) fn build_pyo3_wheel_stable_abi(
         &self,
@@ -815,14 +818,18 @@ impl<'a> BuildOrchestrator<'a> {
         let writer = WheelWriter::new(&tag, &self.context.artifact.out, &metadata24, file_options)?;
         let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
 
-        // If any artifact has external shared library dependencies, use the
-        // shim approach: move the real binary to {dist}.scripts/ in platlib
-        // (where it has a predictable relative path to the bundled libs
-        // directory) and place a Python shim in .data/scripts/ that execs
+        // When repair mode bundles external shared library dependencies, use
+        // the shim approach: move the real binary to {dist}.scripts/ in
+        // platlib (where it has a predictable relative path to the bundled
+        // libs directory) and place a Python shim in .data/scripts/ that execs
         // the real binary.
         // WASI targets use their own launcher mechanism and cannot be shimmed.
-        let use_shim = !self.context.project.target.is_wasi()
-            && audited.iter().any(|a| !a.external_libs.is_empty());
+        let has_external_libs = audited.iter().any(|a| !a.external_libs.is_empty());
+        let use_shim = should_use_bin_shim(
+            self.context.python.auditwheel,
+            self.context.project.target.is_wasi(),
+            has_external_libs,
+        );
         self.context
             .add_external_libs(&mut writer, audited, use_shim)?;
 
@@ -950,5 +957,26 @@ impl<'a> BuildOrchestrator<'a> {
             }
             _ => bail!("Stub generation  is only possible in PyO3 projects"),
         }
+    }
+}
+
+fn should_use_bin_shim(auditwheel: AuditWheelMode, is_wasi: bool, has_external_libs: bool) -> bool {
+    matches!(auditwheel, AuditWheelMode::Repair) && !is_wasi && has_external_libs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_use_bin_shim;
+    use crate::auditwheel::AuditWheelMode;
+
+    #[test]
+    fn test_should_use_bin_shim_only_for_repair_with_external_libs() {
+        assert!(should_use_bin_shim(AuditWheelMode::Repair, false, true));
+
+        assert!(!should_use_bin_shim(AuditWheelMode::Warn, false, true));
+        assert!(!should_use_bin_shim(AuditWheelMode::Check, false, true));
+        assert!(!should_use_bin_shim(AuditWheelMode::Skip, false, true));
+        assert!(!should_use_bin_shim(AuditWheelMode::Repair, true, true));
+        assert!(!should_use_bin_shim(AuditWheelMode::Repair, false, false));
     }
 }

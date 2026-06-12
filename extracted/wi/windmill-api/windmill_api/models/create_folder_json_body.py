@@ -26,6 +26,7 @@ class CreateFolderJsonBody:
             rules applied at create-time when admins or `wm_deployers` members deploy items in this folder. The first rule
             whose `path_glob` matches the item path (relative to the folder root) wins, and its `permissioned_as` is used as
             the default.
+        labels (Union[Unset, List[str]]):
     """
 
     name: str
@@ -33,6 +34,7 @@ class CreateFolderJsonBody:
     owners: Union[Unset, List[str]] = UNSET
     extra_perms: Union[Unset, Any] = UNSET
     default_permissioned_as: Union[Unset, List["CreateFolderJsonBodyDefaultPermissionedAsItem"]] = UNSET
+    labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -51,6 +53,10 @@ class CreateFolderJsonBody:
 
                 default_permissioned_as.append(default_permissioned_as_item)
 
+        labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.labels, Unset):
+            labels = self.labels
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -66,6 +72,8 @@ class CreateFolderJsonBody:
             field_dict["extra_perms"] = extra_perms
         if default_permissioned_as is not UNSET:
             field_dict["default_permissioned_as"] = default_permissioned_as
+        if labels is not UNSET:
+            field_dict["labels"] = labels
 
         return field_dict
 
@@ -93,12 +101,15 @@ class CreateFolderJsonBody:
 
             default_permissioned_as.append(default_permissioned_as_item)
 
+        labels = cast(List[str], d.pop("labels", UNSET))
+
         create_folder_json_body = cls(
             name=name,
             summary=summary,
             owners=owners,
             extra_perms=extra_perms,
             default_permissioned_as=default_permissioned_as,
+            labels=labels,
         )
 
         create_folder_json_body.additional_properties = d

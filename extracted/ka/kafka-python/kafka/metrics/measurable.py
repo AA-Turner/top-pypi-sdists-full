@@ -1,11 +1,9 @@
-from __future__ import absolute_import
-
-import abc
+from abc import ABC, abstractmethod
 
 
-class AbstractMeasurable(object):
+class AbstractMeasurable(ABC):
     """A measurable quantity that can be registered as a metric"""
-    @abc.abstractmethod
+    @abstractmethod
     def measure(self, config, now):
         """
         Measure this quantity and return the result
@@ -18,7 +16,7 @@ class AbstractMeasurable(object):
         Returns:
             The measured value
         """
-        raise NotImplementedError
+        pass
 
 
 class AnonMeasurable(AbstractMeasurable):

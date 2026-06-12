@@ -53,10 +53,30 @@ def get_api_key_info(headers: dict) -> dict:
         return {"logged": False, "reason": "CONNECTION_ERROR"}
 
     if response.ok:
-        response_data = CloudApiCliApiKeyInfoResponse.from_dict(response.json())
-        return {"logged": True, "info": response_data.to_dict()}
-    else:
+        try:
+            response_data = CloudApiCliApiKeyInfoResponse.from_dict(response.json())
+            return {"logged": True, "info": response_data.to_dict()}
+        except Exception as e:
+            AbstraLogger.capture_exception(e)
+            AbstraLogger.warning(
+                f"get_api_key_info: invalid 2xx body {response.status_code} {response.text}"
+            )
+            return {"logged": False, "reason": "INVALID_RESPONSE"}
+
+    if response.status_code in (401, 403):
         return {"logged": False, "reason": "INVALID_API_TOKEN"}
+    if response.status_code == 404:
+        return {"logged": False, "reason": "AUTHOR_NOT_FOUND"}
+    if 500 <= response.status_code < 600:
+        AbstraLogger.warning(
+            f"get_api_key_info: server error {response.status_code} {response.text}"
+        )
+        return {"logged": False, "reason": "SERVER_ERROR"}
+
+    AbstraLogger.warning(
+        f"get_api_key_info: unexpected status {response.status_code} {response.text}"
+    )
+    return {"logged": False, "reason": "UNKNOWN_ERROR"}
 
 
 def get_project_info(headers: dict, project_id: Optional[str] = None):

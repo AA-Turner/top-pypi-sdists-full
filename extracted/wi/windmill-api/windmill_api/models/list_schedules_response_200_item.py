@@ -74,6 +74,8 @@ class ListSchedulesResponse200Item:
         dynamic_skip (Union[Unset, None, str]): Path to a script that validates scheduled datetimes. Receives
             scheduled_for datetime and returns boolean to skip (true) or run (false)
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
     """
 
     path: str
@@ -108,6 +110,7 @@ class ListSchedulesResponse200Item:
     cron_version: Union[Unset, None, str] = UNSET
     dynamic_skip: Union[Unset, None, str] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -165,6 +168,10 @@ class ListSchedulesResponse200Item:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -225,6 +232,8 @@ class ListSchedulesResponse200Item:
             field_dict["dynamic_skip"] = dynamic_skip
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
 
         return field_dict
 
@@ -350,6 +359,8 @@ class ListSchedulesResponse200Item:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         list_schedules_response_200_item = cls(
             path=path,
             edited_by=edited_by,
@@ -383,6 +394,7 @@ class ListSchedulesResponse200Item:
             cron_version=cron_version,
             dynamic_skip=dynamic_skip,
             labels=labels,
+            inherited_labels=inherited_labels,
         )
 
         list_schedules_response_200_item.additional_properties = d

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division
-
 import collections
 import copy
 import logging
@@ -8,14 +6,14 @@ import time
 
 import kafka.errors as Errors
 from kafka.producer.producer_batch import ProducerBatch
-from kafka.record.memory_records import MemoryRecordsBuilder
+from kafka.record.memory_records import MemoryRecords, MemoryRecordsBuilder
 from kafka.structs import TopicPartition
 
 
 log = logging.getLogger(__name__)
 
 
-class AtomicInteger(object):
+class AtomicInteger:
     def __init__(self, val=0):
         self._lock = threading.Lock()
         self._val = val
@@ -34,7 +32,7 @@ class AtomicInteger(object):
         return self._val
 
 
-class RecordAccumulator(object):
+class RecordAccumulator:
     """
     This class maintains a dequeue per TopicPartition that accumulates messages
     into MessageSets to be sent to the server.
@@ -112,7 +110,8 @@ class RecordAccumulator(object):
                     self._tp_locks[tp] = threading.Lock()
         return self._tp_locks[tp]
 
-    def append(self, tp, timestamp_ms, key, value, headers, now=None):
+    def append(self, tp, timestamp_ms, key, value, headers, now=None,
+               abort_on_new_batch=False):
         """Add a record to the accumulator, return the append result.
 
         The append result will contain the future metadata, and flag for
@@ -125,13 +124,20 @@ class RecordAccumulator(object):
             key (bytes): The key for the record
             value (bytes): The value for the record
             headers (List[Tuple[str, bytes]]): The header fields for the record
+            abort_on_new_batch (bool): KIP-480. When True, return early with
+                ``abort_for_new_batch=True`` instead of allocating a new
+                batch when no in-progress batch has room. Caller is expected
+                to consult the partitioner's ``on_new_batch`` hook, re-pick
+                the partition, and retry with ``abort_on_new_batch=False``.
 
         Returns:
-            tuple: (future, batch_is_full, new_batch_created)
+            tuple: (future, batch_is_full, new_batch_created, abort_for_new_batch)
         """
-        assert isinstance(tp, TopicPartition), 'not TopicPartition'
-        assert not self._closed, 'RecordAccumulator is closed'
-        now = time.time() if now is None else now
+        if not isinstance(tp, TopicPartition):
+            raise TypeError('not TopicPartition')
+        if self._closed:
+            raise Errors.IllegalStateError('RecordAccumulator is closed')
+        now = time.monotonic() if now is None else now
         # We keep track of the number of appending thread to make sure we do
         # not miss batches in abortIncompleteBatches().
         self._appends_in_progress.increment()
@@ -144,12 +150,18 @@ class RecordAccumulator(object):
                     future = last.try_append(timestamp_ms, key, value, headers, now=now)
                     if future is not None:
                         batch_is_full = len(dq) > 1 or last.records.is_full()
-                        return future, batch_is_full, False
+                        return future, batch_is_full, False, False
+
+            if abort_on_new_batch:
+                # KIP-480: don't allocate a new batch yet. Caller will
+                # rotate the sticky partition and retry.
+                return None, False, False, True
 
             with self._tp_lock(tp):
                 # Need to check if producer is closed again after grabbing the
                 # dequeue lock.
-                assert not self._closed, 'RecordAccumulator is closed'
+                if self._closed:
+                    raise Errors.IllegalStateError('RecordAccumulator is closed')
 
                 if dq:
                     last = dq[-1]
@@ -158,7 +170,7 @@ class RecordAccumulator(object):
                         # Somebody else found us a batch, return the one we
                         # waited for! Hopefully this doesn't happen often...
                         batch_is_full = len(dq) > 1 or last.records.is_full()
-                        return future, batch_is_full, False
+                        return future, batch_is_full, False, False
 
                 if self._transaction_manager and self.config['message_version'] < 2:
                     raise Errors.UnsupportedVersionError("Attempting to use idempotence with a broker which"
@@ -178,7 +190,7 @@ class RecordAccumulator(object):
                 dq.append(batch)
                 self._incomplete.add(batch)
                 batch_is_full = len(dq) > 1 or batch.records.is_full()
-                return future, batch_is_full, True
+                return future, batch_is_full, True, False
         finally:
             self._appends_in_progress.decrement()
 
@@ -207,6 +219,97 @@ class RecordAccumulator(object):
                         self.maybe_update_next_batch_expiry_time(batch)
                         break
         return expired_batches
+
+    def split_and_reenqueue(self, batch, now=None):
+        """Split an oversized batch into smaller batches and reenqueue them.
+
+        When a produce request fails with MESSAGE_TOO_LARGE, this method splits
+        the batch into two sub-batches (by record count) and enqueues them at
+        the front of the partition's deque. The original FutureRecordMetadata
+        objects are rebound to the new batches' futures.
+
+        If the new batches are still too large, they will be split again on the
+        next MESSAGE_TOO_LARGE response.
+
+        Only supported for message_version >= 2 (DefaultRecordBatch).
+
+        Arguments:
+            batch (ProducerBatch): The oversized batch to split.
+
+        Returns:
+            int: The number of new batches created.
+        """
+        now = time.monotonic() if now is None else now
+        tp = batch.topic_partition
+
+        # Roll back the partition's sequence counter to the failed batch's
+        # base sequence. The failed batch was never committed by the broker,
+        # so its sequence range is free to be reused by the split batches.
+        # They will get fresh sequences assigned during drain.
+        if self._transaction_manager:
+            base_sequence = batch.records.base_sequence
+            if base_sequence is not None and base_sequence != -1:
+                self._transaction_manager.set_sequence_number(tp, base_sequence)
+
+        # Read all records from the closed batch
+        records_list = []
+        for record_batch in MemoryRecords(batch.records.buffer()):
+            for record in record_batch:
+                records_list.append(record)
+
+        # Split records into two halves by count
+        mid = (len(records_list) + 1) // 2
+        groups = [records_list[:mid], records_list[mid:]]
+
+        new_batches = []
+        future_index = 0
+        for group in groups:
+            if not group:
+                continue
+            builder = MemoryRecordsBuilder(
+                self.config['message_version'],
+                self.config['compression_attrs'],
+                self.config['batch_size'],
+            )
+            current_batch = ProducerBatch(tp, builder, now=now)
+            current_batch.created = batch.created
+
+            for record in group:
+                metadata = builder.append(record.timestamp, record.key, record.value, record.headers)
+                if metadata is None:
+                    # Record doesn't fit (extremely unlikely for split batches).
+                    # Finalize this batch and start a new one.
+                    new_batches.append(current_batch)
+                    builder = MemoryRecordsBuilder(
+                        self.config['message_version'],
+                        self.config['compression_attrs'],
+                        self.config['batch_size'],
+                    )
+                    current_batch = ProducerBatch(tp, builder, now=now)
+                    current_batch.created = batch.created
+                    metadata = builder.append(record.timestamp, record.key, record.value, record.headers)
+
+                # Rebind original future to new batch
+                if future_index < len(batch._record_futures):
+                    original_future = batch._record_futures[future_index]
+                    original_future.rebind(current_batch.produce_future, metadata.offset)
+                    current_batch._record_futures.append(original_future)
+                future_index += 1
+
+            new_batches.append(current_batch)
+
+        # Enqueue in reverse order so first batch is at front of deque
+        with self._tp_lock(tp):
+            dq = self._batches[tp]
+            for new_batch in reversed(new_batches):
+                new_batch.attempts = batch.attempts
+                new_batch.last_attempt = now
+                dq.appendleft(new_batch)
+                self._incomplete.add(new_batch)
+
+        log.info("Split oversized batch for %s into %d new batches (%d total records)",
+                 tp, len(new_batches), future_index)
+        return len(new_batches)
 
     def reenqueue(self, batch, now=None):
         """
@@ -252,7 +355,7 @@ class RecordAccumulator(object):
         ready_nodes = set()
         next_ready_check = 9999999.99
         unknown_leaders_exist = False
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
 
         # several threads are accessing self._batches -- to simplify
         # concurrent access, we iterate over a snapshot of partitions
@@ -318,7 +421,7 @@ class RecordAccumulator(object):
         return False
 
     def drain_batches_for_one_node(self, cluster, node_id, max_size, now=None):
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         size = 0
         ready = []
         partitions = list(cluster.partitions_for_broker(node_id))
@@ -383,6 +486,10 @@ class RecordAccumulator(object):
                             sequence_number,
                             self._transaction_manager.is_transactional()
                         )
+                        # Increment sequence now so subsequent in-flight batches
+                        # for the same partition get the correct next sequence.
+                        self._transaction_manager.increment_sequence_number(
+                            batch.topic_partition, batch.records.next_offset())
                     batch.records.close()
                     size += batch.records.size_in_bytes()
                     ready.append(batch)
@@ -407,7 +514,7 @@ class RecordAccumulator(object):
         if not nodes:
             return {}
 
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         batches = {}
         for node_id in nodes:
             batches[node_id] = self.drain_batches_for_one_node(cluster, node_id, max_size, now=now)
@@ -461,23 +568,31 @@ class RecordAccumulator(object):
         # This is a tight loop but should be able to get through very quickly.
         error = Errors.IllegalStateError("Producer is closed forcefully.")
         while True:
-            self._abort_batches(error)
+            self.abort_batches(error)
             if not self._appends_in_progress.get():
                 break
         # After this point, no thread will append any messages because they will see the close
         # flag set. We need to do the last abort after no thread was appending in case the there was a new
         # batch appended by the last appending thread.
-        self._abort_batches(error)
+        self.abort_batches(error)
         self._batches.clear()
 
-    def _abort_batches(self, error):
-        """Go through incomplete batches and abort them."""
+    def abort_batches(self, error):
+        """Abort every incomplete batch, including in-flight (drained but
+        not-yet-acked) ones. Use for fatal-error / force-close paths where
+        the user's pending futures must resolve immediately rather than
+        hang waiting for broker responses that aren't coming."""
         for batch in self._incomplete.all():
             tp = batch.topic_partition
-            # Close the batch before aborting
             with self._tp_lock(tp):
                 batch.records.close()
-                self._batches[tp].remove(batch)
+                # Drained batches were popleft()'d out of _batches[tp] -- only
+                # remove if still present (matches Java's LinkedList.remove,
+                # which returns false rather than raising).
+                try:
+                    self._batches[tp].remove(batch)
+                except ValueError:
+                    pass
             batch.abort(error)
             self.deallocate(batch)
 
@@ -486,7 +601,11 @@ class RecordAccumulator(object):
             tp = batch.topic_partition
             with self._tp_lock(tp):
                 aborted = False
-                if not batch.is_done:
+                # Skip in-flight batches (already drained, awaiting broker
+                # response): drain() popped them from _batches[tp], so
+                # .remove() would ValueError; and we want their futures to
+                # resolve via the broker response, not be cancelled locally.
+                if not batch.is_done and batch.drained is None:
                     aborted = True
                     batch.records.close()
                     self._batches[tp].remove(batch)
@@ -499,7 +618,7 @@ class RecordAccumulator(object):
         self._closed = True
 
 
-class IncompleteProducerBatches(object):
+class IncompleteProducerBatches:
     """A threadsafe helper class to hold ProducerBatches that haven't been ack'd yet"""
 
     def __init__(self):

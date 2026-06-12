@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from importlib import import_module
 from typing import Any, Literal, cast
 
@@ -13,14 +13,17 @@ from scipy.sparse import csc_matrix, diags, spmatrix
 from scipy.sparse.linalg import lsqr
 from scipy.stats import chi2, f, t
 
+from pyfixest.core.collinear import find_collinear_variables
+from pyfixest.core.crv1 import crv1_meat_loop
+from pyfixest.core.demean import Preconditioner
+from pyfixest.core.nested_fixed_effects import count_fixef_fully_nested_all
+from pyfixest.demeaners import AnyDemeaner, LsmrDemeaner, MapDemeaner
 from pyfixest.errors import VcovTypeNotSupportedError
 from pyfixest.estimation.api.utils import _ALL_SAMPLE, _AllSampleSentinel
 from pyfixest.estimation.formula import model_matrix as model_matrix_fixest
 from pyfixest.estimation.formula.parse import Formula as FixestFormula
-from pyfixest.estimation.internals.backends import BACKENDS
 from pyfixest.estimation.internals.demean_ import demean_model
 from pyfixest.estimation.internals.literals import (
-    DemeanerBackendOptions,
     PredictionErrorOptions,
     PredictionType,
     SolverOptions,
@@ -49,6 +52,7 @@ from pyfixest.estimation.post_estimation.prediction import (
     get_design_matrix_and_yhat,
 )
 from pyfixest.estimation.post_estimation.ritest import (
+    _HAS_NUMBA,
     _decode_resampvar,
     _get_ritest_pvalue,
     _get_ritest_stats_fast,
@@ -216,7 +220,6 @@ class Feols(ResultAccessorMixin):
     _solver: Literal["np.linalg.lstsq", "np.linalg.solve", "scipy.linalg.solve",
         "scipy.sparse.linalg.lsqr", "jax"],
         default is "scipy.linalg.solve". Solver to use for the estimation.
-    _demeaner_backend: DemeanerBackendOptions
     _data: pd.DataFrame
         The data frame used in the estimation. None if arguments `lean = True` or
         `store_data = False`.
@@ -254,11 +257,9 @@ class Feols(ResultAccessorMixin):
         weights: str | None,
         weights_type: str | None,
         collin_tol: float,
-        fixef_tol: float,
-        fixef_maxiter: int,
         lookup_demeaned_data: dict[frozenset[int], pd.DataFrame],
         solver: SolverOptions = "np.linalg.solve",
-        demeaner_backend: DemeanerBackendOptions = "numba",
+        demeaner: AnyDemeaner | None = None,
         store_data: bool = True,
         copy_data: bool = True,
         lean: bool = False,
@@ -294,12 +295,20 @@ class Feols(ResultAccessorMixin):
         self._weights_name = weights
         self._weights_type = weights_type
         self._has_weights = weights is not None
+        self._offset_name: str | None = None
+        self._offset: np.ndarray | None = None
         self._collin_tol = collin_tol
-        self._fixef_tol = fixef_tol
-        self._fixef_maxiter = fixef_maxiter
         self._solver = solver
-        self._demeaner_backend = demeaner_backend
+        if demeaner is None:
+            demeaner = MapDemeaner()
+        self._demeaner = demeaner
+        if isinstance(demeaner, LsmrDemeaner):
+            self._fixef_tol = max(demeaner.fixef_atol, demeaner.fixef_btol)
+        else:
+            self._fixef_tol = demeaner.fixef_tol
+        self._fixef_maxiter = demeaner.fixef_maxiter
         self._lookup_demeaned_data = lookup_demeaned_data
+        self._preconditioner: Preconditioner | None = None
         self._store_data = store_data
         self._copy_data = copy_data
         self._lean = lean
@@ -323,16 +332,6 @@ class Feols(ResultAccessorMixin):
         self._fixef = FixestFormula.fixed_effects
         # self._coefnames = None
         self._icovars = None
-
-        try:
-            impl = BACKENDS[demeaner_backend]
-        except KeyError:
-            raise ValueError(f"Unknown backend {demeaner_backend!r}")
-
-        self._demean_func = impl["demean"]
-        self._find_collinear_variables_func = impl["collinear"]
-        self._crv1_meat_func = impl["crv1_meat"]
-        self._count_nested_fixef_func = impl["nonnested"]
 
         # set in get_fit()
         self._tZX = np.array([])
@@ -409,6 +408,7 @@ class Feols(ResultAccessorMixin):
             drop_singletons=self._drop_singletons,
             drop_intercept=self._drop_intercept,
             weights=self._weights_name,
+            offset=self._offset_name,
             context=self._context,
         )
 
@@ -419,6 +419,7 @@ class Feols(ResultAccessorMixin):
         self._endogvar = model_matrix.endogenous
         self._Z = model_matrix.instruments
         self._weights_df = model_matrix.weights
+        self._offset_df = model_matrix.offset
         self._na_index = model_matrix.na_index
         # TODO: set dynamically based on naming set in pyfixest.estimation.formula.factor_interaction._encode_i
         is_icovar = (
@@ -492,20 +493,45 @@ class Feols(ResultAccessorMixin):
     def demean(self):
         "Demean the dependent variable and covariates by the fixed effect(s)."
         if self._has_fixef:
-            self._Yd, self._Xd = demean_model(
+            self._Yd, self._Xd, used_pre = demean_model(
                 self._Y,
                 self._X,
                 self._fe,
                 self._weights.flatten(),
                 self._lookup_demeaned_data,
                 self._na_index,
-                self._fixef_tol,
-                self._fixef_maxiter,
-                self._demean_func,
-                # self._demeaner_backend,
+                self._demeaner,
+                cached_preconditioner=self._preconditioner,
             )
+            self._seed_preconditioner(used_pre)
         else:
             self._Yd, self._Xd = self._Y, self._X
+
+    def _seed_preconditioner(self, used_pre: Preconditioner | None) -> None:
+        """Store only the first preconditioner returned by demean dispatch.
+
+        For IWLS (Poisson, GLM) the dispatcher is called once per iteration
+        and returns a preconditioner each time; we keep the one from the
+        first call and ignore the rest. ``used_pre`` is ``None`` when no
+        preconditioner participated in the solve (MAP fallback,
+        ``preconditioner='off'``, non-within backend), in which case there
+        is nothing to store.
+        """
+        if self._preconditioner is None and used_pre is not None:
+            self._preconditioner = used_pre
+
+    @property
+    def preconditioner(self) -> Preconditioner | None:
+        """The within preconditioner used during demeaning, if any.
+
+        ``None`` when no preconditioner participated in the solve —
+        ``preconditioner='off'``, single-FE designs (MAP fallback), or any
+        non-within backend. Otherwise the instance built on the first solve.
+        Pass it back via
+        ``LsmrDemeaner(backend='within', preconditioner=...)`` to skip the
+        setup phase on a later fit over the same design.
+        """
+        return self._preconditioner
 
     def to_array(self):
         "Convert estimation data frames to np arrays."
@@ -534,7 +560,6 @@ class Feols(ResultAccessorMixin):
                 self._X,
                 self._coefnames,
                 self._collin_tol,
-                backend_func=self._find_collinear_variables_func,
             )
         # update X_is_empty
         self._X_is_empty = self._X.shape[1] == 0
@@ -751,7 +776,7 @@ class Feols(ResultAccessorMixin):
             k_fe_nested = 0
             n_fe_fully_nested = 0
             if self._fixef is not None and self._ssc_dict["k_fixef"] == "nonnested":
-                k_fe_nested_flag, n_fe_fully_nested = self._count_nested_fixef_func(
+                k_fe_nested_flag, n_fe_fully_nested = count_fixef_fully_nested_all(
                     all_fixef_array=np.array(
                         self._fixef.replace("^", "_").split("+"), dtype=str
                     ),
@@ -944,7 +969,7 @@ class Feols(ResultAccessorMixin):
         k = self._scores.shape[1]
         meat = np.zeros((k, k))
 
-        meat = self._crv1_meat_func(
+        meat = crv1_meat_loop(
             scores=self._scores.astype(np.float64),
             clustid=clustid.astype(np.uintp),
             cluster_col=cluster_col.astype(np.uintp),
@@ -1944,6 +1969,12 @@ class Feols(ResultAccessorMixin):
                 # determine residuals from estimated linear predictor
                 # equation (5.2) in Stammann (2018) http://arxiv.org/abs/1707.01815
                 Y = self._Y_hat_link
+                # _Y_hat_link contains the offset as part of eta; subtract it so
+                # that _sumFE represents the pure FE contribution and predict()
+                # can add the offset back from newdata without double-counting.
+                if self._offset_name is not None:
+                    assert self._offset is not None
+                    Y = Y - self._offset.flatten()
             uhat = (Y - X @ self._beta_hat).flatten()
         D2 = Formula("-1+" + fixef_fml).get_model_matrix(self._data, output="sparse")
         cols = D2.model_spec.column_names
@@ -2060,6 +2091,7 @@ class Feols(ResultAccessorMixin):
             )
             n_observations = self._N
         else:
+            newdata = _narwhals_to_pandas(newdata)
             y_hat, X, X_index = get_design_matrix_and_yhat(
                 model=self,
                 newdata=newdata,
@@ -2068,6 +2100,20 @@ class Feols(ResultAccessorMixin):
             y_hat += _get_fixed_effects_prediction_component(
                 model=self, newdata=newdata, atol=atol, btol=btol
             )
+            if self._offset_name is not None:
+                if self._offset_name not in newdata.columns:
+                    raise ValueError(
+                        f"Offset variable '{self._offset_name}' not found in newdata."
+                    )
+                offset = pd.to_numeric(
+                    newdata[self._offset_name], errors="coerce"
+                ).to_numpy()
+                if np.isnan(offset).any():
+                    raise ValueError(
+                        f"Offset column '{self._offset_name}' in newdata contains "
+                        "NaN or non-numeric values."
+                    )
+                y_hat = y_hat + offset
             n_observations = newdata.shape[0]
             if type == "response" and self._method == "fepois":
                 y_hat = np.exp(y_hat)
@@ -2122,9 +2168,10 @@ class Feols(ResultAccessorMixin):
             A random number generator. Defaults to None.
         choose_algorithm: str, optional
             The algorithm to use for the computation. Defaults to "auto".
-            The alternative is "fast" and "slow", and should only be used
-            for running CI tests. Ironically, this argument is not tested
-            for any input errors from the user! So please don't use it =)
+            The alternatives are "fast" and "slow". The fast algorithm requires
+            the optional `numba` extra (install via `pip install pyfixest[numba]`);
+            without it, the fast path raises an `ImportError`. The slow path
+            does not require numba.
         include_plot: bool, optional
             Whether to include a plot of the distribution p-values. Defaults to False.
         store_ritest_statistics: bool, optional
@@ -2209,6 +2256,9 @@ class Feols(ResultAccessorMixin):
 
         # always run slow algorithm for randomization-t
         choose_algorithm = "slow" if type == "randomization-t" else choose_algorithm
+
+        if choose_algorithm == "auto":
+            choose_algorithm = "fast" if _HAS_NUMBA else "slow"
 
         assert isinstance(reps, int) and reps > 0, "reps must be a positive integer."
 
@@ -2410,7 +2460,6 @@ def _drop_multicollinear_variables(
     X: np.ndarray,
     names: list[str],
     collin_tol: float,
-    backend_func: Callable,
 ) -> tuple[np.ndarray, list[str], list[str], list[int]]:
     """
     Check for multicollinearity in the design matrices X and Z.
@@ -2423,8 +2472,6 @@ def _drop_multicollinear_variables(
         The names of the coefficients.
     collin_tol : float
         The tolerance level for the multicollinearity check.
-    backend_func: Callable
-        Which backend function to use for the multicollinearity check.
 
     Returns
     -------
@@ -2439,8 +2486,8 @@ def _drop_multicollinear_variables(
     """
     # TODO: avoid doing this computation twice, e.g. compute tXXinv here as fixest does
 
-    tXX = X.T @ X
-    id_excl, n_excl, all_removed = backend_func(tXX, collin_tol)
+    tXX = np.ascontiguousarray(X.T @ X, dtype=np.float64)
+    id_excl, n_excl, all_removed = find_collinear_variables(tXX, collin_tol)
 
     collin_vars = []
     collin_index = []

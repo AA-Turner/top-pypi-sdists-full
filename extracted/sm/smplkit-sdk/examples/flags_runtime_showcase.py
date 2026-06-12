@@ -82,11 +82,11 @@ def _create_context(user: dict, account: dict) -> list[Context]:
 
 async def main() -> None:
 
-    # create the client (use SmplClient for synchronous use)
+    # or SmplClient for synchronous use
     async with AsyncSmplClient(
         environment="production", service="showcase-service"
     ) as client:
-        await setup_runtime_showcase(client.manage)
+        await setup_runtime_showcase(client)
         await client.wait_until_ready()
 
         # declare flags - default values will be used if the flag does not
@@ -194,12 +194,12 @@ async def main() -> None:
             f"Expected at least one banner change, got {len(banner_changes)}"
         )
 
-        await cleanup_runtime_showcase(client.manage)
+        await cleanup_runtime_showcase(client)
         print("Done!")
 
 
 async def _update_rules(client: AsyncSmplClient):
-    current_banner = await client.manage.flags.get("banner-color")
+    current_banner = await client.flags.get("banner-color")
     current_banner.add_rule(
         Rule("Red for small companies", environment="production")
         .when("account.employee_count", Op.LT, 50)

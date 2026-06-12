@@ -34,7 +34,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .testing_constants import TOKEN
-from .testing_utils import DUMMY_MODEL_ID, repo_name, requires, with_production_testing
+from .testing_utils import DUMMY_MODEL_ID, repo_name, with_production_testing
 
 
 @pytest.fixture
@@ -593,6 +593,63 @@ class TestUploadCommand:
                 result = runner.invoke(app, ["upload", DUMMY_MODEL_ID, ".", "--every", "0.5"])
         assert result.exit_code == 0
         assert scheduler_cls.call_args.kwargs["every"] == pytest.approx(0.5)
+
+    def test_upload_with_hf_uri(self, runner: CliRunner) -> None:
+        """An hf:// URI provides the repo type and path in repo; the resolver gets the URI path."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file = Path(tmp_dir) / "model.safetensors"
+            file.write_text("weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file.as_posix(), "weights/model.safetensors", None),
+                ) as resolve_mock,
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
+            ):
+                api = api_cls.return_value
+                api.create_repo.return_value = Mock(repo_id="Wauplin/my-cool-dataset")
+                api.upload_file.return_value = "uploaded-url"
+                result = runner.invoke(
+                    app,
+                    ["upload", "hf://datasets/Wauplin/my-cool-dataset/weights/model.safetensors", file.as_posix()],
+                )
+        assert result.exit_code == 0, result.output
+        # `path_in_repo` is read from the URI and forwarded to the path resolver.
+        assert resolve_mock.call_args.kwargs["path_in_repo"] == "weights/model.safetensors"
+        api.create_repo.assert_called_once_with(
+            repo_id="Wauplin/my-cool-dataset",
+            repo_type="dataset",
+            exist_ok=True,
+            private=None,
+            space_sdk=None,
+        )
+        api.upload_file.assert_called_once_with(
+            path_or_fileobj=file.as_posix(),
+            path_in_repo="weights/model.safetensors",
+            repo_id="Wauplin/my-cool-dataset",
+            repo_type="dataset",
+            revision=None,
+            commit_message=None,
+            commit_description=None,
+            create_pr=False,
+        )
+
+    def test_upload_hf_uri_with_repo_type_raises(self) -> None:
+        with pytest.raises(CLIError, match="'--repo-type' cannot be used with an 'hf://' URI"):
+            upload(repo_id="hf://datasets/foo/bar", repo_type=RepoType.dataset)
+
+    def test_upload_hf_uri_rejects_buckets(self) -> None:
+        with pytest.raises(CLIError, match="Buckets are not supported"):
+            upload(repo_id="hf://buckets/foo/bar")
+
+    def test_upload_hf_uri_malformed_raises(self) -> None:
+        """A string with the 'hf://' prefix that fails to parse surfaces the precise HfUriError."""
+        with pytest.raises(HfUriError):
+            upload(repo_id="hf://datasets/missing-name")
+
+    def test_upload_hf_uri_conflicting_path_raises(self) -> None:
+        with pytest.raises(CLIError, match="Cannot combine a path"):
+            upload(repo_id="hf://datasets/foo/bar/data/train.csv", local_path="./train.csv", path_in_repo="other.csv")
 
 
 class TestResolveUploadPaths:
@@ -1174,6 +1231,64 @@ class TestDownloadImpl:
                 repo_type=RepoType.model,
                 exclude=["*.bin"],
             )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_hf_uri_single_file(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """An hf:// URI carrying a type, revision and file path resolves to a single-file download."""
+        mock_download.return_value = "file-path"
+        download(repo_id="hf://datasets/author/dataset@refs/pr/3/data/train.csv")
+        mock_snapshot.assert_not_called()
+        mock_download.assert_called_once_with(
+            repo_id="author/dataset",
+            repo_type="dataset",
+            revision="refs/pr/3",
+            filename="data/train.csv",
+            cache_dir=None,
+            force_download=False,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_hf_uri_full_repo(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """An hf:// URI without a path resolves to a full-repo snapshot download."""
+        mock_snapshot.return_value = "folder-path"
+        download(repo_id="hf://spaces/author/space")
+        mock_download.assert_not_called()
+        assert mock_snapshot.call_args.kwargs["repo_id"] == "author/space"
+        assert mock_snapshot.call_args.kwargs["repo_type"] == "space"
+        assert mock_snapshot.call_args.kwargs["revision"] is None
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_hf_uri_subfolder(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """A trailing '/' in the URI path denotes a subfolder and resolves to a snapshot download."""
+        mock_snapshot.return_value = "folder-path"
+        download(repo_id="hf://datasets/author/dataset/data/")
+        mock_download.assert_not_called()
+        assert mock_snapshot.call_args.kwargs["repo_id"] == "author/dataset"
+        assert mock_snapshot.call_args.kwargs["allow_patterns"] == ["data/**"]
+
+    def test_download_hf_uri_malformed_raises(self) -> None:
+        """A string with the 'hf://' prefix that fails to parse surfaces the precise HfUriError."""
+        with pytest.raises(HfUriError):
+            download(repo_id="hf://datasets/missing-name")
+
+    def test_download_hf_uri_with_revision_raises(self) -> None:
+        with pytest.raises(CLIError, match="'--revision' cannot be used with an 'hf://' URI"):
+            download(repo_id="hf://datasets/author/dataset@v1.0", revision="v1.0")
+
+    def test_download_hf_uri_with_filenames_raises(self) -> None:
+        with pytest.raises(CLIError, match="Cannot combine a file path"):
+            download(repo_id="hf://datasets/author/dataset/data/train.csv", filenames=["other.csv"])
+
+    def test_download_hf_uri_rejects_buckets(self) -> None:
+        with pytest.raises(CLIError, match="Buckets are not supported"):
+            download(repo_id="hf://buckets/author/bucket")
 
 
 class TestTagCommands:
@@ -2690,6 +2805,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2715,6 +2831,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2744,6 +2861,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
 
@@ -2769,6 +2887,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2797,6 +2916,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -2823,6 +2943,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
 
@@ -2850,6 +2971,7 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            expose=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3155,7 +3277,9 @@ class TestJobsCommand:
             api.list_jobs.return_value = []
             result = runner.invoke(app, ["jobs", "ps", "--format", "json"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        # Parse stdout only: the empty-state hint goes to stderr (like agent mode), so it
+        # never pollutes the JSON on stdout. Mirrors the other `json.loads(result.stdout)` tests.
+        data = json.loads(result.stdout)
         assert data == []
 
     def test_ps_empty_quiet(self, runner: CliRunner) -> None:
@@ -3555,6 +3679,21 @@ class TestVolume:
         )
         assert spec["volumes"][0]["revision"] == "main"
         assert spec["volumes"][0]["path"] == "subdir"
+
+    @pytest.mark.parametrize(
+        "expose, expected",
+        [
+            (None, None),
+            ([], None),
+            ([8000], {"ports": [8000]}),
+            ([8000, 8001], {"ports": [8000, 8001]}),
+        ],
+    )
+    def test_serialize_expose(self, expose: list[int] | None, expected: dict | None) -> None:
+        spec = _create_job_spec(
+            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
+        )
+        assert spec.get("expose") == expected
 
 
 class TestWebhooksCommand:
@@ -4035,7 +4174,7 @@ class TestSkillGeneration:
         assert any("jobs uv run" in p for p in leaf_paths)
 
 
-@requires("hf_xet")
+@pytest.mark.xet
 class TestSkillsMarketplaceCLI:
     @with_production_testing
     def test_add_installs_marketplace_skill_to_dest(self, runner: CliRunner, tmp_path: Path) -> None:

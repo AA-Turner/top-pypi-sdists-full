@@ -31,6 +31,8 @@ jobs:
               - 'infra/sentry/**'
             agent-message-bus:
               - 'infra/agent-message-bus/**'
+            ops-webapp:
+              - 'infra/ops-webapp/**'
             workflow:
               - '.github/workflows/pulumi-preview.yml'
 
@@ -46,6 +48,9 @@ jobs:
             }
             if (${{ steps.changes.outputs['agent-message-bus'] }} || workflowChanged) {
               stacks.push({name: 'agent-message-bus', dir: 'infra/agent-message-bus'});
+            }
+            if (${{ steps.changes.outputs['ops-webapp'] }} || workflowChanged) {
+              stacks.push({name: 'ops-webapp', dir: 'infra/ops-webapp'});
             }
             const result = JSON.stringify(stacks);
             core.setOutput('stacks', result);
@@ -98,7 +103,7 @@ jobs:
 
       # GCP stacks: authenticate via Workload Identity Federation
       - name: Authenticate to GCP (WIF)
-        if: matrix.stack.name == 'agent-message-bus'
+        if: matrix.stack.name != 'sentry'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
@@ -139,10 +144,10 @@ jobs:
           pulumi login "file://$BACKEND_DIR"
           [ -d "$BACKEND_DIR/.pulumi/stacks" ] && echo "State restored from artifact" || echo "No existing state found, starting fresh"
 
-      # ---------- State backend: GCS (agent-message-bus) ----------
+      # ---------- State backend: GCS (GCP stacks) ----------
 
       - name: Initialize GCS backend
-        if: matrix.stack.name == 'agent-message-bus'
+        if: matrix.stack.name != 'sentry'
         run: pulumi login gs://internal-airbyte-ai-infra-pulumi-state
 
       # ---------- Select stack and preview ----------
@@ -159,6 +164,7 @@ jobs:
           # Sentry auth (only used by sentry stack)
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READONLY }}
         run: |
+          set -o pipefail
           pulumi preview --stack prod 2>&1 | tee /tmp/pulumi-preview.txt
           echo "preview_output<<EOF" >> $GITHUB_OUTPUT
           cat /tmp/pulumi-preview.txt >> $GITHUB_OUTPUT
@@ -170,6 +176,7 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READONLY }}
         run: |
+          set -o pipefail
           pulumi preview --stack prod --diff 2>&1 | tee /tmp/pulumi-preview-diff.txt
           echo "preview_diff_output<<EOF" >> $GITHUB_OUTPUT
           cat /tmp/pulumi-preview-diff.txt >> $GITHUB_OUTPUT

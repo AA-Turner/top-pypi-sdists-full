@@ -1,9 +1,11 @@
 import ast
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
 from abstra_internals.repositories.project.project import (
     LocalProjectRepository,
@@ -28,16 +30,16 @@ class DeprecatedFunctionFound(LinterIssue):
         self.fixes = []
 
 
-class DeprecatedFunctionUsage(LinterRule):
+class DeprecatedFunctionUsage(PathScopedLinterRule):
     label: str = "Deprecated function usage"
     type: str = "warning"
     fix_with_ai: bool = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues = []
 
-        for entrypoint, stage in project.iter_entrypointed_stages():
+        for entrypoint, stage in project.iter_scoped_entrypointed_stages(path):
             try:
                 tree = ASTCache.get(entrypoint)
                 import_map = self.track_imports(tree)
@@ -55,15 +57,15 @@ class DeprecatedFunctionUsage(LinterRule):
                                     "new_function"
                                 ]
                                 module = DEPRECATED_FUNCTIONS[function_name]["from"]
-                                issues.append(
-                                    DeprecatedFunctionFound(
-                                        function_name,
-                                        new_function_name,
-                                        stage_title=stage.title,
-                                        stage_file=stage.file,
-                                        module=module,
-                                    )
+                                issue = DeprecatedFunctionFound(
+                                    function_name,
+                                    new_function_name,
+                                    stage_title=stage.title,
+                                    stage_file=stage.file,
+                                    module=module,
                                 )
+                                issue.path = linter_path_key(entrypoint)
+                                issues.append(issue)
 
             except Exception as e:
                 print(f"Error while processing {entrypoint}: {e}")

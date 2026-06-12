@@ -288,9 +288,13 @@ def test_to_hdf_distributed(c):
         ),
     ],
 )
-def test_to_hdf_scheduler_distributed(npartitions, c):
+def test_to_hdf_scheduler_distributed(xfail, npartitions, c):
     pytest.importorskip("numpy")
     pytest.importorskip("pandas")
+    from dask._pandas_compat import PANDAS_GE_220, PANDAS_GE_230
+
+    if PANDAS_GE_220 and not PANDAS_GE_230:
+        xfail(reason="Poor support for StringDtype")
 
     from dask.dataframe.io.tests.test_hdf import test_to_hdf_schedulers
 
@@ -750,6 +754,7 @@ def test_futures_in_subgraphs(loop_in_thread):
         ddf.compute()
 
 
+@pytest.mark.xfail(reason="roundtripping through arrays doesn't work yet")
 @gen_cluster(client=True)
 async def test_map_partitions_da_input(c, s, a, b):
     """Check that map_partitions can handle a dask array input"""
@@ -758,7 +763,6 @@ async def test_map_partitions_da_input(c, s, a, b):
     da = pytest.importorskip("dask.array")
     pytest.importorskip("dask.dataframe")
     datasets = pytest.importorskip("dask.datasets")
-    pytest.xfail("roundtripping through arrays doesn't work yet")
 
     def f(d, a):
         assert isinstance(d, pd.DataFrame)
@@ -777,7 +781,6 @@ def test_map_partitions_df_input():
     """
     pd = pytest.importorskip("pandas")
     dd = pytest.importorskip("dask.dataframe")
-    pytest.xfail("map partitions can't deal with delayed properly")
 
     def f(d, a):
         assert isinstance(d, pd.DataFrame)
@@ -865,7 +868,7 @@ async def test_non_recursive_df_reduce(c, s, a, b):
     assert (await c.compute(result)).val == 170
 
 
-def test_set_index_no_resursion_error(c):
+def test_set_index_no_recursion_error(c):
     # see: https://github.com/dask/dask/issues/8955
     pytest.importorskip("pandas")
     pytest.importorskip("dask.dataframe")

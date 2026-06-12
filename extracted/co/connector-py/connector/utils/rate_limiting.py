@@ -103,6 +103,20 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
         return is_rate_limit_error
 
+    def check_rate_limit_error(self, e: Exception) -> bool:
+        """Classify a rate limit error using the configured override or the default check."""
+        error_check = self.config.rate_limit_error_check or RateLimiter.is_rate_limit_error
+        return error_check(e)
+
+    def check_transient_error(self, e: Exception) -> bool:
+        """Classify a transient error using the configured override or the default check."""
+        transient_check = self.config.transient_error_check or RateLimiter.is_transient_error
+        return transient_check(e)
+
+    def is_retryable_error(self, e: Exception) -> bool:
+        """True if the error should be intercepted and retried by this rate limiter."""
+        return self.check_rate_limit_error(e) or self.check_transient_error(e)
+
     def _update_request_times(self) -> None:
         """Update the list of request times, removing expired ones."""
         current_time = time.time()
@@ -389,15 +403,11 @@ class RateLimiter(Generic[RequestType, ResponseType]):
                 return response
             except Exception as e:
                 # Handle rate limit errors
-                error_check = self.config.rate_limit_error_check or RateLimiter.is_rate_limit_error
-                is_rate_limit_error = error_check(e)
+                is_rate_limit_error = self.check_rate_limit_error(e)
 
                 # Check for transient issues
                 # Like the end system being unavailable or network issues
-                transient_check = (
-                    self.config.transient_error_check or RateLimiter.is_transient_error
-                )
-                is_transient = transient_check(e)
+                is_transient = self.check_transient_error(e)
 
                 if is_rate_limit_error or is_transient:
                     self._handle_rate_limit_exceeded()

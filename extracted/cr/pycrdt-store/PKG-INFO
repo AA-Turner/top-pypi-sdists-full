@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycrdt-store
-Version: 0.1.4
+Version: 0.1.5
 Summary: Persistent storage for pycrdt
 Project-URL: Homepage, https://github.com/y-crdt/pycrdt-store
 Project-URL: Source, https://github.com/y-crdt/pycrdt-store
@@ -41,7 +41,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=3.6.2
-Requires-Dist: pycrdt<0.14.0,>=0.13.0
+Requires-Dist: pycrdt<0.15.0,>=0.14.0
 Requires-Dist: sqlite-anyio<0.3.0,>=0.2.3
 Description-Content-Type: text/markdown
 

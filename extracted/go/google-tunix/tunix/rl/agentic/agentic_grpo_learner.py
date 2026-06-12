@@ -37,6 +37,8 @@ from flax import nnx
 import jax
 import jax.numpy as jnp
 import numpy as np
+from tunix.rl import algo_core  # pylint: disable=unused-import
+from tunix.perf.experimental import constants as perf_constants
 from tunix.rl import common
 from tunix.rl import function_registry
 from tunix.rl import rl_cluster as rl_cluster_lib
@@ -47,9 +49,7 @@ from tunix.rl.agentic.agents import base_agent
 from tunix.rl.agentic.agents import model_agent
 from tunix.rl.agentic.environments import base_environment
 from tunix.rl.agentic.environments import task_environment
-from tunix.rl.ppo import ppo_helpers
 from tunix.utils import trajectory_logger
-
 
 TrainingInputT = agentic_rl_learner.TrainingInputT
 RewardFn = agentic_rl_learner.RewardFn
@@ -58,7 +58,7 @@ MetricFn = agentic_rl_learner.MetricFn
 TrainExample = agentic_rl_learner.TrainExample
 
 
-@dataclasses.dataclass(slots=True, kw_only=True)
+@dataclasses.dataclass(kw_only=True)
 class GRPOConfig(agentic_rl_learner.AgenticRLConfig):
   """Configuration for GRPO algorithm.
 
@@ -68,10 +68,13 @@ class GRPOConfig(agentic_rl_learner.AgenticRLConfig):
     policy_loss_fn: Name of the policy loss function.
     loss_agg_mode: Method for aggregating the loss. Supported values:
       "token-mean", "sequence-mean-token-mean", "sequence-mean-token-scale",
-      "sequence-mean-token-sum-norm".
+      "seq-mean-token-sum", "sequence-mean-token-sum-norm".
     num_generations: Number of samples per prompt (G in the paper). Must be > 1.
     num_iterations: Number of GRPO iterations per batch (μ in the paper).
     beta: KL penalty coefficient.
+    kl_loss_mode: Method for computing the KL loss.
+    force_compute_kl: Whether to force compute KL divergence for logging even
+      when it would normally be skipped (e.g., when beta is 0.0).
     epsilon: PPO-style clipping epsilon.
     epsilon_high: PPO-style clipping epsilon upper bound.
     loss_algo: "grpo" or "gspo-token".
@@ -79,11 +82,13 @@ class GRPOConfig(agentic_rl_learner.AgenticRLConfig):
     max_concurrency: Maximum number of concurrent rollout engines.
     off_policy_steps: Number of off-policy steps can be accepted before a policy
       update.
+    degenerate_group_masking: Whether to mask out degenerate groups with all-0
+      advantages.
   """
 
   algo_variant: str = "agentic_grpo"
-  advantage_estimator: str = "agentic_grpo"
-  policy_loss_fn: str = "agentic_grpo"
+  advantage_estimator: str = "grpo"
+  policy_loss_fn: str = "grpo"
   loss_agg_mode: str = "sequence-mean-token-mean"
   loss_algo: (
       str
@@ -94,11 +99,31 @@ class GRPOConfig(agentic_rl_learner.AgenticRLConfig):
   num_generations: int = 2
   num_iterations: int = 1
   beta: float = 0.04
+  kl_loss_mode: str = "kl"
+  force_compute_kl: bool = False
   epsilon: float = 0.2
   system_prompt: str = ""
   max_concurrency: int = 16
   epsilon_high: float | None = None  # 0.28 from DAPO.
   off_policy_steps: int = 0
+  degenerate_group_masking: bool = (
+      False  # Whether to mask out degenerate groups with all-0 advantages.
+  )
+  use_rollout_logps: bool = True
+  # Truncated importance-sampling (TIS) correction for the residual mismatch
+  # between the rollout sampler and the trainer's recomputed log-probabilities.
+  # Set to ``"token"`` to enable per-token TIS weights. When enabled, the loss
+  # path uses the trainer's start-of-step recomputed logp as
+  # ``old_per_token_logps`` (so the PPO ratio is taken against the trainer's
+  # own policy at step start, rather than directly against the sampler's logp)
+  # and multiplies each per-token pg-loss term by a detached weight
+  #   w_t = clip(exp(clip(trainer_logp_t - sampler_logp_t, ±20)), max=threshold)
+  # dampening positions where the trainer's recomputed probability disagrees
+  # significantly with the rollout sampler. Without this correction, importance
+  # ratios computed directly against the sampler's logp can spike on outlier
+  # tokens, producing large-variance gradient updates.
+  sampler_is: str | None = None  # None | "token"
+  sampler_is_threshold: float = 2.0
 
   def __post_init__(self):
     if self.num_generations <= 1:
@@ -136,11 +161,10 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
   def __init__(
       self,
       rl_cluster: rl_cluster_lib.RLCluster,
-      reward_fns: RewardFn | List[RewardFn],
       algo_config: TGrpoConfig,
+      reward_fns: RewardFn | List[RewardFn] | None = None,
       chat_parser: Any | None = None,
       metric_fns: Sequence[MetricFn] | None = None,
-      data_shuffle_seed: int | None = None,
       agent_class: Type[
           base_agent.ConversationAgentBase
       ] = model_agent.ModelAgent,
@@ -174,7 +198,6 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
            ...       # ...
            ...       "prompt_min_len": (min(len(p) for p in prompts), np.min),
            ...       # ... }
-      data_shuffle_seed: The seed used to shuffle the training data.
       agent_class: The class of the agent to be used.
       agent_kwargs: Keyword arguments to pass to the agent class.
       env_class: The class of the environment to be used.
@@ -184,7 +207,6 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
         rl_cluster=rl_cluster,
         reward_fns=reward_fns,
         metric_fns=metric_fns,
-        data_shuffle_seed=data_shuffle_seed,
         algo_config=algo_config,
         chat_parser=chat_parser,
         agent_class=agent_class,
@@ -207,6 +229,10 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
       )
     else:
       logging.warning("Metrics log dir is None, skipping trajectory logging.")
+
+    self.algo_config.temperature = self.rl_cluster.get_rollout_config(
+        mode=rl_cluster_lib.Mode.TRAIN
+    ).temperature
 
     # Workaround to pass loss fn with algorithm flag
     policy_loss_fn = function_registry.get_policy_loss_fn(
@@ -233,11 +259,27 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
     self.rl_cluster.actor_trainer.with_rl_metrics_to_log({
         "kl": np.mean,
         "entropy": np.mean,
+        "pg_loss": np.mean,
         "pg_clipfrac": np.mean,
         "ppo_kl": np.mean,
+        "kl_loss": np.mean,
+        "is_ratio/mean": np.mean,
+        "is_ratio/max": np.max,
+        "is_ratio/min": np.min,
+        "log_ratio/abs_mean": np.mean,
+        "pg_loss/unclipped_mean": np.mean,
+        "pg_loss/clipped_mean": np.mean,
+        "advantage/abs_mean": np.mean,
+        "advantage/max": np.max,
+        "advantage/min": np.min,
+        "advantage/nonzero_frac": np.mean,
+        "sampler_is/weight_mean": np.mean,
+        "sampler_is/weight_min": np.min,
     })
     self.rl_cluster.actor_trainer.with_tqdm_metrics_to_display([
-        lambda: "kl" if self.algo_config.beta != 0.0 else None,
+        lambda: "kl"
+        if self.algo_config.force_compute_kl or self.algo_config.beta != 0.0
+        else None,
     ])
 
   def _process_results(
@@ -266,6 +308,10 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
     Returns:
       A list of `TrainExample` instances containing all data needed for the
       loss function.
+
+    Raises:
+      ValueError: If `policy_version` is missing from any trajectory task.
+      RuntimeError: If `old_per_token_logps` is not available for off-policy RL.
     """
     logging.debug(
         "Processing results to compute advantage for %d items.",
@@ -276,48 +322,60 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
     pad_value = self.rl_cluster.rollout.pad_id()
     eos_value = self.rl_cluster.rollout.eos_id()
     # Extract completions and tokens from the group of G results.
-    completion_texts = []
-    completion_tokens_list = []
-    completion_masks_list = []
-    policy_versions_list = []
+    completion_texts: List[str] = []
+    prompt_tokens_list: List[np.ndarray] = []
+    completion_tokens_list: List[np.ndarray] = []
+    completion_masks_list: List[np.ndarray] = []
+    old_logprobs_list: List[np.ndarray] = []
+    policy_versions_list: List[int] = []
+    trajectory_rewards_list: List[float] = []
     trajectories_to_log = []
 
     for item in trajectories:
       trajectories_to_log.append(item.traj)
       conversation = item.traj.get("conversation_text") or []
       assistant_text = next(
-          message["content"]
-          for message in conversation
-          if message["role"] == "assistant"
+          (
+              message["content"]
+              for message in conversation
+              if message["role"] == "assistant"
+          ),
+          "",
       )
+
       completion_texts.append(assistant_text)
+      prompt_tokens_list.append(item.traj.get("prompt_tokens"))
       completion_tokens_list.append(item.traj.get("conversation_tokens"))
       completion_masks_list.append(item.traj.get("conversation_masks"))
+      old_logprobs_list.append(item.traj.get("old_logprobs"))
       policy_version = item.traj.get("policy_version")
       if policy_version is None:
         raise ValueError("policy_version is missing from trajectory task.")
       policy_versions_list.append(policy_version)
+      trajectory_rewards_list.append(item.traj.get("trajectory_reward"))
 
     # Log trajectory.
     if self._trajectory_logger and trajectories_to_log:
       for traj in trajectories_to_log:
         self._trajectory_logger.log_item_async(traj)
 
-    # All results in a group share the same prompt.
-    prompt_tokens = trajectories[0].traj.get("prompt_tokens")
-
     # Pad all prompts and completions to consistent lengths.
     rollout_config = self.rl_cluster.cluster_config.rollout_config
     if isinstance(rollout_config, dict):
       rollout_config = rollout_config[mode]
+
     padded_prompt_ids = []
     padded_completion_ids = []
     padded_completion_masks = []
+    padded_old_logprobs = []
 
     max_response_length = self.algo_config.max_response_length
     clipped_completion_count = 0
-    for completion_tokens, completion_mask in zip(
-        completion_tokens_list, completion_masks_list
+    for prompt_tokens, completion_tokens, completion_mask, old_logprobs in zip(
+        prompt_tokens_list,
+        completion_tokens_list,
+        completion_masks_list,
+        old_logprobs_list,
     ):
       if (
           len(completion_tokens) >= max_response_length
@@ -340,8 +398,23 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
               :max_response_length
           ]
       )
+      if self.algo_config.use_rollout_logps:
+        if old_logprobs is not None:
+          padded_old_logprobs.append(
+              agentic_utils.right_pad(
+                  old_logprobs,
+                  length=max_response_length,
+                  pad=0.0,
+                  dtype=old_logprobs.dtype,
+              )[:max_response_length]
+          )
+        else:
+          padded_old_logprobs.append(
+              np.zeros(max_response_length, dtype=np.float32)
+          )
 
     prompt_ids = jnp.asarray(padded_prompt_ids)
+    prompt_mask = prompt_ids != pad_value
     completion_ids = jnp.asarray(padded_completion_ids)
     completion_mask = jnp.asarray(padded_completion_masks)
     logging.debug(
@@ -350,38 +423,103 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
         completion_ids.shape,
     )
 
-    # Masks
-    prompt_mask = prompt_ids != pad_value
-    if self.algo_config.beta != 0.0:
-      ref_per_token_logps = self.rl_cluster.get_ref_per_token_logps(
+    # Sampler-trainer log-probability mismatch diagnostic. When rollout
+    # logprobs are present we recompute the trainer's logprobs so the per-batch
+    # diff, max, and Pearson correlation metrics can be logged below. Training
+    # itself still uses whichever logp source is configured via
+    # ``use_rollout_logps``. The diagnostic forward pass is skipped when the
+    # actor is attached to an empty mesh (e.g. unit-test environments without a
+    # device topology) because the actor sharding path requires a real mesh;
+    # the metrics are still emitted when running on real accelerators. Cost
+    # when active: one extra trainer forward pass per training step.
+    actor_mesh = self.rl_cluster.r2m[rl_cluster_lib.Role.ACTOR]
+    have_actor_mesh = actor_mesh is not None and not actor_mesh.empty
+    rollout_per_token_logps = None
+    trainer_per_token_logps = None
+    if self.algo_config.use_rollout_logps and padded_old_logprobs:
+      rollout_per_token_logps = jnp.asarray(padded_old_logprobs)
+      old_per_token_logps = rollout_per_token_logps
+      # The diagnostic pass (and the sampler-IS ``token`` path, which needs the
+      # trainer's recomputed logp as ``old_per_token_logps``) requires a real
+      # actor mesh; skip when not available.
+      need_trainer_logps = (
+          have_actor_mesh or self.algo_config.sampler_is == "token"
+      )
+      if need_trainer_logps:
+        trainer_per_token_logps = self.rl_cluster.get_actor_per_token_logps(
+            prompt_tokens=prompt_ids,
+            completion_tokens=completion_ids,
+            pad_id=pad_value,
+            eos_id=eos_value,
+            micro_batch_size=self.rl_cluster.cluster_config.training_config.compute_logps_micro_batch_size,
+        )
+      # When sampler-IS correction is enabled, use the trainer's recomputed
+      # logp as ``old_per_token_logps`` so the PPO ratio is
+      # ``exp(current_logp - trainer_logp)`` rather than against the rollout
+      # sampler's logp directly. The IS weight computed below corrects for
+      # the trainer-vs-sampler divergence.
+      if (
+          self.algo_config.sampler_is == "token"
+          and trainer_per_token_logps is not None
+      ):
+        old_per_token_logps = trainer_per_token_logps
+    elif self.algo_config.use_rollout_logps:
+      old_per_token_logps = None
+    else:
+      trainer_per_token_logps = self.rl_cluster.get_actor_per_token_logps(
           prompt_tokens=prompt_ids,
           completion_tokens=completion_ids,
           pad_id=pad_value,
           eos_id=eos_value,
-          micro_batch_size=None,
+          micro_batch_size=self.rl_cluster.cluster_config.training_config.compute_logps_micro_batch_size,
       )
+      old_per_token_logps = trainer_per_token_logps
+
+    if self.algo_config.num_iterations > 1 and old_per_token_logps is None:
+      raise RuntimeError(
+          "old_per_token_logps is not available for off-policy RL. Enable "
+          " `return_logprobs` in RolloutConfig."
+      )
+
+    # Collect perf tags
+    traj = trajectories[0].traj
+    group_id = traj.get("group_id")
+    if group_id is None:
+      original_input = traj.get("original_input", {})
+      group_id = original_input.get("group_id")
+
+    perf_tags = {
+        perf_constants.STEP: expected_step,
+    }
+    if group_id is not None:
+      perf_tags[perf_constants.GROUP_ID] = group_id
+
+    if self.algo_config.force_compute_kl or self.algo_config.beta != 0.0:
+      with self.rl_cluster.perf_v2.span(
+          perf_constants.REFERENCE_INFERENCE,
+          devices=self.rl_cluster.r2m[rl_cluster_lib.Role.REFERENCE].devices,
+          tags=perf_tags,
+      ) as interval_v2:
+        ref_per_token_logps = self.rl_cluster.get_ref_per_token_logps(
+            prompt_tokens=prompt_ids,
+            completion_tokens=completion_ids,
+            pad_id=pad_value,
+            eos_id=eos_value,
+            micro_batch_size=self.rl_cluster.cluster_config.training_config.compute_logps_micro_batch_size,
+        )
+        interval_v2.async_end([ref_per_token_logps])
     else:
       ref_per_token_logps = None
-    logging.debug("Ref logps computed.")
-    if self.algo_config.num_iterations > 1:
-      old_per_token_logps = self.rl_cluster.get_old_per_token_logps(
-          prompt_tokens=prompt_ids,
-          completion_tokens=completion_ids,
-          micro_batch_size=1,
-      )
-    else:
-      old_per_token_logps = None
-    logging.debug("Old logps computed.")
-    # Rewards & advantages
 
+    # Rewards & advantages
     # Prepare arguments for reward computation by forwarding all training inputs
     # except for prompts, which is passed explicitly.
-    original_input = trajectories[0].traj["original_input"]
-    original_inputs = rl_utils.merge_micro_batches(
-        [original_input] * self.algo_config.num_generations
-    )
+    original_inputs_list = [
+        item.traj["original_input"] for item in trajectories
+    ]
+    original_inputs = rl_utils.merge_micro_batches(original_inputs_list)
 
-    prompt_token_len = len(prompt_tokens)
+    prompt_token_len = len(prompt_tokens_list[0])
     self.rl_cluster.buffer_metrics_async(
         {
             "generation/prompts/mean_length": (prompt_token_len, np.mean),
@@ -395,51 +533,190 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
     reward_kwargs = {
         key: value for key, value in original_inputs.items() if key != "prompts"
     }
-    # TODO: b/456528861 - Refactor reward computation to happen within the
-    # environment during rollout, rather than as a post-processing step. This
-    # would align with the standard agentic RL pattern and remove the need for
-    # `dummy_reward`.
-    rewards = self._compute_rewards(
-        prompts=original_inputs["prompts"],
-        completions=completion_texts,
-        mode=mode,
-        **reward_kwargs,
-        expected_step=expected_step,
-    )
+    reward_kwargs["trajectory_rewards"] = trajectory_rewards_list
+    with self.rl_cluster.perf_v2.span(
+        perf_constants.ADVANTAGE_COMPUTATION,
+        tags=perf_tags,
+    ):
+      rewards = self._compute_rewards(
+          prompts=original_inputs["prompts"],
+          completions=completion_texts,
+          mode=mode,
+          **reward_kwargs,
+          expected_step=expected_step,
+      )
 
-    advantage_estimator = function_registry.get_advantage_estimator(
-        self.algo_config.advantage_estimator
-    )
-    advantages = advantage_estimator(
-        rewards=rewards, num_generations=self.algo_config.num_generations
-    )
+      advantage_estimator = function_registry.get_advantage_estimator(
+          self.algo_config.advantage_estimator
+      )
+      advantages = advantage_estimator(
+          rewards=rewards, num_generations=self.algo_config.num_generations
+      )
+
+    logging.debug("Advantages computed: %s", advantages)
+
+    if self.algo_config.degenerate_group_masking:
+      if jnp.all(jnp.isclose(advantages, 0.0)):
+        logging.info(
+            "Filtering degenerate group %s with all-0 advantages.", group_id
+        )
+        completion_mask = jnp.zeros_like(completion_mask)
 
     policy_versions = np.array(policy_versions_list, dtype=np.int32)
 
-    # Log completion lengths.
+    # Log completion lengths, rewards and env time.
     agg_completion_mask = completion_mask.sum(axis=-1)
-    self.rl_cluster.buffer_metrics_async(
-        {
-            "generation/completions/mean_length": (
-                np.mean(agg_completion_mask),
-                np.mean,
-            ),
-            "generation/completions/max_length": (
-                np.max(agg_completion_mask),
-                np.max,
-            ),
-            "generation/completions/min_length": (
-                np.min(agg_completion_mask),
-                np.min,
-            ),
-            "generation/completions/clip_ratio": (
-                clipped_completion_count / len(trajectories),
-                np.mean,
-            ),
-        },
-        mode=mode,
-        step=expected_step,
-    )
+    metrics_to_log = {
+        "generation/completions/mean_length": (
+            np.mean(agg_completion_mask),
+            np.mean,
+        ),
+        "generation/completions/max_length": (
+            np.max(agg_completion_mask),
+            np.max,
+        ),
+        "generation/completions/min_length": (
+            np.min(agg_completion_mask),
+            np.min,
+        ),
+        "generation/completions/clip_ratio": (
+            clipped_completion_count / len(trajectories),
+            np.mean,
+        ),
+        "rewards/advantage/mean": (np.mean(advantages), np.mean),
+        "rewards/advantage/max": (np.max(advantages), np.max),
+        "rewards/advantage/min": (np.min(advantages), np.min),
+        "rewards/advantage/std": (np.std(advantages), np.mean),
+    }
+
+    # Per-token sampler-vs-trainer log-probability agreement diagnostic. When
+    # this diverges from zero, importance ratios used in the policy update
+    # are biased and gradient quality degrades. A mean per-token diff well
+    # under 0.01 nat indicates the trainer and rollout sampler are computing
+    # log-probabilities consistently.
+    if (
+        rollout_per_token_logps is not None
+        and trainer_per_token_logps is not None
+    ):
+      # ``completion_mask`` is the assistant-vs-env mask built upstream
+      # (1 for assistant-generated tokens, 0 for env-injected tokens), and
+      # already correctly scopes the comparison to model-emitted positions.
+      # We deliberately do NOT additionally drop positions where the rollout
+      # logprob equals exactly 0.0 — that value can legitimately occur for
+      # near-certain tokens (e.g. format chars after a structured response)
+      # and excluding them removes the most consistent positions from the
+      # statistic, inflating the per-position mean.
+      mask = completion_mask.astype(jnp.bool_)
+      mask_f = mask.astype(jnp.float32)
+      mask_sum = jnp.maximum(mask_f.sum(), 1.0)
+      diff = jnp.abs(rollout_per_token_logps - trainer_per_token_logps)
+      diff_mean = float((diff * mask_f).sum() / mask_sum)
+      diff_max = float(jnp.where(mask, diff, 0.0).max())
+      # Per-position probability-space diff |exp(rollout) - exp(trainer)|.
+      # More representative than logp_diff for confidence agreement: logp can
+      # diverge arbitrarily for very low-probability tokens while their
+      # contribution to the importance ratio is negligible. prob_diff weights
+      # each position by its actual probability mass.
+      rp = jnp.exp(rollout_per_token_logps)
+      tp = jnp.exp(trainer_per_token_logps)
+      prob_diff = jnp.abs(rp - tp)
+      prob_diff_mean = float((prob_diff * mask_f).sum() / mask_sum)
+      prob_diff_max = float(jnp.where(mask, prob_diff, 0.0).max())
+      # Pearson correlation between exp(logp) at masked positions.
+      rp_flat = rp.reshape(-1)
+      tp_flat = tp.reshape(-1)
+      mf = mask_f.reshape(-1)
+      rp_mean = (rp_flat * mf).sum() / mask_sum
+      tp_mean = (tp_flat * mf).sum() / mask_sum
+      rp_d = (rp_flat - rp_mean) * mf
+      tp_d = (tp_flat - tp_mean) * mf
+      cov = (rp_d * tp_d).sum() / mask_sum
+      rp_var = (rp_d * rp_d).sum() / mask_sum
+      tp_var = (tp_d * tp_d).sum() / mask_sum
+      pearson = float(cov / jnp.sqrt(jnp.maximum(rp_var * tp_var, 1e-12)))
+      metrics_to_log.update({
+          "sampler_trainer/logp_diff_mean": (diff_mean, np.mean),
+          "sampler_trainer/logp_diff_max": (diff_max, np.max),
+          "sampler_trainer/prob_diff_mean": (prob_diff_mean, np.mean),
+          "sampler_trainer/prob_diff_max": (prob_diff_max, np.max),
+          "sampler_trainer/probs_pearson_corr": (pearson, np.mean),
+      })
+      logging.info(
+          "sampler-trainer: logp_diff=(%.5f,%.5f) prob_diff=(%.5f,%.5f)"
+          " pearson=%.5f",
+          diff_mean,
+          diff_max,
+          prob_diff_mean,
+          prob_diff_max,
+          pearson,
+      )
+    # Truncated importance-sampling (TIS) correction weights.
+    # Compute per-token TIS weights from the trainer-vs-sampler log-ratio,
+    # mask to assistant tokens only (we dampen offending model-emitted
+    # positions, not env tokens), clamp at the configured threshold, and
+    # detach. The policy loss picks these up via
+    # ``train_example.sampler_is_weights``.
+    sampler_is_weights = None
+    if (
+        self.algo_config.sampler_is == "token"
+        and rollout_per_token_logps is not None
+        and trainer_per_token_logps is not None
+    ):
+      asst_mask_f = completion_mask.astype(jnp.float32)
+      log_ratio = trainer_per_token_logps - rollout_per_token_logps
+      log_ratio = jnp.clip(log_ratio, min=-20.0, max=20.0)
+      sampler_is_weights = jax.lax.stop_gradient(
+          jnp.minimum(
+              jnp.exp(log_ratio),
+              self.algo_config.sampler_is_threshold,
+          )
+          * asst_mask_f
+      )
+      mask_sum = jnp.maximum(asst_mask_f.sum(), 1.0)
+      is_mean = float((sampler_is_weights * asst_mask_f).sum() / mask_sum)
+      is_max = float(jnp.where(asst_mask_f > 0, sampler_is_weights, 0.0).max())
+      frac_clipped = float(
+          (
+              (
+                  (jnp.exp(log_ratio) > self.algo_config.sampler_is_threshold)
+                  & (asst_mask_f > 0)
+              ).astype(jnp.float32)
+          ).sum()
+          / mask_sum
+      )
+      metrics_to_log.update({
+          "sampler_is/weight_mean": (is_mean, np.mean),
+          "sampler_is/weight_max": (is_max, np.max),
+          "sampler_is/frac_clipped_at_threshold": (frac_clipped, np.mean),
+      })
+      logging.info(
+          "sampler_is: weight_mean=%.4f weight_max=%.4f frac_clipped=%.4f"
+          " (threshold=%.2f)",
+          is_mean,
+          is_max,
+          frac_clipped,
+          self.algo_config.sampler_is_threshold,
+      )
+
+    # Extract time metrics (env_time and reward_time)
+    for time_key in ["env_time", "reward_time"]:
+      prefix = f"trajectory/{time_key}"
+      time_dicts = [item.traj.get(time_key, {}) for item in trajectories]
+
+      # Safely gather all unique sub-keys (e.g., 'reset_latency') across all trajectories
+      for sub_key in {k for d in time_dicts for k in d.keys()}:
+        vals = [d.get(sub_key, 0.0) for d in time_dicts]
+        metrics_to_log.update({
+            f"{prefix}/{sub_key}/mean": (np.mean(vals), np.mean),
+            f"{prefix}/{sub_key}/max": (np.max(vals), np.max),
+            f"{prefix}/{sub_key}/min": (np.min(vals), np.min),
+        })
+        self.rl_cluster.buffer_metrics_async(
+            metrics_to_log,
+            mode=mode,
+            step=expected_step,
+        )
+
     for metric_fn in self.metric_fns:
       user_defined_metric = metric_fn(
           prompts=original_inputs["prompts"],
@@ -456,7 +733,6 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
           user_defined_metric, mode=mode, step=expected_step
       )
 
-    logging.debug("Advantages computed: %s", advantages)
     combined_batch = TrainExample(
         prompt_ids=prompt_ids,
         prompt_mask=prompt_mask,
@@ -466,142 +742,9 @@ class GRPOLearner(agentic_rl_learner.AgenticRLLearner[TGrpoConfig]):
         advantages=advantages,
         old_per_token_logps=old_per_token_logps,
         policy_version=policy_versions,
+        sampler_is_weights=sampler_is_weights,
     )
     return [combined_batch]
-
-
-@function_registry.register_policy_loss_fn("agentic_grpo")
-def grpo_loss_fn(
-    model,
-    train_example,
-    algo_config,
-    pad_id,
-    eos_id,
-):
-  """GRPO loss function.
-
-  The loss aims to maximize the expected advantage of the chosen actions while
-  constraining the policy updates to stay within a certain range of the
-  reference policy.
-
-  Args:
-    model: The policy model to be trained.
-    train_example: A `TrainExample` instance containing the processed input
-      data, including prompt IDs, completion IDs, masks, advantages, and
-      per-token log probabilities from the reference and policy models.
-    algo_config: The algorithm config.
-    pad_id: The pad ID from tokenizer.
-    eos_id: The eos ID from.
-
-  Returns:
-    A tuple containing the loss and an aux dictionary.
-  """
-  beta = algo_config.beta
-  epsilon = algo_config.epsilon
-  loss_algo = algo_config.loss_algo
-  epsilon_high = (
-      algo_config.epsilon_high
-      if hasattr(algo_config, "epsilon_high")
-      else epsilon
-  )
-  loss_aggregation_mode = algo_config.loss_agg_mode
-
-  completion_ids, completion_mask = (
-      train_example.completion_ids,
-      train_example.completion_mask,
-  )
-
-  # TODO(tsbao): split can be avoided with updated peft_trainer model handling.
-  graphdef, state = nnx.split(model)
-  per_token_logps, logits = common.compute_per_token_logps(
-      graphdef,
-      state,
-      prompt_tokens=train_example.prompt_ids,
-      completion_tokens=completion_ids,
-      pad_id=pad_id,
-      eos_id=eos_id,
-      stop_gradient=False,
-      return_logits=True,
-  )
-  per_token_logps = jnp.astype(per_token_logps, jnp.float32)
-  # TODO(tsbao): We should handle token level advantages.
-  advantages = jnp.astype(train_example.advantages, jnp.float32)[:, None]
-
-  if train_example.old_per_token_logps is None:
-    old_per_token_logps = jax.lax.stop_gradient(per_token_logps)
-  else:
-    old_per_token_logps = jnp.astype(
-        train_example.old_per_token_logps, jnp.float32
-    )
-
-  seq_importance_ratio = per_token_logps - old_per_token_logps
-  ppo_kl = ppo_helpers.masked_mean(-seq_importance_ratio, completion_mask)
-
-  # TODO(sizhi): Refactor this to a separate function.
-  if loss_algo == "gspo-token":
-    seq_importance_ratio = (seq_importance_ratio * completion_mask).sum(
-        axis=-1
-    ) / jnp.clip(completion_mask.sum(-1), min=1)
-    seq_importance_ratio = (
-        per_token_logps
-        - jax.lax.stop_gradient(per_token_logps)
-        + jnp.expand_dims(jax.lax.stop_gradient(seq_importance_ratio), axis=-1)
-    )
-    seq_importance_ratio = jnp.clip(seq_importance_ratio, max=10.0)
-
-  is_ratio = jnp.exp(seq_importance_ratio)
-  pg_loss_1 = -advantages * is_ratio
-  pg_loss_2 = -advantages * jnp.clip(is_ratio, 1 - epsilon, 1 + epsilon_high)
-
-  per_token_loss = jnp.maximum(pg_loss_1, pg_loss_2).astype(jnp.float32)
-
-  clipped_fraction = ppo_helpers.masked_mean(
-      jnp.greater(pg_loss_2, pg_loss_1), completion_mask
-  )
-
-  aux = {"kl": 0.0, "pg_clipfrac": clipped_fraction, "ppo_kl": ppo_kl}
-  if beta is not None and beta != 0.0:
-    kl = common.compute_kl_divergence(
-        per_token_logps, train_example.ref_per_token_logps
-    )
-    per_token_loss = per_token_loss + beta * kl
-
-    # Log mean KL.
-    aux["kl"] = jnp.astype(
-        (kl * completion_mask).sum() / jnp.clip(completion_mask.sum(), min=1),
-        jnp.float32,
-    )
-
-  loss = common.aggregate_loss(
-      per_token_loss, completion_mask, loss_aggregation_mode
-  )
-  token_entropy = ppo_helpers.compute_entropy_from_logits(logits)
-  entropy_loss = ppo_helpers.masked_mean(token_entropy, completion_mask)
-  aux["entropy"] = entropy_loss
-
-  return loss, aux
-
-
-@function_registry.register_advantage_estimator("agentic_grpo")
-def compute_advantages(rewards: jax.Array, num_generations: int) -> jax.Array:
-  """Compute group relative advantages.
-
-  Args:
-    rewards: reward functions output.
-    num_generations: Number of generations.
-
-  Returns:
-    Group relative advantages.
-  """
-  rewards = jnp.astype(rewards, jnp.float32)
-  mean_grouped_rewards = rewards.reshape(-1, num_generations).mean(axis=-1)
-  std_grouped_rewards = rewards.reshape(-1, num_generations).std(
-      axis=-1, ddof=1
-  )
-
-  mean_grouped_rewards = mean_grouped_rewards.repeat(num_generations)
-  std_grouped_rewards = std_grouped_rewards.repeat(num_generations)
-  return (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-6)
 
 
 GrpoConfig = GRPOConfig

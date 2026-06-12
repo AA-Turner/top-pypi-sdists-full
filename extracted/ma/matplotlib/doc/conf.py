@@ -57,7 +57,7 @@ def _parse_skip_subdirs_file():
     can make partial builds very fast.
     """
     default_skip_subdirs = [
-        'users/prev_whats_new/*', 'users/explain/*', 'api/*', 'gallery/*',
+        'release/prev_whats_new/*', 'users/explain/*', 'api/*', 'gallery/*',
         'tutorials/*', 'plot_types/*', 'devel/*']
     try:
         with open(".mpl_skip_subdirs.yaml", 'r') as fin:
@@ -102,6 +102,14 @@ sys.path.append('.')
 # usage in the gallery.
 warnings.filterwarnings('error', append=True)
 
+# Warnings for missing glyphs occur during `savefig`, and would cause any such plot to
+# not be created. Because the exception occurs in savefig, there is no way for the plot
+# itself to ignore these warnings locally, so we must do so globally.
+warnings.filterwarnings('default', category=UserWarning,
+                        message=r'Glyph \d+ \(.+\) missing from font\(s\)')
+warnings.filterwarnings('default', category=UserWarning,
+                        message=r'Matplotlib currently does not support .+ natively\.')
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
@@ -124,7 +132,7 @@ extensions = [
     'sphinxext.math_symbol_table',
     'sphinxext.missing_references',
     'sphinxext.mock_gui_toolkits',
-    'sphinxext.skip_deprecated',
+    'sphinxext.rcparams',
     'sphinxext.redirect_from',
     'sphinx_copybutton',
     'sphinx_design',
@@ -186,6 +194,7 @@ if parse_version(sphinx_gallery.__version__) >= parse_version('0.16.0'):
     gallery_order_sectionorder = 'sphinxext.gallery_order.sectionorder'
     gallery_order_subsectionorder = 'sphinxext.gallery_order.subsectionorder'
     clear_basic_units = 'sphinxext.util.clear_basic_units'
+    patch_header = 'sphinxext.util.patch_header'
     matplotlib_reduced_latex_scraper = 'sphinxext.util.matplotlib_reduced_latex_scraper'
 else:
     # gallery_order.py from the sphinxext folder provides the classes that
@@ -193,7 +202,8 @@ else:
     from sphinxext.gallery_order import (
         sectionorder as gallery_order_sectionorder,
         subsectionorder as gallery_order_subsectionorder)
-    from sphinxext.util import clear_basic_units, matplotlib_reduced_latex_scraper
+    from sphinxext.util import (clear_basic_units, matplotlib_reduced_latex_scraper,
+                                patch_header)
 
 if parse_version(sphinx_gallery.__version__) >= parse_version('0.17.0'):
     sg_matplotlib_animations = (True, 'mp4')
@@ -260,11 +270,12 @@ intersphinx_mapping = {
     'dateutil': ('https://dateutil.readthedocs.io/en/stable/', None),
     'ipykernel': ('https://ipykernel.readthedocs.io/en/latest/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
-    'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
     'pytest': ('https://pytest.org/en/stable/', None),
     'python': ('https://docs.python.org/3/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
     'tornado': ('https://www.tornadoweb.org/en/stable/', None),
+    'wx': ('https://docs.wxpython.org/', None),
     'xarray': ('https://docs.xarray.dev/en/stable/', None),
     'meson-python': ('https://mesonbuild.com/meson-python/', None),
     'pip': ('https://pip.pypa.io/en/stable/', None),
@@ -282,6 +293,7 @@ for gd in gallery_dirs:
 
 sphinx_gallery_conf = {
     'backreferences_dir': Path('api', '_as_gen'),
+    'minigallery_sort_order': 'sphinxext.gallery_order.preserve_order',
     # Compression is a significant effort that we skip for local and CI builds.
     'compress_images': ('thumbnails', 'images') if is_release_build else (),
     'doc_module': ('matplotlib', 'mpl_toolkits'),
@@ -297,7 +309,7 @@ sphinx_gallery_conf = {
     'reference_url': {'matplotlib': None, 'mpl_toolkits': None},
     'prefer_full_module': {r'mpl_toolkits\.'},
     'remove_config_comments': True,
-    'reset_modules': ('matplotlib', clear_basic_units, 'sphinxext.util.patch_header'),
+    'reset_modules': ('matplotlib', clear_basic_units, patch_header),
     'subsection_order': gallery_order_sectionorder,
     'thumbnail_size': (320, 224),
     'within_subsection_order': gallery_order_subsectionorder,
@@ -560,7 +572,7 @@ html_sidebars = {
     # no sidebar for release notes, because that page is only a collection of links
     # to sub-pages. The sidebar would repeat all the titles of the sub-pages and
     # thus basically repeat all the content of the page.
-    "users/release_notes": ["empty_sidebar.html"],
+    "release/release_notes": ["empty_sidebar.html"],
     # '**': ['localtoc.html', 'pagesource.html']
 }
 
@@ -825,58 +837,6 @@ else:
     extensions.append('sphinx.ext.viewcode')
 
 
-def generate_ScalarMappable_docs():
-
-    import matplotlib.colorizer
-    from numpydoc.docscrape_sphinx import get_doc_object
-    from pathlib import Path
-    import textwrap
-    from sphinx.util.inspect import stringify_signature
-    target_file = Path(__file__).parent / 'api' / 'scalarmappable.gen_rst'
-    with open(target_file, 'w') as fout:
-        fout.write("""
-.. class:: ScalarMappable(colorizer, **kwargs)
-   :canonical: matplotlib.colorizer._ScalarMappable
-
-""")
-        for meth in [
-                matplotlib.colorizer._ScalarMappable.autoscale,
-                matplotlib.colorizer._ScalarMappable.autoscale_None,
-                matplotlib.colorizer._ScalarMappable.changed,
-                """
-   .. attribute:: colorbar
-
-        The last colorbar associated with this ScalarMappable. May be None.
-""",
-                matplotlib.colorizer._ScalarMappable.get_alpha,
-                matplotlib.colorizer._ScalarMappable.get_array,
-                matplotlib.colorizer._ScalarMappable.get_clim,
-                matplotlib.colorizer._ScalarMappable.get_cmap,
-                """
-   .. property:: norm
-""",
-                matplotlib.colorizer._ScalarMappable.set_array,
-                matplotlib.colorizer._ScalarMappable.set_clim,
-                matplotlib.colorizer._ScalarMappable.set_cmap,
-                matplotlib.colorizer._ScalarMappable.set_norm,
-                matplotlib.colorizer._ScalarMappable.to_rgba,
-        ]:
-            if isinstance(meth, str):
-                fout.write(meth)
-            else:
-                name = meth.__name__
-                sig = stringify_signature(inspect.signature(meth))
-                docstring = textwrap.indent(
-                    str(get_doc_object(meth)),
-                    '      '
-                ).rstrip()
-                fout.write(f"""
-   .. method::  {name}{sig}
-{docstring}
-
-""")
-
-
 # -----------------------------------------------------------------------------
 # Sphinx setup
 # -----------------------------------------------------------------------------
@@ -890,5 +850,4 @@ def setup(app):
     app.connect('autodoc-process-bases', autodoc_process_bases)
     if sphinx.version_info[:2] < (7, 1):
         app.connect('html-page-context', add_html_cache_busting, priority=1000)
-    generate_ScalarMappable_docs()
     app.config.autodoc_use_legacy_class_based = True

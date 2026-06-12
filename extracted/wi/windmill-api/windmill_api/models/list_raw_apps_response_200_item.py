@@ -26,6 +26,8 @@ class ListRawAppsResponse200Item:
         edited_at (datetime.datetime):
         starred (Union[Unset, bool]):
         labels (Union[Unset, List[str]]):
+        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
+            Read-only — edit them on the folder.
     """
 
     workspace_id: str
@@ -36,6 +38,7 @@ class ListRawAppsResponse200Item:
     edited_at: datetime.datetime
     starred: Union[Unset, bool] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    inherited_labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -51,6 +54,10 @@ class ListRawAppsResponse200Item:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        inherited_labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.inherited_labels, Unset):
+            inherited_labels = self.inherited_labels
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -68,6 +75,8 @@ class ListRawAppsResponse200Item:
             field_dict["starred"] = starred
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if inherited_labels is not UNSET:
+            field_dict["inherited_labels"] = inherited_labels
 
         return field_dict
 
@@ -92,6 +101,8 @@ class ListRawAppsResponse200Item:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
+
         list_raw_apps_response_200_item = cls(
             workspace_id=workspace_id,
             path=path,
@@ -101,6 +112,7 @@ class ListRawAppsResponse200Item:
             edited_at=edited_at,
             starred=starred,
             labels=labels,
+            inherited_labels=inherited_labels,
         )
 
         list_raw_apps_response_200_item.additional_properties = d

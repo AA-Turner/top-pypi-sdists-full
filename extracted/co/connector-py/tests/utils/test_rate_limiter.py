@@ -81,6 +81,45 @@ class TestIsTransientError:
         assert RateLimiter.is_transient_error(TransportServerError("error")) is False
 
 
+# check_rate_limit_error / check_transient_error / is_retryable_error
+
+
+class TestConfiguredErrorChecks:
+    def test_check_rate_limit_error_falls_back_to_default(
+        self, basic_config: RateLimitConfig
+    ) -> None:
+        limiter = RateLimiter(basic_config)
+        assert limiter.check_rate_limit_error(_http_status_error(429)) is True
+        assert limiter.check_rate_limit_error(_http_status_error(400)) is False
+
+    def test_check_rate_limit_error_uses_configured_override(
+        self, basic_config: RateLimitConfig
+    ) -> None:
+        config = basic_config.model_copy(
+            update={"rate_limit_error_check": lambda e: str(e) == "custom"}
+        )
+        limiter = RateLimiter(config)
+        assert limiter.check_rate_limit_error(Exception("custom")) is True
+        # Default would classify a 429, but the override takes full control
+        assert limiter.check_rate_limit_error(_http_status_error(429)) is False
+
+    def test_check_transient_error_uses_configured_override(
+        self, basic_config: RateLimitConfig
+    ) -> None:
+        config = basic_config.model_copy(
+            update={"transient_error_check": lambda e: str(e) == "flaky"}
+        )
+        limiter = RateLimiter(config)
+        assert limiter.check_transient_error(Exception("flaky")) is True
+        assert limiter.check_transient_error(_http_status_error(503)) is False
+
+    def test_is_retryable_error_combines_both_checks(self, basic_config: RateLimitConfig) -> None:
+        limiter = RateLimiter(basic_config)
+        assert limiter.is_retryable_error(_http_status_error(429)) is True  # rate limit
+        assert limiter.is_retryable_error(_http_status_error(503)) is True  # transient
+        assert limiter.is_retryable_error(_http_status_error(404)) is False
+
+
 # ── _effective_mode ────────────────────────────────────────────────────────────
 
 

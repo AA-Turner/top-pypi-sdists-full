@@ -33,7 +33,7 @@ def cmd_create(args: list[str]) -> dict:
 
     parser = argparse.ArgumentParser(prog="kanban create", add_help=False)
     parser.add_argument("title", nargs="*", default=[], help="Task title")
-    parser.add_argument("--desc", nargs="*", default=[], help="Task description")
+    parser.add_argument("--desc", type=str, default="", help="Task description")
     parser.add_argument("--mode", type=str, default=None,                         help="Task mode: lightweight, quick, custom, or any custom mode from workflow.json")
     parser.add_argument("--lightweight", action="store_true", default=False,
                         help="Shorthand for --mode lightweight")
@@ -62,7 +62,7 @@ def cmd_create(args: list[str]) -> dict:
 
     parsed = parser.parse_args(filtered_args)
     title = " ".join(parsed.title) if parsed.title else "Untitled"
-    desc = " ".join(parsed.desc) if parsed.desc else ""
+    desc = parsed.desc or ""
     auto_mode_flags = parsed.auto_mode
 
     # ── Resolve filesystem and config (early, for default_mode) ──

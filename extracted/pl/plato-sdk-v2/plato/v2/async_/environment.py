@@ -317,7 +317,54 @@ class Environment:
             self._register_ssh_user()  # mesh_ip resolved late — register it now
         return self.mesh_ip
 
-    async def add_ssh_key(self, public_key: str, username: str | None = None) -> None:
+    async def _wait_until_reachable(
+        self,
+        timeout: float = 90.0,
+        interval: float = 5.0,
+    ) -> bool:
+        """Poll the VM (via the backend exec channel) until it answers, or time out.
+
+        The backend installs SSH keys by connecting *into* the VM, so an
+        ``add_ssh_key`` issued before the VM's sshd is up silently no-ops and the
+        key never lands. Waiting here until ``execute`` succeeds means the install
+        actually takes. Slow-booting Windows/QEMU VMs were measured answering
+        anywhere from ~45s to past 60s, so the ceiling is set at 90s.
+
+        This is a ceiling, not a fixed sleep: it returns the moment the VM answers
+        (sub-second for an already-up VM). On timeout it returns ``False`` and the
+        caller proceeds anyway — never worse than the pre-existing behaviour.
+
+        Returns:
+            True if the VM became reachable, False if the timeout elapsed.
+        """
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+        while True:
+            # Cap every step to the time left so the wait never overshoots the ceiling.
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                logger.warning(
+                    "VM %s not reachable after %.0fs; attempting add_ssh_key anyway",
+                    self.job_id,
+                    timeout,
+                )
+                return False
+            try:
+                result = await self.execute("echo ready", timeout=max(1, min(20, int(remaining))))
+                if result.exit_code == 0:
+                    return True
+            except Exception as exc:  # noqa: BLE001 - probe is best-effort
+                logger.debug("reachability probe for %s raised: %s", self.job_id, exc)
+            await asyncio.sleep(min(interval, max(0.0, deadline - loop.time())))
+
+    async def add_ssh_key(
+        self,
+        public_key: str,
+        username: str | None = None,
+        *,
+        wait_for_vm: bool = True,
+        ready_timeout: float = 90.0,
+    ) -> None:
         """Add an SSH public key to this specific VM.
 
         Args:
@@ -326,9 +373,17 @@ class Environment:
                 this VM's provider expects (``plato`` for Windows/QEMU, ``root``
                 otherwise) — the same user ``run_ssh`` connects as — so the key
                 lands in the right ``authorized_keys`` without the caller knowing.
+            wait_for_vm: Wait until the VM is reachable before issuing the install
+                (default). The backend's install no-ops on an unreachable VM, so
+                without this the key can silently never land on slow-booting
+                Windows/QEMU VMs. Pass ``False`` when the VM is known to be up.
+            ready_timeout: Ceiling (seconds) for the reachability wait. Returns
+                early the instant the VM answers; only bites while it is booting.
         """
         if username is None:
             username = ssh_user_for_provider(self.provider)
+        if wait_for_vm:
+            await self._wait_until_reachable(timeout=ready_timeout)
         await jobs.add_ssh_key.asyncio(
             client=self._http,
             job_id=self.job_id,

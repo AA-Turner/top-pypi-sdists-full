@@ -20,6 +20,7 @@ from .base import (
     DefaultHandler,
     ErrorMap,
     ExceptionHandler,
+    GQLTransportHandler,
     HTTPHandler,
     handle_exception,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "ConnectorError",
     "ExceptionHandler",
     "DefaultHandler",
+    "GQLTransportHandler",
     "HTTPHandler",
     "ErrorMap",
     "handle_exception",

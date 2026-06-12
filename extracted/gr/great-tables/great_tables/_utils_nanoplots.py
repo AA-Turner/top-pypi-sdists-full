@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 from typing import Any, Callable
 
@@ -425,6 +426,35 @@ def _normalize_to_dict(**kwargs: list[int | float]) -> dict[str, list[int | floa
     This only accepts values (scalar or list) associated with keyword arguments. A dictionary
     is returned with the same keys but the values are normalized lists. This is done so that
     any disparate collection of normalized values are distinguishable by their original keys.
+
+    All values (lists are flattened, scalars treated as length-1) are pooled together before
+    normalization, so that every returned value is scaled relative to the global min/max across
+    all inputs. None-valued kwargs are excluded from the normalization pool.
+
+    Examples
+    --------
+    ```{python}
+    # Case 1: line/area plot - y values with zero line and expand_y bounds
+    _normalize_to_dict(vals=[5, 10, 15, 20], zero=0, expand_y=[0, 25])
+    # {'vals': [0.2, 0.4, 0.6, 0.8], 'zero': [0.0], 'expand_y': [0.0, 1.0]}
+
+    # Case 2: line plot - y values with a reference line
+    _normalize_to_dict(vals=[5, 10, 15, 20], ref_line=12, zero=0, expand_y=[0, 25])
+    # {'vals': [0.2, 0.4, 0.6, 0.8], 'ref_line': [0.48], 'zero': [0.0], 'expand_y': [0.0, 1.0]}
+
+    # Case 3: line plot - y values with a reference area (band between two bounds)
+    _normalize_to_dict(vals=[5, 10, 15, 20], ref_area_l=8, ref_area_u=17, zero=0, expand_y=[0, 25])
+    # {'vals': [0.2, 0.4, 0.6, 0.8], 'ref_area_l': [0.32], 'ref_area_u': [0.68],
+    #  'zero': [0.0], 'expand_y': [0.0, 1.0]}
+
+    # Case 4: line plot - x values with expand_x bounds
+    _normalize_to_dict(vals=[1, 2, 3, 4], expand_x=[0, 5])
+    # {'vals': [0.2, 0.4, 0.6, 0.8], 'expand_x': [0.0, 1.0]}
+
+    # Case 5: bar plot - single value normalized against all row values with zero baseline
+    _normalize_to_dict(val=[15], all_vals=[5, 10, 15, 20, -5], zero=0)
+    # {'val': [0.8], 'all_vals': [0.4, 0.6, 0.8, 1.0, 0.0], 'zero': [0.2]}
+    ```
     """
 
     # Ensure that at least two values are provided
@@ -648,23 +678,18 @@ def _generate_nanoplot(
         # then we should raise an error.
         data_line_type = "straight"
 
-    # If `missing_vals` is set to 'gap' raise an error
-    # TODO: Implement the 'gap' option for missing values
-    if missing_vals == "gap":
-        raise NotImplementedError("The 'gap' option for missing values is not yet implemented.")
-
     # For the `missing_vals` options of 'zero' or 'remove', either replace NAs
     # with `0` or remove NAs entirely
     if missing_vals == "zero":
-        y_vals = y_vals.fillna(0)
+        y_vals = [0 if _is_na(val) else val for val in y_vals]
 
     # If `missing_vals` is 'remove', remove NAs from `y_vals`
     if missing_vals == "remove":
-        y_vals = y_vals.dropna()
+        non_na_mask = [not _is_na(val) for val in y_vals]
+        y_vals = [v for v, keep in zip(y_vals, non_na_mask) if keep]
 
         if x_vals is not None:
-            # Remove the corresponding `x` values for the removed `y` values
-            x_vals = x_vals[y_vals.index]
+            x_vals = [v for v, keep in zip(x_vals, non_na_mask) if keep]
 
     # Get the number of data points for `y`
     if isinstance(y_vals, list):
@@ -930,7 +955,9 @@ def _generate_nanoplot(
     # Create normalized (and inverted for SVG) data `x` and `y` values for the
     # plot area; these are named `data_x_points` and `data_y_points`
     #
-    data_y_points = tuple(safe_y_d + ((1 - y_p) * data_y_height) for y_p in y_proportions)
+    data_y_points = tuple(
+        None if y_p is None else safe_y_d + ((1 - y_p) * data_y_height) for y_p in y_proportions
+    )
     data_x_points = tuple((data_x_width * x_p) + safe_x_d for x_p in x_proportions)
 
     #
@@ -964,17 +991,26 @@ def _generate_nanoplot(
     # they receive line segments and adjoining areas
     #
 
-    # Use run-length encoding to determine the segments of data
+    # Compute contiguous segments of non-None data points so that lines
+    # and areas are broken ("gapped") wherever a missing value occurs.
+    start_data_y_points: list[int] = []
+    end_data_y_points: list[int] = []
+    in_segment = False
 
-    # rle_data_y_points = pd.Series(data_y_points).diff().ne(0).cumsum()
+    for idx, val in enumerate(data_y_points):
+        if val is not None:
+            if not in_segment:
+                start_data_y_points.append(idx)
+                in_segment = True
+        else:
+            if in_segment:
+                end_data_y_points.append(idx)
+                in_segment = False
 
-    # end_data_y_points = np.cumsum(rle_data_y_points.lengths)
+    if in_segment:
+        end_data_y_points.append(len(data_y_points))
 
-    # start_data_y_points = end_data_y_points - rle_data_y_points.lengths + 1
-
-    start_data_y_points = [0]
-    end_data_y_points = [len(data_y_points)]
-    n_segments = 1
+    n_segments = len(start_data_y_points)
 
     #
     # Generate a curved data line
@@ -1492,7 +1528,11 @@ def _is_intlike(n: Any, scaled_by: float = 1e17) -> bool:
             return False
     elif isinstance(n, Decimal):
         n = float(n)
-    return isinstance(n, numbers.Real) and ((n * scaled_by - int(n) * scaled_by) == 0)
+    return (
+        isinstance(n, numbers.Real)
+        and not math.isnan(n)
+        and ((n * scaled_by - int(n) * scaled_by) == 0)
+    )
 
 
 def _get_n_intlike(nums: list[Any]) -> int:

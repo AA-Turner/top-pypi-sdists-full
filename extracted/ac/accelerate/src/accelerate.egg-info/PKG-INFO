@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: accelerate
-Version: 1.13.0
+Version: 1.14.0
 Summary: Accelerate
 Home-page: https://github.com/huggingface/accelerate
 Author: The Hugging Face team
@@ -72,7 +72,6 @@ Provides-Extra: test-fp8
 Requires-Dist: torchao; extra == "test-fp8"
 Provides-Extra: test-trackers
 Requires-Dist: wandb; extra == "test-trackers"
-Requires-Dist: comet-ml; extra == "test-trackers"
 Requires-Dist: tensorboard; extra == "test-trackers"
 Requires-Dist: dvclive; extra == "test-trackers"
 Requires-Dist: matplotlib; extra == "test-trackers"

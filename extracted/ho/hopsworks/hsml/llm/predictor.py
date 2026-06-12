@@ -14,8 +14,6 @@
 #   limitations under the License.
 #
 
-from __future__ import annotations
-
 from hsml.constants import MODEL, PREDICTOR
 from hsml.predictor import Predictor
 

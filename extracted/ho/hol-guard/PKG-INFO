@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.0.580
+Version: 2.0.607
 Summary: Protect local AI harnesses with HOL Guard before tools run in Codex, Claude Code, Cursor, Gemini, and OpenCode.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard
@@ -176,6 +176,8 @@ See [docs/guard/get-started.md](docs/guard/get-started.md) for the full local fl
   Guard respects Cursor’s native tool approval and focuses on artifact trust before launch.
 - `opencode`
   Guard authors package-level policy while OpenCode keeps native once, always, or reject prompts for managed MCP tools.
+- `kimi`
+  Guard installs managed `PreToolUse` and `UserPromptSubmit` hooks in `~/.kimi-code/config.toml`, blocks with exit code `2` and a JSON `permissionDecision: "deny"` response, and fails open on hook crash or timeout.
 - `hermes`
   Guard installs a managed Hermes overlay bundle, routes MCP servers through Guard proxies, and prefers native-or-center delivery for blocked requests.
 - `gemini`
@@ -641,7 +643,7 @@ repos:
 
 The Marketplace action lives in the dedicated repository [hashgraph-online/ai-plugin-scanner-action](https://github.com/hashgraph-online/ai-plugin-scanner-action).
 
-This repository no longer vendors a local action bundle. Use the standalone action repository for `action.yml`, release notes, and action-specific documentation. The legacy alias [hashgraph-online/hol-codex-plugin-scanner-action](https://github.com/hashgraph-online/hol-codex-plugin-scanner-action) remains available for existing workflows.
+The Marketplace action bundle is maintained in [`action/`](./action) and published automatically to [hashgraph-online/ai-plugin-scanner-action](https://github.com/hashgraph-online/ai-plugin-scanner-action) by [`.github/workflows/publish-action-repo.yml`](./.github/workflows/publish-action-repo.yml) after each PyPI release. The legacy alias [hashgraph-online/hol-codex-plugin-scanner-action](https://github.com/hashgraph-online/hol-codex-plugin-scanner-action) remains available for existing workflows.
 When you run the scanner in your own job instead of the packaged action, install `plugin-scanner[cisco]` on Python 3.11+ and set `CISCO_MCP_SCAN=auto` or `CISCO_MCP_SCAN=on` for full Cisco MCP coverage.
 
 ### Plugin Author Submission Flow

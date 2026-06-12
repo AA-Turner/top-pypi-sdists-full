@@ -4,11 +4,11 @@ use crate::construction::{
     create_balanced_penalty_root_from_canonical, precompute_reparam_invariant_from_canonical,
 };
 use crate::faer_ndarray::array2_to_matmut;
+use crate::inference::hmc::BlockExcessTarget;
 use crate::linalg::sparse_exact::build_sparse_penalty_blocks_from_canonical;
 use crate::linalg::utils::{
     StableSolver, boundary_hit_indices, enforce_symmetry, symmetric_spectrum_condition_number,
 };
-use crate::inference::hmc::BlockExcessTarget;
 use crate::mixture_link::inverse_link_has_fisher_weight_jet;
 use crate::pirls::PirlsWorkspace;
 use crate::solver::estimate::reml::inner_strategy::HessianEvalStrategyKind;
@@ -1052,7 +1052,6 @@ fn hash_isometry_reference(
             hasher.write_str("user-supplied");
             hash_array2(hasher, values.as_ref());
         }
-        IsometryReference::MeanProfiled => hasher.write_str("mean-profiled"),
     }
 }
 
@@ -4190,7 +4189,9 @@ impl<'a> RemlState<'a> {
         }
         let mut r_mat = x.t().dot(&moments.e_t_neg_score); // p × m
         for r in 0..m {
-            r_mat.column_mut(r).scaled_add(moments.e_t[r], &pen_score_total);
+            r_mat
+                .column_mut(r)
+                .scaled_add(moments.e_t[r], &pen_score_total);
         }
         r_mat -= &x.t().dot(&w_xv_ett);
 
@@ -4201,8 +4202,8 @@ impl<'a> RemlState<'a> {
         let xvt_w_xv_ett = xv.t().dot(&w_xv_ett); // m × m
         let mut m_vec = Array1::<f64>::zeros(m);
         for r in 0..m {
-            m_vec[r] = -0.5
-                * (xvt_etngs[(r, r)] + pterm[r] * moments.e_t[r] - xvt_w_xv_ett[(r, r)]);
+            m_vec[r] =
+                -0.5 * (xvt_etngs[(r, r)] + pterm[r] * moments.e_t[r] - xvt_w_xv_ett[(r, r)]);
         }
 
         // Eigenframe assembly. `block_vecs` are the `block_cols` columns of
@@ -8648,6 +8649,14 @@ impl<'a> RemlState<'a> {
     ///     transformed penalty basis, optionally including ridge policy.
     /// These conventions are mirrored in gradient code via corresponding trace terms.
     pub fn compute_cost(&self, p: &Array1<f64>) -> Result<f64, EstimationError> {
+        self.compute_cost_with_ext_count(p, 0)
+    }
+
+    pub(crate) fn compute_cost_with_ext_count(
+        &self,
+        p: &Array1<f64>,
+        synthetic_ext_count: usize,
+    ) -> Result<f64, EstimationError> {
         let cost_call_idx = {
             let mut calls = self.arena.cost_eval_count.write().unwrap();
             *calls += 1;
@@ -8755,8 +8764,16 @@ impl<'a> RemlState<'a> {
         );
         if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
             let t_assemble = std::time::Instant::now();
-            let result =
-                self.evaluate_unified_sparse(p, &bundle, super::unified::EvalMode::ValueOnly)?;
+            let result = if synthetic_ext_count == 0 {
+                self.evaluate_unified_sparse(p, &bundle, super::unified::EvalMode::ValueOnly)?
+            } else {
+                self.evaluate_unified_value_only_with_synthetic_ext_count(
+                    p,
+                    &bundle,
+                    synthetic_ext_count,
+                    true,
+                )?
+            };
             let cost = screening_residual_penalty(result.cost, bundle.pirls_result.as_ref());
             log::debug!(
                 "[REML] eval#{} sparse cost {:.6e} | assemble {:.1}ms | total {:.1}ms",
@@ -8833,7 +8850,16 @@ impl<'a> RemlState<'a> {
         // Delegate to the unified evaluator for the actual formula computation.
         // This ensures cost and gradient share the exact same formula.
         let t_assemble = std::time::Instant::now();
-        let result = self.evaluate_unified(p, &bundle, super::unified::EvalMode::ValueOnly)?;
+        let result = if synthetic_ext_count == 0 {
+            self.evaluate_unified(p, &bundle, super::unified::EvalMode::ValueOnly)?
+        } else {
+            self.evaluate_unified_value_only_with_synthetic_ext_count(
+                p,
+                &bundle,
+                synthetic_ext_count,
+                false,
+            )?
+        };
         let cost = screening_residual_penalty(result.cost, bundle.pirls_result.as_ref());
         log::debug!(
             "[REML] eval#{} dense cost {:.6e} | assemble {:.1}ms | total {:.1}ms",
@@ -9482,7 +9508,9 @@ impl<'a> RemlState<'a> {
             deriv_provider: Some(ctx.deriv_provider),
             tk_correction: 0.0,
             tk_gradient: None,
-            firth: ctx.firth_op,
+            firth: ctx
+                .firth_op
+                .map(crate::estimate::reml::unified::ExactJeffreysTerm::new),
             nullspace_dim: Some(nullspace_dim),
             barrier_config: ctx.barrier_config,
             ext_coords: Vec::new(),
@@ -9551,6 +9579,8 @@ impl<'a> RemlState<'a> {
             PseudoLogdetMode::Smooth
         };
 
+        let c_nontrivial = pirls_result.solve_c_array.iter().any(|&c| c != 0.0);
+
         // For ValueOnly evaluations on the SPD fast path (no Firth, no hard
         // linear constraints), use a Cholesky-backed operator.  LLT costs
         // O(p³/3) versus the O(9·p³) full eigendecomposition, giving a
@@ -9558,12 +9588,19 @@ impl<'a> RemlState<'a> {
         // any gradient trace call, so the operator only needs to serve
         // `logdet()` and `solve()`/`solve_multi()` — both provided by LLT.
         //
+        // Keep c-nontrivial non-Gaussian fits on the spectral path even for
+        // value-only probes: their LAML value installs the intrinsic
+        // pseudo-logdet correction below, and using the Cholesky full logdet
+        // here would make cost-only line-search / FD probes evaluate a
+        // different scalar from the value+gradient path (#901).
+        //
         // If LLT fails (near-singular Hessian), fall through to the spectral
         // operator so the soft-floor regularization can handle it.
         let hessian_op: std::sync::Arc<dyn super::unified::HessianOperator> = if mode
             == super::unified::EvalMode::ValueOnly
             && matches!(hessian_mode, PseudoLogdetMode::Smooth)
             && free_basis_opt.is_none()
+            && !c_nontrivial
         {
             match DenseCholeskyValueOnlyOperator::from_spd(h_for_operator.as_ref()) {
                 Ok(chol_op) => std::sync::Arc::new(chol_op),
@@ -9593,7 +9630,6 @@ impl<'a> RemlState<'a> {
             )
         };
 
-        let c_nontrivial = pirls_result.solve_c_array.iter().any(|&c| c != 0.0);
         let uses_kron_penalty_logdet = self.kronecker_penalty_system.as_ref().is_some_and(|kron| {
             self.kronecker_factored.is_some() && kron.num_penalties() == rho.len()
         });
@@ -9893,8 +9929,11 @@ impl<'a> RemlState<'a> {
         } else {
             PseudoLogdetMode::Smooth
         };
+        let c_nontrivial = pirls_result.solve_c_array.iter().any(|&c| c != 0.0);
+
         // Same Cholesky fast path as `build_dense_assembly`: for ValueOnly
-        // evaluations with `Smooth` mode (no Firth), LLT replaces eigh.
+        // evaluations with `Smooth` mode (no Firth and no beta-dependent
+        // Hessian drift), LLT replaces eigh.
         // `build_dense_original_assembly` is only called when there is no
         // active constraint free-basis, so the no-hard-constraints condition
         // is always satisfied here.
@@ -9902,6 +9941,7 @@ impl<'a> RemlState<'a> {
             use super::unified::DenseCholeskyValueOnlyOperator;
             if mode == super::unified::EvalMode::ValueOnly
                 && matches!(hessian_mode, PseudoLogdetMode::Smooth)
+                && !c_nontrivial
             {
                 match DenseCholeskyValueOnlyOperator::from_spd(&h_total_original) {
                     Ok(chol_op) => std::sync::Arc::new(chol_op),
@@ -9933,7 +9973,6 @@ impl<'a> RemlState<'a> {
         };
 
         let e_for_logdet = &pirls_result.reparam_result.e_transformed;
-        let c_nontrivial = pirls_result.solve_c_array.iter().any(|&c| c != 0.0);
         let uses_kron_penalty_logdet = self.kronecker_penalty_system.as_ref().is_some_and(|kron| {
             self.kronecker_factored.is_some() && kron.num_penalties() == rho.len()
         });
@@ -10762,6 +10801,38 @@ impl<'a> RemlState<'a> {
         let assembly = self.build_sparse_assembly(rho, bundle, mode)?;
         self.assemble_and_evaluate(rho, bundle, mode, assembly)
     }
+
+    fn evaluate_unified_value_only_with_synthetic_ext_count(
+        &self,
+        rho: &Array1<f64>,
+        bundle: &EvalShared,
+        synthetic_ext_count: usize,
+        force_sparse: bool,
+    ) -> Result<super::unified::RemlLamlResult, EstimationError> {
+        assert!(synthetic_ext_count > 0);
+        let mode = super::unified::EvalMode::ValueOnly;
+        let mut assembly = if force_sparse {
+            self.build_sparse_assembly(rho, bundle, mode)?
+        } else {
+            self.build_auto_assembly(rho, bundle, mode)?
+        };
+        let p_dim = assembly.beta.len();
+        assembly.ext_coords = (0..synthetic_ext_count)
+            .map(|_| super::unified::HyperCoord {
+                a: 0.0,
+                g: Array1::zeros(p_dim),
+                drift: super::unified::HyperCoordDrift::none(),
+                ld_s: 0.0,
+                b_depends_on_beta: false,
+                is_penalty_like: false,
+                firth_g: None,
+                tk_eta_fixed: None,
+                tk_x_fixed: None,
+            })
+            .collect();
+        self.assemble_and_evaluate(rho, bundle, mode, assembly)
+    }
+
     /// Evaluate the unified REML/LAML objective with anisotropic ψ ext_coords
     /// injected into the `InnerSolution`.
     ///

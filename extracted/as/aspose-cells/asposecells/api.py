@@ -2452,6 +2452,12 @@ class PlotEmptyCellsType(IntEnum):
     INTERPOLATED = 2,
     NOT_PLOTTED = 0,
     ZERO = 1,
+class PowerQueryFormulaItemType(IntEnum):
+    FUNCTION = 1,
+    LIST = 3,
+    LITERAL = 4,
+    PARAMETER = 2,
+    UNKNOWN = 0,
 class PowerQueryFormulaType(IntEnum):
     FORMULA = 0,
     FUNCTION = 1,
@@ -2750,6 +2756,10 @@ class SensitivityLabelMarkType(IntEnum):
 class ShapeAnchorType(IntEnum):
     ONE_CELL_ANCHOR = 1,
     TWO_CELL_ANCHOR = 0,
+class ShapeDisplayType(IntEnum):
+    ALL = 0,
+    NONE = 2,
+    PLACEHOLDERS = 1,
 class ShapeLockType(IntEnum):
     ADJUST_HANDLES = 1,
     ARROWHEAD = 12,

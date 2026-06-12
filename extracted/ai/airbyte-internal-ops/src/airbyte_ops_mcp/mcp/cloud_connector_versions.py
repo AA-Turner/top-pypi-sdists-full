@@ -36,13 +36,12 @@ from airbyte_ops_mcp.cloud_admin.models import (
 )
 from airbyte_ops_mcp.cloud_admin.version_overrides import (
     ResolvedCloudAuth,
+    VersionOverrideTarget,
     get_connector_version_info,
-    set_actor_version_override,
-    set_organization_version_override,
-    set_workspace_version_override,
+    set_version_override,
 )
 from airbyte_ops_mcp.constants import ServerConfigKey, WorkspaceAliasEnum
-from airbyte_ops_mcp.tier_cache import TierFilter
+from airbyte_ops_mcp.tier_cache import TierFilter, resolve_workspace
 
 logger = logging.getLogger(__name__)
 
@@ -277,11 +276,24 @@ def set_cloud_connector_version_override(
     resolved_workspace_id = WorkspaceAliasEnum.resolve(workspace_id)
     assert resolved_workspace_id is not None  # workspace_id is required
 
-    return set_actor_version_override(
+    ws_resolution = resolve_workspace(resolved_workspace_id)
+    if not ws_resolution.organization_id:
+        return VersionOverrideOperationResult(
+            success=False,
+            message="Could not resolve organization for workspace.",
+            connector_id=actor_id,
+            connector_type=actor_type,
+        )
+
+    result = set_version_override(
         auth=_resolve_cloud_auth(ctx),
-        workspace_id=resolved_workspace_id,
-        actor_id=actor_id,
-        actor_type=actor_type,
+        target=VersionOverrideTarget(
+            scope="actor",
+            organization_id=ws_resolution.organization_id,
+            workspace_id=resolved_workspace_id,
+            actor_id=actor_id,
+            connector_type=actor_type,
+        ),
         approval_comment_url=approval_comment_url,
         version=version,
         unset=unset,
@@ -293,6 +305,8 @@ def set_cloud_connector_version_override(
         force=force,
         config_api_root=config_api_root,
     )
+    assert isinstance(result, VersionOverrideOperationResult)
+    return result
 
 
 @mcp_tool(
@@ -432,11 +446,25 @@ def set_workspace_connector_version_override(
     resolved_workspace_id = WorkspaceAliasEnum.resolve(workspace_id)
     assert resolved_workspace_id is not None  # workspace_id is required
 
-    return set_workspace_version_override(
+    ws_resolution = resolve_workspace(resolved_workspace_id)
+    if not ws_resolution.organization_id:
+        return WorkspaceVersionOverrideResult(
+            success=False,
+            message="Could not resolve organization for workspace.",
+            workspace_id=resolved_workspace_id,
+            connector_name=connector_name,
+            connector_type=connector_type,
+        )
+
+    result = set_version_override(
         auth=_resolve_cloud_auth(ctx),
-        workspace_id=resolved_workspace_id,
-        connector_name=connector_name,
-        connector_type=connector_type,
+        target=VersionOverrideTarget(
+            scope="workspace",
+            organization_id=ws_resolution.organization_id,
+            workspace_id=resolved_workspace_id,
+            connector_name=connector_name,
+            connector_type=connector_type,
+        ),
         approval_comment_url=approval_comment_url,
         version=version,
         unset=unset,
@@ -448,6 +476,8 @@ def set_workspace_connector_version_override(
         force=force,
         config_api_root=config_api_root,
     )
+    assert isinstance(result, WorkspaceVersionOverrideResult)
+    return result
 
 
 @mcp_tool(
@@ -581,11 +611,14 @@ def set_organization_connector_version_override(
     the actual tier of the organization does not match.  Use `ALL` to bypass
     the check (a warning is still emitted for sensitive tiers).
     """
-    return set_organization_version_override(
+    result = set_version_override(
         auth=_resolve_cloud_auth(ctx),
-        organization_id=organization_id,
-        connector_name=connector_name,
-        connector_type=connector_type,
+        target=VersionOverrideTarget(
+            scope="organization",
+            organization_id=organization_id,
+            connector_name=connector_name,
+            connector_type=connector_type,
+        ),
         approval_comment_url=approval_comment_url,
         version=version,
         unset=unset,
@@ -597,6 +630,8 @@ def set_organization_connector_version_override(
         force=force,
         config_api_root=config_api_root,
     )
+    assert isinstance(result, OrganizationVersionOverrideResult)
+    return result
 
 
 def register_cloud_connector_version_tools(app: FastMCP) -> None:

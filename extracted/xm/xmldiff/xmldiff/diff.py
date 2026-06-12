@@ -65,9 +65,7 @@ class Differ:
             right = right.getroot()
 
         if not (etree.iselement(left) and etree.iselement(right)):
-            raise TypeError(
-                "The 'left' and 'right' parameters must be " "lxml Elements."
-            )
+            raise TypeError("The 'left' and 'right' parameters must be lxml Elements.")
 
         # Left gets modified as a part of the diff, deepcopy it first.
         self.left = deepcopy(left)
@@ -157,10 +155,16 @@ class Differ:
                     unmatched_lnodes.append((lnode, match_node, max_match))
                     # unmatched_lnodes.append(lnode)
 
+            # Sort by descending match quality so better matches get
+            # priority, and remove matched rnodes to prevent multiple
+            # left nodes from matching the same right node.
             lnodes = []
-            for lnode, rnode, max_match in unmatched_lnodes:
+            for lnode, rnode, max_match in sorted(
+                unmatched_lnodes, key=lambda x: -x[2]
+            ):
                 if max_match >= self.F and rnode in rnodes:
                     self.append_match(lnode, rnode, max_match)
+                    rnodes.remove(rnode)
                 else:
                     lnodes.append(lnode)
 
@@ -334,11 +338,11 @@ class Differ:
         left_xpath = utils.getpath(left)
 
         if left.text != right.text:
-            yield actions.UpdateTextIn(left_xpath, right.text)
+            yield actions.UpdateTextIn(left_xpath, right.text, left.text)
             left.text = right.text
 
         if left.tail != right.tail:
-            yield actions.UpdateTextAfter(left_xpath, right.tail)
+            yield actions.UpdateTextAfter(left_xpath, right.tail, left.tail)
             left.tail = right.tail
 
     def find_pos(self, node):

@@ -36,6 +36,7 @@ _UI_PROMPT_RE = (
 
 
 def imgl_available() -> bool:
+    """Check if imgl control layer is available (direct import or REST)."""
     if _IMGL_DIRECT:
         return True
     return bool(os.environ.get("KORU_IMGL_REST_URL", "").strip())
@@ -86,7 +87,8 @@ def imgl_desktop_transport_enabled() -> bool:
 
 def default_image_path() -> Path:
     if _IMGL_DIRECT:
-        return _default_image_path()
+        p = _default_image_path()
+        return Path(p) if isinstance(p, (str, bytes, os.PathLike)) else p
     raw = os.environ.get("KORU_IMGL_IMAGE", "/tmp/koru-imgl-screen.png").strip()
     return Path(raw).expanduser()
 

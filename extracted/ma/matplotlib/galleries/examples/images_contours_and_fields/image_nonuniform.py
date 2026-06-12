@@ -14,7 +14,6 @@ explicitly add it to the Axes using `.Axes.add_image`.
 import matplotlib.pyplot as plt
 import numpy as np
 
-from matplotlib import cm
 from matplotlib.image import NonUniformImage
 
 interp = 'nearest'
@@ -33,7 +32,7 @@ fig, axs = plt.subplots(nrows=2, ncols=2, layout='constrained')
 fig.suptitle('NonUniformImage class', fontsize='large')
 ax = axs[0, 0]
 im = NonUniformImage(ax, interpolation=interp, extent=(-4, 4, -4, 4),
-                     cmap=cm.Purples)
+                     cmap="Purples")
 im.set_data(x, y, z)
 ax.add_image(im)
 ax.set_xlim(-4, 4)
@@ -42,7 +41,7 @@ ax.set_title(interp)
 
 ax = axs[0, 1]
 im = NonUniformImage(ax, interpolation=interp, extent=(-64, 64, -4, 4),
-                     cmap=cm.Purples)
+                     cmap="Purples")
 im.set_data(x2, y, z)
 ax.add_image(im)
 ax.set_xlim(-64, 64)
@@ -53,7 +52,7 @@ interp = 'bilinear'
 
 ax = axs[1, 0]
 im = NonUniformImage(ax, interpolation=interp, extent=(-4, 4, -4, 4),
-                     cmap=cm.Purples)
+                     cmap="Purples")
 im.set_data(x, y, z)
 ax.add_image(im)
 ax.set_xlim(-4, 4)
@@ -62,7 +61,7 @@ ax.set_title(interp)
 
 ax = axs[1, 1]
 im = NonUniformImage(ax, interpolation=interp, extent=(-64, 64, -4, 4),
-                     cmap=cm.Purples)
+                     cmap="Purples")
 im.set_data(x2, y, z)
 ax.add_image(im)
 ax.set_xlim(-64, 64)

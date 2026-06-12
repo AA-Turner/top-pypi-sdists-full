@@ -15,28 +15,33 @@ concurrency:
 jobs:
 
   tests:
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@d9b81a07e789d1b1921ab5fe33de2ddcbbd02c3f  # v2.3.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@2835f0cacddf3f8de198db9afdb5354a5cebe0ef  # v2.6.3
     with:
       envs: |
         - macos: py311-test-oldestdeps
         - macos: py312-test
         - macos: py313-test
+        - macos: py314-test-devdeps
         - linux: py311-test-oldestdeps
         - linux: py312-test
           runs-on: ubuntu-24.04-arm
-        - linux: py313-test-devdeps
+        - linux: py313-test
+        - linux: py314-test-devdeps
         - windows: py311-test-oldestdeps
         - windows: py312-test
         - windows: py313-test
+        - windows: py314-test
       libraries: |
         apt:
           - libopenblas-dev
       coverage: 'codecov'
 
-  publish:
+  build:
     needs: tests
-    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@d9b81a07e789d1b1921ab5fe33de2ddcbbd02c3f  # v2.3.0
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish.yml@2835f0cacddf3f8de198db9afdb5354a5cebe0ef  # v2.6.3
     with:
+      upload_to_pypi: false
+      save_artifacts: true
       test_extras: test
       test_command: pytest -p no:warnings --pyargs reproject --log-cli-level=INFO
       targets: |
@@ -46,6 +51,8 @@ jobs:
         - cp*-macosx_x86_64
         - cp*-macosx_arm64
         - cp*-win_amd64
+      env: |
+        EXTENSION_HELPERS_PY_LIMITED_API: 'cp311'
 
       # Developer wheels
       upload_to_anaconda: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
@@ -54,5 +61,31 @@ jobs:
       anaconda_keep_n_latest: 10
 
     secrets:
-      pypi_token: ${{ secrets.pypi_token }}
       anaconda_token: ${{ secrets.anaconda_token }}
+
+  upload:
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/reproject
+    if: >-
+      ${{ startsWith(github.ref, 'refs/tags/v') &&
+          !endsWith(github.ref, '.dev') &&
+          (
+            github.event_name == 'push' ||
+            github.event_name == 'workflow_dispatch'
+          )
+      }}
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          merge-multiple: true
+          pattern: dist-*
+          path: dist
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0

@@ -1,6 +1,7 @@
 pub use self::config::InterpreterConfig;
 use crate::Target;
 use crate::auditwheel::PlatformTag;
+use crate::bridge::StableAbiKind;
 use anyhow::{Result, bail};
 use std::fmt;
 use std::ops::Deref;
@@ -20,6 +21,8 @@ pub const MINIMUM_PYTHON_MINOR: usize = 7;
 pub const MINIMUM_PYPY_MINOR: usize = 8;
 /// Be liberal here to include preview versions
 pub const MAXIMUM_PYTHON_MINOR: usize = 14;
+/// Minimum supported version for free-threaded CPython
+pub const FREE_THREADED_MINIMUM_PYTHON_MINOR: usize = 14;
 /// Maximum supported PyPy minor version.
 pub const MAXIMUM_PYPY_MINOR: usize = 11;
 
@@ -111,7 +114,21 @@ impl Deref for PythonInterpreter {
 
 impl PythonInterpreter {
     /// Does this interpreter have PEP 384 stable api aka. abi3 support?
-    pub fn has_stable_api(&self) -> bool {
+    pub fn has_abi3(&self) -> bool {
+        if self.implementation_name.parse::<InterpreterKind>().is_err() {
+            false
+        } else {
+            match self.interpreter_kind {
+                // Free-threaded python does not support abi3. All supported
+                // CPython GIL-enabled versions do support abi3
+                InterpreterKind::CPython => !self.config.gil_disabled,
+                InterpreterKind::PyPy | InterpreterKind::GraalPy => false,
+            }
+        }
+    }
+
+    /// Does this interpreter have PEP 803 stable api aka. abi3t support?
+    pub fn has_abi3t(&self) -> bool {
         if self.implementation_name.parse::<InterpreterKind>().is_err() {
             false
         } else {
@@ -122,6 +139,14 @@ impl PythonInterpreter {
                 }
                 InterpreterKind::PyPy | InterpreterKind::GraalPy => false,
             }
+        }
+    }
+
+    /// Does this interpreter support either abi3 or abi3t?
+    pub fn has_stable_api(&self, kind: StableAbiKind) -> bool {
+        match kind {
+            StableAbiKind::Abi3 => self.has_abi3(),
+            StableAbiKind::Abi3t => self.has_abi3t(),
         }
     }
 

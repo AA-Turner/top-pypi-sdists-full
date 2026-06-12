@@ -52,6 +52,7 @@ __all__ = (
     "EvaluatorStatusType",
     "EvaluatorTypeType",
     "ExceptionLevelType",
+    "ExtractionTypeType",
     "FilterOperatorType",
     "FindingTypeType",
     "GatewayInterceptionPointType",
@@ -226,6 +227,7 @@ EvaluatorStatusType = Literal[
 ]
 EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode"]
 ExceptionLevelType = Literal["DEBUG"]
+ExtractionTypeType = Literal["LLM_INFERRED", "STRICTLY_CONSISTENT"]
 FilterOperatorType = Literal[
     "Contains",
     "Equals",
@@ -297,7 +299,7 @@ ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
 ListingModeType = Literal["DEFAULT", "DYNAMIC"]
 MemoryCreatedWaiterName = Literal["memory_created"]
-MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
+MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyTypeType = Literal[
     "CUSTOM", "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
@@ -735,6 +737,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

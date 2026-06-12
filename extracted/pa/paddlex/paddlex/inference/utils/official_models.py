@@ -352,6 +352,12 @@ ALL_MODELS = [
     "G2PWModel",
     "fastspeech2_csmsc",
     "pwgan_csmsc",
+    "PP-OCRv6_medium_det",
+    "PP-OCRv6_small_det",
+    "PP-OCRv6_tiny_det",
+    "PP-OCRv6_medium_rec",
+    "PP-OCRv6_small_rec",
+    "PP-OCRv6_tiny_rec",
 ]
 
 
@@ -435,6 +441,12 @@ OCR_MODELS = [
     "ta_PP-OCRv5_mobile_rec",
     "devanagari_PP-OCRv5_mobile_rec",
     "cyrillic_PP-OCRv5_mobile_rec",
+    "PP-OCRv6_medium_det",
+    "PP-OCRv6_small_det",
+    "PP-OCRv6_tiny_det",
+    "PP-OCRv6_medium_rec",
+    "PP-OCRv6_small_rec",
+    "PP-OCRv6_tiny_rec",
 ]
 
 SAFETENSORS_SUPPORTED_MODELS_WITH_SUFFIX: Set[str] = {
@@ -470,6 +482,12 @@ SAFETENSORS_SUPPORTED_MODELS_WITH_SUFFIX: Set[str] = {
     "ta_PP-OCRv5_mobile_rec",
     "devanagari_PP-OCRv5_mobile_rec",
     "cyrillic_PP-OCRv5_mobile_rec",
+    "PP-OCRv6_medium_det",
+    "PP-OCRv6_small_det",
+    "PP-OCRv6_tiny_det",
+    "PP-OCRv6_medium_rec",
+    "PP-OCRv6_small_rec",
+    "PP-OCRv6_tiny_rec",
 }
 
 SAFETENSORS_SUPPORTED_MODELS_WITHOUT_SUFFIX: Set[str] = {
@@ -499,8 +517,12 @@ ONNX_SUPPORTED_MODELS: Set[str] = {
     "PP-LCNet_x1_0_doc_ori",
     "PP-LCNet_x1_0_textline_ori",
     "PP-LCNet_x1_0_table_cls",
+    "PP-DocLayoutV2",
+    "PP-DocLayoutV3",
     "PP-DocLayout_plus-L",
     "PP-DocBlockLayout",
+    "SLANet",
+    "SLANet_plus",
     "SLANeXt_wired",
     "SLANeXt_wireless",
     "RT-DETR-L_wired_table_cell_det",
@@ -509,6 +531,24 @@ ONNX_SUPPORTED_MODELS: Set[str] = {
     "PP-OCRv5_mobile_det",
     "PP-OCRv5_server_rec",
     "PP-OCRv5_mobile_rec",
+    "UVDoc",
+    "eslav_PP-OCRv5_mobile_rec",
+    "korean_PP-OCRv5_mobile_rec",
+    "latin_PP-OCRv5_mobile_rec",
+    "en_PP-OCRv5_mobile_rec",
+    "th_PP-OCRv5_mobile_rec",
+    "el_PP-OCRv5_mobile_rec",
+    "arabic_PP-OCRv5_mobile_rec",
+    "te_PP-OCRv5_mobile_rec",
+    "ta_PP-OCRv5_mobile_rec",
+    "devanagari_PP-OCRv5_mobile_rec",
+    "cyrillic_PP-OCRv5_mobile_rec",
+    "PP-OCRv6_medium_det",
+    "PP-OCRv6_small_det",
+    "PP-OCRv6_tiny_det",
+    "PP-OCRv6_medium_rec",
+    "PP-OCRv6_small_rec",
+    "PP-OCRv6_tiny_rec",
 }
 
 

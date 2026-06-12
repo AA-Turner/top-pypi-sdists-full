@@ -3,7 +3,7 @@
 edition = "2024"
 name = "aic-sdk-py"
 rust-version = "1.88"
-version = "2.3.0"
+version = "2.4.0"
 readme = "README.md"
 
 [lib]
@@ -14,7 +14,7 @@ name = "aic_sdk"
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]
-aic-sdk = { version = "0.19.0", features = ["async", "download-lib", "download-model"] }
+aic-sdk = { version = "0.20.0", features = ["async", "download-lib", "download-model"] }
 numpy = "0.27"
 pyo3 = { version = "0.27", features = ["generate-import-lib", "multiple-pymethods"] }
 pyo3-async-runtimes = { version = "0.27", features = ["tokio-runtime"] }

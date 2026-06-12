@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -38,6 +37,7 @@ pub struct Pyo3BindingGenerator<'a> {
 
 enum BindingType<'a> {
     Abi3(Option<&'a PythonInterpreter>),
+    Abi3t(Option<&'a PythonInterpreter>),
     VersionSpecific(&'a PythonInterpreter),
 }
 
@@ -50,6 +50,7 @@ impl<'a> Pyo3BindingGenerator<'a> {
         let binding_type = match stable_abi {
             Some(kind) => match kind {
                 StableAbiKind::Abi3 => BindingType::Abi3(interpreter),
+                StableAbiKind::Abi3t => BindingType::Abi3t(interpreter),
             },
             None => {
                 let interpreter = interpreter.ok_or_else(|| {
@@ -102,12 +103,12 @@ impl<'a> BindingGenerator for Pyo3BindingGenerator<'a> {
 
         let so_filename = match self.binding_type {
             BindingType::Abi3(interpreter) => ext_suffix(target, interpreter, ext_name, "abi3"),
+            BindingType::Abi3t(interpreter) => ext_suffix(target, interpreter, ext_name, "abi3t"),
             BindingType::VersionSpecific(interpreter) => interpreter.get_library_name(ext_name),
         };
         let artifact_target = ArtifactTarget::ExtensionModule(module.join(so_filename));
 
-        let artifact_is_big_ar = target.is_aix()
-            && artifact.path.extension().unwrap_or(OsStr::new(" ")) == OsStr::new("a");
+        let artifact_is_big_ar = target.is_aix() && artifact.path.extension() == Some("a".as_ref());
 
         let artifact_source_override = if artifact_is_big_ar {
             Some(unpack_big_archive(
@@ -119,48 +120,57 @@ impl<'a> BindingGenerator for Pyo3BindingGenerator<'a> {
             None
         };
 
-        let additional_files = match context.project.project_layout.python_module {
-            Some(_) => None,
-            None => {
-                let mut files = HashMap::new();
-                let source = GeneratedSourceData {
-                    data: format!(
-                        r#"from .{ext_name} import *
+        let stubs_files = if context.artifact.generate_stubs {
+            let module_introspection = introspect_cdylib(&artifact.path, ext_name).context("Failed to introspect the built libraries to generate type stubs, have you enabled the \"experimental-inspect\" PyO3 Cargo feature?")?;
+            eprintln!("📖 Type stub extracted from the built binary");
+            Some(module_stub_files(&module_introspection))
+        } else {
+            None
+        };
+
+        let mut additional_files = HashMap::new();
+        if context.project.project_layout.python_module.is_some() {
+            if let Some(mut stubs_files) = stubs_files {
+                if stubs_files.len() == 1
+                    && let Some(init_stub_content) = stubs_files.remove(Path::new("__init__.pyi"))
+                {
+                    // Single file, we inline it
+                    add_file(
+                        module.join(format!("{ext_name}.pyi")),
+                        init_stub_content,
+                        &mut additional_files,
+                    );
+                } else {
+                    // Multiple files, we put them in a directory {ext_name} (the name of the module)
+                    let output_dir = module.join(ext_name);
+                    for (path, stub_content) in stubs_files {
+                        add_file(output_dir.join(path), stub_content, &mut additional_files);
+                    }
+                }
+            }
+        } else {
+            add_file(
+                module.join("__init__.py"),
+                format!(
+                    r#"from .{ext_name} import *
 
 __doc__ = {ext_name}.__doc__
 if hasattr({ext_name}, "__all__"):
     __all__ = {ext_name}.__all__"#
-                    )
-                    .into(),
-                    path: None,
-                    executable: false,
-                };
-                files.insert(module.join("__init__.py"), ArchiveSource::Generated(source));
-                if context.artifact.generate_stubs {
-                    let module_introspection = introspect_cdylib(&artifact.path, ext_name).context("Failed to introspect the built libraries to generate type stubs, have you enabled the \"experimental-inspect\" PyO3 Cargo feature?")?;
-                    eprintln!("📖 Type stub extracted from the built binary");
-                    for (path, stub_content) in module_stub_files(&module_introspection) {
-                        files.insert(
-                            module.join(path),
-                            ArchiveSource::Generated(GeneratedSourceData {
-                                data: stub_content.into_bytes(),
-                                path: None,
-                                executable: false,
-                            }),
-                        );
-                    }
-                    files.insert(
-                        module.join("py.typed"),
-                        ArchiveSource::Generated(GeneratedSourceData {
-                            data: Vec::new(),
-                            path: None,
-                            executable: false,
-                        }),
-                    );
+                ),
+                &mut additional_files,
+            );
+            if let Some(stubs_files) = stubs_files {
+                for (path, stub_content) in stubs_files {
+                    add_file(module.join(path), stub_content, &mut additional_files);
                 }
-                Some(files)
+                add_file(
+                    module.join("py.typed"),
+                    String::new(),
+                    &mut additional_files,
+                );
             }
-        };
+        }
 
         Ok(GeneratorOutput {
             artifact_target,
@@ -190,4 +200,15 @@ fn unpack_big_archive(target: &Target, artifact: &Path, temp_dir_path: &Path) ->
     }
     let unpacked_artifact = temp_dir_path.join(artifact.with_extension("so").file_name().unwrap());
     Ok(unpacked_artifact)
+}
+
+fn add_file(name: PathBuf, data: String, files: &mut HashMap<PathBuf, ArchiveSource>) {
+    files.insert(
+        name,
+        ArchiveSource::Generated(GeneratedSourceData {
+            data: data.into(),
+            path: None,
+            executable: false,
+        }),
+    );
 }

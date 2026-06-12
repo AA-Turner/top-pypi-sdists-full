@@ -1,10 +1,10 @@
-"""Stateless helpers shared between the runtime and management config clients.
+"""Stateless conversion helpers for the unified config client.
 
-The runtime client (``ConfigClient``) and the management client
-(``ConfigClient`` in ``mgmt.config``) both need to convert generated
-API responses to/from :class:`Config` models. Putting these in a
-shared module avoids the runtime client depending on the management
-client (and vice versa) just to share conversion code.
+The fused :class:`smplkit.config._client.ConfigClient` (and its async
+counterpart) convert generated API responses to/from :class:`Config`
+models on both its management (CRUD) and live surfaces. Keeping these
+helpers in a separate stateless module avoids import cycles between the
+client and the model definitions.
 """
 
 from __future__ import annotations
@@ -24,11 +24,7 @@ from smplkit._generated.config.models.config_response import ConfigResponse
 from smplkit.config.models import AsyncConfig, Config, ConfigEnvironment
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.config.client import AsyncConfigClient, ConfigClient
-    from smplkit.management.client import (
-        AsyncConfigClient as AsyncMgmtConfigClient,
-        ConfigClient as MgmtConfigClient,
-    )
+    from smplkit.config._client import AsyncConfigClient, ConfigClient
 
 
 def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:
@@ -59,7 +55,7 @@ def _make_environments(
 ) -> ConfigEnvironmentsType0 | None:
     """Convert a plain dict to the generated ConfigEnvironmentsType0.
 
-    Per ADR-024 §2.4 the wire shape is now flat: ``{env: {key: rawValue}}``.
+    The wire shape is flat: ``{env: {key: rawValue}}``.
     """
     if environments is None:
         return None
@@ -108,8 +104,8 @@ def _extract_items(items: Any) -> dict[str, Any]:
 def _extract_environments(environments: Any) -> dict[str, Any]:
     """Extract a plain dict from a generated environments object.
 
-    Per ADR-024 §2.4 the wire shape is flat ``{env: {key: rawValue}}`` —
-    so this is a defensive shallow copy of the per-env override maps.
+    The wire shape is flat ``{env: {key: rawValue}}`` — so this is a
+    defensive shallow copy of the per-env override maps.
     """
     if environments is None or isinstance(environments, type(None)):
         return {}
@@ -168,7 +164,7 @@ def _build_config_request_body(
     return ConfigResponse(data=resource)
 
 
-def _resource_to_config(client: ConfigClient | MgmtConfigClient | None, resource: Any) -> Config:
+def _resource_to_config(client: ConfigClient | None, resource: Any) -> Config:
     """Convert a ConfigResource to a Config model."""
     attrs = resource.attributes
     return Config(
@@ -184,7 +180,7 @@ def _resource_to_config(client: ConfigClient | MgmtConfigClient | None, resource
     )
 
 
-def _resource_to_async_config(client: AsyncConfigClient | AsyncMgmtConfigClient | None, resource: Any) -> AsyncConfig:
+def _resource_to_async_config(client: AsyncConfigClient | None, resource: Any) -> AsyncConfig:
     """Convert a ConfigResource to an AsyncConfig model."""
     attrs = resource.attributes
     return AsyncConfig(

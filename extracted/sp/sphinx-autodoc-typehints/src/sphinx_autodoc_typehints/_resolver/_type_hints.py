@@ -16,7 +16,7 @@ from sphinx.util import logging
 
 from sphinx_autodoc_typehints._annotations import MyTypeAliasForwardRef
 
-from ._stubs import _backfill_from_stub, _get_stub_context
+from ._stubs import _backfill_descriptor_annotation, _backfill_from_stub, _get_stub_context
 from ._type_comments import backfill_type_hints
 from ._util import get_obj_location
 
@@ -78,6 +78,25 @@ def _stub_target(cls: type) -> Any:
     return cls
 
 
+def get_descriptor_type_hint(obj: Any) -> Any | None:
+    """
+    Resolve the documented type of a C data descriptor from its stub, or ``None``.
+
+    The signature-driven backfill never sees these objects because they are not
+    callable; the annotation string from the stub is evaluated in the stub's
+    namespace so aliases and forward references resolve the same way they do
+    for function signatures.
+    """
+    if (annotation := _backfill_descriptor_annotation(obj)) is None:
+        return None
+    localns, alias_names, owner_module = _get_stub_context(obj)
+    for alias_name in alias_names:
+        ref = MyTypeAliasForwardRef(alias_name)
+        ref.crossref = True
+        localns[alias_name] = ref
+    return _resolve_string_annotations(obj, {"return": annotation}, localns, owner_module)["return"]
+
+
 def _resolve_string_annotations(
     obj: Any, annotations: dict[str, str], localns: dict[str, Any], owner_module: str = ""
 ) -> dict[str, Any]:
@@ -121,6 +140,8 @@ def _get_type_hint(
             isinstance(exc, TypeError) and _future_annotations_imported(obj) and "unsupported operand type" in str(exc)
         ):  # pragma: <3.14 cover
             result = obj.__annotations__
+        elif isinstance(exc, TypeError) and sys.version_info >= (3, 14):  # pragma: >=3.14 cover
+            result = _get_forward_ref_annotations(obj)
         else:
             result = {}
     except NameError as exc:
@@ -138,6 +159,14 @@ def _get_type_hint(
         else:
             result = obj.__annotations__  # pragma: <3.14 cover
     return result
+
+
+def _get_forward_ref_annotations(obj: Any) -> dict[str, Any]:  # pragma: >=3.14 cover
+    # ForwardRef proxies keep unevaluatable annotations renderable as their source text — see #712
+    try:
+        return annotationlib.get_annotations(obj, format=annotationlib.Format.FORWARDREF)
+    except (NameError, TypeError, AttributeError, RecursionError):
+        return {}
 
 
 def _resolve_type_guarded_imports(autodoc_mock_imports: list[str], obj: Any) -> None:

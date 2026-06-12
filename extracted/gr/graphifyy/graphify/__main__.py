@@ -2182,6 +2182,7 @@ def main() -> None:
         print("    --postgres DSN          extract schema from a live PostgreSQL database")
         print("                            maps tables, views, functions + FK relationships;")
         print("                            column-level detail is not represented in the graph")
+        print("    --cargo                 extract crate→crate deps from Cargo.toml")
         print("    --global                also merge the resulting graph into the global graph")
         print("    --as <tag>              repo tag for --global (default: target directory name)")
         print("  global add <graph.json>  add/update a project graph in the global graph (~/.graphify/global-graph.json)")
@@ -3904,7 +3905,7 @@ def main() -> None:
                 "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai|deepseek|ollama] "
                 "[--model M] [--mode deep] [--out DIR] [--google-workspace] [--no-cluster] "
                 "[--max-workers N] [--token-budget N] [--max-concurrency N] "
-                "[--api-timeout S] [--postgres DSN]",
+                "[--api-timeout S] [--postgres DSN] [--cargo]",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -3924,6 +3925,7 @@ def main() -> None:
         extract_mode: str | None = None
         out_dir: Path | None = None
         cli_postgres_dsn: str | None = None
+        cli_cargo: bool = False
         no_cluster = False
         dedup_llm = False
         google_workspace = False
@@ -4023,6 +4025,9 @@ def main() -> None:
                 cli_postgres_dsn = args[i + 1]; i += 2
             elif a.startswith("--postgres="):
                 cli_postgres_dsn = a.split("=", 1)[1]; i += 1
+            elif a == "--cargo":
+                cli_cargo = True
+                i += 1
             else:
                 i += 1
 
@@ -4206,7 +4211,10 @@ def main() -> None:
         ast_result: dict = {"nodes": [], "edges": [], "input_tokens": 0, "output_tokens": 0}
         if code_files:
             from graphify.extract import extract as _ast_extract
-            ast_kwargs: dict = {"cache_root": target}
+            # Anchor the cache at the output root, not the scanned project:
+            # with --out, a <target>/graphify-out/cache/ would leak a
+            # graphify-out/ dir into a project that asked for external output.
+            ast_kwargs: dict = {"cache_root": out_root}
             if cli_max_workers is not None:
                 ast_kwargs["max_workers"] = cli_max_workers
             print(f"[graphify extract] AST extraction on {len(code_files)} code files...")
@@ -4230,7 +4238,7 @@ def main() -> None:
         if semantic_files:
             sem_paths_str = [str(p) for p in semantic_files]
             cached_nodes, cached_edges, cached_hyperedges, uncached_paths = (
-                _check_semantic_cache(sem_paths_str, root=target)
+                _check_semantic_cache(sem_paths_str, root=out_root)
             )
             sem_cache_hits = len(semantic_files) - len(uncached_paths)
             sem_cache_misses = len(uncached_paths)
@@ -4300,7 +4308,7 @@ def main() -> None:
                         fresh.get("nodes", []),
                         fresh.get("edges", []),
                         fresh.get("hyperedges", []),
-                        root=target,
+                        root=out_root,
                     )
                 except Exception as exc:
                     print(f"[graphify extract] warning: could not write semantic cache: {exc}", file=sys.stderr)
@@ -4322,13 +4330,25 @@ def main() -> None:
             print(f"[graphify extract] PostgreSQL: {len(pg_result['nodes'])} nodes, "
                   f"{len(pg_result['edges'])} edges")
 
-        # Merge AST + semantic + pg_result. Order matters for deduplication: passing AST
+        cargo_result: dict = {"nodes": [], "edges": []}
+        if cli_cargo:
+            from graphify.cargo_introspect import introspect_cargo
+            print("[graphify extract] introspecting Cargo workspace...")
+            try:
+                cargo_result = introspect_cargo(target)
+            except (ConnectionError, ImportError) as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                sys.exit(1)
+            print(f"[graphify extract] Cargo: {len(cargo_result['nodes'])} nodes, "
+                  f"{len(cargo_result['edges'])} edges")
+
+        # Merge AST + semantic + pg_result + cargo_result. Order matters for deduplication: passing AST
         # first means semantic node attributes win on collision (richer labels
         # for symbols also referenced in docs). Hyperedges only come from the
         # semantic side.
         merged: dict = {
-            "nodes": list(ast_result.get("nodes", [])) + list(sem_result.get("nodes", [])) + list(pg_result.get("nodes", [])),
-            "edges": list(ast_result.get("edges", [])) + list(sem_result.get("edges", [])) + list(pg_result.get("edges", [])),
+            "nodes": list(ast_result.get("nodes", [])) + list(sem_result.get("nodes", [])) + list(pg_result.get("nodes", [])) + list(cargo_result.get("nodes", [])),
+            "edges": list(ast_result.get("edges", [])) + list(sem_result.get("edges", [])) + list(pg_result.get("edges", [])) + list(cargo_result.get("edges", [])),
             "hyperedges": list(sem_result.get("hyperedges", [])),
             "input_tokens": ast_result.get("input_tokens", 0) + sem_result.get("input_tokens", 0),
             "output_tokens": ast_result.get("output_tokens", 0) + sem_result.get("output_tokens", 0),

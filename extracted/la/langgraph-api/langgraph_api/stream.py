@@ -53,7 +53,11 @@ from langgraph_api.metrics_datadog import (
 )
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
-from langgraph_api.stream_v2 import astream_state_v2, is_v2_messages_chunk
+from langgraph_api.stream_v2 import (
+    astream_state_v2,
+    is_v2_messages_chunk,
+    normalize_protocol_event,
+)
 from langgraph_api.utils.config import run_in_executor
 
 if TYPE_CHECKING:
@@ -200,6 +204,9 @@ async def astream_state(
     if cmd := kwargs.pop("command"):
         input = map_cmd(cmd)
     stream_mode: list[StreamMode] = kwargs.pop("stream_mode")
+    # Go maps unrecognized ``StreamMode`` enum values to ``unknown``; the
+    # round-trip converts those to ``None``.
+    stream_mode = [mode for mode in stream_mode if mode is not None]
     feedback_keys = kwargs.pop("feedback_keys", None)
     stream_modes_set: set[StreamMode] = set(stream_mode) - {"events"}
     # This code path runs for every run, legacy and v2. The per-run
@@ -254,7 +261,20 @@ async def astream_state(
     # set up state
     checkpoint: CheckpointPayload | None = None
     messages: dict[str, BaseMessageChunk] = {}
-    use_astream_events = "events" in stream_mode or is_remote_pregel
+    # Protocol v2 runs against a remote (JS sidecar) graph drive the sidecar
+    # through LangGraphJS's native v3 stream (``stream_protocol: "v3"``) so
+    # protocol-aligned events (messages content blocks, tools, custom:*,
+    # checkpoints) arrive ready to forward — no legacy ``on_chain_stream``
+    # reconstruction. ``hasattr`` keeps any other ``BaseRemotePregel`` impl on
+    # the legacy path. Legacy stream endpoints keep ``version="v2"``.
+    use_remote_v3 = (
+        event_streaming_v2_run
+        and is_remote_pregel
+        and hasattr(graph, "astream_protocol_events")
+    )
+    use_astream_events = (
+        "events" in stream_mode or is_remote_pregel
+    ) and not use_remote_v3
     use_stream_events_v3 = (
         event_streaming_v2_run and not use_astream_events and not is_remote_pregel
     )
@@ -429,6 +449,37 @@ async def astream_state(
             on_task_result=on_task_result,
         ):
             yield ev
+    elif use_remote_v3:
+        # Remote (JS) graph under Protocol v2: consume native v3
+        # ProtocolEvents from the sidecar and forward them exactly like the
+        # native-graph v3 path (``astream_state_v2``) does, so the
+        # ``EventStreamingSession`` normalization is identical regardless of
+        # graph language.
+        if USE_RUNTIME_CONTEXT_API:
+            kwargs["context"] = context
+        async with (
+            stack,
+            aclosing(
+                graph.astream_protocol_events(
+                    input,
+                    config,
+                    stream_mode=list(stream_modes_set),
+                    **kwargs,
+                )
+            ) as stream,
+        ):
+            sentinel = object()
+            while True:
+                event = await wait_if_not_done(anext(stream, sentinel), done)
+                if event is sentinel:
+                    break
+                normalized = normalize_protocol_event(
+                    cast("dict", event),
+                    on_checkpoint=on_checkpoint,
+                    on_task_result=on_task_result,
+                )
+                if normalized is not None:
+                    yield normalized
     else:
         output_keys = kwargs.pop("output_keys", graph.output_channels)
         if USE_RUNTIME_CONTEXT_API:

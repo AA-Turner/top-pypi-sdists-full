@@ -72,4 +72,17 @@ def get_editor_bp() -> flask.Blueprint:
         except Exception:
             return flask.jsonify({}), 404
 
+    @bp.get("/hook-paths")
+    def _list_hook_paths():
+        # Connector-event hook paths the project can subscribe to, in the
+        # "<connection>/<event>" form the editor suggests in the hook path field.
+        try:
+            url = f"{CLOUD_API_CLI_URL}/connectors/hook-paths"
+            headers = resolve_headers()
+            res = req.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            res.raise_for_status()
+            return flask.jsonify(res.json())
+        except Exception:
+            return flask.jsonify([])
+
     return bp

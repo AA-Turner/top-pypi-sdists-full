@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: devpi-server
-Version: 6.20.1
+Version: 6.20.2
 Summary: devpi-server: backend for hosting private package indexes and PyPI on-demand mirrors
 Maintainer-email: Florian Schulze <mail@pyfidelity.com>
 License-Expression: MIT
@@ -121,6 +121,15 @@ Changelog
 
 .. towncrier release notes start
 
+6.20.2 (2026-06-11)
+===================
+
+Bug Fixes
+---------
+
+- Fix logic error which allowed unauthorized fetching of replication data.
+
+
 6.20.1 (2026-05-11)
 ===================
 
@@ -175,15 +184,4 @@ Other Changes
 -------------
 
 - Removed limit of reported missing files for devpi-fsck.
-
-
-6.19.1 (2026-02-09)
-===================
-
-Bug Fixes
----------
-
-- Pin setuptools as pyramid still requires pkg_resources.
-
-- Always allow replicas to access deleted releases to get the proper ``410 Gone`` instead of ``403 Forbidden`` when ``devpi-lockdown`` is in use.
 

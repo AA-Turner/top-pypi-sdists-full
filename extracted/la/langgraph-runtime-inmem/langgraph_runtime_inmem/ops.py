@@ -2494,10 +2494,13 @@ class Runs(Authenticated):
                 (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
             )
         # Automatically enforce assistant ownership for non-system assistants
-        # by calling the user's assistant search auth handler.
+        # by calling the user's assistant read auth handler.
         if assistant.get("metadata", {}).get("created_by") != "system":
+            assistant_request_data = Auth.types.AssistantsRead(
+                assistant_id=assistant_id
+            )
             assistant_filters = await Assistants.handle_event(
-                ctx, "search", {"metadata": {}}
+                ctx, "read", assistant_request_data
             )
             if assistant_filters and not _check_filter_match(
                 assistant.get("metadata", {}), assistant_filters
@@ -3282,10 +3285,14 @@ class Crons(Authenticated):
 
         assistant_filters: list[Any] = []
         if assistant_id not in SYSTEM_ASSISTANT_IDS:
+            # Do not populate `metadata` on the AssistantsRead request value:
+            # client-supplied cron metadata must not influence the auth
+            # decision (defense vs. forged payloads), and the gRPC/postgres
+            # path also omits it — keeping handler behavior consistent across
+            # runtimes and mirroring Runs.put.
             assistant_request_data = Auth.types.AssistantsRead(
                 assistant_id=payload["assistant_id"]
             )
-            assistant_request_data["metadata"] = metadata  # type: ignore
             assistant_filters = await Assistants.handle_event(
                 ctx, "read", assistant_request_data
             )
@@ -3496,6 +3503,30 @@ class Crons(Authenticated):
             yield cron
 
         return _yield_updated()
+
+    @staticmethod
+    async def get(
+        conn: InMemConnectionProto,
+        cron_id: UUID | str,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> AsyncIterator[Cron]:
+        """Get a cron by ID."""
+        cron_id = _ensure_uuid(cron_id)
+        filters = await Crons.handle_event(
+            ctx,
+            "read",
+            Auth.types.CronsRead(cron_id=cron_id),
+        )
+
+        async def _yield_result():
+            for cron in conn.store["crons"]:
+                if str(cron["cron_id"]) == str(cron_id) and (
+                    not filters
+                    or _check_filter_match(cron.get("metadata", {}), filters)
+                ):
+                    yield copy.deepcopy(cron)
+
+        return _yield_result()
 
     @staticmethod
     async def delete(

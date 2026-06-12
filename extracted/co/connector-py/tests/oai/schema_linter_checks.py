@@ -1,9 +1,13 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
+from connector.generated import AppInfoRequest, AppInfoRequestPayload
 from connector.oai.integration import Integration
+from connector.oai.modules.info_module import InfoModule
 from connector_sdk_types import OAS
 from connector_sdk_types.generated import OpenAPISpecificationInfo, StandardCapabilityName
+from connector_sdk_types.oai.modules.credentials_module_types import AuthModel
 
 
 @dataclass
@@ -180,6 +184,115 @@ def check_entitlement_rules_reference_valid_types(
         )
 
 
+def _default_app_info_request() -> AppInfoRequest:
+    return AppInfoRequest(request=AppInfoRequestPayload(), credentials=None, settings=None)
+
+
+def _oauth_settings_by_credential(
+    info: OpenAPISpecificationInfo, integration: Integration
+) -> dict[str, dict[str, Any]]:
+    if not info.x_oauth_settings:
+        return {}
+
+    if integration.credentials:
+        return {
+            cred_id: settings
+            for cred_id, settings in info.x_oauth_settings.items()
+            if isinstance(settings, dict)
+        }
+
+    if isinstance(info.x_oauth_settings, dict) and "oauth_type" in info.x_oauth_settings:
+        return {integration.app_id: info.x_oauth_settings}
+
+    return {}
+
+
+def _oauth_credential_ids(integration: Integration) -> set[str]:
+    if integration.credentials:
+        return {cred.id for cred in integration.credentials if cred.type == AuthModel.OAUTH}
+    if integration.oauth_settings:
+        return {integration.app_id}
+    return set()
+
+
+def _info_module_for(integration: Integration) -> InfoModule:
+    info_module = InfoModule()
+    info_module.integration = integration
+    return info_module
+
+
+def check_x_oauth_settings_scope_descriptions(
+    spec: OAS.OpenAPI, info: OpenAPISpecificationInfo, integration: Integration, name: str
+) -> None:
+    """OAuth scope descriptions must aggregate all capabilities sharing each scope."""
+    oauth_settings_by_cred = _oauth_settings_by_credential(info, integration)
+    if not oauth_settings_by_cred:
+        return
+
+    args = _default_app_info_request()
+    info_module = _info_module_for(integration)
+
+    for cred_id, oauth_settings in oauth_settings_by_cred.items():
+        expected_scopes = info_module.get_oauth_scopes(cred_id, args)
+        actual_scopes = oauth_settings.get("scopes") or {}
+        assert actual_scopes == expected_scopes, (
+            f"{name}: x-oauth-settings scopes for {cred_id} do not match expected "
+            f"capability aggregation (expected {expected_scopes}, got {actual_scopes})"
+        )
+
+
+def check_oauth_operation_security_per_capability(
+    spec: OAS.OpenAPI, info: OpenAPISpecificationInfo, integration: Integration, name: str
+) -> None:
+    """OAuth credentials must only appear on operations they declare scopes for."""
+    oauth_cred_ids = _oauth_credential_ids(integration)
+    if not oauth_cred_ids:
+        return
+
+    args = _default_app_info_request()
+    info_module = _info_module_for(integration)
+
+    for path_item in spec.paths.values():
+        operation = path_item.post
+        if operation is None or operation.operationId is None:
+            continue
+
+        capability_name = operation.operationId
+        security_by_cred: dict[str, list[str]] = {}
+        for requirement in operation.security or []:
+            security_by_cred.update(requirement)
+
+        for cred_id in oauth_cred_ids:
+            raw_scopes = info_module._get_raw_oauth_capability_scopes(cred_id, args)
+            in_security = cred_id in security_by_cred
+
+            if not raw_scopes:
+                assert in_security, (
+                    f"{name}: {capability_name} missing OAuth security entry for {cred_id} "
+                    "when no capability scopes are configured"
+                )
+                assert security_by_cred[cred_id] == [], (
+                    f"{name}: {capability_name} OAuth security for {cred_id} must be [] "
+                    f"when no capability scopes are configured (got {security_by_cred[cred_id]})"
+                )
+                continue
+
+            scope = info_module._get_oauth_scope_for_capability(cred_id, capability_name, args)
+            if scope is not None:
+                expected_scopes = info_module._format_oauth_security_scopes(scope)
+                assert (
+                    in_security
+                ), f"{name}: {capability_name} missing OAuth security for {cred_id}"
+                assert security_by_cred[cred_id] == expected_scopes, (
+                    f"{name}: {capability_name} OAuth security for {cred_id} expected "
+                    f"{expected_scopes}, got {security_by_cred.get(cred_id)}"
+                )
+            else:
+                assert (
+                    not in_security
+                ), f"{name}: {capability_name} incorrectly includes OAuth credential {cred_id}"
+
+
 def check_implied_access_rules_reference_valid_types(
     spec: OAS.OpenAPI, info: OpenAPISpecificationInfo, integration: Integration, name: str
 ) -> None:
@@ -275,5 +388,15 @@ SCHEMA_CHECK_LIST: list[SchemaLinterCheck] = [
         "implied_access_rules_reference_valid_types",
         "Implied access rules must reference declared entitlement and resource types",
         check_implied_access_rules_reference_valid_types,
+    ),
+    SchemaLinterCheck(
+        "x_oauth_settings_scope_descriptions",
+        "x-oauth-settings scope descriptions must aggregate capabilities per scope",
+        check_x_oauth_settings_scope_descriptions,
+    ),
+    SchemaLinterCheck(
+        "oauth_operation_security_per_capability",
+        "OAuth security requirements must match per-capability scope declarations",
+        check_oauth_operation_security_per_capability,
     ),
 ]

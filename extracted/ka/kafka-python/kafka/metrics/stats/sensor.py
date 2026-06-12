@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import threading
 import time
 
@@ -7,7 +5,7 @@ from kafka.errors import QuotaViolationError
 from kafka.metrics import KafkaMetric
 
 
-class Sensor(object):
+class Sensor:
     """
     A sensor applies a continuous sequence of numerical values
     to a set of associated metrics. For example a sensor on
@@ -32,7 +30,7 @@ class Sensor(object):
         self._config = config
         self._inactive_sensor_expiration_time_ms = (
             inactive_sensor_expiration_time_seconds * 1000)
-        self._last_record_time = time.time() * 1000
+        self._last_record_time = time.monotonic() * 1000
         self._check_forest(set())
 
     def _check_forest(self, sensors):
@@ -69,7 +67,7 @@ class Sensor(object):
                 metric beyond its configured maximum or minimum bound
         """
         if time_ms is None:
-            time_ms = time.time() * 1000
+            time_ms = time.monotonic() * 1000
         self._last_record_time = time_ms
         with self._lock:  # XXX high volume, might be performance issue
             # increment all the stats
@@ -134,5 +132,5 @@ class Sensor(object):
         """
         Return True if the Sensor is eligible for removal due to inactivity.
         """
-        return ((time.time() * 1000 - self._last_record_time) >
+        return ((time.monotonic() * 1000 - self._last_record_time) >
                 self._inactive_sensor_expiration_time_ms)

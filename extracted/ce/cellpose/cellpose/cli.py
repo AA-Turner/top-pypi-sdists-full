@@ -26,10 +26,10 @@ def get_arg_parser():
     # settings for CPU vs GPU
     hardware_args = parser.add_argument_group("Hardware Arguments")
     hardware_args.add_argument("--use_gpu", action="store_true",
-                               help="use gpu if torch with cuda installed")
+                               help="use gpu or mps if torch with cuda installed")
     hardware_args.add_argument(
         "--gpu_device", required=False, default="0", type=str,
-        help="which gpu device to use, use an integer for torch, or mps for M1")
+        help="which gpu device to use in pytorch, specified as an integer")
     
     # settings for locating and formatting images
     input_img_args = parser.add_argument_group("Input Image Arguments")
@@ -65,9 +65,9 @@ def get_arg_parser():
 
     # model settings
     model_args = parser.add_argument_group("Model Arguments")
-    model_args.add_argument("--pretrained_model", required=False, default="cpsam",
+    model_args.add_argument("--pretrained_model", required=False, default="cpsam_v2",
                             type=str,
-                            help="model to use for running or starting training")
+                            help="path to model for segmentation or starting training, or builtin model name: cpsam_v2, cpdino, cpdino-vitb, or cpsam")
     model_args.add_argument(
         "--add_model", required=False, default=None, type=str,
         help="model path to copy model to hidden .cellpose folder for using in GUI/CLI")

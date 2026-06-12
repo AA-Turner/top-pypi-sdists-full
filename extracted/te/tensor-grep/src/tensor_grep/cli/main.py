@@ -1820,6 +1820,72 @@ def _doctor_lsp_provider_statuses(path: str) -> list[dict[str, Any]]:
         manager.stop_all()
 
 
+_DOCTOR_LSP_WORKSPACE_ERROR_MARKERS = (
+    "fetchworkspaceerror",
+    "failed to fetch workspace",
+    "workspace was not loaded",
+    "no workspace folder",
+    "could not load workspace",
+    "rooturi",
+)
+
+
+def _doctor_lsp_workspace_error_lines(stderr_lines: list[str]) -> list[str]:
+    """Return stderr lines that indicate a workspace/fetch failure."""
+    matches: list[str] = []
+    for raw in stderr_lines:
+        line = str(raw)
+        lowered = line.lower()
+        if any(marker in lowered for marker in _DOCTOR_LSP_WORKSPACE_ERROR_MARKERS):
+            matches.append(line)
+    return matches
+
+
+def _doctor_downgrade_lsp_workspace_proof(provider: dict[str, Any]) -> dict[str, Any]:
+    """Demote a workspace-blind ``lsp_proof`` claim (audit M10).
+
+    The managed health probe issues a single-file ``documentSymbol`` request, which a
+    language server happily answers even when its workspace failed to load (e.g.
+    rust-analyzer emitting ``FetchWorkspaceError``). The provider then reports
+    ``lsp_proof:true`` while suppressing the very stderr tail that proves cross-file
+    navigation is degraded. When the surfaced stderr names a workspace/fetch error, drop
+    ``lsp_proof`` to ``false``, expose a ``workspace_warning``, and un-suppress the
+    offending stderr lines so the JSON is honest instead of over-claiming.
+    """
+    if not provider.get("lsp_proof"):
+        return provider
+    surfaced = [str(item) for item in provider.get("provider_recent_stderr") or [] if str(item)]
+    workspace_lines = _doctor_lsp_workspace_error_lines(surfaced)
+    if not workspace_lines:
+        return provider
+    updated = dict(provider)
+    updated["lsp_proof"] = False
+    updated["lsp_workspace_ready"] = False
+    updated["workspace_warning"] = (
+        "Single-file documentSymbol probe succeeded, but the provider reported a "
+        "workspace/fetch error, so cross-file navigation is not proven. Treat lsp_proof "
+        "as degraded until the workspace loads cleanly."
+    )
+    updated.setdefault(
+        "not_lsp_proof_reason",
+        "Provider answered the single-file probe but its workspace failed to load "
+        "(see provider_recent_stderr); cross-file navigation is unproven.",
+    )
+    # Stop hiding the evidence: restore the workspace-error lines to stderr_tail and clear
+    # the suppression flag that previously masked them.
+    existing_tail = [str(item) for item in updated.get("stderr_tail") or [] if str(item)]
+    merged_tail = existing_tail + [line for line in workspace_lines if line not in existing_tail]
+    updated["stderr_tail"] = merged_tail[-50:]
+    updated["stderr_tail_suppressed"] = False
+    return updated
+
+
+def _doctor_apply_lsp_workspace_warnings(
+    providers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [_doctor_downgrade_lsp_workspace_proof(provider) for provider in providers]
+
+
 def _doctor_lsp_providers_by_language(
     providers: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
@@ -2666,6 +2732,13 @@ def _build_doctor_payload(
             ))
     gpu_status = _doctor_gpu_status()
     gpu_status["search_runtime_probe"] = _doctor_gpu_search_runtime_probe(native_tg_binary)
+    # audit M10: gpu.available reflects whether a CUDA device is *present*, not whether the
+    # GPU search runtime actually routes through NativeGpuBackend. Surface an honest
+    # search_ready boolean derived from the runtime probe so callers don't read
+    # gpu.available=true as "GPU search works".
+    gpu_status["search_ready"] = (
+        cast(dict[str, Any], gpu_status["search_runtime_probe"]).get("status") == "supported"
+    )
     payload: dict[str, Any] = {
         "schema_version": _DOCTOR_SCHEMA_VERSION,
         "doctor_schema_version": _DOCTOR_SCHEMA_VERSION,
@@ -2775,7 +2848,9 @@ def _build_doctor_payload(
         "session_daemon": _doctor_session_daemon_status(str(root)),
     }
     if with_lsp:
-        lsp_providers = _doctor_lsp_provider_statuses(str(root))
+        lsp_providers = _doctor_apply_lsp_workspace_warnings(
+            _doctor_lsp_provider_statuses(str(root))
+        )
         lsp_providers_by_language = _doctor_lsp_providers_by_language(lsp_providers)
         payload["lsp"] = {
             "schema_version": _DOCTOR_LSP_SCHEMA_VERSION,
@@ -3230,6 +3305,17 @@ def _exit_search_error(
     sys.exit(exit_code)
 
 
+def _is_inline_flag_regex_error(message: str) -> bool:
+    """Return True when ``message`` is the "inline flag group not at the start of the
+    pattern" rejection that PCRE2 (``-P``) accepts but the default Rust/``re`` engine does
+    not (e.g. ``a(?s).*b``). Centralized so both the remediation hint (M14) and the
+    transparent PCRE2 fallback (M14b) classify the error identically."""
+    lowered = message.lower()
+    return "global flags not at the start" in lowered or (
+        "flag" in lowered and ("(?" in message or "inline" in lowered)
+    )
+
+
 def _invalid_regex_remediation(message: str) -> str:
     """Return a remediation hint that never converts a hard regex error into a silent
     wrong answer (audit M14).
@@ -3241,11 +3327,7 @@ def _invalid_regex_remediation(message: str) -> str:
     ``-P`` (the PCRE2 engine, which accepts mid-expression inline flags) or at moving the
     flag to the front of the pattern instead.
     """
-    lowered = message.lower()
-    inline_flag_error = "global flags not at the start" in lowered or (
-        "flag" in lowered and ("(?" in message or "inline" in lowered)
-    )
-    if inline_flag_error:
+    if _is_inline_flag_regex_error(message):
         return (
             "Use -P (PCRE2) to allow inline flags mid-pattern, or move the inline flag "
             "group (for example (?s)) to the very start of the pattern."
@@ -3268,8 +3350,40 @@ def _exit_invalid_regex(exc: Exception, *, json_mode: bool = False) -> None:
     )
 
 
+def _engine_is_explicit_pcre2(config: "SearchConfig") -> bool:
+    """True when the user explicitly selected PCRE2, via ``-P``/``--pcre2`` or
+    ``--engine pcre2``. PCRE2 accepts mid-pattern inline flag groups, so the Python
+    pre-flight validator must not reject patterns the chosen engine would accept."""
+    return bool(config.pcre2) or str(getattr(config, "engine", "") or "").lower() == "pcre2"
+
+
+def _pcre2_fallback_backend_available() -> bool:
+    """True when the resolved ripgrep backend can actually run PCRE2. The rg shipped on some
+    platforms (and most CI images) is built WITHOUT PCRE2, so blindly retrying under PCRE2
+    would raise a confusing ConfigurationError instead of the helpful ``-P`` remediation."""
+    try:
+        from tensor_grep.backends.ripgrep_backend import RipgrepBackend
+
+        return bool(RipgrepBackend().supports_pcre2())
+    except Exception:
+        return False
+
+
+def _eligible_for_pcre2_inline_flag_fallback(config: "SearchConfig") -> bool:
+    """True when an inline-flag regex rejection should transparently retry under PCRE2
+    instead of erroring (audit M14b). Fires for the default/unset engine and for
+    ``--engine auto``; ``-F`` is honored (literal intent) and an explicit PCRE2 engine
+    already routes through PCRE2, so neither needs the fallback. The default engine value
+    is the same whether the user typed ``--engine default`` or nothing, so both opt in --
+    matching the bare ``tg search 'a(?s).*b'`` repro. (Whether a PCRE2-capable rg backend
+    actually exists is a separate, environment-dependent check applied at the call site.)"""
+    if config.fixed_strings or _engine_is_explicit_pcre2(config):
+        return False
+    return str(getattr(config, "engine", "") or "").lower() in {"default", "auto", ""}
+
+
 def _validate_search_regex(pattern: str, config: "SearchConfig") -> None:
-    if config.fixed_strings or config.pcre2:
+    if config.fixed_strings or _engine_is_explicit_pcre2(config):
         return
 
     flags = 0
@@ -5731,8 +5845,24 @@ def search_command(
                 _validate_search_regex(regex_pattern, config)
         except Exception as exc:
             if _is_invalid_regex_error(exc):
-                _exit_invalid_regex(exc, json_mode=json)
-            raise
+                # M14b: a mid-pattern inline flag group (e.g. `start(?s).*end`) is rejected
+                # by the default Rust/`re` engine but accepted by PCRE2. When the user did
+                # not explicitly pick a non-PCRE2 engine, retry transparently under PCRE2
+                # instead of erroring, and announce the switch on stderr so it is observable.
+                if (
+                    _is_inline_flag_regex_error(str(exc))
+                    and _eligible_for_pcre2_inline_flag_fallback(config)
+                    and _pcre2_fallback_backend_available()
+                ):
+                    config = dataclasses.replace(config, pcre2=True)
+                    typer.echo(
+                        "note: retried with PCRE2 (-P) for inline-flag pattern",
+                        err=True,
+                    )
+                else:
+                    _exit_invalid_regex(exc, json_mode=json)
+            else:
+                raise
     guarded_broad_root = _search_paths_include_guarded_broad_root(paths_to_search)
     explicit_hidden_search_root = not config.hidden and any(
         _path_has_hidden_component(path) for path in paths_to_search
@@ -6179,7 +6309,9 @@ def search_command(
     elif json or format_type == "json":
         from tensor_grep.cli.formatters.json_fmt import JsonFormatter
 
-        formatter = JsonFormatter()
+        # Pass the search config so aggregate --json match objects can carry the 1-based
+        # `column` for text-search matches (which have no ast-grep range) — audit L5.
+        formatter = JsonFormatter(config=config)
     elif format_type == "table":
         from tensor_grep.cli.formatters.table_fmt import TableFormatter
 
@@ -6202,8 +6334,11 @@ def calibrate() -> None:
     """Measure CPU vs GPU crossover thresholds using the native Rust binary."""
     native_tg_binary = resolve_native_tg_binary()
     if native_tg_binary is None:
+        # audit L10: calibrate is unsupported without the native binary (and on CPU-only
+        # boxes the native binary itself exits non-zero when CUDA is unavailable). tg's
+        # convention is exit 1 for runtime/unsupported errors, not exit 2 (usage errors).
         typer.echo("Error: native tg binary not found for calibrate command.", err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(1)
 
     completed = subprocess.run([str(native_tg_binary), "calibrate"], check=False)
     raise typer.Exit(int(completed.returncode))
@@ -6853,6 +6988,28 @@ def _echo_symbol_location_rows(rows: list[dict[str, Any]]) -> None:
             typer.echo(rendered)
 
 
+def _apply_defs_class_filter(payload: dict[str, Any], class_filter: str) -> None:
+    """Filter ``payload['definitions']`` in place to those whose enclosing class matches
+    ``class_filter`` (case-insensitive exact match), disambiguating common method names
+    such as ``search`` (audit L3-cli).
+
+    Each definition carries a ``class`` field (enclosing class name, or ``None`` for
+    module-level/free functions) populated by ``build_symbol_defs`` in repo_map.py. The
+    filter and the requested value are recorded as additive top-level fields so JSON
+    consumers can see that a narrowing was applied; the existing keys are left intact.
+    """
+    target = class_filter.strip().casefold()
+    definitions = payload.get("definitions") or []
+    filtered = [
+        definition
+        for definition in definitions
+        if str(definition.get("class") or "").casefold() == target
+    ]
+    payload["definitions"] = filtered
+    payload["class_filter"] = class_filter
+    payload["class_filter_matched"] = len(filtered)
+
+
 def _symbol_payload_has_no_results(payload: dict[str, Any], result_key: str) -> bool:
     """Whether a symbol-command payload found nothing for the requested symbol.
 
@@ -7035,6 +7192,14 @@ def defs(
         min=1,
         help="Maximum repo files to scan before returning a bounded result.",
     ),
+    class_filter: str | None = typer.Option(
+        None,
+        "--class",
+        help=(
+            "Only return definitions whose enclosing class matches TEXT "
+            "(case-insensitive). Disambiguates common method names like 'search'."
+        ),
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON output."),
 ) -> None:
     """Return exact definition locations for a symbol."""
@@ -7056,6 +7221,9 @@ def defs(
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
+
+    if class_filter is not None:
+        _apply_defs_class_filter(payload, class_filter)
 
     def _emit_text(current: dict[str, Any]) -> None:
         typer.echo(f"Definitions for {current['symbol']} in {current['path']}")
@@ -7609,9 +7777,9 @@ def session_open(
         f"Opened session {payload.session_id} "
         f"(files={payload.file_count}, symbols={payload.symbol_count})"
     )
-    if payload.scan_limit:
+    if isinstance(payload.scan_limit, dict) and payload.scan_limit.get("possibly_truncated"):
         typer.echo(
-            "Session repo map is capped; refresh without --max-repo-files for full coverage."
+            "Session repo map is capped; reopen with a larger --max-repo-files for full coverage."
         )
 
 
@@ -7743,19 +7911,32 @@ def session_show(
     from tensor_grep.cli.session_store import get_session
 
     try:
+        session_id, path = _maybe_swap_reversed_session_path(
+            session_id=session_id,
+            path=path,
+            command_name="show",
+        )
         payload = get_session(session_id, path)
     except Exception as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
 
+    repo_map = cast(dict[str, Any], payload.get("repo_map") or {})
+    file_count = len(cast(list[Any], repo_map.get("files", [])))
+    symbol_count = len(cast(list[Any], repo_map.get("symbols", [])))
+
     if json_output:
-        typer.echo(json.dumps(_with_schema_version(payload, version=1), indent=2))
+        # Additive parity with `session open --json` / `session list --json`, which both
+        # surface top-level file_count/symbol_count (audit M8). Only fill them when absent
+        # so a payload that already carries them is left untouched.
+        json_payload = dict(payload)
+        json_payload.setdefault("file_count", file_count)
+        json_payload.setdefault("symbol_count", symbol_count)
+        typer.echo(json.dumps(_with_schema_version(json_payload, version=1), indent=2))
         return
 
     typer.echo(f"Session {payload['session_id']} for {payload['root']}")
-    typer.echo(
-        f"files={len(payload['repo_map']['files'])} symbols={len(payload['repo_map']['symbols'])}"
-    )
+    typer.echo(f"files={file_count} symbols={symbol_count}")
 
 
 @session_app.command("refresh")

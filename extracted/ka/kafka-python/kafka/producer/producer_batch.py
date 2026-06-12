@@ -1,14 +1,6 @@
-from __future__ import absolute_import, division
-
+from enum import IntEnum
 import logging
 import time
-
-try:
-    # enum in stdlib as of py3.4
-    from enum import IntEnum  # pylint: disable=import-error
-except ImportError:
-    # vendored backport module
-    from kafka.vendor.enum34 import IntEnum
 
 import kafka.errors as Errors
 from kafka.producer.future import FutureRecordMetadata, FutureProduceResult
@@ -23,9 +15,9 @@ class FinalState(IntEnum):
     SUCCEEDED = 2
 
 
-class ProducerBatch(object):
+class ProducerBatch:
     def __init__(self, tp, records, now=None):
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         self.max_record_size = 0
         self.created = now
         self.drained = None
@@ -35,6 +27,7 @@ class ProducerBatch(object):
         self.records = records
         self.topic_partition = tp
         self.produce_future = FutureProduceResult(tp)
+        self._record_futures = []
         self._retry = False
         self._final_state = None
 
@@ -55,15 +48,20 @@ class ProducerBatch(object):
         return self.records.producer_epoch if self.records else None
 
     @property
+    def base_sequence(self):
+        return self.records.base_sequence if self.records else None
+
+    @property
     def has_sequence(self):
-        return self.records.has_sequence if self.records else False
+        base_seq = self.base_sequence
+        return base_seq is not None and base_seq != -1
 
     def try_append(self, timestamp_ms, key, value, headers, now=None):
         metadata = self.records.append(timestamp_ms, key, value, headers)
         if metadata is None:
             return None
 
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         self.max_record_size = max(self.max_record_size, metadata.size)
         self.last_append = now
         future = FutureRecordMetadata(
@@ -74,6 +72,7 @@ class ProducerBatch(object):
             len(key) if key is not None else -1,
             len(value) if value is not None else -1,
             sum(len(h_key.encode("utf-8")) + len(h_val) for h_key, h_val in headers) if headers else -1)
+        self._record_futures.append(future)
         return future
 
     def abort(self, exception):
@@ -106,11 +105,19 @@ class ProducerBatch(object):
             top_level_exception (Exception): top-level partition error.
             record_exceptions_fn (callable int -> Exception): Record exception function mapping
                 batch_index to the respective record exception.
-        Returns: True if the batch was completed as a result of this call, and False
-            if it had been completed previously.
+
+        Raises:
+            TypeError: if top_level_exception is not Exception,
+                or record_exceptions_fn is not callable.
+
+        Returns:
+            True if the batch was completed as a result of this call,
+            or False if it had been completed previously.
         """
-        assert isinstance(top_level_exception, Exception)
-        assert callable(record_exceptions_fn)
+        if not isinstance(top_level_exception, Exception):
+            raise TypeError('top_level_exception must be type Exception')
+        if not callable(record_exceptions_fn):
+            raise TypeError('record_exceptions_fn must be callable')
         return self.done(top_level_exception=top_level_exception, record_exceptions_fn=record_exceptions_fn)
 
     def done(self, base_offset=None, timestamp_ms=None, top_level_exception=None, record_exceptions_fn=None):
@@ -159,14 +166,14 @@ class ProducerBatch(object):
         self.produce_future.success((base_offset, timestamp_ms, record_exceptions_fn))
 
     def has_reached_delivery_timeout(self, delivery_timeout_ms, now=None):
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         return delivery_timeout_ms / 1000 <= now - self.created
 
     def in_retry(self):
         return self._retry
 
     def retry(self, now=None):
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         self._retry = True
         self.attempts += 1
         self.last_attempt = now

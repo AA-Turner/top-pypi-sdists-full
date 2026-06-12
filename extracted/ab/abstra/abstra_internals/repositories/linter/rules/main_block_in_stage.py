@@ -1,9 +1,11 @@
 import ast
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
 from abstra_internals.repositories.project.project import (
     LocalProjectRepository,
@@ -21,25 +23,25 @@ class MainBlockInStageFound(LinterIssue):
         self.fixes = []
 
 
-class MainBlockInStage(LinterRule):
+class MainBlockInStage(PathScopedLinterRule):
     label: str = "Stages should not contain 'if __name__ == \"__main__\":' blocks"
     type: str = "warning"
     fix_with_ai: bool = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues: List[LinterIssue] = []
 
-        for entrypoint, stage in project.iter_entrypointed_stages():
+        for entrypoint, stage in project.iter_scoped_entrypointed_stages(path):
             try:
                 tree = ASTCache.get(entrypoint)
                 if self._has_main_block(tree):
-                    issues.append(
-                        MainBlockInStageFound(
-                            stage_title=stage.title,
-                            stage_file=stage.file,
-                        )
+                    issue = MainBlockInStageFound(
+                        stage_title=stage.title,
+                        stage_file=stage.file,
                     )
+                    issue.path = linter_path_key(entrypoint)
+                    issues.append(issue)
             except Exception as e:
                 print(f"Error while processing {entrypoint}: {e}")
 

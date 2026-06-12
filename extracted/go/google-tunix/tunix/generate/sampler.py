@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 import dataclasses
+import inspect
 from typing import Any, Optional
 import warnings
 
@@ -66,6 +67,9 @@ class _SamplingState:
   # Fixed-size buffer for accumulating the output logits.
   logits_buffer: jnp.ndarray | None  # [B, L, V]
 
+  # Fixed-size buffer for accumulating the output logprobs.
+  logprobs_buffer: jnp.ndarray | None  # [B, L]
+
   # List of tokens that are forbidden to be generated.
   forbidden_token_ids: tuple[int, ...] | None
 
@@ -110,34 +114,57 @@ def sample_top_p(
     temperature: float,
     top_p: float,
     top_k: int | None,
-) -> jnp.ndarray:
+    return_logprobs: bool = False,
+) -> tuple[jnp.ndarray, jnp.ndarray | None]:
   """Sample a token using top-p sampling."""
   # Upcast to float32 for numerical stability of softmax and subsequent cumsum.
   next_token_logits = logits[:, -1].astype(jnp.float32) / temperature
 
+  # top_k=0 or None both mean "no top-k filtering" — use full vocabulary.
+  _no_topk = top_k is None or top_k <= 0
   # Skip softmax and sorting if top_p is 1.0 and top_k is full vocab.
-  if top_p >= 1.0 and top_k is None:
-    return jax.random.categorical(key, logits=next_token_logits)
+  if top_p >= 1.0 and _no_topk:
+    next_token = jax.random.categorical(key, logits=next_token_logits)
+    if not return_logprobs:
+      return next_token, None
+    logp = jax.nn.log_softmax(next_token_logits, axis=-1)
+    logp_sampled = jnp.take_along_axis(logp, next_token[..., None], axis=-1)
+    logp_sampled = jnp.squeeze(logp_sampled, axis=-1)
+    return next_token, logp_sampled
 
-  probs = jax.nn.softmax(next_token_logits, axis=-1)
-  k = probs.shape[-1] if top_k is None else top_k
+  k = next_token_logits.shape[-1] if _no_topk else top_k
+  logits_sorted, indices = jax.lax.top_k(next_token_logits, k=k)
 
-  probs_sorted, indices = jax.lax.top_k(probs, k=k)
+  probs_sorted = jax.nn.softmax(logits_sorted, axis=-1)
   cumsum_probs = jnp.cumsum(probs_sorted, axis=-1)
   mask = cumsum_probs - probs_sorted > top_p
-  probs_sorted = jnp.where(mask, 0.0, probs_sorted)
-  probs_sorted /= jnp.sum(probs_sorted, axis=-1, keepdims=True)
+  logits_sorted = jnp.where(mask, -jnp.inf, logits_sorted)
 
-  next_token = jax.random.categorical(key, logits=jnp.log(probs_sorted))
-  next_token = jnp.take_along_axis(indices, next_token[..., None], axis=-1)
+  next_token_idx = jax.random.categorical(key, logits=logits_sorted)
+  next_token = jnp.take_along_axis(indices, next_token_idx[..., None], axis=-1)
   next_token = jnp.squeeze(next_token, axis=-1)
-  return next_token
+
+  if return_logprobs:
+    logp = jax.nn.log_softmax(next_token_logits, axis=-1)
+    logp_sampled = jnp.take_along_axis(logp, next_token[..., None], axis=-1)
+    logp_sampled = jnp.squeeze(logp_sampled, axis=-1)
+  else:
+    logp_sampled = None
+
+  return next_token, logp_sampled
 
 
-def sample_best(logits):
+def sample_best(
+    logits, return_logprobs: bool = False
+) -> tuple[jnp.ndarray, jnp.ndarray | None]:
   next_token = jnp.argmax(logits[:, -1], axis=-1, keepdims=True)
   next_token = next_token[:, 0]
-  return next_token
+  if not return_logprobs:
+    return next_token, None
+  logp = jax.nn.log_softmax(logits[:, -1].astype(jnp.float32), axis=-1)
+  logp_sampled = jnp.take_along_axis(logp, next_token[..., None], axis=-1)
+  logp_sampled = jnp.squeeze(logp_sampled, axis=-1)
+  return next_token, logp_sampled
 
 
 def _init_cache(
@@ -163,12 +190,13 @@ def _init_cache(
   """
 
   shape = (batch_size, cache_size, num_kv_heads, head_dim)
-  k = jnp.zeros(shape, dtype=dtype)
-  v = jnp.zeros(shape, dtype=dtype)
-  end_index = jnp.zeros((batch_size,), dtype=jnp.int32)
   # Jax array is immutable, so updates to each layer creates new arrays.
   return {
-      f'layer_{i}': {'k': k, 'v': v, 'end_index': end_index}
+      f'layer_{i}': {
+          'k': jnp.zeros(shape, dtype=dtype),
+          'v': jnp.zeros(shape, dtype=dtype),
+          'end_index': jnp.zeros((batch_size,), dtype=jnp.int32)
+      }
       for i in range(n_layers)
   }
 
@@ -191,7 +219,9 @@ class Sampler(base_sampler.BaseSampler):
       cache_config: configuration for the KV cache.
       image_processor: The image processor.
     """
-    self.tokenizer = tok_adapter.TokenizerAdapter(tokenizer)
+    self.tokenizer = tokenizer
+    if not isinstance(tokenizer, tok_adapter.TokenizerAdapter):
+      self.tokenizer = tok_adapter.TokenizerAdapter(tokenizer)
     self.cache_config = cache_config
     self.image_processor = image_processor
     self._transformer_graphdef: graph.NodeDef = nnx.graphdef(transformer)
@@ -200,11 +230,28 @@ class Sampler(base_sampler.BaseSampler):
         self._transformer_state,
         is_leaf=lambda x: isinstance(x, nnx.Variable),
     )
-    # we separate out state and graph def so that the state can be passed as an
+    # We separate out state and graph def so that the state can be passed as an
     # argument to _decode_fn, resulting in it not being treated as a static
-    # arg. This greatly reduces the size of the HLO and reduces compile time
-    self._compiled_decode_fn = jax.jit(self._decode_fn)
-    self._compiled_prefill_fn = jax.jit(self._prefill_fn)
+    # arg. This greatly reduces the size of the HLO and reduces compile time.
+    #
+    # We donate the sampling_state (argnum 1) containing the KV cache arrays.
+    # JAX arrays are immutable, so updating the cache at each decoding step
+    # would normally force JAX to allocate a new memory buffer and copy old
+    # contents. Since the KV cache memory footprint scales with batch size and
+    # prompt+decoding length (reaching gigabytes), this continuous reallocation
+    # and copying triggers massive memory overhead and OOMs. Donating the input
+    # state allows the XLA compiler to reuse the memory buffer in-place,
+    # completely avoiding allocation/copy overhead.
+    self._compiled_decode_fn = jax.jit(self._decode_fn, donate_argnums=(1,))
+    self._compiled_prefill_fn = jax.jit(
+        self._prefill_fn,
+        donate_argnums=(1,),
+        static_argnames=('echo',),
+    )
+    self._supports_decode_only_last_token = (
+        'decode_only_last_token'
+        in inspect.signature(transformer.__call__).parameters
+    )
 
   def model_def_and_state(self) -> tuple[graph.NodeDef, statelib.State]:
     """Returns the transformer graphdef and state."""
@@ -269,7 +316,7 @@ class Sampler(base_sampler.BaseSampler):
 
         return (
             jnp.shape(x) == jnp.shape(y)
-            and jnp.dtype(x) == jnp.dtype(y)
+            and x.dtype == y.dtype
             and equivalent_sharding(x, y)
         )
 
@@ -312,6 +359,10 @@ class Sampler(base_sampler.BaseSampler):
 
   @property
   def dtype(self) -> jnp.dtype:
+    if hasattr(self.transformer, 'config') and (
+        hasattr(self.transformer.config, 'dtype')
+    ):
+      return self.transformer.config.dtype
     return self._flattened_transformer_state[0].dtype
 
   def init_sample_state(
@@ -325,6 +376,7 @@ class Sampler(base_sampler.BaseSampler):
       top_k: Optional[int],
       seed: jax.Array,
       beam_size: Optional[int],
+      include_logprobs: bool = False,
   ) -> _SamplingState:
     """Initializes the sampling state given input prompts."""
     batch_size = all_input_ids.shape[0]
@@ -373,6 +425,14 @@ class Sampler(base_sampler.BaseSampler):
       )
     else:
       logits_buffer = None
+
+    if include_logprobs:
+      logprobs_buffer = jnp.zeros(
+          (batch_size, total_sampling_steps),
+          dtype=jnp.float32,
+      )
+    else:
+      logprobs_buffer = None
     sampling_parameters = {}
     sampling_mode = [None]
 
@@ -396,6 +456,7 @@ class Sampler(base_sampler.BaseSampler):
         token_buffer=token_buffer,
         positions=positions,
         logits_buffer=logits_buffer,
+        logprobs_buffer=logprobs_buffer,
         cache=cache,
         done=done,
         total_sampling_steps=total_sampling_steps,
@@ -430,6 +491,7 @@ class Sampler(base_sampler.BaseSampler):
     token_buffer = sampler_state.token_buffer
     done = sampler_state.done
     logits_buffer = sampler_state.logits_buffer
+    logprobs_buffer = sampler_state.logprobs_buffer
     beam_search_state = sampler_state.beam_search_sampling_state
     if sampler_state.forbidden_token_ids:
       logits = logits.at[:, :, sampler_state.forbidden_token_ids].set(-jnp.inf)
@@ -444,22 +506,27 @@ class Sampler(base_sampler.BaseSampler):
           state=beam_search_state,
           pad_token_id=eos[0],
           decoding_step=decoding_step,
+          logprobs_buffer=logprobs_buffer,
       )
       cache = updated_args['cache']
       token_buffer = updated_args['token_buffer']
       done = updated_args['done']
       logits_buffer = updated_args['logits_buffer']
+      logprobs_buffer = updated_args['logprobs_buffer']
     else:
       if sampler_state.sampling_mode == 'greedy':
-        next_token_candidate = sample_best(logits)
+        next_token_candidate, logp = sample_best(
+            logits, return_logprobs=(logprobs_buffer is not None)
+        )
       elif sampler_state.sampling_mode == 'top_p':
         key = jax.random.fold_in(sampler_state.seed, decoding_step)
-        next_token_candidate = sample_top_p(
+        next_token_candidate, logp = sample_top_p(
             logits,
             key,
             sampler_state.temperature,
             sampler_state.sampling_parameters['top_p'],
             sampler_state.sampling_parameters['top_k'],
+            return_logprobs=(logprobs_buffer is not None),
         )
       else:
         raise ValueError(
@@ -468,6 +535,8 @@ class Sampler(base_sampler.BaseSampler):
       token_buffer = token_buffer.at[:, decoding_step + 1].set(
           next_token_candidate
       )
+      if logprobs_buffer is not None:
+        logprobs_buffer = logprobs_buffer.at[:, decoding_step + 1].set(logp)
 
     done = done | jnp.isin(token_buffer[:, decoding_step + 1], eos)
     return _SamplingState(
@@ -476,6 +545,7 @@ class Sampler(base_sampler.BaseSampler):
         token_buffer=token_buffer,
         positions=sampler_state.positions,
         logits_buffer=logits_buffer,
+        logprobs_buffer=logprobs_buffer,
         cache=cache,
         done=done,
         total_sampling_steps=sampler_state.total_sampling_steps,
@@ -492,6 +562,7 @@ class Sampler(base_sampler.BaseSampler):
       params: statelib.State,
       sampler_state: _SamplingState,
       images: jnp.ndarray | None = None,
+      echo: bool = True,
   ) -> _SamplingState:
     """Performs prefill."""
     batch_size = sampler_state.token_buffer.shape[0]
@@ -530,6 +601,12 @@ class Sampler(base_sampler.BaseSampler):
 
     transformer = nnx.merge(self._transformer_graphdef, params)
     kwargs = {} if images is None else {'images': images}
+    decode_only_last_token = (
+        self._supports_decode_only_last_token
+        and not echo
+    )
+    if decode_only_last_token:
+      kwargs['decode_only_last_token'] = True
     logits, cache = transformer(
         tokens,
         step_positions,
@@ -542,10 +619,13 @@ class Sampler(base_sampler.BaseSampler):
     positions = sampler_state.positions
     beam_search_sampling_state = None
     if sampler_state.logits_buffer is not None:
+      start_idx = (
+          sampler_state.num_input_tokens if decode_only_last_token else 1
+      )
       logits_buffer = jax.lax.dynamic_update_slice(
           sampler_state.logits_buffer,
           logits.astype(sampler_state.logits_buffer.dtype),
-          (0, 1, 0),
+          (0, start_idx, 0),
       )
     else:
       logits_buffer = sampler_state.logits_buffer
@@ -577,6 +657,7 @@ class Sampler(base_sampler.BaseSampler):
         token_buffer=token_buffer,
         positions=positions,
         logits_buffer=logits_buffer,
+        logprobs_buffer=sampler_state.logprobs_buffer,
         cache=cache,
         done=done,
         total_sampling_steps=sampler_state.total_sampling_steps,
@@ -665,6 +746,7 @@ class Sampler(base_sampler.BaseSampler):
       max_prompt_length: int | None = None,
       echo: bool = False,
       return_logits: bool = False,
+      return_logprobs: bool = False,
       eos_tokens: Sequence[int] | None = None,
       forbidden_tokens: Iterable[int] | None = None,
       temperature: float = 0.0,
@@ -764,11 +846,13 @@ class Sampler(base_sampler.BaseSampler):
         top_k=top_k,
         seed=seed,
         beam_size=beam_size,
+        include_logprobs=return_logprobs,
     )
     sampling_state = self._compiled_prefill_fn(
         self._flattened_transformer_state,
         sampling_state,
         processed_images,
+        echo=echo,
     )
 
     sampling_state = self._compiled_decode_fn(
@@ -777,14 +861,18 @@ class Sampler(base_sampler.BaseSampler):
     token_buffers = sampling_state.token_buffer
     logits_buffers = sampling_state.logits_buffer
 
+    final_logprobs_buffer = sampling_state.logprobs_buffer
+
     if sampling_state.sampling_mode == 'beam_search':
       updated_args = beam_search_lib.finalize_beam_search_state(
           sampling_state.beam_search_sampling_state,
           sampling_state.token_buffer,
           sampling_state.logits_buffer,
+          sampling_state.logprobs_buffer,
       )
       token_buffers = updated_args['token_buffer']
       logits_buffers = updated_args['logits_buffer']
+      final_logprobs_buffer = updated_args['logprobs_buffer']
       # delete the sampling state in case the further referece
       # if need more internal states, they should be updated by
       # finalize_beam_search_state
@@ -806,24 +894,67 @@ class Sampler(base_sampler.BaseSampler):
           self.tokenizer.decode(tokens[:length].tolist())
           for tokens, length in zip(out_tokens, lengths)
       ]
+      out_logprobs = []
+      if return_logprobs:
+        token_buffers = jax.device_get(token_buffers)
+        final_logprobs_buffer = jax.device_get(final_logprobs_buffer)
+        for i in range(len(token_buffers)):
+          start_idx = (
+              utils.np_find_first_non_pad_idx(
+                  token_buffers[i], self.tokenizer.pad_id()
+              )
+              if echo
+              else max_prompt_length
+          )
+          end_idx = (
+              utils.np_find_first_eos_idx(
+                  token_buffers[i][max_prompt_length:], self.eos_ids
+              )
+              + max_prompt_length
+          )
+          length = end_idx - start_idx
+          # Slice logprobs and pad to max_len
+          sliced_logprobs = final_logprobs_buffer[i][start_idx:end_idx]
+          padded_logprobs = np.pad(
+              sliced_logprobs,
+              (0, max_len - length),
+              mode='constant',
+              constant_values=0.0,
+          )
+          out_logprobs.append(padded_logprobs.tolist())
+
     else:
       out_tokens = []
       out_logits = []
-      for i, token_buffer in enumerate(token_buffers):
+      out_logprobs = []
+      token_buffers = jax.device_get(token_buffers)
+      if return_logprobs:
+        final_logprobs_buffer = jax.device_get(final_logprobs_buffer)
+      if return_logits:
+        logits_buffers = jax.device_get(logits_buffers)
+      for i in range(len(token_buffers)):
+        token_buffer = token_buffers[i]
         start_idx = (
-            utils.find_first_non_pad_idx(token_buffer, self.tokenizer.pad_id())
+            utils.np_find_first_non_pad_idx(
+                token_buffer, self.tokenizer.pad_id()
+            )
             if echo
             else max_prompt_length
         )
         end_idx = (
-            utils.find_first_eos_idx(
+            utils.np_find_first_eos_idx(
                 token_buffer[max_prompt_length:], self.eos_ids
             )
             + max_prompt_length
         )
-        out_tokens.append(jax.device_get(token_buffer[start_idx:end_idx]))
+        out_tokens.append(token_buffer[start_idx:end_idx])
         if return_logits:
           out_logits.append(logits_buffers[i][start_idx:end_idx])
+        if return_logprobs:
+          # Extract logprobs for the generated tokens
+          out_logprobs.append(
+              final_logprobs_buffer[i][start_idx:end_idx].tolist()
+          )
 
       decoded_outputs = [
           self.tokenizer.decode(tokens.tolist()) for tokens in out_tokens
@@ -834,6 +965,6 @@ class Sampler(base_sampler.BaseSampler):
         logits=out_logits if return_logits else [],
         tokens=out_tokens,
         padded_prompt_tokens=all_input_ids,
-        logprobs=None,
+        logprobs=out_logprobs if return_logprobs else None,
     )
     return result

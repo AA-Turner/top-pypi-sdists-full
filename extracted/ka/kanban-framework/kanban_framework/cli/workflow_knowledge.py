@@ -222,12 +222,23 @@ def _extract_quick_archive_knowledge(task, fs: Filesystem) -> dict:
                 )
                 if not _entry.get("skipped"):
                     _quick_added.append(_entry["id"])
-        return {
+        result = {
             "knowledge_imported": len(_quick_added),
             "knowledge_ids": _quick_added,
             "knowledge_status": "pending",
             "knowledge_review_hint": "自动提取的知识条目需要人工审核，使用 kanban knowledge pending 查看待审核条目，kanban knowledge approve <id> 批准入库",
             "extraction_mode": "quick_archive",
         }
+        if not _quick_added:
+            _existing = sum(1 for e in km.list_entries()
+                           if e.get("source", {}).get("task_id") == task.id)
+            result["knowledge_info"] = (
+                f"0 new entries extracted during archive. "
+                f"{_existing} entries already imported from previous phase."
+                if _existing else
+                "No knowledge artifacts found in execution summary."
+            )
+            result["knowledge_status"] = "no_new_entries"
+        return result
     finally:
         km._conn.close()

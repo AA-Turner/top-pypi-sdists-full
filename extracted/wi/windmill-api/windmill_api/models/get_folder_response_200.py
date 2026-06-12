@@ -31,6 +31,8 @@ class GetFolderResponse200:
             rules applied at create-time when admins or `wm_deployers` members deploy items in this folder. The first rule
             whose `path_glob` matches the item path (relative to the folder root) wins, and its `permissioned_as` is used as
             the default.
+        labels (Union[Unset, List[str]]): Labels set on the folder. Items inside the folder inherit them, exposed as
+            `inherited_labels` on scripts and flows and stamped into job labels at run time.
     """
 
     name: str
@@ -40,6 +42,7 @@ class GetFolderResponse200:
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     default_permissioned_as: Union[Unset, List["GetFolderResponse200DefaultPermissionedAsItem"]] = UNSET
+    labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -62,6 +65,10 @@ class GetFolderResponse200:
 
                 default_permissioned_as.append(default_permissioned_as_item)
 
+        labels: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.labels, Unset):
+            labels = self.labels
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -79,6 +86,8 @@ class GetFolderResponse200:
             field_dict["edited_at"] = edited_at
         if default_permissioned_as is not UNSET:
             field_dict["default_permissioned_as"] = default_permissioned_as
+        if labels is not UNSET:
+            field_dict["labels"] = labels
 
         return field_dict
 
@@ -116,6 +125,8 @@ class GetFolderResponse200:
 
             default_permissioned_as.append(default_permissioned_as_item)
 
+        labels = cast(List[str], d.pop("labels", UNSET))
+
         get_folder_response_200 = cls(
             name=name,
             owners=owners,
@@ -124,6 +135,7 @@ class GetFolderResponse200:
             created_by=created_by,
             edited_at=edited_at,
             default_permissioned_as=default_permissioned_as,
+            labels=labels,
         )
 
         get_folder_response_200.additional_properties = d

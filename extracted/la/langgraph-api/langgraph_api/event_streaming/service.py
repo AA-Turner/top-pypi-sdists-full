@@ -22,8 +22,8 @@ import asyncio
 import contextlib
 import inspect
 from collections.abc import Awaitable, Callable
-from typing import Any, cast
-from uuid import uuid4
+from typing import Any, cast, get_args
+from uuid import UUID, uuid4
 
 import orjson
 import structlog
@@ -43,12 +43,82 @@ from langgraph_api.event_streaming.session import (
 )
 from langgraph_api.event_streaming.types import Subscription
 from langgraph_api.feature_flags import FF_V2_EVENT_STREAMING
+from langgraph_api.schema import MultitaskStrategy
 
 logger = structlog.stdlib.get_logger(__name__)
 
 
 def _is_record(value: Any) -> bool:
     return isinstance(value, dict)
+
+
+def _checkpoint_id_from_run_start_config(params: dict[str, Any]) -> str | None:
+    """Extract ``config.configurable.checkpoint_id`` from ``run.start`` params.
+
+    Protocol v2 clients pass fork/time-travel targets via RunnableConfig::
+
+        {
+            "input": null,
+            "config": { "configurable": { "checkpoint_id": "<uuid>" } },
+        }
+
+    Returns the checkpoint id (validated as a non-empty string) or ``None``
+    when no fork target is present.
+    """
+    config = params.get("config")
+    if not _is_record(config):
+        return None
+    configurable = config.get("configurable")
+    if not _is_record(configurable):
+        return None
+    checkpoint_id = configurable.get("checkpoint_id")
+    if checkpoint_id is None:
+        return None
+    if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+        raise ValueError(
+            "config.configurable.checkpoint_id must be a non-empty string."
+        )
+    return checkpoint_id
+
+
+def validate_checkpoint_id_from_runnable_config(params: dict[str, Any]) -> str | None:
+    """Return a client-facing validation message, or ``None`` if valid/absent."""
+    try:
+        checkpoint_id = _checkpoint_id_from_run_start_config(params)
+    except ValueError as exc:
+        return str(exc)
+    if checkpoint_id is None:
+        return None
+    try:
+        UUID(checkpoint_id)
+    except ValueError:
+        return f"Invalid config.configurable.checkpoint_id: {checkpoint_id!r}."
+    return None
+
+
+# Concurrency strategies accepted on ``run.start`` — the four values the
+# SDK's ``multitaskStrategy`` option can take, derived from the canonical
+# ``MultitaskStrategy`` literal so the two never drift.
+VALID_MULTITASK_STRATEGIES: tuple[str, ...] = get_args(MultitaskStrategy)
+# Legacy stream-endpoint default: queue new runs behind active ones instead
+# of interrupting. Used when the caller omits ``multitaskStrategy``.
+DEFAULT_MULTITASK_STRATEGY = "enqueue"
+
+
+def _multitask_strategy_from_run_start(params: dict[str, Any]) -> str:
+    """Resolve the per-run ``multitaskStrategy`` from ``run.start`` params.
+
+    The SDK forwards the caller's ``multitaskStrategy`` on every
+    ``run.start`` (one of ``reject`` | ``rollback`` | ``interrupt`` |
+    ``enqueue``). Honor it when it is one of the recognized strategies,
+    otherwise fall back to ``DEFAULT_MULTITASK_STRATEGY`` (the legacy
+    stream-endpoint default). This mirrors the JS reference server's
+    lenient normalization so both behave identically.
+    """
+    strategy = params.get("multitaskStrategy")
+    if isinstance(strategy, str) and strategy in VALID_MULTITASK_STRATEGIES:
+        return strategy
+    return DEFAULT_MULTITASK_STRATEGY
 
 
 EventSink = Callable[[dict[str, Any]], Awaitable[None] | None]
@@ -401,6 +471,10 @@ class ThreadRunManager:
                 "run.start requires an assistant_id.",
             )
 
+        checkpoint_error = validate_checkpoint_id_from_runnable_config(params)
+        if checkpoint_error is not None:
+            return self._error(command.get("id"), "invalid_argument", checkpoint_error)
+
         try:
             run = await self._create_or_resume_run(assistant_id, params)
         except ProtocolV2UnsupportedError as exc:
@@ -419,69 +493,150 @@ class ThreadRunManager:
             "meta": self._meta(),
         }
 
-    async def _handle_input_respond(self, command: dict[str, Any]) -> dict[str, Any]:
-        params = command.get("params", {}) if _is_record(command.get("params")) else {}
+    @staticmethod
+    def _coerce_respond_namespace(raw: Any) -> list[str] | None:
+        """Validate an ``input.respond`` namespace.
+
+        CDDL ``InputRespondParams`` marks ``namespace`` as required, but an
+        omitted value is treated as the root namespace (``[]``). Returns the
+        coerced list, or ``None`` when the value is not a list of strings.
+        """
+        if not isinstance(raw, list) or not all(isinstance(seg, str) for seg in raw):
+            return None
+        return list(raw)
+
+    def _normalize_respond_entries(
+        self, cmd_id: int | None, params: dict[str, Any]
+    ) -> tuple[list[tuple[str, list[str], Any]] | None, dict[str, Any] | None]:
+        """Normalize ``input.respond`` params into resume entries.
+
+        Clients send either a single ``interrupt_id`` / ``response`` (with an
+        optional ``namespace``) or a ``responses`` batch — a list of
+        ``{interrupt_id, response, namespace?}`` objects. The batch form
+        resumes several interrupts pending at the same checkpoint (e.g.
+        parallel tool-authorization prompts) in one command; sequential
+        single resumes cannot, since the first resume starts a run, leaving
+        the rest with no interrupted run to respond to. Both forms are part
+        of the streaming protocol (``InputRespondParams`` =
+        ``InputRespondOne / InputRespondMany``); the batch entries are read
+        leniently to tolerate clients pinned to older bindings.
+
+        Returns ``(entries, None)`` on success or ``(None, error)`` with a
+        protocol error envelope. Each entry is
+        ``(interrupt_id, namespace, response)``.
+        """
+        raw_responses = params.get("responses")
+        if isinstance(raw_responses, list):
+            if not raw_responses:
+                return None, self._error(
+                    cmd_id,
+                    "invalid_argument",
+                    "input.respond requires at least one response.",
+                )
+            entries: list[tuple[str, list[str], Any]] = []
+            for entry in raw_responses:
+                if not _is_record(entry):
+                    return None, self._error(
+                        cmd_id,
+                        "invalid_argument",
+                        "input.respond responses entries must be objects.",
+                    )
+                entry_id = entry.get("interrupt_id")
+                if not isinstance(entry_id, str):
+                    return None, self._error(
+                        cmd_id,
+                        "invalid_argument",
+                        "input.respond responses entries require an interrupt_id.",
+                    )
+                namespace = self._coerce_respond_namespace(entry.get("namespace", []))
+                if namespace is None:
+                    return None, self._error(
+                        cmd_id,
+                        "invalid_argument",
+                        "input.respond requires namespace to be a list of strings.",
+                    )
+                entries.append((entry_id, namespace, entry.get("response")))
+            return entries, None
+
         interrupt_id = params.get("interrupt_id")
         if not isinstance(interrupt_id, str):
-            return self._error(
-                command.get("id"),
+            return None, self._error(
+                cmd_id,
                 "invalid_argument",
                 "input.respond requires an interrupt_id.",
             )
-
-        # CDDL InputRespondParams marks ``namespace`` as required. Accept an
-        # empty list (root) but reject anything that is not a list of strings.
-        raw_namespace = params.get("namespace", [])
-        if not isinstance(raw_namespace, list) or not all(
-            isinstance(seg, str) for seg in raw_namespace
-        ):
-            return self._error(
-                command.get("id"),
+        namespace = self._coerce_respond_namespace(params.get("namespace", []))
+        if namespace is None:
+            return None, self._error(
+                cmd_id,
                 "invalid_argument",
                 "input.respond requires namespace to be a list of strings.",
             )
-        claimed_namespace: list[str] = list(raw_namespace)
+        return [(interrupt_id, namespace, params.get("response"))], None
 
-        # Cross-check against the session's pending interrupts so we can
-        # return ``no_such_interrupt`` for unknown/mismatched pairs.
-        # When the session was attached fresh by this HTTP request (the
-        # stateless ``POST /commands`` transport) its source task hasn't
-        # had a chance to emit ``input.requested`` yet — ``_pending_interrupts``
-        # is still empty. In that case, fall back to the thread-state
-        # check so we don't reject legitimate resumes with a fresh
-        # handle. The WebSocket path (long-lived session) hits the
-        # in-memory check and skips the DB round-trip.
-        pending_namespace = (
-            self._session.lookup_pending_interrupt(interrupt_id)
-            if self._session is not None
-            else None
+    async def _handle_input_respond(self, command: dict[str, Any]) -> dict[str, Any]:
+        params = command.get("params", {}) if _is_record(command.get("params")) else {}
+
+        entries, normalize_error = self._normalize_respond_entries(
+            command.get("id"), params
         )
-        if pending_namespace is not None:
-            # Authoritative: the session observed the ``input.requested``
-            # event and recorded the exact subgraph namespace. Enforce
-            # strict comparison.
-            if pending_namespace != claimed_namespace:
-                return self._error(
-                    command.get("id"),
-                    "no_such_interrupt",
-                    "Interrupt namespace does not match the pending interrupt.",
-                )
-        else:
-            # HTTP fallback: ``_lookup_interrupt_in_thread_state`` only
-            # walks root tasks and returns ``[]`` for any match, so it
+        if normalize_error is not None:
+            return normalize_error
+        if entries is None:  # narrowed by the error branch above
+            return self._error(
+                command.get("id"), "unknown_error", "No entries to respond to."
+            )
+
+        # Cross-check every targeted interrupt against the session's pending
+        # interrupts so we can return ``no_such_interrupt`` for
+        # unknown/mismatched pairs. When the session was attached fresh by
+        # this HTTP request (the stateless ``POST /commands`` transport) its
+        # source task hasn't had a chance to emit ``input.requested`` yet —
+        # ``_pending_interrupts`` is still empty. In that case, fall back to
+        # the thread-state check so we don't reject legitimate resumes with a
+        # fresh handle. The WebSocket path (long-lived session) hits the
+        # in-memory check and skips the DB round-trip.
+        #
+        # The thread-state fallback is fetched at most once per batch and
+        # cached in ``thread_state_ids``: a batch of N entries that all miss
+        # the session would otherwise issue N identical ``State.get`` calls.
+        thread_state_ids: set[str] | None = None
+        thread_state_fetched = False
+        for interrupt_id, claimed_namespace, _ in entries:
+            pending_namespace = (
+                self._session.lookup_pending_interrupt(interrupt_id)
+                if self._session is not None
+                else None
+            )
+            if pending_namespace is not None:
+                # Authoritative: the session observed the ``input.requested``
+                # event and recorded the exact subgraph namespace. Enforce
+                # strict comparison.
+                if pending_namespace != claimed_namespace:
+                    return self._error(
+                        command.get("id"),
+                        "no_such_interrupt",
+                        "Interrupt namespace does not match the pending interrupt.",
+                    )
+                continue
+            # HTTP fallback: the bulk thread-state lookup only walks root
+            # tasks and surfaces interrupts by id (not namespace), so it
             # cannot validate subgraph namespaces. Verify the interrupt
             # exists on persisted state and trust the client-claimed
-            # namespace — the interrupt_id is a UUID, so the existence
-            # check alone is sufficient. (Without this, every HTTP
-            # ``input.respond`` for a subgraph interrupt would 404.)
-            if await self._lookup_interrupt_in_thread_state(interrupt_id) is None:
+            # namespace — the interrupt_id is a UUID, so the existence check
+            # alone is sufficient. (Without this, every HTTP ``input.respond``
+            # for a subgraph interrupt would 404.)
+            if not thread_state_fetched:
+                thread_state_ids = await self._collect_thread_state_interrupt_ids()
+                thread_state_fetched = True
+            if thread_state_ids is None or interrupt_id not in thread_state_ids:
                 return self._error(
                     command.get("id"),
                     "no_such_interrupt",
                     f"Unknown or already-consumed interrupt: {interrupt_id}",
                 )
 
-        # At this point we've confirmed the interrupt exists on the
+        # At this point we've confirmed every interrupt exists on the
         # thread state (or was surfaced via the session). No need for a
         # second ``_has_pending_interrupts`` round-trip.
 
@@ -496,12 +651,17 @@ class ThreadRunManager:
                 "No interrupted run is bound to this thread.",
             )
 
+        # Merge every entry into a single ``{interrupt_id: response}`` resume
+        # map. ``_create_or_resume_run`` forwards it verbatim as
+        # ``Command(resume=...)``, which resumes all targeted interrupts in
+        # one run.
+        resume_input = {interrupt_id: response for interrupt_id, _, response in entries}
         try:
             await self._create_or_resume_run(
                 assistant_id,
                 {
                     "assistant_id": assistant_id,
-                    "input": {interrupt_id: params.get("response")},
+                    "input": resume_input,
                     "config": params.get("config"),
                     "metadata": params.get("metadata"),
                 },
@@ -512,7 +672,8 @@ class ThreadRunManager:
             return self._error(command.get("id"), "unknown_error", str(exc))
 
         if self._session is not None:
-            self._session.clear_pending_interrupt(interrupt_id)
+            for interrupt_id, _, _ in entries:
+                self._session.clear_pending_interrupt(interrupt_id)
 
         return {
             "type": "success",
@@ -575,13 +736,26 @@ class ThreadRunManager:
             },
         }
 
+        # The fork target arrives only via ``config.configurable.checkpoint_id``
+        # (the SDK folds its ergonomic ``forkFrom`` option into this field
+        # client-side, so there is a single way to provide it). Extract it
+        # here and map it onto the top-level ``checkpoint_id`` / ``checkpoint``
+        # fields of ``run_payload`` below: ``create_valid_run`` — the shared
+        # run-creation path also used by the legacy REST run-create endpoints —
+        # reads the fork target from those fields (UUID-validating it and
+        # injecting it back into ``config.configurable``), so populating them is
+        # what makes the run replay from the requested checkpoint rather than
+        # the thread's latest state.
+        checkpoint_id = _checkpoint_id_from_run_start_config(params)
+
         run_payload: dict[str, Any] = {
             "assistant_id": assistant_id,
             "input": None if is_resume else params.get("input"),
             "command": {"resume": params["input"]} if is_resume else None,
             "config": run_config,
             "metadata": params.get("metadata"),
-            "checkpoint_id": None,
+            "checkpoint_id": checkpoint_id,
+            "checkpoint": {"checkpoint_id": checkpoint_id} if checkpoint_id else None,
             "context": None,
             "webhook": None,
             "stream_mode": list(DEFAULT_RUN_STREAM_MODES),
@@ -596,11 +770,10 @@ class ThreadRunManager:
             # chokes on None. Zero means "start immediately".
             "after_seconds": 0,
             "if_not_exists": "create",
-            # Match legacy stream endpoint default: queue new runs behind active
-            # ones instead of interrupting. The protocol spec describes this
-            # case as "inject into running graph", which Python LangGraph does
-            # not yet support; enqueue is the least surprising approximation.
-            "multitask_strategy": "enqueue",
+            # Honor the caller's ``multitaskStrategy`` (the SDK sends it on
+            # every run.start), falling back to ``enqueue`` — the legacy
+            # stream-endpoint default — when omitted.
+            "multitask_strategy": _multitask_strategy_from_run_start(params),
             "langsmith_tracer": None,
             "durability": None,
         }
@@ -749,14 +922,23 @@ class ThreadRunManager:
         async def get_thread_state() -> dict[str, Any] | None:
             from langgraph_runtime.database import connect  # noqa: PLC0415
 
+            # ``supports_core_api=False`` so the postgres backend yields a
+            # real connection. ``State.get`` uses the local checkpointer
+            # and needs a usable ``conn`` — the default flag yields None.
             try:
-                async with connect() as conn:
+                async with connect(supports_core_api=False) as conn:
                     return await self._threads.State.get(
                         conn,
                         {"configurable": {"thread_id": thread_id}},
                         subgraphs=True,
                     )
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "terminal_thread_state_fetch_failed",
+                    thread_id=thread_id,
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
                 return None
 
         return get_thread_state
@@ -853,21 +1035,50 @@ class ThreadRunManager:
         treat ``[]`` as "interrupt found, namespace unknown" and trust
         the client-claimed namespace.
         """
+        found = await self._collect_thread_state_interrupt_ids()
+        if found is None:
+            return None
+        return [] if interrupt_id in found else None
+
+    async def _collect_thread_state_interrupt_ids(self) -> set[str] | None:
+        """Fetch persisted thread state once and collect all interrupt ids.
+
+        Bulk counterpart to ``_lookup_interrupt_in_thread_state`` for the
+        ``input.respond`` batch path: a single ``State.get`` round-trip is
+        shared across every entry in the batch instead of one DB call per
+        interrupt. Returns the set of interrupt ids present on the thread's
+        root tasks, or ``None`` if the state fetch failed (callers treat a
+        ``None`` result as "lookup unavailable", not "no interrupts").
+
+        Like the single lookup, this only walks root-level tasks — subgraph
+        interrupts surface by id but not by namespace.
+        """
         from langgraph_runtime.database import connect  # noqa: PLC0415
 
+        # ``supports_core_api=False`` so the postgres backend yields a
+        # real connection. The default (``True``) yields ``None`` because
+        # data ops normally go through the gRPC server — but ``State.get``
+        # uses the local checkpointer and needs a usable ``conn``.
         try:
-            async with connect() as conn:
+            async with connect(supports_core_api=False) as conn:
                 state = await self._threads.State.get(
                     conn,
                     {"configurable": {"thread_id": self._thread_id}},
                     subgraphs=True,
                 )
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "interrupt_lookup_failed",
+                thread_id=self._thread_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
             return None
 
         tasks = (
             state.get("tasks") if _is_record(state) else getattr(state, "tasks", None)
         ) or ()
+        found: set[str] = set()
         for task in tasks:
             interrupts = (
                 task.get("interrupts")
@@ -880,15 +1091,9 @@ class ThreadRunManager:
                 entry_id = (
                     entry.get("id") if _is_record(entry) else getattr(entry, "id", None)
                 )
-                if entry_id == interrupt_id:
-                    # Existence-only signal. We can't reliably derive
-                    # the subgraph namespace from this state shape
-                    # (subgraph tasks aren't always materialized in
-                    # ``state.tasks``), so we return ``[]`` as an
-                    # "interrupt found" sentinel. The caller knows not
-                    # to use this for namespace comparison.
-                    return []
-        return None
+                if isinstance(entry_id, str):
+                    found.add(entry_id)
+        return found
 
     async def _has_pending_interrupts(self) -> bool:
         # Prefer the session's locally-tracked pending interrupts when
@@ -903,7 +1108,7 @@ class ThreadRunManager:
         from langgraph_runtime.database import connect  # noqa: PLC0415
 
         try:
-            async with connect() as conn:
+            async with connect(supports_core_api=False) as conn:
                 state = await self._threads.State.get(
                     conn,
                     {"configurable": {"thread_id": self._thread_id}},
@@ -929,7 +1134,13 @@ class ThreadRunManager:
                 if isinstance(interrupts, (list, tuple)) and len(interrupts) > 0:
                     return True
             return False
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "has_pending_interrupts_failed",
+                thread_id=self._thread_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
             return False
 
     # ------------------------------------------------------------------

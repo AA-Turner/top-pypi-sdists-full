@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: huey
-Version: 3.0.1
+Version: 3.0.3
 Summary: a little task queue
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/huey
 Project-URL: Documentation, https://huey.readthedocs.io/
 Project-URL: Changelog, https://github.com/coleifer/huey/blob/master/CHANGELOG.md
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/x-rst
@@ -23,9 +25,13 @@ huey is:
 * a task queue
 * written in python
 * clean and simple API
-* redis (or valkey/redict), sqlite, file-system, or in-memory storage
+
+huey has:
+
+* support for redis (or valkey/redict), sqlite, file-system, or in-memory storage
 * `example code <https://github.com/coleifer/huey/tree/master/examples/>`_.
-* `read the documentation <https://huey.readthedocs.io/>`_.
+* `django <https://huey.readthedocs.io/en/latest/django.html>`_ integration (native or via django.tasks)
+* `documentation <https://huey.readthedocs.io/>`_.
 
 huey supports:
 

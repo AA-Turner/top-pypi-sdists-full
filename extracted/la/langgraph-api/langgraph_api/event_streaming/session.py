@@ -698,25 +698,60 @@ class EventStreamingSession:
         if namespace:
             self._register_namespaces(namespace)
 
-        # Values events may carry pending interrupts on
-        # ``params.interrupts`` (upstream ValuesTransformer convention).
-        # Path 1 reads them from the ``__interrupt__`` key on the
-        # values payload; either way, surface them on the ``input``
-        # channel BEFORE the values snapshot so both paths produce the
-        # same ordering.
-        if method == "values":
+        data = params.get("data")
+
+        # Surface pending interrupts on the ``input`` channel. This branch
+        # exists for the JS sidecar (hybrid Python API + JS graph) path:
+        # the sidecar's v3 stream emits already-normalized ProtocolEvents
+        # that reach this handler, and it carries tool-raised interrupts
+        # (headless tools, human-in-the-loop) inline on ``updates`` /
+        # ``values`` events rather than on a dedicated channel. Without
+        # converting them into an ``input`` event here, the SDK renders the
+        # interrupting tool call but never learns the interrupt id, so it
+        # can't execute or resume the run. The carrier shape varies, so we
+        # accept all of them:
+        #   * ``params.interrupts`` — native ValuesTransformer convention.
+        #   * an ``updates`` event with ``node == "__interrupt__"`` whose
+        #     ``data.values`` is the interrupt array — the JS sidecar shape.
+        #   * the ``__interrupt__`` key on a ``values`` snapshot payload.
+        # ``_emit_input_requested_events`` dedupes by interrupt id, so
+        # overlapping shapes for one interrupt collapse to a single event.
+        if method == "updates":
+            update_node = params.get("node")
+            if not isinstance(update_node, str) and _is_record(data):
+                candidate = data.get("node")
+                update_node = candidate if isinstance(candidate, str) else None
+            if update_node == "__interrupt__":
+                interrupt_array = data.get("values") if _is_record(data) else None
+                await self._emit_input_requested_events(
+                    namespace, normalize_input_requested_data(interrupt_array)
+                )
+                # The ``__interrupt__`` update is purely the interrupt
+                # signal, not real state — it's consumed by the ``input``
+                # channel above and must not also be forwarded as a plain
+                # ``updates`` event.
+                return
+        elif method == "values":
+            # Always strip ``__interrupt__`` from the payload so it never
+            # leaks into the forwarded ``values`` event, regardless of
+            # which carrier the interrupt also rode in on. Surface
+            # interrupts from both carriers — ``_emit_input_requested_events``
+            # dedupes by interrupt id, so a single interrupt arriving on
+            # both collapses to one event.
+            input_requests, data = strip_interrupts_from_values(data)
             interrupts = params.get("interrupts")
             if isinstance(interrupts, (list, tuple)) and interrupts:
                 await self._emit_input_requested_events(
                     namespace, _coerce_interrupt_requests(interrupts)
                 )
+            if input_requests:
+                await self._emit_input_requested_events(namespace, input_requests)
 
         # Delegate envelope construction to the shared primitive. This
         # is the unified wire-shaping step; any envelope change lives
         # in ``_create_event`` and both paths follow.
         raw_timestamp = params.get("timestamp")
         timestamp = raw_timestamp if isinstance(raw_timestamp, int) else None
-        data = params.get("data")
 
         # Forward the producing graph node on the wire envelope to keep
         # Path 2 at parity with Path 1 (:meth:`_handle_source_event`).

@@ -33,6 +33,20 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_agent_llm_models_for_organization(self) -> None:
+        """Test case for list_agent_llm_models_for_organization
+
+        List Organization Agent Llm Models
+        """
+        pass
+
+    def test_list_agent_tools_for_organization(self) -> None:
+        """Test case for list_agent_tools_for_organization
+
+        List Organization Agent Tools
+        """
+        pass
+
     def test_list_agents_for_workspace(self) -> None:
         """Test case for list_agents_for_workspace
 

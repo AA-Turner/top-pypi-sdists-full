@@ -169,7 +169,17 @@ def dtype_byte_size(dtype: torch.dtype):
         return 1 / 2
     elif dtype == CustomDtype.FP8:
         return 1
-    elif is_torch_version(">=", "2.1.0") and dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
+    elif is_torch_version(">=", "2.1.0") and dtype in [
+        getattr(torch, name)
+        for name in (
+            "float8_e4m3fn",
+            "float8_e5m2",
+            "float8_e4m3fnuz",
+            "float8_e5m2fnuz",
+            "float8_e8m0fnu",
+        )
+        if hasattr(torch, name)
+    ]:
         return 1
     bit_search = re.search(r"[^\d](\d+)$", str(dtype))
     if bit_search is None:
@@ -350,6 +360,7 @@ def set_module_tensor_to_device(
         elif value is not None or not check_device_same(torch.device(device), module._parameters[tensor_name].device):
             param_cls = type(module._parameters[tensor_name])
             kwargs = module._parameters[tensor_name].__dict__
+            is_hf_initialized = kwargs.pop("_is_hf_initialized", None)
             if param_cls.__name__ in ["Int8Params", "FP4Params", "Params4bit"]:
                 if param_cls.__name__ == "Int8Params" and new_value.dtype == torch.float32:
                     # downcast to fp16 if any - needed for 8bit serialization
@@ -367,13 +378,15 @@ def set_module_tensor_to_device(
                 new_value = torch.nn.Parameter(new_value, requires_grad=old_value.requires_grad).to(
                     device, non_blocking=non_blocking
                 )
-            elif param_cls.__name__ in ["AffineQuantizedTensor"]:
+            elif param_cls.__name__ in ["AffineQuantizedTensor"] or "torchao" in getattr(param_cls, "__module__", ""):
                 new_value = new_value.to(device, non_blocking=non_blocking)
             else:
                 new_value = param_cls(new_value, requires_grad=old_value.requires_grad).to(
                     device, non_blocking=non_blocking
                 )
 
+            if is_hf_initialized is not None:
+                new_value._is_hf_initialized = is_hf_initialized
             module._parameters[tensor_name] = new_value
             if fp16_statistics is not None:
                 module._parameters[tensor_name].SCB = fp16_statistics.to(device, non_blocking=non_blocking)
@@ -1000,8 +1013,10 @@ def get_balanced_memory(
     # - the mean of the layer sizes
     if no_split_module_classes is None:
         no_split_module_classes = []
-    elif not isinstance(no_split_module_classes, (list, tuple)):
+    elif isinstance(no_split_module_classes, str):
         no_split_module_classes = [no_split_module_classes]
+    else:
+        no_split_module_classes = list(no_split_module_classes)
 
     # Identify the size of the no_split_block modules
     if len(no_split_module_classes) > 0:
@@ -1089,8 +1104,10 @@ def _init_infer_auto_device_map(
     max_memory = get_max_memory(max_memory)
     if no_split_module_classes is None:
         no_split_module_classes = []
-    elif not isinstance(no_split_module_classes, (list, tuple)):
+    elif isinstance(no_split_module_classes, str):
         no_split_module_classes = [no_split_module_classes]
+    else:
+        no_split_module_classes = list(no_split_module_classes)
 
     devices = list(max_memory.keys())
     if "disk" not in devices:
@@ -1914,7 +1931,7 @@ def load_checkpoint_in_model(
         checkpoint_files = sorted(list(set(index.values())))
         checkpoint_files = [os.path.join(checkpoint_folder, f) for f in checkpoint_files]
 
-    # Logic for missing/unexepected keys goes here.
+    # Logic for missing/unexpected keys goes here.
 
     offload_index = {}
     if offload_state_dict:

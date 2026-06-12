@@ -302,3 +302,37 @@ class TestResolveLevelDebugOutput:
         assert "[smplkit:resolution]" in captured.err
         assert "sql" in captured.err
         assert "ERROR" in captured.err
+
+
+class TestResolveLevelOptionalEnvironment:
+    """With no environment (server derives it from the API key) resolution
+    skips env-scoped overrides and falls through to base level / group / default."""
+
+    def test_environment_none_returns_system_fallback(self):
+        # Only an env-scoped level exists; with environment=None it is skipped
+        # and the system default ("INFO") wins.
+        loggers = {
+            "com.example.sql": {
+                "level": None,
+                "group": None,
+                "environments": {"production": {"level": "ERROR"}},
+            }
+        }
+        assert resolve_level("com.example.sql", None, loggers, {}) == "INFO"
+
+    def test_environment_none_still_applies_base_level(self):
+        # A base level wins regardless of environment.
+        loggers = {
+            "com.example.sql": {
+                "level": "WARN",
+                "group": None,
+                "environments": {"production": {"level": "ERROR"}},
+            }
+        }
+        assert resolve_level("com.example.sql", None, loggers, {}) == "WARN"
+
+    def test_env_level_returns_none_for_none_environment(self):
+        from smplkit.logging._resolution import _env_level
+
+        entry = {"environments": {"production": {"level": "ERROR"}}}
+        assert _env_level(entry, None) is None

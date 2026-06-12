@@ -213,12 +213,12 @@ def masks_to_outlines(masks):
         return outlines
 
 
-def outlines_list(masks, multiprocessing_threshold=1000, multiprocessing=None):
+def outlines_list(masks, multiprocessing_threshold=50000, multiprocessing=None):
     """Get outlines of masks as a list to loop over for plotting.
 
     Args:
         masks (ndarray): Array of masks.
-        multiprocessing_threshold (int, optional): Threshold for enabling multiprocessing. Defaults to 1000.
+        multiprocessing_threshold (int, optional): Threshold for enabling multiprocessing. Defaults to 50000.
         multiprocessing (bool, optional): Flag to enable multiprocessing. Defaults to None.
 
     Returns:
@@ -529,6 +529,8 @@ def stitch3D(masks, stitch_threshold=0.25):
     mmax = masks[0].max()
     empty = 0
     for i in trange(len(masks) - 1):
+        if masks.dtype == "uint16" and int(mmax) > max(0, 2**16 - 5 - masks[i + 1].max()):
+            masks = masks.astype("uint32")
         iou = metrics._intersection_over_union(masks[i + 1], masks[i])[1:, 1:]
         if not iou.size and empty == 0:
             masks[i + 1] = masks[i + 1]

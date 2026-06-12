@@ -802,7 +802,7 @@ def test_append_wo_index(tmpdir, engine, metadata_file):
     ("index", "offset"),
     [
         (
-            # There is some odd behavior with date ranges and pyarrow in some cirucmstances!
+            # There is some odd behavior with date ranges and pyarrow in some circumstances!
             # https://github.com/pandas-dev/pandas/issues/48573
             pd.date_range("2022-01-01", "2022-01-31", freq="D"),
             pd.Timedelta("1D"),
@@ -1033,14 +1033,6 @@ def test_read_parquet_custom_columns(tmpdir, engine):
 )
 @pytest.mark.skip_with_pyarrow_strings  # don't want to convert binary data to pyarrow strings
 def test_roundtrip(tmpdir, df, write_kwargs, read_kwargs, engine):
-    if "x" in df and df.x.dtype == "M8[ns]" and engine == "pyarrow":
-        pytest.xfail(reason="Parquet pyarrow v1 doesn't support nanosecond precision")
-
-    # non-ns times
-    if "x" in df and (df.x.dtype == "M8[ms]" or df.x.dtype == "M8[us]"):
-        if engine == "pyarrow":
-            pytest.xfail("https://github.com/apache/arrow/issues/15079")
-
     tmp = str(tmpdir)
     if df.index.name is None:
         df.index.name = "index"
@@ -2242,7 +2234,7 @@ def test_split_adaptive_files(tmpdir, blocksize, partition_on, metadata):
         write_index=False,
     )
 
-    aggregate_files = partition_on if partition_on else True
+    aggregate_files = partition_on or True
     ddf2 = dd.read_parquet(
         str(tmpdir),
         engine="pyarrow",

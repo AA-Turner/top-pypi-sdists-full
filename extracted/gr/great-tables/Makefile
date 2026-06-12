@@ -17,6 +17,14 @@ check:
 
 clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
 
+.PHONY: install-pre-commit
+install-pre-commit: # Install pre-commit hooks
+	@uvx pre-commit install
+
+.PHONY: run-pre-commit
+run-pre-commit: # Run pre-commit hooks
+	@uvx pre-commit run --all-files
+
 clean-build: ## remove build artifacts
 	rm -fr build/
 	rm -fr dist/
@@ -48,9 +56,3 @@ docs-build:
 
 install: dist ## install the package to the active Python's site-packages
 	python3 -m pip install --force-reinstall dist/gt*.whl
-
-save-browser-table:
-	python .github/scripts/save_browser_table.py _browser-tests.html chrome firefox
-
-save-browser-table-ci:
-	python .github/scripts/save_browser_table.py _browser-tests.html chrome firefox edge

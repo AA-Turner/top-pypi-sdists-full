@@ -30,11 +30,31 @@ import humps
 from hopsworks_apigen import public
 from hsfs import util
 from hsfs.core.constants import HAS_GREAT_EXPECTATIONS
-from hsfs.decorators import uses_great_expectations
+from hsfs.decorators import _uses_great_expectations
 
 
 if HAS_GREAT_EXPECTATIONS:
     import great_expectations
+
+
+def _normalize_expectation_config_to_legacy_shape(
+    expectation_config: dict[str, Any] | str | None,
+) -> dict[str, Any] | str | None:
+    """Map a possibly-GE-1.x-shaped expectation_config dict to the legacy 0.x shape.
+
+    GE 1.x emits ``{"type": "...", "kwargs": ..., "meta": ..., "severity": "critical"}``.
+    The Hopsworks wire format and the frontend (e.g.
+    ``src/types/great-expectation.ts:59``) expect ``expectation_type`` instead.
+    Idempotent: if ``expectation_type`` is already present, returns the input unchanged.
+    Strings (already-encoded JSON) and ``None`` pass through untouched.
+    """
+    if not isinstance(expectation_config, dict):
+        return expectation_config
+    if "type" in expectation_config and "expectation_type" not in expectation_config:
+        expectation_config = dict(expectation_config)
+        expectation_config["expectation_type"] = expectation_config.pop("type")
+    expectation_config.pop("severity", None)
+    return expectation_config
 
 
 @public
@@ -111,7 +131,7 @@ class ValidationResult:
         }
 
     @public
-    @uses_great_expectations
+    @_uses_great_expectations
     def to_ge_type(self) -> great_expectations.core.ExpectationValidationResult:
         """Convert to Great Expectations ExpectationValidationResult type.
 
@@ -202,9 +222,13 @@ class ValidationResult:
     @expectation_config.setter
     def expectation_config(self, expectation_config: dict[str, Any]) -> None:
         if isinstance(expectation_config, dict):
-            self._expectation_config = expectation_config
+            self._expectation_config = _normalize_expectation_config_to_legacy_shape(
+                expectation_config
+            )
         elif isinstance(expectation_config, str):
-            self._expectation_config = json.loads(expectation_config)
+            self._expectation_config = _normalize_expectation_config_to_legacy_shape(
+                json.loads(expectation_config)
+            )
         else:
             raise ValueError(
                 "Expectation config field must be stringified json or dict"
@@ -235,7 +259,7 @@ class ValidationResult:
         # use the same function as the rest of the client to deal with conversion to timestamps
         # from various types
         if validation_time:
-            self._validation_time = util.convert_event_time_to_timestamp(
+            self._validation_time = util._convert_event_time_to_timestamp(
                 validation_time
             )
         else:

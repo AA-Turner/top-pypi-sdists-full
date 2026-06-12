@@ -2,7 +2,14 @@
 
 use super::parser::AwkParser;
 use super::{Awk, csv_split_fields};
-use crate::builtins::limits::AWK_MAX_GETLINE_CACHED_FILES as MAX_GETLINE_CACHED_FILES;
+#[rustfmt::skip]
+use crate::builtins::limits::{
+    AWK_MAX_GETLINE_CACHE_BYTES as MAX_GETLINE_CACHE_BYTES,
+    AWK_MAX_GETLINE_CACHED_FILES as MAX_GETLINE_CACHED_FILES,
+    AWK_MAX_GETLINE_FILE_BYTES as MAX_GETLINE_FILE_BYTES,
+    AWK_MAX_OUTPUT_BYTES as MAX_OUTPUT_BYTES,
+    AWK_MAX_OUTPUT_TARGETS as MAX_OUTPUT_TARGETS,
+};
 use crate::builtins::{Builtin, Context};
 use crate::error::Result;
 use crate::interpreter::ExecResult;
@@ -943,6 +950,24 @@ async fn test_awk_output_limit_exceeded() {
 }
 
 #[tokio::test]
+async fn test_awk_single_write_over_limit_rejected() {
+    // One oversized record must be rejected before buffering stdout.
+    // Use MAX_OUTPUT_BYTES + 1 with printf (no ORS) so the write is
+    // unambiguously over the cap regardless of newline/ORS behavior.
+    let input = "x".repeat(MAX_OUTPUT_BYTES + 1);
+    let result = run_awk(&[r#"{ printf "%s", $0 }"#], Some(&input))
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 2);
+    assert!(
+        result.stderr.contains("output limit exceeded"),
+        "stderr should mention output limit: {}",
+        result.stderr
+    );
+    assert_eq!(result.stdout.len(), 0);
+}
+
+#[tokio::test]
 async fn test_awk_output_under_limit_ok() {
     // Small output well under 10MB should succeed normally
     let result = run_awk(&[r#"BEGIN { for(i=0;i<100;i++) print "hello" }"#], None)
@@ -968,6 +993,99 @@ async fn test_awk_file_redirect_output_limit() {
         "stderr should mention output limit: {}",
         result.stderr
     );
+}
+
+#[tokio::test]
+async fn test_awk_file_redirect_target_limit() {
+    // Many tiny writes to unique paths must be capped by the distinct-target guard.
+    let program = format!(
+        r#"BEGIN {{ for(i=0;i<{};i++) print "x" > ("/tmp/out" i) }}"#,
+        MAX_OUTPUT_TARGETS + 1
+    );
+    let result = run_awk(&[&program], None).await.unwrap();
+    assert_eq!(result.exit_code, 2);
+    assert!(
+        result
+            .stderr
+            .contains("too many output redirection targets"),
+        "stderr should mention target limit: {}",
+        result.stderr
+    );
+}
+
+#[tokio::test]
+async fn test_awk_file_redirect_streams_vfs_file_size_limit() {
+    // Redirected output must hit VFS quotas while AWK is still executing,
+    // not after collecting an oversized in-memory buffer.
+    use crate::fs::FsLimits;
+
+    let limits = FsLimits {
+        max_file_size: 100,
+        ..FsLimits::unlimited()
+    };
+    let fs = Arc::new(InMemoryFs::with_limits(limits));
+    let result = run_awk_with_custom_fs(
+        &[r#"BEGIN { for(i=0;i<20;i++) print "abcdef" > "/tmp/out" }"#],
+        None,
+        fs.clone(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.exit_code, 2);
+    assert!(
+        result.stderr.contains("cannot write /tmp/out"),
+        "stderr should mention redirected write failure: {}",
+        result.stderr
+    );
+    let content = fs
+        .read_file(std::path::Path::new("/tmp/out"))
+        .await
+        .unwrap();
+    assert!(
+        content.len() <= 100,
+        "VFS file limit should be enforced incrementally: {} bytes",
+        content.len()
+    );
+}
+
+#[tokio::test]
+async fn test_awk_many_redirected_writes_reuse_single_writer() {
+    // A tight redirect loop streams every line through the one reusable writer
+    // thread (no thread/runtime per write). Verify the appends all land.
+    let fs = Arc::new(InMemoryFs::new());
+    let result = run_awk_with_custom_fs(
+        &[r#"BEGIN { for (i = 0; i < 500; i++) print i >> "/tmp/log" }"#],
+        None,
+        fs.clone(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    let content = fs
+        .read_file(std::path::Path::new("/tmp/log"))
+        .await
+        .unwrap();
+    let lines = String::from_utf8(content).unwrap();
+    assert_eq!(lines.lines().count(), 500);
+    assert_eq!(lines.lines().next(), Some("0"));
+    assert_eq!(lines.lines().last(), Some("499"));
+}
+
+#[tokio::test]
+async fn test_awk_dev_null_redirect_does_not_count_against_output_limit() {
+    // /dev/null is discarded before any AWK-side redirect buffering.
+    let result = run_awk(
+        &[r#"BEGIN { s = sprintf("%1000s", "x"); for(i=0;i<12000;i++) print s > "/dev/null"; print "done" }"#],
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout, "done\n");
+    assert_eq!(result.stderr, "");
 }
 
 /// Helper: run AWK with a caller-provided VFS.
@@ -1095,6 +1213,72 @@ async fn test_awk_getline_file_size_limit() {
     .await
     .unwrap();
     assert_eq!(result.stdout, "-1\n");
+}
+
+#[tokio::test]
+async fn test_awk_getline_file_normalizes_cache_key() {
+    let fs = Arc::new(InMemoryFs::new());
+    fs.write_file(std::path::Path::new("/tmp/data.txt"), b"one\ntwo\n")
+        .await
+        .unwrap();
+
+    let result = run_awk_with_custom_fs(
+        &[r#"BEGIN{
+            r1=(getline a < "/tmp/data.txt");
+            r2=(getline b < "/tmp/./data.txt");
+            r3=(getline c < "/tmp/././data.txt");
+            print r1, a; print r2, b; print r3
+        }"#],
+        None,
+        fs,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.stdout, "1 one\n1 two\n0\n");
+}
+
+#[tokio::test]
+async fn test_awk_getline_file_builtin_size_limit() {
+    let fs = Arc::new(InMemoryFs::with_limits(crate::fs::FsLimits::unlimited()));
+    fs.write_file(
+        std::path::Path::new("/tmp/big.txt"),
+        &vec![b'x'; MAX_GETLINE_FILE_BYTES + 1],
+    )
+    .await
+    .unwrap();
+
+    let result = run_awk_with_custom_fs(
+        &[r#"BEGIN{r=(getline x < "/tmp/big.txt"); print r}"#],
+        None,
+        fs,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.stdout, "-1\n");
+}
+
+#[tokio::test]
+async fn test_awk_getline_file_total_cache_byte_limit() {
+    let fs = Arc::new(InMemoryFs::with_limits(crate::fs::FsLimits::unlimited()));
+    let chunk = MAX_GETLINE_CACHE_BYTES / 2 + 1;
+    fs.write_file(std::path::Path::new("/tmp/a.txt"), &vec![b'a'; chunk])
+        .await
+        .unwrap();
+    fs.write_file(std::path::Path::new("/tmp/b.txt"), &vec![b'b'; chunk])
+        .await
+        .unwrap();
+
+    let result = run_awk_with_custom_fs(
+        &[r#"BEGIN{r1=(getline a < "/tmp/a.txt"); r2=(getline b < "/tmp/b.txt"); print r1, r2}"#],
+        None,
+        fs,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.stdout, "1 -1\n");
 }
 
 // TM-INF-022: malformed-input corpus must not leak Debug shapes.

@@ -5112,7 +5112,7 @@ components:
         platform: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter] }
         status: { $ref: '#/components/schemas/AdStatus' }
         adType: { type: string, enum: [boost, standalone] }
-        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 8 (incl. `lead_conversion` = website pixel lead optimization). TikTok supports the 7 non-`lead_conversion` goals. LinkedIn supports all except app_promotion / lead_conversion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
+        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 9 (incl. `lead_conversion` = website pixel lead optimization and `catalog_sales` = Advantage+ catalog ads). TikTok supports the 7 non-`lead_conversion` goals. LinkedIn supports all except app_promotion / lead_conversion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
         isExternal: { type: boolean, description: True for ads synced from platform ad managers }
         budget:
           type: object
@@ -18773,11 +18773,13 @@ paths:
           description: Inbox addon required
     post:
       operationId: createInboxConversation
-      summary: Create conversation
+      summary: Create conversation (send a WhatsApp template)
       description: |
         Initiate a new direct message conversation with a specified user. If a conversation already exists with the recipient, the message is added to the existing thread.
 
-        Supported platforms: X/Twitter, Bluesky, Reddit, and WhatsApp. Other platforms return PLATFORM_NOT_SUPPORTED. For WhatsApp, a conversation can only be started with an approved template (provide templateName, templateLanguage, and any templateParams) — freeform initial messages are not permitted by WhatsApp; a missing template returns TEMPLATE_REQUIRED.
+        Supported platforms: X/Twitter, Bluesky, Reddit, and WhatsApp. Other platforms return PLATFORM_NOT_SUPPORTED.
+
+        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (body variable values), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests.
 
         DM eligibility (X/Twitter): Before sending, the endpoint checks if the recipient accepts DMs from your account (via the receives_your_dm field). If not, a 422 error with code DM_NOT_ALLOWED is returned. You can skip this check with skipDmCheck: true if you have already verified eligibility.
 
@@ -19230,8 +19232,8 @@ paths:
                             Platform-specific extras. Free-form, but commonly includes:
                             `quotedMessageId` (platformMessageId this message replies to),
                             `waInteractive` (a compact descriptor of WhatsApp interactive
-                            content sent: buttons / list / cta_url / flow), and for inbound
-                            interactive taps `interactiveType` / `interactiveId`.
+                            content sent: buttons / list / cta_url / flow / location_request),
+                            and for inbound interactive taps `interactiveType` / `interactiveId`.
                           additionalProperties: true
                   lastUpdated: { type: string, format: date-time }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -19245,9 +19247,17 @@ paths:
         buttons, templates, and message tags. Attachment and interactive message
         support varies by platform.
 
-        WhatsApp rich interactive messages (list, CTA URL, Flow) are available via
-        the `interactive` field. Tap events are delivered through the
-        `message.received` webhook with WhatsApp-specific `metadata` fields
+        WhatsApp template messages: to send an approved template into this
+        conversation (required when the 24-hour customer-service window is
+        closed), use the `template` field with a single element carrying the
+        template reference: `{ "elements": [{ "name": ..., "language": ..., "components": [...] }] }`.
+        See the `template` field below for the exact shape. To send a template
+        to a phone number you have no conversation with yet, use the
+        create-conversation endpoint (POST /v1/inbox/conversations) instead.
+
+        WhatsApp rich interactive messages (list, CTA URL, Flow, location request)
+        are available via the `interactive` field. Tap events are delivered through
+        the `message.received` webhook with WhatsApp-specific `metadata` fields
         (`interactiveType`, `interactiveId`, `flowResponseJson`, `flowResponseData`).
       tags: [Messages]
       security: [{ bearerAuth: [] }]
@@ -19306,22 +19316,41 @@ paths:
                       phone: { type: string, description: Phone number for phone-type buttons (Facebook only) }
                 template:
                   type: object
-                  description: Generic template for carousels (Instagram/Facebook only, ignored on Telegram).
+                  description: |
+                    Platform-dependent template payload. Ignored on Telegram.
+
+                    Instagram / Facebook: a generic template (carousel). Set `type: generic`
+                    and provide up to 10 `elements`, each with a `title` (required) and
+                    optional `subtitle`, `imageUrl`, and `buttons`.
+
+                    WhatsApp: sends an approved WhatsApp template message, the only message
+                    type WhatsApp accepts when the 24-hour customer-service window is closed.
+                    Provide exactly one element carrying the template reference:
+                    `{ "elements": [{ "name": "order_update", "language": "en_US", "components": [...] }] }`
+                    (`type` is ignored on WhatsApp). `components` is optional and is forwarded
+                    unchanged as the `template.components` array of Meta's Cloud API send
+                    payload; use it to fill body/header variables and button parameters, e.g.
+                    `[{ "type": "body", "parameters": [{ "type": "text", "text": "John" }] }]`.
+                    Templates with media headers (image, video, document) must include the
+                    header component with its media link here at send time. To send a template
+                    to a phone number with no existing conversation, or to have media headers
+                    filled in automatically from the template definition, use the
+                    create-conversation endpoint (POST /v1/inbox/conversations) instead.
                   properties:
-                    type: { type: string, enum: [generic], description: Template type }
+                    type: { type: string, enum: [generic], description: Template type. Required for Instagram/Facebook generic templates; ignored on WhatsApp. }
                     elements:
                       type: array
                       maxItems: 10
                       items:
                         type: object
-                        required: [title]
                         properties:
-                          title: { type: string, maxLength: 80, description: Element title (max 80 chars) }
-                          subtitle: { type: string, description: Element subtitle }
-                          imageUrl: { type: string, description: Element image URL }
+                          title: { type: string, maxLength: 80, description: Element title (max 80 chars). Required for Instagram/Facebook generic templates. }
+                          subtitle: { type: string, description: Element subtitle (Instagram/Facebook only) }
+                          imageUrl: { type: string, description: Element image URL (Instagram/Facebook only) }
                           buttons:
                             type: array
                             maxItems: 3
+                            description: Element buttons (Instagram/Facebook only)
                             items:
                               type: object
                               properties:
@@ -19329,27 +19358,41 @@ paths:
                                 title: { type: string, maxLength: 20 }
                                 url: { type: string }
                                 payload: { type: string }
+                          name: { type: string, description: WhatsApp only. Name of the approved template to send. }
+                          language: { type: string, description: WhatsApp only. Template language code (e.g. en_US). }
+                          components:
+                            type: array
+                            description: WhatsApp only. Meta Cloud API send-shape components array, forwarded to Meta verbatim.
+                            items:
+                              type: object
+                              additionalProperties: true
                 interactive:
                   type: object
                   description: |
                     WhatsApp-only. Rich interactive payload for list messages, CTA URL
-                    buttons, and Flow prompts. When set, takes priority over `buttons`
-                    and `quickReplies`. The shape mirrors Meta's Cloud API `interactive`
-                    object verbatim, so any payload that works against Meta directly
-                    will also work here.
+                    buttons, Flow prompts, and location requests. When set, takes
+                    priority over `buttons` and `quickReplies`. The shape mirrors
+                    Meta's Cloud API `interactive` object verbatim, so any payload
+                    that works against Meta directly will also work here.
 
                     Use `buttons` / `quickReplies` for simple button replies
                     (WhatsApp's `interactive.type: "button"`) — the abstraction caps at
                     3 buttons and handles the auto-conversion for you. Use this field
-                    only for `list`, `cta_url`, or `flow` messages.
+                    only for `list`, `cta_url`, `flow`, or `location_request_message`
+                    messages.
+
+                    For `location_request_message`, `action` may be omitted (we default
+                    it to `{ "name": "send_location" }`). WhatsApp renders a localized
+                    "Send location" button; the user's reply arrives as a regular
+                    location message in the conversation.
 
                     Tap events come back via the `message.received` webhook with
                     `metadata.interactiveType` set to `list_reply` or `nfm_reply`.
-                  required: [type, body, action]
+                  required: [type, body]
                   properties:
                     type:
                       type: string
-                      enum: [list, cta_url, flow]
+                      enum: [list, cta_url, flow, location_request_message]
                       description: Which interactive layout to render.
                     header:
                       type: object
@@ -19432,6 +19475,11 @@ paths:
                                     screen: { type: string, description: First screen to show. }
                                     data: { type: object, additionalProperties: true, description: Optional pre-filled data passed to the screen. }
                                 mode: { type: string, enum: [draft], description: Set to `draft` to test an unpublished Flow. }
+                        - type: object
+                          description: Location request action. `type` on the parent must be `location_request_message`. May be omitted entirely; it is defaulted.
+                          required: [name]
+                          properties:
+                            name: { type: string, enum: [send_location] }
                 replyMarkup:
                   type: object
                   description: Telegram-native keyboard markup. Ignored on other platforms.
@@ -21717,6 +21765,12 @@ paths:
         Meta directly over TLS:5061 with the SIP digest credentials we
         captured at calling-enablement time). No client-side SDP is
         required; pass only `accountId` and `to`.
+
+        To send the consumer the call-consent prompt instead of placing a
+        call, pass `action: "send_call_permission_request"` (+ optional
+        `bodyText`). The consumer must tap Allow in WhatsApp before
+        `start_call` is permitted; Meta limits the prompt to 1 per consumer
+        per 24h (2 per 7 days) and requires an open 24h service window.
       security:
         - bearerAuth: []
       requestBody:
@@ -21729,6 +21783,14 @@ paths:
               properties:
                 accountId: { type: string }
                 to: { type: string, description: Consumer wa_id (E.164, leading + optional) }
+                action:
+                  type: string
+                  enum: [send_call_permission_request]
+                  description: Omit to place a call. Set to send the consent prompt instead.
+                bodyText:
+                  type: string
+                  maxLength: 1024
+                  description: Body text shown with the consent prompt (send_call_permission_request only).
                 forwardTo:
                   type: string
                   description: |
@@ -22206,6 +22268,148 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp account not found }
 
+  /v1/whatsapp/block-users:
+    get:
+      operationId: getWhatsAppBlockedUsers
+      tags: [WhatsApp]
+      summary: List blocked users
+      description: |
+        List the WhatsApp users blocked on this number. Cursor-paginated; pass
+        `nextCursor` back as `after` to fetch the next page. The blocklist holds
+        up to 64,000 users.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: WhatsApp social account ID }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 }, description: Page size. }
+        - { name: after, in: query, required: false, schema: { type: string }, description: Cursor from a previous response's `nextCursor`. }
+      responses:
+        '200':
+          description: Blocked users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blockedUsers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        waId: { type: string, description: "WhatsApp user ID (usually the phone number without `+`)." }
+                  nextCursor: { type: string, nullable: true, description: Pass as `after` to fetch the next page. Null when there are no more pages. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+    post:
+      operationId: blockWhatsAppUsers
+      tags: [WhatsApp]
+      summary: Block users
+      description: |
+        Block one or more WhatsApp users on this number. Blocked users cannot
+        message your number or see that you are online, and your sends to them
+        return an error.
+
+        Meta constraints, surfaced per-user in `failed` (the request itself still
+        succeeds for the rest of the batch):
+        - Only users who messaged your business within the last 24 hours can be
+          blocked (failures outside the window report "Re-engagement required").
+        - Up to 1,000 users per request; the blocklist caps at 64,000.
+        - Other WhatsApp Business accounts cannot be blocked.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, users]
+              properties:
+                accountId: { type: string, description: WhatsApp social account ID }
+                users:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items: { type: string }
+                  description: Phone numbers (E.164, e.g. "+16505551234") or WhatsApp user IDs to block.
+      responses:
+        '200':
+          description: Per-user results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blocked:
+                    type: array
+                    description: Users successfully blocked.
+                    items:
+                      type: object
+                      properties:
+                        input: { type: string, description: The value you sent. }
+                        waId: { type: string, description: Resolved WhatsApp user ID. }
+                  failed:
+                    type: array
+                    description: Users that could not be blocked, with reasons.
+                    items:
+                      type: object
+                      properties:
+                        input: { type: string }
+                        errors: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+    delete:
+      operationId: unblockWhatsAppUsers
+      tags: [WhatsApp]
+      summary: Unblock users
+      description: |
+        Unblock one or more previously blocked WhatsApp users on this number.
+        Up to 1,000 users per request; per-user failures are reported in
+        `failed` without failing the rest of the batch.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, users]
+              properties:
+                accountId: { type: string, description: WhatsApp social account ID }
+                users:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items: { type: string }
+                  description: Phone numbers (E.164) or WhatsApp user IDs to unblock.
+      responses:
+        '200':
+          description: Per-user results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unblocked:
+                    type: array
+                    description: Users successfully unblocked.
+                    items:
+                      type: object
+                      properties:
+                        input: { type: string, description: The value you sent. }
+                        waId: { type: string, description: Resolved WhatsApp user ID. }
+                  failed:
+                    type: array
+                    description: Users that could not be unblocked, with reasons.
+                    items:
+                      type: object
+                      properties:
+                        input: { type: string }
+                        errors: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: WhatsApp account not found }
+
   /v1/whatsapp/dataset:
     get:
       operationId: getWhatsAppDataset
@@ -22295,7 +22499,9 @@ paths:
       summary: List phone numbers
       description: |
         List all WhatsApp phone numbers purchased by the authenticated user.
-        By default, released numbers are excluded.
+        By default, released numbers are excluded. Connected (bring-your-own)
+        numbers are returned in the separate `connected` array — they are not
+        billed and have no provisioning lifecycle.
       security:
         - bearerAuth: []
       parameters:
@@ -22350,6 +22556,22 @@ paths:
                         endUserLastName: { type: string, nullable: true }
                         regulatoryDeclineReason: { type: string, nullable: true, description: Reviewer rejection reason when status is regulatory_declined. }
                         createdAt: { type: string, format: date-time }
+                  connected:
+                    type: array
+                    description: |
+                      Connected (bring-your-own) WhatsApp numbers — your own WABA
+                      numbers linked via Embedded Signup. Not provisioned or billed
+                      by Zernio, so they are not in `numbers`; `accountId` is the
+                      social-account id used by the messaging and inbox endpoints.
+                      Included only on the default and `status=active` views.
+                    items:
+                      type: object
+                      properties:
+                        accountId: { type: string }
+                        phoneNumber: { type: string, nullable: true }
+                        displayName: { type: string, nullable: true }
+                        profileId: { type: string, nullable: true }
+                        connectedAt: { type: string, format: date-time, nullable: true }
                   sandbox:
                     type: object
                     nullable: true
@@ -27401,7 +27623,7 @@ paths:
                         properties:
                           key: { type: string }
                           value: { type: string }
-                goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion], description: "Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`." }
+                goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion, catalog_sales], description: "Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `catalog_sales` (Advantage+ catalog ads, e.g. vehicle inventory) requires `promotedObject.productSetId` + `promotedObject.pixelId` + `promotedObject.customEventType` and builds a catalog TEMPLATE creative from the copy fields (headline/body/description/linkUrl/callToAction, which may carry catalog template tags like {{product.name}} or {{vehicle.make}}) — no imageUrl/video is sent, Meta renders the visuals per catalog item; discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets; single shape only (no creatives[]/adSetId/dynamicCreative/placementAssets); `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`." }
                 optimizationGoal: { type: string, description: "Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations." }
                 budgetAmount: { type: number, description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy + multi-creative shapes. Inherited on attach." }
@@ -28356,6 +28578,61 @@ paths:
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /v1/ads/catalogs:
+    get:
+      operationId: listAdCatalogs
+      tags: [Ads]
+      summary: List Meta product catalogs
+      description: "Lists the Meta product catalogs reachable from an ad account (owned + agency-shared catalogs of the ad account's business), for Advantage+ catalog ads (`goal: catalog_sales` on POST /v1/ads/create — e.g. vehicle inventory catalogs). Read-only; uses scopes customers already granted (no reconnect needed). Catalog contents (items, feeds) are managed in Meta Commerce Manager, not through this API."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A facebook, instagram, or metaads social account ID" }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account ID (act_...)" }
+      responses:
+        '200':
+          description: Catalogs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  catalogs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        vertical: { type: string, nullable: true, description: "Catalog vertical (e.g. commerce, vehicles, hotels)" }
+                        productCount: { type: integer }
+  /v1/ads/catalogs/{catalogId}/product-sets:
+    get:
+      operationId: listAdCatalogProductSets
+      tags: [Ads]
+      summary: List a catalog's product sets
+      description: "Lists a Meta product catalog's product sets — the unit a catalog ad promotes. Pass the chosen set as `promotedObject.productSetId` on POST /v1/ads/create with `goal: catalog_sales`."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: catalogId, in: path, required: true, schema: { type: string }, description: "Meta product catalog ID (from GET /v1/ads/catalogs)" }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A facebook, instagram, or metaads social account ID" }
+      responses:
+        '200':
+          description: Product sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productSets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        productCount: { type: integer }
   /v1/ads/audiences:
     get:
       operationId: listAdAudiences

@@ -24,6 +24,8 @@ class AiAgent:
             tools (List['AiAgentToolsItem']): Array of tools the agent can use. The agent decides which tools to call based
                 on the task
             type (AiAgentType):
+            tag (Union[Unset, str]): Worker group tag for execution routing. If not set, the AI agent step runs on the
+                flow's tag (default `flow`)
             omit_output_from_conversation (Union[Unset, bool]): If true, this AI agent step does not persist its assistant
                 or tool messages to the flow conversation when chat mode is enabled.
             parallel (Union[Unset, bool]): If true, the agent can execute multiple tool calls in parallel
@@ -32,6 +34,7 @@ class AiAgent:
     input_transforms: "AiAgentInputTransforms"
     tools: List["AiAgentToolsItem"]
     type: AiAgentType
+    tag: Union[Unset, str] = UNSET
     omit_output_from_conversation: Union[Unset, bool] = False
     parallel: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -47,6 +50,7 @@ class AiAgent:
 
         type = self.type.value
 
+        tag = self.tag
         omit_output_from_conversation = self.omit_output_from_conversation
         parallel = self.parallel
 
@@ -59,6 +63,8 @@ class AiAgent:
                 "type": type,
             }
         )
+        if tag is not UNSET:
+            field_dict["tag"] = tag
         if omit_output_from_conversation is not UNSET:
             field_dict["omit_output_from_conversation"] = omit_output_from_conversation
         if parallel is not UNSET:
@@ -83,6 +89,8 @@ class AiAgent:
 
         type = AiAgentType(d.pop("type"))
 
+        tag = d.pop("tag", UNSET)
+
         omit_output_from_conversation = d.pop("omit_output_from_conversation", UNSET)
 
         parallel = d.pop("parallel", UNSET)
@@ -91,6 +99,7 @@ class AiAgent:
             input_transforms=input_transforms,
             tools=tools,
             type=type,
+            tag=tag,
             omit_output_from_conversation=omit_output_from_conversation,
             parallel=parallel,
         )

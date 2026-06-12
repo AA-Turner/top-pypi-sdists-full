@@ -745,6 +745,16 @@ def _whens_sql(self: Generator, expression: exp.Whens) -> str:
     return self.wrap(self.expressions(expression, sep=" ", indent=False))
 
 
+def _parse_interval_span(self: Parser, this: exp.Expr) -> exp.Interval:
+    interval = self.__parse_interval_span(this)  # type: ignore
+    # Without this, @unit in `INTERVAL @value @unit` is misread as an alias.
+    if not interval.args.get("unit") and self._match(TokenType.PARAMETER):
+        macro = _parse_macro(self)
+        if macro is not None:
+            interval.set("unit", macro)
+    return interval
+
+
 def _override(klass: t.Type[Tokenizer | Parser], func: t.Callable) -> None:
     name = func.__name__
     setattr(klass, f"_{name}", getattr(klass, name))
@@ -774,7 +784,8 @@ def format_model_expressions(
     if rewrite_casts:
 
         def cast_to_colon(node: exp.Expr) -> exp.Expr:
-            if isinstance(node, exp.Cast) and not any(
+            # Directly check type instead of isinstance to avoid rewriting subclasses of CAST, e.g. JSONCast
+            if type(node) is exp.Cast and not any(
                 # Only convert CAST into :: if it doesn't have additional args set, otherwise this
                 # conversion could alter the semantics (eg. changing SAFE_CAST in BigQuery to CAST)
                 arg
@@ -1125,6 +1136,7 @@ def extend_sqlglot() -> None:
     _override(TSQL.Parser, Parser._parse_if)
     _override(Parser, _parse_if)
     _override(Parser, _parse_id_var)
+    _override(Parser, _parse_interval_span)
     _override(Parser, _warn_unsupported)
     _override(Snowflake.Parser, _parse_table_parts)
 

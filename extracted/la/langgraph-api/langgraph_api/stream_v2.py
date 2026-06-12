@@ -87,6 +87,59 @@ def coerce_stream_transformer_factory(
     )
 
 
+def normalize_protocol_event(
+    event: Any,
+    *,
+    on_checkpoint: Callable[[CheckpointPayload | None], None],
+    on_task_result: Callable[[TaskResultPayload], None],
+) -> tuple[str, dict] | None:
+    """Convert one native v3 ``ProtocolEvent`` into a ``(name, event)`` pair.
+
+    Shared by the native-graph path (``astream_state_v2``) and the remote
+    (JS sidecar) path in :mod:`langgraph_api.stream`. Both receive the same
+    ``{"type": "event", "method", "params"}`` ProtocolEvent shape — for
+    native graphs from ``langgraph``'s v3 stream, for remote graphs from the
+    sidecar's ``streamEvents`` v3 mode — so the per-event handling lives in
+    one place.
+
+    Returns ``None`` when the event should be dropped (e.g. a legacy
+    ``messages`` shape that Protocol v2 does not reconstruct). Side effects:
+    feeds checkpoint / task_result frames into ``on_checkpoint`` /
+    ``on_task_result`` so retention + persistence hooks still fire under v2.
+    """
+    # Local import to avoid a circular ``stream <-> stream_v2`` cycle.
+    from langgraph_api.stream import _preprocess_debug_checkpoint  # noqa: PLC0415
+
+    event = cast("dict", event)
+    method = event.get("method", "")
+    params = event.get("params") or {}
+    namespace = params.get("namespace") or []
+    if method == "debug":
+        chunk = params.get("data") or {}
+        if isinstance(chunk, dict):
+            if chunk.get("type") == "checkpoint":
+                checkpoint = _preprocess_debug_checkpoint(chunk.get("payload"))
+                chunk["payload"] = checkpoint
+                on_checkpoint(checkpoint)
+            elif chunk.get("type") == "task_result":
+                on_task_result(chunk.get("payload"))
+    # Protocol v2 only forwards native content-block-shaped messages;
+    # legacy whole-message/chunk tuples are for the old endpoints and are
+    # intentionally ignored here.
+    if method == "messages":
+        raw_data = params.get("data")
+        payload = normalize_v2_messages_data(raw_data)
+        if payload is None:
+            return None
+        if payload is not raw_data:
+            params = {**params, "data": payload}
+            event = {**event, "params": params}
+    # Carry the namespace in the stream event name so ``parse_event_name``
+    # in ``session.py`` can recover it, matching the raw ``astream`` path.
+    ns_suffix = f"|{'|'.join(namespace)}" if namespace else ""
+    return f"{method}{ns_suffix}", event
+
+
 def is_v2_messages_chunk(chunk: Any) -> bool:
     """Heuristically detect a ``StreamMessagesHandlerV2`` chunk.
 
@@ -131,10 +184,9 @@ async def astream_state_v2(
         StreamTransformer,
     )
 
-    # Local imports to avoid a circular ``stream <-> stream_v2`` cycle and
+    # Local import to avoid a circular ``stream <-> stream_v2`` cycle and
     # keep this module's import graph small.
     from langgraph_api.graph import GRAPH_STREAM_TRANSFORMERS  # noqa: PLC0415
-    from langgraph_api.stream import _preprocess_debug_checkpoint  # noqa: PLC0415
 
     user_transformers: list[Any] | None = None
     factory = GRAPH_STREAM_TRANSFORMERS.get(configurable.get("graph_id"))
@@ -191,34 +243,10 @@ async def astream_state_v2(
             event = await wait_if_not_done(anext(iterator, sentinel), done)
             if event is sentinel:
                 break
-            event = cast("dict", event)
-            method = event.get("method", "")
-            params = event.get("params") or {}
-            namespace = params.get("namespace") or []
-            # Feed checkpoint / task_result into the run state machine
-            # so retention + persistence hooks still fire under v2.
-            if method == "debug":
-                chunk = params.get("data") or {}
-                if isinstance(chunk, dict):
-                    if chunk.get("type") == "checkpoint":
-                        checkpoint = _preprocess_debug_checkpoint(chunk.get("payload"))
-                        chunk["payload"] = checkpoint
-                        on_checkpoint(checkpoint)
-                    elif chunk.get("type") == "task_result":
-                        on_task_result(chunk.get("payload"))
-            # Protocol v2 only forwards native content-block-shaped
-            # messages; legacy whole-message/chunk tuples are for the
-            # old endpoints and are intentionally ignored here.
-            if method == "messages":
-                raw_data = params.get("data")
-                payload = normalize_v2_messages_data(raw_data)
-                if payload is None:
-                    continue
-                if payload is not raw_data:
-                    params = {**params, "data": payload}
-                    event = {**event, "params": params}
-            # Carry the namespace in the stream event name so
-            # ``parse_event_name`` in ``session.py`` can recover it,
-            # matching the raw ``astream`` path.
-            ns_suffix = f"|{'|'.join(namespace)}" if namespace else ""
-            yield f"{method}{ns_suffix}", event
+            normalized = normalize_protocol_event(
+                event,
+                on_checkpoint=on_checkpoint,
+                on_task_result=on_task_result,
+            )
+            if normalized is not None:
+                yield normalized

@@ -18,7 +18,6 @@
 #
 # So we can iterate over batches just by knowing offsets of Length. Magic is
 # used to construct the correct class for Batch itself.
-from __future__ import division
 
 import struct
 
@@ -120,10 +119,11 @@ class MemoryRecords(ABCRecords):
     next = __next__
 
 
-class MemoryRecordsBuilder(object):
+class MemoryRecordsBuilder:
 
     __slots__ = ("_builder", "_batch_size", "_buffer", "_next_offset", "_closed",
-                 "_magic", "_bytes_written", "_producer_id", "_producer_epoch")
+                 "_magic", "_bytes_written", "_producer_id", "_producer_epoch",
+                 "_base_sequence")
 
     def __init__(self, magic, compression_type, batch_size, offset=0,
                  transactional=False, producer_id=-1, producer_epoch=-1, base_sequence=-1):
@@ -141,12 +141,15 @@ class MemoryRecordsBuilder(object):
                 batch_size=batch_size)
             self._producer_id = producer_id
             self._producer_epoch = producer_epoch
+            self._base_sequence = base_sequence
         else:
             assert not transactional and producer_id == -1, "Idempotent messages are not supported for magic %s" % (magic,)
             self._builder = LegacyRecordBatchBuilder(
                 magic=magic, compression_type=compression_type,
                 batch_size=batch_size)
             self._producer_id = None
+            self._producer_epoch = None
+            self._base_sequence = None
         self._batch_size = batch_size
         self._buffer = None
 
@@ -159,11 +162,13 @@ class MemoryRecordsBuilder(object):
         # Exposed for testing compacted records
         self._next_offset += offsets_to_skip
 
-    def append(self, timestamp, key, value, headers=[]):
+    def append(self, timestamp, key, value, headers=None):
         """ Append a message to the buffer.
 
         Returns: RecordMetadata or None if unable to append
         """
+        if headers is None:
+            headers = []
         if self._closed:
             return None
 
@@ -187,6 +192,8 @@ class MemoryRecordsBuilder(object):
             raise IllegalStateError("Trying to set producer state of an already closed batch. This indicates a bug on the client.")
         self._builder.set_producer_state(producer_id, producer_epoch, base_sequence, is_transactional)
         self._producer_id = producer_id
+        self._producer_epoch = producer_epoch
+        self._base_sequence = base_sequence
 
     @property
     def producer_id(self):
@@ -195,6 +202,10 @@ class MemoryRecordsBuilder(object):
     @property
     def producer_epoch(self):
         return self._producer_epoch
+
+    @property
+    def base_sequence(self):
+        return self._base_sequence
 
     def records(self):
         assert self._closed
@@ -208,10 +219,15 @@ class MemoryRecordsBuilder(object):
         # see Issue 718
         if not self._closed:
             self._bytes_written = self._builder.size()
-            self._buffer = bytes(self._builder.build())
+            # Keep the buffer as bytearray to avoid a full-batch copy on
+            # close. Downstream consumers (MemoryRecords via memoryview and
+            # the protocol encoder via slice-assignment) handle bytearray
+            # without further copies.
+            self._buffer = self._builder.build()
             if self._magic == 2:
                 self._producer_id = self._builder.producer_id
                 self._producer_epoch = self._builder.producer_epoch
+                self._base_sequence = self._builder.base_sequence
             self._builder = None
         self._closed = True
 

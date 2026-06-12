@@ -1,6 +1,6 @@
 //! AWK interpreter - executes a parsed `AwkProgram`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -8,11 +8,13 @@ use super::{AwkAction, AwkExpr, AwkFunctionDef, AwkOutputTarget, AwkPattern, Awk
 use crate::builtins::MAX_FORMAT_WIDTH;
 use crate::builtins::limits::{
     AWK_MAX_CALL_DEPTH as MAX_AWK_CALL_DEPTH,
+    AWK_MAX_GETLINE_CACHE_BYTES as MAX_GETLINE_CACHE_BYTES,
     AWK_MAX_GETLINE_CACHED_FILES as MAX_GETLINE_CACHED_FILES,
-    AWK_MAX_OUTPUT_BYTES as MAX_AWK_OUTPUT_BYTES,
+    AWK_MAX_GETLINE_FILE_BYTES as MAX_GETLINE_FILE_BYTES,
+    AWK_MAX_OUTPUT_BYTES as MAX_AWK_OUTPUT_BYTES, AWK_MAX_OUTPUT_TARGETS as MAX_AWK_OUTPUT_TARGETS,
 };
 use crate::builtins::search_common::build_regex;
-use crate::fs::FileSystem;
+use crate::fs::{FileSystem, normalize_path};
 use crate::limits::ExecutionLimits;
 
 /// Flow control signal from action execution
@@ -29,7 +31,87 @@ pub(super) enum AwkFlow {
 // Awk runtime limits (TM-DOS-027, TM-DOS-028) live in `super::limits`:
 // - AWK_MAX_CALL_DEPTH (user-function recursion)
 // - AWK_MAX_OUTPUT_BYTES (total stdout+stderr+file redirects, 10 MB)
+// - AWK_MAX_OUTPUT_TARGETS (distinct redirected output files).
 // - AWK_MAX_GETLINE_CACHED_FILES (distinct files held open by `getline`).
+// - AWK_MAX_GETLINE_FILE_BYTES / AWK_MAX_GETLINE_CACHE_BYTES (retained input bytes).
+
+/// One redirected VFS write, dispatched to the [`VfsWriter`] thread.
+struct WriteJob {
+    path: PathBuf,
+    bytes: Vec<u8>,
+    append: bool,
+    resp: std::sync::mpsc::Sender<crate::error::Result<()>>,
+}
+
+/// A single long-lived OS thread owning one Tokio runtime that serializes
+/// redirected VFS writes.
+///
+/// AWK executes synchronously inside the outer async runtime, so each
+/// redirected write must hop to a thread with its own runtime to call the async
+/// VFS. Spawning a fresh thread + runtime per write would let a tight
+/// `print > file` loop create thousands of threads/runtimes (DoS). Reusing one
+/// writer for the whole run keeps writes incremental (so VFS quotas are still
+/// enforced as they happen) at O(1) threads.
+struct VfsWriter {
+    tx: Option<std::sync::mpsc::Sender<WriteJob>>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl VfsWriter {
+    fn new(fs: Arc<dyn FileSystem>) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel::<WriteJob>();
+        let handle = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("awk vfs writer runtime");
+            runtime.block_on(async move {
+                while let Ok(job) = rx.recv() {
+                    let res = if job.append {
+                        fs.append_file(&job.path, &job.bytes).await
+                    } else {
+                        fs.write_file(&job.path, &job.bytes).await
+                    };
+                    let _ = job.resp.send(res);
+                }
+            });
+        });
+        Self {
+            tx: Some(tx),
+            handle: Some(handle),
+        }
+    }
+
+    /// Perform one write synchronously on the writer thread. Returns the VFS
+    /// result, or `Err(())` if the writer thread is gone.
+    fn write(
+        &self,
+        path: PathBuf,
+        bytes: Vec<u8>,
+        append: bool,
+    ) -> Result<crate::error::Result<()>, ()> {
+        let (resp_tx, resp_rx) = std::sync::mpsc::channel();
+        let job = WriteJob {
+            path,
+            bytes,
+            append,
+            resp: resp_tx,
+        };
+        self.tx.as_ref().ok_or(())?.send(job).map_err(|_| ())?;
+        resp_rx.recv().map_err(|_| ())
+    }
+}
+
+impl Drop for VfsWriter {
+    fn drop(&mut self) {
+        // Drop the sender first so the writer loop's `rx.recv()` returns Err and
+        // the thread exits, then join it to flush any in-flight write cleanly.
+        drop(self.tx.take());
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
 
 pub(super) struct AwkInterpreter {
     pub(super) state: AwkState,
@@ -44,16 +126,20 @@ pub(super) struct AwkInterpreter {
     pub(super) functions: HashMap<String, AwkFunctionDef>,
     /// Current function call depth for recursion limiting
     call_depth: usize,
-    /// Buffered file outputs for `>` redirection (path -> content).
-    /// Truncate mode: first write creates entry, subsequent writes append to buffer.
-    /// Flushed to VFS after execution completes.
-    pub(super) file_outputs: HashMap<String, String>,
-    /// Buffered file outputs for `>>` redirection (path -> content).
-    /// Append mode: content is appended to existing file on flush.
-    pub(super) file_appends: HashMap<String, String>,
+    /// Paths already seen as `>`/`>>` redirect targets in this AWK run.
+    /// First write truncates (for `>`); later writes stream as appends. Also
+    /// serves as the distinct-target set for the output-target DoS guard.
+    pub(super) file_truncates: HashSet<String>,
+    /// Total bytes streamed to real file redirects, excluding discarded devices.
+    redirected_file_output_bytes: usize,
+    /// Single reusable writer thread for redirected VFS writes (lazily started
+    /// on the first redirect). Joined when the interpreter is dropped.
+    vfs_writer: Option<VfsWriter>,
     /// Cached file inputs for `getline var < file` redirection.
-    /// Maps resolved path -> (lines, current_position).
+    /// Maps normalized resolved path -> (lines, current_position).
     file_inputs: HashMap<String, (Vec<String>, usize)>,
+    /// Approximate raw input bytes retained by `file_inputs`.
+    file_input_bytes: usize,
     /// VFS reference for lazy file reads (getline < file).
     pub(super) fs: Option<Arc<dyn FileSystem>>,
     /// Working directory for resolving relative paths.
@@ -75,15 +161,26 @@ impl AwkInterpreter {
             input_lines: Vec::new(),
             line_index: 0,
             functions: HashMap::new(),
-            file_outputs: HashMap::new(),
-            file_appends: HashMap::new(),
+            file_truncates: HashSet::new(),
+            redirected_file_output_bytes: 0,
+            vfs_writer: None,
             file_inputs: HashMap::new(),
+            file_input_bytes: 0,
             call_depth: 0,
             fs: None,
             cwd: PathBuf::from("/"),
             range_active: HashMap::new(),
             max_loop_iterations: ExecutionLimits::default().max_loop_iterations,
         }
+    }
+
+    fn resolve_getline_path(&self, path_str: &str) -> String {
+        let resolved = if path_str.starts_with('/') {
+            PathBuf::from(path_str)
+        } else {
+            self.cwd.join(path_str)
+        };
+        normalize_path(&resolved).to_string_lossy().to_string()
     }
 
     /// Load a file into the `file_inputs` cache if not already present.
@@ -93,7 +190,7 @@ impl AwkInterpreter {
         if self.file_inputs.contains_key(resolved) {
             return true;
         }
-        // Guard: cap number of cached files to prevent memory exhaustion
+        // Guard: cap cache entries and retained bytes before whole-file reads.
         if self.file_inputs.len() >= MAX_GETLINE_CACHED_FILES {
             return false;
         }
@@ -104,18 +201,32 @@ impl AwkInterpreter {
         let p = PathBuf::from(resolved);
         // Spawn a thread with its own runtime to avoid blocking the current async runtime.
         let result = std::thread::spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .unwrap()
-                .block_on(fs.read_file(&p))
+                .unwrap();
+            let meta = runtime.block_on(fs.stat(&p))?;
+            if meta.size > MAX_GETLINE_FILE_BYTES as u64 {
+                return Err(std::io::Error::other("awk getline input too large").into());
+            }
+            runtime.block_on(fs.read_file(&p))
         })
         .join();
         match result {
             Ok(Ok(bytes)) => {
+                if bytes.len() > MAX_GETLINE_FILE_BYTES {
+                    return false;
+                }
+                let Some(total) = self.file_input_bytes.checked_add(bytes.len()) else {
+                    return false;
+                };
+                if total > MAX_GETLINE_CACHE_BYTES {
+                    return false;
+                }
                 let text = String::from_utf8_lossy(&bytes).into_owned();
                 let lines: Vec<String> = text.lines().map(|l| l.to_string()).collect();
                 self.file_inputs.insert(resolved.to_string(), (lines, 0));
+                self.file_input_bytes = total;
                 true
             }
             _ => false,
@@ -343,11 +454,7 @@ impl AwkInterpreter {
             }
             AwkExpr::GetlineFile { var, file } => {
                 let path_str = self.eval_expr(file).as_string();
-                let resolved = if path_str.starts_with('/') {
-                    path_str.clone()
-                } else {
-                    self.cwd.join(&path_str).to_string_lossy().to_string()
-                };
+                let resolved = self.resolve_getline_path(&path_str);
 
                 if !self.ensure_file_loaded(&resolved) {
                     return AwkValue::Number(-1.0);
@@ -968,39 +1075,101 @@ impl AwkInterpreter {
         Ok(result)
     }
 
-    /// Total bytes buffered across all output streams.
+    /// Total bytes accounted across all output streams (O(1): stdout/stderr
+    /// lengths plus the running streamed-redirect counter).
     fn total_output_bytes(&self) -> usize {
-        self.output.len()
-            + self.stderr_output.len()
-            + self.file_outputs.values().map(|v| v.len()).sum::<usize>()
-            + self.file_appends.values().map(|v| v.len()).sum::<usize>()
+        self.output.len() + self.stderr_output.len() + self.redirected_file_output_bytes
     }
 
-    /// Write text to stdout buffer or to a file output buffer based on the target.
-    /// Returns `false` if the write would exceed [`MAX_AWK_OUTPUT_BYTES`].
+    fn has_output_capacity(&self, len: usize) -> bool {
+        len <= MAX_AWK_OUTPUT_BYTES.saturating_sub(self.total_output_bytes())
+    }
+
+    /// Stream text to stdout, stderr, or the VFS-backed redirect target.
+    /// Returns `false` if output limits or VFS validation reject the write.
     fn write_output(&mut self, text: &str, target: &Option<AwkOutputTarget>) -> bool {
-        if self.total_output_bytes() + text.len() > MAX_AWK_OUTPUT_BYTES {
+        if !self.has_output_capacity(text.len()) {
             self.stderr_output
                 .push_str("awk: output limit exceeded (max 10MB)\n");
             return false;
         }
         match target {
-            None => self.output.push_str(text),
+            None => {
+                self.output.push_str(text);
+                true
+            }
             Some(AwkOutputTarget::Truncate(expr)) | Some(AwkOutputTarget::Append(expr)) => {
                 let path = self.eval_expr(expr).as_string();
-                // Intercept /dev/stderr and /dev/stdout — route to streams, not VFS
-                if path == "/dev/stderr" {
+                // Intercept special devices before VFS work so /dev/null never buffers.
+                if path == "/dev/null" {
+                    true
+                } else if path == "/dev/stderr" {
                     self.stderr_output.push_str(text);
+                    true
                 } else if path == "/dev/stdout" {
                     self.output.push_str(text);
-                } else if matches!(target, Some(AwkOutputTarget::Append(_))) {
-                    self.file_appends.entry(path).or_default().push_str(text);
+                    true
                 } else {
-                    self.file_outputs.entry(path).or_default().push_str(text);
+                    let append = matches!(target, Some(AwkOutputTarget::Append(_)));
+                    self.write_file_output(&path, text, append)
                 }
             }
         }
-        true
+    }
+
+    /// Write redirected output immediately through the VFS so sandbox quotas are
+    /// enforced during AWK execution instead of after unbounded buffering.
+    fn write_file_output(&mut self, path: &str, text: &str, append: bool) -> bool {
+        let resolved = if path.starts_with('/') {
+            PathBuf::from(path)
+        } else {
+            self.cwd.join(path)
+        };
+        let key = resolved.to_string_lossy().into_owned();
+        // Bound the number of distinct redirect targets (DoS guard, parity with
+        // the previous buffered implementation). file_truncates doubles as the
+        // distinct-target set, so reject new targets before inserting them.
+        if !self.file_truncates.contains(&key)
+            && self.file_truncates.len() >= MAX_AWK_OUTPUT_TARGETS
+        {
+            self.stderr_output
+                .push_str("awk: too many output redirection targets\n");
+            return false;
+        }
+        let fs = match &self.fs {
+            Some(fs) => fs.clone(),
+            None => {
+                self.stderr_output
+                    .push_str("awk: no filesystem available\n");
+                return false;
+            }
+        };
+        let bytes = text.as_bytes().to_vec();
+        // First write to a path truncates (for `>`); later writes append. `>>`
+        // always appends. insert() returns false when the path was already seen.
+        let first_write = self.file_truncates.insert(key);
+        let append = append || !first_write;
+
+        // Start the single reusable writer thread on first use, then dispatch
+        // every redirected write through it (one thread/runtime per AWK run, not
+        // per write).
+        let writer = self.vfs_writer.get_or_insert_with(|| VfsWriter::new(fs));
+        match writer.write(resolved, bytes, append) {
+            Ok(Ok(())) => {
+                self.redirected_file_output_bytes += text.len();
+                true
+            }
+            Ok(Err(e)) => {
+                self.stderr_output
+                    .push_str(&format!("awk: cannot write {path}: {e}\n"));
+                false
+            }
+            Err(()) => {
+                self.stderr_output
+                    .push_str(&format!("awk: cannot write {path}: write worker failed\n"));
+                false
+            }
+        }
     }
 
     /// Execute action. Returns flow control signal.
@@ -1213,11 +1382,7 @@ impl AwkInterpreter {
             AwkAction::GetlineFile { var, file } => {
                 // Read next line from file (action context — return value discarded).
                 let path_str = self.eval_expr(file).as_string();
-                let resolved = if path_str.starts_with('/') {
-                    path_str.clone()
-                } else {
-                    self.cwd.join(&path_str).to_string_lossy().to_string()
-                };
+                let resolved = self.resolve_getline_path(&path_str);
 
                 if !self.ensure_file_loaded(&resolved) {
                     return AwkFlow::Continue;

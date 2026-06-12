@@ -57,6 +57,14 @@ __all__ = [
     "AccessYandex",
     "AccessYandexSAMLCertificateSet",
     "AccessYandexSAMLCertificateSetCurrentCertificate",
+    "AccessOnetimepin",
+    "AccessOnetimepinConfig",
+    "AccessOnetimepinSAMLCertificateSet",
+    "AccessOnetimepinSAMLCertificateSetCurrentCertificate",
+    "AccessCloudflare",
+    "AccessCloudflareConfig",
+    "AccessCloudflareSAMLCertificateSet",
+    "AccessCloudflareSAMLCertificateSetCurrentCertificate",
 ]
 
 
@@ -153,6 +161,12 @@ class AccessCentrify(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessCentrifySAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -243,6 +257,12 @@ class AccessFacebook(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessFacebookSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -332,6 +352,12 @@ class AccessGitHub(BaseModel):
 
     id: Optional[str] = None
     """UUID."""
+
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
 
     saml_certificate_set: Optional[AccessGitHubSAMLCertificateSet] = None
     """
@@ -441,6 +467,12 @@ class AccessGoogle(BaseModel):
 
     id: Optional[str] = None
     """UUID."""
+
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
 
     saml_certificate_set: Optional[AccessGoogleSAMLCertificateSet] = None
     """
@@ -554,6 +586,12 @@ class AccessGoogleApps(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessGoogleAppsSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -643,6 +681,12 @@ class AccessLinkedin(BaseModel):
 
     id: Optional[str] = None
     """UUID."""
+
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
 
     saml_certificate_set: Optional[AccessLinkedinSAMLCertificateSet] = None
     """
@@ -768,6 +812,12 @@ class AccessOIDC(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessOIDCSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -883,6 +933,12 @@ class AccessOkta(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessOktaSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -995,6 +1051,12 @@ class AccessOnelogin(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessOneloginSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -1106,6 +1168,12 @@ class AccessPingone(BaseModel):
 
     id: Optional[str] = None
     """UUID."""
+
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
 
     saml_certificate_set: Optional[AccessPingoneSAMLCertificateSet] = None
     """
@@ -1259,6 +1327,12 @@ class AccessSAML(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessSAMLSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
@@ -1349,7 +1423,230 @@ class AccessYandex(BaseModel):
     id: Optional[str] = None
     """UUID."""
 
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
     saml_certificate_set: Optional[AccessYandexSAMLCertificateSet] = None
+    """
+    The SAML encryption certificate set details, including current and previous
+    certificates. Only present for SAML identity providers with a certificate set
+    assigned.
+    """
+
+    saml_certificate_set_id: Optional[str] = None
+    """
+    The UID of the SAML encryption certificate set assigned to this Identity
+    Provider. Only present for SAML identity providers with encryption configured.
+    Create a certificate set via POST to
+    `/identity_providers/{id}/saml_certificate`.
+    """
+
+    scim_config: Optional[IdentityProviderSCIMConfig] = None
+    """
+    The configuration settings for enabling a System for Cross-Domain Identity
+    Management (SCIM) with the identity provider.
+    """
+
+
+class AccessOnetimepinConfig(BaseModel):
+    """The configuration parameters for the identity provider.
+
+    To view the required parameters for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).
+    """
+
+    redirect_url: Optional[str] = None
+
+
+class AccessOnetimepinSAMLCertificateSetCurrentCertificate(BaseModel):
+    """The currently active certificate used for encrypting SAML assertions"""
+
+    is_current: bool
+    """Indicates whether this is the currently active certificate"""
+
+    not_after: datetime
+    """Certificate expiration date.
+
+    Certificates are automatically rotated 30 days before expiration.
+    """
+
+    public_certificate: str
+    """
+    PEM-encoded X.509 certificate containing the public key. Configure this
+    certificate in your external SAML Identity Provider to enable encryption.
+    """
+
+    uid: str
+    """Unique identifier for the certificate"""
+
+
+class AccessOnetimepinSAMLCertificateSet(BaseModel):
+    """
+    The SAML encryption certificate set details, including current and previous certificates.
+    Only present for SAML identity providers with a certificate set assigned.
+    """
+
+    created_at: datetime
+    """Timestamp when the certificate set was created"""
+
+    uid: str
+    """Unique identifier for the certificate set"""
+
+    updated_at: datetime
+    """Timestamp when the certificate set was last updated (e.g., during rotation)"""
+
+    current_certificate: Optional[AccessOnetimepinSAMLCertificateSetCurrentCertificate] = None
+    """The currently active certificate used for encrypting SAML assertions"""
+
+    previous_certificate: Optional[object] = None
+    """The previous certificate, maintained during rotation to ensure continuity.
+
+    Null if no rotation has occurred. Mirrors the structure of `saml_certificate`.
+    """
+
+
+class AccessOnetimepin(BaseModel):
+    config: AccessOnetimepinConfig
+    """The configuration parameters for the identity provider.
+
+    To view the required parameters for a specific provider, refer to our
+    [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).
+    """
+
+    name: str
+    """The name of the identity provider, shown to users on the login page."""
+
+    type: IdentityProviderType
+    """The type of identity provider.
+
+    To determine the value for a specific provider, refer to our
+    [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).
+    """
+
+    id: Optional[str] = None
+    """UUID."""
+
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
+    saml_certificate_set: Optional[AccessOnetimepinSAMLCertificateSet] = None
+    """
+    The SAML encryption certificate set details, including current and previous
+    certificates. Only present for SAML identity providers with a certificate set
+    assigned.
+    """
+
+    saml_certificate_set_id: Optional[str] = None
+    """
+    The UID of the SAML encryption certificate set assigned to this Identity
+    Provider. Only present for SAML identity providers with encryption configured.
+    Create a certificate set via POST to
+    `/identity_providers/{id}/saml_certificate`.
+    """
+
+    scim_config: Optional[IdentityProviderSCIMConfig] = None
+    """
+    The configuration settings for enabling a System for Cross-Domain Identity
+    Management (SCIM) with the identity provider.
+    """
+
+
+class AccessCloudflareConfig(BaseModel):
+    """The configuration parameters for the identity provider.
+
+    To view the required parameters for a specific provider, refer to our [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).
+    """
+
+    redirect_url: Optional[str] = None
+
+    restrict_to_account_members: Optional[bool] = None
+    """
+    When enabled, only users who are members of your Cloudflare account can
+    authenticate through this identity provider. When disabled, any user with a
+    Cloudflare account can authenticate, subject to your Access policies.
+    """
+
+
+class AccessCloudflareSAMLCertificateSetCurrentCertificate(BaseModel):
+    """The currently active certificate used for encrypting SAML assertions"""
+
+    is_current: bool
+    """Indicates whether this is the currently active certificate"""
+
+    not_after: datetime
+    """Certificate expiration date.
+
+    Certificates are automatically rotated 30 days before expiration.
+    """
+
+    public_certificate: str
+    """
+    PEM-encoded X.509 certificate containing the public key. Configure this
+    certificate in your external SAML Identity Provider to enable encryption.
+    """
+
+    uid: str
+    """Unique identifier for the certificate"""
+
+
+class AccessCloudflareSAMLCertificateSet(BaseModel):
+    """
+    The SAML encryption certificate set details, including current and previous certificates.
+    Only present for SAML identity providers with a certificate set assigned.
+    """
+
+    created_at: datetime
+    """Timestamp when the certificate set was created"""
+
+    uid: str
+    """Unique identifier for the certificate set"""
+
+    updated_at: datetime
+    """Timestamp when the certificate set was last updated (e.g., during rotation)"""
+
+    current_certificate: Optional[AccessCloudflareSAMLCertificateSetCurrentCertificate] = None
+    """The currently active certificate used for encrypting SAML assertions"""
+
+    previous_certificate: Optional[object] = None
+    """The previous certificate, maintained during rotation to ensure continuity.
+
+    Null if no rotation has occurred. Mirrors the structure of `saml_certificate`.
+    """
+
+
+class AccessCloudflare(BaseModel):
+    config: AccessCloudflareConfig
+    """The configuration parameters for the identity provider.
+
+    To view the required parameters for a specific provider, refer to our
+    [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).
+    """
+
+    name: str
+    """The name of the identity provider, shown to users on the login page."""
+
+    type: IdentityProviderType
+    """The type of identity provider.
+
+    To determine the value for a specific provider, refer to our
+    [developer documentation](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/).
+    """
+
+    id: Optional[str] = None
+    """UUID."""
+
+    read_only: Optional[bool] = None
+    """
+    Indicates that the identity provider is immutable and cannot be updated or
+    deleted via the API.
+    """
+
+    saml_certificate_set: Optional[AccessCloudflareSAMLCertificateSet] = None
     """
     The SAML encryption certificate set details, including current and previous
     certificates. Only present for SAML identity providers with a certificate set
@@ -1385,4 +1682,6 @@ IdentityProviderListResponse: TypeAlias = Union[
     AccessPingone,
     AccessSAML,
     AccessYandex,
+    AccessOnetimepin,
+    AccessCloudflare,
 ]

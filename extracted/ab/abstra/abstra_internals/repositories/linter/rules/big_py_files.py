@@ -1,7 +1,12 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
+from abstra_internals.repositories.linter.models import (
+    LinterIssue,
+    PathScopedLinterRule,
+    linter_path_key,
+    normalize_linter_path,
+)
 from abstra_internals.repositories.project.project import LocalProjectRepository
 
 # Constant to make it easy to change the line limit
@@ -14,26 +19,28 @@ class BigPyFileFound(LinterIssue):
         self.fixes = []  # No automatic fix available for this type of issue
 
 
-class BigPyFiles(LinterRule):
+class BigPyFiles(PathScopedLinterRule):
     label = "Large Python files"
     type = "info"
     fix_with_ai = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues = []
 
-        # Check all Python files in the project
-        for py_file in project.iter_py_files():
+        for py_file in project.iter_scoped_py_files(path):
             try:
-                if py_file.exists() and py_file.is_file():
+                file = normalize_linter_path(py_file)
+                if file.exists() and file.is_file():
                     # Count the number of lines in the file
-                    with open(py_file, "r", encoding="utf-8") as f:
+                    with open(file, "r", encoding="utf-8") as f:
                         line_count = sum(1 for _ in f)
 
                     # If it exceeds the limit, add an issue
                     if line_count > MAX_LINES_THRESHOLD:
-                        issues.append(BigPyFileFound(py_file, line_count))
+                        issue = BigPyFileFound(py_file, line_count)
+                        issue.path = linter_path_key(py_file)
+                        issues.append(issue)
             except (UnicodeDecodeError, OSError):
                 # Ignore files that cannot be read as text
                 continue

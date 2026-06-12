@@ -1,0 +1,25 @@
+include:
+  - local: .gitlab/ci/test.yml
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/redhat/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/redhat/all@2
+    inputs:
+      needs: [sdist]
+      redhat_versions:
+        - 8
+        - 9
+      test_install: >-
+        python3-igwn-segments
+        python3-packaging
+        python3-pip
+        python3-pytest
+        python3-pytest-cov
+        python3-pytest-xdist
+        $(test "$REDHAT_VERSION" -le 8 && echo python3-lal)
+
+# -- overwrite test jobs to use sections from the .system_test template
+
+redhat_test:
+  variables: !reference [.system_test, variables]
+  script: !reference [.system_test, script]
+  artifacts: !reference [.system_test, artifacts]

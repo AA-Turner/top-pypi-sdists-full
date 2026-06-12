@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sap-cloud-sdk
-Version: 0.25.1
+Version: 0.26.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0

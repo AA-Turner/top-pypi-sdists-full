@@ -20,6 +20,13 @@ import httpx
 from pydantic import BaseModel
 from rich.console import Console
 
+from plato.agents.install import (
+    CLEAN_WORLD_BUILD_ARTIFACTS_COMMAND,
+    DISCOVER_WORLD_PACKAGES_COMMAND,
+    ENSURE_FUSE3_COMMAND,
+    build_editable_install_commands,
+    build_world_deps_sync_command,
+)
 from plato.chronos.api.registry import (
     get_world_schema_api_registry_worlds__package_name__schema_get as get_world_schema_api,
 )
@@ -37,12 +44,11 @@ from plato.chronos.models import (
     Status1,
     UpdateStatusRequest,
 )
-from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.runner import resolve_agent_images
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
 from plato.cli.chronos.dev.sync import SyncManager
-from plato.cli.chronos.env import resolve_config_env_vars
-from plato.cli.chronos.provision import SyncTarget, provision_vm
+from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
+from plato.cli.chronos.provision import SyncTarget, build_sync_targets, provision_vm
 from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
@@ -267,13 +273,6 @@ class TestRunner:
 
         return exit_code
 
-    def _resolve_path(self, value: Path | None) -> Path | None:
-        if value is None:
-            return None
-        if value.is_absolute():
-            return value
-        return (self.config_path.parent / value).resolve()
-
     async def _setup_vm(self) -> None:
         if self.reuse_vm:
             await self._setup_vm_reuse()
@@ -497,6 +496,7 @@ class TestRunner:
             raise RuntimeError(f"Sync failed for {failed} target(s)")
         self._print("[reuse] Code synced (skipped editable install)")
 
+        await self._sync_world_deps()
         await self._resolve_and_write_config()
         self._print("[reuse] VM ready for tests")
 
@@ -524,8 +524,6 @@ class TestRunner:
         await resolve_config_env_vars(world_config, self.api_key)
         pass_env_values = {name: val for name in self.config.test.pass_env if (val := os.environ.get(name))}
         if pass_env_values:
-            from plato.cli.chronos.env import substitute_env_vars
-
             substituted = substitute_env_vars(world_config, pass_env_values)
             if isinstance(substituted, dict):
                 world_config.clear()
@@ -535,33 +533,9 @@ class TestRunner:
 
     def _build_sync_targets(self) -> list[SyncTarget]:
         """Build the list of sync targets from config."""
-        targets: list[SyncTarget] = []
-
-        world_path = self._resolve_path(self.config.dev.world)
-        if world_path:
-            targets.append(SyncTarget(local_path=world_path, remote_path="/world"))
-
-        for name, agent_path in self.config.dev.agents.items():
-            resolved = self._resolve_path(agent_path)
-            if resolved:
-                targets.append(SyncTarget(local_path=resolved, remote_path=f"/agents/{name}"))
-
-        for name, extra_path in self.config.dev.extra_sync.items():
-            resolved = self._resolve_path(extra_path)
-            if resolved:
-                targets.append(SyncTarget(local_path=resolved, remote_path=f"/extra/{name}"))
-
-        if self.config.dev.sync_sdk:
-            if isinstance(self.config.dev.sync_sdk, Path):
-                sdk_root = self._resolve_path(self.config.dev.sync_sdk)
-            else:
-                sdk_root = get_sdk_root()
-            if sdk_root and (sdk_root / "pyproject.toml").exists():
-                targets.append(SyncTarget(local_path=sdk_root, remote_path="/sdk"))
-
+        targets = build_sync_targets(self.config.dev, self.config_path.parent)
         if not targets:
             raise RuntimeError("No sync targets configured. Provide `dev.world` and/or `dev.agents`.")
-
         return targets
 
     async def _install_editable_packages(self) -> None:
@@ -572,18 +546,12 @@ class TestRunner:
         logger.info("Installing editable packages on VM...")
 
         t0 = perf_counter()
-        await self.world_env.execute(
-            "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1",
-            timeout=60,
-        )
+        await self.world_env.execute(ENSURE_FUSE3_COMMAND, timeout=60)
         logger.info("fuse3 check: %.1fs", perf_counter() - t0)
 
         # Clean build artifacts so editable install uses fresh source
         if self.config.dev.world:
-            await self.world_env.execute(
-                "rm -rf /world/dist /world/*.egg-info /world/src/*.egg-info /world/build",
-                timeout=20,
-            )
+            await self.world_env.execute(CLEAN_WORLD_BUILD_ARTIFACTS_COMMAND, timeout=20)
 
         # Uninstall published packages, then reinstall as editable.
         # Use base SDK (no [worlds] extra) — DVC/dvc-s3 are already in the
@@ -597,12 +565,7 @@ class TestRunner:
 
         if self.config.dev.world:
             t0 = perf_counter()
-            world_pkgs = await self.world_env.execute(
-                'python3 -c "import importlib.metadata; '
-                "eps = importlib.metadata.entry_points(group='plato.worlds'); "
-                "print(' '.join(set(ep.dist.name for ep in eps)))\" 2>/dev/null || true",
-                timeout=30,
-            )
+            world_pkgs = await self.world_env.execute(DISCOVER_WORLD_PACKAGES_COMMAND, timeout=30)
             installed_world_pkgs = (world_pkgs.stdout or "").strip()
             if installed_world_pkgs:
                 uninstall_pkgs.extend(installed_world_pkgs.split())
@@ -623,8 +586,6 @@ class TestRunner:
             logger.info("Uninstalled %s: %.1fs", " ".join(uninstall_pkgs), perf_counter() - t0)
 
         # Strip "-e " prefix to get bare paths for build_editable_install_commands
-        from plato.agents.install import build_editable_install_commands
-
         paths = [e.removeprefix("-e ") for e in editables]
         install_cmds = build_editable_install_commands(paths)
         t0 = perf_counter()
@@ -634,6 +595,25 @@ class TestRunner:
             if result.exit_code != 0:
                 raise RuntimeError(f"Editable install failed: {result.stderr}")
         logger.info("Editable install complete: %.1fs", perf_counter() - t0)
+
+        await self._sync_world_deps()
+
+    async def _sync_world_deps(self) -> None:
+        """Install world deps missing from the pre-baked venv.
+
+        Editable installs are --no-deps, so a dep added to the synced world's
+        pyproject.toml after its image was baked must be installed here
+        (no-op when already satisfied).
+        """
+        if not self.config.dev.world:
+            return
+        if not self.world_env:
+            raise RuntimeError("world_env must be initialized")
+        t0 = perf_counter()
+        result = await self.world_env.execute(build_world_deps_sync_command(), timeout=300)
+        if result.exit_code != 0:
+            raise RuntimeError(f"World dependency sync failed: {result.stderr}")
+        logger.info("World deps sync: %.1fs", perf_counter() - t0)
 
     async def _run_phases(self, phases: list[TestPhaseConfig]) -> int:
         if not phases:

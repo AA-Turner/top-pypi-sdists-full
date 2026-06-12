@@ -23,6 +23,7 @@ IGNORED_PATHS = [
     ".venv",
     "__pycache__",
     ".git/",
+    ".pyrefly_buffer.py",  # PyreflyLSP scratch file; high-frequency writes
 ]
 FSEventType = Literal["changed", "created", "deleted", "moved"]
 Handler = Callable[[Path, FSEventType, Optional[str]], None]

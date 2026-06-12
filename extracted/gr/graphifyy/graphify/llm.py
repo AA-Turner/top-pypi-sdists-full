@@ -1,4 +1,3 @@
-# Direct LLM backend for semantic extraction — supports Claude, Kimi K2.6,
 # Gemini, and OpenAI.
 # Used by `graphify extract . --backend gemini` and the benchmark scripts.
 # The default graphify pipeline uses Claude Code subagents via skill.md;
@@ -322,6 +321,18 @@ def _bedrock_inference_config(max_tokens: int, model: str = "") -> dict:
     return cfg
 
 
+def _no_window_kwargs() -> dict:
+    """subprocess kwargs that suppress the console window claude.cmd would
+    otherwise pop on Windows. A labeling/extraction run spawns one `claude -p`
+    per batch — with Windows Terminal as the default terminal each spawn
+    becomes a visible window that appears and vanishes for the duration of the
+    model call. CREATE_NO_WINDOW keeps the children invisible; no-op elsewhere."""
+    import subprocess
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+    return {}
+
+
 def _resolve_api_timeout(default: float = 600.0) -> float:
     """Honour GRAPHIFY_API_TIMEOUT env var override, else use default (seconds)."""
     raw = os.environ.get("GRAPHIFY_API_TIMEOUT", "").strip()
@@ -353,6 +364,11 @@ by these rules.
 
 Node ID format: lowercase, only [a-z0-9_], no dots or slashes.
 Format: {stem}_{entity} where stem = filename without extension, entity = symbol name (both normalised).
+
+Edge direction rule — source is always the ACTOR, target is the ACTED-UPON:
+- calls: source = the function/method that CONTAINS the call site; target = the function/method BEING CALLED. Never reverse this.
+- imports/references: source = the file/entity that imports or references; target = the thing imported or referenced.
+- implements/inherits: source = the subclass/implementor; target = the base class/interface.
 
 Output exactly this schema:
 {"nodes":[{"id":"stem_entity","label":"Human Readable Name","file_type":"code|document|paper|image|rationale|concept","source_file":"relative/path","source_location":null,"source_url":null,"captured_at":null,"author":null,"contributor":null}],"edges":[{"source":"node_id","target":"node_id","relation":"calls|implements|references|cites|conceptually_related_to|shares_data_with|semantically_similar_to","confidence":"EXTRACTED|INFERRED|AMBIGUOUS","confidence_score":1.0,"source_file":"relative/path","source_location":null,"weight":1.0}],"hyperedges":[],"input_tokens":0,"output_tokens":0}
@@ -979,6 +995,38 @@ def _call_claude(api_key: str, model: str, user_message: str, max_tokens: int = 
     return result
 
 
+def _claude_cli_envelope(stdout: str) -> dict:
+    """Parse the JSON returned by `claude -p --output-format json`.
+
+    Older Claude Code CLI versions returned a single envelope object. Newer
+    versions (>= ~2.1) emit a JSON ARRAY of streamed event objects (a system
+    init event, assistant turns, an optional rate_limit_event, and a final
+    {"type":"result"} object). Normalize both shapes to the result dict that
+    carries `result`, `usage`, `modelUsage`, and `stop_reason`.
+    """
+    try:
+        envelope = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"claude -p produced unparseable JSON envelope: {exc}; "
+            f"first 500 chars of stdout: {stdout[:500]!r}"
+        ) from exc
+    if isinstance(envelope, list):
+        result_events = [
+            e for e in envelope
+            if isinstance(e, dict) and e.get("type") == "result"
+        ]
+        if result_events:
+            return result_events[-1]
+        if envelope and isinstance(envelope[-1], dict):
+            return envelope[-1]
+        raise RuntimeError(
+            "claude -p returned a JSON array with no result object; "
+            f"first 500 chars of stdout: {stdout[:500]!r}"
+        )
+    return envelope
+
+
 def _call_claude_cli(user_message: str, max_tokens: int = 8192, *, deep_mode: bool = False, images: list[_ImageRef] | None = None) -> dict:
     """Call Claude via the locally-installed Claude Code CLI (`claude -p`).
 
@@ -1059,19 +1107,14 @@ def _call_claude_cli(user_message: str, max_tokens: int = 8192, *, deep_mode: bo
         encoding="utf-8",  # Force UTF-8 — prevents UnicodeEncodeError on Windows cp1252
         timeout=_resolve_api_timeout(),
         check=False,
+        **_no_window_kwargs(),
     )
     if proc.returncode != 0:
         raise RuntimeError(
             f"claude -p exited {proc.returncode}: {proc.stderr.strip()[:500]}"
         )
 
-    try:
-        envelope = json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"claude -p produced unparseable JSON envelope: {exc}; "
-            f"first 500 chars of stdout: {proc.stdout[:500]!r}"
-        ) from exc
+    envelope = _claude_cli_envelope(proc.stdout)
 
     raw_content = envelope.get("result", "")
     result = _parse_llm_json(raw_content or "{}")
@@ -1713,24 +1756,32 @@ def _call_llm(prompt: str, *, backend: str, max_tokens: int = 200) -> str:
         return resp.content[0].text if resp.content else ""
 
     if backend == "claude-cli":
-        import shutil, subprocess
-        if shutil.which("claude") is None:
+        import platform, shutil, subprocess
+        # Mirror the extraction-path resolution: on Windows the npm shim is
+        # claude.cmd, which CreateProcess can't resolve from a bare "claude"
+        # (PATHEXT doesn't apply), so pass the resolved .cmd path explicitly.
+        claude_cmd = "claude"
+        if platform.system() == "Windows":
+            cmd_path = shutil.which("claude.cmd")
+            if cmd_path:
+                claude_cmd = cmd_path
+            elif shutil.which("claude") is None:
+                raise RuntimeError("Claude Code CLI not found on $PATH")
+        elif shutil.which("claude") is None:
             raise RuntimeError("Claude Code CLI not found on $PATH")
         proc = subprocess.run(
-            ["claude", "-p", "--output-format", "json", "--no-session-persistence"],
+            [claude_cmd, "-p", "--output-format", "json", "--no-session-persistence"],
             input=prompt,
             capture_output=True,
             text=True,
             encoding="utf-8",  # Force UTF-8 — prevents UnicodeEncodeError on Windows cp1252
             timeout=_resolve_api_timeout(),
             check=False,
+            **_no_window_kwargs(),
         )
         if proc.returncode != 0:
             raise RuntimeError(f"claude -p exited {proc.returncode}: {proc.stderr.strip()[:500]}")
-        try:
-            envelope = json.loads(proc.stdout)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"claude -p produced unparseable JSON envelope: {exc}") from exc
+        envelope = _claude_cli_envelope(proc.stdout)
         return envelope.get("result", "")
 
 

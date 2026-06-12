@@ -642,7 +642,7 @@ class TestCloudflare:
                 method="post",
                 url="/foo",
                 headers={"Content-Type": "multipart/form-data; boundary=6b7ba517decee4a450543ea6ae821c82"},
-                json_data={"name": "test", "nested": {"key": "value", 'bool': True, 'none': None, 'int': 8}},
+                json_data={"name": "test", "nested": {"key": "value", "bool": True, "none": None, "int": 8}},
                 multipart_syntax="json",
             )
         )

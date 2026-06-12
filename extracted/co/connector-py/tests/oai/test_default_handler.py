@@ -6,12 +6,14 @@ import httpx
 from connector.oai.errors import (
     ConnectorError,
     DefaultHandler,
+    GQLTransportHandler,
     HTTPHandler,
     NetworkError,
     handle_exception,
 )
 from connector_sdk_types.errors import ConnectorErrorCode
 from connector_sdk_types.generated import Error, ErrorCode, ErrorResponse
+from gql.transport.exceptions import TransportProtocolError, TransportServerError
 
 
 def _make_response() -> ErrorResponse:
@@ -356,6 +358,115 @@ def test_handle_exception_maps_remote_protocol_error_to_connection_closed():
         e, [(httpx.HTTPStatusError, HTTPHandler, None)], lambda _: None, "test_app"
     )
     assert resp.error.error_code == ConnectorErrorCode.CONNECTION_CLOSED
+
+
+def test_handle_exception_transport_protocol_error_without_opt_in_is_internal_error():
+    e = TransportProtocolError("No data or errors keys in answer")
+    resp = handle_exception(e, [], lambda _: None, "test_app")
+    assert resp.error.error_code == ConnectorErrorCode.INTERNAL_ERROR
+
+
+def test_handle_exception_maps_transport_protocol_error_to_bad_gateway_with_opt_in():
+    e = TransportProtocolError("No data or errors keys in answer")
+    resp = handle_exception(
+        e,
+        [(TransportProtocolError, GQLTransportHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.BAD_GATEWAY
+
+
+def test_handle_exception_maps_transport_server_error_429_to_rate_limit_with_opt_in():
+    e = TransportServerError("Too Many Requests", code=429)
+    resp = handle_exception(
+        e,
+        [(TransportServerError, GQLTransportHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.RATE_LIMIT
+
+
+def test_handle_exception_maps_transport_server_error_503_to_service_error_with_opt_in():
+    e = TransportServerError("Service Unavailable", code=503)
+    resp = handle_exception(
+        e,
+        [(TransportServerError, GQLTransportHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.SERVICE_ERROR
+
+
+def test_handle_exception_maps_transport_server_error_404_to_not_found_with_opt_in():
+    e = TransportServerError("Not Found", code=404)
+    resp = handle_exception(
+        e,
+        [(TransportServerError, GQLTransportHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.NOT_FOUND
+
+
+def test_handle_exception_maps_transport_server_error_without_code_to_bad_gateway_with_opt_in():
+    e = TransportServerError("Transport server error")
+    resp = handle_exception(
+        e,
+        [(TransportServerError, GQLTransportHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.BAD_GATEWAY
+
+
+def test_handle_exception_maps_transport_server_error_unknown_code_to_bad_gateway_with_opt_in():
+    e = TransportServerError("Im a teapot", code=418)
+    resp = handle_exception(
+        e,
+        [(TransportServerError, GQLTransportHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.BAD_GATEWAY
+
+
+def test_handle_exception_connector_handler_can_override_explicit_gql_handler():
+    class CustomTransportHandler(HTTPHandler):
+        @staticmethod
+        def handle(e, original_func, response, error_code=None):
+            response.error.error_code = ConnectorErrorCode.PERMISSION_DENIED
+            return response
+
+    e = TransportServerError("Too Many Requests", code=429)
+    resp = handle_exception(
+        e,
+        [
+            (TransportServerError, GQLTransportHandler, None),
+            (TransportServerError, CustomTransportHandler, None),
+        ],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.PERMISSION_DENIED
+
+
+def test_handle_exception_non_gql_internal_error_stays_internal():
+    class InternalOnlyHandler(HTTPHandler):
+        @staticmethod
+        def handle(e, original_func, response, error_code=None):
+            response.error.error_code = ConnectorErrorCode.INTERNAL_ERROR
+            return response
+
+    e = ValueError("plain failure")
+    resp = handle_exception(
+        e,
+        [(Exception, InternalOnlyHandler, None)],
+        lambda _: None,
+        "test_app",
+    )
+    assert resp.error.error_code == ConnectorErrorCode.INTERNAL_ERROR
 
 
 def _render_error_log_call(mock_error: MagicMock) -> str:

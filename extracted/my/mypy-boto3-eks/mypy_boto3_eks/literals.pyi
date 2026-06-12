@@ -83,6 +83,7 @@ __all__ = (
     "ResolveConflictsType",
     "ResourceServiceName",
     "ServiceName",
+    "SpreadLevelType",
     "SsoIdentityTypeType",
     "SupportTypeType",
     "TaintEffectType",
@@ -281,6 +282,7 @@ NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
 ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-8xl", "tier-xl"]
 RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
+SpreadLevelType = Literal["host", "rack"]
 SsoIdentityTypeType = Literal["SSO_GROUP", "SSO_USER"]
 SupportTypeType = Literal["EXTENDED", "STANDARD"]
 TaintEffectType = Literal["NO_EXECUTE", "NO_SCHEDULE", "PREFER_NO_SCHEDULE"]
@@ -679,6 +681,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -706,6 +709,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

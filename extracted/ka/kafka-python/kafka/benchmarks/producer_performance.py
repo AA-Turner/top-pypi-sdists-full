@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # Adapted from https://github.com/mrafayaleem/kafka-jython
 
-from __future__ import absolute_import, print_function
-
 import argparse
 import pprint
 import sys
@@ -10,12 +8,10 @@ import threading
 import time
 import traceback
 
-from kafka.vendor.six.moves import range
-
 from kafka import KafkaProducer
 
 
-class ProducerPerformance(object):
+class ProducerPerformance:
     @staticmethod
     def run(args):
         try:
@@ -42,6 +38,7 @@ class ProducerPerformance(object):
             producer = KafkaProducer(**props)
             for k, v in props.items():
                 print('---> {0}={1}'.format(k, v))
+            print('---> topic={0}'.format(args.topic))
             print('---> send {0} byte records'.format(args.record_size))
             print('---> report stats every {0} secs'.format(args.stats_interval))
             print('---> raw metrics? {0}'.format(args.raw_metrics))
@@ -54,9 +51,18 @@ class ProducerPerformance(object):
             print()
 
             def _benchmark():
+                # Hoist attribute lookups and use positional args to minimize
+                # per-iteration harness overhead. With a well-optimized
+                # producer.send(), kwargs dict packing and repeated attribute
+                # dereference on `args`/`producer` dominate main-thread CPU
+                # inside this loop and mask the library's true throughput.
                 results = []
-                for i in range(args.num_records):
-                    results.append(producer.send(topic=args.topic, value=record))
+                send = producer.send
+                append = results.append
+                topic = args.topic
+                num_records = args.num_records
+                for _ in range(num_records):
+                    append(send(topic, record))
                 print("Send complete...")
                 producer.flush()
                 producer.close()
@@ -70,9 +76,9 @@ class ProducerPerformance(object):
                         raise ValueError(r)
                 print("%d suceeded, %d failed" % (count_success, count_failure))
 
-            start_time = time.time()
+            start_time = time.monotonic()
             _benchmark()
-            end_time = time.time()
+            end_time = time.monotonic()
             timer_stop.set()
             timer.join()
             print('Execution time:', end_time - start_time, 'secs')
@@ -85,7 +91,7 @@ class ProducerPerformance(object):
 
 class StatsReporter(threading.Thread):
     def __init__(self, interval, producer, event=None, raw_metrics=False):
-        super(StatsReporter, self).__init__()
+        super().__init__()
         self.interval = interval
         self.producer = producer
         self.event = event
@@ -98,11 +104,13 @@ class StatsReporter(threading.Thread):
         if self.raw_metrics:
             pprint.pprint(metrics)
         else:
-            print('{record-send-rate} records/sec ({byte-rate} B/sec),'
-                  ' {request-latency-avg} latency,'
-                  ' {record-size-avg} record size,'
-                  ' {batch-size-avg} batch size,'
-                  ' {records-per-request-avg} records/req'
+            print('{record-send-rate:.0f} records/sec ({byte-rate:.0f} B/sec),'
+                  ' {request-rate:.0f} avg requests/sec,'
+                  ' {request-latency-avg:.0f}ms avg latency,'
+                  ' {throttle-time-max:.0f}ms max throttle,'
+                  ' {record-size-avg:.0f} avg record size,'
+                  ' {batch-size-avg:.0f} avg batch size,'
+                  ' {records-per-request-avg:.0f} avg records/req'
                   .format(**metrics['producer-metrics']))
 
     def print_final(self):
@@ -120,10 +128,10 @@ def get_args_parser():
         description='This tool is used to verify the producer performance.')
 
     parser.add_argument(
-        '--bootstrap-servers', type=str, nargs='+', default=(),
+        '-b', '--bootstrap-servers', type=str, nargs='+', default=(),
         help='host:port for cluster bootstrap server')
     parser.add_argument(
-        '--topic', type=str,
+        '-t', '--topic', type=str,
         help='Topic name for test (default: kafka-python-benchmark-test)',
         default='kafka-python-benchmark-test')
     parser.add_argument(
@@ -135,7 +143,7 @@ def get_args_parser():
         help='message size in bytes (default: 100)',
         default=100)
     parser.add_argument(
-        '--producer-config', type=str, nargs='+', default=(),
+        '-c', '--producer-config', type=str, nargs='+', default=(),
         help='kafka producer related configuaration properties like '
              'bootstrap_servers,client_id etc..')
     parser.add_argument(

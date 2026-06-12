@@ -22,10 +22,11 @@ import json
 import logging
 import re
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import humps
 from hopsworks_apigen import public
@@ -52,7 +53,7 @@ class UDFExecutionMode(Enum):
     PYTHON = "python"
     PANDAS = "pandas"
 
-    def get_current_execution_mode(self, online):
+    def _get_current_execution_mode(self, online):
         if self == UDFExecutionMode.DEFAULT and online:
             return UDFExecutionMode.PYTHON
         if self == UDFExecutionMode.DEFAULT and not online:
@@ -532,19 +533,19 @@ class HopsworksUdf:
         scope = __import__("__main__").__dict__.copy()
 
         # Adding variables required to be injected into the scope.
-        vaariable_to_inject = {
+        variables_to_inject = {
             UDFKeyWords.STATISTICS.value: self.transformation_statistics,
             UDFKeyWords.CONTEXT.value: self.transformation_context,
             "_output_col_names": self.output_column_names,
         }
-        vaariable_to_inject.update(**kwargs)
+        variables_to_inject.update(**kwargs)
 
         # Injecting variables that have a value into scope.
-        scope.update({k: v for k, v in vaariable_to_inject.items() if v is not None})
+        scope.update({k: v for k, v in variables_to_inject.items() if v is not None})
 
         return scope
 
-    def python_udf_wrapper(self, rename_outputs) -> Callable:
+    def _python_udf_wrapper(self, rename_outputs) -> Callable:
         """Function that creates a dynamic wrapper function for the defined udf.
 
         The wrapper function would be used to specify column names, in spark engines and to localize timezones.
@@ -622,7 +623,7 @@ class HopsworksUdf:
         # returning executed function object
         return eval("wrapper", scope)
 
-    def pandas_udf_wrapper(self) -> Callable:
+    def _pandas_udf_wrapper(self) -> Callable:
         """Function that creates a dynamic wrapper function for the defined udf that renames the columns output by the UDF into specified column names.
 
         The renames is done so that the column names match the schema expected by spark when multiple columns are returned in a pandas udf.
@@ -738,7 +739,7 @@ def renaming_wrapper(*args):
                 new_feature_name, transformation_feature.statistic_argument_name
             )
             for transformation_feature, new_feature_name in zip(
-                self._transformation_features, features
+                self._transformation_features, features, strict=False
             )
         ]
         udf.dropped_features = updated_dropped_features
@@ -800,13 +801,13 @@ def renaming_wrapper(*args):
 
         return transformation_context
 
-    def update_return_type_one_hot(self):
+    def _update_return_type_one_hot(self):
         self._return_types = [
             self._return_types[0]
             for _ in range(len(self.transformation_statistics.feature.unique_values))
         ]
 
-    def get_udf(self, online: bool = False) -> Callable:
+    def _get_udf(self, online: bool = False) -> Callable:
         """Function that checks the current engine type, execution type and returns the appropriate UDF.
 
         If the execution mode is `"default"`:
@@ -831,28 +832,28 @@ def renaming_wrapper(*args):
             Pandas UDF in the spark engine otherwise returns a python function for the UDF.
         """
         if (
-            self.execution_mode.get_current_execution_mode(online)
+            self.execution_mode._get_current_execution_mode(online)
             == UDFExecutionMode.PANDAS
         ):
-            if engine.get_type() in ["python", "training"] or online:
-                return self.pandas_udf_wrapper()
+            if engine._get_type() in ["python", "training"] or online:
+                return self._pandas_udf_wrapper()
             from pyspark.sql.functions import pandas_udf
 
             return pandas_udf(
-                f=self.pandas_udf_wrapper(),
+                f=self._pandas_udf_wrapper(),
                 returnType=self._create_pandas_udf_return_schema_from_list(),
             )
         if (
-            self.execution_mode.get_current_execution_mode(online)
+            self.execution_mode._get_current_execution_mode(online)
             == UDFExecutionMode.PYTHON
         ):
-            if engine.get_type() in ["python", "training"] or online:
+            if engine._get_type() in ["python", "training"] or online:
                 # Renaming into correct column names done within Python engine since a wrapper does not work for polars dataFrames.
-                return self.python_udf_wrapper(rename_outputs=False)
+                return self._python_udf_wrapper(rename_outputs=False)
             from pyspark.sql.functions import udf as pyspark_udf
 
             return pyspark_udf(
-                f=self.python_udf_wrapper(rename_outputs=True),
+                f=self._python_udf_wrapper(rename_outputs=True),
                 returnType=self._create_pandas_udf_return_schema_from_list(),
             )
         raise ValueError(
@@ -997,7 +998,7 @@ def renaming_wrapper(*args):
             else [f"col_{i}" for i in range(len(udf.return_types))]
         )
 
-        executable = udf.get_udf(online=online)
+        executable = udf._get_udf(online=online)
 
         executable.execute = executable.__call__
 
@@ -1056,7 +1057,7 @@ def renaming_wrapper(*args):
         Returns:
             Dictionary that contains all data required to json serialize the object.
         """
-        backend_version = client.get_connection().backend_version
+        backend_version = client._get_connection().backend_version
 
         return {
             "sourceCode": self._function_source,
@@ -1199,7 +1200,7 @@ def renaming_wrapper(*args):
         """Get the output types of the UDF."""
         # Update the number of outputs for one hot encoder to match the number of unique values for the feature
         if self.function_name == "one_hot_encoder" and self.transformation_statistics:
-            self.update_return_type_one_hot()
+            self._update_return_type_one_hot()
         return self._return_types
 
     @public

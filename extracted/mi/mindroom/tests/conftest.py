@@ -1,5 +1,6 @@
 """Test configuration and fixtures for MindRoom tests."""
 
+import asyncio
 import os
 import re
 import shutil
@@ -12,7 +13,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from itertools import count
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import nio
@@ -31,6 +32,7 @@ from mindroom.edit_regenerator import EditRegenerator
 from mindroom.final_delivery import FinalDeliveryOutcome
 from mindroom.history import prepare_history_for_run as prepare_history_for_run_for_test
 from mindroom.hooks import MessageEnvelope
+from mindroom.ingress_validation import IngressValidator
 from mindroom.interactive import InteractiveMetadata
 from mindroom.matrix.cache.sqlite_event_cache import SqliteEventCache
 from mindroom.matrix.cache.thread_history_result import thread_history_result
@@ -42,6 +44,11 @@ from mindroom.matrix.identity import MatrixID
 from mindroom.matrix.thread_diagnostics import is_thread_history_degraded
 from mindroom.media_fallback import reset_model_media_capability_cache
 from mindroom.message_target import MessageTarget
+from mindroom.response_payload_preparation import (
+    DispatchPayloadInputs,
+    ResponsePayloadPreparation,
+    ResponsePayloadPreparer,
+)
 from mindroom.response_runner import PostLockRequestPreparationError, ResponseRequest, ResponseRunner
 from mindroom.runtime_support import StartupThreadPrewarmRegistry
 from mindroom.thread_utils import decide_agent_response
@@ -52,6 +59,7 @@ from mindroom.turn_store import TurnStore
 from tests.identity_helpers import persist_entity_accounts
 
 if TYPE_CHECKING:
+    from mindroom.dispatch_handoff import DispatchEvent
     from mindroom.matrix.cache import ConversationEventCache
 
 __all__ = [
@@ -87,6 +95,7 @@ __all__ = [
     "patch_response_runner_module",
     "postgres_event_cache_url",
     "prepare_history_for_run_for_test",
+    "prepare_payload_via_seam",
     "prepared_dispatch_result",
     "replace_delivery_gateway_deps",
     "replace_edit_regenerator_deps",
@@ -230,9 +239,24 @@ def requires_linux(
 
 
 async def drain_coalescing(*bots: RuntimeBot) -> None:
-    """Run queued coalescing dispatch before asserting post-dispatch effects."""
+    """Drain gate batches and detached responses until both are quiescent.
+
+    A detached response settling during the runner drain can release its
+    lifecycle lock and flush a busy-conversation backlog into the gate, so a
+    single gate-then-runner pass is not a reliable barrier.
+    """
     for bot in bots:
-        await bot._coalescing_gate.drain_all()
+        runner = unwrap_extracted_collaborator(bot._response_runner)
+        while True:
+            # Concurrently: the gate drain may hold a busy conversation's
+            # backlog until its detached response goes idle, which only the
+            # runner drain settles.
+            await asyncio.gather(
+                bot._coalescing_gate.drain_all(),
+                runner.drain_inbox_responses(),
+            )
+            if not runner._inbox_response_tasks and not bot._coalescing_gate._gates:
+                break
 
 
 def _wait_for_postgres_container(database_url: str) -> None:
@@ -830,7 +854,48 @@ def wrap_extracted_collaborators(bot: RuntimeBot, *names: str) -> RuntimeBot:
         if isinstance(collaborator, MagicMock | _ExtractedCollaboratorProxy):
             continue
         setattr(bot, name, _ExtractedCollaboratorProxy(collaborator))
+    _sync_request_payload_preparer(bot)
     return bot
+
+
+def _sync_request_payload_preparer(bot: RuntimeBot) -> None:
+    """Repoint the response runner's payload preparer at the current collaborators.
+
+    The preparer captures the normalizer and ingress hook runner; tests swap
+    those for proxies after construction, so rebuild the preparer to track them.
+    """
+    runner = unwrap_extracted_collaborator(bot._response_runner)
+    preparer = ResponsePayloadPreparer(
+        normalizer=bot._inbound_turn_normalizer,
+        ingress_hook_runner=bot._ingress_hook_runner,
+        agent_name=runner.deps.agent_name,
+        logger=runner.deps.logger,
+    )
+    bot._request_payload_preparer = preparer
+    runner.deps = replace(runner.deps, request_preparer=preparer)
+
+
+async def prepare_payload_via_seam(bot: RuntimeBot, execute_args: tuple[object, ...]) -> None:
+    """Drive the execution-side payload preparation from captured dispatch args."""
+    event = cast("DispatchEvent", execute_args[1])
+    dispatch = cast("PreparedDispatch", execute_args[2])
+    payload_inputs = cast("DispatchPayloadInputs", execute_args[4])
+    await bot._request_payload_preparer.prepare(
+        ResponseRequest(
+            thread_history=dispatch.context.thread_history,
+            prompt=event.body,
+            response_envelope=dispatch.envelope,
+            payload_preparation=ResponsePayloadPreparation(
+                dispatch=dispatch,
+                prompt=event.body,
+                action_kind="individual",
+                payload_inputs=payload_inputs,
+                target_member_names=None,
+                dispatch_started_at=0.0,
+                context_ready_monotonic=0.0,
+            ),
+        ),
+    )
 
 
 def sync_bot_runtime_state(bot: RuntimeBot) -> None:
@@ -955,6 +1020,15 @@ def replace_turn_controller_deps(bot: RuntimeBot, **changes: object) -> TurnCont
         rebuilt_changes["turn_store"] = bot._turn_store
     if "edit_regenerator" not in rebuilt_changes:
         rebuilt_changes["edit_regenerator"] = bot._edit_regenerator
+    if "ingress" not in rebuilt_changes:
+        rebuilt_changes["ingress"] = IngressValidator(
+            replace(
+                bot._ingress_validator.deps,
+                turn_store=rebuilt_changes["turn_store"],
+                turn_policy=rebuilt_changes["turn_policy"],
+            ),
+        )
+    bot._ingress_validator = rebuilt_changes["ingress"]
     rebuilt = TurnController(replace(controller.deps, **rebuilt_changes))
     bot._turn_controller = rebuilt
     edit_changes = {
@@ -1043,9 +1117,9 @@ def install_generate_response_mock(bot: RuntimeBot, generate_response: AsyncMock
         return result
 
     async def _generate(request: ResponseRequest) -> str | None:
-        if request.prepare_after_lock is not None:
+        if request.payload_preparation is not None:
             try:
-                request = await request.prepare_after_lock(request)
+                request = await bot._request_payload_preparer.prepare(request)
             except Exception as exc:
                 raise PostLockRequestPreparationError from exc
         attachment_ids = list(request.attachment_ids) if request.attachment_ids is not None else None
@@ -1171,6 +1245,6 @@ def bypass_authorization(request: pytest.FixtureRequest) -> Generator[None, None
     else:
         with (
             patch("mindroom.bot.is_authorized_sender", return_value=True),
-            patch("mindroom.turn_controller.is_authorized_sender", return_value=True),
+            patch("mindroom.ingress_validation.is_authorized_sender", return_value=True),
         ):
             yield

@@ -67,7 +67,6 @@ class TestAuditLogs:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="path_params test expects ValueError for account_id/zone_id but endpoint accepts both")
     @parametrize
     def test_path_params_list(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):

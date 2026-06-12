@@ -16,7 +16,7 @@
 
 import argparse
 import collections
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 import copy
 import enum
 import errno
@@ -139,12 +139,19 @@ class DuplicateOptError(Error):
 class RequiredOptError(Error):
     """Raised if an option is required but no value is supplied by the user."""
 
-    def __init__(self, opt_name: str, group: 'OptGroup | None' = None) -> None:
+    def __init__(
+        self, opt_name: str, group: 'OptGroup | str | None' = None
+    ) -> None:
         self.opt_name = opt_name
         self.group = group
 
     def __str__(self) -> str:
-        group_name = 'DEFAULT' if self.group is None else self.group.name
+        if isinstance(self.group, str):
+            group_name = self.group
+        elif self.group:
+            group_name = self.group.name
+        else:
+            group_name = 'DEFAULT'
         return (
             f"value required for option {self.opt_name} in group "
             f"[{group_name}]"
@@ -161,7 +168,7 @@ class TemplateSubstitutionError(Error):
 class ConfigFilesNotFoundError(Error):
     """Raised if one or more config files are not found."""
 
-    def __init__(self, config_files: list[str]) -> None:
+    def __init__(self, config_files: Iterable[str]) -> None:
         self.config_files = config_files
 
     def __str__(self) -> str:
@@ -173,7 +180,7 @@ class ConfigFilesNotFoundError(Error):
 class ConfigFilesPermissionDeniedError(Error):
     """Raised if one or more config files are not readable."""
 
-    def __init__(self, config_files: list[str]) -> None:
+    def __init__(self, config_files: Iterable[str]) -> None:
         self.config_files = config_files
 
     def __str__(self) -> str:
@@ -393,7 +400,6 @@ def _get_caller_detail(n: int = 2) -> str | None:
     """Return a string describing where this is being called from.
 
     :param n: Number of steps up the stack to look. Defaults to ``2``.
-    :type n: int
     :returns: str
     """
     if not _show_caller_details:
@@ -461,7 +467,7 @@ class Opt:
 
     :param name: the option's name
     :param type: the option's type. Must be a callable object that takes string
-                 and returns converted and validated value
+        and returns converted and validated value
     :param dest: the name of the corresponding :class:`.ConfigOpts` property
     :param short: a single character CLI option name
     :param default: the default value of the option
@@ -475,17 +481,16 @@ class Opt:
     :param deprecated_opts: list of :class:`.DeprecatedOpt`
     :param sample_default: a default string for sample config files
     :param deprecated_for_removal: indicates whether this opt is planned for
-                                   removal in a future release
+        removal in a future release
     :param deprecated_reason: indicates why this opt is planned for removal in
-                              a future release. Silently ignored if
-                              deprecated_for_removal is False
+        a future release. Silently ignored if ``deprecated_for_removal`` is
+        ``False``
     :param deprecated_since: indicates which release this opt was deprecated
-                             in. Accepts any string, though valid version
-                             strings are encouraged. Silently ignored if
-                             deprecated_for_removal is False
+        in. Accepts any string, though valid version strings are encouraged.
+        Silently ignored if ``deprecated_for_removal`` is ``False``
     :param mutable: True if this option may be reloaded
-    :param advanced: a bool True/False value if this option has advanced usage
-                             and is not normally used by the majority of users
+    :param advanced: indicates whether this option has advanced usage and is
+        not normally used by the majority of users
 
     An Opt object has no public methods, but has a number of public properties:
 
@@ -992,15 +997,14 @@ class StrOpt(Opt):
     :param name: the option's name
     :param choices: Optional sequence of either valid values or tuples of valid
         values with descriptions.
-    :param quotes: If True and string is enclosed with single or double
-                   quotes, will strip those quotes.
-    :param regex: Optional regular expression (string or compiled
-                  regex) that the value must match on an unanchored
-                  search.
+    :param quotes: If ``True`` and string is enclosed with single or double
+        quotes, will strip those quotes.
+    :param regex: Optional regular expression (string or compiled regex) that
+        the value must match on an unanchored search.
     :param ignore_case: If True case differences (uppercase vs. lowercase)
-                        between 'choices' or 'regex' will be ignored.
+        between 'choices' or 'regex' will be ignored.
     :param max_length: If positive integer, the value must be less than or
-                       equal to this parameter.
+        equal to this parameter.
     :param \*\*kwargs: arbitrary keyword arguments passed to :class:`Opt`
 
     .. versionchanged:: 2.7
@@ -1681,18 +1685,12 @@ class OptGroup:
         the group description as displayed in --help
 
     :param name: the group name
-    :type name: str
     :param title: the group title for --help
-    :type title: str
     :param help: the group description for --help
-    :type help: str
     :param dynamic_group_owner: The name of the option that controls
                                 repeated instances of this group.
-    :type dynamic_group_owner: str
     :param driver_option: The name of the option within the group that
                           controls which driver will register options.
-    :type driver_option: str
-
     """
 
     def __init__(
@@ -1705,7 +1703,7 @@ class OptGroup:
     ) -> None:
         """Constructs an OptGroup object."""
         self.name = name
-        self.title: str = f"{name} options" if title is None else title
+        self.title = f"{name} options" if title is None else title
         self.help = help
         self.dynamic_group_owner = dynamic_group_owner
         self.driver_option = driver_option
@@ -1720,7 +1718,6 @@ class OptGroup:
         """Save known driver opts.
 
         :param opts: mapping between driver name and list of opts
-        :type opts: dict
 
         """
         self._driver_opts.update(opts)
@@ -3873,10 +3870,8 @@ class ConfigOpts(Mapping[str, Any]):
         """Return the location where the option is being set.
 
         :param name: The name of the option.
-        :type name: str
         :param group: The name of the group of the option. Defaults to
                       ``'DEFAULT'``.
-        :type group: str
         :return: LocationInfo
 
         .. seealso::

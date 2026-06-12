@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division
-
 import binascii
 import functools
 import re
@@ -7,23 +5,6 @@ import time
 import weakref
 
 from kafka.errors import KafkaTimeoutError
-from kafka.vendor import six
-
-
-if six.PY3:
-    MAX_INT = 2 ** 31
-    TO_SIGNED = 2 ** 32
-
-    def crc32(data):
-        crc = binascii.crc32(data)
-        # py2 and py3 behave a little differently
-        # CRC is encoded as a signed int in kafka protocol
-        # so we'll convert the py3 unsigned result to signed
-        if crc >= MAX_INT:
-            crc -= TO_SIGNED
-        return crc
-else:
-    from binascii import crc32 # noqa: F401
 
 
 class Timer:
@@ -31,7 +12,7 @@ class Timer:
 
     def __init__(self, timeout_ms, error_message=None, start_at=None):
         self._timeout_ms = timeout_ms
-        self._start_at = start_at or time.time()
+        self._start_at = start_at or time.monotonic()
         if timeout_ms is not None:
             self._expire_at = self._start_at + timeout_ms / 1000
         else:
@@ -40,7 +21,7 @@ class Timer:
 
     @property
     def expired(self):
-        return time.time() >= self._expire_at
+        return time.monotonic() >= self._expire_at
 
     @property
     def timeout_ms(self):
@@ -48,15 +29,20 @@ class Timer:
             return None
         elif self._expire_at == float('inf'):
             return float('inf')
-        remaining = self._expire_at - time.time()
+        remaining = self._expire_at - time.monotonic()
         if remaining < 0:
             return 0
         else:
             return int(remaining * 1000)
 
     @property
+    def timeout_secs(self):
+        timeout_ms = self.timeout_ms
+        return timeout_ms / 1000 if timeout_ms is not None else None
+
+    @property
     def elapsed_ms(self):
-        return int(1000 * (time.time() - self._start_at))
+        return int(1000 * (time.monotonic() - self._start_at))
 
     def maybe_raise(self):
         if self.expired:
@@ -76,7 +62,7 @@ def ensure_valid_topic_name(topic):
     # https://github.com/apache/kafka/blob/39eb31feaeebfb184d98cc5d94da9148c2319d81/clients/src/main/java/org/apache/kafka/common/internals/Topic.java
     if topic is None:
         raise TypeError('All topics must not be None')
-    if not isinstance(topic, six.string_types):
+    if not isinstance(topic, str):
         raise TypeError('All topics must be strings')
     if len(topic) == 0:
         raise ValueError('All topics must be non-empty strings')
@@ -88,7 +74,7 @@ def ensure_valid_topic_name(topic):
         raise ValueError('Topic name "{0}" is illegal, it contains a character other than ASCII alphanumerics, ".", "_" and "-"'.format(topic))
 
 
-class WeakMethod(object):
+class WeakMethod:
     """
     Callable that weakly references a method and the object it is bound to. It
     is based on https://stackoverflow.com/a/24287465.
@@ -139,3 +125,35 @@ def synchronized(func):
     functools.update_wrapper(wrapper, func)
     return wrapper
 
+
+class classproperty:
+    def __init__(self, f):
+        self.f = f
+    def __get__(self, obj, owner):
+        return self.f(owner)
+
+
+class EnumHelper:
+    @classmethod
+    def build_from(cls, val):
+        if isinstance(val, cls):
+            return val
+        try:
+            return cls(val)
+        except ValueError:
+            pass
+        try:
+            return cls[str(val).strip().upper().replace('-', '_')] # pylint: disable=E1136
+        except KeyError:
+            raise ValueError(f'Unrecognized {cls.__name__}: {val}') from None
+
+    @classmethod
+    def value_for(cls, val):
+        if isinstance(val, cls):
+            return val.value
+        if isinstance(val, int):
+            return cls(val).value # pylint: disable=E1101
+        try:
+            return cls[str(val).upper().replace('-', '_')].value # pylint: disable=E1136
+        except KeyError:
+            raise ValueError(f'Unrecognized {cls.__name__}: {val}') from None

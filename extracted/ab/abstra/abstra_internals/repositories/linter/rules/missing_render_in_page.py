@@ -1,9 +1,11 @@
 import ast
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
 from abstra_internals.repositories.project.project import (
     LocalProjectRepository,
@@ -22,23 +24,30 @@ class MissingRenderInPageFound(LinterIssue):
         self.fixes = []
 
 
-class MissingRenderInPage(LinterRule):
+class MissingRenderInPage(PathScopedLinterRule):
     label = "Page stages must define a __render__ function"
     type = "bug"
     fix_with_ai = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues = []
 
-        for page in project.pages:
+        pages = project.pages
+        if path is not None:
+            key = linter_path_key(path)
+            pages = [p for p in pages if linter_path_key(p.file_path) == key]
+
+        for page in pages:
             if not page.file_path.exists():
                 continue
 
             try:
                 tree = ASTCache.get(page.file_path)
                 if not self._has_render_function(tree):
-                    issues.append(MissingRenderInPageFound(page))
+                    issue = MissingRenderInPageFound(page)
+                    issue.path = linter_path_key(page.file_path)
+                    issues.append(issue)
             except Exception:
                 pass
 

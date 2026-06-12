@@ -44,7 +44,7 @@ from ._tbl_data import (
     is_series,
     to_list,
 )
-from ._text import _md_html, escape_pattern_str_latex
+from ._text import _md_html, _md_latex, escape_pattern_str_latex
 from ._utils import _str_detect, _str_replace, is_valid_http_schema
 from ._utils_nanoplots import _generate_nanoplot
 
@@ -294,14 +294,6 @@ def fmt_number(
         .fmt_number(columns="num", decimals=3, use_seps=False)
     )
     ```
-
-    See Also
-    --------
-    The [`fmt_integer()`](`great_tables.GT.fmt_integer`) method might be more useful if you really
-    need to format numeric values to appear as integers (i.e., no decimals will be shown and input
-    values are rounded as necessary). Need to do numeric formatting on a value or list of values?
-    Take a look at the functional version of this method:
-    [`val_fmt_number()`](`great_tables._formats_vals.val_fmt_number`).
     """
     locale = _resolve_locale(self, locale=locale)
 
@@ -501,13 +493,6 @@ def fmt_integer(
         .fmt_integer(columns="num", use_seps=False)
     )
     ```
-
-    See Also
-    --------
-    The [`fmt_number()`](`great_tables.GT.fmt_number`) method might be more of what you need if
-    you'd like decimal values in your outputs. Need to do integer-based formatting on a value or
-    list of values? Take a look at the functional version of this method:
-    [`val_fmt_integer()`](`great_tables._formats_vals.val_fmt_integer`).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -724,12 +709,6 @@ def fmt_scientific(
         .fmt_scientific(columns="num")
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_scientific()`](`great_tables._formats_vals.val_fmt_scientific`), allows you to format
-    a single numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -1050,12 +1029,6 @@ def fmt_engineering(
         .sub_missing()
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_engineering()`](`great_tables._formats_vals.val_fmt_engineering`), allows you to
-    format a single numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -1346,12 +1319,6 @@ def fmt_percent(
 
     (GT(towny_mini).fmt_percent("pop_change_2016_2021_pct", decimals=2))
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_percent()`](`great_tables._formats_vals.val_fmt_percent`), allows you to format a
-    single numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -1454,6 +1421,313 @@ def fmt_percent_context(
         else:
             minus_mark = _context_minus_mark(context=context)
             x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
+
+    # Use a supplied pattern specification to decorate the formatted value
+    if pattern != "{x}":
+        # Escape LaTeX special characters from literals in the pattern
+        if context == "latex":
+            pattern = escape_pattern_str_latex(pattern_str=pattern)
+
+        x_formatted = pattern.replace("{x}", x_formatted)
+
+    return x_formatted
+
+
+# Scale factors for parts-per units (multiply proportion by this value)
+_PARTSPER_UNITS: dict[str, dict[str, Any]] = {
+    "per-mille": {"factor": 1_000, "symbol": "\u2030"},
+    "per-myriad": {"factor": 10_000, "symbol": "\u2031"},
+    "pcm": {"factor": 100_000, "symbol": "pcm"},
+    "ppm": {"factor": 1_000_000, "symbol": "ppm"},
+    "ppb": {"factor": 1_000_000_000, "symbol": "ppb"},
+    "ppt": {"factor": 1_000_000_000_000, "symbol": "ppt"},
+    "ppq": {"factor": 1_000_000_000_000_000, "symbol": "ppq"},
+}
+
+
+def fmt_partsper(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    to_units: str = "per-mille",
+    symbol: str = "auto",
+    decimals: int = 2,
+    drop_trailing_zeros: bool = False,
+    drop_trailing_dec_mark: bool = True,
+    scale_values: bool = True,
+    use_seps: bool = True,
+    pattern: str = "{x}",
+    sep_mark: str = ",",
+    dec_mark: str = ".",
+    force_sign: bool = False,
+    incl_space: str | bool = "auto",
+    locale: str | None = None,
+) -> GTSelf:
+    """
+    Format values as parts-per quantities.
+
+    With numeric values in a **gt** table, we can format the values so that they are rendered as
+    parts-per quantities (per mille, ppm, ppb, etc.). The following keywords are available for
+    the `to_units` parameter:
+
+    - `"per-mille"`: Per mille (1 part in 1,000)
+    - `"per-myriad"`: Per myriad (1 part in 10,000)
+    - `"pcm"`: Per cent mille (1 part in 100,000)
+    - `"ppm"`: Parts per million (1 part in 1,000,000)
+    - `"ppb"`: Parts per billion (1 part in 1,000,000,000)
+    - `"ppt"`: Parts per trillion (1 part in 1,000,000,000,000)
+    - `"ppq"`: Parts per quadrillion (1 part in 1,000,000,000,000,000)
+
+    The function provides a lot of formatting control and we can use the following options:
+
+    - custom symbol/units: override the automatic symbol or units display with a custom choice
+    - decimals: choice of the number of decimal places, option to drop trailing zeros, and a choice
+      of the decimal symbol
+    - digit grouping separators: options to enable/disable digit separators and provide a choice of
+      separator symbol
+    - value scaling toggle: choose to disable automatic value scaling in the situation that values
+      are already scaled coming in (and just require the appropriate symbol or unit display)
+    - pattern: option to use a text pattern for decoration of the formatted values
+    - locale-based formatting: providing a locale ID will result in number formatting specific to
+      the chosen locale
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    to_units
+        A keyword that signifies the desired output quantity. This can be any from the following
+        set: `"per-mille"`, `"per-myriad"`, `"pcm"`, `"ppm"`, `"ppb"`, `"ppt"`, or `"ppq"`.
+    symbol
+        The symbol/units to use for the quantity. By default, this is set to `"auto"` and the
+        appropriate symbol will be chosen based on the `to_units` keyword and the output context.
+        This can be changed by supplying a string (e.g., using `symbol="ppbV"` when
+        `to_units="ppb"`).
+    decimals
+        The `decimals` values corresponds to the exact number of decimal places to use. A value such
+        as `2.34` can, for example, be formatted with `0` decimal places and it would result in
+        `"2"`. With `4` decimal places, the formatted value becomes `"2.3400"`. The trailing zeros
+        can be removed with `drop_trailing_zeros=True`.
+    drop_trailing_zeros
+        A boolean value that allows for removal of trailing zeros (those redundant zeros after the
+        decimal mark).
+    drop_trailing_dec_mark
+        A boolean value that determines whether decimal marks should always appear even if there are
+        no decimal digits to display after formatting (e.g., `23` becomes `23.` if `False`). By
+        default trailing decimal marks are not shown.
+    scale_values
+        Should the values be scaled through multiplication according to the keyword set in
+        `to_units`? By default this is `True` since the expectation is that normally values are
+        proportions. Setting to `False` signifies that the values are already scaled and require
+        only the appropriate symbol/units when formatted.
+    use_seps
+        The `use_seps` option allows for the use of digit group separators. The type of digit group
+        separator is set by `sep_mark` and overridden if a locale ID is provided to `locale`. This
+        setting is `True` by default.
+    pattern
+        A formatting pattern that allows for decoration of the formatted value. The formatted value
+        is represented by the `{x}` (which can be used multiple times, if needed) and all other
+        characters will be interpreted as string literals.
+    sep_mark
+        The string to use as a separator between groups of digits. For example, using `sep_mark=","`
+        with a value of `1000` would result in a formatted value of `"1,000"`. This argument is
+        ignored if a `locale` is supplied (i.e., is not `None`).
+    dec_mark
+        The string to be used as the decimal mark. For example, using `dec_mark=","` with the value
+        `0.152` would result in a formatted value of `"0,152"`). This argument is ignored if a
+        `locale` is supplied (i.e., is not `None`).
+    force_sign
+        Should the positive sign be shown for positive values (effectively showing a sign for all
+        values except zero)? If so, use `True` for this option. The default is `False`, where only
+        negative numbers will display a minus sign.
+    incl_space
+        An option for whether to include a space between the value and the symbol/units. The default
+        is `"auto"` which provides spacing dependent on the mark itself (symbols like `‰` get no
+        space; text abbreviations like `ppm` get a space). This can be directly controlled by using
+        either `True` or `False`.
+    locale
+        An optional locale identifier that can be used for formatting values according the locale's
+        rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Adapting output to a specific `locale`
+    --------------------------------------
+    This formatting method can adapt outputs according to a provided `locale` value. Examples
+    include `"en"` for English (United States) and `"fr"` for French (France). The use of a valid
+    locale ID here means separator and decimal marks will be correct for the given locale. Should
+    any values be provided in `sep_mark` or `dec_mark`, they will be overridden by the locale's
+    preferred values.
+
+    Note that a `locale` value provided here will override any global locale setting performed in
+    [`GT()`](`great_tables.GT`)'s own `locale` argument (it is settable there as a value received by
+    all other methods that have a `locale` argument).
+
+    Examples
+    --------
+    Let's use a small dataset with proportional values and format them as parts-per-mille values.
+
+    ```{python}
+    from great_tables import GT
+    import pandas as pd
+
+    df = pd.DataFrame({"x": [0.001, 0.0001, 0.00001, 0.5, -0.005]})
+
+    GT(df).fmt_partsper(columns="x", to_units="per-mille")
+    ```
+
+    We can also format values as parts per million (ppm) using a Polars DataFrame:
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT
+
+    df = pl.DataFrame({"x": [0.0000015, 0.00035, 0.0001]})
+
+    GT(df).fmt_partsper(columns="x", to_units="ppm")
+    ```
+
+    If the values are already scaled (not proportions), set `scale_values=False` and use a custom
+    symbol:
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT
+
+    concentrations = pl.DataFrame({"gas": ["CO", "NO2", "O3"], "conc": [1.5, 35.0, 120.0]})
+
+    GT(concentrations).fmt_partsper(columns="conc", to_units="ppb", scale_values=False, symbol="ppbV")
+    ```
+    """
+
+    # Validate the `to_units` parameter
+    if to_units not in _PARTSPER_UNITS:
+        raise ValueError(
+            f"Invalid `to_units` value: '{to_units}'. "
+            f"Must be one of: {', '.join(_PARTSPER_UNITS.keys())}."
+        )
+
+    locale = _resolve_locale(self, locale=locale)
+
+    # Use locale-based marks if a locale ID is provided
+    sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
+
+    # Determine the scale factor
+    if scale_values:
+        scale_by = float(_PARTSPER_UNITS[to_units]["factor"])
+    else:
+        scale_by = 1.0
+
+    # Determine the symbol to use
+    if symbol == "auto":
+        resolved_symbol = _PARTSPER_UNITS[to_units]["symbol"]
+    else:
+        resolved_symbol = symbol
+
+    # Determine spacing: "auto" means no space for Unicode symbols (‰, ‱), space for text
+    if incl_space == "auto":
+        resolved_incl_space = to_units not in ("per-mille", "per-myriad")
+    else:
+        resolved_incl_space = bool(incl_space)
+
+    pf_format = partial(
+        fmt_partsper_context,
+        data=self,
+        decimals=decimals,
+        drop_trailing_zeros=drop_trailing_zeros,
+        drop_trailing_dec_mark=drop_trailing_dec_mark,
+        use_seps=use_seps,
+        scale_by=scale_by,
+        sep_mark=sep_mark,
+        dec_mark=dec_mark,
+        force_sign=force_sign,
+        symbol=resolved_symbol,
+        incl_space=resolved_incl_space,
+        pattern=pattern,
+    )
+
+    return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
+
+
+def fmt_partsper_context(
+    x: float | None,
+    data: GTData,
+    decimals: int,
+    drop_trailing_zeros: bool,
+    drop_trailing_dec_mark: bool,
+    use_seps: bool,
+    scale_by: float,
+    sep_mark: str,
+    dec_mark: str,
+    force_sign: bool,
+    symbol: str,
+    incl_space: bool,
+    pattern: str,
+    context: str,
+) -> str:
+    if is_na(data._tbl_data, x):
+        return x
+
+    # Scale `x` value by the defined scale factor
+    x = x * scale_by
+
+    # Determine properties of the value
+    is_negative = _has_negative_value(value=x)
+    is_positive = _has_positive_value(value=x)
+
+    x_formatted = _value_to_decimal_notation(
+        value=x,
+        decimals=decimals,
+        n_sigfig=None,
+        drop_trailing_zeros=drop_trailing_zeros,
+        drop_trailing_dec_mark=drop_trailing_dec_mark,
+        use_seps=use_seps,
+        sep_mark=sep_mark,
+        dec_mark=dec_mark,
+        force_sign=force_sign,
+    )
+
+    # Get the context-specific symbol (escape for LaTeX if needed)
+    if context == "latex":
+        # Escape the per-mille/per-myriad Unicode symbols for LaTeX
+        if symbol == "\u2030":
+            display_symbol = "\\textperthousand{}"
+        elif symbol == "\u2031":
+            display_symbol = "\\textpertenthousand{}"
+        else:
+            display_symbol = symbol
+    else:
+        display_symbol = symbol
+
+    # Create a pattern for affixing the symbol
+    space_character = " " if incl_space else ""
+    symbol_pattern = f"{{x}}{space_character}{display_symbol}"
+
+    if is_negative:
+        x_formatted = x_formatted.replace("-", "")
+        x_formatted = symbol_pattern.replace("{x}", x_formatted)
+        x_formatted = "-" + x_formatted
+    elif is_positive and force_sign:
+        x_formatted = x_formatted.replace("+", "")
+        x_formatted = symbol_pattern.replace("{x}", x_formatted)
+        x_formatted = "+" + x_formatted
+    else:
+        x_formatted = symbol_pattern.replace("{x}", x_formatted)
+
+    # Implement minus sign replacement for `x_formatted`
+    if is_negative:
+        minus_mark = _context_minus_mark(context=context)
+        x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
     if pattern != "{x}":
@@ -1609,12 +1883,6 @@ def fmt_currency(
         )
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_currency()`](`great_tables._formats_vals.val_fmt_currency`), allows you to format a
-    single numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -1805,12 +2073,6 @@ def fmt_roman(
         .fmt_roman(columns="roman")
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_roman()`](`great_tables._formats_vals.val_fmt_roman`), allows you to format a single
-    numerical value (or a list of them).
     """
 
     # Check that the `case` value is valid and only consists of the string 'upper' or 'lower'
@@ -1997,12 +2259,6 @@ def fmt_bytes(
         .fmt_bytes(columns="num", standard="decimal")
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_bytes()`](`great_tables._formats_vals.val_fmt_bytes`), allows you to format a single
-    numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -2132,6 +2388,823 @@ def fmt_bytes_context(
     return x_formatted
 
 
+# Duration style type alias
+DurationStyle: TypeAlias = Literal["narrow", "wide", "colon-sep", "iso"]
+
+# Valid input/output units for durations
+_DURATION_INPUT_UNITS = ("weeks", "days", "hours", "minutes", "seconds")
+_DURATION_OUTPUT_UNITS = ("weeks", "days", "hours", "minutes", "seconds")
+
+# Conversion factors to seconds
+_SECONDS_CONVERSION = {
+    "weeks": 604800,
+    "days": 86400,
+    "hours": 3600,
+    "minutes": 60,
+    "seconds": 1,
+}
+
+# Unit abbreviations for narrow style
+_NARROW_UNITS = {
+    "weeks": "w",
+    "days": "d",
+    "hours": "h",
+    "minutes": "m",
+    "seconds": "s",
+}
+
+# Unit labels for wide style (singular/plural)
+_WIDE_UNITS = {
+    "weeks": ("week", "weeks"),
+    "days": ("day", "days"),
+    "hours": ("hour", "hours"),
+    "minutes": ("minute", "minutes"),
+    "seconds": ("second", "seconds"),
+}
+
+# ISO 8601 duration unit letters
+_ISO_UNITS = {
+    "weeks": "W",
+    "days": "D",
+    "hours": "H",
+    "minutes": "M",
+    "seconds": "S",
+}
+
+# Mapping from output_units keys to CLDR duration unit names
+_UNIT_TO_CLDR = {
+    "weeks": "week",
+    "days": "day",
+    "hours": "hour",
+    "minutes": "minute",
+    "seconds": "second",
+}
+
+# Cache for duration locale data (loaded once)
+_DURATIONS_DATA_CACHE: list[dict[str, str]] | None = None
+
+
+def _get_duration_patterns(locale: str | None, style: str) -> dict[str, dict[str, str]] | None:
+    """Get locale-specific duration unit patterns.
+
+    Parameters
+    ----------
+    locale
+        Locale identifier (e.g., "fr", "de", "en").
+    style
+        Either "narrow" or "wide".
+
+    Returns
+    -------
+    A dict mapping unit names (weeks, days, hours, minutes, seconds) to a dict of
+    plural form patterns (e.g., {"one": "{0} semaine", "other": "{0} semaines"}).
+    Returns None if locale is "en" or None (use hardcoded defaults).
+    """
+    if locale is None or locale == "en":
+        return None
+
+    global _DURATIONS_DATA_CACHE
+    if _DURATIONS_DATA_CACHE is None:
+        from great_tables._locale import _get_durations_data
+
+        _DURATIONS_DATA_CACHE = _get_durations_data()
+
+    # Map "wide" -> "wide", "narrow" -> "narrow" in CSV type column
+    cldr_type = style
+
+    # Try exact locale match first, then base locale
+    locale_candidates = [locale]
+    if "-" in locale:
+        locale_candidates.append(locale.split("-")[0])
+
+    for loc_candidate in locale_candidates:
+        for row in _DURATIONS_DATA_CACHE:
+            if row["locale"] == loc_candidate and row["type"] == cldr_type:
+                # Build the patterns dict
+                patterns: dict[str, dict[str, str]] = {}
+                for unit_key in ("weeks", "days", "hours", "minutes", "seconds"):
+                    cldr_unit = _UNIT_TO_CLDR[unit_key]
+                    unit_patterns: dict[str, str] = {}
+                    for plural in ("zero", "one", "two", "few", "many", "other"):
+                        col = f"{cldr_unit}_{plural}"
+                        val = row.get(col, "")
+                        if val:
+                            unit_patterns[plural] = val
+                    if unit_patterns:
+                        patterns[unit_key] = unit_patterns
+                if patterns:
+                    return patterns
+
+    return None
+
+
+def _get_plural_form(value: int) -> str:
+    """Determine the CLDR plural category for a numeric value.
+
+    This implements basic plural rules. For most languages, "one" applies to
+    the value 1 and "other" applies to everything else. Some languages have
+    additional forms (zero, two, few, many) which are handled by checking
+    if the pattern exists for the locale.
+    """
+    if value == 0:
+        return "zero"
+    elif value == 1:
+        return "one"
+    elif value == 2:
+        return "two"
+    else:
+        return "other"
+
+
+def _apply_duration_pattern(patterns: dict[str, str], value: int, formatted_value: str) -> str:
+    """Apply a CLDR duration pattern with the correct plural form.
+
+    Parameters
+    ----------
+    patterns
+        Dict of plural form -> pattern string (e.g., {"one": "{0} jour", "other": "{0} jours"}).
+    value
+        The raw integer value (for plural selection).
+    formatted_value
+        The formatted value string (with separators applied).
+
+    Returns
+    -------
+    The formatted duration part string.
+    """
+    plural = _get_plural_form(value)
+
+    # Try the specific plural form, then fall back to "other"
+    if plural in patterns:
+        pattern = patterns[plural]
+    elif plural == "zero" and "other" in patterns:
+        pattern = patterns["other"]
+    elif plural == "two" and "other" in patterns:
+        pattern = patterns["other"]
+    else:
+        pattern = patterns.get("other", "{0}")
+
+    return pattern.replace("{0}", formatted_value)
+
+
+def fmt_duration(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    input_units: str | None = None,
+    output_units: str | list[str] | None = None,
+    duration_style: DurationStyle = "narrow",
+    trim_zero_units: bool | list[str] = True,
+    max_output_units: int | None = None,
+    pattern: str = "{x}",
+    use_seps: bool = True,
+    sep_mark: str = ",",
+    force_sign: bool = False,
+    locale: str | None = None,
+) -> GTSelf:
+    """
+    Format numeric or duration values as styled time duration strings.
+
+    Format input values to time duration values whether those input values are numbers or of the
+    `timedelta` class. We can specify which time units any numeric input values have (as weeks,
+    days, hours, minutes, or seconds) and the output can be customized with a duration style
+    (corresponding to narrow, wide, colon-separated, and ISO forms) and a choice of output units
+    ranging from weeks to seconds.
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    input_units
+        If one or more selected columns contains numeric values (not `timedelta` values, which
+        contain the duration units), a keyword must be provided for `input_units` for the values to
+        be interpreted in terms of duration. The accepted units are: `"seconds"`, `"minutes"`,
+        `"hours"`, `"days"`, and `"weeks"`. This is required for numeric columns and ignored for
+        `timedelta` columns.
+    output_units
+        Controls the output time units. The default (`None`) means that output units will be
+        automatically chosen based on the input duration value. To control which time units are to
+        be considered for output (before trimming with `trim_zero_units=`) we can specify a list of
+        one or more of the following keywords: `"weeks"`, `"days"`, `"hours"`, `"minutes"`, or
+        `"seconds"`.
+    duration_style
+        A choice of four formatting styles for the output duration values. With `"narrow"` (the
+        default style), duration values will be formatted with single-letter time-part units (e.g.,
+        1.35 days will be styled as `"1d 8h 24m"`). With `"wide"`, this example value will be
+        expanded to `"1 day 8 hours 24 minutes"` after formatting. The `"colon-sep"` style will put
+        days, hours, minutes, and seconds in the `"([D]/)[HH]:[MM]:[SS]"` format. The `"iso"` style
+        will produce a value that conforms to the ISO 8601 rules for duration values (e.g., 1.35
+        days will become `"P1DT8H24M"`).
+    trim_zero_units
+        Provides methods to remove output time units that have zero values. By default this is
+        `True` and duration values that might otherwise be formatted as `"0w 1d 0h 4m 19s"` with
+        `trim_zero_units=False` are instead displayed as `"1d 4m 19s"`. Aside from using
+        `True`/`False` we could provide a list of keywords for more precise control. These keywords
+        are: (1) `"leading"`, to omit all leading zero-value time units (e.g., `"0w 1d"` ->
+        `"1d"`), (2) `"trailing"`, to omit all trailing zero-value time units (e.g., `"3d 5h 0s"`
+        -> `"3d 5h"`), and (3) `"internal"`, which removes all internal zero-value time units
+        (e.g., `"5d 0h 33m"` -> `"5d 33m"`).
+    max_output_units
+        If `output_units` is `None`, where the output time units are unspecified and left to be
+        handled automatically, a numeric value provided for `max_output_units=` will be taken as the
+        maximum number of time units to display in all output time duration values. By default, this
+        is `None` and all possible time units will be displayed. This option has no effect when
+        `duration_style="colon-sep"` (only `output_units` can be used to customize that type of
+        duration output).
+    pattern
+        A formatting pattern that allows for decoration of the formatted value. The formatted value
+        is represented by the `{x}` (which can be used multiple times, if needed) and all other
+        characters will be interpreted as string literals.
+    use_seps
+        The `use_seps` option allows for the use of digit group separators. The type of digit group
+        separator is set by `sep_mark` and overridden if a locale ID is provided to `locale`. This
+        setting is `True` by default.
+    sep_mark
+        The string to use as a separator between groups of digits. For example, using `sep_mark=","`
+        with a value of `1000` would result in a formatted value of `"1,000"`. This argument is
+        ignored if a `locale` is supplied (i.e., is not `None`).
+    force_sign
+        Should the positive sign be shown for positive values (effectively showing a sign for all
+        values except zero)? If so, use `True` for this option. The default is `False`, where only
+        negative numbers will display a minus sign.
+    locale
+        An optional locale identifier that can be used for formatting values according the locale's
+        rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Output units for the colon-separated duration style
+    ---------------------------------------------------
+    The colon-separated duration style (enabled when `duration_style="colon-sep"`) is essentially a
+    clock-based output format which uses the display logic of chronograph watch functionality. It
+    will, by default, display duration values in the `(D/)HH:MM:SS` format. Any duration values
+    greater than or equal to 24 hours will have the number of days prepended with an adjoining slash
+    mark. While this output format is versatile, it can be changed somewhat with the `output_units=`
+    option. The following combinations of output units are permitted:
+
+    - `["minutes", "seconds"]` -> `MM:SS`
+    - `["hours", "minutes"]` -> `HH:MM`
+    - `["hours", "minutes", "seconds"]` -> `HH:MM:SS`
+    - `["days", "hours", "minutes"]` -> `(D/)HH:MM`
+
+    Any other specialized combinations will result in the default set being used, which is
+    `["days", "hours", "minutes", "seconds"]`.
+
+    Compatibility of formatting function with data values
+    -----------------------------------------------------
+    `fmt_duration()` is compatible with body cells that are of `int`, `float`, or
+    `datetime.timedelta` types. Any other types of body cells are ignored during formatting.
+
+    Examples
+    --------
+    Let's create a table with duration values in seconds and format them using the default narrow
+    style. This produces compact output with single-letter unit abbreviations, ideal for
+    space-constrained displays.
+
+    ```{python}
+    import pandas as pd
+    from great_tables import GT
+
+    df = pd.DataFrame({"duration_s": [3661, 86400, 172800, 60, 0]})
+
+    (
+        GT(df)
+        .fmt_duration(columns="duration_s", input_units="seconds")
+    )
+    ```
+
+    Notice that zero-valued time units are automatically trimmed from the output, keeping the
+    display clean. A value of `86400` seconds (exactly 1 day) simply shows `"1d"` rather than
+    `"0w 1d 0h 0m 0s"`.
+
+    For reporting contexts where readability is more important than compactness, the wide style
+    spells out the full unit names with proper singular/plural forms.
+
+    ```{python}
+    df = pd.DataFrame({"hours": [1.5, 24.0, 0.5, 100.75]})
+
+    (
+        GT(df)
+        .fmt_duration(columns="hours", input_units="hours", duration_style="wide")
+    )
+    ```
+
+    The colon-separated style is useful for timing data, race results, or any context where a
+    clock-like display is expected. Days are shown with a slash prefix when the duration is 24 hours
+    or more.
+
+    ```{python}
+    df = pd.DataFrame({
+        "event": ["Marathon", "Half Marathon", "10K", "Mile"],
+        "winning_time_s": [7377, 3542, 1620, 233],
+    })
+
+    (
+        GT(df)
+        .fmt_duration(
+            columns="winning_time_s",
+            input_units="seconds",
+            duration_style="colon-sep",
+            output_units=["hours", "minutes", "seconds"],
+        )
+    )
+    ```
+
+    The output is zero-padded in the familiar `HH:MM:SS` format. By specifying `output_units` we
+    control exactly which components appear in the colon-separated output.
+
+    When working with `timedelta` columns (common in Pandas when computing differences between
+    timestamps), `fmt_duration()` automatically detects the units—no `input_units` argument is
+    needed.
+
+    ```{python}
+    from datetime import datetime
+
+    events = pd.DataFrame({
+        "task": ["Build", "Test suite", "Deploy", "Full pipeline"],
+        "elapsed": [
+            datetime(2024, 1, 1, 0, 12, 45) - datetime(2024, 1, 1, 0, 0, 0),
+            datetime(2024, 1, 1, 1, 5, 30) - datetime(2024, 1, 1, 0, 0, 0),
+            datetime(2024, 1, 1, 0, 3, 15) - datetime(2024, 1, 1, 0, 0, 0),
+            datetime(2024, 1, 1, 1, 21, 30) - datetime(2024, 1, 1, 0, 0, 0),
+        ],
+    })
+
+    (
+        GT(events, rowname_col="task")
+        .fmt_duration(columns="elapsed", duration_style="narrow")
+    )
+    ```
+
+    Polars DataFrames work the same way. Here we format numeric duration values using the ISO 8601
+    duration style, which is useful for machine-readable output or standards-compliant reporting.
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT
+
+    df = pl.DataFrame({"activity": ["Flight", "Layover", "Drive"], "seconds": [14400, 5400, 1830]})
+
+    (
+        GT(df)
+        .fmt_duration(columns="seconds", input_units="seconds", duration_style="iso")
+    )
+    ```
+
+    Polars also has native `Duration` dtype columns (created via temporal arithmetic or
+    `timedelta` values). These are handled automatically without needing to specify `input_units`.
+
+    ```{python}
+    from datetime import timedelta
+
+    df = pl.DataFrame({
+        "segment": ["Warm-up", "Main set", "Cool-down"],
+        "duration": [timedelta(minutes=10), timedelta(minutes=45, seconds=30), timedelta(minutes=5)],
+    })
+
+    (
+        GT(df)
+        .fmt_duration(columns="duration", duration_style="wide")
+    )
+    ```
+    """
+
+    locale = _resolve_locale(self, locale=locale)
+
+    # Use locale-based marks if a locale ID is provided
+    sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+
+    # Validate input_units
+    if input_units is not None and input_units not in _DURATION_INPUT_UNITS:
+        raise ValueError(
+            f"`input_units` must be one of {_DURATION_INPUT_UNITS}, got '{input_units}'."
+        )
+
+    # Validate duration_style
+    if duration_style not in ("narrow", "wide", "colon-sep", "iso"):
+        raise ValueError(
+            f"`duration_style` must be one of 'narrow', 'wide', 'colon-sep', or 'iso', "
+            f"got '{duration_style}'."
+        )
+
+    # Resolve output_units
+    if output_units is None:
+        resolved_output_units = list(_DURATION_OUTPUT_UNITS)
+    elif isinstance(output_units, str):
+        resolved_output_units = [output_units]
+    else:
+        resolved_output_units = list(output_units)
+
+    # Validate output_units entries
+    for unit in resolved_output_units:
+        if unit not in _DURATION_OUTPUT_UNITS:
+            raise ValueError(
+                f"Each entry in `output_units` must be one of {_DURATION_OUTPUT_UNITS}, "
+                f"got '{unit}'."
+            )
+
+    # Sort output_units from largest to smallest
+    unit_order = list(_DURATION_OUTPUT_UNITS)
+    resolved_output_units = sorted(resolved_output_units, key=lambda u: unit_order.index(u))
+
+    # Handle colon-sep params
+    colon_sep_output_units: list[str] | None = None
+    colon_sep_trim_leading: bool = False
+
+    if duration_style == "colon-sep":
+        # Check for valid colon-sep output unit combinations
+        valid_colon_combos = [
+            ["minutes", "seconds"],
+            ["hours", "minutes"],
+            ["hours", "minutes", "seconds"],
+            ["days", "hours", "minutes"],
+        ]
+        if resolved_output_units in valid_colon_combos:
+            colon_sep_output_units = resolved_output_units
+        else:
+            colon_sep_output_units = ["days", "hours", "minutes", "seconds"]
+
+        # Override resolved_output_units for the decomposition step
+        resolved_output_units = ["days", "hours", "minutes", "seconds"]
+
+        # Handle trim_zero_units for colon-sep
+        if isinstance(trim_zero_units, list) and trim_zero_units == ["leading"]:
+            colon_sep_trim_leading = True
+        elif trim_zero_units == "leading":
+            colon_sep_trim_leading = True
+
+    if duration_style == "iso":
+        resolved_output_units = ["days", "hours", "minutes", "seconds"]
+        max_output_units = None
+        trim_zero_units = ["leading", "trailing"]
+
+    # Resolve trim_zero_units to a list of keywords
+    if isinstance(trim_zero_units, bool):
+        if trim_zero_units:
+            resolved_trim = ["leading", "trailing", "internal"]
+        else:
+            resolved_trim = []
+    elif isinstance(trim_zero_units, list):
+        for kw in trim_zero_units:
+            if kw not in ("leading", "trailing", "internal"):
+                raise ValueError(
+                    f"Each entry in `trim_zero_units` must be one of 'leading', 'trailing', "
+                    f"or 'internal', got '{kw}'."
+                )
+        resolved_trim = trim_zero_units
+    else:
+        raise ValueError(
+            "`trim_zero_units` must be a bool or a list of keywords "
+            "('leading', 'trailing', 'internal')."
+        )
+
+    # Validate max_output_units
+    if max_output_units is not None and (
+        not isinstance(max_output_units, int) or max_output_units < 1
+    ):
+        raise ValueError("`max_output_units` must be an integer >= 1 or None.")
+
+    pf_format = partial(
+        fmt_duration_context,
+        data=self,
+        input_units=input_units,
+        output_units=resolved_output_units,
+        duration_style=duration_style,
+        trim_zero_units=resolved_trim,
+        max_output_units=max_output_units,
+        colon_sep_output_units=colon_sep_output_units,
+        colon_sep_trim_leading=colon_sep_trim_leading,
+        sep_mark=sep_mark,
+        force_sign=force_sign,
+        pattern=pattern,
+        locale=locale,
+    )
+
+    return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
+
+
+def fmt_duration_context(
+    x: int | float | None,
+    data: GTData,
+    input_units: str | None,
+    output_units: list[str],
+    duration_style: str,
+    trim_zero_units: list[str],
+    max_output_units: int | None,
+    colon_sep_output_units: list[str] | None,
+    colon_sep_trim_leading: bool,
+    sep_mark: str,
+    force_sign: bool,
+    pattern: str,
+    locale: str | None,
+    context: str,
+) -> str:
+    """Format a single value as a duration string."""
+
+    if is_na(data._tbl_data, x):
+        return x
+
+    import numbers
+    from datetime import timedelta
+
+    # Handle timedelta input
+    if isinstance(x, timedelta):
+        # Convert timedelta to total seconds
+        x_seconds = x.total_seconds()
+    elif isinstance(x, numbers.Real):
+        if input_units is None:
+            raise ValueError(
+                "`input_units` must be supplied when formatting numeric columns as durations. "
+                "Use one of 'seconds', 'minutes', 'hours', 'days', or 'weeks'."
+            )
+        x_seconds = float(x) * _SECONDS_CONVERSION[input_units]
+    else:
+        return str(x)
+
+    # Determine sign
+    is_negative = x_seconds < 0
+    x_seconds_abs = abs(x_seconds)
+
+    # Decompose into time parts
+    time_parts: list[tuple[str, int]] = []
+    remainder = x_seconds_abs
+
+    for unit in output_units:
+        factor = _SECONDS_CONVERSION[unit]
+        value = int(remainder // factor)
+        remainder = remainder % factor
+        time_parts.append((unit, value))
+
+    # Apply trim_zero_units
+    if trim_zero_units:
+        time_parts = _trim_duration_parts(time_parts, trim_zero_units)
+
+    # Ensure at least one unit remains (the smallest)
+    if not time_parts:
+        time_parts = [(output_units[-1], 0)]
+
+    # If all values are zero but there was a remainder (value smaller than smallest unit)
+    all_zero = all(v == 0 for _, v in time_parts)
+    has_sub_unit_remainder = remainder > 0 and all_zero
+
+    # Apply max_output_units
+    if max_output_units is not None and len(time_parts) > max_output_units:
+        time_parts = time_parts[:max_output_units]
+
+    # Format based on style
+    if duration_style == "colon-sep":
+        x_formatted = _format_duration_colon_sep(
+            time_parts=time_parts,
+            output_units=output_units,
+            colon_sep_output_units=colon_sep_output_units,
+            colon_sep_trim_leading=colon_sep_trim_leading,
+            sep_mark=sep_mark,
+        )
+    elif duration_style == "iso":
+        x_formatted = _format_duration_iso(time_parts=time_parts)
+    elif duration_style == "narrow":
+        x_formatted = _format_duration_narrow(
+            time_parts=time_parts,
+            sep_mark=sep_mark,
+            has_sub_unit_remainder=has_sub_unit_remainder,
+            locale=locale,
+        )
+    elif duration_style == "wide":
+        x_formatted = _format_duration_wide(
+            time_parts=time_parts,
+            sep_mark=sep_mark,
+            has_sub_unit_remainder=has_sub_unit_remainder,
+            locale=locale,
+        )
+    else:
+        x_formatted = _format_duration_narrow(
+            time_parts=time_parts,
+            sep_mark=sep_mark,
+            has_sub_unit_remainder=has_sub_unit_remainder,
+            locale=locale,
+        )
+
+    # Apply sign
+    if is_negative:
+        minus_mark = _context_minus_mark(context=context)
+        x_formatted = minus_mark + x_formatted
+
+    if force_sign and not is_negative and x_seconds_abs > 0:
+        x_formatted = "+" + x_formatted
+
+    # Use a supplied pattern specification to decorate the formatted value
+    if pattern != "{x}":
+        if context == "latex":
+            pattern = escape_pattern_str_latex(pattern_str=pattern)
+        x_formatted = pattern.replace("{x}", x_formatted)
+
+    return x_formatted
+
+
+def _trim_duration_parts(
+    time_parts: list[tuple[str, int]], trim_keywords: list[str]
+) -> list[tuple[str, int]]:
+    """Remove zero-valued time parts based on trim keywords."""
+
+    if not time_parts:
+        return time_parts
+
+    # Find indices of non-zero parts
+    non_zero_indices = [i for i, (_, v) in enumerate(time_parts) if v != 0]
+
+    if not non_zero_indices:
+        # All zeros - keep only the last part
+        return [time_parts[-1]]
+
+    first_non_zero = non_zero_indices[0]
+    last_non_zero = non_zero_indices[-1]
+
+    remove_indices: set[int] = set()
+
+    if "leading" in trim_keywords:
+        for i in range(first_non_zero):
+            remove_indices.add(i)
+
+    if "trailing" in trim_keywords:
+        for i in range(last_non_zero + 1, len(time_parts)):
+            remove_indices.add(i)
+
+    if "internal" in trim_keywords:
+        for i in range(first_non_zero, last_non_zero + 1):
+            if time_parts[i][1] == 0:
+                remove_indices.add(i)
+
+    result = [part for i, part in enumerate(time_parts) if i not in remove_indices]
+    return result
+
+
+def _format_number_for_duration(value: int, sep_mark: str) -> str:
+    """Format an integer with optional separator marks."""
+    if sep_mark and value >= 1000:
+        # Apply thousands separator
+        s = str(value)
+        groups = []
+        while s:
+            groups.append(s[-3:])
+            s = s[:-3]
+        return sep_mark.join(reversed(groups))
+    return str(value)
+
+
+def _format_duration_narrow(
+    time_parts: list[tuple[str, int]],
+    sep_mark: str,
+    has_sub_unit_remainder: bool,
+    locale: str | None = None,
+) -> str:
+    """Format duration in narrow style (e.g., '1d 8h 24m')."""
+    locale_patterns = _get_duration_patterns(locale, "narrow")
+
+    parts = []
+    for unit, value in time_parts:
+        formatted_value = _format_number_for_duration(value, sep_mark)
+        if locale_patterns and unit in locale_patterns:
+            parts.append(_apply_duration_pattern(locale_patterns[unit], value, formatted_value))
+        else:
+            abbrev = _NARROW_UNITS[unit]
+            parts.append(f"{formatted_value}{abbrev}")
+
+    result = " ".join(parts)
+
+    if has_sub_unit_remainder and len(time_parts) == 1 and time_parts[0][1] == 0:
+        # Value is smaller than the smallest output unit
+        unit_key = time_parts[0][0]
+        if locale_patterns and unit_key in locale_patterns:
+            result = _apply_duration_pattern(locale_patterns[unit_key], 1, "<1")
+        else:
+            abbrev = _NARROW_UNITS[unit_key]
+            result = f"<1{abbrev}"
+
+    return result
+
+
+def _format_duration_wide(
+    time_parts: list[tuple[str, int]],
+    sep_mark: str,
+    has_sub_unit_remainder: bool,
+    locale: str | None = None,
+) -> str:
+    """Format duration in wide style (e.g., '1 day 8 hours 24 minutes')."""
+    locale_patterns = _get_duration_patterns(locale, "wide")
+
+    parts = []
+    for unit, value in time_parts:
+        formatted_value = _format_number_for_duration(value, sep_mark)
+        if locale_patterns and unit in locale_patterns:
+            parts.append(_apply_duration_pattern(locale_patterns[unit], value, formatted_value))
+        else:
+            singular, plural = _WIDE_UNITS[unit]
+            label = singular if value == 1 else plural
+            parts.append(f"{formatted_value} {label}")
+
+    result = " ".join(parts)
+
+    if has_sub_unit_remainder and len(time_parts) == 1 and time_parts[0][1] == 0:
+        # Value is smaller than the smallest output unit
+        unit_key = time_parts[0][0]
+        if locale_patterns and unit_key in locale_patterns:
+            result = _apply_duration_pattern(locale_patterns[unit_key], 1, "<1")
+        else:
+            singular, plural = _WIDE_UNITS[unit_key]
+            result = f"<1 {singular}"
+
+    return result
+
+
+def _format_duration_iso(time_parts: list[tuple[str, int]]) -> str:
+    """Format duration in ISO 8601 style (e.g., 'P1DT8H24M')."""
+    date_parts = []
+    time_parts_iso = []
+
+    for unit, value in time_parts:
+        letter = _ISO_UNITS[unit]
+        if unit in ("weeks", "days"):
+            date_parts.append(f"{value}{letter}")
+        else:
+            time_parts_iso.append(f"{value}{letter}")
+
+    result = "P"
+    result += "".join(date_parts)
+    if date_parts:
+        # T separator always follows date parts (matching R gt behavior)
+        result += "T"
+    if time_parts_iso:
+        if not date_parts:
+            # Time-only: no T separator when there are no date parts
+            pass
+        result += "".join(time_parts_iso)
+
+    return result
+
+
+def _format_duration_colon_sep(
+    time_parts: list[tuple[str, int]],
+    output_units: list[str],
+    colon_sep_output_units: list[str] | None,
+    colon_sep_trim_leading: bool,
+    sep_mark: str,
+) -> str:
+    """Format duration in colon-separated style (e.g., '1/08:24:00')."""
+
+    if colon_sep_output_units is None:
+        colon_sep_output_units = ["days", "hours", "minutes", "seconds"]
+
+    # Build a dict from the decomposed time_parts
+    parts_dict = {unit: value for unit, value in time_parts}
+
+    # Ensure all colon_sep_output_units are present
+    for unit in colon_sep_output_units:
+        if unit not in parts_dict:
+            parts_dict[unit] = 0
+
+    # Filter to only the colon_sep_output_units
+    filtered_parts = [(unit, parts_dict.get(unit, 0)) for unit in colon_sep_output_units]
+
+    # Handle days removal when zero
+    has_days = "days" in colon_sep_output_units
+    days_value = parts_dict.get("days", 0)
+
+    if has_days and days_value == 0:
+        filtered_parts = [(u, v) for u, v in filtered_parts if u != "days"]
+        has_days = False
+
+    # Handle leading trim for colon-sep
+    if colon_sep_trim_leading:
+        # Remove leading zero hours if present
+        hms_units = [u for u, _ in filtered_parts if u in ("hours", "minutes", "seconds")]
+        if hms_units and hms_units[0] == "hours":
+            hours_val = parts_dict.get("hours", 0)
+            if hours_val == 0 and not has_days:
+                filtered_parts = [(u, v) for u, v in filtered_parts if u != "hours"]
+
+    # Format: days get slash separator, rest get colon with zero-padding
+    day_part = ""
+    hms_parts = []
+
+    for unit, value in filtered_parts:
+        if unit == "days":
+            day_part = _format_number_for_duration(value, sep_mark) + "/"
+        else:
+            # Zero-pad hours, minutes, seconds to 2 digits
+            hms_parts.append(f"{value:02d}")
+
+    return day_part + ":".join(hms_parts)
+
+
 def fmt_date(
     self: GTSelf,
     columns: SelectExpr = None,
@@ -2223,12 +3296,6 @@ def fmt_date(
         .fmt_date(columns="date", date_style="month_day_year")
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_date()`](`great_tables._formats_vals.val_fmt_date`), allows you to format a single
-    numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -2366,12 +3433,6 @@ def fmt_time(
         .fmt_time(columns="time", time_style="h_m_s_p")
     )
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_time()`](`great_tables._formats_vals.val_fmt_time`), allows you to format a single
-    numerical value (or a list of them).
     """
 
     locale = _resolve_locale(self, locale=locale)
@@ -2996,12 +4057,6 @@ def fmt_markdown(
 
     (GT(df).fmt_markdown("md"))
     ```
-
-    See Also
-    --------
-    The functional version of this method,
-    [`val_fmt_markdown()`](`great_tables._formats_vals.val_fmt_markdown`), allows you to format a
-    single string value (or a list of them).
     """
 
     pf_format = partial(
@@ -3017,11 +4072,11 @@ def fmt_markdown_context(
     data: GTData,
     context: str,
 ) -> str:
-    if context == "latex":
-        raise NotImplementedError("fmt_markdown() is not supported in LaTeX.")
-
     if is_na(data._tbl_data, x):
         return x
+
+    if context == "latex":
+        return _md_latex(str(x))
 
     x_str: str = str(x)
 
@@ -3158,12 +4213,6 @@ def fmt_units(
         .tab_options(column_labels_hidden=True)
     )
     ```
-
-    See Also
-    --------
-    The [`define_units()`](`great_tables.define_units`) function can be used as a standalone utility
-    for working with units notation. It can parses strings in *units notation* and can emit
-    formatted units with its `.to_html()` method.
     """
 
     def fmt_units_fn(
@@ -5031,7 +6080,7 @@ def fmt_nanoplot(
     rows: int | list[int] | None = None,
     plot_type: PlotType = "line",
     plot_height: str = "2em",
-    missing_vals: MissingVals = "marker",
+    missing_vals: MissingVals = "gap",
     autoscale: bool = False,
     reference_line: str | int | float | None = None,
     reference_area: list[Any] | None = None,
@@ -5287,7 +6336,10 @@ def fmt_nanoplot(
     if plot_type in ("line", "bar") and scalar_vals:
         # Check each cell in the column and get each of them that contains a scalar value
         # Why are we grabbing the first element of a tuple? (Note this also happens again below.)
-        all_single_y_vals = to_list(data_tbl[columns])
+        if rows is not None:
+            all_single_y_vals = to_list(data_tbl[columns][rows])
+        else:
+            all_single_y_vals = to_list(data_tbl[columns])
 
         autoscale = False
 
@@ -5308,7 +6360,10 @@ def fmt_nanoplot(
         # TODO: if a column of delimiter separated strings is passed. E.g. "1 2 3 4". Does this mean
         # that autoscale does not work? In this case, is col_i_y_vals_raw a string that gets processed?
         # downstream?
-        all_y_vals_raw = to_list(data_tbl[columns])
+        if rows is not None:
+            all_y_vals_raw = to_list(data_tbl[columns][rows])
+        else:
+            all_y_vals_raw = to_list(data_tbl[columns])
 
         all_y_vals = []
 
@@ -5507,10 +6562,16 @@ def _process_number_stream(data_vals: str) -> list[float]:
     number_stream = re.sub(r"\\[|\\]", " ", number_stream)
     number_stream = re.sub(r"^\\s+|\\s+$", "", number_stream)
     number_stream = [val for val in number_stream.split()]
-    number_stream = [re.sub(r"[\\(\\)a-dA-Df-zF-Z]", "", val) for val in number_stream]
-    number_stream = [float(val) for val in number_stream]
 
-    return number_stream
+    result: list[float] = []
+    for val in number_stream:
+        try:
+            result.append(float(val))
+        except ValueError:
+            cleaned = re.sub(r"[\(\)a-dA-Df-zF-Z]", "", val)
+            result.append(float(cleaned))
+
+    return result
 
 
 def _process_time_stream(data_vals: str) -> list[float]:

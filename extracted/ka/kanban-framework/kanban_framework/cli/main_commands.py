@@ -1,4 +1,4 @@
-"""CLI maintenance commands — track, stats, update, check-env, sync-agents."""
+"""CLI maintenance commands — stats, update, check-env, sync-agents."""
 from __future__ import annotations
 
 import hashlib
@@ -13,89 +13,13 @@ def _is_pre_release(version: str) -> bool:
     return bool(re.search(r'(a|b|rc|alpha|beta|dev)\d*', version))
 
 
-def _cmd_track(args: list[str]) -> dict:
-    """Record token/time tracking for a task phase."""
-    from kanban_framework.infra.filesystem import Filesystem
-    from kanban_framework.infra.token_tracking import TokenTracker
-
-    fs = Filesystem(Filesystem.find_project_root())
-    reports_dir = fs.kanban_dir / "reports"
-    fs.ensure_dir(reports_dir)
-
-    task_id = args[0] if len(args) > 0 else ""
-    phase = args[1] if len(args) > 1 else ""
-    use_auto = "--auto" in args
-    args = [a for a in args if a != "--auto"]
-    tokens = int(args[2]) if len(args) > 2 and args[2] != "--auto" else 0
-    agent = ""
-    model = ""
-    duration = 0.0
-    step_id = ""
-    for i, a in enumerate(args):
-        if a == "--agent" and i + 1 < len(args):
-            agent = args[i + 1]
-        elif a == "--model" and i + 1 < len(args):
-            model = args[i + 1]
-        elif a == "--duration" and i + 1 < len(args):
-            try: duration = float(args[i + 1])
-            except ValueError: pass
-        elif a == "--step" and i + 1 < len(args):
-            step_id = args[i + 1]
-
-    if not task_id or not phase:
-        return {"error": "usage: kanban track <task_id> <phase> <tokens> [--agent <name>] [--step <step_id>] [--model <model>] [--duration <seconds>]"}
-
-    import os as _os
-    session_id = _os.environ.get("CLAUDE_CODE_SESSION_ID", "")
-    for i, a in enumerate(args):
-        if a == "--session" and i + 1 < len(args):
-            session_id = args[i + 1]
-
-    tt = TokenTracker(reports_dir / "token_tracking.json")
-
-    if use_auto:
-        from kanban_framework.domain.task import TaskManager
-        tm = TaskManager(fs)
-        try:
-            task = tm.show(task_id)
-            t_min = None; t_max = None
-            for h in task.history:
-                if h.get("phase") == phase:
-                    ts = h.get("started_at")
-                    if ts and t_min is None: t_min = ts - 30
-                    ts = h.get("completed_at")
-                    if ts: t_max = ts + 30 if t_max is None else max(t_max, ts + 30)
-            if t_min and t_max:
-                stats = tt.auto_collect(task_id, phase, t_min, t_max)
-                return {"task_id": task_id, "phase": phase, "auto_collected": True,
-                        "tokens": stats.get("total_tokens", 0),
-                        "prompts": stats.get("prompt_count", 0)}
-        except Exception:
-            pass
-        return {"task_id": task_id, "phase": phase, "auto_collected": False,
-                "error": "Could not auto-collect — no phase history timestamps"}
-
-    tt.track(task_id, tokens, phase, agent, model, duration)
-
-    if session_id:
-        entry = tt._data.setdefault(task_id, tt._data.get(task_id, {}))
-        entry.setdefault("sessions", [])
-        if session_id not in entry["sessions"]:
-            entry["sessions"].append(session_id)
-        entry.setdefault("session_phases", {})
-        entry["session_phases"].setdefault(phase, [])
-        if session_id not in entry["session_phases"][phase]:
-            entry["session_phases"][phase].append(session_id)
-        if step_id:
-            entry.setdefault("session_steps", {})
-            entry["session_steps"].setdefault(step_id, [])
-            if session_id not in entry["session_steps"][step_id]:
-                entry["session_steps"][step_id].append(session_id)
-        tt._save()
-
-    return {"tracked": task_id, "phase": phase, "tokens": tokens,
-            "agent": agent, "model": model, "duration": duration,
-            "session_id": session_id, "step": step_id}
+def _version_key(v: str):
+    """Sort key for semantic version strings (e.g. '0.158.6' > '0.99.9')."""
+    import re
+    nums = re.match(r'v?(\d+(?:\.\d+)*)', v)
+    if nums:
+        return tuple(int(x) for x in nums.group(1).split('.'))
+    return (0,)
 
 
 def _cmd_stats(args: list[str]) -> dict:
@@ -142,7 +66,7 @@ def _cmd_update(args: list[str]) -> dict:
             import urllib.request
             url = "https://pypi.org/pypi/kanban-framework/json"
             data = json.loads(urllib.request.urlopen(url, timeout=10).read())
-            versions = sorted(data.get("releases", {}).keys(), reverse=True)[:20]
+            versions = sorted(data.get("releases", {}).keys(), key=_version_key, reverse=True)[:20]
             return {"action": "list_versions", "count": len(versions), "versions": versions}
         except Exception as e:
             return {"action": "list_versions", "error": str(e)}
@@ -152,7 +76,7 @@ def _cmd_update(args: list[str]) -> dict:
             import urllib.request
             url = "https://pypi.org/pypi/kanban-framework/json"
             data = json.loads(urllib.request.urlopen(url, timeout=10).read())
-            all_v = sorted(data.get("releases", {}).keys(), reverse=True)
+            all_v = sorted(data.get("releases", {}).keys(), key=_version_key, reverse=True)
             stable = [v for v in all_v if not _is_pre_release(v)][:10]
             dev = [v for v in all_v if _is_pre_release(v)][:10]
             return {"action": "channels", "stable": stable, "dev": dev}

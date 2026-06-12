@@ -21,7 +21,11 @@ from ._types import (
     RequestOptions,
     not_given,
 )
-from ._utils import is_given, get_async_library
+from ._utils import (
+    is_given,
+    is_mapping_t,
+    get_async_library,
+)
 from ._compat import cached_property
 from ._version import __version__
 from ._streaming import Stream as Stream, AsyncStream as AsyncStream
@@ -39,6 +43,7 @@ if TYPE_CHECKING:
         kv,
         r2,
         acm,
+        dls,
         dns,
         iam,
         ips,
@@ -87,12 +92,14 @@ if TYPE_CHECKING:
         ai_security,
         api_gateway,
         botnet_feed,
+        custom_csrs,
         diagnostics,
         memberships,
         page_shield,
         rate_limits,
         url_scanner,
         connectivity,
+        csam_scanner,
         custom_pages,
         dns_firewall,
         healthchecks,
@@ -141,6 +148,7 @@ if TYPE_CHECKING:
         certificate_authorities,
         leaked_credential_checks,
         magic_network_monitoring,
+        tenant_custom_nameservers,
         origin_post_quantum_encryption,
     )
     from .resources.ai.ai import AIResource, AsyncAIResource
@@ -148,6 +156,7 @@ if TYPE_CHECKING:
     from .resources.kv.kv import KVResource, AsyncKVResource
     from .resources.r2.r2 import R2Resource, AsyncR2Resource
     from .resources.acm.acm import ACMResource, AsyncACMResource
+    from .resources.dls.dls import DLSResource, AsyncDLSResource
     from .resources.dns.dns import DNSResource, AsyncDNSResource
     from .resources.iam.iam import IAMResource, AsyncIAMResource
     from .resources.ips.ips import IPsResource, AsyncIPsResource
@@ -196,12 +205,14 @@ if TYPE_CHECKING:
     from .resources.ai_security.ai_security import AISecurityResource, AsyncAISecurityResource
     from .resources.api_gateway.api_gateway import APIGatewayResource, AsyncAPIGatewayResource
     from .resources.botnet_feed.botnet_feed import BotnetFeedResource, AsyncBotnetFeedResource
+    from .resources.custom_csrs.custom_csrs import CustomCsrsResource, AsyncCustomCsrsResource
     from .resources.diagnostics.diagnostics import DiagnosticsResource, AsyncDiagnosticsResource
     from .resources.memberships.memberships import MembershipsResource, AsyncMembershipsResource
     from .resources.page_shield.page_shield import PageShieldResource, AsyncPageShieldResource
     from .resources.rate_limits.rate_limits import RateLimitsResource, AsyncRateLimitsResource
     from .resources.url_scanner.url_scanner import URLScannerResource, AsyncURLScannerResource
     from .resources.connectivity.connectivity import ConnectivityResource, AsyncConnectivityResource
+    from .resources.csam_scanner.csam_scanner import CsamScannerResource, AsyncCsamScannerResource
     from .resources.custom_pages.custom_pages import CustomPagesResource, AsyncCustomPagesResource
     from .resources.dns_firewall.dns_firewall import DNSFirewallResource, AsyncDNSFirewallResource
     from .resources.healthchecks.healthchecks import HealthchecksResource, AsyncHealthchecksResource
@@ -292,6 +303,10 @@ if TYPE_CHECKING:
         MagicNetworkMonitoringResource,
         AsyncMagicNetworkMonitoringResource,
     )
+    from .resources.tenant_custom_nameservers.tenant_custom_nameservers import (
+        TenantCustomNameserversResource,
+        AsyncTenantCustomNameserversResource,
+    )
     from .resources.origin_post_quantum_encryption.origin_post_quantum_encryption import (
         OriginPostQuantumEncryptionResource,
         AsyncOriginPostQuantumEncryptionResource,
@@ -373,8 +388,16 @@ class Cloudflare(SyncAPIClient):
             base_url = f"https://api.cloudflare.com/client/v4"
 
         if api_version is None:
-            api_version = datetime.today().strftime('%Y-%m-%d')
+            api_version = datetime.today().strftime("%Y-%m-%d")
 
+        custom_headers_env = os.environ.get("CLOUDFLARE_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -478,6 +501,12 @@ class Cloudflare(SyncAPIClient):
         return CustomCertificatesResource(self)
 
     @cached_property
+    def custom_csrs(self) -> CustomCsrsResource:
+        from .resources.custom_csrs import CustomCsrsResource
+
+        return CustomCsrsResource(self)
+
+    @cached_property
     def custom_hostnames(self) -> CustomHostnamesResource:
         from .resources.custom_hostnames import CustomHostnamesResource
 
@@ -488,6 +517,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.custom_nameservers import CustomNameserversResource
 
         return CustomNameserversResource(self)
+
+    @cached_property
+    def tenant_custom_nameservers(self) -> TenantCustomNameserversResource:
+        from .resources.tenant_custom_nameservers import TenantCustomNameserversResource
+
+        return TenantCustomNameserversResource(self)
 
     @cached_property
     def dns_firewall(self) -> DNSFirewallResource:
@@ -650,6 +685,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.addressing import AddressingResource
 
         return AddressingResource(self)
+
+    @cached_property
+    def dls(self) -> DLSResource:
+        from .resources.dls import DLSResource
+
+        return DLSResource(self)
 
     @cached_property
     def audit_logs(self) -> AuditLogsResource:
@@ -976,6 +1017,12 @@ class Cloudflare(SyncAPIClient):
         return AISecurityResource(self)
 
     @cached_property
+    def csam_scanner(self) -> CsamScannerResource:
+        from .resources.csam_scanner import CsamScannerResource
+
+        return CsamScannerResource(self)
+
+    @cached_property
     def abuse_reports(self) -> AbuseReportsResource:
         from .resources.abuse_reports import AbuseReportsResource
 
@@ -1275,8 +1322,16 @@ class AsyncCloudflare(AsyncAPIClient):
             base_url = f"https://api.cloudflare.com/client/v4"
 
         if api_version is None:
-            api_version = datetime.today().strftime('%Y-%m-%d')
+            api_version = datetime.today().strftime("%Y-%m-%d")
 
+        custom_headers_env = os.environ.get("CLOUDFLARE_CUSTOM_HEADERS")
+        if custom_headers_env is not None:
+            parsed: dict[str, str] = {}
+            for line in custom_headers_env.split("\n"):
+                colon = line.find(":")
+                if colon >= 0:
+                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
         super().__init__(
             version=__version__,
             base_url=base_url,
@@ -1380,6 +1435,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncCustomCertificatesResource(self)
 
     @cached_property
+    def custom_csrs(self) -> AsyncCustomCsrsResource:
+        from .resources.custom_csrs import AsyncCustomCsrsResource
+
+        return AsyncCustomCsrsResource(self)
+
+    @cached_property
     def custom_hostnames(self) -> AsyncCustomHostnamesResource:
         from .resources.custom_hostnames import AsyncCustomHostnamesResource
 
@@ -1390,6 +1451,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.custom_nameservers import AsyncCustomNameserversResource
 
         return AsyncCustomNameserversResource(self)
+
+    @cached_property
+    def tenant_custom_nameservers(self) -> AsyncTenantCustomNameserversResource:
+        from .resources.tenant_custom_nameservers import AsyncTenantCustomNameserversResource
+
+        return AsyncTenantCustomNameserversResource(self)
 
     @cached_property
     def dns_firewall(self) -> AsyncDNSFirewallResource:
@@ -1552,6 +1619,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.addressing import AsyncAddressingResource
 
         return AsyncAddressingResource(self)
+
+    @cached_property
+    def dls(self) -> AsyncDLSResource:
+        from .resources.dls import AsyncDLSResource
+
+        return AsyncDLSResource(self)
 
     @cached_property
     def audit_logs(self) -> AsyncAuditLogsResource:
@@ -1876,6 +1949,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.ai_security import AsyncAISecurityResource
 
         return AsyncAISecurityResource(self)
+
+    @cached_property
+    def csam_scanner(self) -> AsyncCsamScannerResource:
+        from .resources.csam_scanner import AsyncCsamScannerResource
+
+        return AsyncCsamScannerResource(self)
 
     @cached_property
     def abuse_reports(self) -> AsyncAbuseReportsResource:
@@ -2210,6 +2289,12 @@ class CloudflareWithRawResponse:
         return CustomCertificatesResourceWithRawResponse(self._client.custom_certificates)
 
     @cached_property
+    def custom_csrs(self) -> custom_csrs.CustomCsrsResourceWithRawResponse:
+        from .resources.custom_csrs import CustomCsrsResourceWithRawResponse
+
+        return CustomCsrsResourceWithRawResponse(self._client.custom_csrs)
+
+    @cached_property
     def custom_hostnames(self) -> custom_hostnames.CustomHostnamesResourceWithRawResponse:
         from .resources.custom_hostnames import CustomHostnamesResourceWithRawResponse
 
@@ -2220,6 +2305,12 @@ class CloudflareWithRawResponse:
         from .resources.custom_nameservers import CustomNameserversResourceWithRawResponse
 
         return CustomNameserversResourceWithRawResponse(self._client.custom_nameservers)
+
+    @cached_property
+    def tenant_custom_nameservers(self) -> tenant_custom_nameservers.TenantCustomNameserversResourceWithRawResponse:
+        from .resources.tenant_custom_nameservers import TenantCustomNameserversResourceWithRawResponse
+
+        return TenantCustomNameserversResourceWithRawResponse(self._client.tenant_custom_nameservers)
 
     @cached_property
     def dns_firewall(self) -> dns_firewall.DNSFirewallResourceWithRawResponse:
@@ -2382,6 +2473,12 @@ class CloudflareWithRawResponse:
         from .resources.addressing import AddressingResourceWithRawResponse
 
         return AddressingResourceWithRawResponse(self._client.addressing)
+
+    @cached_property
+    def dls(self) -> dls.DLSResourceWithRawResponse:
+        from .resources.dls import DLSResourceWithRawResponse
+
+        return DLSResourceWithRawResponse(self._client.dls)
 
     @cached_property
     def audit_logs(self) -> audit_logs.AuditLogsResourceWithRawResponse:
@@ -2710,6 +2807,12 @@ class CloudflareWithRawResponse:
         return AISecurityResourceWithRawResponse(self._client.ai_security)
 
     @cached_property
+    def csam_scanner(self) -> csam_scanner.CsamScannerResourceWithRawResponse:
+        from .resources.csam_scanner import CsamScannerResourceWithRawResponse
+
+        return CsamScannerResourceWithRawResponse(self._client.csam_scanner)
+
+    @cached_property
     def abuse_reports(self) -> abuse_reports.AbuseReportsResourceWithRawResponse:
         from .resources.abuse_reports import AbuseReportsResourceWithRawResponse
 
@@ -2867,6 +2970,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncCustomCertificatesResourceWithRawResponse(self._client.custom_certificates)
 
     @cached_property
+    def custom_csrs(self) -> custom_csrs.AsyncCustomCsrsResourceWithRawResponse:
+        from .resources.custom_csrs import AsyncCustomCsrsResourceWithRawResponse
+
+        return AsyncCustomCsrsResourceWithRawResponse(self._client.custom_csrs)
+
+    @cached_property
     def custom_hostnames(self) -> custom_hostnames.AsyncCustomHostnamesResourceWithRawResponse:
         from .resources.custom_hostnames import AsyncCustomHostnamesResourceWithRawResponse
 
@@ -2877,6 +2986,14 @@ class AsyncCloudflareWithRawResponse:
         from .resources.custom_nameservers import AsyncCustomNameserversResourceWithRawResponse
 
         return AsyncCustomNameserversResourceWithRawResponse(self._client.custom_nameservers)
+
+    @cached_property
+    def tenant_custom_nameservers(
+        self,
+    ) -> tenant_custom_nameservers.AsyncTenantCustomNameserversResourceWithRawResponse:
+        from .resources.tenant_custom_nameservers import AsyncTenantCustomNameserversResourceWithRawResponse
+
+        return AsyncTenantCustomNameserversResourceWithRawResponse(self._client.tenant_custom_nameservers)
 
     @cached_property
     def dns_firewall(self) -> dns_firewall.AsyncDNSFirewallResourceWithRawResponse:
@@ -3039,6 +3156,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.addressing import AsyncAddressingResourceWithRawResponse
 
         return AsyncAddressingResourceWithRawResponse(self._client.addressing)
+
+    @cached_property
+    def dls(self) -> dls.AsyncDLSResourceWithRawResponse:
+        from .resources.dls import AsyncDLSResourceWithRawResponse
+
+        return AsyncDLSResourceWithRawResponse(self._client.dls)
 
     @cached_property
     def audit_logs(self) -> audit_logs.AsyncAuditLogsResourceWithRawResponse:
@@ -3367,6 +3490,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncAISecurityResourceWithRawResponse(self._client.ai_security)
 
     @cached_property
+    def csam_scanner(self) -> csam_scanner.AsyncCsamScannerResourceWithRawResponse:
+        from .resources.csam_scanner import AsyncCsamScannerResourceWithRawResponse
+
+        return AsyncCsamScannerResourceWithRawResponse(self._client.csam_scanner)
+
+    @cached_property
     def abuse_reports(self) -> abuse_reports.AsyncAbuseReportsResourceWithRawResponse:
         from .resources.abuse_reports import AsyncAbuseReportsResourceWithRawResponse
 
@@ -3524,6 +3653,12 @@ class CloudflareWithStreamedResponse:
         return CustomCertificatesResourceWithStreamingResponse(self._client.custom_certificates)
 
     @cached_property
+    def custom_csrs(self) -> custom_csrs.CustomCsrsResourceWithStreamingResponse:
+        from .resources.custom_csrs import CustomCsrsResourceWithStreamingResponse
+
+        return CustomCsrsResourceWithStreamingResponse(self._client.custom_csrs)
+
+    @cached_property
     def custom_hostnames(self) -> custom_hostnames.CustomHostnamesResourceWithStreamingResponse:
         from .resources.custom_hostnames import CustomHostnamesResourceWithStreamingResponse
 
@@ -3534,6 +3669,14 @@ class CloudflareWithStreamedResponse:
         from .resources.custom_nameservers import CustomNameserversResourceWithStreamingResponse
 
         return CustomNameserversResourceWithStreamingResponse(self._client.custom_nameservers)
+
+    @cached_property
+    def tenant_custom_nameservers(
+        self,
+    ) -> tenant_custom_nameservers.TenantCustomNameserversResourceWithStreamingResponse:
+        from .resources.tenant_custom_nameservers import TenantCustomNameserversResourceWithStreamingResponse
+
+        return TenantCustomNameserversResourceWithStreamingResponse(self._client.tenant_custom_nameservers)
 
     @cached_property
     def dns_firewall(self) -> dns_firewall.DNSFirewallResourceWithStreamingResponse:
@@ -3696,6 +3839,12 @@ class CloudflareWithStreamedResponse:
         from .resources.addressing import AddressingResourceWithStreamingResponse
 
         return AddressingResourceWithStreamingResponse(self._client.addressing)
+
+    @cached_property
+    def dls(self) -> dls.DLSResourceWithStreamingResponse:
+        from .resources.dls import DLSResourceWithStreamingResponse
+
+        return DLSResourceWithStreamingResponse(self._client.dls)
 
     @cached_property
     def audit_logs(self) -> audit_logs.AuditLogsResourceWithStreamingResponse:
@@ -4024,6 +4173,12 @@ class CloudflareWithStreamedResponse:
         return AISecurityResourceWithStreamingResponse(self._client.ai_security)
 
     @cached_property
+    def csam_scanner(self) -> csam_scanner.CsamScannerResourceWithStreamingResponse:
+        from .resources.csam_scanner import CsamScannerResourceWithStreamingResponse
+
+        return CsamScannerResourceWithStreamingResponse(self._client.csam_scanner)
+
+    @cached_property
     def abuse_reports(self) -> abuse_reports.AbuseReportsResourceWithStreamingResponse:
         from .resources.abuse_reports import AbuseReportsResourceWithStreamingResponse
 
@@ -4183,6 +4338,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncCustomCertificatesResourceWithStreamingResponse(self._client.custom_certificates)
 
     @cached_property
+    def custom_csrs(self) -> custom_csrs.AsyncCustomCsrsResourceWithStreamingResponse:
+        from .resources.custom_csrs import AsyncCustomCsrsResourceWithStreamingResponse
+
+        return AsyncCustomCsrsResourceWithStreamingResponse(self._client.custom_csrs)
+
+    @cached_property
     def custom_hostnames(self) -> custom_hostnames.AsyncCustomHostnamesResourceWithStreamingResponse:
         from .resources.custom_hostnames import AsyncCustomHostnamesResourceWithStreamingResponse
 
@@ -4193,6 +4354,14 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.custom_nameservers import AsyncCustomNameserversResourceWithStreamingResponse
 
         return AsyncCustomNameserversResourceWithStreamingResponse(self._client.custom_nameservers)
+
+    @cached_property
+    def tenant_custom_nameservers(
+        self,
+    ) -> tenant_custom_nameservers.AsyncTenantCustomNameserversResourceWithStreamingResponse:
+        from .resources.tenant_custom_nameservers import AsyncTenantCustomNameserversResourceWithStreamingResponse
+
+        return AsyncTenantCustomNameserversResourceWithStreamingResponse(self._client.tenant_custom_nameservers)
 
     @cached_property
     def dns_firewall(self) -> dns_firewall.AsyncDNSFirewallResourceWithStreamingResponse:
@@ -4355,6 +4524,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.addressing import AsyncAddressingResourceWithStreamingResponse
 
         return AsyncAddressingResourceWithStreamingResponse(self._client.addressing)
+
+    @cached_property
+    def dls(self) -> dls.AsyncDLSResourceWithStreamingResponse:
+        from .resources.dls import AsyncDLSResourceWithStreamingResponse
+
+        return AsyncDLSResourceWithStreamingResponse(self._client.dls)
 
     @cached_property
     def audit_logs(self) -> audit_logs.AsyncAuditLogsResourceWithStreamingResponse:
@@ -4689,6 +4864,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.ai_security import AsyncAISecurityResourceWithStreamingResponse
 
         return AsyncAISecurityResourceWithStreamingResponse(self._client.ai_security)
+
+    @cached_property
+    def csam_scanner(self) -> csam_scanner.AsyncCsamScannerResourceWithStreamingResponse:
+        from .resources.csam_scanner import AsyncCsamScannerResourceWithStreamingResponse
+
+        return AsyncCsamScannerResourceWithStreamingResponse(self._client.csam_scanner)
 
     @cached_property
     def abuse_reports(self) -> abuse_reports.AsyncAbuseReportsResourceWithStreamingResponse:

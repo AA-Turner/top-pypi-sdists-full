@@ -306,6 +306,61 @@ def function(x: bool, y: int, z_: Optional[str] = None) -> str:
 
 @expected(
     """\
+mod.function_with_trailing_underscore_numpy(a, lambda_=None)
+
+   Do nothing.
+
+   Parameters:
+      * **a** ("int") -- Description for a.
+
+      * **lambda_** ("float" | "None", default: "None") -- Description
+        for lambda.
+
+   Return type:
+      "None"
+""",
+    typehints_defaults="comma",
+)
+def function_with_trailing_underscore_numpy(a: int, lambda_: float | None = None) -> None:
+    """Do nothing.
+
+    Parameters
+    ----------
+    a
+        Description for a.
+    lambda_
+        Description for lambda.
+    """
+
+
+@expected(
+    """\
+mod.function_with_trailing_underscore_google(a, lambda_=None)
+
+   Do nothing.
+
+   Parameters:
+      * **a** ("int") -- Description for a.
+
+      * **lambda_** ("float" | "None", default: "None") -- Description
+        for lambda.
+
+   Return type:
+      "None"
+""",
+    typehints_defaults="comma",
+)
+def function_with_trailing_underscore_google(a: int, lambda_: float | None = None) -> None:
+    """Do nothing.
+
+    Args:
+        a: Description for a.
+        lambda_: Description for lambda.
+    """
+
+
+@expected(
+    """\
 mod.function_with_starred_documentation_param_names(*args, **kwargs)
 
    Function docstring.
@@ -348,6 +403,145 @@ def function_with_escaped_default(x: str = "\b"):  # noqa: ANN201
     Function docstring.
 
     :param x: foo
+    """
+
+
+@expected(
+    """\
+mod.function_with_multiline_param_defaults(x=5, y=10, z=15)
+
+   Function docstring.
+
+   Parameters:
+      * **x** ("int") -- optional specifier line 2 (default: "5")
+
+      * **y** ("int") --
+
+        another optional line 4
+
+        second paragraph for y (default: "10")
+
+      * **z** ("int") -- yet another optional s line 6 (default: "15")
+
+   Returns:
+      something
+
+   Return type:
+      "str"
+
+""",
+    typehints_defaults="braces-after",
+)
+def function_with_multiline_param_defaults(x: int = 5, y: int = 10, z: int = 15) -> str:
+    """
+    Function docstring.
+
+    :param x: optional specifier
+              line 2
+    :param y: another optional
+              line 4
+
+              second paragraph for y
+
+    :param z: yet another optional s
+              line 6
+
+    :return: something
+    :rtype: bytes
+    """
+
+
+ArrayLike = Literal["test"]
+
+ALIAS_OPTIONS = {"autodoc_type_aliases": {"ArrayLike": "Array", "AliasedClass": '"Class Alias"'}}
+
+
+class _SchemaMeta(type):  # noqa: PLW1641
+    def __eq__(cls, other: object) -> bool:
+        return True
+
+
+class Schema(metaclass=_SchemaMeta):
+    pass
+
+
+class AliasedClass: ...
+
+
+@expected(
+    """
+mod.function_with_eq_metaclass(s)
+
+   Do something.
+
+   Parameters:
+      **s** ("Schema") -- Some schema.
+
+   Return type:
+      "Schema"
+""",
+    **ALIAS_OPTIONS,
+)
+def function_with_eq_metaclass(s: Schema) -> Schema:
+    """
+    Do something.
+
+    Args:
+        s: Some schema.
+    """
+
+
+@expected(
+    """
+mod.function_with_aliased_class(s)
+
+   Do something.
+
+   Parameters:
+      **s** ("Class Alias") -- Some schema.
+
+   Return type:
+      "Class Alias"
+""",
+    **ALIAS_OPTIONS,
+)
+def function_with_aliased_class(s: AliasedClass) -> AliasedClass:
+    """
+    Do something.
+
+    Args:
+        s: Some schema.
+    """
+
+
+@expected(
+    """\
+mod.function_with_type_aliases(x, y)
+
+   Function docstring.
+
+   Parameters:
+      * **x** (Array | "None") -- foo
+
+      * **y** ("Schema") -- boo
+
+   Returns:
+      something
+
+   Return type:
+      "str"
+
+""",
+    **ALIAS_OPTIONS,
+)
+def function_with_type_aliases(x: ArrayLike | None, y: Schema) -> str:
+    """
+    Function docstring.
+
+    :param x: foo
+    :param y: boo
+    :return: something
+    :rtype: bytes
     """
 
 

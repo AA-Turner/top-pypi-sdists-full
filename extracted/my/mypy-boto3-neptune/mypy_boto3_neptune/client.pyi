@@ -241,6 +241,7 @@ class Exceptions(BaseClientExceptions):
     InvalidSubnet: type[BotocoreClientError]
     InvalidVPCNetworkStateFault: type[BotocoreClientError]
     KMSKeyNotAccessibleFault: type[BotocoreClientError]
+    NetworkTypeNotSupportedFault: type[BotocoreClientError]
     OptionGroupNotFoundFault: type[BotocoreClientError]
     ProvisionedIopsNotAvailableInAZFault: type[BotocoreClientError]
     ResourceNotFoundFault: type[BotocoreClientError]

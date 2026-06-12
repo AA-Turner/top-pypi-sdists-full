@@ -14,6 +14,10 @@ from box_sdk_gen.internal.utils import to_string
 
 from box_sdk_gen.serialization.json import deserialize
 
+from box_sdk_gen.schemas.ai_extract_sub_field import AiExtractSubField
+
+from box_sdk_gen.schemas.ai_options_rules import AiOptionsRules
+
 from box_sdk_gen.schemas.ai_item_ask import AiItemAsk
 
 from box_sdk_gen.schemas.ai_dialogue_history import AiDialogueHistory
@@ -39,6 +43,12 @@ from box_sdk_gen.schemas.ai_item_base import AiItemBase
 from box_sdk_gen.schemas.ai_extract_agent import AiExtractAgent
 
 from box_sdk_gen.schemas.ai_extract_structured_agent import AiExtractStructuredAgent
+
+from box_sdk_gen.schemas.ai_taxonomy_reference import AiTaxonomyReference
+
+from box_sdk_gen.schemas.ai_taxonomy_file_reference import AiTaxonomyFileReference
+
+from box_sdk_gen.schemas.ai_taxonomy_source import AiTaxonomySource
 
 from box_sdk_gen.schemas.ai_response_full import AiResponseFull
 
@@ -185,6 +195,10 @@ class CreateAiExtractStructuredFields(BaseObject):
         prompt: Optional[str] = None,
         type: Optional[str] = None,
         options: Optional[List[CreateAiExtractStructuredFieldsOptionsField]] = None,
+        fields: Optional[List[AiExtractSubField]] = None,
+        taxonomy_key: Optional[str] = None,
+        namespace: Optional[str] = None,
+        options_rules: Optional[AiOptionsRules] = None,
         **kwargs
     ):
         """
@@ -196,10 +210,16 @@ class CreateAiExtractStructuredFields(BaseObject):
         :type display_name: Optional[str], optional
         :param prompt: The context about the key that may include how to find and format it., defaults to None
         :type prompt: Optional[str], optional
-        :param type: The type of the field. It can include but is not limited to `string`, `float`, `date`, `enum`, and `multiSelect`., defaults to None
+        :param type: The type of the field. It can include but is not limited to `string`, `float`, `date`, `enum`, `multiSelect`,`taxonomy`, `struct`, and `table`., defaults to None
         :type type: Optional[str], optional
         :param options: A list of options for this field. This is most often used in combination with the `enum` and `multiSelect` field types., defaults to None
         :type options: Optional[List[CreateAiExtractStructuredFieldsOptionsField]], optional
+        :param fields: The nested fields for this field. Used with `struct` and `table` field types to define the nested structure., defaults to None
+        :type fields: Optional[List[AiExtractSubField]], optional
+        :param taxonomy_key: The identifier for a taxonomy, which corresponds to the `key` of the taxonomy source. Required if using `taxonomy` type field., defaults to None
+        :type taxonomy_key: Optional[str], optional
+        :param namespace: The namespace of the taxonomy source. Required if using `taxonomy` type field from an existing taxonomy., defaults to None
+        :type namespace: Optional[str], optional
         """
         super().__init__(**kwargs)
         self.key = key
@@ -208,6 +228,10 @@ class CreateAiExtractStructuredFields(BaseObject):
         self.prompt = prompt
         self.type = type
         self.options = options
+        self.fields = fields
+        self.taxonomy_key = taxonomy_key
+        self.namespace = namespace
+        self.options_rules = options_rules
 
 
 class AiManager:
@@ -235,8 +259,8 @@ class AiManager:
     ) -> Optional[AiResponseFull]:
         """
                 Sends an AI request to supported LLMs and returns an answer specifically focused on the user's question given the provided context.
-                :param mode: Box AI handles text documents with text representations up to 1MB in size, or a maximum of 25 files,
-        whichever comes first. If the text file size exceeds 1MB, the first 1MB of text representation will be processed.
+                :param mode: Box AI handles text documents with text representations up to 2MB in size, or a maximum of 25 files,
+        whichever comes first. If the text file size exceeds 2MB, the first 2MB of text representation will be processed.
         Box AI handles image documents with a resolution of 1024 x 1024 pixels, with a maximum of 5 images or 5 pages
         for multi-page images. If the number of image or image pages exceeds 5, the first 5 images or pages will
         be processed. If you set mode parameter to `single_item_qa`, the items array can have one element only.
@@ -298,8 +322,8 @@ class AiManager:
                 :param items: The items to be processed by the LLM, often files.
         The array can include **exactly one** element.
 
-        **Note**: Box AI handles documents with text representations up to 1MB in size.
-        If the file size exceeds 1MB, the first 1MB of text representation will be processed.
+        **Note**: Box AI handles documents with text representations up to 2MB in size.
+        If the file size exceeds 2MB, the first 2MB of text representation will be processed.
                 :type items: List[CreateAiTextGenItems]
                 :param dialogue_history: The history of prompts and answers previously passed to the LLM. This parameter provides the additional context to the LLM when generating the response., defaults to None
                 :type dialogue_history: Optional[List[AiDialogueHistory]], optional
@@ -428,6 +452,7 @@ class AiManager:
         ai_agent: Optional[AiExtractStructuredAgent] = None,
         include_confidence_score: Optional[bool] = None,
         include_reference: Optional[bool] = None,
+        taxonomy_sources: Optional[List[AiTaxonomySource]] = None,
         extra_headers: Optional[Dict[str, Optional[str]]] = None
     ) -> AiExtractStructuredResponse:
         """
@@ -456,6 +481,9 @@ class AiManager:
                 :type include_confidence_score: Optional[bool], optional
                 :param include_reference: A flag to indicate whether references for every extracted field should be returned., defaults to None
                 :type include_reference: Optional[bool], optional
+                :param taxonomy_sources: The taxonomy sources to be used for the structured extraction. They can either be an existing file or a taxonomy.
+        For your request to work, `fields` must also be provided. `taxonomy_sources` is not supported with `metadata_template`., defaults to None
+                :type taxonomy_sources: Optional[List[AiTaxonomySource]], optional
                 :param extra_headers: Extra headers that will be included in the HTTP request., defaults to None
                 :type extra_headers: Optional[Dict[str, Optional[str]]], optional
         """
@@ -468,6 +496,7 @@ class AiManager:
             'ai_agent': ai_agent,
             'include_confidence_score': include_confidence_score,
             'include_reference': include_reference,
+            'taxonomy_sources': taxonomy_sources,
         }
         headers_map: Dict[str, str] = prepare_params({**extra_headers})
         response: FetchResponse = self.network_session.network_client.fetch(

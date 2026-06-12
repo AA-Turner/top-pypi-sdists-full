@@ -966,6 +966,24 @@ class BestFastMatchTests(unittest.TestCase):
             ],
         )
 
+    def test_best_match_no_double_match(self):
+        left = """\
+<a>
+    <p>x<b>xy</b></p>
+</a>
+"""
+        right = """\
+<a>
+    <p>x</p>
+</a>
+"""
+        matches = self._match(left, right, best_match=True)
+        # All matched paths should be exactly equal,
+        # and /a/p/b should not be matched with anything
+        for lpath, rpath in matches:
+            self.assertEqual(lpath, rpath)
+        self.assertNotIn("/a/p/b", [m[0] for m in matches])
+
 
 class UpdateNodeTests(unittest.TestCase):
     """Testing only the update phase of the diffing"""
@@ -1019,8 +1037,8 @@ class UpdateNodeTests(unittest.TestCase):
                 RenameAttrib("/root/node[1]", "attr1", "attr4"),
                 InsertAttrib("/root/node[1]", "attr5", "new"),
                 DeleteAttrib("/root/node[1]", "attr0"),
-                UpdateTextIn("/root/node[1]", "The new text"),
-                UpdateTextAfter("/root/node[1]", "Also a tail!"),
+                UpdateTextIn("/root/node[1]", "The new text", "The contained text"),
+                UpdateTextAfter("/root/node[1]", "Also a tail!", "And a tail!"),
             ],
         )
 
@@ -1263,8 +1281,9 @@ class DiffTests(unittest.TestCase):
                 InsertAttrib("/document/story/app:section[4]/app:term[1]", "set", "ol"),
                 InsertNode("/document/story/app:section[4]", "para", 1),
                 UpdateTextIn(
-                    "/document/story/app:section[1]/para[2]/" "app:placeholder[1]",
+                    "/document/story/app:section[1]/para[2]/app:placeholder[1]",
                     "consectetur",
+                    "vestibulum",
                 ),
                 InsertNode(
                     "/document/story/app:section[4]/para[1]",
@@ -1305,14 +1324,30 @@ class DiffTests(unittest.TestCase):
                     "/document/story/app:section[4]/para/app:placeholder[1]",
                     "asellus congue accumsan tempor. Donec vel risus se",
                 ),
-                UpdateTextIn("/document/story/app:section[5]/para/app:ref[1]", "4"),
-                UpdateTextIn("/document/story/app:section[6]/para/app:ref[1]", "5"),
-                UpdateTextIn("/document/story/app:section[7]/para/app:ref[1]", "6"),
-                UpdateTextIn("/document/story/app:section[8]/para/app:ref[1]", "7"),
-                UpdateTextIn("/document/story/app:section[9]/para/app:ref[1]", "8"),
-                UpdateTextIn("/document/story/app:section[10]/para/app:ref[1]", "9"),
-                UpdateTextIn("/document/story/app:section[11]/para/app:ref[1]", "10"),
-                UpdateTextIn("/document/story/app:section[12]/para/app:ref[1]", "11"),
+                UpdateTextIn(
+                    "/document/story/app:section[5]/para/app:ref[1]", "4", "3"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[6]/para/app:ref[1]", "5", "4"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[7]/para/app:ref[1]", "6", "5"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[8]/para/app:ref[1]", "7", "6"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[9]/para/app:ref[1]", "8", "7"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[10]/para/app:ref[1]", "9", "8"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[11]/para/app:ref[1]", "10", "9"
+                ),
+                UpdateTextIn(
+                    "/document/story/app:section[12]/para/app:ref[1]", "11", "10"
+                ),
                 InsertNode("/document/story/app:section[4]/para/u[1]", "b", 0),
                 UpdateTextIn(
                     "/document/story/app:section[4]/para/u/b[1]", "ger nec ferme"

@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+import asyncio
+import dataclasses
+import enum
+import logging
+import typing
+
+from zigpy.zcl import foundation
+import zigpy.zdo.types as zdo_t
+
+LOGGER = logging.getLogger(__name__)
+
+
+class AnyDeviceType(enum.Enum):
+    """Singleton type for "any device"."""
+
+    _singleton = 0
+
+
+ANY_DEVICE = AnyDeviceType._singleton  # noqa: SLF001
+
+
+@dataclasses.dataclass(frozen=True)
+class BaseRequestListener:
+    matchers: tuple[MatcherType]
+
+    def resolve(
+        self,
+        hdr: foundation.ZCLHeader | zdo_t.ZDOHeader,
+        command: foundation.CommandSchema,
+    ) -> bool:
+        """Attempts to resolve the listener with a given response. Can be called with any
+        command as an argument, including ones we don't match.
+        """
+
+        for matcher in self.matchers:
+            match = None
+            is_matcher_cmd = isinstance(matcher, foundation.CommandSchema)
+
+            if is_matcher_cmd and isinstance(command, foundation.CommandSchema):
+                match = command.matches(matcher)
+            elif is_matcher_cmd and isinstance(hdr, zdo_t.ZDOHeader):
+                # FIXME: ZDO does not use command schemas and cannot be matched
+                pass
+            elif callable(matcher):
+                match = matcher(hdr, command)
+            else:
+                LOGGER.debug(
+                    "Matcher %r and command %r %r are incompatible",
+                    matcher,
+                    hdr,
+                    command,
+                )
+
+            if match:
+                return self._resolve(hdr, command)
+
+        return False
+
+    def _resolve(
+        self,
+        hdr: foundation.ZCLHeader | zdo_t.ZDOHeader,
+        command: foundation.CommandSchema,
+    ) -> bool:
+        """Implemented by subclasses to handle matched commands.
+
+        Return value indicates whether or not the listener has actually resolved,
+        which can sometimes be unavoidable.
+        """
+
+        raise NotImplementedError  # pragma: no cover
+
+    def cancel(self):
+        """Implement by subclasses to cancel the listener.
+
+        Return value indicates whether or not the listener is cancelable.
+        """
+
+        raise NotImplementedError  # pragma: no cover
+
+
+@dataclasses.dataclass(frozen=True)
+class FutureListener(BaseRequestListener):
+    future: asyncio.Future
+
+    def _resolve(
+        self,
+        hdr: foundation.ZCLHeader | zdo_t.ZDOHeader,
+        command: foundation.CommandSchema,
+    ) -> bool:
+        if self.future.done():
+            return False
+
+        self.future.set_result((hdr, command))
+        return True
+
+    def cancel(self):
+        self.future.cancel()
+        return True
+
+
+@dataclasses.dataclass(frozen=True)
+class CallbackListener(BaseRequestListener):
+    callback: typing.Callable[
+        [foundation.ZCLHeader | zdo_t.ZDOHeader, foundation.CommandSchema], typing.Any
+    ]
+
+    def _resolve(
+        self,
+        hdr: foundation.ZCLHeader | zdo_t.ZDOHeader,
+        command: foundation.CommandSchema,
+    ) -> bool:
+        self.callback(hdr, command)
+        # Callbacks are always resolved
+        return True
+
+    def cancel(self):
+        # You can't cancel a callback
+        return False
+
+
+MatcherFuncType = typing.Callable[
+    [
+        foundation.ZCLHeader | zdo_t.ZDOHeader,
+        foundation.CommandSchema,
+    ],
+    bool,
+]
+MatcherType = MatcherFuncType | foundation.CommandSchema

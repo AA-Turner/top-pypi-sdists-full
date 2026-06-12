@@ -386,7 +386,26 @@ class WebhookUrlPolicy(TypedDict, total=False):
     max_url_length: int
     """Maximum permitted URL length in characters; longer inputs are rejected early."""
     disable_loopback: bool
-    """Disallow relative URLs (internal loopback calls) and localhost hostnames when true."""
+    """Disallow loopback-flavored webhook targets when true. Defaults to true.
+
+    Covers all of:
+    - Relative URLs (e.g. ``/internal/hook``) that would dispatch via the
+      in-process ASGI loopback transport at ``root_path="/noauth"``. These
+      bypass authentication and were the auth-bypass primitive behind
+      GHSA-q3v5-r5ch-p57j.
+    - Absolute URLs whose hostname is ``localhost`` / ``localhost.localdomain``
+      / ``host.docker.internal``.
+    - Absolute URLs that DNS-resolve into the IPv4 loopback range
+      (``127.0.0.0/8``) or IPv6 loopback (``::1/128``) — including
+      DNS-rebinding-style attacks where an arbitrary hostname resolves to
+      a loopback IP.
+
+    Operators who intentionally route webhooks to in-process routes
+    (e.g. for local development with ``langgraph dev``, or single-host
+    docker-compose setups dispatching to ``host.docker.internal``) can
+    set this to ``false`` to restore the pre-GHSA behavior. Only do this
+    when you control all routes that loopback webhooks can reach.
+    """
     disable_private_ips: bool
     """Block RFC 1918 / CGN private IP ranges as webhook targets when true.
 
@@ -426,7 +445,12 @@ def _validate_url_policy(
     if "max_url_length" not in policy:
         policy["max_url_length"] = 2048
     if "disable_loopback" not in policy:
-        policy["disable_loopback"] = False
+        # Secure default — covers GHSA-q3v5-r5ch-p57j (relative-URL ASGI
+        # loopback auth bypass) and the broader SSRF surface that the same
+        # flag governs via SSRFPolicy.block_localhost. Mirrored at the
+        # webhook.py read site so deployments without any webhooks block
+        # also get the safe default.
+        policy["disable_loopback"] = True
     if "disable_private_ips" not in policy:
         policy["disable_private_ips"] = False
     return policy

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.235.3
+Version: 0.235.4
 Summary: Next-generation data transformation framework
 Author: SQLMesh Contributors
 License:                                  Apache License
@@ -334,6 +334,8 @@ Provides-Extra: snowflake
 Requires-Dist: cryptography; extra == "snowflake"
 Requires-Dist: snowflake-connector-python[pandas,secure-local-storage]; extra == "snowflake"
 Requires-Dist: snowflake-snowpark-python; extra == "snowflake"
+Provides-Extra: starrocks
+Requires-Dist: pymysql; extra == "starrocks"
 Provides-Extra: trino
 Requires-Dist: trino; extra == "trino"
 Provides-Extra: web

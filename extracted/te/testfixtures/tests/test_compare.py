@@ -6,6 +6,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
+from enum import StrEnum, auto
 from functools import partial
 from re import compile
 from typing import TypeVar, Generic, Any
@@ -112,7 +113,7 @@ class HashableBroken(Broken):
 class TestSampleClasses:
     # Test coverage for the helper objects above, to make sure the things test below rely on
     # behave as expected:
-    def test_strict_eq(self):
+    def test_strict_eq(self) -> None:
 
         @dataclass
         class Other:
@@ -122,7 +123,7 @@ class TestSampleClasses:
         assert not Strict('foo') == Strict('bar')
         assert hash(Strict('foo')) == hash('foo')
 
-    def test_hashable_broken_eq(self):
+    def test_hashable_broken_eq(self) -> None:
 
         @dataclass
         class Other:
@@ -678,6 +679,22 @@ class TestCompare(CompareHelper, TestCase):
             x_label='expected',
             y_label='actual',
         )
+
+    def test_frozen_set_different(self):
+        class S(StrEnum):
+            a = auto()
+            b = auto()
+            c = auto()
+
+        self.check_raises(
+            frozenset([S.a, S.b]),
+            frozenset([S.b, S.c]),
+            'frozenset not as expected:\n\n'
+            'in first but not second:\n'
+            "[<S.a: 'a'>]\n\n"
+            'in second but not first:\n'
+            "[<S.c: 'c'>]\n\n"
+            )
 
     def test_tuple_same(self):
         compare((1, 2, 3), (1, 2, 3))

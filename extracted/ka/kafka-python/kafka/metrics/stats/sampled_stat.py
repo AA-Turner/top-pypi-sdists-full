@@ -1,13 +1,9 @@
-from __future__ import absolute_import
-
-import abc
+from abc import ABC, abstractmethod
 
 from kafka.metrics.measurable_stat import AbstractMeasurableStat
-from kafka.vendor.six import add_metaclass
 
 
-@add_metaclass(abc.ABCMeta)
-class AbstractSampledStat(AbstractMeasurableStat):
+class AbstractSampledStat(AbstractMeasurableStat, ABC):
     """
     An AbstractSampledStat records a single scalar value measured over
     one or more samples. Each sample is recorded over a configurable
@@ -29,13 +25,13 @@ class AbstractSampledStat(AbstractMeasurableStat):
         self._samples = []
         self._current = 0
 
-    @abc.abstractmethod
+    @abstractmethod
     def update(self, sample, config, value, time_ms):
-        raise NotImplementedError
+        pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def combine(self, samples, config, now):
-        raise NotImplementedError
+        pass
 
     def record(self, config, value, time_ms):
         sample = self.current(time_ms)
@@ -85,7 +81,7 @@ class AbstractSampledStat(AbstractMeasurableStat):
             sample.reset(time_ms)
             return sample
 
-    class Sample(object):
+    class Sample:
 
         def __init__(self, initial_value, now):
             self.initial_value = initial_value

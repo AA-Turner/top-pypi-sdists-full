@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
-import subprocess
 from pathlib import Path
 
 from kanban_framework.types import Task, Phase
@@ -526,108 +524,16 @@ class GuardChecks:
             )
             files = set(result.stdout.splitlines()) | set(staged.stdout.splitlines())
             files.discard("")
-            return sorted(str(wt / f) for f in sorted(files) if (wt / f).is_file())
+            # #602: filter to .py only — git diff includes .kanban/log etc.
+            py_files = {f for f in files if f.endswith(".py")}
+            return sorted(str(wt / f) for f in sorted(py_files) if (wt / f).is_file())
         except (subprocess.CalledProcessError, OSError):
             return sorted(str(f) for f in wt.glob(self._WORKTREE_GLOB))
 
     def check_external_tool(self, task: Task, tool_config: dict) -> CheckResult:
         """Execute an external CLI tool and return a CheckResult.
 
-        Runs the configured command against files resolved by ``_resolve_files``.
-        Supports fail/warn pattern matching, exit code checks, severity levels,
-        and timeout control. Writes tool output to a log file in the task dir.
-
-        Args:
-            task: The task whose worktree to scan for files.
-            tool_config: Dict with keys ``name``, ``command``, and optional
-                ``scope``, ``timeout_seconds``, ``fail_pattern``, ``warn_pattern``,
-                ``fail_on_exit_code``, ``severity``.
+        Delegates to kanban_framework.domain.guard_external.
         """
-        # 1. Resolve files
-        scope = tool_config.get("scope", "changed")
-        files = self._resolve_files(task, scope)
-        if not files:
-            return CheckResult(passed=True, warnings=["No files to check"])
-
-        # 2. Build command — replace ${files} and ${python_bin} placeholders
-        import shlex
-        tool_name = tool_config.get("name", "unknown")
-        command_tmpl = tool_config.get("command", "")
-        command = command_tmpl.replace("${files}", shlex.join(files))
-        # Resolve ${python_bin} from config so venv tools work
-        try:
-            from kanban_framework.infra.filesystem import Filesystem
-            _py_bin, _ = Filesystem.resolve_python()
-        except Exception:
-            _py_bin = "python"
-        command = command.replace("${python_bin}", _py_bin)
-        timeout = tool_config.get("timeout_seconds", 120)
-        worktree = task.worktree_path or str(self._fs.root)
-
-        # 3. Execute via subprocess — resolve tool binary to handle venv paths
-        tool_bin = shutil.which(command.split()[0]) if not command.startswith(("/", "./", "../")) else command.split()[0]
-        if tool_bin:
-            command = tool_bin + command[len(command.split()[0]):]
-
-        try:
-            proc = subprocess.run(
-                command, shell=True, capture_output=True, text=True,
-                timeout=timeout, cwd=str(worktree),
-            )
-        except FileNotFoundError:
-            return CheckResult(
-                passed=True,
-                warnings=[f"{tool_name} not installed, check skipped"],
-            )
-        except subprocess.TimeoutExpired:
-            return CheckResult(
-                passed=False,
-                failures=[f"{tool_name} timed out after {timeout}s"],
-            )
-
-        # Shell returns exit code 127 for "command not found"
-        if proc.returncode == 127:
-            return CheckResult(
-                passed=True,
-                warnings=[f"{tool_name} not installed — check skipped. "
-                          f"Install with: pip install {tool_name}"],
-            )
-
-        output = proc.stdout + proc.stderr
-
-        # 4. Write log file
-        task_dir = self._fs.task_dir(task.id)
-        self._fs.ensure_dir(task_dir)
-        log_path = task_dir / f"guard_external_{tool_name}.log"
-        log_path.write_text(output, encoding="utf-8")
-
-        # 5. Match fail_pattern -> failures
-        failures: list[str] = []
-        fail_pat = tool_config.get("fail_pattern")
-        if fail_pat:
-            for line in output.splitlines():
-                if re.search(fail_pat, line):
-                    failures.append(line.strip())
-
-        # 6. Exit code check
-        if tool_config.get("fail_on_exit_code", True) and proc.returncode != 0:
-            if not failures:
-                failures.append(
-                    f"{tool_name} exited with code {proc.returncode}. "
-                    f"Full output saved to guard_external_{tool_name}.log. "
-                    f"Fix: resolve the errors above and re-run"
-                )
-
-        # 7. Match warn_pattern -> warnings
-        warnings: list[str] = []
-        warn_pat = tool_config.get("warn_pattern")
-        if warn_pat:
-            for line in output.splitlines():
-                if re.search(warn_pat, line):
-                    warnings.append(line.strip())
-
-        # 8. Severity determines blocking
-        severity = tool_config.get("severity", "error")
-        if severity == "warning":
-            return CheckResult(passed=True, warnings=warnings + failures)
-        return CheckResult(passed=len(failures) == 0, failures=failures, warnings=warnings)
+        from kanban_framework.domain.guard_external import check_external_tool as _run
+        return _run(self._fs, task, tool_config, self._resolve_files)

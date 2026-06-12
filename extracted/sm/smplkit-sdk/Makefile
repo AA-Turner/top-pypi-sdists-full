@@ -25,7 +25,7 @@ SHOWCASE_RUN := PYTHONPATH=src $(PYTHON)
 	config_runtime_showcase config_management_showcase \
 	flags_runtime_showcase flags_management_showcase \
 	logging_runtime_showcase logging_management_showcase \
-	audit_runtime_showcase audit_management_showcase \
+	audit_showcase \
 	jobs_showcase
 
 install:
@@ -39,6 +39,7 @@ test:
 
 lint:
 	$(PYTHON) -m ruff check src/ tests/
+	$(PYTHON) -m ruff format --check src/ tests/
 
 config_runtime_showcase:
 	$(SHOWCASE_RUN) examples/config_runtime_showcase.py
@@ -58,11 +59,8 @@ logging_runtime_showcase:
 logging_management_showcase:
 	$(SHOWCASE_RUN) examples/logging_management_showcase.py
 
-audit_runtime_showcase:
-	$(SHOWCASE_RUN) examples/audit_runtime_showcase.py
-
-audit_management_showcase:
-	$(SHOWCASE_RUN) examples/audit_management_showcase.py
+audit_showcase:
+	$(SHOWCASE_RUN) examples/audit_showcase.py
 
 jobs_showcase:
 	$(SHOWCASE_RUN) examples/jobs_showcase.py

@@ -1,7 +1,7 @@
 """Phase-level workflow handlers: transition, complete-phase, and phase queries.
 
 Contains handlers for FSM phase transitions, phase completion (with guard
-checks, knowledge extraction, token tracking), and phase-related queries
+checks, knowledge extraction), and phase-related queries
 (self-improve-check, get-roles, next-phase, checkpoint).
 """
 
@@ -97,8 +97,13 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
         _raise_guard_error(fs, task, guard_result, "guard check")
     # Checkpoint step guard (#v0.84)
     from kanban_framework.domain.step_registry import build_step_dag
+    from kanban_framework.domain.state_machine import load_progress
+    progress = load_progress(fs, task.id)
+    skipped = {k for k, v in progress.get("steps", {}).items() if v.get("status") == "skipped"}
     dag = build_step_dag(mode=getattr(task, 'mode', None), kanban_dir=fs.kanban_dir)
     for step in dag["steps"]:
+        if step["id"] in skipped:
+            continue  # #603: skipped checkpoint steps should not block phase transition
         if step["phase"] == task.phase.value and step["type"] == "checkpoint":
             step_guard = guard.check_step(task, step)
             if not step_guard.passed:
@@ -135,33 +140,9 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     _log.info("complete-phase done: task=%s %s -> %s", task.id, task.phase_id,
               updated.phase.value)
 
-    _collect_token_usage(task, fs)
-
     result = {"task_id": task.id, "phase": updated.phase.value}
     result.update(knowledge_result)
     return result
-
-
-def _collect_token_usage(task, fs: Filesystem) -> None:
-    """Auto-collect token usage from JSONL for the completed phase."""
-    try:
-        from kanban_framework.infra.token_tracking import TokenTracker
-        reports_dir = fs.kanban_dir / "reports"
-        tt = TokenTracker(reports_dir / "token_tracking.json")
-        t_min = None
-        t_max = None
-        for h in task.history:
-            if h.get("phase") == task.phase.value:
-                ts = h.get("started_at")
-                if ts and t_min is None:
-                    t_min = ts - 30 if ts else None
-                ts = h.get("completed_at")
-                if ts:
-                    t_max = ts + 30 if t_max is None else max(t_max, ts + 30)
-        if t_min and t_max:
-            tt.auto_collect(task.id, task.phase.value, t_min, t_max)
-    except Exception:
-        pass
 
 
 def handle_self_improve_check(args: list[str], fs: Filesystem, tm: TaskManager,

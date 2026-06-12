@@ -24,9 +24,9 @@ from ._cmds import (
     _git,
     _install_gate,
     _jobs_cron,
-    _jobs_daemon,
     _jobs_systemd,
     _list,
+    _up,
     _prune_merged,
     _regen_umbrella,
     _sync_status,
@@ -96,8 +96,16 @@ def register_ecosystem_commands(main_group):
     _regen_umbrella.register(ecosystem)
 
     # Federated scheduled-job aggregation (scitex_dev.jobs entry-points).
+    # `ecosystem systemd` handles BOTH long-running services
+    # (kind="service") and periodic timers (kind="timer") since the
+    # service|timer|cron taxonomy refactor; the prior `ecosystem
+    # daemon` subcommand was removed as a duplicate surface.
     _jobs_cron.register(ecosystem)
     _jobs_systemd.register(ecosystem)
-    _jobs_daemon.register(ecosystem)
+
+    # Headline ecosystem-up one-shot: discover_jobs() → install all
+    # kinds + (with --yes) systemctl enable+start each. Operator's
+    # "register systemd once and the ecosystem stays reconciled" UX.
+    _up.register(ecosystem)
 
     return ecosystem

@@ -3,38 +3,25 @@ from __future__ import annotations
 import copy
 import os
 import re
-import sys
 from functools import partial
 from operator import add, neg
 
 import pytest
 
+pytest.importorskip("graphviz")
 ipycytoscape = pytest.importorskip("ipycytoscape")
-from dask.dot import _to_cytoscape_json, cytoscape_graph
-
-if sys.flags.optimize != 2:
-    pytest.importorskip("graphviz")
-    from dask.dot import dot_graph, label, task_label, to_graphviz
-else:
-    pytestmark = pytest.mark.skipif(
-        True, reason="graphviz exception with Python -OO flag"
-    )
+from IPython.display import SVG, Image
 
 from dask import delayed
-from dask.utils import ensure_not_exists
-
-try:
-    from IPython.display import SVG, Image
-except ImportError:
-    ipython_not_installed = True
-    Image = None
-    SVG = None
-else:
-    ipython_not_installed = False
-ipython_not_installed_mark = pytest.mark.skipif(
-    ipython_not_installed, reason="IPython not installed"
+from dask.dot import (
+    _to_cytoscape_json,
+    cytoscape_graph,
+    dot_graph,
+    label,
+    task_label,
+    to_graphviz,
 )
-
+from dask.utils import ensure_not_exists
 
 # Since graphviz doesn't store a graph, we need to parse the output
 label_re = re.compile(r".*\[label=(.*?) shape=(.*?)\]")
@@ -117,7 +104,7 @@ def test_cytoscape_graph_custom(tmp_path):
     # Check that custom styling and layout propagates through
     g = cytoscape_graph(
         dsk,
-        filename=os.fsdecode(tmp_path / "mydask.html"),
+        filename=str(tmp_path / "mydask.html"),
         rankdir="LR",
         node_sep=20,
         edge_sep=30,
@@ -138,14 +125,15 @@ def test_cytoscape_graph_custom(tmp_path):
     assert layout["spacingFactor"] == 2
 
 
-def test_cytoscape_graph_color():
+def test_cytoscape_graph_color(tmp_path):
     pytest.importorskip("matplotlib.pyplot")
     from dask.delayed import Delayed
 
-    g = Delayed("f", dsk).visualize(engine="cytoscape")
+    fname = str(tmp_path / "mydask")
+    g = Delayed("f", dsk).visualize(filename=fname, engine="cytoscape")
     init_color = g.graph.nodes[0].data["color"]
     # Check that we changed the semantic color
-    g = Delayed("f", dsk).visualize(engine="cytoscape", color="order")
+    g = Delayed("f", dsk).visualize(filename=fname, engine="cytoscape", color="order")
     assert any(n.data["color"] != init_color for n in g.graph.nodes)
 
 
@@ -234,23 +222,12 @@ def test_to_graphviz_with_unconnected_node():
 @pytest.mark.parametrize(
     "format,typ",
     [
-        pytest.param("png", Image, marks=ipython_not_installed_mark),
-        pytest.param(
-            "jpeg",
-            Image,
-            marks=pytest.mark.xfail(
-                reason="jpeg not always supported in dot", strict=False
-            ),
-        ),
+        ("png", Image),
+        ("jpeg", Image),
         ("dot", type(None)),
         ("pdf", type(None)),
-        pytest.param("svg", SVG, marks=ipython_not_installed_mark),
+        ("svg", SVG),
     ],
-)
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    reason="graphviz/pango on conda-forge currently broken for windows",
-    strict=False,
 )
 def test_dot_graph(tmpdir, format, typ):
     # Use a name that the shell would interpret specially to ensure that we're
@@ -272,23 +249,12 @@ def test_dot_graph(tmpdir, format, typ):
 @pytest.mark.parametrize(
     "format,typ",
     [
-        pytest.param("png", Image, marks=ipython_not_installed_mark),
-        pytest.param(
-            "jpeg",
-            Image,
-            marks=pytest.mark.xfail(
-                reason="jpeg not always supported in dot", strict=False
-            ),
-        ),
+        ("png", Image),
+        ("jpeg", Image),
         ("dot", type(None)),
         ("pdf", type(None)),
-        pytest.param("svg", SVG, marks=ipython_not_installed_mark),
+        ("svg", SVG),
     ],
-)
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    reason="graphviz/pango on conda-forge currently broken for windows",
-    strict=False,
 )
 def test_dot_graph_no_filename(tmpdir, format, typ):
     before = tmpdir.listdir()
@@ -299,12 +265,6 @@ def test_dot_graph_no_filename(tmpdir, format, typ):
     assert isinstance(result, typ)
 
 
-@ipython_not_installed_mark
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    reason="graphviz/pango on conda-forge currently broken for windows",
-    strict=False,
-)
 def test_dot_graph_defaults():
     # Test with default args.
     default_name = "mydask"
@@ -334,29 +294,12 @@ def test_cytoscape_graph(tmpdir):
 @pytest.mark.parametrize(
     "filename,format,target,expected_result_type",
     [
-        pytest.param(
-            "mydaskpdf", "svg", "mydaskpdf.svg", SVG, marks=ipython_not_installed_mark
-        ),
+        ("mydaskpdf", "svg", "mydaskpdf.svg", SVG),
         ("mydask.pdf", None, "mydask.pdf", type(None)),
-        pytest.param(
-            "mydask.pdf", "svg", "mydask.pdf.svg", SVG, marks=ipython_not_installed_mark
-        ),
-        pytest.param(
-            "mydaskpdf", None, "mydaskpdf.png", Image, marks=ipython_not_installed_mark
-        ),
-        pytest.param(
-            "mydask.pdf.svg",
-            None,
-            "mydask.pdf.svg",
-            SVG,
-            marks=ipython_not_installed_mark,
-        ),
+        ("mydask.pdf", "svg", "mydask.pdf.svg", SVG),
+        ("mydaskpdf", None, "mydaskpdf.png", Image),
+        ("mydask.pdf.svg", None, "mydask.pdf.svg", SVG),
     ],
-)
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    reason="graphviz/pango on conda-forge currently broken for windows",
-    strict=False,
 )
 def test_filenames_and_formats(tmpdir, filename, format, target, expected_result_type):
     result = dot_graph(dsk, filename=str(tmpdir.join(filename)), format=format)

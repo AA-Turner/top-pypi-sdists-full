@@ -250,6 +250,12 @@ def _get_custom_auth_middleware(
             '    return "my-user-id"'
         )
 
+    # We are wiring custom auth into the server middleware stack — emit the
+    # missing-handler warning here (once at startup) rather than inside
+    # `_get_auth_instance`, which is also reached from per-request dispatch
+    # and from telemetry helpers that have no opinion about coverage.
+    _warn_on_missing_handlers(auth_instance)
+
     result = CustomAuthBackend(
         auth_instance._authenticate_handler,
         disable_studio_auth,
@@ -274,6 +280,115 @@ def _get_auth_instance(path: str | None = None) -> Auth | Literal["js"] | None:
         )
     logger.info(f"Loaded auth instance from path {path}: {auth_instance}")
     return auth_instance
+
+
+def _derive_known_resource_actions(auth: Auth) -> dict[str, frozenset[str]]:
+    """Walk an ``Auth.on`` namespace to discover every (resource, action) pair
+    the SDK supports for handler registration.
+
+    The SDK's ``_On`` class declares ``__slots__`` listing top-level resource
+    namespaces (``assistants``, ``threads``, ``crons``, ``store``). Inside
+    each namespace, the SDK installs one ``_ResourceActionOn`` /
+    ``_StoreActionOn`` instance per supported action, each carrying a
+    ``.action`` string attribute (and a ``.resource`` for the non-store ones).
+    Duck-typing on those attributes avoids a hand-maintained list and keeps
+    this in sync as the SDK adds resources/actions.
+    """
+    on = auth.on
+    matrix: dict[str, set[str]] = {}
+    for slot in getattr(type(on), "__slots__", ()) or ():
+        if slot.startswith("_") or slot == "value":
+            continue
+        namespace = getattr(on, slot, None)
+        if namespace is None:
+            continue
+        for attr_name in dir(namespace):
+            if attr_name.startswith("_"):
+                continue
+            attr = getattr(namespace, attr_name, None)
+            action = getattr(attr, "action", None)
+            if not isinstance(action, str):
+                continue
+            # `_StoreActionOn` doesn't carry `.resource` (it's always
+            # "store"); fall back to the outer namespace name.
+            resource = getattr(attr, "resource", slot)
+            if not isinstance(resource, str):
+                continue
+            matrix.setdefault(resource, set()).add(action)
+    return {resource: frozenset(actions) for resource, actions in matrix.items()}
+
+
+def _missing_handler_paths(auth: Auth) -> list[tuple[str, str]]:
+    """Return ``(resource, action)`` pairs with no matching authorization handler.
+
+    Mirrors the dispatch precedence in :func:`_get_handler`:
+    - specific ``(resource, action)``
+    - resource wildcard ``(resource, "*")``
+    - action wildcard ``("*", action)``
+    - full wildcard ``("*", "*")`` registered via ``auth.on(resources=["*"], actions=["*"])``
+    - global ``@auth.on``
+
+    Either of the last two covers everything, so an empty list is returned
+    in those cases. Otherwise the returned list enumerates every
+    resource/action pair the server may dispatch which would currently fall
+    through to "allow".
+    """
+    if auth._global_handlers:
+        return []
+    handlers = auth._handlers
+    # `auth.on(resources=["*"], actions=["*"])` stores under ("*", "*") in
+    # `_handlers` (not `_global_handlers`) and `_get_handler` matches it as
+    # the final fallback before `_global_handlers`. Treat it as full coverage.
+    if ("*", "*") in handlers:
+        return []
+    missing: list[tuple[str, str]] = []
+    for resource, actions in _derive_known_resource_actions(auth).items():
+        for action in actions:
+            if (resource, action) in handlers:
+                continue
+            if (resource, "*") in handlers:
+                continue
+            if ("*", action) in handlers:
+                continue
+            missing.append((resource, action))
+    return missing
+
+
+def _warn_on_missing_handlers(auth: Auth) -> None:
+    """Log a warning when the user has registered some auth handlers but
+    left other dispatch paths uncovered.
+
+    Custom auth currently fails open: a request whose ``(resource, action)``
+    has no matching handler is allowed without filtering. This is a common
+    source of cross-user authorization bugs (see GHSA-38q2-qc5v-fccw and
+    related issues), so we surface a warning at startup listing every
+    uncovered path and a suggested default-deny snippet.
+
+    """
+    if not auth._handlers and not auth._global_handlers:
+        # Auth instance with only an `@auth.authenticate` handler — the user
+        # hasn't opted into resource-level authorization at all, so warning
+        # about every path would be too noisy. The auth dispatch is a no-op
+        # in this case.
+        return
+    missing = _missing_handler_paths(auth)
+    if not missing:
+        return
+    paths = sorted(f"{resource}.{action}" for resource, action in missing)
+    logger.warning(
+        "Custom auth has no handler registered for some dispatch paths. "
+        "Authentication (@auth.authenticate) still applies, but requests "
+        "to these paths will be allowed without resource-level authorization "
+        "checks (a common source of cross-user data leaks).",
+        missing_paths=paths,
+        suggestion=(
+            "Add a default-deny global handler and override per-resource "
+            "as needed:\n"
+            "    @auth.on\n"
+            "    async def deny_all(ctx, value):\n"
+            "        return False"
+        ),
+    )
 
 
 def _extract_arguments_from_scope(

@@ -1,9 +1,7 @@
-from __future__ import absolute_import
-
 import time
 
 
-class KafkaMetric(object):
+class KafkaMetric:
     __slots__ = ('_metric_name', '_measurable', '_config')
 
     # NOTE java constructor takes a lock instance
@@ -34,5 +32,5 @@ class KafkaMetric(object):
 
     def value(self, time_ms=None):
         if time_ms is None:
-            time_ms = time.time() * 1000
+            time_ms = time.monotonic() * 1000
         return self._measurable.measure(self._config, time_ms)

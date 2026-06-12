@@ -1,14 +1,12 @@
 Metadata-Version: 2.4
 Name: gravity
-Version: 1.2.2
+Version: 1.2.3
 Summary: Command-line utilities to assist in managing Galaxy servers
-Home-page: https://github.com/galaxyproject/gravity
-Author: The Galaxy Team
-Author-email: team@galaxyproject.org
-License: MIT
-Keywords: gravity galaxy
+Author-email: The Galaxy Team <team@galaxyproject.org>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/galaxyproject/gravity
+Keywords: gravity,galaxy
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
@@ -31,18 +29,7 @@ Requires-Dist: pydantic-settings
 Requires-Dist: jsonref
 Requires-Dist: requests
 Requires-Dist: requests-unixsocket
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 .. figure:: https://raw.githubusercontent.com/galaxyproject/gravity/main/docs/gravity-logo.png
    :alt: Gravity Logo
@@ -141,10 +128,17 @@ More detailed configuration and usage examples, especially those concerning prod
 .. _tusd: https://tus.io/
 .. _the full documentation: https://gravity.readthedocs.io
 
-
 =========
  History
 =========
+
+1.2.3
+=====
+
+- Fix path to version file for graceful under Galaxy 26.1 by @natefoo in https://github.com/galaxyproject/gravity/pull/156
+- Increase STARTUP_TIMEOUT to 90 for Galaxy dev startup by @natefoo in https://github.com/galaxyproject/gravity/pull/156
+- Use default celery beat schedule filename by @nsoranzo in https://github.com/galaxyproject/gravity/pull/150
+- Migrate from ``setup.py`` to ``pyproject.toml`` by @nsoranzo in https://github.com/galaxyproject/gravity/pull/155
 
 1.2.2
 =====

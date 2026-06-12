@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipsw-parser
-Version: 1.7.1
+Version: 1.7.2
 Summary: python3 utility for parsing and extracting data from IPSW
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>

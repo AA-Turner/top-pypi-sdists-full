@@ -7,6 +7,10 @@ import {
   resolveSecurityLevelDescription,
   resolveFineTuningSectionDescription,
   isFineTuningEditable,
+  resolveTotpSetupStep,
+  hasApprovalGateSettingsChanged,
+  resolveApprovalPasswordSectionCopy,
+  resolveTotpSetupModalTitle,
 } from "./settings-workspace";
 import { repairApprovalCenter, setupDesktopNotifications } from "./guard-api";
 
@@ -81,3 +85,32 @@ assert(isFineTuningEditable("custom") === true, "fine-tuning: custom level is ed
 assert(isFineTuningEditable("strict") === false, "fine-tuning: strict level is locked until custom");
 assert(isFineTuningEditable("balanced") === false, "fine-tuning: balanced level is locked until custom");
 assert(isFineTuningEditable("relaxed") === false, "fine-tuning: relaxed level is locked until custom");
+
+assert(resolveTotpSetupStep(null) === "confirm", "totp-setup: fresh setup starts at password confirmation");
+assert(
+  resolveTotpSetupStep({ provisioning_uri: "otpauth://totp/test", manual_key: "abcd", expires_at: "2026-01-01T00:00:00Z" }) === "scan",
+  "totp-setup: pending enrollment resumes at QR scan step",
+);
+
+assert(
+  hasApprovalGateSettingsChanged(
+    { enabled: true, configured: true, cooldown_seconds: 0, strict_all_decisions: false, cooldown_active: false, cooldown_expires_at: null, locked_until: null, fail_closed: false, totp_enabled: false, totp_pending: false },
+    true,
+    900,
+    false,
+  ) === true,
+  "approval-password: cooldown edits count as gate setting changes",
+);
+
+assert(
+  resolveApprovalPasswordSectionCopy(true).includes("Save settings"),
+  "approval-password: configured copy points to save flow",
+);
+assert(
+  resolveApprovalPasswordSectionCopy(false).includes("save settings"),
+  "approval-password: first-time copy points to save flow",
+);
+assert(
+  resolveTotpSetupModalTitle(true) === "Confirm your approval password",
+  "totp-modal: confirm step title",
+);

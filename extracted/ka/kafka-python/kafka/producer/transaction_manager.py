@@ -1,28 +1,17 @@
-from __future__ import absolute_import, division
-
-import abc 
+from abc import ABC, abstractmethod, abstractproperty
 import collections
+from enum import IntEnum
 import heapq
 import logging
 import threading
 
-from kafka.vendor import six
-
-try:
-    # enum in stdlib as of py3.4
-    from enum import IntEnum  # pylint: disable=import-error
-except ImportError:
-    # vendored backport module
-    from kafka.vendor.enum34 import IntEnum
-
 import kafka.errors as Errors
-from kafka.protocol.add_offsets_to_txn import AddOffsetsToTxnRequest
-from kafka.protocol.add_partitions_to_txn import AddPartitionsToTxnRequest
-from kafka.protocol.end_txn import EndTxnRequest
-from kafka.protocol.find_coordinator import FindCoordinatorRequest
-from kafka.protocol.init_producer_id import InitProducerIdRequest
-from kafka.protocol.txn_offset_commit import TxnOffsetCommitRequest
-from kafka.structs import TopicPartition
+from kafka.protocol.metadata import FindCoordinatorRequest, CoordinatorType
+from kafka.protocol.producer import (
+    AddOffsetsToTxnRequest, AddPartitionsToTxnRequest,
+    EndTxnRequest, InitProducerIdRequest, TxnOffsetCommitRequest,
+)
+from kafka.structs import ConsumerGroupMetadata, TopicPartition
 
 
 log = logging.getLogger(__name__)
@@ -33,7 +22,7 @@ NO_PRODUCER_EPOCH = -1
 NO_SEQUENCE = -1
 
 
-class ProducerIdAndEpoch(object):
+class ProducerIdAndEpoch:
     __slots__ = ('producer_id', 'epoch')
 
     def __init__(self, producer_id, epoch):
@@ -63,13 +52,21 @@ class TransactionState(IntEnum):
     ABORTING_TRANSACTION = 5
     ABORTABLE_ERROR = 6
     FATAL_ERROR = 7
+    # KIP-360: intermediate state entered when a recoverable sequence-related
+    # error is encountered. The producer sends an InitProducerIdRequest v3+
+    # with its current producer_id/epoch to bump the epoch, then transitions
+    # back to READY on success. Records in the accumulator will be sent under
+    # the bumped epoch with fresh sequence numbers. In-flight batches at the
+    # moment of the bump are lost (their futures fail). (TODO re KAFKA-5793)
+    BUMPING_PRODUCER_EPOCH = 8
 
     @classmethod
     def is_transition_valid(cls, source, target):
         if target == cls.INITIALIZING:
-            return source == cls.UNINITIALIZED
+            return source in (cls.UNINITIALIZED, cls.BUMPING_PRODUCER_EPOCH)
         elif target == cls.READY:
-            return source in (cls.INITIALIZING, cls.COMMITTING_TRANSACTION, cls.ABORTING_TRANSACTION)
+            return source in (cls.INITIALIZING, cls.COMMITTING_TRANSACTION,
+                              cls.ABORTING_TRANSACTION, cls.BUMPING_PRODUCER_EPOCH)
         elif target == cls.IN_TRANSACTION:
             return source == cls.READY
         elif target == cls.COMMITTING_TRANSACTION:
@@ -77,7 +74,16 @@ class TransactionState(IntEnum):
         elif target == cls.ABORTING_TRANSACTION:
             return source in (cls.IN_TRANSACTION, cls.ABORTABLE_ERROR)
         elif target == cls.ABORTABLE_ERROR:
-            return source in (cls.IN_TRANSACTION, cls.COMMITTING_TRANSACTION, cls.ABORTABLE_ERROR)
+            return source in (cls.IN_TRANSACTION, cls.COMMITTING_TRANSACTION,
+                              cls.ABORTABLE_ERROR, cls.BUMPING_PRODUCER_EPOCH)
+        elif target == cls.BUMPING_PRODUCER_EPOCH:
+            # A recoverable sequence-related error can arrive at any point in
+            # the producer's lifetime; the bump is a unilateral recovery
+            # action. Disallow only from UNINITIALIZED (no producer_id yet
+            # to bump) and the terminal error states.
+            return source in (cls.READY, cls.IN_TRANSACTION,
+                              cls.COMMITTING_TRANSACTION, cls.ABORTING_TRANSACTION,
+                              cls.ABORTABLE_ERROR)
         elif target == cls.UNINITIALIZED:
             # Disallow transitions to UNITIALIZED
             return False
@@ -98,7 +104,7 @@ class Priority(IntEnum):
     END_TXN = 3
 
 
-class TransactionManager(object):
+class TransactionManager:
     """
     A class which maintains state for transactions. Also keeps the state necessary to ensure idempotent production.
     """
@@ -112,6 +118,11 @@ class TransactionManager(object):
         self._metadata = metadata
 
         self._sequence_numbers = collections.defaultdict(lambda: 0)
+        # The offset of the last ack'd record for each partition. Used to
+        # distinguish retention-based UnknownProducerIdError (broker's
+        # log_start_offset > last_acked_offset -> safe to reset and retry)
+        # from actual data loss. See KAFKA-5793.
+        self._last_acked_offset = {}
 
         self.transactional_id = transactional_id
         self.transaction_timeout_ms = transaction_timeout_ms
@@ -148,6 +159,26 @@ class TransactionManager(object):
             self._enqueue_request(handler)
             return handler.result
 
+    def init_producer_id(self):
+        """Idempotent (non-transactional) producer: enqueue an InitProducerIdHandler.
+
+        Drives UNINITIALIZED -> INITIALIZING; the handler completes the
+        transition to READY on success. No-op outside UNINITIALIZED so
+        repeated calls from the sender's run loop are safe.
+        """
+        with self._lock:
+            if self.is_transactional():
+                raise Errors.IllegalStateError(
+                    "init_producer_id is for idempotent (non-transactional) producers;"
+                    " use initialize_transactions for transactional producers")
+            if self._current_state != TransactionState.UNINITIALIZED:
+                return
+            self._transition_to(TransactionState.INITIALIZING)
+            self.set_producer_id_and_epoch(ProducerIdAndEpoch(NO_PRODUCER_ID, NO_PRODUCER_EPOCH))
+            self._sequence_numbers.clear()
+            handler = InitProducerIdHandler(self, 0)
+            self._enqueue_request(handler)
+
     def begin_transaction(self):
         with self._lock:
             self._ensure_transactional()
@@ -179,15 +210,40 @@ class TransactionManager(object):
         self._enqueue_request(handler)
         return handler.result
 
-    def send_offsets_to_transaction(self, offsets, consumer_group_id):
+    def send_offsets_to_transaction(self, offsets, group_metadata):
+        """Send consumer-group offsets as part of the current transaction.
+
+        Arguments:
+            offsets ({TopicPartition: OffsetAndMetadata}): offsets to commit.
+            group_metadata (ConsumerGroupMetadata or str): full group metadata
+                from KafkaConsumer.group_metadata() (preferred - enables
+                broker-side fencing per KIP-447), or a bare group_id string
+                for backwards compatibility (broker treats it as v0-v2).
+
+        Returns:
+            FutureRecordMetadata-style Future that completes once the offsets
+            are durably committed (or fails fatally).
+        """
+        if isinstance(group_metadata, str):
+            group_metadata = ConsumerGroupMetadata(group_id=group_metadata)
+        elif not isinstance(group_metadata, ConsumerGroupMetadata):
+            raise TypeError(
+                "send_offsets_to_transaction expects group_metadata to be a "
+                "ConsumerGroupMetadata or a group_id str, got %r" % (type(group_metadata),))
+
+        if group_metadata.generation_id > 0 and not group_metadata.member_id:
+            raise ValueError(
+                "Invalid ConsumerGroupMetadata: generation_id=%s implies a"
+                " joined group but member_id is empty" % (group_metadata.generation_id,))
+
         with self._lock:
             self._ensure_transactional()
             self._maybe_fail_with_error()
             if self._current_state != TransactionState.IN_TRANSACTION:
                 raise Errors.KafkaError("Cannot send offsets to transaction because the producer is not in an active transaction")
 
-            log.debug("Begin adding offsets %s for consumer group %s to transaction", offsets, consumer_group_id)
-            handler = AddOffsetsToTxnHandler(self, consumer_group_id, offsets)
+            log.debug("Begin adding offsets %s for consumer group %s to transaction", offsets, group_metadata.group_id)
+            handler = AddOffsetsToTxnHandler(self, group_metadata, offsets)
             self._enqueue_request(handler)
             return handler.result
 
@@ -252,6 +308,119 @@ class TransactionManager(object):
                 TransactionState.ABORTABLE_ERROR,
                 TransactionState.FATAL_ERROR)
 
+    def is_bumping_epoch(self):
+        with self._lock:
+            return self._current_state == TransactionState.BUMPING_PRODUCER_EPOCH
+
+    # KIP-360 error classification
+    #
+    # Errors whose correct recovery is to bump the producer epoch via
+    # InitProducerIdRequest v3+. On brokers that do not support the bump
+    # (api_version < 2.5) these degrade to FATAL for transactional producers
+    # and NEEDS_PRODUCER_ID_RESET for non-transactional idempotent producers,
+    # matching the pre-KIP-360 behavior.
+    _NEEDS_EPOCH_BUMP_ERRORS = frozenset({
+        Errors.OutOfOrderSequenceNumberError,
+        Errors.UnknownProducerIdError,
+        Errors.InvalidProducerEpochError,
+    })
+
+    # Errors that are always fatal regardless of broker version: auth
+    # failures, fencing, or structural state corruption where no recovery
+    # is possible without operator action.
+    _FATAL_ERRORS = frozenset({
+        Errors.ClusterAuthorizationFailedError,
+        Errors.TransactionalIdAuthorizationFailedError,
+        Errors.ProducerFencedError,
+        Errors.InvalidTxnStateError,
+    })
+
+    # Classification outcomes returned by classify_batch_error().
+    ERROR_CLASS_RETRIABLE = 'RETRIABLE'
+    ERROR_CLASS_ABORTABLE = 'ABORTABLE'
+    ERROR_CLASS_FATAL = 'FATAL'
+    ERROR_CLASS_NEEDS_EPOCH_BUMP = 'NEEDS_EPOCH_BUMP'
+    ERROR_CLASS_NEEDS_PRODUCER_ID_RESET = 'NEEDS_PRODUCER_ID_RESET'
+
+    def _supports_epoch_bump(self):
+        """Return True if the broker supports InitProducerIdRequest v3+ (KIP-360).
+
+        KIP-360 landed in Kafka 2.5. On older brokers we fall back to the
+        pre-KIP-360 recovery: reset producer id for idempotent producers,
+        fatal state for transactional producers.
+        """
+        return self._api_version >= (2, 5)
+
+    def classify_batch_error(self, error, batch, log_start_offset=-1):
+        """Categorize a batch-completion error into a recovery outcome.
+
+        Used by the Sender to decide what to do with a failed batch. This
+        method does not mutate any state - it is a pure classification
+        helper. The caller is responsible for dispatching to the
+        appropriate recovery path.
+
+        Arguments:
+            error (type or BaseException): The error class or instance.
+            batch (ProducerBatch): The batch that failed.
+            log_start_offset (int): log_start_offset from the broker's
+                PartitionProduceResponse, or -1 if unknown / client-side
+                failure. Used for KAFKA-5793 retention detection.
+
+        Returns one of:
+            ERROR_CLASS_RETRIABLE          - caller should retry the batch
+            ERROR_CLASS_ABORTABLE          - transactional producer only;
+                                              abort the transaction
+            ERROR_CLASS_FATAL              - unrecoverable; transition to
+                                              fatal error and fail the batch
+            ERROR_CLASS_NEEDS_EPOCH_BUMP   - recoverable via KIP-360 epoch
+                                              bump (only when broker supports
+                                              InitProducerIdRequest v3+)
+            ERROR_CLASS_NEEDS_PRODUCER_ID_RESET - non-transactional pre-KIP-360
+                                                   fallback: reset the
+                                                   producer id entirely
+
+        Note: this classification is for transactional/idempotent producers
+        only. Non-idempotent producers don't call this; the Sender uses
+        simpler retry/fail logic for them.
+        """
+        error_type = error if isinstance(error, type) else type(error)
+
+        if error_type in self._FATAL_ERRORS:
+            return self.ERROR_CLASS_FATAL
+
+        # KAFKA-5793: a retention-based UnknownProducerIdError is recoverable
+        # by resetting the partition's sequence (not a full epoch bump). The
+        # Sender checks this condition separately before consulting this
+        # classifier, but we mirror the logic here so the classifier alone
+        # gives the correct answer for callers that pass log_start_offset.
+        if error_type is Errors.UnknownProducerIdError and log_start_offset is not None and log_start_offset >= 0:
+            last_acked = self.last_acked_offset(batch.topic_partition)
+            if log_start_offset > last_acked:
+                return self.ERROR_CLASS_RETRIABLE
+
+        if error_type in self._NEEDS_EPOCH_BUMP_ERRORS:
+            if self._supports_epoch_bump():
+                return self.ERROR_CLASS_NEEDS_EPOCH_BUMP
+            # Pre-KIP-360 brokers: fall back to the older (lossier) recovery.
+            if self.is_transactional():
+                return self.ERROR_CLASS_FATAL
+            return self.ERROR_CLASS_NEEDS_PRODUCER_ID_RESET
+
+        # Retriable errors (broker-retriable or client connection errors)
+        # become ABORTABLE for transactional producers only if they're
+        # non-retriable AND we're in a transaction. The Sender's existing
+        # can_retry/can_split logic handles the actual retry decision; this
+        # classifier is only consulted for the FAIL branch.
+        if issubclass(error_type, Errors.RetriableError):
+            return self.ERROR_CLASS_RETRIABLE
+
+        # Non-retriable, not in the bump or fatal sets: transactional
+        # producers should abort the current transaction; non-transactional
+        # idempotent producers just fail the batch without any state reset.
+        if self.is_transactional():
+            return self.ERROR_CLASS_ABORTABLE
+        return self.ERROR_CLASS_FATAL
+
     def is_aborting(self):
         with self._lock:
             return self._current_state == TransactionState.ABORTING_TRANSACTION
@@ -308,12 +477,96 @@ class TransactionManager(object):
         """
         with self._lock:
             if self.is_transactional():
-                raise Errors.IllegalStateError( 
+                raise Errors.IllegalStateError(
                     "Cannot reset producer state for a transactional producer."
                     " You must either abort the ongoing transaction or"
                     " reinitialize the transactional producer instead")
             self.set_producer_id_and_epoch(ProducerIdAndEpoch(NO_PRODUCER_ID, NO_PRODUCER_EPOCH))
             self._sequence_numbers.clear()
+            self._last_acked_offset.clear()
+
+    def bump_producer_id_and_epoch(self):
+        """KIP-360: recover from a transient producer-state error by bumping
+        the epoch.
+
+        Transitions to BUMPING_PRODUCER_EPOCH and enqueues an
+        InitProducerIdRequest v3+ carrying the current producer_id/epoch.
+        When the broker responds with the bumped epoch, _complete_epoch_bump
+        transitions back to READY and the sender resumes producing under
+        the new epoch. Records in the accumulator that haven't been drained
+        yet will be stamped with the new epoch on the next drain.
+
+        TODO (KAFKA-5793 full): in-flight batches at the moment of the bump
+        are lost--their futures fail. Adding in-place rewrite of the
+        closed batch buffer (producer_id/epoch/base_sequence fields + CRC
+        recompute) would let us retry them under the new epoch without
+        losing records.
+
+        Requires broker >= 2.5 (InitProducerIdRequest v3+). On older
+        brokers, Sender falls back to reset_producer_id / fatal instead
+        via classify_batch_error.
+
+        Idempotent: if we're already in BUMPING_PRODUCER_EPOCH, this is a
+        no-op. This matters because with max_in_flight > 1, multiple
+        in-flight batches may all fail with the same epoch-bump-triggering
+        error in quick succession; only the first should drive the bump.
+        """
+        with self._lock:
+            if self._current_state == TransactionState.BUMPING_PRODUCER_EPOCH:
+                return
+            if self._current_state == TransactionState.FATAL_ERROR:
+                return
+            if not self._supports_epoch_bump():
+                raise Errors.IllegalStateError(
+                    "Cannot bump producer epoch: broker version %s does not support KIP-360 "
+                    "(InitProducerIdRequest v3+ requires Kafka 2.5+)" % (self._api_version,))
+            log.warning("Bumping producer epoch for %s after recoverable error",
+                        self.producer_id_and_epoch)
+            self._transition_to(TransactionState.BUMPING_PRODUCER_EPOCH)
+            # Drop all per-partition sequence state. The bumped epoch starts
+            # each partition at sequence 0. last_acked_offset is also cleared
+            # since it's tied to the pre-bump producer_id/epoch range.
+            self._sequence_numbers.clear()
+            self._last_acked_offset.clear()
+            # Transactional state: the broker aborts any in-flight
+            # transaction as part of processing InitProducerIdRequest v3+
+            # with a matching producer_id/epoch, so we clear our local
+            # view of which partitions are in the transaction. The user's
+            # ongoing begin/commit/abort coroutine (if any) will see the
+            # bump via the _result and can react accordingly.
+            self._transaction_started = False
+            self._partitions_in_transaction.clear()
+            self._new_partitions_in_transaction.clear()
+            self._pending_partitions_in_transaction.clear()
+            handler = InitProducerIdHandler(self, self.transaction_timeout_ms, is_epoch_bump=True)
+            self._enqueue_request(handler)
+
+    def _complete_epoch_bump(self):
+        """Called from InitProducerIdHandler on successful bump response.
+
+        Transitions BUMPING_PRODUCER_EPOCH -> READY so the sender resumes
+        producing under the new epoch.
+        """
+        # Caller (handle_response) already holds _lock.
+        self._transition_to(TransactionState.READY)
+        self._last_error = None
+
+    def _restart_epoch_bump_without_producer_id(self, transaction_timeout_ms, result):
+        """Called from InitProducerIdHandler when the broker rejects the bump
+        with INVALID_PRODUCER_EPOCH (our producer_id/epoch are stale).
+
+        Falls back to requesting a fresh producer_id by enqueuing a new
+        InitProducerIdRequest without the producer_id/epoch fields. The
+        original TransactionalRequestResult is re-used so the caller waits
+        on the overall bump-then-init sequence.
+        """
+        # Caller (handle_response) already holds _lock.
+        self.set_producer_id_and_epoch(ProducerIdAndEpoch(NO_PRODUCER_ID, NO_PRODUCER_EPOCH))
+        # Stay in BUMPING_PRODUCER_EPOCH; the follow-up init will transition
+        # to READY on success via the regular (non-bump) code path.
+        handler = InitProducerIdHandler(self, transaction_timeout_ms, is_epoch_bump=False)
+        handler._result = result  # thread the caller's result through
+        self._enqueue_request(handler)
 
     def sequence_number(self, tp):
         with self._lock:
@@ -330,9 +583,33 @@ class TransactionManager(object):
             else:
                 self._sequence_numbers[tp] += increment
 
+    def set_sequence_number(self, tp, sequence):
+        with self._lock:
+            self._sequence_numbers[tp] = sequence
+
     def reset_sequence_for_partition(self, tp):
         with self._lock:
             self._sequence_numbers.pop(tp, None)
+            self._last_acked_offset.pop(tp, None)
+
+    def update_last_acked_offset(self, tp, base_offset, record_count):
+        """Record the offset of the last successfully-produced record for tp.
+
+        Called from the sender on each successful batch completion. The
+        last acked offset is used to detect whether a subsequent
+        UnknownProducerIdError reflects retention (safe to retry) vs. real
+        data loss (fatal). See KAFKA-5793.
+        """
+        if base_offset < 0:
+            return
+        last_offset = base_offset + record_count - 1
+        with self._lock:
+            if last_offset > self._last_acked_offset.get(tp, -1):
+                self._last_acked_offset[tp] = last_offset
+
+    def last_acked_offset(self, tp):
+        with self._lock:
+            return self._last_acked_offset.get(tp, -1)
 
     def next_request_handler(self, has_incomplete_batches):
         with self._lock:
@@ -380,9 +657,9 @@ class TransactionManager(object):
                 request.fatal_error(exc)
 
     def coordinator(self, coord_type):
-        if coord_type == 'group':
+        if coord_type == CoordinatorType.GROUP:
             return self._consumer_group_coordinator
-        elif coord_type == 'transaction':
+        elif coord_type == CoordinatorType.TRANSACTION:
             return self._transaction_coordinator
         else:
             raise Errors.IllegalStateError("Received an invalid coordinator type: %s" % (coord_type,))
@@ -479,9 +756,9 @@ class TransactionManager(object):
 
     def _lookup_coordinator(self, coord_type, coord_key):
         with self._lock:
-            if coord_type == 'group':
+            if coord_type == CoordinatorType.GROUP:
                 self._consumer_group_coordinator = None
-            elif coord_type == 'transaction':
+            elif coord_type == CoordinatorType.TRANSACTION:
                 self._transaction_coordinator = None
             else:
                 raise Errors.IllegalStateError("Invalid coordinator type: %s" % (coord_type,))
@@ -502,7 +779,7 @@ class TransactionManager(object):
             return AddPartitionsToTxnHandler(self, self._pending_partitions_in_transaction)
 
 
-class TransactionalRequestResult(object):
+class TransactionalRequestResult:
     def __init__(self):
         self._latch = threading.Event()
         self._error = None
@@ -535,8 +812,7 @@ class TransactionalRequestResult(object):
         return self._error
 
 
-@six.add_metaclass(abc.ABCMeta)
-class TxnRequestHandler(object):
+class TxnRequestHandler(ABC):
     def __init__(self, transaction_manager, result=None):
         self.transaction_manager = transaction_manager
         self.retry_backoff_ms = transaction_manager.retry_backoff_ms
@@ -557,6 +833,7 @@ class TxnRequestHandler(object):
         return self.transaction_manager.producer_id_and_epoch.epoch
 
     def fatal_error(self, exc):
+        log.error(f'Fatal Error handling request {self.request.name if self.request else "none"}: {exc}')
         self.transaction_manager.transition_to_fatal_error(exc)
         self._result.done(error=exc)
 
@@ -600,7 +877,7 @@ class TxnRequestHandler(object):
 
     @property
     def coordinator_type(self):
-        return 'transaction'
+        return CoordinatorType.TRANSACTION
 
     @property
     def coordinator_key(self):
@@ -613,66 +890,104 @@ class TxnRequestHandler(object):
     def is_retry(self):
         return self._is_retry
 
-    @abc.abstractmethod
+    @abstractmethod
     def handle_response(self, response):
         pass
 
-    @abc.abstractproperty
+    @abstractproperty
     def priority(self):
         pass
 
 
 class InitProducerIdHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, transaction_timeout_ms):
-        super(InitProducerIdHandler, self).__init__(transaction_manager)
+    def __init__(self, transaction_manager, transaction_timeout_ms, is_epoch_bump=False):
+        super().__init__(transaction_manager)
+        self._is_epoch_bump = is_epoch_bump
+        max_version = 4
+        min_version = 0
 
-        if transaction_manager._api_version >= (2, 0):
-            version = 1
+        if is_epoch_bump:
+            # KIP-360 / InitProducerIdRequest v3+ (Kafka 2.5+) lets us resume
+            # an existing producer_id by bumping its epoch rather than allocating
+            # a fresh one. v3+ takes producer_id + epoch fields; on broker match,
+            # the broker returns (same producer_id, epoch+1).
+            min_version = 3
+            producer_id = transaction_manager.producer_id_and_epoch.producer_id
+            producer_epoch = transaction_manager.producer_id_and_epoch.epoch
         else:
-            version = 0
-        self.request = InitProducerIdRequest[version](
+            producer_id = NO_PRODUCER_ID
+            producer_epoch = NO_PRODUCER_EPOCH
+
+        self.request = InitProducerIdRequest(
             transactional_id=self.transactional_id,
-            transaction_timeout_ms=transaction_timeout_ms)
+            transaction_timeout_ms=transaction_timeout_ms,
+            producer_id=producer_id,
+            producer_epoch=producer_epoch,
+            max_version=max_version,
+            min_version=min_version)
 
     @property
     def priority(self):
         return Priority.INIT_PRODUCER_ID
 
-    def handle_response(self, response):
-        error = Errors.for_code(response.error_code)
+    @property
+    def coordinator_type(self):
+        # Idempotent (non-transactional) producers don't have a transaction
+        # coordinator -- InitProducerIdRequest can be sent to any broker.
+        if self.transaction_manager.transactional_id is None:
+            return None
+        return CoordinatorType.TRANSACTION
 
-        if error is Errors.NoError:
+    def handle_response(self, response):
+        error_type = Errors.for_code(response.error_code)
+
+        if error_type is Errors.NoError:
             self.transaction_manager.set_producer_id_and_epoch(ProducerIdAndEpoch(response.producer_id, response.producer_epoch))
-            self.transaction_manager._transition_to(TransactionState.READY)
+            if self._is_epoch_bump:
+                self.transaction_manager._complete_epoch_bump()
+            else:
+                self.transaction_manager._transition_to(TransactionState.READY)
             self._result.done()
-        elif error in (Errors.NotCoordinatorError, Errors.CoordinatorNotAvailableError):
-            self.transaction_manager._lookup_coordinator('transaction', self.transactional_id)
+        elif issubclass(error_type, Errors.RetriableError):
+            if error_type in (Errors.NotCoordinatorError, Errors.CoordinatorNotAvailableError):
+                self.transaction_manager._lookup_coordinator(CoordinatorType.TRANSACTION, self.transactional_id)
             self.reenqueue()
-        elif error in (Errors.CoordinatorLoadInProgressError, Errors.ConcurrentTransactionsError):
-            self.reenqueue()
-        elif error is Errors.TransactionalIdAuthorizationFailedError:
-            self.fatal_error(error())
+        elif error_type is Errors.InvalidProducerEpochError and self._is_epoch_bump:
+            # KIP-360: our (producer_id, epoch) are stale--the broker no
+            # longer recognizes them. Fall back to allocating a fresh
+            # producer_id by reissuing InitProducerIdRequest without
+            # producer_id/epoch fields.
+            log.info("InitProducerId bump rejected with INVALID_PRODUCER_EPOCH; "
+                     "falling back to a fresh producer id")
+            self.transaction_manager._restart_epoch_bump_without_producer_id(
+                self.request.transaction_timeout_ms, self._result)
+        elif error_type in (Errors.ProducerFencedError, Errors.InvalidProducerEpochError):
+            # Another producer instance has taken over this transactional_id.
+            # Fatal--the application must rebuild the producer. Mirrors the
+            # Java client, which normalizes INVALID_PRODUCER_EPOCH to
+            # PRODUCER_FENCED on the non-bump InitProducerId path.
+            self.fatal_error(Errors.ProducerFencedError())
+        elif error_type is Errors.TransactionalIdAuthorizationFailedError:
+            self.fatal_error(error_type())
         else:
-            self.fatal_error(Errors.KafkaError("Unexpected error in InitProducerIdResponse: %s" % (error())))
+            self.fatal_error(Errors.KafkaError("Unexpected error in InitProducerIdResponse: %s" % (error_type())))
 
 class AddPartitionsToTxnHandler(TxnRequestHandler):
     def __init__(self, transaction_manager, topic_partitions):
-        super(AddPartitionsToTxnHandler, self).__init__(transaction_manager)
+        super().__init__(transaction_manager)
 
-        if transaction_manager._api_version >= (2, 7):
-            version = 2
-        elif transaction_manager._api_version >= (2, 0):
-            version = 1
-        else:
-            version = 0
         topic_data = collections.defaultdict(list)
         for tp in topic_partitions:
             topic_data[tp.topic].append(tp.partition)
-        self.request = AddPartitionsToTxnRequest[version](
-            transactional_id=self.transactional_id,
-            producer_id=self.producer_id,
-            producer_epoch=self.producer_epoch,
-            topics=list(topic_data.items()))
+
+        Topic = AddPartitionsToTxnRequest.AddPartitionsToTxnTopic
+        self.request = AddPartitionsToTxnRequest(
+            v3_and_below_transactional_id=self.transactional_id,
+            v3_and_below_producer_id=self.producer_id,
+            v3_and_below_producer_epoch=self.producer_epoch,
+            v3_and_below_topics=[Topic(name=topic, partitions=partitions)
+                                 for topic, partitions in topic_data.items()],
+            max_version=3)
 
     @property
     def priority(self):
@@ -684,40 +999,38 @@ class AddPartitionsToTxnHandler(TxnRequestHandler):
         self.retry_backoff_ms = self.transaction_manager.retry_backoff_ms
 
         results = {TopicPartition(topic, partition): Errors.for_code(error_code)
-                   for topic, partition_data in response.results
+                   for topic, partition_data in response.results_by_topic_v3_and_below
                    for partition, error_code in partition_data}
 
-        for tp, error in six.iteritems(results):
-            if error is Errors.NoError:
+        for tp, error_type in results.items():
+            if error_type is Errors.NoError:
                 continue
-            elif error in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError):
-                self.transaction_manager._lookup_coordinator('transaction', self.transactional_id)
+            elif issubclass(error_type, Errors.RetriableError):
+                if error_type in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError):
+                    self.transaction_manager._lookup_coordinator(CoordinatorType.TRANSACTION, self.transactional_id)
+                elif error_type is Errors.ConcurrentTransactionsError:
+                    self.maybe_override_retry_backoff_ms()
                 self.reenqueue()
                 return
-            elif error is Errors.ConcurrentTransactionsError:
-                self.maybe_override_retry_backoff_ms()
-                self.reenqueue()
+            elif error_type in (Errors.InvalidProducerEpochError, Errors.ProducerFencedError):
+                # Java client normalizes INVALID_PRODUCER_EPOCH to PRODUCER_FENCED
+                # on the txn-coordinator RPC paths (KIP-360).
+                self.fatal_error(Errors.ProducerFencedError())
                 return
-            elif error in (Errors.CoordinatorLoadInProgressError, Errors.UnknownTopicOrPartitionError):
-                self.reenqueue()
+            elif error_type is Errors.TransactionalIdAuthorizationFailedError:
+                self.fatal_error(error_type())
                 return
-            elif error is Errors.InvalidProducerEpochError:
-                self.fatal_error(error())
+            elif error_type in (Errors.InvalidProducerIdMappingError, Errors.InvalidTxnStateError):
+                self.fatal_error(Errors.KafkaError(error_type()))
                 return
-            elif error is Errors.TransactionalIdAuthorizationFailedError:
-                self.fatal_error(error())
-                return
-            elif error in (Errors.InvalidProducerIdMappingError, Errors.InvalidTxnStateError):
-                self.fatal_error(Errors.KafkaError(error()))
-                return
-            elif error is Errors.TopicAuthorizationFailedError:
+            elif error_type is Errors.TopicAuthorizationFailedError:
                 unauthorized_topics.add(tp.topic)
-            elif error is Errors.OperationNotAttemptedError:
+            elif error_type is Errors.OperationNotAttemptedError:
                 log.debug("Did not attempt to add partition %s to transaction because other partitions in the"
                           " batch had errors.", tp)
                 has_partition_errors = True
             else:
-                log.error("Could not add partition %s due to unexpected error %s", tp, error())
+                log.error("Could not add partition %s due to unexpected error %s", tp, error_type())
                 has_partition_errors = True
 
         partitions = set(results)
@@ -752,23 +1065,17 @@ class AddPartitionsToTxnHandler(TxnRequestHandler):
 
 class FindCoordinatorHandler(TxnRequestHandler):
     def __init__(self, transaction_manager, coord_type, coord_key):
-        super(FindCoordinatorHandler, self).__init__(transaction_manager)
+        super().__init__(transaction_manager)
 
-        self._coord_type = coord_type
+        self._coord_type = CoordinatorType.build_from(coord_type)
         self._coord_key = coord_key
-        if transaction_manager._api_version >= (2, 0):
-            version = 2
-        else:
-            version = 1
-        if coord_type == 'group':
-            coord_type_int8 = 0
-        elif coord_type == 'transaction':
-            coord_type_int8 = 1
-        else:
-            raise ValueError("Unrecognized coordinator type: %s" % (coord_type,))
-        self.request = FindCoordinatorRequest[version](
-            coordinator_key=coord_key,
-            coordinator_type=coord_type_int8,
+        # Setting key, key_type, and coordinator_keys all at once lets the
+        # connection layer negotiate any version: v0-v3 emit `key`/`key_type`,
+        # v4+ (KIP-699) emit `key_type`/`coordinator_keys`.
+        self.request = FindCoordinatorRequest(
+            key=self._coord_key,
+            key_type=self._coord_type.value,
+            coordinator_keys=[self._coord_key],
         )
 
     @property
@@ -784,149 +1091,162 @@ class FindCoordinatorHandler(TxnRequestHandler):
         return None
 
     def handle_response(self, response):
-        error = Errors.for_code(response.error_code)
+        # v4+ returns results in a Coordinators array; we always send a single
+        # key, so the first entry is ours. v0-v3 returns top-level fields.
+        result = response.coordinators[0] if response.coordinators else response
+        error_type = Errors.for_code(result.error_code)
 
-        if error is Errors.NoError:
+        if error_type is Errors.NoError:
             coordinator_id = self.transaction_manager._metadata.add_coordinator(
-                response, self._coord_type, self._coord_key)
-            if self._coord_type == 'group':
+                result, self._coord_type, self._coord_key)
+            if self._coord_type == CoordinatorType.GROUP:
                 self.transaction_manager._consumer_group_coordinator = coordinator_id
-            elif self._coord_type == 'transaction':
+            elif self._coord_type == CoordinatorType.TRANSACTION:
                 self.transaction_manager._transaction_coordinator = coordinator_id
             self._result.done()
-        elif error is Errors.CoordinatorNotAvailableError:
+        elif issubclass(error_type, Errors.RetriableError):
             self.reenqueue()
-        elif error is Errors.TransactionalIdAuthorizationFailedError:
-            self.fatal_error(error())
-        elif error is Errors.GroupAuthorizationFailedError:
-            self.abortable_error(error(self._coord_key))
+        elif error_type is Errors.TransactionalIdAuthorizationFailedError:
+            self.fatal_error(error_type())
+        elif error_type is Errors.GroupAuthorizationFailedError:
+            self.abortable_error(error_type(self._coord_key))
         else:
             self.fatal_error(Errors.KafkaError(
                 "Could not find a coordinator with type %s with key %s due to"
-                " unexpected error: %s" % (self._coord_type, self._coord_key, error())))
+                " unexpected error: %s" % (self._coord_type, self._coord_key, error_type())))
 
 
 class EndTxnHandler(TxnRequestHandler):
     def __init__(self, transaction_manager, committed):
-        super(EndTxnHandler, self).__init__(transaction_manager)
-
-        if self.transaction_manager._api_version >= (2, 7):
-            version = 2
-        elif self.transaction_manager._api_version >= (2, 0):
-            version = 1
-        else:
-            version = 0
-        self.request = EndTxnRequest[version](
+        super().__init__(transaction_manager)
+        self.request = EndTxnRequest(
             transactional_id=self.transactional_id,
             producer_id=self.producer_id,
             producer_epoch=self.producer_epoch,
-            committed=committed)
+            committed=committed,
+            max_version=3)
 
     @property
     def priority(self):
         return Priority.END_TXN
 
     def handle_response(self, response):
-        error = Errors.for_code(response.error_code)
+        error_type = Errors.for_code(response.error_code)
 
-        if error is Errors.NoError:
+        if error_type is Errors.NoError:
             self.transaction_manager._complete_transaction()
             self._result.done()
-        elif error in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError):
-            self.transaction_manager._lookup_coordinator('transaction', self.transactional_id)
+        elif issubclass(error_type, Errors.RetriableError):
+            if error_type in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError):
+                self.transaction_manager._lookup_coordinator(CoordinatorType.TRANSACTION, self.transactional_id)
             self.reenqueue()
-        elif error in (Errors.CoordinatorLoadInProgressError, Errors.ConcurrentTransactionsError):
-            self.reenqueue()
-        elif error is Errors.InvalidProducerEpochError:
-            self.fatal_error(error())
-        elif error is Errors.TransactionalIdAuthorizationFailedError:
-            self.fatal_error(error())
-        elif error is Errors.InvalidTxnStateError:
-            self.fatal_error(error())
+        elif error_type in (Errors.InvalidProducerEpochError, Errors.ProducerFencedError):
+            # Java client normalizes INVALID_PRODUCER_EPOCH to PRODUCER_FENCED
+            # on the txn-coordinator RPC paths (KIP-360).
+            self.fatal_error(Errors.ProducerFencedError())
+        elif error_type is Errors.TransactionalIdAuthorizationFailedError:
+            self.fatal_error(error_type())
+        elif error_type is Errors.InvalidTxnStateError:
+            self.fatal_error(error_type())
         else:
-            self.fatal_error(Errors.KafkaError("Unhandled error in EndTxnResponse: %s" % (error())))
+            self.fatal_error(Errors.KafkaError("Unhandled error in EndTxnResponse: %s" % (error_type())))
 
 
 class AddOffsetsToTxnHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, consumer_group_id, offsets):
-        super(AddOffsetsToTxnHandler, self).__init__(transaction_manager)
+    def __init__(self, transaction_manager, group_metadata, offsets):
+        super().__init__(transaction_manager)
 
-        self.consumer_group_id = consumer_group_id
+        self.group_metadata = group_metadata
+        self.consumer_group_id = group_metadata.group_id
         self.offsets = offsets
-        if self.transaction_manager._api_version >= (2, 7):
-            version = 2
-        elif self.transaction_manager._api_version >= (2, 0):
-            version = 1
-        else:
-            version = 0
-        self.request = AddOffsetsToTxnRequest[version](
+        # max_version=3 is the highest we know how to drive (v4 is KIP-890).
+        # The connection negotiates the actual wire version against the broker.
+        self.request = AddOffsetsToTxnRequest(
             transactional_id=self.transactional_id,
             producer_id=self.producer_id,
             producer_epoch=self.producer_epoch,
-            group_id=consumer_group_id)
+            group_id=self.consumer_group_id,
+            max_version=3,
+        )
 
     @property
     def priority(self):
         return Priority.ADD_PARTITIONS_OR_OFFSETS
 
     def handle_response(self, response):
-        error = Errors.for_code(response.error_code)
+        error_type = Errors.for_code(response.error_code)
 
-        if error is Errors.NoError:
+        if error_type is Errors.NoError:
             log.debug("Successfully added partition for consumer group %s to transaction", self.consumer_group_id)
 
             # note the result is not completed until the TxnOffsetCommit returns
-            for tp, offset in six.iteritems(self.offsets):
+            for tp, offset in self.offsets.items():
                 self.transaction_manager._pending_txn_offset_commits[tp] = offset
-            handler = TxnOffsetCommitHandler(self.transaction_manager, self.consumer_group_id,
+            handler = TxnOffsetCommitHandler(self.transaction_manager, self.group_metadata,
                                              self.transaction_manager._pending_txn_offset_commits, self._result)
             self.transaction_manager._enqueue_request(handler)
             self.transaction_manager._transaction_started = True
-        elif error in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError):
-            self.transaction_manager._lookup_coordinator('transaction', self.transactional_id)
+        elif issubclass(error_type, Errors.RetriableError):
+            if error_type in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError):
+                self.transaction_manager._lookup_coordinator(CoordinatorType.TRANSACTION, self.transactional_id)
             self.reenqueue()
-        elif error in (Errors.CoordinatorLoadInProgressError, Errors.ConcurrentTransactionsError):
+        elif error_type in (Errors.CoordinatorLoadInProgressError, Errors.ConcurrentTransactionsError):
             self.reenqueue()
-        elif error is Errors.InvalidProducerEpochError:
-            self.fatal_error(error())
-        elif error is Errors.TransactionalIdAuthorizationFailedError:
-            self.fatal_error(error())
-        elif error is Errors.GroupAuthorizationFailedError:
-            self.abortable_error(error(self.consumer_group_id))
+        elif error_type in (Errors.InvalidProducerEpochError, Errors.ProducerFencedError):
+            # Java client normalizes INVALID_PRODUCER_EPOCH to PRODUCER_FENCED
+            # on the txn-coordinator RPC paths (KIP-360).
+            self.fatal_error(Errors.ProducerFencedError())
+        elif error_type in (Errors.UnknownProducerIdError, Errors.InvalidProducerIdMappingError):
+            if self.transaction_manager._supports_epoch_bump():
+                self.abortable_error(error_type())
+            else:
+                self.fatal_error(error_type())
+        elif error_type is Errors.TransactionalIdAuthorizationFailedError:
+            self.fatal_error(error_type())
+        elif error_type is Errors.GroupAuthorizationFailedError:
+            self.abortable_error(error_type(self.consumer_group_id))
         else:
-            self.fatal_error(Errors.KafkaError("Unexpected error in AddOffsetsToTxnResponse: %s" % (error())))
+            self.fatal_error(Errors.KafkaError("Unexpected error in AddOffsetsToTxnResponse: %s" % (error_type())))
 
 
 class TxnOffsetCommitHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, consumer_group_id, offsets, result):
-        super(TxnOffsetCommitHandler, self).__init__(transaction_manager, result=result)
+    def __init__(self, transaction_manager, group_metadata, offsets, result):
+        super().__init__(transaction_manager, result=result)
 
-        self.consumer_group_id = consumer_group_id
+        self.group_metadata = group_metadata
+        self.consumer_group_id = group_metadata.group_id
         self.offsets = offsets
         self.request = self._build_request()
 
     def _build_request(self):
-        if self.transaction_manager._api_version >= (2, 1):
-            version = 2
-        elif self.transaction_manager._api_version >= (2, 0):
-            version = 1
-        else:
-            version = 0
+        # KIP-447: v3+ carries member_id / generation_id / group_instance_id
+        # so the broker can fence stale consumer instances. We always set them
+        # - the protocol drops them when the connection negotiates v0-v2
+        # against an older broker. max_version is the highest version this
+        # client knows how to drive: v4/v5 belong to KIP-890.
+        Topic = TxnOffsetCommitRequest.TxnOffsetCommitRequestTopic
+        Partition = Topic.TxnOffsetCommitRequestPartition
 
         topic_data = collections.defaultdict(list)
-        for tp, offset in six.iteritems(self.offsets):
-            if version >= 2:
-                partition_data = (tp.partition, offset.offset, offset.leader_epoch, offset.metadata)
-            else:
-                partition_data = (tp.partition, offset.offset, offset.metadata)
-            topic_data[tp.topic].append(partition_data)
+        for tp, offset in self.offsets.items():
+            topic_data[tp.topic].append(Partition(
+                partition_index=tp.partition,
+                committed_offset=offset.offset,
+                committed_leader_epoch=offset.leader_epoch,
+                committed_metadata=offset.metadata))
 
-        return TxnOffsetCommitRequest[version](
+        return TxnOffsetCommitRequest(
             transactional_id=self.transactional_id,
             group_id=self.consumer_group_id,
             producer_id=self.producer_id,
             producer_epoch=self.producer_epoch,
-            topics=list(topic_data.items()))
+            generation_id=self.group_metadata.generation_id,
+            member_id=self.group_metadata.member_id,
+            group_instance_id=self.group_metadata.group_instance_id,
+            topics=[Topic(name=topic, partitions=partitions)
+                    for topic, partitions in topic_data.items()],
+            max_version=3,
+        )
 
     @property
     def priority(self):
@@ -934,7 +1254,7 @@ class TxnOffsetCommitHandler(TxnRequestHandler):
 
     @property
     def coordinator_type(self):
-        return 'group'
+        return CoordinatorType.GROUP
 
     @property
     def coordinator_key(self):
@@ -948,30 +1268,51 @@ class TxnOffsetCommitHandler(TxnRequestHandler):
                   for topic, partition_data in response.topics
                   for partition, error_code in partition_data}
 
-        for tp, error in six.iteritems(errors):
-            if error is Errors.NoError:
+        for tp, error_type in errors.items():
+            if error_type is Errors.NoError:
                 log.debug("Successfully added offsets for %s from consumer group %s to transaction.",
                           tp, self.consumer_group_id)
                 del self.transaction_manager._pending_txn_offset_commits[tp]
-            elif error in (errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError, Errors.RequestTimedOutError):
+            elif issubclass(error_type, Errors.RetriableError):
                 retriable_failure = True
-                lookup_coordinator = True
-            elif error is Errors.UnknownTopicOrPartitionError:
-                retriable_failure = True
-            elif error is Errors.GroupAuthorizationFailedError:
-                self.abortable_error(error(self.consumer_group_id))
+                if error_type in (Errors.CoordinatorNotAvailableError, Errors.NotCoordinatorError, Errors.RequestTimedOutError):
+                    lookup_coordinator = True
+            elif error_type is Errors.GroupAuthorizationFailedError:
+                self.abortable_error(error_type(self.consumer_group_id))
                 return
-            elif error in (Errors.TransactionalIdAuthorizationFailedError,
-                           Errors.InvalidProducerEpochError,
-                           Errors.UnsupportedForMessageFormatError):
-                self.fatal_error(error())
+            elif error_type in (Errors.InvalidProducerEpochError, Errors.ProducerFencedError):
+                # Java client normalizes INVALID_PRODUCER_EPOCH to PRODUCER_FENCED
+                # on the txn-coordinator RPC paths (KIP-360).
+                self.fatal_error(Errors.ProducerFencedError())
+                return
+            elif error_type is Errors.FencedInstanceIdError:
+                # KIP-447: static-membership fencing - another consumer
+                # instance with this group_instance_id displaced ours. The
+                # transaction must be aborted, but the producer can be
+                # reused for a fresh transaction.
+                self.abortable_error(error_type())
+                return
+            elif error_type in (Errors.IllegalGenerationError,
+                                Errors.UnknownMemberIdError):
+                # KIP-447: the consumer generation / member_id we passed
+                # in are stale (the consumer rebalanced between when we
+                # snapshotted group_metadata and when the broker checked
+                # it). Abort the txn so the application can re-snapshot
+                # and retry.
+                self.abortable_error(Errors.CommitFailedError(
+                    "Transaction offset commit failed due to consumer group"
+                    " metadata mismatch: %s" % (error_type.__name__,)))
+                return
+            elif error_type in (Errors.TransactionalIdAuthorizationFailedError,
+                                Errors.UnsupportedForMessageFormatError):
+                self.fatal_error(error_type())
                 return
             else:
-                self.fatal_error(Errors.KafkaError("Unexpected error in TxnOffsetCommitResponse: %s" % (error())))
+                self.fatal_error(Errors.KafkaError("Unexpected error in TxnOffsetCommitResponse: %s" % (error_type())))
                 return
 
         if lookup_coordinator:
-            self.transaction_manager._lookup_coordinator('group', self.consumer_group_id)
+            self.transaction_manager._lookup_coordinator(CoordinatorType.GROUP, self.consumer_group_id)
 
         if not retriable_failure:
             # all attempted partitions were either successful, or there was a fatal failure.

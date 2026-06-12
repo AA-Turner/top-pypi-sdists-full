@@ -24,6 +24,7 @@ from hopsworks_common.client.exceptions import ModelRegistryException
 from hsml import model
 from hsml.constants import MODEL
 from hsml.core import explicit_provenance
+from hsml.engine import model_engine
 
 
 class TestModel:
@@ -160,7 +161,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_save = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.save"
+            "hsml.engine.model_engine.ModelEngine._save"
         )
         upload_configuration = {"config": "value"}
 
@@ -268,7 +269,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_delete = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.delete"
+            "hsml.engine.model_engine.ModelEngine._delete"
         )
 
         # Act
@@ -284,7 +285,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_download = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.download"
+            "hsml.engine.model_engine.ModelEngine._download"
         )
 
         # Act
@@ -302,7 +303,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_get_tag = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.get_tag"
+            "hsml.engine.model_engine.ModelEngine._get_tag"
         )
 
         # Act
@@ -318,7 +319,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_get_tags = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.get_tags"
+            "hsml.engine.model_engine.ModelEngine._get_tags"
         )
 
         # Act
@@ -332,7 +333,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_set_tag = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.set_tag"
+            "hsml.engine.model_engine.ModelEngine._set_tag"
         )
 
         # Act
@@ -348,7 +349,7 @@ class TestModel:
         # Arrange
         m_json = backend_fixtures["model"]["get_python"]["response"]["items"][0]
         mock_model_engine_delete_tag = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.delete_tag"
+            "hsml.engine.model_engine.ModelEngine._delete_tag"
         )
 
         # Act
@@ -370,10 +371,10 @@ class TestModel:
             _project_id = 1
 
         mock_client_get_instance = mocker.patch(
-            "hopsworks_common.client.get_instance", return_value=ClientMock()
+            "hopsworks_common.client._get_instance", return_value=ClientMock()
         )
         mock_util_get_hostname_replaced_url = mocker.patch(
-            "hopsworks_common.util.get_hostname_replaced_url", return_value="full_path"
+            "hopsworks_common.util._get_hostname_replaced_url", return_value="full_path"
         )
         path_arg = "/p/1/models/" + m_json["name"] + "/" + str(m_json["version"])
 
@@ -406,7 +407,7 @@ class TestModel:
             assert m.framework == model_framework
 
         mock_read_json = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.read_json",
+            "hsml.engine.model_engine.ModelEngine._read_json",
             return_value="input_example_content",
         )
         assert m.input_example == "input_example_content"
@@ -415,7 +416,7 @@ class TestModel:
         )
 
         mock_read_json = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.read_json",
+            "hsml.engine.model_engine.ModelEngine._read_json",
             return_value="model_schema_content",
         )
         assert m.model_schema == "model_schema_content"
@@ -424,7 +425,7 @@ class TestModel:
         )
 
         mock_read_file = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.read_file",
+            "hsml.engine.model_engine.ModelEngine._read_file",
             return_value="program_file_content",
         )
         assert m.program == "program_file_content"
@@ -433,7 +434,7 @@ class TestModel:
         )
 
         mock_read_file = mocker.patch(
-            "hsml.engine.model_engine.ModelEngine.read_file",
+            "hsml.engine.model_engine.ModelEngine._read_file",
             return_value="env_file_content",
         )
         assert m.environment == "env_file_content"
@@ -510,6 +511,217 @@ class TestModel:
         assert not mock_fv.init_batch_scoring.called
 
 
+class TestModelEngine:
+    @pytest.mark.parametrize(
+        "model_path,expected_hdfs_path",
+        [
+            # /hopsfs/ is the per-project mount: strip the prefix to get a
+            # project-relative dataset path.
+            (
+                "/hopsfs/Models/model.pkl",
+                "Models/model.pkl",
+            ),
+            # /mnt/hopsfs/ is the cluster-wide mount rooted at /Projects/, so
+            # the path is /mnt/hopsfs/<projectName>/<rest>. Strip both segments.
+            (
+                "/mnt/hopsfs/demo/Models/model.pkl",
+                "Models/model.pkl",
+            ),
+            # The actual failing case from the loadtest run on 2026-05-09.
+            (
+                "/mnt/hopsfs/demo/Resources/workflows/models/tensorflow",
+                "Resources/workflows/models/tensorflow",
+            ),
+        ],
+    )
+    def test_normalize_hopsfs_mount_path(self, mocker, model_path, expected_hdfs_path):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+
+        engine = model_engine.ModelEngine()
+
+        assert engine._normalize_hopsfs_mount_path(model_path) == expected_hdfs_path
+
+    def test_normalize_hopsfs_mount_path_returns_none_for_local_path(self, mocker):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+
+        engine = model_engine.ModelEngine()
+
+        assert engine._normalize_hopsfs_mount_path("local/model.pkl") is None
+
+    @pytest.mark.parametrize(
+        "model_path,expected_hdfs_path",
+        [
+            (
+                "/hopsfs/Models/hopsfs/archive/model.pkl",
+                "Models/hopsfs/archive/model.pkl",
+            ),
+            (
+                "/mnt/hopsfs/demo/Models/mnt/hopsfs/archive/model.pkl",
+                "Models/mnt/hopsfs/archive/model.pkl",
+            ),
+        ],
+    )
+    def test_normalize_hopsfs_mount_path_strips_only_leading_prefix(
+        self, mocker, model_path, expected_hdfs_path
+    ):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+
+        engine = model_engine.ModelEngine()
+
+        assert engine._normalize_hopsfs_mount_path(model_path) == expected_hdfs_path
+
+    @pytest.mark.parametrize(
+        "model_path,expected_hdfs_path",
+        [
+            (
+                "/hopsfs/Models/model.pkl",
+                "Models/model.pkl",
+            ),
+            (
+                "/mnt/hopsfs/demo/Models/model.pkl",
+                "Models/model.pkl",
+            ),
+        ],
+    )
+    def test_save_model_from_local_or_hopsfs_mount_uses_hopsfs_copy(
+        self, mocker, model_path, expected_hdfs_path
+    ):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+
+        engine = model_engine.ModelEngine()
+        copy_or_move = mocker.patch.object(engine, "_copy_or_move_hopsfs_model")
+        upload_local = mocker.patch.object(engine, "_upload_local_model")
+        model_instance = mocker.Mock(model_files_path="Models/test/1/Files")
+        progress = mocker.Mock()
+
+        engine._save_model_from_local_or_hopsfs_mount(
+            model_instance=model_instance,
+            model_path=model_path,
+            keep_original_files=True,
+            update_upload_progress=progress,
+        )
+
+        copy_or_move.assert_called_once_with(
+            from_hdfs_model_path=expected_hdfs_path,
+            to_model_files_path=model_instance.model_files_path,
+            keep_original_files=True,
+            update_upload_progress=progress,
+        )
+        upload_local.assert_not_called()
+
+    def test_save_model_from_local_or_hopsfs_mount_uses_local_upload(self, mocker):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+
+        engine = model_engine.ModelEngine()
+        copy_or_move = mocker.patch.object(engine, "_copy_or_move_hopsfs_model")
+        upload_local = mocker.patch.object(engine, "_upload_local_model")
+        model_instance = mocker.Mock(model_files_path="Models/test/1/Files")
+        progress = mocker.Mock()
+        upload_configuration = {"config": "value"}
+
+        engine._save_model_from_local_or_hopsfs_mount(
+            model_instance=model_instance,
+            model_path="local/model.pkl",
+            keep_original_files=True,
+            update_upload_progress=progress,
+            upload_configuration=upload_configuration,
+        )
+
+        upload_local.assert_called_once_with(
+            from_local_model_path="local/model.pkl",
+            to_model_files_path=model_instance.model_files_path,
+            update_upload_progress=progress,
+            upload_configuration=upload_configuration,
+        )
+        copy_or_move.assert_not_called()
+
+
+class TestModelEngineExportFastSlowPath:
+    """Pin the slow/fast-path dispatch through to the leaf I/O calls.
+
+    The other TestModelEngine cases mock _copy_or_move_hopsfs_model away,
+    so they only assert on the *normalized* path passed to it. These tests
+    leave _copy_or_move_hopsfs_model intact and mock only _dataset_api and
+    _engine, so the path that actually reaches _dataset_api.get is asserted
+    directly. That's where the HWORKS-2731 regression manifested — the
+    normalizer produced a malformed path and the bug was only visible at
+    the dataset_api call site.
+    """
+
+    @pytest.mark.parametrize(
+        "model_path,expected_dataset_get_arg",
+        [
+            # /hopsfs/ — per-project mount.
+            ("/hopsfs/Resources/foo/bar.pkl", "Resources/foo/bar.pkl"),
+            # /mnt/hopsfs/ — cluster-wide mount, rooted at /Projects/.
+            ("/mnt/hopsfs/demo/Resources/foo/bar.pkl", "Resources/foo/bar.pkl"),
+            # The actual failing case from the 2026-05-09 loadtest run.
+            (
+                "/mnt/hopsfs/demo/Resources/workflows/models/tensorflow",
+                "Resources/workflows/models/tensorflow",
+            ),
+        ],
+    )
+    def test_fast_path_passes_project_relative_path_to_dataset_api(
+        self, mocker, model_path, expected_dataset_get_arg
+    ):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+        engine = model_engine.ModelEngine()
+        engine._dataset_api.get.return_value = {
+            "attributes": {
+                "dir": False,
+                "path": "/Projects/demo/" + expected_dataset_get_arg,
+            },
+        }
+
+        engine._save_model_from_local_or_hopsfs_mount(
+            model_instance=mocker.Mock(model_files_path="Models/test/1/Files"),
+            model_path=model_path,
+            keep_original_files=True,
+            update_upload_progress=mocker.Mock(),
+        )
+
+        # Regression guard: must be project-relative — NOT "/<projectName>/<rest>".
+        engine._dataset_api.get.assert_called_once_with(expected_dataset_get_arg)
+        # Fast path: HopsFS-internal copy, no chunked HTTP upload.
+        engine._engine._copy.assert_called_once()
+        engine._engine._upload.assert_not_called()
+
+    def test_slow_path_uses_engine_upload_for_non_mount_path(self, mocker):
+        mocker.patch("hsml.engine.model_engine.model_api.ModelApi")
+        mocker.patch("hsml.engine.model_engine.dataset_api.DatasetApi")
+        mocker.patch("hsml.engine.model_engine.local_engine.LocalEngine")
+        mocker.patch("os.path.isdir", return_value=False)
+        engine = model_engine.ModelEngine()
+
+        engine._save_model_from_local_or_hopsfs_mount(
+            model_instance=mocker.Mock(model_files_path="Models/test/1/Files"),
+            model_path="/some/local/model.pkl",
+            keep_original_files=True,
+            update_upload_progress=mocker.Mock(),
+            upload_configuration={"chunk_size": 10},
+        )
+
+        # Slow path: chunked HTTP upload, no HopsFS-internal copy/move and no
+        # dataset_api lookup.
+        engine._engine._upload.assert_called_once()
+        engine._engine._copy.assert_not_called()
+        engine._engine._move.assert_not_called()
+        engine._dataset_api.get.assert_not_called()
+
+
 class TestModelNameValidation:
     """Tests for model name validation."""
 
@@ -530,7 +742,7 @@ class TestModelNameValidation:
     )
     def test_valid_model_names(self, valid_name):
         # Should not raise any exception
-        util.validate_model_name(valid_name)
+        util._validate_model_name(valid_name)
 
     @pytest.mark.parametrize(
         "invalid_name,description",
@@ -547,6 +759,6 @@ class TestModelNameValidation:
     )
     def test_invalid_model_names(self, invalid_name, description):
         with pytest.raises(ModelRegistryException) as exc_info:
-            util.validate_model_name(invalid_name)
+            util._validate_model_name(invalid_name)
         assert f"Invalid model name '{invalid_name}'" in str(exc_info.value)
         assert "[a-zA-Z0-9_]+" in str(exc_info.value)

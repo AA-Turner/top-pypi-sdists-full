@@ -29,6 +29,7 @@ use super::search_common::build_regex_opts;
 use super::{Builtin, Context, read_text_file, resolve_path};
 use crate::error::{Error, Result};
 use crate::interpreter::ExecResult;
+use crate::limits::ExecutionLimits;
 
 // Ignore files are repository input. Keep parsing/matching bounded so a large
 // ignore file cannot force unbounded regex compilation or per-path scans.
@@ -415,25 +416,37 @@ fn rg_replacement_cap_marker() -> String {
     )
 }
 
+fn replacement_output_projection(
+    haystack_len: usize,
+    replacement: &str,
+    match_count: usize,
+    include_unmatched_text: bool,
+) -> usize {
+    let capture_ref_count = replacement.bytes().filter(|&byte| byte == b'$').count();
+    let per_match = replacement
+        .len()
+        .saturating_add(capture_ref_count.saturating_mul(haystack_len));
+    match_count
+        .saturating_mul(per_match)
+        .saturating_add(if include_unmatched_text {
+            haystack_len
+        } else {
+            0
+        })
+}
+
 fn replacement_output_exceeds_cap(
     haystack_len: usize,
     replacement: &str,
     match_count: usize,
     include_unmatched_text: bool,
 ) -> bool {
-    let capture_ref_count = replacement.bytes().filter(|&byte| byte == b'$').count();
-    let per_match = replacement
-        .len()
-        .saturating_add(capture_ref_count.saturating_mul(haystack_len));
-    let projected =
-        match_count
-            .saturating_mul(per_match)
-            .saturating_add(if include_unmatched_text {
-                haystack_len
-            } else {
-                0
-            });
-    projected > RG_MAX_REPLACEMENT_OUTPUT_BYTES
+    replacement_output_projection(
+        haystack_len,
+        replacement,
+        match_count,
+        include_unmatched_text,
+    ) > RG_MAX_REPLACEMENT_OUTPUT_BYTES
 }
 
 impl RgMatcher {
@@ -459,24 +472,30 @@ impl RgMatcher {
         }
     }
 
-    fn for_each_match<'a>(&self, text: &'a str, mut f: impl FnMut(RgMatch<'a>)) {
+    // Callers use this streaming matcher in resource-sensitive paths; the bool
+    // return preserves early exit without rebuilding eager per-line match Vecs.
+    fn for_each_match<'a>(&self, text: &'a str, mut f: impl FnMut(RgMatch<'a>) -> bool) {
         match self {
             Self::Rust(regex) => {
                 for mat in regex.find_iter(text) {
-                    f(RgMatch {
+                    if !f(RgMatch {
                         text: mat.as_str(),
                         start: mat.start(),
                         end: mat.end(),
-                    });
+                    }) {
+                        break;
+                    }
                 }
             }
             Self::Fancy(regex) => {
                 for mat in regex.find_iter(text).flatten() {
-                    f(RgMatch {
+                    if !f(RgMatch {
                         text: mat.as_str(),
                         start: mat.start(),
                         end: mat.end(),
-                    });
+                    }) {
+                        break;
+                    }
                 }
             }
         }
@@ -2529,6 +2548,12 @@ fn glob_class_to_regex(chars: &[char], start: usize) -> Option<(String, usize)> 
             return Some((out, i + 1));
         }
         saw_member = true;
+        if c == '-' && chars.get(i + 1) == Some(&'-') && !body.is_empty() {
+            // Preserve glob range validation by avoiding Rust regex `--` set difference syntax.
+            body.push_str(r"-\-");
+            i += 2;
+            continue;
+        }
         push_glob_class_char(&mut body, c, chars.get(i + 1).copied());
         i += 1;
     }
@@ -2542,6 +2567,8 @@ fn push_glob_class_char(out: &mut String, c: char, next: Option<char>) {
         ']' => out.push_str(r"\]"),
         '^' if out.is_empty() => out.push_str(r"\^"),
         '-' if out.is_empty() || next == Some(']') => out.push_str(r"\-"),
+        '&' => out.push_str(r"\&"),
+        '~' => out.push_str(r"\~"),
         _ => out.push(c),
     }
 }
@@ -2989,49 +3016,56 @@ async fn collect_rg_inputs(
     }
 
     let mut collected = RgCollectedInputs::default();
-    let mut inputs = Vec::new();
+    let mut candidates = Vec::new();
     let mut roots = Vec::new();
     for p in &opts.paths {
         let path = resolve_path(ctx.cwd, p);
-        if let Some((actual_path, meta)) =
-            resolve_rg_explicit_path(&*ctx.fs, &path, opts.follow_symlinks).await
-            && meta.file_type.is_dir()
-        {
-            roots.push(RgSearchRoot {
-                logical: path.clone(),
-                actual: actual_path,
-                display_hint: RgDisplayHint::from_root_arg(Some(p)),
-            });
-            continue;
-        }
-
-        let actual_path = resolve_rg_explicit_path(&*ctx.fs, &path, opts.follow_symlinks)
-            .await
-            .map(|(actual, _)| actual)
-            .unwrap_or_else(|| path.clone());
-        let text = match read_rg_text_file(&*ctx.fs, &actual_path, ctx.cwd, p, opts).await {
-            Ok(t) => t,
-            Err(e) => {
-                collected.had_errors = true;
-                if opts.messages {
-                    collected.stderr.push_str(&e.stderr);
-                }
-                continue;
+        match resolve_rg_explicit_path(&*ctx.fs, &path, opts.follow_symlinks).await {
+            Some((actual_path, meta)) if meta.file_type.is_dir() => {
+                roots.push(RgSearchRoot {
+                    logical: path,
+                    actual: actual_path,
+                    display_hint: RgDisplayHint::from_root_arg(Some(p)),
+                });
             }
-        };
-        inputs.push(RgInput::explicit(
-            apply_path_separator_to_display(p, opts),
-            text,
-        ));
+            Some((actual_path, meta)) => {
+                candidates.push(RgFileCandidate {
+                    logical: path,
+                    actual: actual_path,
+                    metadata: meta,
+                    display_hint: RgDisplayHint::from_root_arg(Some(p)),
+                    display_override: Some(apply_path_separator_to_display(p, opts)),
+                    explicit: true,
+                });
+            }
+            None => {
+                let text = match read_rg_text_file(&*ctx.fs, &path, ctx.cwd, p, opts).await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        collected.had_errors = true;
+                        if opts.messages {
+                            collected.stderr.push_str(&e.stderr);
+                        }
+                        continue;
+                    }
+                };
+                collected.inputs.push(RgInput::explicit(
+                    apply_path_separator_to_display(p, opts),
+                    text,
+                ));
+            }
+        }
     }
     if !roots.is_empty() {
-        let files = collect_rg_files_recursive(&*ctx.fs, &roots, opts, ctx.cwd).await;
-        let read = read_rg_files(&*ctx.fs, files, ctx.cwd, opts).await;
-        collected.had_errors |= read.had_errors;
-        collected.stderr.push_str(&read.stderr);
-        inputs.extend(read.inputs);
+        candidates.extend(collect_rg_files_recursive(&*ctx.fs, &roots, opts, ctx.cwd).await);
     }
-    collected.inputs = inputs;
+    if opts.sort != RgSort::Path || opts.sort_reverse {
+        sort_rg_candidates(&mut candidates, opts);
+    }
+    let read = read_rg_files(&*ctx.fs, candidates, ctx.cwd, opts).await;
+    collected.had_errors |= read.had_errors;
+    collected.stderr.push_str(&read.stderr);
+    collected.inputs.extend(read.inputs);
     Ok(collected)
 }
 
@@ -3274,6 +3308,29 @@ async fn load_local_ignore_rules(
         return Ok(());
     }
 
+    // Ignore evaluation is last-match-wins, so load lower-precedence files first.
+    if !opts.no_ignore_vcs && (!opts.require_git || has_git_dir_in_ancestors(fs, dir, root).await) {
+        if !opts.no_ignore_exclude {
+            load_optional_ignore_file_with_rule_base(
+                fs,
+                &dir.join(".git/info/exclude"),
+                dir,
+                opts.ignore_file_case_insensitive,
+                inherited_rule_count,
+                rules,
+            )
+            .await?;
+        }
+        load_optional_ignore_file_with_rule_base(
+            fs,
+            &dir.join(".gitignore"),
+            dir,
+            opts.ignore_file_case_insensitive,
+            inherited_rule_count,
+            rules,
+        )
+        .await?;
+    }
     if !opts.no_ignore_dot {
         load_optional_ignore_file_with_rule_base(
             fs,
@@ -3293,28 +3350,6 @@ async fn load_local_ignore_rules(
             rules,
         )
         .await?;
-    }
-    if !opts.no_ignore_vcs && (!opts.require_git || has_git_dir_in_ancestors(fs, dir, root).await) {
-        load_optional_ignore_file_with_rule_base(
-            fs,
-            &dir.join(".gitignore"),
-            dir,
-            opts.ignore_file_case_insensitive,
-            inherited_rule_count,
-            rules,
-        )
-        .await?;
-        if !opts.no_ignore_exclude {
-            load_optional_ignore_file_with_rule_base(
-                fs,
-                &dir.join(".git/info/exclude"),
-                dir,
-                opts.ignore_file_case_insensitive,
-                inherited_rule_count,
-                rules,
-            )
-            .await?;
-        }
     }
     Ok(())
 }
@@ -3484,6 +3519,8 @@ struct RgFileCandidate {
     actual: PathBuf,
     metadata: crate::fs::Metadata,
     display_hint: RgDisplayHint,
+    display_override: Option<String>,
+    explicit: bool,
 }
 
 struct RgWalkItem {
@@ -3524,6 +3561,7 @@ impl RgDisplayHint {
 async fn resolve_rg_symlink_target(
     fs: &dyn crate::fs::FileSystem,
     link_path: &Path,
+    containment_root: &Path,
 ) -> Option<(PathBuf, crate::fs::Metadata)> {
     let target = fs.read_link(link_path).await.ok()?;
     let resolved = if target.is_absolute() {
@@ -3531,6 +3569,11 @@ async fn resolve_rg_symlink_target(
     } else {
         crate::fs::normalize_path(&link_path.parent().unwrap_or(Path::new("/")).join(target))
     };
+    // rg may emulate ripgrep's -L behavior only inside the requested VFS search root;
+    // rejecting escapes preserves TM-ESC-002's inert-symlink sandbox boundary.
+    if !resolved.starts_with(containment_root) {
+        return None;
+    }
     let metadata = fs.stat(&resolved).await.ok()?;
     Some((resolved, metadata))
 }
@@ -3542,7 +3585,8 @@ async fn resolve_rg_explicit_path(
 ) -> Option<(PathBuf, crate::fs::Metadata)> {
     let meta = fs.stat(path).await.ok()?;
     if meta.file_type.is_symlink() && follow_symlinks {
-        resolve_rg_symlink_target(fs, path).await
+        let containment_root = path.parent().unwrap_or(Path::new("/"));
+        resolve_rg_symlink_target(fs, path, containment_root).await
     } else {
         Some((path.to_path_buf(), meta))
     }
@@ -3599,7 +3643,7 @@ async fn collect_rg_files_recursive(
                 let (entry_actual_path, entry_metadata) =
                     if entry.metadata.file_type.is_symlink() && opts.follow_symlinks {
                         let Some((target, target_meta)) =
-                            resolve_rg_symlink_target(fs, &actual_path).await
+                            resolve_rg_symlink_target(fs, &actual_path, &item.actual_root).await
                         else {
                             continue;
                         };
@@ -3643,6 +3687,8 @@ async fn collect_rg_files_recursive(
                         actual: entry_actual_path,
                         metadata: entry_metadata,
                         display_hint: item.display_hint,
+                        display_override: None,
+                        explicit: false,
                     });
                 }
             }
@@ -3657,6 +3703,8 @@ async fn collect_rg_files_recursive(
                 actual: item.actual,
                 metadata: meta,
                 display_hint: item.display_hint,
+                display_override: None,
+                explicit: false,
             });
         }
     }
@@ -3739,6 +3787,8 @@ async fn collect_rg_file_list(
                 actual: actual_path,
                 metadata: meta,
                 display_hint: RgDisplayHint::from_root_arg(Some(p)),
+                display_override: None,
+                explicit: true,
             });
         }
     }
@@ -3746,7 +3796,7 @@ async fn collect_rg_file_list(
     result.extend(
         candidates
             .iter()
-            .map(|file| display_path_for(&file.logical, cwd, file.display_hint.root_arg(), opts)),
+            .map(|file| candidate_display_path(file, cwd, opts)),
     );
     result
 }
@@ -3770,8 +3820,9 @@ async fn read_rg_files(
 ) -> RgCollectedInputs {
     let mut collected = RgCollectedInputs::default();
     for file in files {
-        let display = display_path_for(&file.logical, cwd, file.display_hint.root_arg(), opts);
+        let display = candidate_display_path(&file, cwd, opts);
         match read_rg_text_file(fs, &file.actual, cwd, &display, opts).await {
+            Ok(text) if file.explicit => collected.inputs.push(RgInput::explicit(display, text)),
             Ok(text) => collected.inputs.push(RgInput::discovered(display, text)),
             Err(e) => {
                 collected.had_errors = true;
@@ -3782,6 +3833,12 @@ async fn read_rg_files(
         }
     }
     collected
+}
+
+fn candidate_display_path(file: &RgFileCandidate, cwd: &Path, opts: &RgOptions) -> String {
+    file.display_override
+        .clone()
+        .unwrap_or_else(|| display_path_for(&file.logical, cwd, file.display_hint.root_arg(), opts))
 }
 
 async fn try_indexed_search(
@@ -3876,10 +3933,14 @@ async fn try_indexed_search(
                 continue;
             }
             if let Ok(content) = fs.read_file(&candidate).await {
-                inputs.push(RgInput::discovered(
-                    display_path_for(&candidate, cwd, root_arg.as_deref(), opts),
-                    decode_rg_content(&content, opts),
-                ));
+                let display = display_path_for(&candidate, cwd, root_arg.as_deref(), opts);
+                let content = decode_rg_content(&content, opts);
+                let input = if explicit_file_match {
+                    RgInput::explicit(display, content)
+                } else {
+                    RgInput::discovered(display, content)
+                };
+                inputs.push(input);
             }
         }
     }
@@ -3910,6 +3971,31 @@ struct RgPrefix<'a> {
 
 const RG_ANSI_RESET: &str = "\x1b[0m";
 const RG_COLOR_MATCH_EXTRA_BYTES_LIMIT: usize = 64 * 1024;
+
+fn rg_output_limit(ctx: &Context<'_>) -> usize {
+    ctx.execution_extension::<ExecutionLimits>()
+        .map(|limits| limits.max_stdout_bytes.saturating_add(1))
+        .unwrap_or_else(|| {
+            ExecutionLimits::default()
+                .max_stdout_bytes
+                .saturating_add(1)
+        })
+}
+
+fn truncate_rg_output(output: &mut String, limit: usize) {
+    if output.len() <= limit {
+        return;
+    }
+    let mut end = limit;
+    while !output.is_char_boundary(end) {
+        end -= 1;
+    }
+    output.truncate(end);
+}
+
+fn rg_output_remaining(output: &str, limit: usize) -> Option<usize> {
+    Some(limit.saturating_sub(output.len()))
+}
 
 fn color_path(path: &str, color: bool, color_scheme: &RgColorScheme) -> String {
     if color {
@@ -4021,7 +4107,7 @@ fn color_matches(text: &str, regex: &RgMatcher, opts: &RgOptions) -> String {
     let mut bailout = false;
     regex.for_each_match(text, |mat| {
         if bailout {
-            return;
+            return false;
         }
         estimated_extra = estimated_extra.saturating_add(per_match_extra);
         if mat.start() == mat.end() {
@@ -4029,7 +4115,9 @@ fn color_matches(text: &str, regex: &RgMatcher, opts: &RgOptions) -> String {
         }
         if estimated_extra > RG_COLOR_MATCH_EXTRA_BYTES_LIMIT {
             bailout = true;
+            return false;
         }
+        true
     });
     if bailout {
         return text.to_string();
@@ -4044,6 +4132,7 @@ fn color_matches(text: &str, regex: &RgMatcher, opts: &RgOptions) -> String {
             output.push_str(&color_text(mat.as_str(), &opts.color_scheme.matches, false));
             output.push_str(&color_prefix(&opts.color_scheme.highlight, false));
             last = mat.end();
+            true
         });
         if !matched {
             output.push_str(text);
@@ -4059,6 +4148,7 @@ fn color_matches(text: &str, regex: &RgMatcher, opts: &RgOptions) -> String {
         output.push_str(&text[last..mat.start()]);
         output.push_str(&color_text(mat.as_str(), &opts.color_scheme.matches, false));
         last = mat.end();
+        true
     });
     if last == 0 {
         text.to_string()
@@ -4260,7 +4350,7 @@ fn collect_rg_multiline_matches<'a>(
     lines: &[RgLine<'a>],
     max_count: Option<usize>,
 ) -> Vec<RgMultilineMatch<'a>> {
-    if lines.is_empty() {
+    if lines.is_empty() || max_count == Some(0) {
         return Vec::new();
     }
     let mut matches = Vec::new();
@@ -4268,7 +4358,7 @@ fn collect_rg_multiline_matches<'a>(
         if let Some(max) = max_count
             && matches.len() >= max
         {
-            return;
+            return false;
         }
         let line_idx = rg_line_index_for_offset(lines, mat.start());
         let end_line_idx = rg_line_index_for_offset(lines, mat.end().saturating_sub(1));
@@ -4280,6 +4370,7 @@ fn collect_rg_multiline_matches<'a>(
             end_line_idx,
             column: mat.start().saturating_sub(lines[line_idx].start_offset) + 1,
         });
+        max_count.is_none_or(|max| matches.len() < max)
     });
     matches
 }
@@ -4356,7 +4447,11 @@ fn format_rg_output_line(
     regex: &RgMatcher,
     opts: &RgOptions,
     matched: bool,
+    output_remaining: Option<usize>,
 ) -> String {
+    if output_remaining == Some(0) {
+        return String::new();
+    }
     let line = format_rg_line(line, match_line, regex, opts, matched);
     let display = if let Some(max_columns) = opts.max_columns {
         if max_columns == 0 || line.chars().count() <= max_columns {
@@ -4373,11 +4468,15 @@ fn format_rg_output_line(
         line
     };
 
-    if matched && opts.replacement.is_none() && !opts.invert_match {
+    let mut display = if matched && opts.replacement.is_none() && !opts.invert_match {
         color_matches(&display, regex, opts)
     } else {
         display
+    };
+    if let Some(remaining) = output_remaining {
+        truncate_rg_output(&mut display, remaining);
     }
+    display
 }
 
 fn format_rg_match_text(text: &str, regex: &RgMatcher, opts: &RgOptions) -> String {
@@ -4386,6 +4485,20 @@ fn format_rg_match_text(text: &str, regex: &RgMatcher, opts: &RgOptions) -> Stri
     } else {
         color_matches(text, regex, opts)
     }
+}
+
+fn rg_multiline_replacement_matches_exceed_cap(
+    matches: &[RgMultilineMatch<'_>],
+    replacement: &str,
+) -> bool {
+    matches
+        .iter()
+        .map(|mat| replacement_output_projection(mat.text.len(), replacement, 1, true))
+        .try_fold(0usize, |total, projected| {
+            let total = total.saturating_add(projected);
+            (total <= RG_MAX_REPLACEMENT_OUTPUT_BYTES).then_some(total)
+        })
+        .is_none()
 }
 
 fn rg_multiline_match_segments(
@@ -4455,6 +4568,62 @@ fn write_rg_multiline_match_segments(
     }
 }
 
+fn rg_context_line_indices(
+    lines_len: usize,
+    match_lines: &[usize],
+    before_context: usize,
+    after_context: usize,
+    include_matches: bool,
+) -> Vec<usize> {
+    if lines_len == 0 || match_lines.is_empty() {
+        return Vec::new();
+    }
+
+    let mut ranges = Vec::with_capacity(match_lines.len());
+    for &match_idx in match_lines {
+        if match_idx >= lines_len {
+            continue;
+        }
+        let start = match_idx.saturating_sub(before_context);
+        let end = match_idx
+            .saturating_add(after_context)
+            .saturating_add(1)
+            .min(lines_len);
+        ranges.push((start, end));
+    }
+    if ranges.is_empty() {
+        return Vec::new();
+    }
+
+    ranges.sort_unstable_by_key(|&(start, end)| (start, end));
+    let mut merged: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
+    for (start, end) in ranges {
+        if let Some((_, last_end)) = merged.last_mut()
+            && start <= *last_end
+        {
+            *last_end = (*last_end).max(end);
+            continue;
+        }
+        merged.push((start, end));
+    }
+
+    let match_set = (!include_matches).then(|| match_lines.iter().copied().collect::<HashSet<_>>());
+    let mut indices = Vec::new();
+    for (start, end) in merged {
+        for idx in start..end {
+            if match_set
+                .as_ref()
+                .is_some_and(|matches| matches.contains(&idx))
+            {
+                continue;
+            }
+            indices.push(idx);
+        }
+    }
+    indices
+}
+
+#[allow(clippy::too_many_arguments)]
 fn write_rg_context(
     output: &mut String,
     filename: &str,
@@ -4463,18 +4632,17 @@ fn write_rg_context(
     match_lines: &[usize],
     opts: &RgOptions,
     show_filename: bool,
+    output_limit: usize,
 ) {
-    let mut printed = HashSet::new();
-    for &match_idx in match_lines {
-        let start = match_idx.saturating_sub(opts.before_context);
-        let end = (match_idx + opts.after_context + 1).min(lines.len());
-        for idx in start..end {
-            printed.insert(idx);
-        }
-    }
-
-    let mut sorted: Vec<usize> = printed.into_iter().collect();
-    sorted.sort_unstable();
+    // Merge context windows before expansion. Large -A/-B/-C values must cost
+    // proportional to emitted lines, not matches × context.
+    let sorted = rg_context_line_indices(
+        lines.len(),
+        match_lines,
+        opts.before_context,
+        opts.after_context,
+        true,
+    );
     let match_set: HashSet<usize> = match_lines.iter().copied().collect();
     let mut prev_line = None;
     let record_terminator = rg_record_terminator(opts);
@@ -4486,6 +4654,7 @@ fn write_rg_context(
         {
             output.push_str(&opts.context_separator);
             output.push(record_terminator);
+            truncate_rg_output(output, output_limit);
         }
         prev_line = Some(line_idx);
 
@@ -4521,8 +4690,10 @@ fn write_rg_context(
             regex,
             opts,
             matched,
+            rg_output_remaining(output, output_limit),
         ));
         output.push(record_terminator);
+        truncate_rg_output(output, output_limit);
     }
 }
 
@@ -4624,6 +4795,7 @@ fn write_rg_json_match_with_text(
             );
         }
         output.push_str(&value.to_string());
+        true
     });
     output.push_str("]},\"type\":\"match\"}\n");
 }
@@ -4845,6 +5017,12 @@ fn rg_option_takes_value(arg: &str) -> bool {
     )
 }
 
+fn rg_arg_before_delimiter(args: &[String], needle: &str) -> bool {
+    args.iter()
+        .take_while(|arg| arg.as_str() != "--")
+        .any(|arg| arg == needle)
+}
+
 fn rg_generate_kind(args: &[String]) -> Result<Option<String>> {
     let mut i = 0;
     while i < args.len() {
@@ -4989,16 +5167,16 @@ impl Builtin for Rg {
             "  -g, --glob GLOB\tinclude/exclude paths by glob (!GLOB excludes)\n",
             "  -g, --glob GLOB\tinclude/exclude paths by glob (!GLOB excludes)\n  --iglob GLOB\tcase-insensitive include/exclude path glob\n  --glob-case-insensitive\tmake -g/--glob rules case-insensitive\n  --no-glob-case-insensitive\tdisable case-insensitive -g/--glob rules\n",
         );
-        if ctx.args.iter().any(|arg| arg == "-h") {
+        if rg_arg_before_delimiter(ctx.args, "-h") {
             return Ok(ExecResult::ok(help_text));
         }
-        if ctx.args.iter().any(|arg| arg == "-V") {
+        if rg_arg_before_delimiter(ctx.args, "-V") {
             return Ok(ExecResult::ok("rg (bashkit) 0.1\n".to_string()));
         }
         if let Some(r) = super::check_help_version(ctx.args, &help_text, Some("rg (bashkit) 0.1")) {
             return Ok(r);
         }
-        if ctx.args.iter().any(|arg| arg == "--pcre2-version") {
+        if rg_arg_before_delimiter(ctx.args, "--pcre2-version") {
             return Ok(ExecResult::ok(
                 "PCRE2 10.45 is available (JIT is available)\n".to_string(),
             ));
@@ -5016,6 +5194,7 @@ impl Builtin for Rg {
         if opts.type_list {
             return Ok(ExecResult::ok(opts.type_database.list()));
         }
+        let output_limit = rg_output_limit(&ctx);
         load_rg_global_ignore_files(&*ctx.fs, ctx.env, &mut opts).await?;
         if let Err(result) = load_rg_ignore_files(&*ctx.fs, ctx.cwd, &mut opts).await {
             return Ok(result);
@@ -5032,12 +5211,22 @@ impl Builtin for Rg {
                 for file in files {
                     output.push_str(file.as_str());
                     output.push('\0');
+                    truncate_rg_output(&mut output, output_limit);
                 }
                 output
             } else if files.is_empty() {
                 String::new()
             } else {
-                format!("{}\n", files.join("\n"))
+                let mut output = String::new();
+                for file in &files {
+                    output.push_str(file.as_str());
+                    output.push('\n');
+                    truncate_rg_output(&mut output, output_limit);
+                    if output.len() >= output_limit {
+                        break;
+                    }
+                }
+                output
             };
             return Ok(ExecResult {
                 stdout: output,
@@ -5129,6 +5318,7 @@ impl Builtin for Rg {
                             &opts.color_scheme,
                         ));
                         output.push(if opts.null { '\0' } else { '\n' });
+                        truncate_rg_output(&mut output, output_limit);
                     } else if (opts.count_only || opts.count_matches) && opts.include_zero {
                         if show_filename {
                             output.push_str(&color_path(
@@ -5165,6 +5355,7 @@ impl Builtin for Rg {
                         &opts.color_scheme,
                     ));
                     output.push(if opts.null { '\0' } else { '\n' });
+                    truncate_rg_output(&mut output, output_limit);
                     continue;
                 }
                 if opts.count_only || opts.count_matches {
@@ -5256,6 +5447,10 @@ impl Builtin for Rg {
                             opts.replacement.as_deref(),
                             search_lines[line_idx].match_text,
                         );
+                        truncate_rg_output(&mut output, output_limit);
+                        if output.len() >= output_limit {
+                            break;
+                        }
                     }
                     write_rg_json_end(
                         &mut output,
@@ -5461,6 +5656,7 @@ impl Builtin for Rg {
                     }
                     output.push_str(&count_value.to_string());
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                     continue;
                 }
             }
@@ -5568,6 +5764,10 @@ impl Builtin for Rg {
                                     &regex,
                                     opts.replacement.as_deref(),
                                 );
+                                truncate_rg_output(&mut output, output_limit);
+                                if output.len() >= output_limit {
+                                    break;
+                                }
                             }
                             write_rg_json_end(
                                 &mut output,
@@ -5595,6 +5795,7 @@ impl Builtin for Rg {
                         }
                         output.push_str(&count_value.to_string());
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                         continue;
                     }
                     if opts.quiet {
@@ -5604,6 +5805,7 @@ impl Builtin for Rg {
                     let line_show_filename = if opts.heading && show_filename && match_count > 0 {
                         if !output.is_empty() {
                             output.push(record_terminator);
+                            truncate_rg_output(&mut output, output_limit);
                         }
                         output.push_str(&color_path(
                             filename,
@@ -5611,6 +5813,7 @@ impl Builtin for Rg {
                             &opts.color_scheme,
                         ));
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                         false
                     } else {
                         show_filename
@@ -5623,6 +5826,7 @@ impl Builtin for Rg {
                         {
                             output.push_str(&opts.context_separator);
                             output.push(record_terminator);
+                            truncate_rg_output(&mut output, output_limit);
                         }
                         write_rg_context(
                             &mut output,
@@ -5632,6 +5836,7 @@ impl Builtin for Rg {
                             &inverted_match_lines,
                             &opts,
                             line_show_filename,
+                            output_limit,
                         );
                     } else {
                         for &line_idx in &inverted_match_lines {
@@ -5661,8 +5866,10 @@ impl Builtin for Rg {
                                 &regex,
                                 &opts,
                                 true,
+                                rg_output_remaining(&output, output_limit),
                             ));
                             output.push(record_terminator);
+                            truncate_rg_output(&mut output, output_limit);
                         }
                     }
                     continue;
@@ -5727,24 +5934,21 @@ impl Builtin for Rg {
                         write_rg_json_begin(&mut output, filename);
                         let match_line_set: HashSet<usize> =
                             context_match_lines.iter().copied().collect();
-                        let mut context_lines = BTreeSet::new();
-                        if opts.passthru {
-                            for line_idx in 0..lines.len() {
-                                if !match_line_set.contains(&line_idx) {
-                                    context_lines.insert(line_idx);
-                                }
-                            }
+                        let context_lines = if opts.passthru {
+                            (0..lines.len())
+                                .filter(|line_idx| !match_line_set.contains(line_idx))
+                                .collect::<Vec<_>>()
                         } else if has_context {
-                            for &match_idx in &context_match_lines {
-                                let start = match_idx.saturating_sub(opts.before_context);
-                                let end = (match_idx + opts.after_context + 1).min(lines.len());
-                                for line_idx in start..end {
-                                    if !match_line_set.contains(&line_idx) {
-                                        context_lines.insert(line_idx);
-                                    }
-                                }
-                            }
-                        }
+                            rg_context_line_indices(
+                                lines.len(),
+                                &context_match_lines,
+                                opts.before_context,
+                                opts.after_context,
+                                false,
+                            )
+                        } else {
+                            Vec::new()
+                        };
                         if context_lines.len() > RG_MAX_JSON_CONTEXT_EVENTS {
                             return Ok(ExecResult::err(
                                 "rg: too many JSON context events (output capped)\n".to_string(),
@@ -5761,13 +5965,18 @@ impl Builtin for Rg {
                                     &regex,
                                     opts.replacement.as_deref(),
                                 );
+                                truncate_rg_output(&mut output, output_limit);
+                                if output.len() >= output_limit {
+                                    break;
+                                }
                             }
                         } else {
                             let mut match_by_start_line = BTreeMap::new();
                             for &mat in &matches {
                                 match_by_start_line.entry(mat.line_idx).or_insert(mat);
                             }
-                            let mut event_lines: BTreeSet<usize> = context_lines;
+                            let mut event_lines: BTreeSet<usize> =
+                                context_lines.into_iter().collect();
                             event_lines.extend(match_by_start_line.keys().copied());
                             for line_idx in event_lines {
                                 if let Some(mat) = match_by_start_line.get(&line_idx).copied() {
@@ -5786,6 +5995,10 @@ impl Builtin for Rg {
                                         lines[line_idx],
                                         line_idx,
                                     );
+                                }
+                                truncate_rg_output(&mut output, output_limit);
+                                if output.len() >= output_limit {
+                                    break;
                                 }
                             }
                         }
@@ -5815,6 +6028,7 @@ impl Builtin for Rg {
                     }
                     output.push_str(&count_value.to_string());
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                     continue;
                 }
                 if opts.quiet {
@@ -5824,6 +6038,7 @@ impl Builtin for Rg {
                 let line_show_filename = if opts.heading && show_filename && match_count > 0 {
                     if !output.is_empty() {
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                     }
                     output.push_str(&color_path(
                         filename,
@@ -5831,44 +6046,64 @@ impl Builtin for Rg {
                         &opts.color_scheme,
                     ));
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                     false
                 } else {
                     show_filename
                 };
                 if opts.passthru {
-                    let mut match_by_start_line = BTreeMap::new();
+                    let mut matches_by_start_line: BTreeMap<usize, Vec<RgMultilineMatch<'_>>> =
+                        BTreeMap::new();
                     for mat in &matches {
-                        match_by_start_line.entry(mat.line_idx).or_insert(*mat);
+                        matches_by_start_line
+                            .entry(mat.line_idx)
+                            .or_default()
+                            .push(*mat);
                     }
                     let match_line_set: HashSet<usize> =
                         context_match_lines.iter().copied().collect();
                     let mut line_idx = 0usize;
                     while line_idx < lines.len() {
-                        if opts.only_matching
-                            && let Some(mat) = match_by_start_line.get(&line_idx).copied()
-                        {
-                            let segments = rg_multiline_match_segments(mat, &regex, &opts);
-                            write_rg_multiline_match_segments(
-                                &mut output,
-                                mat,
-                                &segments,
-                                RgMultilineMatchPrefix {
-                                    filename,
-                                    show_filename: line_show_filename,
-                                    line_numbers: opts.line_numbers,
-                                    column: opts.column,
-                                    byte_offset: opts.byte_offset,
-                                    vimgrep: false,
-                                    separator: opts.field_match_separator.as_str(),
-                                    null_path_separator: opts.null,
-                                    color: opts.color_enabled(),
-                                    color_scheme: &opts.color_scheme,
-                                    hyperlink_format: opts.hyperlink_format.as_deref(),
-                                },
-                                record_terminator,
-                            );
-                            line_idx = (mat.end_line_idx + 1).max(line_idx + segments.len());
-                            continue;
+                        if opts.only_matching {
+                            if let Some(line_matches) = matches_by_start_line.get(&line_idx) {
+                                if let Some(replacement) = &opts.replacement
+                                    && rg_multiline_replacement_matches_exceed_cap(
+                                        line_matches,
+                                        replacement,
+                                    )
+                                {
+                                    output.push_str(&rg_replacement_cap_marker());
+                                    output.push(record_terminator);
+                                    line_idx += 1;
+                                    continue;
+                                }
+                                for &mat in line_matches {
+                                    let segments = rg_multiline_match_segments(mat, &regex, &opts);
+                                    write_rg_multiline_match_segments(
+                                        &mut output,
+                                        mat,
+                                        &segments,
+                                        RgMultilineMatchPrefix {
+                                            filename,
+                                            show_filename: line_show_filename,
+                                            line_numbers: opts.line_numbers,
+                                            column: opts.column,
+                                            byte_offset: opts.byte_offset,
+                                            vimgrep: false,
+                                            separator: opts.field_match_separator.as_str(),
+                                            null_path_separator: opts.null,
+                                            color: opts.color_enabled(),
+                                            color_scheme: &opts.color_scheme,
+                                            hyperlink_format: opts.hyperlink_format.as_deref(),
+                                        },
+                                        record_terminator,
+                                    );
+                                }
+                            }
+                            if match_line_set.contains(&line_idx) {
+                                line_idx += 1;
+                                continue;
+                            }
                         }
                         let line = lines[line_idx];
                         let matched = match_line_set.contains(&line_idx);
@@ -5903,8 +6138,10 @@ impl Builtin for Rg {
                             &regex,
                             &opts,
                             matched,
+                            rg_output_remaining(&output, output_limit),
                         ));
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                         line_idx += 1;
                     }
                 } else if opts.vimgrep {
@@ -5954,8 +6191,10 @@ impl Builtin for Rg {
                             &regex,
                             &opts,
                             true,
+                            rg_output_remaining(&output, output_limit),
                         ));
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                     }
                 } else if opts.only_matching {
                     for mat in &matches {
@@ -5988,6 +6227,7 @@ impl Builtin for Rg {
                     {
                         output.push_str(&opts.context_separator);
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                     }
                     write_rg_context(
                         &mut output,
@@ -5997,6 +6237,7 @@ impl Builtin for Rg {
                         &context_match_lines,
                         &opts,
                         line_show_filename,
+                        output_limit,
                     );
                 } else if let Some(replacement) = &opts.replacement {
                     for mat in &matches {
@@ -6027,8 +6268,10 @@ impl Builtin for Rg {
                             replacement,
                         ));
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                     }
                 } else {
+                    let mut seen_line_indices = HashSet::new();
                     for mat in &matches {
                         for (line_idx, line) in lines
                             .iter()
@@ -6036,6 +6279,9 @@ impl Builtin for Rg {
                             .take(mat.end_line_idx + 1)
                             .skip(mat.line_idx)
                         {
+                            if !seen_line_indices.insert(line_idx) {
+                                continue;
+                            }
                             write_rg_prefix(
                                 &mut output,
                                 RgPrefix {
@@ -6062,8 +6308,10 @@ impl Builtin for Rg {
                                 &regex,
                                 &opts,
                                 true,
+                                rg_output_remaining(&output, output_limit),
                             ));
                             output.push(record_terminator);
+                            truncate_rg_output(&mut output, output_limit);
                         }
                     }
                 }
@@ -6164,24 +6412,21 @@ impl Builtin for Rg {
                 if match_count > 0 {
                     write_rg_json_begin(&mut output, filename);
                     let match_line_set: HashSet<usize> = match_lines.iter().copied().collect();
-                    let mut context_lines = BTreeSet::new();
-                    if opts.passthru {
-                        for line_idx in 0..lines.len() {
-                            if !match_line_set.contains(&line_idx) {
-                                context_lines.insert(line_idx);
-                            }
-                        }
+                    let context_lines = if opts.passthru {
+                        (0..lines.len())
+                            .filter(|line_idx| !match_line_set.contains(line_idx))
+                            .collect::<Vec<_>>()
                     } else if has_context {
-                        for &match_idx in &match_lines {
-                            let start = match_idx.saturating_sub(opts.before_context);
-                            let end = (match_idx + opts.after_context + 1).min(lines.len());
-                            for line_idx in start..end {
-                                if !match_line_set.contains(&line_idx) {
-                                    context_lines.insert(line_idx);
-                                }
-                            }
-                        }
-                    }
+                        rg_context_line_indices(
+                            lines.len(),
+                            &match_lines,
+                            opts.before_context,
+                            opts.after_context,
+                            false,
+                        )
+                    } else {
+                        Vec::new()
+                    };
                     if context_lines.len() > RG_MAX_JSON_CONTEXT_EVENTS {
                         return Ok(ExecResult::err(
                             "rg: too many JSON context events (output capped)\n".to_string(),
@@ -6198,9 +6443,13 @@ impl Builtin for Rg {
                                 &regex,
                                 opts.replacement.as_deref(),
                             );
+                            truncate_rg_output(&mut output, output_limit);
+                            if output.len() >= output_limit {
+                                break;
+                            }
                         }
                     } else {
-                        let mut event_lines: BTreeSet<usize> = context_lines;
+                        let mut event_lines: BTreeSet<usize> = context_lines.into_iter().collect();
                         event_lines.extend(match_lines.iter().copied());
                         for line_idx in event_lines {
                             if match_line_set.contains(&line_idx) {
@@ -6219,6 +6468,10 @@ impl Builtin for Rg {
                                     lines[line_idx],
                                     line_idx,
                                 );
+                            }
+                            truncate_rg_output(&mut output, output_limit);
+                            if output.len() >= output_limit {
+                                break;
                             }
                         }
                     }
@@ -6252,6 +6505,7 @@ impl Builtin for Rg {
                 }
                 output.push_str(&count_value.to_string());
                 output.push(record_terminator);
+                truncate_rg_output(&mut output, output_limit);
                 continue;
             }
             if opts.quiet {
@@ -6261,6 +6515,7 @@ impl Builtin for Rg {
             let line_show_filename = if opts.heading && show_filename && match_count > 0 {
                 if !output.is_empty() {
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                 }
                 output.push_str(&color_path(
                     filename,
@@ -6268,20 +6523,58 @@ impl Builtin for Rg {
                     &opts.color_scheme,
                 ));
                 output.push(record_terminator);
+                truncate_rg_output(&mut output, output_limit);
                 false
             } else {
                 show_filename
             };
             if opts.passthru {
-                let mut first_match_by_line = BTreeMap::new();
-                for &line_idx in &match_lines {
-                    if let Some(mat) = regex.find(lines[line_idx].match_text) {
-                        first_match_by_line.insert(line_idx, mat);
-                    }
-                }
+                let match_line_set: HashSet<usize> = match_lines.iter().copied().collect();
                 for (line_idx, line) in lines.iter().enumerate() {
-                    let match_for_line = first_match_by_line.get(&line_idx).copied();
-                    let matched = match_for_line.is_some();
+                    let matched = match_line_set.contains(&line_idx);
+                    if opts.only_matching && !opts.invert_match && matched {
+                        if let Some(replacement) = &opts.replacement
+                            && regex.replacement_matches_exceed_cap(
+                                line.match_text,
+                                replacement.as_str(),
+                            )
+                        {
+                            output.push_str(&rg_replacement_cap_marker());
+                            output.push(record_terminator);
+                            truncate_rg_output(&mut output, output_limit);
+                            continue;
+                        }
+                        regex.for_each_match(line.match_text, |mat| {
+                            write_rg_prefix(
+                                &mut output,
+                                RgPrefix {
+                                    filename,
+                                    show_filename: line_show_filename,
+                                    line_numbers: opts.line_numbers,
+                                    line_idx,
+                                    column: if opts.column {
+                                        Some(mat.start() + 1)
+                                    } else {
+                                        None
+                                    },
+                                    byte_offset: if opts.byte_offset {
+                                        Some(line.start_offset + mat.start())
+                                    } else {
+                                        None
+                                    },
+                                    separator: opts.field_match_separator.as_str(),
+                                    null_path_separator: opts.null,
+                                    color: opts.color_enabled(),
+                                    color_scheme: &opts.color_scheme,
+                                    hyperlink_format: opts.hyperlink_format.as_deref(),
+                                },
+                            );
+                            output.push_str(&format_rg_match_text(mat.as_str(), &regex, &opts));
+                            output.push(record_terminator);
+                            true
+                        });
+                        continue;
+                    }
                     let separator = if matched {
                         opts.field_match_separator.as_str()
                     } else {
@@ -6295,18 +6588,12 @@ impl Builtin for Rg {
                             line_numbers: opts.line_numbers,
                             line_idx,
                             column: if opts.column && matched && !opts.invert_match {
-                                match_for_line.map(|mat| mat.start() + 1)
+                                regex.find(line.match_text).map(|m| m.start() + 1)
                             } else {
                                 None
                             },
                             byte_offset: if opts.byte_offset {
-                                Some(if matched && opts.only_matching && !opts.invert_match {
-                                    match_for_line
-                                        .map(|mat| line.start_offset + mat.start())
-                                        .unwrap_or(line.start_offset)
-                                } else {
-                                    line.start_offset
-                                })
+                                Some(line.start_offset)
                             } else {
                                 None
                             },
@@ -6317,21 +6604,16 @@ impl Builtin for Rg {
                             hyperlink_format: opts.hyperlink_format.as_deref(),
                         },
                     );
-                    if opts.only_matching
-                        && !opts.invert_match
-                        && let Some(mat) = match_for_line
-                    {
-                        output.push_str(&format_rg_match_text(mat.as_str(), &regex, &opts));
-                    } else {
-                        output.push_str(&format_rg_output_line(
-                            line.text,
-                            line.match_text,
-                            &regex,
-                            &opts,
-                            matched,
-                        ));
-                    }
+                    output.push_str(&format_rg_output_line(
+                        line.text,
+                        line.match_text,
+                        &regex,
+                        &opts,
+                        matched,
+                        rg_output_remaining(&output, output_limit),
+                    ));
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                 }
             } else if opts.vimgrep && !opts.invert_match {
                 for &line_idx in &match_lines {
@@ -6344,9 +6626,16 @@ impl Builtin for Rg {
                     {
                         output.push_str(&rg_replacement_cap_marker());
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                         continue;
                     }
+                    let mut output_col_offset: usize = 0;
                     regex.for_each_match(lines[line_idx].match_text, |mat| {
+                        let col = if opts.only_matching && opts.replacement.is_some() {
+                            mat.start() + output_col_offset + 1
+                        } else {
+                            mat.start() + 1
+                        };
                         write_rg_prefix(
                             &mut output,
                             RgPrefix {
@@ -6354,7 +6643,7 @@ impl Builtin for Rg {
                                 show_filename: true,
                                 line_numbers: true,
                                 line_idx,
-                                column: Some(mat.start() + 1),
+                                column: Some(col),
                                 byte_offset: None,
                                 separator: opts.field_match_separator.as_str(),
                                 null_path_separator: opts.null,
@@ -6364,7 +6653,18 @@ impl Builtin for Rg {
                             },
                         );
                         if opts.only_matching {
-                            output.push_str(&format_rg_match_text(mat.as_str(), &regex, &opts));
+                            let formatted = format_rg_match_text(mat.as_str(), &regex, &opts);
+                            if opts.replacement.is_some() {
+                                let orig_len = mat.as_str().len();
+                                let repl_len = formatted.len();
+                                if repl_len >= orig_len {
+                                    output_col_offset += repl_len - orig_len;
+                                } else {
+                                    output_col_offset =
+                                        output_col_offset.saturating_sub(orig_len - repl_len);
+                                }
+                            }
+                            output.push_str(&formatted);
                         } else {
                             output.push_str(&format_rg_output_line(
                                 lines[line_idx].text,
@@ -6372,9 +6672,12 @@ impl Builtin for Rg {
                                 &regex,
                                 &opts,
                                 true,
+                                rg_output_remaining(&output, output_limit),
                             ));
                         }
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
+                        true
                     });
                 }
             } else if opts.only_matching && !opts.invert_match {
@@ -6387,6 +6690,7 @@ impl Builtin for Rg {
                     {
                         output.push_str(&rg_replacement_cap_marker());
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
                         continue;
                     }
                     regex.for_each_match(lines[line_idx].match_text, |mat| {
@@ -6421,6 +6725,8 @@ impl Builtin for Rg {
                             output.push_str(&color_matches(mat.as_str(), &regex, &opts));
                         }
                         output.push(record_terminator);
+                        truncate_rg_output(&mut output, output_limit);
+                        true
                     });
                 }
             } else if has_context {
@@ -6431,6 +6737,7 @@ impl Builtin for Rg {
                 {
                     output.push_str(&opts.context_separator);
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                 }
                 write_rg_context(
                     &mut output,
@@ -6440,6 +6747,7 @@ impl Builtin for Rg {
                     &match_lines,
                     &opts,
                     line_show_filename,
+                    output_limit,
                 );
             } else {
                 for &line_idx in &match_lines {
@@ -6475,8 +6783,10 @@ impl Builtin for Rg {
                         &regex,
                         &opts,
                         true,
+                        rg_output_remaining(&output, output_limit),
                     ));
                     output.push(record_terminator);
+                    truncate_rg_output(&mut output, output_limit);
                 }
             }
         }
@@ -6503,6 +6813,8 @@ impl Builtin for Rg {
             };
             append_rg_stats(&mut output, &stats, bytes_printed);
         }
+
+        truncate_rg_output(&mut output, output_limit);
 
         let exit_code = if collected_inputs.had_errors {
             2
@@ -6559,6 +6871,31 @@ mod tests {
     }
 
     #[test]
+    fn rg_match_stream_callback_can_stop_iteration() {
+        let regex = RgMatcher::Rust(Regex::new("a").expect("valid regex"));
+        let mut seen = 0usize;
+
+        regex.for_each_match("aaaa", |_| {
+            seen += 1;
+            false
+        });
+
+        assert_eq!(seen, 1);
+    }
+
+    #[test]
+    fn rg_multiline_collection_stops_at_max_count() {
+        let regex = RgMatcher::Rust(Regex::new("a").expect("valid regex"));
+        let content = "a\na\na";
+        let lines: Vec<_> = iter_rg_lines(content, false, false).collect();
+
+        let matches = collect_rg_multiline_matches(&regex, content, &lines, Some(1));
+
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].start_offset, 0);
+    }
+
+    #[test]
     fn rg_line_iterator_honors_null_data_records() {
         let lines: Vec<_> = iter_rg_lines("a\0b", false, true).collect();
         assert_eq!(lines.len(), 2);
@@ -6574,6 +6911,27 @@ mod tests {
     fn glob_brace_alternation_depth_limit_does_not_expand_nested_pattern() {
         let regex = glob_to_regex_with_depth("{a,b}", RG_GLOB_MAX_BRACE_DEPTH);
         assert_eq!(regex, r"^\{a,b\}$");
+    }
+
+    #[test]
+    fn glob_bracket_classes_escape_regex_set_operator_chars() {
+        let regex =
+            build_regex_opts(&glob_to_regex("[a&&b].txt"), false).expect("valid ampersand class");
+        assert!(regex.is_match("a.txt"));
+        assert!(regex.is_match("&.txt"));
+        assert!(regex.is_match("b.txt"));
+
+        let regex =
+            build_regex_opts(&glob_to_regex("[a~~b].txt"), false).expect("valid tilde class");
+        assert!(regex.is_match("a.txt"));
+        assert!(regex.is_match("~.txt"));
+        assert!(regex.is_match("b.txt"));
+    }
+
+    #[test]
+    fn glob_bracket_classes_reject_double_hyphen_operator_ranges() {
+        assert!(RgGlobRule::parse("[a--b].txt", false, false).is_err());
+        assert!(RgTypeGlob::parse("[a--b].txt").is_err());
     }
 
     #[test]
@@ -6862,6 +7220,10 @@ mod tests {
     ];
 
     const DIFF_DASH_PATTERN_FILES: &[(&str, &[u8])] = &[("/proj/dash.txt", b"-needle\nneedle\n")];
+    const DIFF_DASH_FLAG_FILES: &[(&str, &[u8])] = &[(
+        "/proj/dash-flags.txt",
+        b"-h\n-V\n--help\n--version\n--pcre2-version\nneedle\n",
+    )];
 
     const DIFF_PCRE2_FILES: &[(&str, &[u8])] = &[(
         "/proj/pcre.txt",
@@ -7278,7 +7640,7 @@ mod tests {
     ];
 
     const DIFF_OUTPUT_MODE_FILES: &[(&str, &[u8])] =
-        &[("/proj/output.txt", b"foo1 bar\nnone\nfoo2 baz\n")];
+        &[("/proj/output.txt", b"foo1 foo2 bar\nnone\nfoo3 baz\n")];
 
     const DIFF_JSON_MODE_FILES: &[(&str, &[u8])] = &[
         ("/proj/a.txt", b"before\nfoo bar foo\nafter\n"),
@@ -7333,15 +7695,53 @@ mod tests {
         assert!(err.contains("ratio exceeds"));
     }
 
+    #[tokio::test]
+    async fn rg_follow_rejects_recursive_symlink_escape() {
+        let result = run_rg_fixture_with_cwd(
+            &["-L", "needle", "workspace"],
+            None,
+            &[
+                ("/workspace/public.txt", b"needle public\n"),
+                ("/secret/flag.txt", b"needle secret\n"),
+            ],
+            &[
+                ("/workspace/flag.txt", "../secret/flag.txt"),
+                ("/workspace/flagdir", "../secret"),
+            ],
+            "/",
+        )
+        .await;
+
+        assert!(result.stdout.contains("workspace/public.txt"));
+        assert!(!result.stdout.contains("secret"));
+        assert!(!result.stdout.contains("flag.txt"));
+        assert!(!result.stdout.contains("flagdir"));
+    }
+
+    #[tokio::test]
+    async fn rg_follow_rejects_explicit_symlink_escape() {
+        let result = run_rg_fixture_with_cwd(
+            &["-L", "needle", "workspace/flag.txt"],
+            None,
+            &[("/secret/flag.txt", b"needle secret\n")],
+            &[("/workspace/flag.txt", "../secret/flag.txt")],
+            "/",
+        )
+        .await;
+
+        assert!(!result.stdout.contains("secret"));
+        assert!(!result.stdout.contains("flag.txt"));
+    }
+
     const DIFF_SYMLINK_FILES: &[(&str, &[u8])] = &[
-        ("/targets/file.txt", b"needle\n"),
-        ("/targets/dir/nested.txt", b"needle\n"),
+        ("/proj/targets/file.txt", b"needle\n"),
+        ("/proj/targets/dir/nested.txt", b"needle\n"),
         ("/proj/plain.txt", b"needle\n"),
     ];
 
     const DIFF_SYMLINKS: &[(&str, &str)] = &[
-        ("/proj/link.txt", "../targets/file.txt"),
-        ("/proj/linkdir", "../targets/dir"),
+        ("/proj/link.txt", "targets/file.txt"),
+        ("/proj/linkdir", "targets/dir"),
     ];
 
     const RG_SYMLINK_DIFF_CASES: &[RgSymlinkDiffCase] = &[
@@ -7409,6 +7809,46 @@ mod tests {
             args: &["--", "-needle", "proj/dash.txt"],
             stdin: None,
             files: DIFF_DASH_PATTERN_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "dash delimiter treats short help as pattern",
+            args: &["--", "-h", "proj/dash-flags.txt"],
+            stdin: None,
+            files: DIFF_DASH_FLAG_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "dash delimiter treats short version as pattern",
+            args: &["--", "-V", "proj/dash-flags.txt"],
+            stdin: None,
+            files: DIFF_DASH_FLAG_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "dash delimiter treats long help as pattern",
+            args: &["--", "--help", "proj/dash-flags.txt"],
+            stdin: None,
+            files: DIFF_DASH_FLAG_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "dash delimiter treats long version as pattern",
+            args: &["--", "--version", "proj/dash-flags.txt"],
+            stdin: None,
+            files: DIFF_DASH_FLAG_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "dash delimiter treats pcre2 version as pattern",
+            args: &["--", "--pcre2-version", "proj/dash-flags.txt"],
+            stdin: None,
+            files: DIFF_DASH_FLAG_FILES,
             cwd: "/",
             output: RgDiffOutput::Exact,
         },
@@ -8140,6 +8580,22 @@ mod tests {
                 "proj/a.txt",
                 "proj/b.txt",
             ],
+            stdin: None,
+            files: DIFF_BASIC_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "quiet files without match hit exits success",
+            args: &["-q", "--files-without-match", "needle", "proj/a.txt"],
+            stdin: None,
+            files: DIFF_BASIC_FILES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgDiffCase {
+            name: "quiet files without match miss exits failure",
+            args: &["-q", "--files-without-match", "needle", "proj/b.txt"],
             stdin: None,
             files: DIFF_BASIC_FILES,
             cwd: "/",
@@ -11896,8 +12352,24 @@ mod tests {
             output: RgDiffOutput::Exact,
         },
         RgTimedDiffCase {
+            name: "sort modified across explicit files",
+            args: &["--sort", "modified", "needle", "d1/new.txt", "d2/old.txt"],
+            files: DIFF_TIMED_MULTI_ROOT_SORT_FILES,
+            mtimes: DIFF_TIMED_MULTI_ROOT_SORT_MTIMES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgTimedDiffCase {
             name: "files sort modified across explicit roots",
             args: &["--files", "--sort", "modified", "d1", "d2"],
+            files: DIFF_TIMED_MULTI_ROOT_SORT_FILES,
+            mtimes: DIFF_TIMED_MULTI_ROOT_SORT_MTIMES,
+            cwd: "/",
+            output: RgDiffOutput::Exact,
+        },
+        RgTimedDiffCase {
+            name: "files sort modified across explicit files",
+            args: &["--files", "--sort", "modified", "d1/new.txt", "d2/old.txt"],
             files: DIFF_TIMED_MULTI_ROOT_SORT_FILES,
             mtimes: DIFF_TIMED_MULTI_ROOT_SORT_MTIMES,
             cwd: "/",
@@ -12574,6 +13046,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn quiet_files_without_match_uses_match_exit_status() {
+        let files = [
+            ("/proj/hit.txt", b"needle\n".as_slice()),
+            ("/proj/miss.txt", b"hay\n".as_slice()),
+        ];
+
+        let hit = run_rg(
+            &["-q", "--files-without-match", "needle", "/proj/hit.txt"],
+            None,
+            &files,
+        )
+        .await;
+        // hit.txt has needle, so --files-without-match finds no qualifying file → exit 1
+        assert_eq!(hit.exit_code, 1);
+        assert_eq!(hit.stdout, "");
+
+        let miss = run_rg(
+            &["-q", "--files-without-match", "needle", "/proj/miss.txt"],
+            None,
+            &files,
+        )
+        .await;
+        // miss.txt has no needle, so --files-without-match finds it → exit 0
+        assert_eq!(miss.exit_code, 0);
+        assert_eq!(miss.stdout, "");
+    }
+
+    #[tokio::test]
     async fn test_rg_help_and_version() {
         let long_help = run_rg(&["--help"], None, &[]).await;
         assert_eq!(long_help.exit_code, 0);
@@ -12875,6 +13375,31 @@ mod tests {
         assert!(no_vcs.stdout.contains("a.log"));
         assert!(!no_vcs.stdout.contains("src/ignored.txt"));
         assert!(!no_vcs.stdout.contains("rgonly.txt"));
+    }
+
+    #[tokio::test]
+    async fn test_rg_rgignore_overrides_gitignore_conflicts() {
+        let rgignore_ignores_files: &[(&str, &[u8])] = &[
+            ("/proj/.git/config", b"[core]\n"),
+            ("/proj/.gitignore", b"!secret.txt\n"),
+            ("/proj/.rgignore", b"secret.txt\n"),
+            ("/proj/public.txt", b"needle\n"),
+            ("/proj/secret.txt", b"needle\n"),
+        ];
+        let ignored = run_rg(&["--files", "/proj"], None, rgignore_ignores_files).await;
+        assert_eq!(ignored.exit_code, 0);
+        assert!(ignored.stdout.contains("public.txt"));
+        assert!(!ignored.stdout.contains("secret.txt"));
+
+        let rgignore_unignores_files: &[(&str, &[u8])] = &[
+            ("/proj/.git/config", b"[core]\n"),
+            ("/proj/.gitignore", b"secret.txt\n"),
+            ("/proj/.rgignore", b"!secret.txt\n"),
+            ("/proj/secret.txt", b"needle\n"),
+        ];
+        let unignored = run_rg(&["--files", "/proj"], None, rgignore_unignores_files).await;
+        assert_eq!(unignored.exit_code, 0);
+        assert!(unignored.stdout.contains("secret.txt"));
     }
 
     #[tokio::test]
@@ -13565,6 +14090,28 @@ mod tests {
         assert_eq!(result.stdout, "1-before\n2:needle\n3-after\n");
     }
 
+    #[test]
+    fn test_rg_context_indices_merge_before_expanding() {
+        let lines = rg_context_line_indices(10, &[2, 3, 4], 2, usize::MAX, true);
+        assert_eq!(lines, (0..10).collect::<Vec<_>>());
+
+        let context_only = rg_context_line_indices(6, &[1, 2, 3], 1, 1, false);
+        assert_eq!(context_only, vec![0, 4]);
+    }
+
+    #[tokio::test]
+    async fn test_rg_context_extreme_value_does_not_overflow() {
+        let max_context = format!("-nC{}", usize::MAX);
+        let result = run_rg(
+            &[max_context.as_str(), "needle", "/test.txt"],
+            None,
+            &[("/test.txt", b"before\nneedle\nafter\n")],
+        )
+        .await;
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "1-before\n2:needle\n3-after\n");
+    }
+
     #[tokio::test]
     async fn test_rg_glob_include_and_exclude() {
         let result = run_rg_with_cwd(
@@ -13631,6 +14178,23 @@ mod tests {
             ],
             vec![
                 "--vimgrep",
+                "--only-matching",
+                "--replace",
+                replacement.as_str(),
+                "a",
+                "/big.txt",
+            ],
+            vec![
+                "--passthru",
+                "--only-matching",
+                "--replace",
+                replacement.as_str(),
+                "a",
+                "/big.txt",
+            ],
+            vec![
+                "--multiline",
+                "--passthru",
                 "--only-matching",
                 "--replace",
                 replacement.as_str(),
@@ -13841,6 +14405,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_rg_color_always_honors_stdout_limit_for_many_matches() {
+        let mut bash = crate::Bash::builder()
+            .limits(crate::ExecutionLimits::new().max_stdout_bytes(4096))
+            .build();
+        let dense_lines = "a\n".repeat(16_384);
+        bash.fs()
+            .write_file(Path::new("/file.txt"), dense_lines.as_bytes())
+            .await
+            .unwrap();
+
+        let result = bash.exec("rg --color=always a /file.txt").await.unwrap();
+
+        assert!(result.stdout_truncated);
+        assert!(result.stdout.len() <= 4096);
+        assert!(result.stdout.contains("\x1b[31m"));
+    }
+
+    #[tokio::test]
     async fn test_rg_indexed_search_ignores_outside_root_match_paths() {
         let inner = InMemoryFs::new();
         inner.mkdir(Path::new("/safe"), true).await.unwrap();
@@ -13869,6 +14451,32 @@ mod tests {
         let result = run_rg_with_fs(&["--no-ignore", "secret", "/safe"], None, fs).await;
         assert_eq!(result.exit_code, 1);
         assert_eq!(result.stdout, "");
+    }
+
+    #[tokio::test]
+    async fn test_rg_indexed_explicit_binary_file_reports_match_by_default() {
+        let inner = InMemoryFs::new();
+        inner.mkdir(Path::new("/proj"), true).await.unwrap();
+        inner
+            .write_file(Path::new("/proj/bin.dat"), b"abc\0needle\n")
+            .await
+            .unwrap();
+
+        let fs = Arc::new(IndexedTestFs {
+            inner,
+            matches: vec![SearchMatch {
+                path: PathBuf::from("/proj/bin.dat"),
+                line_number: 1,
+                line_content: "abc\0needle".to_string(),
+            }],
+        });
+
+        let result = run_rg_with_fs(&["needle", "/proj/bin.dat"], None, fs).await;
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(
+            result.stdout,
+            "binary file matches (found \"\\0\" byte around offset 3)\n"
+        );
     }
 
     #[tokio::test]

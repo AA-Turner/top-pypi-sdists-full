@@ -59,7 +59,7 @@ def fetch_connection_config(
             `connection-<id>-config.json` inside it. Default: writes to the
             platform temp directory (e.g. `/tmp/connection-<id>-config.json`).
         with_secrets: If True, fetch unmasked secrets from the internal database.
-            Requires appropriate GCP credentials and Cloud SQL Proxy access.
+            Requires appropriate GCP credentials and Cloud SQL Connector access.
         oc_issue_url: Required when with_secrets is True. The OC issue URL for
             audit logging purposes.
 
@@ -104,7 +104,7 @@ def fetch_connection_config(
                 success=False,
                 message=(
                     f"Failed to retrieve unmasked secrets for connection {connection_id}. "
-                    "Ensure you have GCP credentials and Cloud SQL Proxy access."
+                    "Ensure you have GCP credentials and Cloud SQL Connector access."
                 ),
                 connection_id=connection_id,
                 source_id=connection_data.source_id,

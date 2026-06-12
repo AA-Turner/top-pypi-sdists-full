@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools>=77.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,48 +9,61 @@ authors = [{name = "Dana Powers", email = "dana.powers@gmail.com"}]
 description = "Pure Python client for Apache Kafka"
 keywords = ["apache kafka", "kafka"]
 readme = "README.rst"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 2",
-    "Programming Language :: Python :: 2.7",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.4",
-    "Programming Language :: Python :: 3.5",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-urls = {Homepage = "https://github.com/dpkp/kafka-python"}
+
+[project.urls]
+Homepage = "https://github.com/dpkp/kafka-python"
+Documentation = "https://kafka-python.readthedocs.io"
+Repository = "https://github.com/dpkp/kafka-python"
+Issues = "https://github.com/dpkp/kafka-python/issues"
+Changelog = "https://github.com/dpkp/kafka-python/blob/master/CHANGES.md"
+
+[project.scripts]
+kafka-python = "kafka.cli:run_cli"
 
 [project.optional-dependencies]
 crc32c = ["crc32c"]
 lz4 = ["lz4"]
 snappy = ["python-snappy"]
 zstd = ["zstandard"]
-testing = ["pytest", "mock; python_version < '3.3'", "pytest-mock", "pytest-timeout"]
+testing = ["pytest", "pytest-mock", "pytest-timeout"]
 benchmarks = ["pyperf"]
 
 [tool.setuptools]
 include-package-data = false
-license-files = [] # workaround for https://github.com/pypa/setuptools/issues/4759
+
+[tool.setuptools.package-data]
+kafka = ["protocol/schemas/resources/*.json", "coordinator/assignors/sticky/*.json", "**/*.pyi"]
 
 [tool.setuptools.packages.find]
 exclude = ["test"]
 namespaces = false
 
-[tool.distutils.bdist_wheel]
-universal = 1
-
 [tool.setuptools.dynamic]
 version = {attr = "kafka.__version__"}
+
+[tool.pylint.main]
+ignore-patterns = '.*\.pyi$'
+
+[tool.pytest.ini_options]
+log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(thread)d:%(threadName)s %(name)-23s %(message)s"
+log_level = "DEBUG"
+addopts = "--durations=10 --timeout=300 --timeout-method=thread"

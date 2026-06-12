@@ -1022,6 +1022,10 @@ def is_diffusion_model(model_or_path: Union[str, object], trust_remote_code: boo
     # Then check if model_index.json exists for diffusion pipeline,
     # which is a strong signal of being a diffusion pipeline.
     if isinstance(model_or_path, str):
+        # Quick check to avoid config loading attempts and unnecessary warnings
+        if is_gguf_model(model_or_path):
+            return False
+
         # First check if it's a known diffusion pipeline by config/model_type
         # to avoid unnecessary imports and file checks for non-diffusion models, which can be time-consuming.
         try:
@@ -2367,7 +2371,7 @@ def find_layers_from_config(model_dir: str, class_names: list[str] | None = None
                 config = AutoConfig.from_pretrained(config_dir, trust_remote_code=True)
                 model = AutoModel.from_config(config, trust_remote_code=True)
         except Exception as e:
-            logger.warning(f"Failed to load model from {config_dir} for layer detection. Skipping. Error: {e}")
+            logger.warning(f"Failed to load model from {config_dir} for layer detection. Skipping. Warning: {e}")
             continue  # skip silently
         for name, module in model.named_modules():
             cls_name = type(module).__name__

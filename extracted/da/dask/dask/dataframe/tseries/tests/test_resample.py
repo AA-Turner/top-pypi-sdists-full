@@ -35,10 +35,10 @@ ME = "ME" if PANDAS_GE_220 else "M"
         )
     ),
 )
-def test_series_resample(obj, method, npartitions, freq, closed, label):
+def test_series_resample(xfail, obj, method, npartitions, freq, closed, label):
     if PANDAS_GE_300 and freq == "D" and closed == "right":
         # Temporary xfail until the upstream issue is resolved
-        pytest.xfail("https://github.com/pandas-dev/pandas/issues/62200")
+        xfail("https://github.com/pandas-dev/pandas/issues/62200")
 
     index = pd.date_range("1-1-2000", "2-15-2000", freq="h")
     index = index.union(pd.date_range("4-15-2000", "5-15-2000", freq="h"))
@@ -96,7 +96,7 @@ def test_resample_agg_passes_kwargs():
     assert (ds.resample("2h").agg(foo, bar=2) == 2).compute().all()
 
 
-def test_resample_throws_error_when_parition_index_does_not_match_index():
+def test_resample_throws_error_when_partition_index_does_not_match_index():
     index = pd.date_range("1-1-2000", "2-15-2000", freq="D")
     index = index.union(pd.date_range("4-15-2000", "5-15-2000", freq="D"))
     ps = pd.Series(range(len(index)), index=index)

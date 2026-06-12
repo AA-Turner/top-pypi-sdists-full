@@ -1,11 +1,12 @@
 import ast
 import re
 from pathlib import Path
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
 from abstra_internals.repositories.project.project import (
     LocalProjectRepository,
@@ -30,26 +31,26 @@ class AbstraDirReferenceFound(LinterIssue):
         self.fixes = []
 
 
-class AbstraDirReference(LinterRule):
+class AbstraDirReference(PathScopedLinterRule):
     label: str = "Avoid hardcoding '.abstra' internal paths"
     type: str = "warning"
     fix_with_ai: bool = True
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         project = LocalProjectRepository().load()
         issues: List[LinterIssue] = []
 
-        for py_file in project.iter_py_files():
+        for py_file in project.iter_scoped_py_files(path):
             try:
                 tree = ASTCache.get(py_file)
                 for literal, line in self._find_abstra_refs(tree):
-                    issues.append(
-                        AbstraDirReferenceFound(
-                            file=self._display_path(py_file),
-                            line=line,
-                            literal=literal,
-                        )
+                    issue = AbstraDirReferenceFound(
+                        file=self._display_path(py_file),
+                        line=line,
+                        literal=literal,
                     )
+                    issue.path = linter_path_key(py_file)
+                    issues.append(issue)
             except Exception as e:
                 print(f"Error while processing {py_file}: {e}")
 

@@ -71,6 +71,8 @@ for _tnode in ('assert', 'augassign', 'delete', 'if', 'ifexp', 'for',
     MINIMAL_CONFIG[_tnode] = False
     DEFAULT_CONFIG[_tnode] = True
 
+NORAISE = 'asteval will not raise'
+
 class Interpreter:
     """create an asteval Interpreter: a restricted, simplified interpreter
     of mathematical expressions using Python syntax.
@@ -244,8 +246,6 @@ class Interpreter:
             self.error_msg = msg
         elif len(msg) > 0:
             pass
-            # if err.exc is not None:
-            #     self.error_msg = f"{err.exc.__name__}: {msg}"
         if exc is None:
             exc = self.error[-1].exc
             if exc is None and len(self.error) > 0:
@@ -279,6 +279,9 @@ class Interpreter:
             self.raise_exception(None, exc=SyntaxError, expr=text)
         except Exception:
             self.raise_exception(None, exc=RuntimeError, expr=text)
+        except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
+            self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
+
         out = ast.fix_missing_locations(out)
         return out
 
@@ -310,8 +313,6 @@ class Interpreter:
             handler = self.node_handlers[node.__class__.__name__.lower()]
         except KeyError:
             self.raise_exception(None, exc=NotImplementedError, expr=self.expr)
-
-
         # run the handler:  this will likely generate
         # recursive calls into this run method.
         try:
@@ -322,13 +323,11 @@ class Interpreter:
         except Exception:
             if with_raise and self.expr is not None:
                 self.raise_exception(node, expr=self.expr)
-
-
+        except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
+            self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
         # avoid too many repeated error messages (yes, this needs to be "2")
         if len(self.error) > 2:
             self._remove_duplicate_errors()
-
-        return None
 
     def _remove_duplicate_errors(self):
         """remove duplicate exceptions"""
@@ -363,6 +362,9 @@ class Interpreter:
                 if show_errors:
                     print(errmsg, file=self.err_writer)
                 return None
+            except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
+                self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
+
         else:
             node = expr
         try:
@@ -373,11 +375,13 @@ class Interpreter:
                 if len(self.error) > 0:
                     errmsg = self.error[-1].get_error()[1]
                 print(errmsg, file=self.err_writer)
+        except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
+            self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
+
         if raise_errors and len(self.error) > 0:
             self._remove_duplicate_errors()
             err = self.error[-1]
             raise err.exc(err.get_error()[1])
-        return None
 
     @staticmethod
     def dump(node, **kw):
@@ -423,6 +427,9 @@ class Interpreter:
                 thismod = sys.modules[name]
             except Exception:
                 self.raise_exception(None, exc=ImportError, msg='Import Error')
+            except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
+                self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
+
 
         if fromlist is None:
             if asname is not None:
@@ -782,47 +789,62 @@ class Interpreter:
             if hasattr(ctx, '__exit__'):
                 ctx.__exit__()
 
+    def _extract_names_from_target(self, target):
+        """Recursively extract all Name nodes from a target (Name or Tuple)"""
+        names = []
+        if target.__class__ == ast.Name:
+            names.append(target.id)
+        elif target.__class__ == ast.Tuple:
+            for elt in target.elts:
+                names.extend(self._extract_names_from_target(elt))
+        return names
+
+    def _target_to_structure(self, target):
+        """Convert AST target to a structure for unpacking (str or nested tuple)"""
+        if target.__class__ == ast.Name:
+            return target.id
+        elif target.__class__ == ast.Tuple:
+            return tuple([self._target_to_structure(elt) for elt in target.elts])
+
+    def _unpack_to_target(self, target_structure, value):
+        """Recursively unpack value and assign to symtable according to target_structure"""
+        if isinstance(target_structure, str):
+            self.symtable[target_structure] = value
+        elif isinstance(target_structure, tuple):
+            for target_elem, val_elem in zip(target_structure, value):
+                self._unpack_to_target(target_elem, val_elem)
 
     def _comp_save_syms(self, node):
         """find and save symbols that will be used in a comprehension"""
         saved_syms = {}
         for tnode in node.generators:
-            if tnode.target.__class__ == ast.Name:
-                if (not valid_symbol_name(tnode.target.id) or
-                    tnode.target.id in self.readonly_symbols):
-                    errmsg = f"invalid symbol name (reserved word?) {tnode.target.id}"
+            # Extract all names from the target (handles nested tuples)
+            names = self._extract_names_from_target(tnode.target)
+            for name in names:
+                if not valid_symbol_name(name) or name in self.readonly_symbols:
+                    errmsg = f"invalid symbol name (reserved word?) {name}"
                     self.raise_exception(tnode.target, exc=NameError, msg=errmsg)
-                if tnode.target.id in self.symtable:
-                    saved_syms[tnode.target.id] = copy.deepcopy(self._getsym(tnode.target))
-
-            elif tnode.target.__class__ == ast.Tuple:
-                for tval in tnode.target.elts:
-                    if tval.id in self.symtable:
-                        saved_syms[tval.id] = copy.deepcopy(self._getsym(tval))
+                if name in self.symtable:
+                    saved_syms[name] = copy.deepcopy(self.symtable.get(name))
         return saved_syms
 
 
     def do_generator(self, gnodes, node, out):
         """general purpose generator """
         gnode = gnodes[0]
-        nametype = True
-        target = None
-        if gnode.target.__class__ == ast.Name:
-            if (not valid_symbol_name(gnode.target.id) or
-                gnode.target.id in self.readonly_symbols):
-                errmsg = f"invalid symbol name (reserved word?) {gnode.target.id}"
+        # Validate target names and convert to structure for unpacking
+        target_names = self._extract_names_from_target(gnode.target)
+        for name in target_names:
+            if not valid_symbol_name(name) or name in self.readonly_symbols:
+                errmsg = f"invalid symbol name (reserved word?) {name}"
                 self.raise_exception(gnode.target, exc=NameError, msg=errmsg)
-            target = gnode.target.id
-        elif gnode.target.__class__ == ast.Tuple:
-            nametype = False
-            target = tuple([gval.id for gval in gnode.target.elts])
+
+        target_structure = self._target_to_structure(gnode.target)
 
         for val in self.run(gnode.iter):
-            if nametype and target is not None:
-                self.symtable[target] = val
-            else:
-                for telem, tval in zip(target, val):
-                    self.symtable[telem] = tval
+            # Unpack value to target structure
+            self._unpack_to_target(target_structure, val)
+
             add = True
             for cond in gnode.ifs:
                 add = add and self.run(cond)
@@ -897,11 +919,18 @@ class Interpreter:
         excnode = node.exc
         msgnode = node.cause
         out = self.run(excnode)
-        msg = ' '.join(out.args)
+        try:
+            msg = ' '.join(out.args)
+        except TypeError:
+            msg = ' '
         msg2 = self.run(msgnode)
         if msg2 not in (None, 'None'):
             msg = f"{msg:s}: {msg2:s}"
-        self.raise_exception(None, exc=out.__class__, msg=msg, expr='')
+        # Prevent KeyboardInterrupt, SystemExit, GeneratorExit from escaping the sandbox
+        if issubclass(out.__class__, Exception):
+            self.raise_exception(None, exc=out.__class__, msg=msg, expr='')
+        else:
+            self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {out.__name__}")
 
     def on_call(self, node):
         """Function execution."""
@@ -943,6 +972,8 @@ class Interpreter:
             msg = f"Error running function '{func_name}' with args '{args}'"
             msg = f"{msg} and kwargs {keywords}: {ex}"
             self.raise_exception(node, msg=msg)
+        except (KeyboardInterrupt, SystemExit, GeneratorExit) as exc:
+            self.raise_exception(node, exc=RuntimeError, msg=f"{NORAISE} {exc.__name__}")
         finally:
             if isinstance(func, Procedure):
                 self._calldepth -= 1

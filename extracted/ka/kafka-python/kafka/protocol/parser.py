@@ -1,18 +1,17 @@
-from __future__ import absolute_import
-
 import collections
 import logging
+import struct
 
 import kafka.errors as Errors
-from kafka.protocol.find_coordinator import FindCoordinatorResponse
+from kafka.protocol.metadata import FindCoordinatorResponse
 from kafka.protocol.frame import KafkaBytes
-from kafka.protocol.types import Int32
+from kafka.protocol.schemas.fields.codecs import Int32
 from kafka.version import __version__
 
 log = logging.getLogger(__name__)
 
 
-class KafkaProtocol(object):
+class KafkaProtocol:
     """Manage the kafka network protocol
 
     Use an instance of KafkaProtocol to manage bytes send/recv'd
@@ -20,18 +19,14 @@ class KafkaProtocol(object):
 
     Arguments:
         client_id (str): identifier string to be included in each request
-        api_version (tuple): Optional tuple to specify api_version to use.
-            Currently only used to check for 0.8.2 protocol quirks, but
-            may be used for more in the future.
-        max_frame_size (int): Maximum allowed message frame size.
+        ident (str): Optional log-prefix identifier.
+        receive_message_max_bytes (int): Maximum allowed message frame size.
             Default: 100000000 (100MB).
     """
-    def __init__(self, client_id=None, api_version=None, max_frame_size=100000000):
-        if client_id is None:
-            client_id = self._gen_client_id()
-        self._client_id = client_id
-        self._api_version = api_version
-        self._max_frame_size = max_frame_size
+    def __init__(self, **config):
+        self._ident = config.get('ident', '')
+        self._client_id = config.get('client_id', self._gen_client_id())
+        self._max_frame_size = config.get('receive_message_max_bytes', 100000000)
         self._correlation_id = 0
         self._header = KafkaBytes(4)
         self._rbuffer = None
@@ -50,7 +45,7 @@ class KafkaProtocol(object):
         """Encode and queue a kafka api request for sending.
 
         Arguments:
-            request (object): An un-encoded kafka request.
+            request : An un-encoded kafka request.
             correlation_id (int, optional): Optionally specify an ID to
                 correlate requests with responses. If not provided, an ID will
                 be generated automatically.
@@ -58,24 +53,31 @@ class KafkaProtocol(object):
         Returns:
             correlation_id
         """
-        log.debug('Sending request %s', request)
         if correlation_id is None:
             correlation_id = self._next_correlation_id()
 
-        header = request.build_header(correlation_id=correlation_id, client_id=self._client_id)
-        message = b''.join([header.encode(), request.encode()])
-        size = Int32.encode(len(message))
-        data = size + message
+        log.debug('%s Sending request %d %s', self._ident, correlation_id, request)
+        request.with_header(correlation_id=correlation_id, client_id=self._client_id)
+        data = request.encode(framed=True, header=True)
         self.bytes_to_send.append(data)
         if request.expect_response():
-            ifr = (correlation_id, request)
-            self.in_flight_requests.append(ifr)
+            self.in_flight_requests.append(request.header)
         return correlation_id
 
     def send_bytes(self):
         """Retrieve all pending bytes to send on the network"""
-        data = b''.join(self.bytes_to_send)
-        self.bytes_to_send = []
+        # Short-circuit the common single-request case to avoid an extra
+        # full-request copy through b''.join.
+        n = len(self.bytes_to_send)
+        if n == 0:
+            return b''
+        if n == 1:
+            data = self.bytes_to_send[0]
+            self.bytes_to_send = []
+        else:
+            data = b''.join(self.bytes_to_send)
+            self.bytes_to_send = []
+        log.debug('%s Send: %r', self._ident, data)
         return data
 
     def receive_bytes(self, data):
@@ -97,6 +99,8 @@ class KafkaProtocol(object):
         i = 0
         n = len(data)
         responses = []
+        if data:
+            log.debug('%s Recv: %r', self._ident, data)
         while i < n:
 
             # Not receiving is the state of reading the payload header
@@ -143,17 +147,19 @@ class KafkaProtocol(object):
     def _process_response(self, read_buffer):
         if not self.in_flight_requests:
             raise Errors.CorrelationIdError('No in-flight-request found for server response')
-        (correlation_id, request) = self.in_flight_requests.popleft()
-        response_type = request.RESPONSE_TYPE
+        header = self.in_flight_requests.popleft()
+        correlation_id = header.correlation_id
+        response_type = header.get_response_class()
+        if response_type is None:
+            log.error('Unable to find ResponseType for api=%d version=%d',
+                      header.api_key, header.api_version)
+            raise Errors.KafkaProtocolError('Unable to find response type for api %d v%d' % (header.api_key, header.api_version))
         response_header = response_type.parse_header(read_buffer)
         recv_correlation_id = response_header.correlation_id
-        log.debug('Received correlation id: %d', recv_correlation_id)
-        # 0.8.2 quirk
-        if (recv_correlation_id == 0 and
-            correlation_id != 0 and
-            response_type is FindCoordinatorResponse[0] and
-            (self._api_version == (0, 8, 2) or self._api_version is None)):
-            log.warning('Kafka 0.8.2 quirk -- GroupCoordinatorResponse'
+        # ignore correlation id mismatch for 0.8.2 quirk
+        if (recv_correlation_id == 0 and correlation_id != 0 and
+            response_type is FindCoordinatorResponse and header.api_version == 0):
+            log.warning('Kafka 0.8.2 quirk -- FindCoordinatorResponse'
                         ' Correlation ID does not match request. This'
                         ' should go away once at least one topic has been'
                         ' initialized on the broker.')
@@ -165,18 +171,18 @@ class KafkaProtocol(object):
                 % (correlation_id, recv_correlation_id))
 
         # decode response
-        log.debug('Processing response %s', response_type.__name__)
         try:
             response = response_type.decode(read_buffer)
-        except ValueError:
+        except (ValueError, struct.error):
             read_buffer.seek(0)
             buf = read_buffer.read()
-            log.error('Response %d [ResponseType: %s Request: %s]:'
+            log.error('Response %d [ResponseType: %s RequestHeader: %s]:'
                       ' Unable to decode %d-byte buffer: %r',
                       correlation_id, response_type,
-                      request, len(buf), buf)
+                      header, len(buf), buf)
             raise Errors.KafkaProtocolError('Unable to decode response')
 
+        log.debug('%s Received response %d %s', self._ident, correlation_id, response)
         return (correlation_id, response)
 
     def _reset_buffer(self):

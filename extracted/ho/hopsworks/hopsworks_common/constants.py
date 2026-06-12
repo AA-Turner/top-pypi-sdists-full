@@ -155,9 +155,11 @@ class MODEL:
 
 
 class MODEL_REGISTRY:
+    HOPSFS_MOUNT_PREFIX_BASE = "/mnt/hopsfs"
     HOPSFS_MOUNT_PREFIX = "/hopsfs/"
     MODELS_DATASET = "Models"
     MODEL_FILES_DIR_NAME = "Files"
+    MODEL_CACHE_DIR_DEFAULT = "/tmp/hopsworks/models"
 
 
 class MODEL_SERVING:
@@ -297,3 +299,9 @@ class CLIENT:
     """Constants for Hopsworks client configuration."""
 
     CERT_FOLDER_DEFAULT = "/tmp"
+
+
+class TRANSFORMATIONS:
+    """Constants for transformations."""
+
+    MISSING = "__MISSING__"

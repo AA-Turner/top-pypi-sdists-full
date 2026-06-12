@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from ipaddress import IPv4Address, IPv6Address
 import logging
-from multiprocessing import Manager, Process
+from multiprocessing import Manager
+from multiprocessing.context import ForkServerProcess
 from socket import socket
 from threading import Thread
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..metrics import MetricsCollector, MetricsFactory, create_noop_metrics_collector
 from .listener_peer import PeerListener
@@ -23,8 +25,19 @@ if TYPE_CHECKING:
     from multiprocessing.managers import SyncManager
 
 
-class ServerWorker(Process):
-    """Worker for multiplexer."""
+class ServerWorker(ForkServerProcess):
+    """Worker for multiplexer.
+
+    A worker runs an asyncio loop in a background thread and owns a
+    multiprocessing.Manager, so the parent process is already multi-threaded by
+    the time it spawns workers. Forking a multi-threaded process is unsafe and,
+    as of Python 3.14, no longer the default start method on Linux, so the
+    worker is spawned via forkserver (by subclassing ForkServerProcess) and
+    forks from a clean single-threaded server process. The server only runs on
+    Linux (it drives connections with select.epoll), where forkserver is always
+    available. forkserver pickles the worker to hand it to the child, so
+    ServerWorker must stay picklable; see __getstate__.
+    """
 
     def __init__(
         self,
@@ -54,6 +67,18 @@ class ServerWorker(Process):
         self._new = self._manager.Queue()
         self._sync = self._manager.dict()
         self._peer_count = self._manager.Value("peer_count", 0)
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Return picklable state for spawn/forkserver.
+
+        The SyncManager lives in the parent process and cannot be pickled (it
+        holds a weakref via its Finalize). The child only needs the proxies
+        (_new/_sync/_peer_count), which pickle and reconnect to the manager
+        process on their own, so drop the manager itself from the state.
+        """
+        state = self.__dict__.copy()
+        state["_manager"] = None
+        return state
 
     @property
     def peer_size(self) -> int:
@@ -152,9 +177,10 @@ class ServerWorker(Process):
         con: socket,
         data: bytes,
         sni: str | None = None,
+        peer_address: IPv4Address | IPv6Address | None = None,
     ) -> None:
         """Move new connection to worker."""
-        self._new.put_nowait((con, data, sni))
+        self._new.put_nowait((con, data, sni, peer_address))
 
     def run(self) -> None:
         """Run the worker process."""
@@ -215,6 +241,7 @@ class ServerWorker(Process):
         con: socket,
         data: bytes,
         sni: str | None,
+        peer_address: IPv4Address | IPv6Address | None = None,
     ) -> None:
         """Handle incoming connection."""
         try:
@@ -228,7 +255,13 @@ class ServerWorker(Process):
         if sni:
             assert self._list_sni is not None, "SNIProxy not initialized"
             self._loop.create_task(
-                self._list_sni.handle_connection(reader, writer, data=data, sni=sni),
+                self._list_sni.handle_connection(
+                    reader,
+                    writer,
+                    data=data,
+                    sni=sni,
+                    peer_address=peer_address,
+                ),
             )
         else:
             assert self._list_peer is not None, "PeerListener not initialized"

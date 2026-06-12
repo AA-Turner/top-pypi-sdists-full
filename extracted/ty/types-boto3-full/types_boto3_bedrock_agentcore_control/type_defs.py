@@ -48,6 +48,7 @@ from .literals import (
     EvaluatorLevelType,
     EvaluatorStatusType,
     EvaluatorTypeType,
+    ExtractionTypeType,
     FilterOperatorType,
     FindingTypeType,
     GatewayInterceptionPointType,
@@ -5131,6 +5132,7 @@ MetadataSchemaEntryOutputTypeDef = TypedDict(
     {
         "key": str,
         "type": NotRequired[MetadataValueTypeType],
+        "extractionType": NotRequired[ExtractionTypeType],
         "extractionConfig": NotRequired[ExtractionConfigOutputTypeDef],
     },
 )
@@ -5839,6 +5841,7 @@ MetadataSchemaEntryTypeDef = TypedDict(
     {
         "key": str,
         "type": NotRequired[MetadataValueTypeType],
+        "extractionType": NotRequired[ExtractionTypeType],
         "extractionConfig": NotRequired[ExtractionConfigUnionTypeDef],
     },
 )

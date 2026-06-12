@@ -230,10 +230,14 @@ class Crons(Authenticated):
 
         assistant_filters: list[Any] = []
         if payload["assistant_id"] not in SYSTEM_ASSISTANT_IDS:
+            # Do not populate `metadata` on the AssistantsRead request value:
+            # client-supplied cron metadata must not influence the auth
+            # decision (defense vs. forged payloads), mirroring Runs.put.
+            # The handler is expected to return a filter that is matched
+            # against the persisted assistant metadata server-side.
             assistant_request_data = Auth.types.AssistantsRead(
                 assistant_id=str(payload["assistant_id"])
             )
-            assistant_request_data["metadata"] = metadata
             assistant_filters = await Assistants.handle_event(
                 ctx, "read", assistant_request_data
             )
@@ -266,6 +270,32 @@ class Crons(Authenticated):
 
         client = await get_shared_client()
         response = await client.crons.Create(request)
+
+        cron = proto_to_cron(response)
+
+        async def generate_result():
+            yield cron
+
+        return generate_result()
+
+    @staticmethod
+    async def get(
+        conn,  # Not used in gRPC implementation
+        cron_id: UUID | str,
+        ctx: Any = None,
+    ) -> AsyncIterator[Cron]:
+        """Get cron by ID via gRPC."""
+        auth_filters = await Crons.handle_event(
+            ctx, "read", Auth.types.CronsRead(cron_id=cron_id)
+        )
+
+        request = pb.GetCronRequest(
+            cron_id=pb.UUID(value=str(cron_id)),
+            filters=auth_filters,
+        )
+
+        client = await get_shared_client()
+        response = await client.crons.Get(request)
 
         cron = proto_to_cron(response)
 

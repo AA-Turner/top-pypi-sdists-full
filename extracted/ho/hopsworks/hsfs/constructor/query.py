@@ -86,7 +86,7 @@ class Query:
         self._feature_store_name = feature_store_name
         self._feature_store_id = feature_store_id
         self._left_feature_group = left_feature_group
-        self._left_features = util.parse_features(left_features)
+        self._left_features = util._parse_features(left_features)
         self._left_feature_group_start_time = left_feature_group_start_time
         self._left_feature_group_end_time = left_feature_group_end_time
         self._joins = joins or []
@@ -95,7 +95,7 @@ class Query:
         # Lookback configuration for the feature view's joins; set only on the
         # root Query and emitted as the top-level `lookback` field on the wire.
         self._lookback: Lookback | None = None
-        self._python_engine: bool = engine.get_type() == "python"
+        self._python_engine: bool = engine._get_type() == "python"
         self._query_constructor_api: query_constructor_api.QueryConstructorApi = (
             query_constructor_api.QueryConstructorApi()
         )
@@ -109,25 +109,27 @@ class Query:
         self._check_read_supported(online)
 
         if online:
-            fs_query = self._query_constructor_api.construct_query(self)
+            fs_query = self._query_constructor_api._construct_query(self)
             sql_query = self._to_string(fs_query, online)
-            online_conn = self._storage_connector_api.get_online_connector(
+            online_conn = self._storage_connector_api._get_online_connector(
                 self._feature_store_id
             )
         else:
             online_conn = None
 
-            if engine.get_instance().is_flyingduck_query_supported(self, read_options):
+            if engine._get_instance()._is_flyingduck_query_supported(
+                self, read_options
+            ):
                 # The FlyingDuck (Hopsworks Query Service) payload is build in the backend
-                sql_query = self._query_constructor_api.construct_query(self, hqs=True)
+                sql_query = self._query_constructor_api._construct_query(self, hqs=True)
             else:
-                fs_query = self._query_constructor_api.construct_query(self)
+                fs_query = self._query_constructor_api._construct_query(self)
                 sql_query = self._to_string(fs_query, online)
                 # Register on demand feature groups as temporary tables
                 if isinstance(self._left_feature_group, fg_mod.SpineGroup):
-                    fs_query.register_external(self._left_feature_group.dataframe)
+                    fs_query._register_external(self._left_feature_group.dataframe)
                 else:
-                    fs_query.register_external()
+                    fs_query._register_external()
 
                 # In delta cdc queries return duplicate rows for upserts with old and new values
                 # as well as deleted rows. To avoid this, we set is_cdc_query to True to filter out
@@ -135,14 +137,14 @@ class Query:
                 is_cdc_query = bool(self.left_feature_group_start_time)
 
                 # Register on hudi/delta feature groups as temporary tables
-                fs_query.register_delta_tables(
+                fs_query._register_delta_tables(
                     feature_store_id=self._feature_store_id,
                     feature_store_name=self._feature_store_name,
                     read_options=read_options,
                     is_cdc_query=is_cdc_query,
                 )
 
-                fs_query.register_hudi_tables(
+                fs_query._register_hudi_tables(
                     self._feature_store_id,
                     self._feature_store_name,
                     read_options,
@@ -332,7 +334,7 @@ class Query:
             )
         self._check_read_supported(online)
         if online and self._left_feature_group.embedding_index:
-            return engine.get_instance().read_vector_db(
+            return engine._get_instance()._read_vector_db(
                 self._left_feature_group,
                 dataframe_type=dataframe_type,
                 filter=self._filter,
@@ -355,7 +357,7 @@ class Query:
                     "Pandas types casting only supported for feature_group.read()/query.select_all()"
                 )
 
-        return engine.get_instance().sql(
+        return engine._get_instance()._sql(
             sql_query,
             self._feature_store_name,
             online_conn,
@@ -382,7 +384,7 @@ class Query:
         event_time_feature = self._left_feature_group.get_feature(
             self._left_feature_group.event_time
         )
-        time_filter = util.build_time_filter(event_time_feature, start_time, end_time)
+        time_filter = util._build_time_filter(event_time_feature, start_time, end_time)
         filtered_query = self.filter(time_filter)
         return filtered_query.read(
             online=online,
@@ -414,7 +416,7 @@ class Query:
         self._check_read_supported(online)
         read_options = {}
         if online and self._left_feature_group.embedding_index:
-            return engine.get_instance().read_vector_db(
+            return engine._get_instance()._read_vector_db(
                 self._left_feature_group, n, filter=self._filter
             )
         previous_limit = self._limit
@@ -423,7 +425,7 @@ class Query:
             sql_query, online_conn = self._prep_read(online, read_options)
         finally:
             self._limit = previous_limit
-        return engine.get_instance().show(
+        return engine._get_instance()._show(
             sql_query, self._feature_store_name, n, online_conn, read_options
         )
 
@@ -511,14 +513,14 @@ class Query:
 
         Example: Reading features at a specific point in time
             ```python
-            fs = connection.get_feature_store();
+            fs = project.get_feature_store()
             query = fs.get_feature_group("example_feature_group", 1).select_all()
             query.as_of("2020-10-20 07:34:11").read().show()
             ```
 
         Example: Reading commits incrementally between specified points in time
             ```python
-            fs = connection.get_feature_store();
+            fs = project.get_feature_store()
             query = fs.get_feature_group("example_feature_group", 1).select_all()
             query.as_of("2020-10-20 07:34:11", exclude_until="2020-10-19 07:34:11").read().show()
             ```
@@ -529,7 +531,7 @@ class Query:
 
         Example: Reading only the changes from a single commit
             ```python
-            fs = connection.get_feature_store();
+            fs = project.get_feature_store()
             query = fs.get_feature_group("example_feature_group", 1).select_all()
             query.as_of("2020-10-20 07:31:38", exclude_until="2020-10-20 07:31:37").read().show()
             ```
@@ -539,7 +541,7 @@ class Query:
 
         Example: Reading the latest state of features, excluding commits before a specified point in time
             ```python
-            fs = connection.get_feature_store();
+            fs = project.get_feature_store()
             query = fs.get_feature_group("example_feature_group", 1).select_all()
             query.as_of(None, exclude_until="2020-10-20 07:31:38").read().show()
             ```
@@ -579,9 +581,9 @@ class Query:
         Returns:
             The query object with the applied time travel condition.
         """
-        wallclock_timestamp = util.convert_event_time_to_timestamp(wallclock_time)
+        wallclock_timestamp = util._convert_event_time_to_timestamp(wallclock_time)
 
-        exclude_until_timestamp = util.convert_event_time_to_timestamp(exclude_until)
+        exclude_until_timestamp = util._convert_event_time_to_timestamp(exclude_until)
 
         for _join in self._joins:
             _join.query.left_feature_group_end_time = wallclock_timestamp
@@ -613,10 +615,10 @@ class Query:
         Returns:
             The query object with the applied time travel condition.
         """
-        self.left_feature_group_start_time = util.convert_event_time_to_timestamp(
+        self.left_feature_group_start_time = util._convert_event_time_to_timestamp(
             wallclock_start_time
         )
-        self.left_feature_group_end_time = util.convert_event_time_to_timestamp(
+        self.left_feature_group_end_time = util._convert_event_time_to_timestamp(
             wallclock_end_time
         )
         return self
@@ -681,7 +683,7 @@ class Query:
         """
         if self._filter is None:
             if isinstance(f, Filter):
-                self._filter = Logic.Single(left_f=f)
+                self._filter = Logic._Single(left_f=f)
             elif isinstance(f, Logic):
                 self._filter = f
             else:
@@ -840,7 +842,7 @@ class Query:
         Returns:
             The string representation of the Query.
         """
-        fs_query = self._query_constructor_api.construct_query(self)
+        fs_query = self._query_constructor_api._construct_query(self)
 
         return self._to_string(fs_query, online, arrow_flight)
 
@@ -856,7 +858,7 @@ class Query:
         return fs_query.query
 
     def __str__(self) -> str:
-        return self._query_constructor_api.construct_query(self)
+        return self._query_constructor_api._construct_query(self)
 
     def _get_signature(self, fs_query: FsQuery, asof: bool = False) -> str | None:
         if fs_query.pit_query is not None:
@@ -918,7 +920,7 @@ class Query:
         Returns:
             The query object with the appended feature.
         """
-        feature = util.validate_feature(feature)
+        feature = util._validate_feature(feature)
 
         self._left_features.append(feature)
 
@@ -957,12 +959,12 @@ class Query:
 
         # search for feature by name and collect fg objects
         featuregroup_features = {}
-        for feat in self._left_feature_group.features:
+        for feat in self._left_feature_group.columns:
             featuregroup_features[feat.name] = featuregroup_features.get(
                 feat.name, []
             ) + [self._left_feature_group]
         for join_obj in self.joins:
-            for feat in join_obj.query._left_feature_group.features:
+            for feat in join_obj.query._left_feature_group.columns:
                 featuregroup_features[feat.name] = featuregroup_features.get(
                     feat.name, []
                 ) + [join_obj.query._left_feature_group]
@@ -979,25 +981,22 @@ class Query:
             Query.ERROR_MESSAGE_FEATURE_NOT_FOUND_FG.format(feature.name)
         )
 
-    def _get_feature_by_name(
-        self,
-        feature_name: str,
-    ) -> tuple[
-        Feature,
-        str | None,
-        fg_mod.FeatureGroup | fg_mod.ExternalFeatureGroup | fg_mod.SpineGroup,
-    ]:
-        # collect a dict that maps feature names -> (feature, prefix, fg)
-        query_features = {}
+    def _build_feature_lookup(self) -> dict[str, list[tuple]]:
+        """Build a dictionary mapping feature names to (feature, prefix, fg) tuples.
+
+        The returned dict can be reused across multiple lookups to avoid
+        rebuilding it for each feature.
+        """
+        query_features: dict[str, list[tuple]] = {}
+
         for feat in self._left_features:
             feature_entry = (feat, None, self._left_feature_group)
-            query_features[feat.name] = query_features.get(feat.name, []) + [
-                feature_entry
-            ]
+            query_features.setdefault(feat.name, []).append(feature_entry)
 
-        # collect joins. we do it recursively to collect nested joins.
+        # collect joins recursively
         joins = set(self.joins)
-        [self._fg_rec_add_joins(q_join, joins) for q_join in self.joins]
+        for q_join in self.joins:
+            self._fg_rec_add_joins(q_join, joins)
 
         for join_obj in joins:
             for feat in join_obj.query._left_features:
@@ -1006,23 +1005,36 @@ class Query:
                     join_obj.prefix,
                     join_obj.query._left_feature_group,
                 )
-                query_features[feat.name] = query_features.get(feat.name, []) + [
-                    feature_entry
-                ]
+                query_features.setdefault(feat.name, []).append(feature_entry)
                 # if the join has a prefix, add a lookup for "prefix.feature_name"
                 if join_obj.prefix:
                     name_with_prefix = f"{join_obj.prefix}{feat.name}"
-                    query_features[name_with_prefix] = query_features.get(
-                        name_with_prefix, []
-                    ) + [feature_entry]
+                    query_features.setdefault(name_with_prefix, []).append(
+                        feature_entry
+                    )
 
-        if feature_name not in query_features:
+        return query_features
+
+    @staticmethod
+    def _resolve_feature_from_lookup(
+        feature_name: str,
+        feature_lookup: dict[str, list[tuple]],
+    ) -> tuple[
+        Feature,
+        str | None,
+        fg_mod.FeatureGroup | fg_mod.ExternalFeatureGroup | fg_mod.SpineGroup,
+    ]:
+        """Resolve a single feature from a pre-built feature lookup dictionary.
+
+        Raises FeatureStoreException if the feature is not found or is ambiguous.
+        """
+        if feature_name not in feature_lookup:
             raise FeatureStoreException(
                 Query.ERROR_MESSAGE_FEATURE_NOT_FOUND.format(feature_name)
             )
 
         # return (feature, prefix, fg) tuple, if only one match was found
-        feats = query_features[feature_name]
+        feats = feature_lookup[feature_name]
         if len(feats) == 1:
             return feats[0]
 
@@ -1034,6 +1046,18 @@ class Query:
         # there were multiple ambiguous matches
         raise FeatureStoreException(
             Query.ERROR_MESSAGE_FEATURE_AMBIGUOUS.format(feature_name)
+        )
+
+    def _get_feature_by_name(
+        self,
+        feature_name: str,
+    ) -> tuple[
+        Feature,
+        str | None,
+        fg_mod.FeatureGroup | fg_mod.ExternalFeatureGroup | fg_mod.SpineGroup,
+    ]:
+        return self._resolve_feature_from_lookup(
+            feature_name, self._build_feature_lookup()
         )
 
     @public

@@ -4,7 +4,6 @@ import sys
 import grpc
 import json
 import shutil
-import argparse
 import traceback
 import faulthandler
 import requests as rq
@@ -26,13 +25,13 @@ from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.operations import Operations
 from fivetran_connector_sdk import constants
 from fivetran_connector_sdk.constants import (
-    TESTER_VERSION, VERSION_FILENAME, UTF_8,
-    VALID_COMMANDS, FORCE_DEPRECATION_WARNING_COMMANDS, DEPRECATED_FORCE_FLAG_WARNING,
-    DEFAULT_PYTHON_VERSION, SUPPORTED_PYTHON_VERSIONS, TABLES, TEMPLATE_CONNECTOR_PATH, PYPROJECT_TOML
+    TESTER_VERSION, VERSION_FILENAME, UTF_8, DEPRECATED_FORCE_FLAG_WARNING,
+    DEFAULT_PYTHON_VERSION, TABLES, PYPROJECT_TOML
 )
 from fivetran_connector_sdk.helpers import (
-    print_library_log, reset_local_file_directory, find_connector_object, suggest_correct_command,
+    print_library_log, reset_local_file_directory, find_connector_object,
 )
+from fivetran_connector_sdk.cli_parser import create_argument_parser, intercept_unknown_command
 from fivetran_connector_sdk.connector_helper import (
     validate_requirements_file, validate_pyproject_file, package_project, create_package,
     update_connection, are_setup_tests_failing, get_connection_details,
@@ -49,7 +48,7 @@ from fivetran_connector_sdk.connector_helper import (
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.9.1"
+__version__ = "2.9.2"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [Logging, Operations]]
@@ -487,48 +486,16 @@ def print_version():
     print_library_log("fivetran_connector_sdk " + __version__)
     sys.exit(0)
 
-def _create_argument_parser():
-    parser = argparse.ArgumentParser(allow_abbrev=False, add_help=True, usage="fivetran <command> <project_path> [options]",
-        description="""A command-line tool for developing and deploying Fivetran connectors.
-
-Commands:
-  version     Show fivetran_connector_sdk version and exit
-  init        Initialize a new connector project
-  debug       Run connector locally in debug mode
-  deploy      Deploy connector to Fivetran
-  package     Package connector code into a zip file
-  reset       Reset connector state
-  help        Show this help message and exit""",
-        epilog="For more information, refer to: https://fivetran.com/docs/connector-sdk/technical-reference/connector-sdk-commands",
-        formatter_class=argparse.RawDescriptionHelpFormatter)
-
-    positional_group = parser.add_argument_group('Positional Arguments')
-    positional_group.add_argument("command", nargs="?", help="One of: " + " | ".join(VALID_COMMANDS))
-    positional_group.add_argument("project_path", nargs='?', default=os.getcwd(), help="Path to connector project directory (optional, defaults to current directory)")
-
-    general_group = parser.add_argument_group('General Options')
-    general_group.add_argument("--version", action="store_true", help="Print the version of the fivetran_connector_sdk and exit")
-    general_group.add_argument("--non-interactive", action="store_true", help="Use non-interactive mode")
-    general_group.add_argument("-f", "--force", action="store_true", help="Deprecated; use --non-interactive")
-    general_group.add_argument("--state", type=str, default=None, metavar="<state>", help="Path to state JSON file")
-    general_group.add_argument("--configuration", type=str, default=None, metavar="<configuration>", help="Path to configuration JSON file")
-    general_group.add_argument("--api-key", type=str, default=None, metavar="<api-key>", help="Provide your base64-encoded API key for deployment")
-    general_group.add_argument("--destination", type=str, default=None, metavar="<destination>", help="Destination name (aka 'group name')")
-    general_group.add_argument("--connection", type=str, default=None, metavar="<connection>", help="Connection name (aka 'destination schema')")
-    general_group.add_argument("--python-version", "--python", type=str, metavar="<python-version>", help=f"Supported Python versions you can use: {SUPPORTED_PYTHON_VERSIONS}. Defaults to {DEFAULT_PYTHON_VERSION}")
-    general_group.add_argument("--hybrid-deployment-agent-id", type=str, metavar="<hybrid-deployment-agent-id>", help="Hybrid Deployment agent ID. Defaults to the destination's default agent.")
-    general_group.add_argument("--naming", type=str, default=None, metavar="<naming>", help="Naming strategy for the connection schema. Options: FIVETRAN | SOURCE. Defaults to FIVETRAN.")
-    general_group.add_argument("--template", type=str, default=TEMPLATE_CONNECTOR_PATH, metavar="<template>", help="Initialize a sample connector project from repository path")
-    return parser
 
 def main():
     """The main entry point for the script.
     Parses command line arguments and passes them to connector object methods.
     """
     constants.EXECUTED_VIA_CLI = True
-    parser = _create_argument_parser()
+    intercept_unknown_command()
+    parser = create_argument_parser()
     args = parser.parse_args()
-    if args.force and args.command and args.command.lower() in FORCE_DEPRECATION_WARNING_COMMANDS:
+    if args.force:
         print_library_log(DEPRECATED_FORCE_FLAG_WARNING, Logging.Level.WARNING)
     args.non_interactive = args.force or args.non_interactive
 
@@ -537,11 +504,6 @@ def main():
 
     if not args.command:
         parser.print_help()
-        sys.exit(1)
-
-    if args.command.lower() not in VALID_COMMANDS:
-        if not suggest_correct_command(args.command):
-            raise NotImplementedError(f"invalid command: {args.command}, see `fivetran help`")
         sys.exit(1)
 
     if args.command.lower() == "version":

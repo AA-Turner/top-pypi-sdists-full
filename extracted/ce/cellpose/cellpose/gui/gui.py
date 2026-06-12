@@ -2,6 +2,7 @@
 Copyright © 2025 Howard Hughes Medical Institute, Authored by Carsen Stringer, Michael Rariden and Marius Pachitariu.
 """
 
+import logging
 import sys, os, pathlib, warnings, datetime, time, copy
 
 from qtpy import QtGui, QtCore
@@ -138,7 +139,7 @@ def make_cmap(cm=0):
 
 def run(image=None):
     from ..io import logger_setup
-    logger, log_file = logger_setup()
+    logger_setup()
     # Always start by initializing Qt (only once per application)
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
@@ -166,7 +167,7 @@ def run(image=None):
     app.setWindowIcon(app_icon)
     app.setStyle("Fusion")
     app.setPalette(guiparts.DarkPalette())
-    MainW(image=image, logger=logger)
+    MainW(image=image, logger=logging.getLogger(__name__))
     ret = app.exec_()
     sys.exit(ret)
 
@@ -244,7 +245,6 @@ class MainW(QMainWindow):
 
         self.lmain.addWidget(self.win, 0, 9, 40, 30)
 
-        self.win.scene().sigMouseClicked.connect(self.plot_clicked)
         self.win.scene().sigMouseMoved.connect(self.mouse_moved)
         self.make_viewbox()
         self.lmain.setColumnStretch(10, 1)
@@ -290,7 +290,7 @@ class MainW(QMainWindow):
             "learning_rate": 1e-5,
             "weight_decay": 0.1,
             "n_epochs": 100,
-            "model_name": "cpsam" + d.strftime("_%Y%m%d_%H%M%S"),
+            "model_name": "cp4" + d.strftime("_%Y%m%d_%H%M%S"),
         }
 
         self.stitch_threshold = 0.
@@ -328,14 +328,24 @@ class MainW(QMainWindow):
         self.l0.addWidget(self.satBox, b, 0, 1, 9)
 
         widget_row = 0
-        self.view = 0  # 0=image, 1=flowsXY, 2=flowsZ, 3=cellprob
-        self.color = 0  # 0=RGB, 1=gray, 2=R, 3=G, 4=B
         self.RGBDropDown = QComboBox()
+
+        # This is duplication and in the future these things should be tied 
+        # together in a class: 
         self.RGBDropDown.addItems(
             ["RGB", "red=R", "green=G", "blue=B", "gray", "spectral"])
+        self.RGBDropDown.name_map = {
+            "rgb" : "rgb",
+            "red" : "red=r", 
+            "green" : "green=g", 
+            "blue" : "blue=b", 
+            "gray" : "gray", 
+            "spectral": "spectral",
+        }
         self.RGBDropDown.setFont(self.medfont)
         self.RGBDropDown.currentIndexChanged.connect(self.color_choose)
         self.satBoxG.addWidget(self.RGBDropDown, widget_row, 0, 1, 3)
+        self.color = 'RGB'  # 0=RGB, 1=gray, 2=R, 3=G, 4=B
 
         label = QLabel("<p>[&uarr; / &darr; or W/S]</p>")
         label.setFont(self.smallfont)
@@ -350,6 +360,7 @@ class MainW(QMainWindow):
         self.ViewDropDown.setFont(self.medfont)
         self.ViewDropDown.model().item(3).setEnabled(False)
         self.ViewDropDown.currentIndexChanged.connect(self.update_plot)
+        self.view = 0 # must reference the property after the dropdown is created
         self.satBoxG.addWidget(self.ViewDropDown, widget_row, 0, 2, 3)
 
         label = QLabel("[pageup / pagedown]")
@@ -485,21 +496,32 @@ class MainW(QMainWindow):
         )
         self.useGPU.setFont(self.medfont)
         self.check_gpu()
-        self.segBoxG.addWidget(self.useGPU, widget_row, 0, 1, 3)
+        self.segBoxG.addWidget(self.useGPU, widget_row, 0, 1, 3)    
 
-        # compute segmentation with general models
-        self.net_text = ["run CPSAM"]
-        nett = ["cellpose super-generalist model"]
+        self.progress = QProgressBar(self)
+        self.segBoxG.addWidget(self.progress, widget_row, 3, 1, 5)    
 
-        self.StyleButtons = []
-        jj = 4
-        for j in range(len(self.net_text)):
-            self.StyleButtons.append(
-                guiparts.ModelButton(self, self.net_text[j], self.net_text[j]))
-            w = 5
-            self.segBoxG.addWidget(self.StyleButtons[-1], widget_row, jj, 1, w)
-            jj += w
-            self.StyleButtons[-1].setToolTip(nett[j])
+        # compute segmentation with built-in models
+        widget_row += 1
+        self.ModelChooseB = QComboBox()
+        self.ModelChooseB.setFont(self.medfont)
+        current_index = 0
+        self.ModelChooseB.addItems(models.MODEL_NAMES)
+        self.ModelChooseB.setFixedWidth(175)
+        self.ModelChooseB.setCurrentIndex(current_index)
+        tipstr = 'built-in models'
+        self.ModelChooseB.setToolTip(tipstr)
+        self.ModelChooseB.activated.connect(lambda: self.model_choose(custom=False))
+        self.segBoxG.addWidget(self.ModelChooseB, widget_row, 0, 1, 8)
+        
+        # compute segmentation w/ custom model
+        self.ModelButtonB = QPushButton(u"run")
+        self.ModelButtonB.setFont(self.medfont)
+        self.ModelButtonB.setFixedWidth(35)
+        self.ModelButtonB.clicked.connect(
+            lambda: self.compute_segmentation(custom=False))
+        self.segBoxG.addWidget(self.ModelButtonB, widget_row, 8, 1, 1)
+        self.ModelButtonB.setEnabled(False)       
 
         widget_row += 1
         self.ncells = guiparts.ObservableVariable(0)
@@ -510,10 +532,7 @@ class MainW(QMainWindow):
             lambda n: self.roi_count.setText(f'{str(n)} ROIs')
         )
 
-        self.segBoxG.addWidget(self.roi_count, widget_row, 0, 1, 4)
-
-        self.progress = QProgressBar(self)
-        self.segBoxG.addWidget(self.progress, widget_row, 4, 1, 5)
+        self.segBoxG.addWidget(self.roi_count, widget_row, 3, 1, 4)
 
         widget_row += 1
 
@@ -655,69 +674,90 @@ class MainW(QMainWindow):
         if self.loaded:
             sval = self.sliders[r].value()
             self.saturation[r][self.currentZ] = sval
-            if not self.autobtn.isChecked():
-                for r in range(3):
-                    for i in range(len(self.saturation[r])):
-                        self.saturation[r][i] = self.saturation[r][self.currentZ]
+            # if not self.autobtn.isChecked():
+            for r in range(3):
+                for i in range(len(self.saturation[r])):
+                    self.saturation[r][i] = self.saturation[r][self.currentZ]
             self.update_plot()
 
     def keyPressEvent(self, event):
+        event.ignore()
         if self.loaded:
             if not (event.modifiers() &
                     (QtCore.Qt.ControlModifier | QtCore.Qt.ShiftModifier |
                      QtCore.Qt.AltModifier) or self.in_stroke):
-                updated = False
                 if len(self.current_point_set) > 0:
                     if event.key() == QtCore.Qt.Key_Return:
                         self.add_set()
+                        event.accept()
+                        return
                 else:
-                    nviews = self.ViewDropDown.count() - 1
-                    nviews += int(
-                        self.ViewDropDown.model().item(self.ViewDropDown.count() -
-                                                       1).isEnabled())
                     if event.key() == QtCore.Qt.Key_X:
                         self.MCheckBox.toggle()
+                        event.accept()
+                        return
                     if event.key() == QtCore.Qt.Key_Z:
                         self.OCheckBox.toggle()
+                        event.accept()
+                        return
                     if event.key() == QtCore.Qt.Key_Left or event.key(
                     ) == QtCore.Qt.Key_A:
                         self.get_prev_image()
+                        event.accept()
+                        return
                     elif event.key() == QtCore.Qt.Key_Right or event.key(
                     ) == QtCore.Qt.Key_D:
                         self.get_next_image()
+                        event.accept()
+                        return
                     elif event.key() == QtCore.Qt.Key_PageDown:
-                        self.view = (self.view + 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
+                        self.go_next_previous_dropdown(self.ViewDropDown)
+                        event.accept()
+                        return
                     elif event.key() == QtCore.Qt.Key_PageUp:
-                        self.view = (self.view - 1) % (nviews)
-                        self.ViewDropDown.setCurrentIndex(self.view)
+                        self.go_next_previous_dropdown(self.ViewDropDown, -1)
+                        event.accept()
+                        return
+                    elif event.key() == QtCore.Qt.Key_Space:
+                        try:
+                            self.p0.setYRange(0, self.Ly + self.pr)
+                        except:
+                            self.p0.setYRange(0, self.Ly)
+                        self.p0.setXRange(0, self.Lx)
+                        event.accept()
+                        return
 
                 # can change background or stroke size if cell not finished
                 if event.key() == QtCore.Qt.Key_Up or event.key() == QtCore.Qt.Key_W:
-                    self.color = (self.color - 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.go_next_previous_dropdown(self.RGBDropDown, -1)
+                    event.accept()
+                    return
                 elif event.key() == QtCore.Qt.Key_Down or event.key(
                 ) == QtCore.Qt.Key_S:
-                    self.color = (self.color + 1) % (6)
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                    self.go_next_previous_dropdown(self.RGBDropDown, 1)
+                    event.accept()
+                    return
                 elif event.key() == QtCore.Qt.Key_R:
-                    if self.color != 1:
-                        self.color = 1
+                    if self.color != 'red':
+                        self.color = 'red'
                     else:
-                        self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                        self.color = 'rgb'
+                    event.accept()
+                    return
                 elif event.key() == QtCore.Qt.Key_G:
-                    if self.color != 2:
-                        self.color = 2
+                    if self.color != 'green':
+                        self.color = 'green'
                     else:
-                        self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                        self.color = 'rgb'
+                    event.accept()
+                    return
                 elif event.key() == QtCore.Qt.Key_B:
-                    if self.color != 3:
-                        self.color = 3
+                    if self.color != 'blue':
+                        self.color = 'blue'
                     else:
-                        self.color = 0
-                    self.RGBDropDown.setCurrentIndex(self.color)
+                        self.color = 'rgb'
+                    event.accept()
+                    return
                 elif (event.key() == QtCore.Qt.Key_Comma or
                       event.key() == QtCore.Qt.Key_Period):
                     count = self.BrushChoose.count()
@@ -728,8 +768,11 @@ class MainW(QMainWindow):
                         gci = min(count - 1, gci + 1)
                     self.BrushChoose.setCurrentIndex(gci)
                     self.brush_choose()
-                if not updated:
-                    self.update_plot()
+            
+            # when in stroke, allow escaping out of drawing
+            else: 
+                if event.key() == QtCore.Qt.Key_Escape:
+                    self.layer.end_stroke(keep_stroke=False)
         if event.key() == QtCore.Qt.Key_Minus or event.key() == QtCore.Qt.Key_Equal:
             self.p0.keyPressEvent(event)
 
@@ -751,15 +794,13 @@ class MainW(QMainWindow):
 
 
     def model_choose(self, custom=False):
-        index = self.ModelChooseC.currentIndex(
-        ) if custom else self.ModelChooseB.currentIndex()
-        if index > 0:
-            if custom:
-                model_name = self.ModelChooseC.currentText()
-            else:
-                model_name = self.net_names[index - 1]
-            print(f"GUI_INFO: selected model {model_name}, loading now")
-            self.initialize_model(model_name=model_name, custom=custom)
+        if custom:
+            model_name = self.ModelChooseC.currentText()
+        else:
+            model_name = self.ModelChooseB.currentText()
+        print(f"GUI_INFO: selected model {model_name}")
+        # avoid double-loading model unless we need to?
+        # self.initialize_model(model_name=model_name, custom=custom)
 
     def toggle_scale(self):
         if self.scale_on:
@@ -770,11 +811,10 @@ class MainW(QMainWindow):
             self.scale_on = True
 
     def enable_buttons(self):
+        self.ModelButtonB.setEnabled(True)
         if len(self.model_strings) > 0:
             self.ModelButtonC.setEnabled(True)
-        for i in range(len(self.StyleButtons)):
-            self.StyleButtons[i].setEnabled(True)
-
+        
         for i in range(len(self.FilterButtons)):
             self.FilterButtons[i].setEnabled(True)
         if self.load_3D:
@@ -789,15 +829,12 @@ class MainW(QMainWindow):
             self.sliders[n].setEnabled(True)
 
         self.toggle_mask_ops()
-
-        self.update_plot()
         self.setWindowTitle(self.filename)
 
     def disable_buttons_removeROIs(self):
         if len(self.model_strings) > 0:
             self.ModelButtonC.setEnabled(False)
-        for i in range(len(self.StyleButtons)):
-            self.StyleButtons[i].setEnabled(False)
+        self.ModelButtonB.setEnabled(False)
         self.newmodel.setEnabled(False)
         self.loadMasks.setEnabled(False)
         self.saveSet.setEnabled(False)
@@ -913,7 +950,6 @@ class MainW(QMainWindow):
             self.draw_layer()
             self.update_layer()
         if self.loaded:
-            self.update_plot()
             self.update_layer()
 
     def make_viewbox(self):
@@ -980,11 +1016,10 @@ class MainW(QMainWindow):
         self.ismanual = np.zeros(0, "bool")
 
         # -- set menus to default -- #
-        self.color = 0
-        self.RGBDropDown.setCurrentIndex(self.color)
-        self.view = 0
-        self.ViewDropDown.setCurrentIndex(0)
-        self.ViewDropDown.model().item(self.ViewDropDown.count() - 1).setEnabled(False)
+        with QtCore.QSignalBlocker(self.RGBDropDown):
+            self.color = 'RGB'
+        with QtCore.QSignalBlocker(self.ViewDropDown):
+            self.view = 'image'
         self.delete_restore()
 
         self.clear_all()
@@ -997,6 +1032,89 @@ class MainW(QMainWindow):
         self.removing_cells_list = []
         self.removing_region = False
         self.remove_roi_obj = None
+
+    @property
+    def color(self) -> str:
+        """Current color display mode as a lowercase string.
+
+        Reflects the current selection of the RGBDropDown widget. Possible
+        values are ``'rgb'``, ``'red'``, ``'green'``, ``'blue'``, ``'gray'``,
+        and ``'spectral'``.
+
+        Returns
+        -------
+        str
+            The current color mode, always lowercase.
+        """
+        # invert mapping
+        inv_name_map = {v: k for k, v in self.RGBDropDown.name_map.items()}
+        return inv_name_map[self.RGBDropDown.currentText().lower()].lower()
+
+    @color.setter
+    def color(self, value: str|int):
+        """Set the color display mode by name or dropdown index.
+
+        Updates the RGBDropDown widget, which triggers any connected signals
+        (e.g. ``update_plot``).
+
+        Parameters
+        ----------
+        value : str or int
+            If ``str``, a case-insensitive color name (``'rgb'``, ``'red'``,
+            ``'green'``, ``'blue'``, ``'gray'``, ``'spectral'``). The name is
+            looked up via ``RGBDropDown.name_map`` before matching against the
+            dropdown items, so aliases defined in that map are also accepted.
+            If ``int``, the zero-based index of the desired dropdown item.
+
+        Raises
+        ------
+        ValueError
+            If ``value`` is neither a ``str`` nor an ``int``.
+        """
+        if isinstance(value, int):
+            self.RGBDropDown.setCurrentIndex(value)
+        elif isinstance(value, str):
+            value = self.RGBDropDown.name_map[value.lower()]
+            items = [self.RGBDropDown.itemText(i).lower() for i in range(self.RGBDropDown.count())]
+            if value in items:
+                self.RGBDropDown.setCurrentIndex(items.index(value))
+        else:
+            raise ValueError('Imcompatible color drop down setting')
+
+    @property
+    def view(self):
+        """Current view mode as a string (e.g. 'image', 'gradXY', 'cellprob', 'restored')."""
+        return self.ViewDropDown.currentText()
+
+    @view.setter
+    def view(self, value: int|str):
+        """Set the active view in the ViewDropDown.
+
+        Parameters
+        ----------
+        value : int or str
+            If int, sets the dropdown to that index. If str, matches against
+            available items ('image', 'gradXY', 'cellprob', 'restored') and
+            selects the matching entry.
+
+        Raises
+        ------
+        ValueError
+            If value is neither an int nor a str.
+        """
+        if isinstance(value, int):
+            self.ViewDropDown.setCurrentIndex(value)
+        elif isinstance(value, str):
+            items = [self.ViewDropDown.itemText(i) for i in range(self.ViewDropDown.count())]
+            if value in items: 
+                self.ViewDropDown.setCurrentIndex(items.index(value))
+        else: 
+            raise ValueError('Incompatible view drop down setting')
+        
+    def enable_restored_view(self, enable: bool):
+        items = [self.ViewDropDown.itemText(i) for i in range(self.ViewDropDown.count())]
+        self.ViewDropDown.model().item(items.index('restored')).setEnabled(enable)
+
 
     def delete_restore(self):
         """ delete restored imgs but don't reset settings """
@@ -1011,9 +1129,9 @@ class MainW(QMainWindow):
     def clear_restore(self):
         """ delete restored imgs and reset settings """
         print("GUI_INFO: clearing restored image")
-        self.ViewDropDown.model().item(self.ViewDropDown.count() - 1).setEnabled(False)
-        if self.ViewDropDown.currentIndex() == self.ViewDropDown.count() - 1:
-            self.ViewDropDown.setCurrentIndex(0)
+        self.enable_restored_view(False)
+        if self.view == 'restored': 
+            self.view = 'image'
         self.delete_restore()
         self.restore = None
         self.ratio = 1.
@@ -1048,8 +1166,13 @@ class MainW(QMainWindow):
         self.update_layer()
 
     def select_cell(self, idx):
+        """ Select a cell 
+        
+        Set the `.selected` property to idx, update `.layerz`, and call `.update_layer()`.
+        """
         self.prev_selected = self.selected
         self.selected = idx
+        self.logger.debug(f'selected cell: {self.selected}')
         if self.selected > 0:
             z = self.currentZ
             self.layerz[self.cellpix[z] == idx] = np.array(
@@ -1141,7 +1264,7 @@ class MainW(QMainWindow):
         self.ismanual = np.delete(self.ismanual, idx - 1)
         self.cellcolors = np.delete(self.cellcolors, [idx], axis=0)
         del self.zdraw[idx - 1]
-        print("GUI_INFO: removed cell %d" % (idx - 1))
+        self.logger.info(f'removed cell {idx-1}')
 
     def remove_region_cells(self):
         if self.removing_cells_list:
@@ -1198,37 +1321,43 @@ class MainW(QMainWindow):
     def merge_cells(self, idx):
         self.prev_selected = self.selected
         self.selected = idx
-        if self.selected != self.prev_selected:
-            for z in range(self.NZ):
-                ar0, ac0 = np.nonzero(self.cellpix[z] == self.prev_selected)
-                ar1, ac1 = np.nonzero(self.cellpix[z] == self.selected)
-                touching = np.logical_and((ar0[:, np.newaxis] - ar1) < 3,
-                                          (ac0[:, np.newaxis] - ac1) < 3).sum()
-                ar = np.hstack((ar0, ar1))
-                ac = np.hstack((ac0, ac1))
-                vr0, vc0 = np.nonzero(self.outpix[z] == self.prev_selected)
-                vr1, vc1 = np.nonzero(self.outpix[z] == self.selected)
-                self.outpix[z, vr0, vc0] = 0
-                self.outpix[z, vr1, vc1] = 0
-                if touching > 0:
-                    mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
-                    mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
-                    contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                                cv2.CHAIN_APPROX_NONE)
-                    pvc, pvr = contours[-2][0].squeeze().T
-                    vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
+        if self.selected == self.prev_selected:
+            self.logger.debug('Cells are same, skipping merging')
+            return
+        if 0 in [self.prev_selected, self.selected]:
+            self.logger.debug('Skipping attempted merge with background')
+            return
+        self.logger.debug(f'Attempting to merge {self.prev_selected} and {self.selected}')
+        for z in range(self.NZ):
+            ar0, ac0 = np.nonzero(self.cellpix[z] == self.prev_selected)
+            ar1, ac1 = np.nonzero(self.cellpix[z] == self.selected)
+            touching = np.logical_and((ar0[:, np.newaxis] - ar1) < 3,
+                                      (ac0[:, np.newaxis] - ac1) < 3).sum()
+            ar = np.hstack((ar0, ar1))
+            ac = np.hstack((ac0, ac1))
+            vr0, vc0 = np.nonzero(self.outpix[z] == self.prev_selected)
+            vr1, vc1 = np.nonzero(self.outpix[z] == self.selected)
+            self.outpix[z, vr0, vc0] = 0
+            self.outpix[z, vr1, vc1] = 0
+            if touching > 0:
+                mask = np.zeros((np.ptp(ar) + 4, np.ptp(ac) + 4), np.uint8)
+                mask[ar - ar.min() + 2, ac - ac.min() + 2] = 1
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                contour = contours[np.argmax([c.size for c in contours])]
+                pvc, pvr = contour.squeeze().T
+                vr, vc = pvr + ar.min() - 2, pvc + ac.min() - 2
 
-                else:
-                    vr = np.hstack((vr0, vr1))
-                    vc = np.hstack((vc0, vc1))
-                color = self.cellcolors[self.prev_selected]
-                self.draw_mask(z, ar, ac, vr, vc, color, idx=self.prev_selected)
-            self.remove_cell(self.selected)
-            print("GUI_INFO: merged two cells")
-            self.update_layer()
-            io._save_sets_with_check(self)
-            self.undo.setEnabled(False)
-            self.redo.setEnabled(False)
+            else:
+                vr = np.hstack((vr0, vr1))
+                vc = np.hstack((vc0, vc1))
+            color = self.cellcolors[self.prev_selected]
+            self.draw_mask(z, ar, ac, vr, vc, color, idx=self.prev_selected)
+        self.remove_cell(self.selected)
+        self.logger.info("merged two cells")
+        self.update_layer()
+        io._save_sets_with_check(self)
+        self.undo.setEnabled(False)
+        self.redo.setEnabled(False)
 
     def undo_remove_cell(self):
         if len(self.removed_cell) > 0:
@@ -1275,17 +1404,6 @@ class MainW(QMainWindow):
             self.update_layer()
 
         del self.strokes[stroke_ind]
-
-    def plot_clicked(self, event):
-        if event.button()==QtCore.Qt.LeftButton \
-                and not event.modifiers() & (QtCore.Qt.ShiftModifier | QtCore.Qt.AltModifier)\
-                and not self.removing_region:
-            if event.double():
-                try:
-                    self.p0.setYRange(0, self.Ly + self.pr)
-                except:
-                    self.p0.setYRange(0, self.Ly)
-                self.p0.setXRange(0, self.Lx)
 
     def cancel_remove_multiple(self):
         self.clear_multi_selected_cells()
@@ -1341,66 +1459,75 @@ class MainW(QMainWindow):
         items = self.win.scene().items(pos)
 
     def color_choose(self):
-        self.color = self.RGBDropDown.currentIndex()
-        self.view = 0
-        self.ViewDropDown.setCurrentIndex(self.view)
+        self.view = 'image'
         self.update_plot()
 
     def update_plot(self):
-        self.view = self.ViewDropDown.currentIndex()
+
         self.Ly, self.Lx, _ = self.stack[self.currentZ].shape
 
-        if self.view == 0 or self.view == self.ViewDropDown.count() - 1:
-            image = self.stack[
-                self.currentZ] if self.view == 0 else self.stack_filtered[self.currentZ]
-            if self.color == 0:
+        is_image_view = self.view == 'image'
+        is_restored_view = self.view == 'restored'
+
+        flowp_map = {
+            'gradXY' : 0,
+            'cellprob' : 1,
+            'gradZ' : 4,
+        }
+        rgb_list = ['red', 'green', 'blue']
+
+        if is_image_view or is_restored_view:
+            if is_image_view:
+                image = self.stack[self.currentZ]
+            else: 
+                image = self.stack_filtered[self.currentZ]
+            if self.color == 'rgb':
                 self.img.setImage(image, autoLevels=False, lut=None)
                 if self.nchan > 1:
-                    levels = np.array([
-                        self.saturation[0][self.currentZ],
-                        self.saturation[1][self.currentZ],
-                        self.saturation[2][self.currentZ]
-                    ])
-                    self.img.setLevels(levels)
+                    levels = np.array([self.saturation[r][self.currentZ] for r in range(image.shape[-1])])
+                else: 
+                    levels = self.saturation[0][self.currentZ]
+                self.img.setLevels(levels)
+                
+            elif self.color in rgb_list:
+                color_index = rgb_list.index(self.color)
+                if self.nchan > 1:
+                    image = image[:, :, color_index]
+                self.img.setImage(image, autoLevels=False, lut=self.cmap[color_index+1])
+                if self.nchan > 1:
+                    self.img.setLevels(self.saturation[color_index][self.currentZ])
                 else:
                     self.img.setLevels(self.saturation[0][self.currentZ])
-            elif self.color > 0 and self.color < 4:
-                if self.nchan > 1:
-                    image = image[:, :, self.color - 1]
-                self.img.setImage(image, autoLevels=False, lut=self.cmap[self.color])
-                if self.nchan > 1:
-                    self.img.setLevels(self.saturation[self.color - 1][self.currentZ])
-                else:
-                    self.img.setLevels(self.saturation[0][self.currentZ])
-            elif self.color == 4:
+            elif self.color == 'gray':
                 if self.nchan > 1:
                     # exclude channels with no data:
+                    # TODO: save this when computing saturation 
                     ranges = np.ptp(image, tuple(range(image.ndim-1)))
                     range_mask = ranges > 1e-5
                     image = image[..., range_mask]
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=None)
                 self.img.setLevels(self.saturation[0][self.currentZ])
-            elif self.color == 5:
+            elif self.color == 'spectral':
                 if self.nchan > 1:
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=self.cmap[0])
                 self.img.setLevels(self.saturation[0][self.currentZ])
         else:
             image = np.zeros((self.Ly, self.Lx), np.uint8)
-            if len(self.flows) >= self.view - 1 and len(self.flows[self.view - 1]) > 0:
-                image = self.flows[self.view - 1][self.currentZ]
-            if self.view > 1:
-                self.img.setImage(image, autoLevels=False, lut=self.bwr)
-            else:
-                self.img.setImage(image, autoLevels=False, lut=None)
+            if len(self.flows[flowp_map[self.view]]) > 0:
+                image = self.flows[flowp_map[self.view]][self.currentZ]
+            self.img.setImage(image, autoLevels=False, lut=self.bwr)
             self.img.setLevels([0.0, 255.0])
 
         for r in range(3):
-            self.sliders[r].setValue([
-                self.saturation[r][self.currentZ][0],
-                self.saturation[r][self.currentZ][1]
-            ])
+            # setValue on the slider triggers update_plot() so it needs to be suppressed
+            slider = self.sliders[r]
+            with QtCore.QSignalBlocker(slider):
+                slider.setValue([
+                    self.saturation[r][self.currentZ][0],
+                    self.saturation[r][self.currentZ][1]
+                ])
         self.win.show()
         self.show()
 
@@ -1458,8 +1585,9 @@ class MainW(QMainWindow):
             ar, ac = np.nonzero(mask)
             ar, ac = ar + vr.min() - 2, ac + vc.min() - 2
             # get dense outline
-            contours = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            pvc, pvr = contours[-2][0][:,0].T
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            contour = contours[np.argmax([c.size for c in contours])]
+            pvc, pvr = contour[:,0].T
             vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             # concatenate all points
             ar, ac = np.hstack((np.vstack((vr, vc)), np.vstack((ar, ac))))
@@ -1473,9 +1601,9 @@ class MainW(QMainWindow):
                 # compute outline of new mask
                 mask = np.zeros((np.ptp(vr) + 4, np.ptp(vc) + 4), np.uint8)
                 mask[ar - vr.min() + 2, ac - vc.min() + 2] = 1
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                            cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0][:,0].T
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                contour = contours[np.argmax([c.size for c in contours])]
+                pvc, pvr = contour[:,0].T
                 vr, vc = pvr + vr.min() - 2, pvc + vc.min() - 2
             ars = np.concatenate((ars, ar), axis=0)
             acs = np.concatenate((acs, ac), axis=0)
@@ -1524,9 +1652,9 @@ class MainW(QMainWindow):
                 arr, acr = np.nonzero(mask)
                 arr, acr = arr + vrr.min() - 2, acr + vcr.min() - 2
                 # get dense outline
-                contours = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                            cv2.CHAIN_APPROX_NONE)
-                pvc, pvr = contours[-2][0].squeeze().T
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                contour = contours[np.argmax([c.size for c in contours])]
+                pvc, pvr = contour.squeeze().T
                 vrr, vcr = pvr + vrr.min() - 2, pvc + vcr.min() - 2
                 # concatenate all points
                 arr, acr = np.hstack((np.vstack((vrr, vcr)), np.vstack((arr, acr))))
@@ -1715,9 +1843,8 @@ class MainW(QMainWindow):
                     img_norm[..., c] /= (img_norm_max - img_norm_min)
             img_norm *= 255
             self.stack_filtered = img_norm
-            self.ViewDropDown.model().item(self.ViewDropDown.count() -
-                                           1).setEnabled(True)
-            self.ViewDropDown.setCurrentIndex(self.ViewDropDown.count() - 1)
+            self.enable_restored_view(True)
+            self.view = 'restored'
         else:
             img_norm = self.stack if self.restore is None or self.restore == "filter" else self.stack_filtered
 
@@ -1751,15 +1878,30 @@ class MainW(QMainWindow):
                 else:
                     for n in range(self.NZ):
                         self.saturation[-1].append([0, 255.])
-            print(self.saturation[2][self.currentZ])
-
-            if img_norm.shape[-1] == 1:
-                self.saturation.append(self.saturation[0])
-                self.saturation.append(self.saturation[0])
-
-        # self.autobtn.setChecked(True)
-        self.update_plot()
-
+        
+        elif len(self.saturation) == 0 or len(self.saturation[0]) != self.NZ:
+            self.saturation = []
+            for r in range(3):
+                self.saturation.append([])
+                for n in range(self.NZ):
+                    self.saturation[-1].append([0, 255])
+        
+        if img_norm.shape[-1] == 1:
+            if len(self.saturation) > 1:
+                self.saturation = [self.saturation[0]]
+            self.saturation.append(self.saturation[0])
+            self.saturation.append(self.saturation[0])
+        else:
+            self.saturation = [copy.deepcopy(self.saturation[r]) for r in range(img_norm.shape[-1])]
+            if len(self.saturation) == 2:
+                self.saturation.append([])
+                for n in range(self.NZ):
+                    self.saturation[-1].append([0, 255])
+        
+        self.sliders[0].setValue(self.saturation[0][self.currentZ])
+        self.sliders[1].setValue(self.saturation[1][self.currentZ])
+        self.sliders[2].setValue(self.saturation[2][self.currentZ])
+        # print(len(self.saturation), len(self.saturation[0]))
 
     def get_model_path(self, custom=False):
         if custom:
@@ -1767,8 +1909,8 @@ class MainW(QMainWindow):
             self.current_model_path = os.fspath(
                 models.MODEL_DIR.joinpath(self.current_model))
         else:
-            self.current_model = "cpsam"
-            self.current_model_path = models.model_path(self.current_model)
+            self.current_model = self.ModelChooseB.currentText()
+            self.current_model_path = models.cache_model_path(self.current_model)
 
     def initialize_model(self, model_name=None, custom=False):
         if model_name is None or custom:
@@ -1785,7 +1927,7 @@ class MainW(QMainWindow):
                 models.MODEL_DIR.joinpath(self.current_model))
 
             self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
-                                             pretrained_model=self.current_model)
+                                             pretrained_model=self.current_model_path)
 
     def add_model(self):
         io._add_model(self)
@@ -1804,7 +1946,8 @@ class MainW(QMainWindow):
         image_names = self.get_files()[0]
         self.train_data, self.train_labels, self.train_files, restore, normalize_params = io._get_train_set(
             image_names)
-        TW = guiparts.TrainWindow(self, models.MODEL_NAMES)
+        self.training_params["model_index"] = self.ModelChooseB.currentIndex()
+        TW = guiparts.TrainWindow(self)
         train = TW.exec_()
         if train:
             self.logger.info(
@@ -1822,7 +1965,7 @@ class MainW(QMainWindow):
         self.current_model = model_type
         
         self.model = models.CellposeModel(gpu=self.useGPU.isChecked(),
-                                          model_type=model_type)
+                                          pretrained_model=model_type)
         save_path = os.path.dirname(self.filename)
 
         print("GUI_INFO: name of new model: " + self.training_params["model_name"])
@@ -1926,9 +2069,7 @@ class MainW(QMainWindow):
             print(normalize_params)
             try:
                 masks, flows = self.model.eval(
-                    data, 
-                    diameter=diameter,
-                    cellprob_threshold=cellprob_threshold,
+                    data, diameter=diameter, cellprob_threshold=cellprob_threshold,
                     flow_threshold=flow_threshold, do_3D=do_3D, niter=niter,
                     normalize=normalize_params, stitch_threshold=stitch_threshold,
                     anisotropy=anisotropy, flow3D_smooth=flow3D_smooth,
@@ -1946,10 +2087,11 @@ class MainW(QMainWindow):
             flows_new.append(flows[0].copy())  # RGB flow
             flows_new.append((np.clip(normalize99(flows[2].copy()), 0, 1) *
                               255).astype("uint8"))  # cellprob
-            flows_new.append(flows[1].copy()) # XY flows
+            flows_new.append(flows[1].copy()) # XY(Z) flows
             flows_new.append(flows[2].copy()) # original cellprob
 
             if self.load_3D:
+                # append Z flows (or zeros in stitching case): Z flows are flows[4]
                 if stitch_threshold == 0.:
                     flows_new.append((flows[1][0] / 10 * 127 + 127).astype("uint8"))
                 else:
@@ -1972,18 +2114,17 @@ class MainW(QMainWindow):
                 Lz, Ly, Lx = self.NZ, self.Ly, self.Lx
                 Lz0, Ly0, Lx0 = flows_new[0].shape[:3]
                 print("GUI_INFO: resizing flows to original image size")
-                for j in range(len(flows_new)):
-                    flow0 = flows_new[j]
+                for flows0 in flows_new:
                     if Ly0 != Ly:
-                        flow0 = resize_image(flow0, Ly=Ly, Lx=Lx,
-                                            no_channels=flow0.ndim==3, 
+                        flows0 = resize_image(flows0, Ly=Ly, Lx=Lx,
+                                            no_channels=flows0.ndim==3, 
                                             interpolation=cv2.INTER_NEAREST)
                     if Lz0 != Lz:
-                        flow0 = np.swapaxes(resize_image(np.swapaxes(flow0, 0, 1),
+                        flows0 = np.swapaxes(resize_image(np.swapaxes(flows0, 0, 1),
                                             Ly=Lz, Lx=Lx,
-                                            no_channels=flow0.ndim==3, 
+                                            no_channels=flows0.ndim==3, 
                                             interpolation=cv2.INTER_NEAREST), 0, 1)
-                    self.flows.append(flow0)
+                    self.flows.append(flows0)
 
             # add first axis
             if self.NZ == 1:
@@ -2009,3 +2150,28 @@ class MainW(QMainWindow):
                 self.recompute_masks = False
         except Exception as e:
             print("ERROR: %s" % e)
+
+
+    def go_next_previous_dropdown(self, dropdown, increment=1):
+        """ Go to the next dropdown element using `increment` """
+
+        # skip disabled views
+        num_items = dropdown.count()
+        enabled = []
+        for i in range(num_items):
+            enabled.append(dropdown.model().item(i).isEnabled())
+
+        if not any(enabled):
+            self.logger.error('No available dropdown items are enabled. Cannot adjust view.')
+            return 
+
+        idx = dropdown.currentIndex() + increment
+
+        for _ in range(num_items):
+            idx %= num_items
+            if enabled[idx]:
+                dropdown.setCurrentIndex(idx)
+                return
+            idx += increment
+
+        self.logger.error('Could not find an emabled dropdown item.')

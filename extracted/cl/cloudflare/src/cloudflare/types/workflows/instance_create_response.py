@@ -1,5 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+from typing import Optional
 from typing_extensions import Literal
 
 from ..._models import BaseModel
@@ -10,8 +11,12 @@ __all__ = ["InstanceCreateResponse"]
 class InstanceCreateResponse(BaseModel):
     id: str
 
-    status: Literal["queued", "running", "paused", "errored", "terminated", "complete", "waitingForPause", "waiting"]
+    status: Literal[
+        "queued", "running", "paused", "errored", "terminated", "complete", "waitingForPause", "waiting", "rollingBack"
+    ]
 
     version_id: str
 
     workflow_id: str
+
+    trigger_source: Optional[Literal["unknown", "api", "binding", "event", "cron"]] = None

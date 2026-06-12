@@ -14,7 +14,7 @@
 import contextlib
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional, cast
 
 import comet_ml
 import comet_ml.api
@@ -30,8 +30,8 @@ LOGGER = logging.getLogger(__file__)
 
 @contextlib.contextmanager
 def comet_worker_logger(
-    ray_config: Dict[str, Any], api_key: Optional[str] = None, **experiment_kwargs
-):
+    ray_config: Dict[str, Any], api_key: Optional[str] = None, **experiment_kwargs: Any
+) -> Iterator[Any]:
     """
     This context manager allows you to track resource usage from each distributed worker when
     running a distributed training job. It must be used in conjunction with
@@ -58,7 +58,7 @@ def comet_worker_logger(
     return a disabled Experiment, all methods calls will succeed but no data is gonna be logged.
 
     """
-    experiment = None
+    experiment: Optional[Any] = None
     try:
         api_key = _get_api_key(api_key, ray_config)
         experiment_key = _get_experiment_key(ray_config)
@@ -72,7 +72,7 @@ def comet_worker_logger(
 
         try:
             _setup_environment()
-            experiment_config_kwargs = {
+            experiment_config_kwargs: Dict[str, Any] = {
                 "log_env_gpu": True,
                 "log_env_cpu": True,
                 "log_env_network": True,
@@ -81,6 +81,14 @@ def comet_worker_logger(
                 "log_env_details": True,
                 "display_summary_level": 0,
             }
+            # Honor the offline directory shared by the driver callback so this
+            # worker's offline archive lands alongside the driver's rather than
+            # in Ray's per-session temp dir. A user-supplied kwarg still wins
+            # (applied via the update below).
+            offline_directory = ray_config.get("_comet_offline_directory")
+            if offline_directory is not None:
+                experiment_config_kwargs["offline_directory"] = offline_directory
+
             _prepare_experiment_kwargs_for_passing_to_experiment_config(
                 experiment_kwargs
             )
@@ -115,14 +123,14 @@ def _get_api_key(api_key: Optional[str], ray_config: Dict[str, Any]) -> Optional
 
     if "_comet_api_key" in ray_config:
         hidden_api_key = ray_config["_comet_api_key"]
-        return hidden_api_key.value
+        return cast(Optional[str], hidden_api_key.value)
 
     return None
 
 
 def _get_experiment_key(ray_config: Dict[str, Any]) -> Optional[str]:
     if "_comet_experiment_key" in ray_config:
-        return ray_config["_comet_experiment_key"]
+        return cast(Optional[str], ray_config["_comet_experiment_key"])
 
     LOGGER.warning(
         "Experiment key wasn't found in RAY config. "
@@ -187,4 +195,4 @@ def _get_world_rank() -> int:
     # collide every non-Train worker's per-rank GPU and system-metric stream
     # onto a single identifier, which defeats the purpose of stamping the
     # rank in the first place.
-    return ray.train.get_context().get_world_rank()
+    return cast(int, ray.train.get_context().get_world_rank())

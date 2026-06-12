@@ -1,7 +1,7 @@
 from django.forms import Media
 from django.test import TestCase
 
-from js_asset.js import CSS, JS, JSON
+from js_asset.js import CSS, JS, JSON, InlineStyle, Script, Stylesheet
 
 
 class AssetTest(TestCase):
@@ -59,7 +59,12 @@ class AssetTest(TestCase):
             JS("app/asset.js", {"id": "asset-script", "data-the-answer": 43}),
         ]
 
-        self.assertEqual(len(set(media)), 2)
+        # ``JS`` produces a Django ``Script``, so identity follows Django's own
+        # contract: 6.2+ (and the < 5.2 backport) fold attributes into equality
+        # -- the differing third asset stays distinct -> 2. Django 5.2 - 6.1
+        # dedup on the path alone, so all three collapse -> 1.
+        attribute_aware = media[0] != media[2]
+        self.assertEqual(len(set(media)), 2 if attribute_aware else 1)
 
     def test_boolean_attributes(self):
         self.assertEqual(
@@ -82,6 +87,25 @@ class AssetTest(TestCase):
             str(CSS("p{color:red}", inline=True)),
             '<style media="all">p{color:red}</style>',
         )
+
+    def test_js_produces_script(self):
+        asset = JS("app/asset.js", {"id": "x"})
+        # ``JS`` is a factory producing a Django ``Script`` ...
+        self.assertIsInstance(asset, Script)
+        self.assertNotIsInstance(asset, Stylesheet)
+        # ... while ``isinstance(x, JS)`` keeps answering truthfully.
+        self.assertIsInstance(asset, JS)
+        self.assertNotIsInstance(CSS("app/style.css"), JS)
+
+    def test_css_produces_stylesheet_or_inline(self):
+        link = CSS("app/style.css")
+        inline = CSS("p{color:red}", inline=True)
+        self.assertIsInstance(link, Stylesheet)
+        self.assertIsInstance(inline, InlineStyle)
+        # Both flavours answer ``isinstance(x, CSS)``.
+        self.assertIsInstance(link, CSS)
+        self.assertIsInstance(inline, CSS)
+        self.assertNotIsInstance(JS("app/asset.js"), CSS)
 
     def test_json(self):
         self.assertEqual(

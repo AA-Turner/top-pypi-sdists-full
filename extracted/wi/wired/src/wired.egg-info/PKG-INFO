@@ -1,0 +1,71 @@
+Metadata-Version: 2.1
+Name: wired
+Version: 0.4
+Summary: An inversion-of-control (IoC) container for building decoupled, configurable, pluggable applications.
+Home-page: https://github.com/mmerickel/wired
+Author: Michael Merickel
+Author-email: pylons-discuss@googlegroups.com
+Project-URL: Documentation, https://wired.readthedocs.io
+Project-URL: Changelog, https://wired.readthedocs.io/en/latest/changes.html
+Project-URL: Issue Tracker, https://github.com/mmerickel/wired/issues
+Keywords: ioc,inversion of control,dependency injection,service locator,singleton,service factory
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: zope.interface
+Provides-Extra: docs
+Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: venusian; extra == "docs"
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: venusian; extra == "testing"
+Requires-Dist: sybil; extra == "testing"
+
+=====
+wired
+=====
+
+.. image:: https://img.shields.io/pypi/v/wired.svg
+    :target: https://pypi.org/pypi/wired
+
+.. image:: https://github.com/mmerickel/wired/workflows/Build%20and%20test/badge.svg?branch=main
+    :target: https://github.com/mmerickel/wired/actions?query=workflow%3A%22Build+and+test%22
+    :alt: main CI Status
+
+.. image:: https://readthedocs.org/projects/wired/badge/?version=latest
+    :target: https://readthedocs.org/projects/wired/?badge=latest
+    :alt: Documentation Status
+
+Have a large application where you want to *decrease coupling* between components?
+Need to *supply configuration* to your application's various services? Want to
+make a *pluggable application* where others can supply services?
+
+`Inversion of Control <https://en.wikipedia.org/wiki/Inversion_of_control>`_ and
+`Dependency Injection <https://en.wikipedia.org/wiki/Dependency_injection>`_ are
+two patterns commonly used for these goals.
+
+``wired`` is an implementation of an inversion-of-control (IoC) container and
+may be used as the core of a dependency injection (DI) framework or simply as
+a way to separate config-time from runtime for services in an application. It
+also provides caching such that a container maintains a local copy of each
+service as they are instantiated.
+
+`wired` aims to scale down to the simplest cases and up to very large, custom
+systems. It has one dependency and that dependency has one dependency.
+
+See https://wired.readthedocs.io or
+``docs/index.rst`` in this distribution for detailed documentation.

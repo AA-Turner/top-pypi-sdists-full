@@ -5,18 +5,29 @@ from pathlib import Path
 from typing import Protocol
 
 import pytest
+from typing_extensions import assert_type
 
 from smpclient.mcuboot import (
+    IMAGE_HEADER_STRUCT,
     IMAGE_MAGIC,
     IMAGE_TLV,
     IMAGE_TLV_INFO_MAGIC,
+    IMAGE_TLV_INFO_STRUCT,
+    IMAGE_TLV_PROT_INFO_MAGIC,
     ImageHeader,
     ImageInfo,
+    ImageMagic,
     ImageTLV,
+    ImageTLVInfo,
+    ImageTLVInfoMagic,
+    ImageTLVProtInfoMagic,
     ImageTLVType,
     ImageTLVValue,
     ImageVersion,
+    MCUBootImageError,
+    TLVNotFound,
     VendorTLV,
+    mcuimg,
 )
 
 
@@ -67,6 +78,8 @@ def test_ImageInfo(image: _ImageFileFixture) -> None:
 
     # TLV header
     t = image_info.tlv_info
+    assert_type(t, ImageTLVInfo[ImageTLVInfoMagic])
+    assert_type(t.magic, ImageTLVInfoMagic)
     assert t.magic == IMAGE_TLV_INFO_MAGIC
     assert t.tlv_tot == 336
 
@@ -96,6 +109,7 @@ def test_ImageInfo(image: _ImageFileFixture) -> None:
 def test_ImageHeader(image: _ImageFileFixture) -> None:
     h = ImageHeader.load_file(str(image.PATH))
 
+    assert_type(h.magic, ImageMagic)
     assert h.magic == IMAGE_MAGIC
     assert h.load_addr == 0
     assert h.hdr_size == 512
@@ -230,3 +244,99 @@ def test_tlv_value_str_unknown() -> None:
     tlv_header = ImageTLV(type=0x99, len=4)
     tlv_value = ImageTLVValue(header=tlv_header, value=b"\xde\xad\xbe\xef")
     assert str(tlv_value) == "0x99=deadbeef"
+
+
+def test_protected_tlv_parsing() -> None:
+    """Test that protected TLVs are parsed correctly when present."""
+    # tfm_s_signed.bin generated via https://docs.zephyrproject.org/latest/samples/tfm_integration/tfm_ipc/README.html#tfm_ipc
+    image_info = ImageInfo.load_file(
+        str(Path("tests", "fixtures", "tf-m-9a4cb1a28", "tfm_s_signed.bin"))
+    )
+
+    assert image_info.protected_tlv_info is not None
+    assert_type(image_info.protected_tlv_info, ImageTLVInfo[ImageTLVProtInfoMagic])
+    assert_type(image_info.protected_tlv_info.magic, ImageTLVProtInfoMagic)
+    assert image_info.protected_tlv_info.magic == IMAGE_TLV_PROT_INFO_MAGIC
+    assert image_info.protected_tlvs is not None
+    assert len(image_info.protected_tlvs) == 3
+    assert len(image_info.tlvs) == 3
+
+    assert "SEC_CNT=" in str(image_info)
+
+    # imgtool should put these three regular TLVs in the image
+    image_info.get_tlv(IMAGE_TLV.SHA256)
+    image_info.get_tlv(IMAGE_TLV.KEYHASH)
+    image_info.get_tlv(IMAGE_TLV.ECDSA_SIG)
+
+    # and these three protected TLVs
+    image_info.get_tlv(IMAGE_TLV.SEC_CNT)
+    image_info.get_tlv(IMAGE_TLV.BOOT_RECORD)
+    image_info.get_tlv(IMAGE_TLV.DEPENDENCY)
+
+
+def test_tlv_info_magic_type_binding() -> None:
+    """The expected magic argument binds the static type and the runtime check."""
+    info = ImageTLVInfo.loads(struct.pack("<HH", IMAGE_TLV_INFO_MAGIC, 100), IMAGE_TLV_INFO_MAGIC)
+    assert_type(info, ImageTLVInfo[ImageTLVInfoMagic])
+    assert_type(info.magic, ImageTLVInfoMagic)
+    assert info.magic == IMAGE_TLV_INFO_MAGIC
+
+    prot_info = ImageTLVInfo.loads(
+        struct.pack("<HH", IMAGE_TLV_PROT_INFO_MAGIC, 100), IMAGE_TLV_PROT_INFO_MAGIC
+    )
+    assert_type(prot_info, ImageTLVInfo[ImageTLVProtInfoMagic])
+    assert_type(prot_info.magic, ImageTLVProtInfoMagic)
+    assert prot_info.magic == IMAGE_TLV_PROT_INFO_MAGIC
+
+    with pytest.raises(MCUBootImageError):
+        ImageTLVInfo.loads(struct.pack("<HH", IMAGE_TLV_INFO_MAGIC, 100), IMAGE_TLV_PROT_INFO_MAGIC)
+
+    with pytest.raises(MCUBootImageError):
+        ImageTLVInfo.loads(struct.pack("<HH", IMAGE_TLV_PROT_INFO_MAGIC, 100), IMAGE_TLV_INFO_MAGIC)
+
+
+def test_image_header_bad_magic() -> None:
+    with pytest.raises(MCUBootImageError):
+        ImageHeader.loads(IMAGE_HEADER_STRUCT.pack(0xDEADBEEF, 0, 32, 0, 0, 0, 0, 0, 0, 0))
+
+
+def test_tlv_info_total_size_too_small() -> None:
+    with pytest.raises(MCUBootImageError):
+        ImageTLVInfo.loads(struct.pack("<HH", IMAGE_TLV_INFO_MAGIC, 2), IMAGE_TLV_INFO_MAGIC)
+
+
+def test_tlv_value_length_mismatch() -> None:
+    with pytest.raises(MCUBootImageError):
+        ImageTLVValue(header=ImageTLV(type=0x10, len=4), value=b"\x00")
+
+
+def test_get_tlv_not_found() -> None:
+    image_info = ImageInfo.load_file(str(SIGNED_BIN.PATH))
+    with pytest.raises(TLVNotFound):
+        image_info.get_tlv(IMAGE_TLV.SEC_CNT)
+
+
+def test_invalid_hex_file(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.hex"
+    bad.write_text("not a hex file\n")
+    with pytest.raises(MCUBootImageError):
+        ImageInfo.load_file(str(bad))
+
+
+def test_protected_tlv_size_mismatch(tmp_path: Path) -> None:
+    image = tmp_path / "image.bin"
+    image.write_bytes(
+        IMAGE_HEADER_STRUCT.pack(IMAGE_MAGIC, 0, IMAGE_HEADER_STRUCT.size, 12, 0, 0, 0, 0, 0, 0)
+        + IMAGE_TLV_INFO_STRUCT.pack(IMAGE_TLV_PROT_INFO_MAGIC, 8)
+    )
+    with pytest.raises(MCUBootImageError):
+        ImageInfo.load_file(str(image))
+
+
+def test_mcuimg(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr("sys.argv", ["mcuimg", str(SIGNED_BIN.PATH)])
+    assert mcuimg() == 0
+    assert "ImageInfo" in capsys.readouterr().out
+
+    monkeypatch.setattr("sys.argv", ["mcuimg", "does-not-exist.bin"])
+    assert mcuimg() == -1

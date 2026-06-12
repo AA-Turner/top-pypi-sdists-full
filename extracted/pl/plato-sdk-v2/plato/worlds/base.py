@@ -499,13 +499,22 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
     async def _resolve_workspace_repo_by_name(self, repo_name: str) -> ResolvedWorkspaceRepo:
         """Resolve a workspace repo by exact name."""
         chronos_url = self._get_chronos_base_url()
-        api_key = self.chronos.api_key
+        api_key = self._get_chronos_api_key()
+        logger.info("Resolving workspace repo %r via %s (auth=%s)", repo_name, chronos_url, self._chronos_auth_source())
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{chronos_url}/api/workspace-repos/resolve",
                 json={"name": repo_name},
                 headers={"X-API-Key": api_key},
             )
+            if resp.status_code >= 400:
+                logger.error(
+                    "workspace-repos/resolve %r failed: HTTP %s (auth=%s): %s",
+                    repo_name,
+                    resp.status_code,
+                    self._chronos_auth_source(),
+                    resp.text,
+                )
             resp.raise_for_status()
             data = resp.json()
         return ResolvedWorkspaceRepo(
@@ -523,7 +532,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         repo_name = self.workspace_repo_name(field_name)
 
         chronos_url = self._get_chronos_base_url()
-        api_key = self.chronos.api_key
+        api_key = self._get_chronos_api_key()
 
         if not chronos_url:
             raise RuntimeError(
@@ -531,12 +540,21 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 "Set session.chronos_url or session.otel_url."
             )
 
+        logger.info("Resolving workspace repo %r via %s (auth=%s)", repo_name, chronos_url, self._chronos_auth_source())
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{chronos_url}/api/workspace-repos/resolve",
                 json={"name": repo_name},
                 headers={"X-API-Key": api_key},
             )
+            if resp.status_code >= 400:
+                logger.error(
+                    "workspace-repos/resolve %r failed: HTTP %s (auth=%s): %s",
+                    repo_name,
+                    resp.status_code,
+                    self._chronos_auth_source(),
+                    resp.text,
+                )
             resp.raise_for_status()
             data = resp.json()
 

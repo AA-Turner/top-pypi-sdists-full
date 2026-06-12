@@ -10,7 +10,7 @@ import pytest
 
 from smplkit.logging.adapters.base import LoggingAdapter
 from smplkit.logging.adapters.stdlib_logging import StdlibLoggingAdapter
-from smplkit.logging.client import AsyncLoggingClient, LoggingClient, _auto_load_adapters
+from smplkit.logging._client import AsyncLoggingClient, LoggingClient, _auto_load_adapters
 
 
 class _MockAdapter(LoggingAdapter):
@@ -55,32 +55,26 @@ def _make_list_parsed(resources):
     return parsed
 
 
-def _make_sync_client(**kwargs):
-    from smplkit.management.client import LoggersClient as _MgmtLoggersClient
+def _make_transport():
+    transport = MagicMock()
+    transport._base_url = "http://logging:8003"
+    return transport
 
+
+def _make_sync_client(**kwargs):
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    manage = MagicMock()
-    manage.loggers = _MgmtLoggersClient(MagicMock(), base_url="http://logging:8003")
-    parent.manage = manage
-    with patch("smplkit.logging.client.AuthenticatedClient"):
-        return LoggingClient(parent, manage=manage, metrics=parent._metrics)
+    return LoggingClient(parent=parent, transport=_make_transport(), metrics=parent._metrics)
 
 
 def _make_async_client(**kwargs):
-    from smplkit.management.client import AsyncLoggersClient as _MgmtAsyncLoggersClient
-
     parent = MagicMock()
     parent._api_key = "sk_test"
     parent._environment = "test"
     parent._service = kwargs.get("service", None)
-    manage = MagicMock()
-    manage.loggers = _MgmtAsyncLoggersClient(MagicMock(), base_url="http://logging:8003")
-    parent.manage = manage
-    with patch("smplkit.logging.client.AuthenticatedClient"):
-        return AsyncLoggingClient(parent, manage=manage, metrics=parent._metrics)
+    return AsyncLoggingClient(parent=parent, transport=_make_transport(), metrics=parent._metrics)
 
 
 class TestAutoLoadAdapters:
@@ -88,7 +82,7 @@ class TestAutoLoadAdapters:
         mock_ep = MagicMock()
         mock_ep.name = "stdlib"
         mock_ep.load.return_value = StdlibLoggingAdapter
-        with patch("smplkit.logging.client.entry_points", return_value=[mock_ep]):
+        with patch("smplkit.logging._client.entry_points", return_value=[mock_ep]):
             adapters = _auto_load_adapters()
         assert any(a.name == "stdlib-logging" for a in adapters)
 
@@ -101,7 +95,7 @@ class TestAutoLoadAdapters:
         loguru_ep.name = "loguru"
         loguru_ep.load.side_effect = ImportError("No module named 'loguru'")
 
-        with patch("smplkit.logging.client.entry_points", return_value=[stdlib_ep, loguru_ep]):
+        with patch("smplkit.logging._client.entry_points", return_value=[stdlib_ep, loguru_ep]):
             adapters = _auto_load_adapters()
 
         names = [a.name for a in adapters]
@@ -109,7 +103,7 @@ class TestAutoLoadAdapters:
         assert len(adapters) == 1
 
     def test_no_adapters_warns(self):
-        with patch("smplkit.logging.client.entry_points", return_value=[]):
+        with patch("smplkit.logging._client.entry_points", return_value=[]):
             import logging
 
             with patch.object(logging.getLogger("smplkit"), "warning") as mock_warning:
@@ -122,7 +116,7 @@ class TestAutoLoadAdapters:
         broken_ep.name = "broken"
         broken_ep.load.side_effect = RuntimeError("broken")
 
-        with patch("smplkit.logging.client.entry_points", return_value=[broken_ep]):
+        with patch("smplkit.logging._client.entry_points", return_value=[broken_ep]):
             import logging
 
             with patch.object(logging.getLogger("smplkit"), "warning") as mock_warning:
@@ -139,9 +133,9 @@ class TestRegisterAdapter:
         assert client._explicit_adapters is True
         assert len(client._adapters) == 1
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.sync_detailed")
     def test_registered_adapter_used_on_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -150,7 +144,7 @@ class TestRegisterAdapter:
         client = _make_sync_client()
         adapter = _MockAdapter()
         client.register_adapter(adapter)
-        client._connect_internal()
+        client.install()
 
         assert adapter.discover_calls == 1
         assert adapter.install_hook_calls == 1
@@ -168,9 +162,9 @@ class TestRegisterAdapter:
         with pytest.raises(RuntimeError, match="Cannot register adapters after install"):
             client.register_adapter(_MockAdapter())
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.sync_detailed")
     def test_multiple_adapters_all_called(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -181,7 +175,7 @@ class TestRegisterAdapter:
         adapter2 = _MockAdapter("second")
         client.register_adapter(adapter1)
         client.register_adapter(adapter2)
-        client._connect_internal()
+        client.install()
 
         assert adapter1.discover_calls == 1
         assert adapter2.discover_calls == 1
@@ -194,9 +188,9 @@ class TestRegisterAdapter:
 
 
 class TestAsyncRegisterAdapter:
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.asyncio_detailed")
     def test_registered_adapter_used_on_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -205,7 +199,7 @@ class TestAsyncRegisterAdapter:
         client = _make_async_client()
         adapter = _MockAdapter()
         client.register_adapter(adapter)
-        asyncio.run(client._connect_internal())
+        asyncio.run(client.install())
 
         assert adapter.discover_calls == 1
         assert adapter.install_hook_calls == 1
@@ -214,9 +208,9 @@ class TestAsyncRegisterAdapter:
 
 
 class TestAdapterErrorResilience:
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.sync_detailed")
     def test_discover_failure_does_not_block_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -229,13 +223,13 @@ class TestAdapterErrorResilience:
         client = _make_sync_client()
         adapter = FailingAdapter()
         client.register_adapter(adapter)
-        client._connect_internal()
+        client.install()
         assert client._connected is True
         client._close()
 
-    @patch("smplkit.logging.client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging.client.list_loggers.sync_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
+    @patch("smplkit.logging._client.list_loggers.sync_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.sync_detailed")
     def test_install_hook_failure_does_not_block_connect(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -248,7 +242,7 @@ class TestAdapterErrorResilience:
         client = _make_sync_client()
         adapter = FailingAdapter()
         client.register_adapter(adapter)
-        client._connect_internal()
+        client.install()
         assert client._connected is True
         client._close()
 
@@ -295,9 +289,9 @@ class TestAdapterErrorResilience:
 
 
 class TestAsyncAdapterErrorResilience:
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.asyncio_detailed")
     def test_async_discover_failure_does_not_block(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -310,13 +304,13 @@ class TestAsyncAdapterErrorResilience:
         client = _make_async_client()
         adapter = FailingAdapter()
         client.register_adapter(adapter)
-        asyncio.run(client._connect_internal())
+        asyncio.run(client.install())
         assert client._connected is True
         client._close()
 
-    @patch("smplkit.logging.client.list_log_groups.asyncio_detailed")
-    @patch("smplkit.logging.client.list_loggers.asyncio_detailed")
-    @patch("smplkit.management.client._gen_bulk_register_loggers.asyncio_detailed")
+    @patch("smplkit.logging._client.list_log_groups.asyncio_detailed")
+    @patch("smplkit.logging._client.list_loggers.asyncio_detailed")
+    @patch("smplkit.logging._client.bulk_register_loggers.asyncio_detailed")
     def test_async_install_hook_failure_does_not_block(self, mock_bulk, mock_loggers, mock_groups):
         mock_bulk.return_value = _ok_response()
         mock_loggers.return_value = _ok_response(_make_list_parsed([]))
@@ -329,7 +323,7 @@ class TestAsyncAdapterErrorResilience:
         client = _make_async_client()
         adapter = FailingAdapter()
         client.register_adapter(adapter)
-        asyncio.run(client._connect_internal())
+        asyncio.run(client.install())
         assert client._connected is True
         client._close()
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sktime
-Version: 1.0.0
+Version: 1.0.1
 Summary: A unified framework for machine learning with time series
 Author-email: sktime developers <sktime.toolbox@gmail.com>
 Maintainer: Felix Hirwa Nshuti, Franz Király, Marc Rovira, Ugochukwu Onyeka
@@ -213,7 +213,7 @@ Dynamic: license-file
 
 > A unified interface for machine learning with time series
 
-:rocket: **Version 1.0.0 out now!** [Check out the release notes here](https://www.sktime.net/en/latest/changelog.html).
+:rocket: **Version 1.0.1 out now!** [Check out the release notes here](https://www.sktime.net/en/latest/changelog.html).
 
 sktime is a library for time series analysis in Python. It provides a unified interface for multiple time series learning tasks. Currently, this includes forecasting, time series classification, clustering, anomaly/changepoint detection, and other tasks. It comes with [time series algorithms](https://www.sktime.net/en/stable/estimator_overview.html) and [scikit-learn] compatible tools to build, tune, and validate time series models.
 

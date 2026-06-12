@@ -1,4 +1,4 @@
-"""Stateless helpers shared between the runtime and management logging clients."""
+"""Stateless helpers shared across the logging clients."""
 
 from __future__ import annotations
 
@@ -16,8 +16,9 @@ from smplkit.logging.models import AsyncSmplLogGroup, AsyncSmplLogger, SmplLogGr
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit import LogLevel
-    from smplkit.logging.client import AsyncLoggingClient, LoggingClient
-    from smplkit.management.client import (
+    from smplkit.logging._client import (
+        AsyncLoggingClient,
+        LoggingClient,
         AsyncLogGroupsClient,
         AsyncLoggersClient,
         LogGroupsClient,

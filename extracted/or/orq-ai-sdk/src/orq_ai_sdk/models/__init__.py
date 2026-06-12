@@ -4495,6 +4495,11 @@ if TYPE_CHECKING:
         GuardrailRuleListRequestTypedDict,
         GuardrailRuleListResponseBody,
         GuardrailRuleListResponseBodyTypedDict,
+        SortBy,
+    )
+    from .guardrailrulelistusedguardrailsop import (
+        GuardrailRuleListUsedGuardrailsResponseBody,
+        GuardrailRuleListUsedGuardrailsResponseBodyTypedDict,
     )
     from .guardrailruleupdateop import (
         GuardrailRuleUpdateRequest,
@@ -6203,6 +6208,10 @@ if TYPE_CHECKING:
         RoutingRuleListRequestTypedDict,
         RoutingRuleListResponseBody,
         RoutingRuleListResponseBodyTypedDict,
+    )
+    from .routingrulelistusedmodelsop import (
+        RoutingRuleListUsedModelsResponseBody,
+        RoutingRuleListUsedModelsResponseBodyTypedDict,
     )
     from .routingruleupdateop import (
         RoutingRuleUpdateRequest,
@@ -12333,6 +12342,8 @@ __all__ = [
     "GuardrailRuleListRequestTypedDict",
     "GuardrailRuleListResponseBody",
     "GuardrailRuleListResponseBodyTypedDict",
+    "GuardrailRuleListUsedGuardrailsResponseBody",
+    "GuardrailRuleListUsedGuardrailsResponseBodyTypedDict",
     "GuardrailRuleTypedDict",
     "GuardrailRuleUpdateRequest",
     "GuardrailRuleUpdateRequestBody",
@@ -14241,6 +14252,8 @@ __all__ = [
     "RoutingRuleListRequestTypedDict",
     "RoutingRuleListResponseBody",
     "RoutingRuleListResponseBodyTypedDict",
+    "RoutingRuleListUsedModelsResponseBody",
+    "RoutingRuleListUsedModelsResponseBodyTypedDict",
     "RoutingRuleTypedDict",
     "RoutingRuleUpdateRequest",
     "RoutingRuleUpdateRequestBody",
@@ -14558,6 +14571,7 @@ __all__ = [
     "SkillUpdateRequest",
     "SkillUpdateRequestTypedDict",
     "Sort",
+    "SortBy",
     "Source",
     "SpecificFunction",
     "SpecificFunctionTypedDict",
@@ -20493,6 +20507,9 @@ _dynamic_imports: dict[str, str] = {
     "GuardrailRuleListRequestTypedDict": ".guardrailrulelistop",
     "GuardrailRuleListResponseBody": ".guardrailrulelistop",
     "GuardrailRuleListResponseBodyTypedDict": ".guardrailrulelistop",
+    "SortBy": ".guardrailrulelistop",
+    "GuardrailRuleListUsedGuardrailsResponseBody": ".guardrailrulelistusedguardrailsop",
+    "GuardrailRuleListUsedGuardrailsResponseBodyTypedDict": ".guardrailrulelistusedguardrailsop",
     "GuardrailRuleUpdateRequest": ".guardrailruleupdateop",
     "GuardrailRuleUpdateRequestBody": ".guardrailruleupdateop",
     "GuardrailRuleUpdateRequestBodyTypedDict": ".guardrailruleupdateop",
@@ -22006,6 +22023,8 @@ _dynamic_imports: dict[str, str] = {
     "RoutingRuleListRequestTypedDict": ".routingrulelistop",
     "RoutingRuleListResponseBody": ".routingrulelistop",
     "RoutingRuleListResponseBodyTypedDict": ".routingrulelistop",
+    "RoutingRuleListUsedModelsResponseBody": ".routingrulelistusedmodelsop",
+    "RoutingRuleListUsedModelsResponseBodyTypedDict": ".routingrulelistusedmodelsop",
     "RoutingRuleUpdateRequest": ".routingruleupdateop",
     "RoutingRuleUpdateRequestBody": ".routingruleupdateop",
     "RoutingRuleUpdateRequestBodyTypedDict": ".routingruleupdateop",

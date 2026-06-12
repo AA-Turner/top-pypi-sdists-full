@@ -1,51 +1,32 @@
 """ Other useful structs """
-from __future__ import absolute_import
 
 from collections import namedtuple
 
 
-"""A topic and partition tuple
+TopicPartition = namedtuple("TopicPartition",
+    ["topic", "partition"])
+TopicPartition.__doc__ = """A topic and partition tuple
 
 Keyword Arguments:
     topic (str): A topic name
     partition (int): A partition id
 """
-TopicPartition = namedtuple("TopicPartition",
-    ["topic", "partition"])
 
 
-"""A Kafka broker metadata used by admin tools.
-
-Keyword Arguments:
-    nodeID (int): The Kafka broker id.
-    host (str): The Kafka broker hostname.
-    port (int): The Kafka broker port.
-    rack (str): The rack of the broker, which is used to in rack aware
-                partition assignment for fault tolerance.
-    Examples: `RACK1`, `us-east-1d`. Default: None
-"""
-BrokerMetadata = namedtuple("BrokerMetadata",
-    ["nodeId", "host", "port", "rack"])
-
-
-"""A topic partition metadata describing the state in the MetadataResponse.
+TopicPartitionReplica = namedtuple("TopicPartitionReplica",
+    ["topic", "partition", "broker_id"])
+TopicPartitionReplica.__doc__ = """A topic / partition / broker replica tuple
 
 Keyword Arguments:
-    topic (str): The topic name of the partition this metadata relates to.
-    partition (int): The id of the partition this metadata relates to.
-    leader (int): The id of the broker that is the leader for the partition.
-    replicas (List[int]): The ids of all brokers that contain replicas of the
-                          partition.
-    isr (List[int]): The ids of all brokers that contain in-sync replicas of
-                     the partition.
-    error (KafkaError): A KafkaError object associated with the request for
-                        this partition metadata.
+    topic (str): A topic name
+    partition (int): A partition id
+    broker_id (int): The node_id of the broker hosting the replica
 """
-PartitionMetadata = namedtuple("PartitionMetadata",
-    ["topic", "partition", "leader", "leader_epoch", "replicas", "isr", "offline_replicas", "error"])
 
 
-"""The Kafka offset commit API
+OffsetAndMetadata = namedtuple("OffsetAndMetadata",
+    ["offset", "metadata", "leader_epoch"], defaults=[None, '', -1])
+OffsetAndMetadata.__doc__ = """Container for committed group offset data.
 
 The Kafka offset commit API allows users to provide additional metadata
 (in the form of a string) when an offset is committed. This can be useful
@@ -57,32 +38,32 @@ Keyword Arguments:
     metadata (str): Non-null metadata
     leader_epoch (int): The last known epoch from the leader / broker
 """
-OffsetAndMetadata = namedtuple("OffsetAndMetadata",
-    ["offset", "metadata", "leader_epoch"])
 
 
-"""An offset and timestamp tuple
+OffsetAndTimestamp = namedtuple("OffsetAndTimestamp",
+    ["offset", "timestamp", "leader_epoch"])
+OffsetAndTimestamp.__doc__ = """An offset and timestamp tuple
 
 Keyword Arguments:
     offset (int): An offset
     timestamp (int): The timestamp associated to the offset
     leader_epoch (int): The last known epoch from the leader / broker
 """
-OffsetAndTimestamp = namedtuple("OffsetAndTimestamp",
-    ["offset", "timestamp", "leader_epoch"])
 
-MemberInformation = namedtuple("MemberInformation",
-    ["member_id", "client_id", "client_host", "member_metadata", "member_assignment"])
 
-GroupInformation = namedtuple("GroupInformation",
-    ["error_code", "group", "state", "protocol_type", "protocol", "members", "authorized_operations"])
+ConsumerGroupMetadata = namedtuple("ConsumerGroupMetadata",
+    ["group_id", "generation_id", "member_id", "group_instance_id"],
+    defaults=[-1, '', None])
+ConsumerGroupMetadata.__doc__ = """A snapshot of a consumer's group membership (KIP-447).
 
-"""Define retry policy for async producer
+Passed to KafkaProducer.send_offsets_to_transaction() so the broker can fence
+stale consumer instances when committing offsets inside a transaction. The
+broker uses member_id + generation_id + group_instance_id to verify the
+producer is acting on behalf of the current group generation.
 
 Keyword Arguments:
-    Limit (int): Number of retries. limit >= 0, 0 means no retries
-    backoff_ms (int): Milliseconds to backoff.
-    retry_on_timeouts:
+    group_id (str): The consumer group id.
+    generation_id (int): The current generation id (-1 if unjoined).
+    member_id (str): The current member id ('' if unjoined).
+    group_instance_id (str): The static membership instance id, or None.
 """
-RetryOptions = namedtuple("RetryOptions",
-    ["limit", "backoff_ms", "retry_on_timeouts"])

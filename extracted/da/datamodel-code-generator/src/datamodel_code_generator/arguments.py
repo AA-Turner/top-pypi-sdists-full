@@ -142,6 +142,7 @@ arg_parser = ArgumentParser(
     description="Generate Python data models from schema definitions or structured data\n\n"
     "For detailed usage, see: https://datamodel-code-generator.koxudaxi.dev",
     epilog="Documentation: https://datamodel-code-generator.koxudaxi.dev\n"
+    "Agent skill: https://datamodel-code-generator.koxudaxi.dev/coding-agent-skill/\n"
     "GitHub: https://github.com/koxudaxi/datamodel-code-generator",
     formatter_class=SortingHelpFormatter,
     add_help=False,
@@ -1216,6 +1217,19 @@ general_options.add_argument(
     action="store_true",
     default=False,
     help="disable colorized output",
+)
+general_options.add_argument(
+    "--output-format",
+    choices=["text", "json"],
+    default=None,
+    help="Format for command output (default: text). Use json for structured output when supported.",
+)
+general_options.add_argument(
+    "--output-format-json-schema",
+    choices=["generate-prompt", "generation", "structured-output"],
+    default=None,
+    metavar="{generate-prompt,generation,structured-output}",
+    help="Output JSON Schema for the selected structured output format and exit.",
 )
 general_options.add_argument(
     "--generate-pyproject-config",

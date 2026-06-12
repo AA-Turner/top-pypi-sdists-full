@@ -12,9 +12,9 @@ from ..exceptions import (
     SniTunConnectionError,
 )
 from ..multiplexer.core import Multiplexer
-from ..multiplexer.crypto import CryptoTransport
+from ..multiplexer.crypto import DEFAULT_CIPHER, create_crypto_transport
 from ..utils import DEFAULT_PROTOCOL_VERSION
-from ..utils.asyncio import asyncio_timeout, make_task_waiter_future
+from ..utils.asyncio import make_task_waiter_future
 from .connector import Connector
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ class ClientPeer:
     def __init__(self, snitun_host: str, snitun_port: int | None = None) -> None:
         """Initialize ClientPeer connector."""
         self._multiplexer: Multiplexer | None = None
-        self._loop = asyncio.get_event_loop()
         self._snitun_host = snitun_host
         self._snitun_port = snitun_port or 8080
         self._handler_task: asyncio.Task[None] | None = None
@@ -54,6 +53,7 @@ class ClientPeer:
         aes_iv: bytes,
         throttling: int | None = None,
         protocol_version: int = DEFAULT_PROTOCOL_VERSION,
+        cipher: str = DEFAULT_CIPHER,
     ) -> None:
         """Connect an start ClientPeer."""
         if self._multiplexer:
@@ -66,7 +66,7 @@ class ClientPeer:
             self._snitun_port,
         )
         try:
-            async with asyncio_timeout.timeout(CONNECTION_TIMEOUT):
+            async with asyncio.timeout(CONNECTION_TIMEOUT):
                 reader, writer = await asyncio.open_connection(
                     host=self._snitun_host,
                     port=self._snitun_port,
@@ -85,18 +85,20 @@ class ClientPeer:
         # Send fernet token
         writer.write(fernet_token)
         try:
-            async with asyncio_timeout.timeout(CONNECTION_TIMEOUT):
+            async with asyncio.timeout(CONNECTION_TIMEOUT):
                 await writer.drain()
         except TimeoutError:
             raise SniTunConnectionError(
                 "Timeout while writing connection token",
             ) from None
 
-        # Challenge/Response
-        crypto = CryptoTransport(aes_key, aes_iv)
+        # Challenge/Response. The client initiates; the server responds. They
+        # share one AES key, so they must take opposite GCM counter-nonce
+        # prefixes.
+        crypto = create_crypto_transport(cipher, aes_key, aes_iv, is_initiator=True)
         try:
-            async with asyncio_timeout.timeout(CONNECTION_TIMEOUT):
-                challenge = await reader.readexactly(32)
+            async with asyncio.timeout(CONNECTION_TIMEOUT):
+                challenge = await reader.readexactly(32 + crypto.overhead)
                 answer = hashlib.sha256(crypto.decrypt(challenge)).digest()
 
                 writer.write(crypto.encrypt(answer))
@@ -133,7 +135,7 @@ class ClientPeer:
         assert not self._handler_task or self._handler_task.done(), (
             "SniTun connection already running"
         )
-        self._handler_task = self._loop.create_task(self._handler())
+        self._handler_task = asyncio.create_task(self._handler())
 
     async def stop(self) -> None:
         """Stop connection to SniTun server."""
@@ -161,7 +163,7 @@ class ClientPeer:
 
         async def _wait_with_timeout(multiplexer: Multiplexer) -> None:
             try:
-                async with asyncio_timeout.timeout(50):
+                async with asyncio.timeout(50):
                     await multiplexer.wait()
             except TimeoutError:
                 await multiplexer.ping()

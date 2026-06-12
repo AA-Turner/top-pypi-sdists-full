@@ -138,22 +138,48 @@ impl Builtin for Read {
             .or_else(|| ctx.env.get("IFS"))
             .map(|s| s.as_str())
             .unwrap_or(" \t\n");
-        let words: Vec<&str> = if ifs.is_empty() {
+        struct ReadField<'a> {
+            text: &'a str,
+            start: usize,
+        }
+
+        let words: Vec<ReadField<'_>> = if ifs.is_empty() {
             // Empty IFS means no word splitting
-            vec![&line]
+            vec![ReadField {
+                text: &line,
+                start: 0,
+            }]
         } else {
             let ifs_ws: Vec<char> = ifs.chars().filter(|c| " \t\n".contains(*c)).collect();
             let ifs_non_ws: Vec<char> = ifs.chars().filter(|c| !" \t\n".contains(*c)).collect();
 
             if ifs_non_ws.is_empty() {
                 // All IFS chars are whitespace: collapse runs, trim
-                line.split(|c: char| ifs.contains(c))
-                    .filter(|s| !s.is_empty())
-                    .collect()
+                let mut fields = Vec::new();
+                let mut field_start = None::<usize>;
+                for (i, ch) in line.char_indices() {
+                    if ifs.contains(ch) {
+                        if let Some(start) = field_start.take() {
+                            fields.push(ReadField {
+                                text: &line[start..i],
+                                start,
+                            });
+                        }
+                    } else if field_start.is_none() {
+                        field_start = Some(i);
+                    }
+                }
+                if let Some(start) = field_start {
+                    fields.push(ReadField {
+                        text: &line[start..],
+                        start,
+                    });
+                }
+                fields
             } else {
                 // Mixed IFS: split on all IFS chars, collapse whitespace runs,
                 // preserve empty fields for consecutive non-whitespace delimiters.
-                let mut fields: Vec<&str> = Vec::new();
+                let mut fields: Vec<ReadField<'_>> = Vec::new();
                 let mut field_start = 0usize;
                 let mut i = 0usize;
                 let mut last_delim_was_non_ws = false;
@@ -169,7 +195,10 @@ impl Builtin for Read {
                     }
 
                     if ifs_non_ws.contains(&ch) {
-                        fields.push(&line[field_start..i]);
+                        fields.push(ReadField {
+                            text: &line[field_start..i],
+                            start: field_start,
+                        });
                         i += ch_len;
                         while i < line.len() {
                             let mut ws_iter = line[i..].char_indices();
@@ -183,8 +212,12 @@ impl Builtin for Read {
                         field_start = i;
                         last_delim_was_non_ws = true;
                     } else {
-                        if field_start != i {
-                            fields.push(&line[field_start..i]);
+                        let pushed_field = field_start != i;
+                        if pushed_field {
+                            fields.push(ReadField {
+                                text: &line[field_start..i],
+                                start: field_start,
+                            });
                         }
                         i += ch_len;
                         while i < line.len() {
@@ -196,13 +229,36 @@ impl Builtin for Read {
                                 break;
                             }
                         }
+
+                        // IFS whitespace adjacent to a non-whitespace IFS delimiter
+                        // is one delimiter sequence, not an empty field.
+                        if pushed_field && i < line.len() {
+                            let mut next_iter = line[i..].char_indices();
+                            let (_, next_ch) = next_iter.next().expect("valid char boundary");
+                            if ifs_non_ws.contains(&next_ch) {
+                                i += next_ch.len_utf8();
+                                while i < line.len() {
+                                    let mut ws_iter = line[i..].char_indices();
+                                    let (_, ws_ch) = ws_iter.next().expect("valid char boundary");
+                                    if ifs_ws.contains(&ws_ch) {
+                                        i += ws_ch.len_utf8();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
                         field_start = i;
                         last_delim_was_non_ws = false;
                     }
                 }
 
                 if field_start < line.len() || last_delim_was_non_ws {
-                    fields.push(&line[field_start..]);
+                    fields.push(ReadField {
+                        text: &line[field_start..],
+                        start: field_start,
+                    });
                 }
                 fields
             }
@@ -218,7 +274,7 @@ impl Builtin for Read {
             let mut result = ExecResult::ok(String::new());
             result.side_effects.push(BuiltinSideEffect::SetArray {
                 name: arr_name.to_string(),
-                elements: words.iter().map(|w| w.to_string()).collect(),
+                elements: words.iter().map(|w| w.text.to_string()).collect(),
             });
             return Ok(result);
         }
@@ -238,19 +294,14 @@ impl Builtin for Read {
                 continue;
             }
             let value = if i == var_names.len() - 1 {
-                // Last variable gets all remaining words joined by first IFS char
-                let remaining: Vec<&str> = words.iter().skip(i).copied().collect();
-                let ifs_non_ws: Vec<char> = ifs.chars().filter(|c| !" \t\n".contains(*c)).collect();
-                let join_sep = if !ifs_non_ws.is_empty() {
-                    // Non-whitespace IFS: join with the first non-whitespace IFS char
-                    ifs_non_ws[0].to_string()
-                } else {
-                    // Whitespace-only IFS: join with space
-                    " ".to_string()
-                };
-                remaining.join(&join_sep)
+                // Bash gives the final variable the unsplit remaining input.
+                // Preserve original separators instead of reconstructing from IFS.
+                words
+                    .get(i)
+                    .map(|field| line[field.start..].to_string())
+                    .unwrap_or_default()
             } else if i < words.len() {
-                words[i].to_string()
+                words[i].text.to_string()
             } else {
                 // Not enough words - set to empty
                 String::new()
@@ -610,6 +661,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_custom_ifs_last_var_preserves_original_delimiters() {
+        let (fs, mut cwd, mut variables) = setup().await;
+        let mut env = HashMap::new();
+        env.insert("IFS".to_string(), ",:".to_string());
+        let args = vec!["A".to_string(), "B".to_string()];
+        let ctx = Context::new_for_test(
+            &args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            Some("1,2:3"),
+        );
+        let result = Read.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 0);
+        let vars = extract_vars(&result);
+        assert_eq!(vars.get("A").unwrap(), "1");
+        assert_eq!(vars.get("B").unwrap(), "2:3");
+    }
+
+    #[tokio::test]
     async fn read_custom_ifs_preserves_empty_fields() {
         let (fs, mut cwd, mut variables) = setup().await;
         let mut env = HashMap::new();
@@ -657,6 +729,28 @@ mod tests {
         assert_eq!(vars.get("A").unwrap(), "one");
         assert_eq!(vars.get("B").unwrap(), "two");
         assert_eq!(vars.get("C").unwrap(), "three");
+    }
+
+    #[tokio::test]
+    async fn read_mixed_ifs_whitespace_before_non_ws_delimiter() {
+        let (fs, mut cwd, mut variables) = setup().await;
+        let mut env = HashMap::new();
+        env.insert("IFS".to_string(), ": ".to_string());
+        let args = vec!["A".to_string(), "B".to_string(), "C".to_string()];
+        let ctx = Context::new_for_test(
+            &args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            Some("one : two"),
+        );
+        let result = Read.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 0);
+        let vars = extract_vars(&result);
+        assert_eq!(vars.get("A").unwrap(), "one");
+        assert_eq!(vars.get("B").unwrap(), "two");
+        assert_eq!(vars.get("C").unwrap(), "");
     }
 
     #[tokio::test]

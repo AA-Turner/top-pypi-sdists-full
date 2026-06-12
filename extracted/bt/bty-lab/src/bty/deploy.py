@@ -43,6 +43,19 @@ import bty
 # daemon-reload`.
 QUADLET_SYSTEM_DIR = Path("/etc/containers/systemd")
 
+# Where bty drops its netavark firewall-backend pin. Podman's default
+# netavark backend on Debian trixie auto-detects: it prefers nftables if
+# ``nft`` is on PATH, else iptables. A freshly imaged appliance that
+# ships only iptables (the lab box circa v0.44.1) hits ``netavark:
+# nftables error: unable to execute nft: No such file or directory`` and
+# the bty-web / withcache containers exit 127 with no useful surface in
+# their own logs. Pinning ``firewall_driver = "iptables"`` keeps the
+# deploy working whether or not nftables is installed; the iptables
+# userspace on trixie is the nftables-backed compat shim anyway, so the
+# kernel-level packet path is identical.
+CONTAINERS_CONF_D_DIR = Path("/etc/containers/containers.conf.d")
+NETAVARK_FIREWALL_DROP_IN = CONTAINERS_CONF_D_DIR / "zz-bty-firewall.conf"
+
 # Service names the Quadlet units in this module generate. Used by
 # `deploy` (as root: start them) and `upgrade` (detect Quadlet-managed
 # stack + restart).
@@ -207,11 +220,8 @@ WITHCACHE_ADMIN_PASSWORD=change-me
 # fleets or untrusted networks.
 # BTY_MAX_UPLOAD_BYTES=214748364800
 
-# Concurrent-worker caps. Defaults are sane for most fleets; raise
-# carefully if the host has the CPU + disk bandwidth, drop on small
-# boxes (Raspberry Pi, low-spec mini-PCs).
-# BTY_CATALOG_MAX_PARALLEL=2
-# BTY_HASH_MAX_PARALLEL=1
+# Concurrent-worker cap for the backup scheduler. Default is sane
+# for most fleets; raise if the host has the CPU + disk bandwidth.
 # BTY_BACKUP_MAX_PARALLEL=1
 """
 
@@ -308,20 +318,18 @@ bumps those pins. State in `data/` survives the restart.
 def _quadlet_bty_web(
     version: str,
     data_dir_abs: Path,
-    host_addr: str | None = None,
     dest_abs: Path | None = None,
 ) -> str:
     """Render the bty-web Quadlet unit.
 
-    ``host_addr`` baked in when known (deploy_main path): the unit lands
-    with the real LAN IP in BTY_WITHCACHE_URL + BTY_TFTP_PROBE_HOST, so
-    no hand-edit is required. ``None`` (the stand-alone ``bty-lab init
+    v0.42+ the unit carries only ``BTY_CONFIG_FILE`` + a bind-mount of
+    ``bty.toml`` -- every operator knob (withcache URL, TFTP probe host,
+    ...) lives in that file, so the LAN address is no longer baked into
+    ``Environment=`` lines. ``dest_abs`` set (deploy_main path): the
+    bind-mount carries the absolute ``<dest>/bty.toml`` path so no
+    hand-edit is required. ``None`` (the stand-alone ``bty-lab init
     --systemd`` path -- operator inspects + edits before installing)
-    emits ``HOST_ADDR_HERE`` placeholders and a hand-edit note in the
-    header. Quadlets DON'T expand env-file references the way Compose
-    does, so a literal placeholder would leave bty-web with broken DNS
-    + a failing TFTP probe; substituting at emit time is the only place
-    in the pipeline that has the value.
+    emits a ``BTY_TOML_HOST_PATH_HERE`` placeholder + a hand-edit note.
     """
     edit_note = (
         ""
@@ -331,11 +339,6 @@ def _quadlet_bty_web(
             "# absolute path to ``bty.toml`` on this host before installing.\n#\n"
         )
     )
-    # ``host_addr`` is no longer baked into Environment= lines --
-    # v0.42 moved every operator knob into bty.toml. Kept as a
-    # signature arg for one release in case a downstream still calls
-    # with it positionally; we explicitly ignore it.
-    _ = host_addr
     toml_host_path = (
         str(dest_abs / "bty.toml") if dest_abs is not None else "BTY_TOML_HOST_PATH_HERE"
     )
@@ -461,7 +464,6 @@ def _emit_deploy_files(
     version: str,
     with_systemd: bool,
     force: bool,
-    host_addr: str | None = None,
     withcache_pw: str | None = None,
 ) -> list[Path]:
     """Emit compose.yml + envvars.example + README + (optional) Quadlet
@@ -490,7 +492,7 @@ def _emit_deploy_files(
         for fname, body in (
             (
                 "bty-web.container",
-                _quadlet_bty_web(version, data_dir_abs, host_addr, dest_abs=dest_abs),
+                _quadlet_bty_web(version, data_dir_abs, dest_abs=dest_abs),
             ),
             (
                 "withcache.container",
@@ -634,10 +636,17 @@ def _detect_host_addr() -> str:
     UDP-connects to a TEST-NET-2 address (no packet sent on UDP-connect;
     the kernel just chooses an outbound interface) and reads the local
     socket address. Returns whichever IP the host would actually use for
-    outbound traffic -- almost always the LAN address bty-web should
+    outbound traffic, almost always the LAN address bty-web should
     advertise. Falls back to ``127.0.0.1`` when no route is available;
-    the deploy hint surfaces this so the operator can override."""
+    the deploy hint surfaces this so the operator can override.
+
+    The ``settimeout`` is belt-and-braces: UDP-connect doesn't normally
+    block (the kernel returns immediately after the route lookup), but
+    a pathological resolver should not be able to hang ``bty-lab init``
+    indefinitely. Matches the same probe in :func:`bty.web._config.detect_host_addr`.
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(5)
     try:
         s.connect(("198.51.100.1", 80))
         # getsockname() returns Any per typeshed (the tuple shape
@@ -796,9 +805,7 @@ BTY_SESSION_SECRET={session_secret}
 # Per-request upload cap for the operator UI's image-upload form.
 # BTY_MAX_UPLOAD_BYTES=214748364800
 
-# Concurrent-worker caps.
-# BTY_CATALOG_MAX_PARALLEL=2
-# BTY_HASH_MAX_PARALLEL=1
+# Concurrent-worker cap for the backup scheduler.
 # BTY_BACKUP_MAX_PARALLEL=1
 """
 
@@ -1016,6 +1023,46 @@ def _remove_quadlets() -> list[Path]:
             target.unlink()
             removed.append(target)
     return removed
+
+
+_NETAVARK_FIREWALL_DROP_IN_CONTENT = """\
+# Managed by bty-lab. Pins podman/netavark to the iptables firewall
+# backend so the stack starts on hosts that don't ship the ``nftables``
+# package (the iptables userspace on Debian trixie is the nftables-
+# backed compat shim, so the kernel packet path is the same). Without
+# this, a freshly imaged appliance hits ``netavark: nftables error:
+# unable to execute nft: No such file or directory`` and the bty-web /
+# withcache containers exit 127 with no useful surface in their own
+# logs. Removed by ``bty-lab purge``.
+[network]
+firewall_driver = "iptables"
+"""
+
+
+def _install_netavark_firewall_drop_in() -> Path | None:
+    """Write the netavark firewall-backend pin to
+    :data:`NETAVARK_FIREWALL_DROP_IN`. Idempotent: an existing file
+    with the same content is left alone; a file with different content
+    is overwritten (bty owns this path). Returns the path if it was
+    written or refreshed, else ``None``."""
+    CONTAINERS_CONF_D_DIR.mkdir(parents=True, exist_ok=True)
+    if (
+        NETAVARK_FIREWALL_DROP_IN.exists()
+        and NETAVARK_FIREWALL_DROP_IN.read_text() == _NETAVARK_FIREWALL_DROP_IN_CONTENT
+    ):
+        return None
+    NETAVARK_FIREWALL_DROP_IN.write_text(_NETAVARK_FIREWALL_DROP_IN_CONTENT)
+    NETAVARK_FIREWALL_DROP_IN.chmod(0o644)
+    return NETAVARK_FIREWALL_DROP_IN
+
+
+def _remove_netavark_firewall_drop_in() -> Path | None:
+    """Inverse of :func:`_install_netavark_firewall_drop_in`. Idempotent:
+    a missing file is fine. Returns the removed path or ``None``."""
+    if NETAVARK_FIREWALL_DROP_IN.exists():
+        NETAVARK_FIREWALL_DROP_IN.unlink()
+        return NETAVARK_FIREWALL_DROP_IN
+    return None
 
 
 def _confirm(prompt: str, *, assume_yes: bool) -> bool:
@@ -1245,7 +1292,7 @@ def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") 
     # prereqs-OK, install-mode, emit-files, HOST_ADDR, passwords,
     # envvars, [chown?], prep-data, pull, start, [quadlets,
     # daemon-reload, start-svcs]*root, deploy-complete.
-    total = 11 + (1 if will_chown else 0) + (3 if is_root else 0)
+    total = 11 + (1 if will_chown else 0) + (4 if is_root else 0)
     _steps_begin(total)
 
     _step("checking prereqs")
@@ -1284,7 +1331,6 @@ def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") 
             version=version,
             with_systemd=is_root,
             force=args.force,
-            host_addr=host_addr,
             withcache_pw=withcache_pw,
         )
     except FileExistsError as exc:
@@ -1397,6 +1443,10 @@ def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") 
             sys.exit(1)
         for p in installed:
             print(f"  {p}", file=sys.stderr)
+
+        _step("pinning netavark firewall backend to iptables")
+        if (drop_in := _install_netavark_firewall_drop_in()) is not None:
+            print(f"  {drop_in}", file=sys.stderr)
 
         _step("systemctl daemon-reload")
         _systemctl(["daemon-reload"])
@@ -1519,7 +1569,7 @@ def upgrade_main(argv: list[str] | None = None, *, prog: str = "bty-lab upgrade"
     # regen-files, envvars-preserved, bty.toml-migrated-or-preserved,
     # prep-data, pull, [quadlets, daemon-reload, restart-svcs]*quadlet
     # OR [restart-stack]*compose, upgrade-complete.
-    total = 9 + (3 if quadlet_managed else 1)
+    total = 9 + (4 if quadlet_managed else 1)
     _steps_begin(total)
 
     _step("checking prereqs")
@@ -1545,7 +1595,6 @@ def upgrade_main(argv: list[str] | None = None, *, prog: str = "bty-lab upgrade"
         version=version,
         with_systemd=is_root,
         force=True,
-        host_addr=host_addr,
         withcache_pw=DEFAULT_DEPLOY_PASSWORD,
     )
     for p in written:
@@ -1586,6 +1635,10 @@ def upgrade_main(argv: list[str] | None = None, *, prog: str = "bty-lab upgrade"
         installed = _install_quadlets(dest, force=True)
         for p in installed:
             print(f"  {p}", file=sys.stderr)
+
+        _step("pinning netavark firewall backend to iptables")
+        if (drop_in := _install_netavark_firewall_drop_in()) is not None:
+            print(f"  {drop_in}", file=sys.stderr)
 
         _step("systemctl daemon-reload")
         _systemctl(["daemon-reload"])
@@ -1748,11 +1801,11 @@ def purge_main(argv: list[str] | None = None, *, prog: str = "bty-lab purge") ->
         print(f"{prog}: aborted; nothing was changed.", file=sys.stderr)
         sys.exit(1)
 
-    # Step count: teardown (1) [+ unit-removal + daemon-reload when
-    # Quadlet] [+ images] [+ data] [+ dir] + done.
+    # Step count: teardown (1) [+ unit-removal + drop-in-removal +
+    # daemon-reload when Quadlet] [+ images] [+ data] [+ dir] + done.
     total = (
         1
-        + (2 if quadlet_managed else 0)
+        + (3 if quadlet_managed else 0)
         + int(args.images)
         + int(remove_data)
         + int(remove_dir)
@@ -1769,6 +1822,10 @@ def purge_main(argv: list[str] | None = None, *, prog: str = "bty-lab purge") ->
         removed = _remove_quadlets()
         for p in removed:
             print(f"  {p}", file=sys.stderr)
+
+        _step("removing netavark firewall drop-in")
+        if (drop_in := _remove_netavark_firewall_drop_in()) is not None:
+            print(f"  {drop_in}", file=sys.stderr)
 
         _step("systemctl daemon-reload")
         _systemctl(["daemon-reload"], check=False)

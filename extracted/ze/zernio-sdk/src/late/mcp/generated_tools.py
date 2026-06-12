@@ -2211,7 +2211,7 @@ def register_generated_tools(mcp, _get_client):
                 ad_set_name: Meta only. Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
                 ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
                 tracking: Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the "Website events" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied on the legacy single-creative shape, every ad of the multi-creative shape, and the attach shape. NOTE: tracking lives on the AD object and is not inherited from the ad set, so pass it on EVERY attach call that should carry the pixel.
-                goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
+                goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `catalog_sales` (Advantage+ catalog ads, e.g. vehicle inventory) requires `promotedObject.productSetId` + `promotedObject.pixelId` + `promotedObject.customEventType` and builds a catalog TEMPLATE creative from the copy fields (headline/body/description/linkUrl/callToAction, which may carry catalog template tags like {{product.name}} or {{vehicle.make}}) — no imageUrl/video is sent, Meta renders the visuals per catalog item; discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets; single shape only (no creatives[]/adSetId/dynamicCreative/placementAssets); `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
                 optimization_goal: Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 budget_amount: Required on legacy + multi-creative shapes. Inherited on attach.
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach.
@@ -2798,6 +2798,52 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id=ad_account_id,
                 spec=spec,
                 optimization_goal=optimization_goal,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Meta product catalogs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ads_list_ad_catalogs(account_id: str, ad_account_id: str) -> str:
+        """List Meta product catalogs
+
+        Args:
+            account_id: A facebook, instagram, or metaads social account ID (required)
+            ad_account_id: Meta ad account ID (act_...) (required)"""
+        client = _get_client()
+        try:
+            response = client.ads.list_ad_catalogs(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a catalog's product sets",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ads_list_ad_catalog_product_sets(catalog_id: str, account_id: str) -> str:
+        """List a catalog's product sets
+
+        Args:
+            catalog_id: Meta product catalog ID (from GET /v1/ads/catalogs) (required)
+            account_id: A facebook, instagram, or metaads social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.ads.list_ad_catalog_product_sets(
+                catalog_id=catalog_id, account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -7551,7 +7597,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create conversation",
+            title="Create conversation (send a WhatsApp template)",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -7567,7 +7613,7 @@ def register_generated_tools(mcp, _get_client):
         template_language: str | None = None,
         template_params: list[str] | None = None,
     ) -> str:
-        """Create conversation
+        """Create conversation (send a WhatsApp template)
 
         Args:
             account_id: The social account ID to send from (required)
@@ -7724,17 +7770,41 @@ def register_generated_tools(mcp, _get_client):
         other formats are rejected by WhatsApp. Ignored for non-audio attachments.
                 quick_replies: Quick reply buttons. Mutually exclusive with buttons. Max 13 items.
                 buttons: Action buttons. Mutually exclusive with quickReplies. Max 3 items.
-                template: Generic template for carousels (Instagram/Facebook only, ignored on Telegram).
+                template: Platform-dependent template payload. Ignored on Telegram.
+
+        Instagram / Facebook: a generic template (carousel). Set `type: generic`
+        and provide up to 10 `elements`, each with a `title` (required) and
+        optional `subtitle`, `imageUrl`, and `buttons`.
+
+        WhatsApp: sends an approved WhatsApp template message, the only message
+        type WhatsApp accepts when the 24-hour customer-service window is closed.
+        Provide exactly one element carrying the template reference:
+        `{ "elements": [{ "name": "order_update", "language": "en_US", "components": [...] }] }`
+        (`type` is ignored on WhatsApp). `components` is optional and is forwarded
+        unchanged as the `template.components` array of Meta's Cloud API send
+        payload; use it to fill body/header variables and button parameters, e.g.
+        `[{ "type": "body", "parameters": [{ "type": "text", "text": "John" }] }]`.
+        Templates with media headers (image, video, document) must include the
+        header component with its media link here at send time. To send a template
+        to a phone number with no existing conversation, or to have media headers
+        filled in automatically from the template definition, use the
+        create-conversation endpoint (POST /v1/inbox/conversations) instead.
                 interactive: WhatsApp-only. Rich interactive payload for list messages, CTA URL
-        buttons, and Flow prompts. When set, takes priority over `buttons`
-        and `quickReplies`. The shape mirrors Meta's Cloud API `interactive`
-        object verbatim, so any payload that works against Meta directly
-        will also work here.
+        buttons, Flow prompts, and location requests. When set, takes
+        priority over `buttons` and `quickReplies`. The shape mirrors
+        Meta's Cloud API `interactive` object verbatim, so any payload
+        that works against Meta directly will also work here.
 
         Use `buttons` / `quickReplies` for simple button replies
         (WhatsApp's `interactive.type: "button"`) — the abstraction caps at
         3 buttons and handles the auto-conversion for you. Use this field
-        only for `list`, `cta_url`, or `flow` messages.
+        only for `list`, `cta_url`, `flow`, or `location_request_message`
+        messages.
+
+        For `location_request_message`, `action` may be omitted (we default
+        it to `{ "name": "send_location" }`). WhatsApp renders a localized
+        "Send location" button; the user's reply arrives as a regular
+        location message in the conversation.
 
         Tap events come back via the `message.received` webhook with
         `metadata.interactiveType` set to `list_reply` or `nfm_reply`.
@@ -10108,6 +10178,80 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List blocked users",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def whatsapp_get_whats_app_blocked_users(
+        account_id: str, limit: int | None = None, after: str | None = None
+    ) -> str:
+        """List blocked users
+
+        Args:
+            account_id: WhatsApp social account ID (required)
+            limit: Page size.
+            after: Cursor from a previous response's `nextCursor`."""
+        client = _get_client()
+        try:
+            response = client.whatsapp.get_whats_app_blocked_users(
+                account_id=account_id, limit=limit, after=after
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Block users",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_block_whats_app_users(account_id: str, users: list[str] | None) -> str:
+        """Block users
+
+        Args:
+            account_id: WhatsApp social account ID (required)
+            users: Phone numbers (E.164, e.g. "+16505551234") or WhatsApp user IDs to block. (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.block_whats_app_users(
+                account_id=account_id, users=users
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unblock users",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_unblock_whats_app_users(
+        account_id: str, users: list[str] | None
+    ) -> str:
+        """Unblock users
+
+        Args:
+            account_id: WhatsApp social account ID (required)
+            users: Phone numbers (E.164) or WhatsApp user IDs to unblock. (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.unblock_whats_app_users(
+                account_id=account_id, users=users
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get CTWA conversions dataset",
             readOnlyHint=True,
             destructiveHint=False,
@@ -10712,6 +10856,8 @@ def register_generated_tools(mcp, _get_client):
     def whatsapp_calling_initiate_whats_app_call(
         account_id: str,
         to: str,
+        action: str | None = None,
+        body_text: str | None = None,
         forward_to: str | None = None,
         record_override: bool | None = None,
         biz_opaque_callback_data: str | None = None,
@@ -10721,6 +10867,8 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 account_id: (required)
                 to: Consumer wa_id (E.164 (required)
+                action: Omit to place a call. Set to send the consent prompt instead.
+                body_text: Body text shown with the consent prompt (send_call_permission_request only).
                 forward_to: Per-call destination override. Same accepted shape as the
         number's stored forwardTo (tel:+E164, sip:..., wss://...).
                 record_override
@@ -10732,6 +10880,8 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp_calling.initiate_whats_app_call(
                 account_id=account_id,
                 to=to,
+                action=action,
+                body_text=body_text,
                 forward_to=forward_to,
                 record_override=record_override,
                 biz_opaque_callback_data=biz_opaque_callback_data,

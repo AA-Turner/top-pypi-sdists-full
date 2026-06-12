@@ -8,7 +8,7 @@ import logging
 
 from ..exceptions import SniTunChallengeError, SniTunInvalidPeer
 from ..metrics.base import MetricsCollector
-from ..utils.asyncio import asyncio_timeout
+from ..utils.ipaddress import Hosts, normalize_hosts
 from .peer_manager import PeerManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,13 +22,19 @@ class PeerListener:
     def __init__(
         self,
         peer_manager: PeerManager,
-        host: str | None = None,
+        host: Hosts = None,
         port: int | None = None,
         metrics: MetricsCollector | None = None,
     ) -> None:
-        """Initialize SNI Proxy interface."""
+        """Initialize SNI Proxy interface.
+
+        ``host`` accepts a single address or a sequence of addresses (e.g.
+        ``["0.0.0.0", "::"]`` to listen on IPv4 and IPv6). Each address may be
+        a string (hostname or IP) or an ipaddress object. None binds all
+        interfaces.
+        """
         self._peer_manager = peer_manager
-        self._host = host
+        self._host = normalize_hosts(host)
         self._port = port or 8080
         self._metrics = metrics
         self._server: asyncio.Server | None = None
@@ -56,7 +62,7 @@ class PeerListener:
         """Handle incoming requests."""
         if not data:
             try:
-                async with asyncio_timeout.timeout(2):
+                async with asyncio.timeout(2):
                     fernet_data = await reader.read(2048)
             except TimeoutError:
                 _LOGGER.warning("Abort peer handshake")
@@ -95,7 +101,7 @@ class PeerListener:
             self._peer_manager.add_peer(peer)
             while peer.is_connected:
                 try:
-                    async with asyncio_timeout.timeout(CHECK_VALID_EXPIRE):
+                    async with asyncio.timeout(CHECK_VALID_EXPIRE):
                         await peer.wait_disconnect()
                 except TimeoutError:
                     if not peer.is_valid:

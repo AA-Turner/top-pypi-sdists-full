@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 The :py:mod:`nameparser.config` module manages the configuration of the
 nameparser. 
@@ -11,7 +10,7 @@ configuration by importing this instance and changing it.
 
     >>> from nameparser.config import CONSTANTS
     >>> CONSTANTS.titles.remove('hon').add('chemistry','dean') # doctest: +ELLIPSIS
-    SetManager(set([u'msgt', ..., u'adjutant']))
+    SetManager({'msgt', ..., 'adjutant'})
 
 You can also adjust the configuration of individual instances by passing
 ``None`` as the second argument upon instantiation.
@@ -21,22 +20,23 @@ You can also adjust the configuration of individual instances by passing
     >>> from nameparser import HumanName
     >>> hn = HumanName("Dean Robert Johns", None)
     >>> hn.C.titles.add('dean') # doctest: +ELLIPSIS
-    SetManager(set([u'msgt', ..., u'adjutant']))
+    SetManager({'msgt', ..., 'adjutant'})
     >>> hn.parse_full_name() # need to run this again after config changes
 
 **Potential Gotcha**: If you do not pass ``None`` as the second argument,
 ``hn.C`` will be a reference to the module config, possibly yielding 
 unexpected results. See `Customizing the Parser <customize.html>`_.
 """
-from __future__ import unicode_literals
+import re
 import sys
-try:
-    # Python 3.3+
-    from collections.abc import Set
-except ImportError:
-    from collections import Set
+from collections.abc import Iterable, Iterator, Mapping, Set
+from typing import Any, TypeVar
 
-from nameparser.util import binary_type
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 from nameparser.util import lc
 from nameparser.config.prefixes import PREFIXES
 from nameparser.config.capitalization import CAPITALIZATION_EXCEPTIONS
@@ -45,7 +45,7 @@ from nameparser.config.suffixes import SUFFIX_ACRONYMS
 from nameparser.config.suffixes import SUFFIX_NOT_ACRONYMS
 from nameparser.config.titles import TITLES
 from nameparser.config.titles import FIRST_NAME_TITLES
-from nameparser.config.regexes import REGEXES
+from nameparser.config.regexes import EMPTY_REGEX, REGEXES
 
 DEFAULT_ENCODING = 'UTF-8'
 
@@ -62,37 +62,25 @@ class SetManager(Set):
 
     '''
 
-    def __init__(self, elements):
+    def __init__(self, elements: Iterable[str]) -> None:
         self.elements = set(elements)
 
-    def __call__(self):
+    def __call__(self) -> Set[str]:
         return self.elements
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "SetManager({})".format(self.elements)  # used for docs
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self.elements)
 
-    def __contains__(self, value):
+    def __contains__(self, value: object) -> bool:
         return value in self.elements
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.elements)
 
-    def next(self):
-        return self.__next__()
-
-    def __next__(self):
-        if self.count >= len(self.elements):
-            self.count = 0
-            raise StopIteration
-        else:
-            c = self.count
-            self.count = c + 1
-            return getattr(self, self.elements[c]) or next(self)
-
-    def add_with_encoding(self, s, encoding=None):
+    def add_with_encoding(self, s: str, encoding: str | None = None) -> None:
         """
         Add the lower case and no-period version of the string to the set. Pass an
         explicit `encoding` parameter to specify the encoding of binary strings that
@@ -102,49 +90,63 @@ class SetManager(Set):
         if sys.stdin:
             stdin_encoding = sys.stdin.encoding
         encoding = encoding or stdin_encoding or DEFAULT_ENCODING
-        if type(s) == binary_type:
+        if isinstance(s, bytes):
             s = s.decode(encoding)
         self.elements.add(lc(s))
 
-    def add(self, *strings):
+    def add(self, *strings: str) -> Self:
         """
         Add the lower case and no-period version of the string arguments to the set.
         Can pass a list of strings. Returns ``self`` for chaining.
         """
-        [self.add_with_encoding(s) for s in strings]
+        for s in strings:
+            self.add_with_encoding(s)
+
         return self
 
-    def remove(self, *strings):
+    def remove(self, *strings: str) -> Self:
         """
         Remove the lower case and no-period version of the string arguments from the set.
         Returns ``self`` for chaining.
         """
-        [self.elements.remove(lc(s)) for s in strings if lc(s) in self.elements]
+        for s in strings:
+            if (lower := lc(s)) in self.elements:
+                self.elements.remove(lower)
+
         return self
 
 
-class TupleManager(dict):
+T = TypeVar('T')
+
+
+class TupleManager(dict[str, T]):
     '''
     A dictionary with dot.notation access. Subclass of ``dict``. Makes the tuple constants 
     more friendly.
     '''
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> T | None:
         return self.get(attr)
+
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-    def __getstate__(self):
+    def __getstate__(self) -> Mapping[str, T]:
         return dict(self)
 
-    def __setstate__(self, state):
-        self.__init__(state)
+    def __setstate__(self, state: Mapping[str, T]) -> None:
+        self.update(state)
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple[type, tuple[()], Mapping[str, T]]:
         return (TupleManager, (), self.__getstate__())
 
 
-class Constants(object):
+class RegexTupleManager(TupleManager[re.Pattern[str]]):
+    def __getattr__(self, attr: str) -> re.Pattern[str]:
+        return self.get(attr, EMPTY_REGEX)
+
+
+class Constants:
     """
     An instance of this class hold all of the configuration constants for the parser.
 
@@ -168,6 +170,17 @@ class Constants(object):
         :py:attr:`regexes`  wrapped with :py:class:`TupleManager`.
     """
 
+    prefixes: SetManager
+    suffix_acronyms: SetManager
+    suffix_not_acronyms: SetManager
+    titles: SetManager
+    first_name_titles: SetManager
+    conjunctions: SetManager
+    capitalization_exceptions: TupleManager[str]
+    regexes: RegexTupleManager
+
+    _pst: Set[str] | None
+
     string_format = "{title} {first} {middle} {last} {suffix} ({nickname})"
     """
     The default string format use for all new `HumanName` instances.
@@ -187,9 +200,9 @@ class Constants(object):
     empty_attribute_default = ''
     """
     Default return value for empty attributes.
-    
+
     .. doctest::
-    
+
         >>> from nameparser.config import CONSTANTS
         >>> CONSTANTS.empty_attribute_default = None
         >>> name = HumanName("John Doe")
@@ -197,7 +210,7 @@ class Constants(object):
         None
         >>>name.first
         'John'
-        
+
     """
 
     capitalize_name = False
@@ -232,15 +245,15 @@ class Constants(object):
     """
 
     def __init__(self,
-                 prefixes=PREFIXES,
-                 suffix_acronyms=SUFFIX_ACRONYMS,
-                 suffix_not_acronyms=SUFFIX_NOT_ACRONYMS,
-                 titles=TITLES,
-                 first_name_titles=FIRST_NAME_TITLES,
-                 conjunctions=CONJUNCTIONS,
-                 capitalization_exceptions=CAPITALIZATION_EXCEPTIONS,
-                 regexes=REGEXES
-                 ):
+                 prefixes: Iterable[str] = PREFIXES,
+                 suffix_acronyms: Iterable[str] = SUFFIX_ACRONYMS,
+                 suffix_not_acronyms: Iterable[str] = SUFFIX_NOT_ACRONYMS,
+                 titles: Iterable[str] = TITLES,
+                 first_name_titles: Iterable[str] = FIRST_NAME_TITLES,
+                 conjunctions: Iterable[str] = CONJUNCTIONS,
+                 capitalization_exceptions: TupleManager[str] | Iterable[tuple[str, str]] = CAPITALIZATION_EXCEPTIONS,
+                 regexes: RegexTupleManager | TupleManager[re.Pattern[str]] | Iterable[tuple[str, re.Pattern[str]]] = REGEXES
+                 ) -> None:
         self.prefixes = SetManager(prefixes)
         self.suffix_acronyms = SetManager(suffix_acronyms)
         self.suffix_not_acronyms = SetManager(suffix_not_acronyms)
@@ -248,22 +261,22 @@ class Constants(object):
         self.first_name_titles = SetManager(first_name_titles)
         self.conjunctions = SetManager(conjunctions)
         self.capitalization_exceptions = TupleManager(capitalization_exceptions)
-        self.regexes = TupleManager(regexes)
+        self.regexes = RegexTupleManager(regexes)
         self._pst = None
 
     @property
-    def suffixes_prefixes_titles(self):
+    def suffixes_prefixes_titles(self) -> Set[str]:
         if not self._pst:
             self._pst = self.prefixes | self.suffix_acronyms | self.suffix_not_acronyms | self.titles
         return self._pst
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Constants() instance>"
 
-    def __setstate__(self, state):
-        self.__init__(state)
+    def __setstate__(self, state: Mapping[str, Any]) -> None:
+        Constants.__init__(self, state)
 
-    def __getstate__(self):
+    def __getstate__(self) -> Mapping[str, Any]:
         attrs = [x for x in dir(self) if not x.startswith('_')]
         return dict([(a, getattr(self, a)) for a in attrs])
 

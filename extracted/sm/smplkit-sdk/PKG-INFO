@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smplkit-sdk
-Version: 3.2.147
+Version: 3.2.152
 Summary: Official Python SDK for the smplkit platform
 Project-URL: Homepage, https://www.smplkit.com
 Project-URL: Documentation, https://docs.smplkit.com
@@ -47,14 +47,23 @@ pip install smplkit-sdk
 
 ## Quick Start
 
-The SDK ships two top-level clients, each with a clearly-scoped purpose:
+One client is the whole SDK: `SmplClient` (and `AsyncSmplClient`). Construction is
+**side-effect-free** — no threads, no network until you actually use a feature — and
+only an `api_key` is required. Every product hangs off it:
 
-| Client | Use case | Construction side effects |
-|--------|----------|---------------------------|
-| `SmplClient` / `AsyncSmplClient` | **Runtime instrumentation** — flag evaluation, config reads, log emission | Auto-registers a service context, starts a metrics thread, opens a websocket |
-| `SmplManagementClient` / `AsyncSmplManagementClient` | **Management / CRUD** — setup scripts, CI/CD, admin tooling | None — pure HTTP setup |
+| Namespace | Purpose |
+|-----------|---------|
+| `client.flags` / `client.config` / `client.logging` | **Runtime instrumentation** — flag evaluation, config reads, log-level control (environment-scoped) |
+| `client.audit` | **Audit** — record/read events, discovery, SIEM forwarders |
+| `client.jobs` | **Jobs** — scheduled HTTP jobs |
+| `client.manage` | **Management / CRUD** — flag/config/logger definitions, environments, contexts, account settings |
 
-### Runtime: `SmplClient`
+`environment` and `service` are **optional** — supply them when instrumenting with
+flags/config/logging (the server can also derive the environment from the API key);
+audit- or jobs-only callers need nothing but the key. For single-product use,
+standalone `SmplAuditClient` / `SmplJobsClient` are also available.
+
+### Runtime instrumentation
 
 ```python
 from smplkit import Context, SmplClient
@@ -94,12 +103,19 @@ with client.set_context([Context("user", "u-impersonated", plan="enterprise")]):
 
 For deterministic startup — pre-fetch all flags + configs and wait for the live-updates websocket before serving traffic — call `client.wait_until_ready()` once at boot.
 
-### Management: `SmplManagementClient`
+### Management / CRUD — `client.manage`
+
+CRUD lives on the `client.manage` namespace. Just an API key — no `environment` or
+`service`, and (because construction is side-effect-free) no threads, no websocket,
+no service rows registered in the target account until you actually instrument with
+flags/config/logging:
 
 ```python
-from smplkit import SmplManagementClient
+from smplkit import SmplClient
 
-with SmplManagementClient(api_key="sk_api_...") as mgmt:
+with SmplClient(api_key="sk_api_...") as client:
+    mgmt = client.manage
+
     # Configs
     cfg = mgmt.config.new("my_service", name="My Service")
     cfg.save()
@@ -123,31 +139,44 @@ with SmplManagementClient(api_key="sk_api_...") as mgmt:
     settings = mgmt.account_settings.get()
 ```
 
-The management client takes only `api_key` (plus optional `profile`, `base_domain`, `scheme`, `debug`) — `environment` and `service` have no meaning for CRUD work and are deliberately rejected.
+A setup script, CI job, or admin CLI constructs `SmplClient(api_key=...)` and uses
+`client.manage.*` — it pays nothing for the runtime machinery it never touches.
 
-For async usage, swap `SmplClient` → `AsyncSmplClient` and `SmplManagementClient` → `AsyncSmplManagementClient`; method bodies become `await`-able:
+### Audit and Jobs
+
+Audit and Jobs are single clients (no runtime/management split). Reach them on the
+client, or construct them standalone:
 
 ```python
-from smplkit import AsyncSmplClient, AsyncSmplManagementClient
+from smplkit import SmplAuditClient, SmplClient
+
+with SmplClient(api_key="sk_api_...", environment="production") as client:
+    client.audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
+    forwarders = client.audit.forwarders.list()
+    client.jobs.new("nightly", schedule="0 2 * * *", configuration=...).save()
+
+# audit-only? construct just the audit client (no environment needed):
+with SmplAuditClient(api_key="sk_api_...") as audit:
+    audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
+```
+
+### Async
+
+Swap `SmplClient` → `AsyncSmplClient` (likewise `SmplAuditClient` → `AsyncSmplAuditClient`,
+`SmplJobsClient` → `AsyncSmplJobsClient`); method bodies become `await`-able:
+
+```python
+from smplkit import AsyncSmplClient
 
 async with AsyncSmplClient(api_key="sk_api_...", environment="prod", service="svc") as client:
     db = await client.config.get("database")
-
-async with AsyncSmplManagementClient(api_key="sk_api_...") as mgmt:
-    cfg = await mgmt.config.get("my_service")
-    configs = await mgmt.config.list()
+    cfg = await client.manage.config.get("my_service")
+    page = await client.audit.events.list(resource_type="invoice")
 ```
-
-### Which client should I use?
-
-- **Inside a request handler / running service** → `SmplClient`. You want lazy-fetched runtime state, the context registration loop, metrics, and the live-update websocket.
-- **In a setup script / CI job / admin CLI / seeder** → `SmplManagementClient`. No runtime side effects, no auto-registered service rows leaking into target accounts, no websocket dangling open.
-
-The two clients can be used together in the same process — e.g. a runtime app that occasionally needs to reach into the management API for an admin endpoint. To save you from juggling two clients, every `SmplClient` exposes a built-in management client at `client.manage` (sharing HTTP transports under the hood); reach for `SmplManagementClient` directly only for setup scripts, CI jobs, and admin tooling that have no runtime side effects to begin with.
 
 ### Management namespaces
 
-`SmplManagementClient` (and `client.manage` on the runtime client) exposes eight flat namespaces (one per resource family):
+`client.manage` exposes flat namespaces (one per resource family):
 
 | Namespace | Resource |
 |-----------|----------|
@@ -258,7 +287,7 @@ All SDK errors extend `smplkit.Error`:
 from smplkit import Error, NotFoundError
 
 try:
-    config = mgmt.config.get("nonexistent")
+    config = client.manage.config.get("nonexistent")
 except NotFoundError:
     print("Config not found")
 except Error as e:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import singledispatch
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal, Union
 
 from typing_extensions import TypeAlias
 
@@ -20,10 +20,45 @@ from ._gt_data import (
 )
 from ._styles import CellStyle
 from ._tbl_data import PlDataFrame, PlExpr, eval_select, eval_transform, get_column_names
+from ._text import _process_text
 
 if TYPE_CHECKING:
     from ._gt_data import TblData
     from ._tbl_data import SelectExpr
+    from ._text import Text
+
+
+@dataclass(frozen=True)
+class FootnoteEntry:
+    """A footnote specification that can be applied to a location along with styles."""
+
+    footnote: str | Text
+    placement: PlacementOptions = "auto"
+
+
+def footnotes_split_style_list(
+    entries: list[CellStyle | FootnoteEntry],
+) -> tuple[list[CellStyle], list[FootnoteInfo]]:
+    """Split a list containing both styles and footnote entries.
+
+    Returns a tuple of (styles, footnote_infos).
+    """
+    styles: list[CellStyle] = []
+    footnote_infos: list[FootnoteInfo] = []
+
+    for entry in entries:
+        if isinstance(entry, FootnoteEntry):
+            place = FootnotePlacement[entry.placement]
+            # Convert Text to string using `_process_text()`
+            footnote_str = _process_text(entry.footnote)
+            footnote_info = FootnoteInfo(footnotes=[footnote_str], placement=place)
+            footnote_infos.append(footnote_info)
+        else:
+            # It's a CellStyle
+            styles.append(entry)
+
+    return styles, footnote_infos
+
 
 # Misc Types ===========================================================================
 
@@ -480,9 +515,67 @@ class LocRowGroups(Loc):
     rows: RowSelectExpr = None
 
 
-# @dataclass
-# class LocSummaryStub(Loc):
-#     rows: RowSelectExpr = None
+@dataclass
+class LocSummaryStub(Loc):
+    """Target the group summary stub.
+
+    With `loc.summary_stub()` we can target the cells containing the group summary row labels,
+    which reside in the table stub. This is useful for applying custom styling with the
+    [`tab_style()`](`great_tables.GT.tab_style`) method. That method has a `locations=` argument and
+    this class should be used there to perform the targeting.
+
+    Parameters
+    ----------
+    groups
+        The groups to target. Can be a list of group IDs or a single group ID string.
+        If `None`, all groups with summary rows are targeted.
+    rows
+        The rows to target within the summary stub. Can either be a single row name or a
+        series of row names provided in a list. If no rows are specified, all summary rows
+        are targeted.
+
+    Returns
+    -------
+    LocSummaryStub
+        A LocSummaryStub object, which is used for a `locations=` argument if specifying the
+        table's group summary rows' labels.
+
+    Examples
+    --------
+    Let's use a subset of the `gtcars` dataset in a new table. We will style the entire group
+    summary stub (the row labels) by using `locations=loc.summary_stub()` within
+    [`tab_style()`](`great_tables.GT.tab_style`).
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT, style, loc, vals
+    from great_tables.data import gtcars
+
+    gtcars_mini = (
+        pl.from_pandas(gtcars)
+        .select(["mfr", "model", "hp", "trq"])
+        .head(12)
+    )
+
+    (
+        GT(gtcars_mini, rowname_col="model", groupname_col="mfr")
+        .summary_rows(
+            fns={
+                "Min": pl.col("hp", "trq").min(),
+                "Max": pl.col("hp", "trq").max(),
+            },
+            fmt=vals.fmt_integer,
+        )
+        .tab_style(
+            style=[style.text(color="crimson", weight="bold"), style.fill(color="lightgray")],
+            locations=loc.summary_stub(),
+        )
+    )
+    ```
+    """
+
+    groups: list[str] | str | None = None
+    rows: RowSelectExpr = None
 
 
 @dataclass
@@ -608,12 +701,70 @@ class LocBody(Loc):
     mask: PlExpr | None = None
 
 
-# @dataclass
-# class LocSummary(Loc):
-#     # TODO: these can be tidyselectors
-#     columns: SelectExpr = None
-#     rows: RowSelectExpr = None
-#     mask: PlExpr | None = None
+@dataclass
+class LocSummary(Loc):
+    """Target the data cells in group summary rows.
+
+    With `loc.summary()` we can target the cells containing the group summary data.
+    This is useful for applying custom styling with the [`tab_style()`](`great_tables.GT.tab_style`)
+    method. That method has a `locations=` argument and this class should be used there to perform
+    the targeting.
+
+    Parameters
+    ----------
+    groups
+        The groups to target. Can be a list of group IDs or a single group ID string.
+        If `None`, all groups with summary rows are targeted.
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        The rows to target. Can either be a single row name or a series of row names provided in a
+        list.
+
+    Returns
+    -------
+    LocSummary
+        A LocSummary object, which is used for a `locations=` argument if specifying the
+        table's group summary rows.
+
+    Examples
+    --------
+    Let's use a subset of the `gtcars` dataset in a new table. We will style all of the group
+    summary cells by using `locations=loc.summary()` within
+    [`tab_style()`](`great_tables.GT.tab_style`).
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT, style, loc, vals
+    from great_tables.data import gtcars
+
+    gtcars_mini = (
+        pl.from_pandas(gtcars)
+        .select(["mfr", "model", "hp", "trq"])
+        .head(12)
+    )
+
+    (
+        GT(gtcars_mini, rowname_col="model", groupname_col="mfr")
+        .summary_rows(
+            fns={
+                "Min": pl.col("hp", "trq").min(),
+                "Max": pl.col("hp", "trq").max(),
+            },
+            fmt=vals.fmt_integer,
+        )
+        .tab_style(
+            style=[style.text(color="crimson"), style.fill(color="lightgray")],
+            locations=loc.summary(),
+        )
+    )
+    ```
+    """
+
+    groups: list[str] | str | None = None
+    columns: SelectExpr = None
+    rows: RowSelectExpr = None
 
 
 @dataclass
@@ -1044,8 +1195,27 @@ def _(loc: LocGrandSummaryStub, data: GTData) -> set[int]:
     return cell_pos
 
 
-# @resolve.register(LocSummaryStub)
-# Also target by groupname in styleinfo
+@resolve.register
+def _(loc: LocSummaryStub, data: GTData) -> list[tuple[str, int]]:
+    """Resolve summary stub positions. Returns (group_id, row_index) pairs."""
+    # Determine target groups
+    groups = loc.groups
+    if groups is None:
+        target_groups = list(data._summary_rows._d.keys())
+    elif isinstance(groups, str):
+        target_groups = [groups]
+    else:
+        target_groups = list(groups)
+
+    result: list[tuple[str, int]] = []
+    for group_id in target_groups:
+        summary_rows = data._summary_rows.get_summary_rows(group_id=group_id)
+        summary_rows_ids = [row.id for row in summary_rows]
+        rows = resolve_rows_i(data=summary_rows_ids, expr=loc.rows)
+        for _name, row_pos in rows:
+            result.append((group_id, row_pos))
+
+    return result
 
 
 @resolve.register
@@ -1081,8 +1251,30 @@ def _(loc: LocGrandSummary, data: GTData) -> list[CellPos]:
     return cell_pos
 
 
-# @resolve.register(LocSummary)
-# Also target by groupname in styleinfo
+@resolve.register
+def _(loc: LocSummary, data: GTData) -> list[tuple[str, CellPos]]:
+    """Resolve summary cell positions. Returns (group_id, CellPos) pairs."""
+    # Determine target groups
+    groups = loc.groups
+    if groups is None:
+        target_groups = list(data._summary_rows._d.keys())
+    elif isinstance(groups, str):
+        target_groups = [groups]
+    else:
+        target_groups = list(groups)
+
+    cols = resolve_cols_i(data=data, expr=loc.columns)
+
+    result: list[tuple[str, CellPos]] = []
+    for group_id in target_groups:
+        summary_rows = data._summary_rows.get_summary_rows(group_id=group_id)
+        summary_rows_ids = [row.id for row in summary_rows]
+        rows = resolve_rows_i(data=summary_rows_ids, expr=loc.rows)
+
+        for col, row in itertools.product(cols, rows):
+            result.append((group_id, CellPos(col[1], row[1], colname=col[0])))
+
+    return result
 
 
 @resolve.register
@@ -1131,8 +1323,8 @@ def _(loc: LocBody, data: GTData) -> list[CellPos]:
 
 
 @singledispatch
-def set_style(loc: Loc, data: GTData, style: list[str]) -> GTData:
-    """Set style for location."""
+def set_style(loc: Loc, data: GTData, style: list[CellStyle | FootnoteEntry]) -> GTData:
+    """Set style and footnotes for location."""
     raise NotImplementedError(f"Unsupported location type: {type(loc)}")
 
 
@@ -1156,109 +1348,229 @@ def _(
         | LocSourceNotes
     ),
     data: GTData,
-    style: list[CellStyle],
+    style: list[CellStyle | FootnoteEntry],
 ) -> GTData:
+    styles, new_footnotes = footnotes_split_style_list(style)
+
     # validate ----
-    for entry in style:
+    for entry in styles:
         entry._raise_if_requires_data(loc)
 
-    return data._replace(_styles=data._styles + [StyleInfo(locname=loc, styles=style)])
+    # Update footnote infos with location information
+    updated_footnotes = []
+    for footnote_info in new_footnotes:
+        updated_footnote = replace(footnote_info, locname=loc)
+        updated_footnotes.append(updated_footnote)
 
-
-@set_style.register
-def _(loc: LocColumnLabels, data: GTData, style: list[CellStyle]) -> GTData:
-    selected = resolve(loc, data)
-
-    # evaluate any column expressions in styles
-    styles = [entry._evaluate_expressions(data._tbl_data) for entry in style]
-
-    all_info: list[StyleInfo] = []
-    for name, pos in selected:
-        crnt_info = StyleInfo(
-            locname=loc,
-            colname=name,
-            styles=styles,
-        )
-        all_info.append(crnt_info)
-    return data._replace(_styles=data._styles + all_info)
-
-
-@set_style.register
-def _(loc: LocSpannerLabels, data: GTData, style: list[CellStyle]) -> GTData:
-    # validate ----
-    for entry in style:
-        entry._raise_if_requires_data(loc)
-    # TODO resolve
-
-    new_loc = resolve(loc, data._spanners)
     return data._replace(
-        _styles=data._styles + [StyleInfo(locname=new_loc, grpname=new_loc.ids, styles=style)]
+        _styles=data._styles + [StyleInfo(locname=loc, styles=styles)],
+        _footnotes=data._footnotes + updated_footnotes,
     )
 
 
 @set_style.register
-def _(loc: LocRowGroups, data: GTData, style: list[CellStyle]) -> GTData:
+def _(loc: LocColumnLabels, data: GTData, style: list[Union[CellStyle, FootnoteEntry]]) -> GTData:
+    styles, new_footnotes = footnotes_split_style_list(style)
+
+    selected = resolve(loc, data)
+
+    # evaluate any column expressions in styles
+    styles_ready = [entry._evaluate_expressions(data._tbl_data) for entry in styles]
+
+    all_info: list[StyleInfo] = []
+    updated_footnotes: list[FootnoteInfo] = []
+
+    for name, pos in selected:
+        # Add style info
+        crnt_info = StyleInfo(
+            locname=loc,
+            colname=name,
+            styles=styles_ready,
+        )
+        all_info.append(crnt_info)
+
+        # Add footnote info for this column
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(footnote_info, locname=loc, colname=name)
+            updated_footnotes.append(updated_footnote)
+
+    return data._replace(
+        _styles=data._styles + all_info, _footnotes=data._footnotes + updated_footnotes
+    )
+
+
+@set_style.register
+def _(loc: LocSpannerLabels, data: GTData, style: list[Union[CellStyle, FootnoteEntry]]) -> GTData:
+    styles, new_footnotes = footnotes_split_style_list(style)
+
     # validate ----
-    for entry in style:
+    for entry in styles:
+        entry._raise_if_requires_data(loc)
+    # TODO resolve
+
+    new_loc = resolve(loc, data._spanners)
+
+    # Update footnotes with location info
+    updated_footnotes = []
+    for spanner_id in new_loc.ids:
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(footnote_info, locname=loc, grpname=spanner_id)
+            updated_footnotes.append(updated_footnote)
+
+    return data._replace(
+        _styles=data._styles + [StyleInfo(locname=new_loc, grpname=new_loc.ids, styles=styles)],
+        _footnotes=data._footnotes + updated_footnotes,
+    )
+
+
+@set_style.register
+def _(loc: LocRowGroups, data: GTData, style: list[Union[CellStyle, FootnoteEntry]]) -> GTData:
+    styles, new_footnotes = footnotes_split_style_list(style)
+
+    # validate ----
+    for entry in styles:
         entry._raise_if_requires_data(loc)
 
     row_groups = resolve(loc, data)
+
+    # Update footnotes with location info
+    updated_footnotes = []
+    for group_name in row_groups:
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(footnote_info, locname=loc, grpname=group_name)
+            updated_footnotes.append(updated_footnote)
+
     return data._replace(
-        _styles=data._styles + [StyleInfo(locname=loc, grpname=row_groups, styles=style)]
+        _styles=data._styles + [StyleInfo(locname=loc, grpname=row_groups, styles=styles)],
+        _footnotes=data._footnotes + updated_footnotes,
     )
 
 
 # @set_style.register(LocSummaryStub)
 @set_style.register(LocStub)
 @set_style.register(LocGrandSummaryStub)
-def _(loc: (LocStub | LocGrandSummaryStub), data: GTData, style: list[CellStyle]) -> GTData:
+def _(
+    loc: (LocStub | LocGrandSummaryStub), data: GTData, style: list[Union[CellStyle, FootnoteEntry]]
+) -> GTData:
+    styles, new_footnotes = footnotes_split_style_list(style)
+
     # validate ----
-    for entry in style:
+    for entry in styles:
         entry._raise_if_requires_data(loc)
     # TODO resolve
     cells = resolve(loc, data)
 
-    new_styles = [StyleInfo(locname=loc, rownum=rownum, styles=style) for rownum in cells]
-    return data._replace(_styles=data._styles + new_styles)
+    new_styles = [StyleInfo(locname=loc, rownum=rownum, styles=styles) for rownum in cells]
+
+    # Handle footnotes
+    updated_footnotes = []
+    for row_pos in cells:
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(footnote_info, locname=loc, rownum=row_pos)
+            updated_footnotes.append(updated_footnote)
+
+    return data._replace(
+        _styles=data._styles + new_styles, _footnotes=data._footnotes + updated_footnotes
+    )
 
 
-# @set_style.register(LocSummary)
-@set_style.register(LocBody)
-@set_style.register(LocGrandSummary)
-def _(loc: (LocBody | LocGrandSummary), data: GTData, style: list[CellStyle]) -> GTData:
-    positions: list[CellPos] = resolve(loc, data)
+@set_style.register(LocSummaryStub)
+def _(loc: LocSummaryStub, data: GTData, style: list[Union[CellStyle, FootnoteEntry]]) -> GTData:
+    styles, new_footnotes = footnotes_split_style_list(style)
+
+    # validate ----
+    for entry in styles:
+        entry._raise_if_requires_data(loc)
+
+    cells = resolve(loc, data)  # list of (group_id, row_pos)
+
+    new_styles = [
+        StyleInfo(locname=loc, rownum=row_pos, grpname=group_id, styles=styles)
+        for group_id, row_pos in cells
+    ]
+
+    # Handle footnotes
+    updated_footnotes = []
+    for group_id, row_pos in cells:
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(footnote_info, locname=loc, rownum=row_pos, grpname=group_id)
+            updated_footnotes.append(updated_footnote)
+
+    return data._replace(
+        _styles=data._styles + new_styles, _footnotes=data._footnotes + updated_footnotes
+    )
+
+
+@set_style.register(LocSummary)
+def _(loc: LocSummary, data: GTData, style: list[Union[CellStyle, FootnoteEntry]]) -> GTData:
+    positions = resolve(loc, data)  # list of (group_id, CellPos)
+
+    styles, new_footnotes = footnotes_split_style_list(style)
 
     # evaluate any column expressions in styles
-    style_ready = [entry._evaluate_expressions(data._tbl_data) for entry in style]
+    style_ready = [entry._evaluate_expressions(data._tbl_data) for entry in styles]
 
     all_info: list[StyleInfo] = []
+    updated_footnotes: list[FootnoteInfo] = []
+
+    for group_id, col_pos in positions:
+        # Handle styles
+        row_styles = [entry._from_row(data._tbl_data, col_pos.row) for entry in style_ready]
+        crnt_info = StyleInfo(
+            locname=loc,
+            colname=col_pos.colname,
+            rownum=col_pos.row,
+            grpname=group_id,
+            styles=row_styles,
+        )
+        all_info.append(crnt_info)
+
+        # Handle footnotes for this position
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(
+                footnote_info,
+                locname=loc,
+                colname=col_pos.colname,
+                rownum=col_pos.row,
+                grpname=group_id,
+            )
+            updated_footnotes.append(updated_footnote)
+
+    return data._replace(
+        _styles=data._styles + all_info, _footnotes=data._footnotes + updated_footnotes
+    )
+
+
+@set_style.register(LocBody)
+@set_style.register(LocGrandSummary)
+def _(
+    loc: (LocBody | LocGrandSummary), data: GTData, style: list[Union[CellStyle, FootnoteEntry]]
+) -> GTData:
+    positions: list[CellPos] = resolve(loc, data)
+
+    styles, new_footnotes = footnotes_split_style_list(style)
+
+    # evaluate any column expressions in styles
+    style_ready = [entry._evaluate_expressions(data._tbl_data) for entry in styles]
+
+    all_info: list[StyleInfo] = []
+    updated_footnotes: list[FootnoteInfo] = []
+
     for col_pos in positions:
+        # Handle styles
         row_styles = [entry._from_row(data._tbl_data, col_pos.row) for entry in style_ready]
         crnt_info = StyleInfo(
             locname=loc, colname=col_pos.colname, rownum=col_pos.row, styles=row_styles
         )
         all_info.append(crnt_info)
 
-    return data._replace(_styles=data._styles + all_info)
+        # Handle footnotes for this position
+        for footnote_info in new_footnotes:
+            updated_footnote = replace(
+                footnote_info, locname=loc, colname=col_pos.colname, rownum=col_pos.row
+            )
+            updated_footnotes.append(updated_footnote)
 
-
-# Set footnote generic =================================================================
-
-
-@singledispatch
-def set_footnote(loc: Loc, data: GTData, footnote: str, placement: PlacementOptions) -> GTData:
-    """Set footnote for location."""
-    raise NotImplementedError(f"Unsupported location type: {type(loc)}")
-
-
-@set_footnote.register(type(None))
-def _(loc: None, data: GTData, footnote: str, placement: PlacementOptions) -> GTData:
-    place = FootnotePlacement[placement]
-    info = FootnoteInfo(locname="none", footnotes=[footnote], placement=place)
-
-    return data._replace(_footnotes=data._footnotes + [info])
-
-
-@set_footnote.register
-def _(loc: LocTitle, data: GTData, footnote: str, placement: PlacementOptions) -> GTData:
-    raise NotImplementedError()
+    return data._replace(
+        _styles=data._styles + all_info, _footnotes=data._footnotes + updated_footnotes
+    )

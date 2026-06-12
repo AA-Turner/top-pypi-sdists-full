@@ -225,9 +225,9 @@ def test_set_index_self_index(shuffle_method):
     assert_eq(b, df.set_index(df.index))
 
 
-def test_set_index_names(shuffle_method):
+def test_set_index_names(xfail, shuffle_method):
     if shuffle_method == "disk":
-        pytest.xfail("dsk names in disk shuffle are not deterministic")
+        xfail("dsk names in disk shuffle are not deterministic")
 
     df = pd.DataFrame(
         {"x": np.random.random(100), "y": np.random.random(100) // 0.2},
@@ -855,13 +855,13 @@ def test_disk_shuffle_with_compression_option(compression):
 
 def test_disk_shuffle_with_unknown_compression():
     # test if dask raises an error in case of fault config string
-    with dask.config.set({"dataframe.shuffle.compression": "UNKOWN_COMPRESSION_ALGO"}):
+    with dask.config.set({"dataframe.shuffle.compression": "UNKNOWN_COMPRESSION_ALGO"}):
         with pytest.raises(
             ImportError,
             match=(
                 "Not able to import and load {} as compression algorithm."
                 "Please check if the library is installed and supported by Partd.".format(
-                    "UNKOWN_COMPRESSION_ALGO"
+                    "UNKNOWN_COMPRESSION_ALGO"
                 )
             ),
         ):
@@ -1288,3 +1288,13 @@ def test_shuffle_nulls_introduced():
         .apply(lambda df: len(df), **include_groups)
     )
     assert_eq(result, expected, check_names=False)
+
+
+@pytest.mark.parametrize(
+    "npartitions,dtype", [(127, "i1"), (128, "i2"), (32767, "i2"), (32768, "i4")]
+)
+def test_partitioning_index_dtype_for_large_npartitions(npartitions, dtype):
+    s = pd.Series([1, 1, 2])
+    res = partitioning_index(s, npartitions)
+    assert res.dtype.kind == "i"  # signed integer
+    assert res.dtype == dtype

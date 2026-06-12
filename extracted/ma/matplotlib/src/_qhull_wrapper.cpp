@@ -54,7 +54,9 @@ static void
 get_facet_vertices(qhT* qh, const facetT* facet, int indices[3])
 {
     vertexT *vertex, **vertexp;
-    FOREACHvertex_(facet->vertices) {
+    // After qh_triangulate() every non-upperdelaunay facet is a triangle, so
+    // this macro iterates exactly 3 times; the analyzer cannot prove this.
+    FOREACHvertex_(facet->vertices) {  // NOLINT(clang-analyzer-security.ArrayBound)
         *indices++ = qh_pointid(qh, vertex->point);
     }
 }
@@ -66,7 +68,9 @@ get_facet_neighbours(const facetT* facet, std::vector<int>& tri_indices,
                      int indices[3])
 {
     facetT *neighbor, **neighborp;
-    FOREACHneighbor_(facet) {
+    // After qh_triangulate() every non-upperdelaunay facet is a triangle with
+    // exactly 3 neighbors; the analyzer cannot prove this.
+    FOREACHneighbor_(facet) {  // NOLINT(clang-analyzer-security.ArrayBound)
         *indices++ = (neighbor->upperdelaunay ? -1 : tri_indices[neighbor->id]);
     }
 }
@@ -167,13 +171,13 @@ delaunay_impl(py::ssize_t npoints, const double* x, const double* y,
     }
 
     /* qhull expects a FILE* to write errors to. */
-    FILE* error_file = NULL;
+    FILE* error_file = nullptr;
     if (hide_qhull_errors) {
         /* qhull errors are ignored by writing to OS-equivalent of /dev/null.
          * Rather than have OS-specific code here, instead it is determined by
          * meson.build and passed in via the macro MPL_DEVNULL. */
         error_file = fopen(STRINGIFY(MPL_DEVNULL), "w");
-        if (error_file == NULL) {
+        if (error_file == nullptr) {
             throw std::runtime_error("Could not open devnull");
         }
     }
@@ -186,7 +190,7 @@ delaunay_impl(py::ssize_t npoints, const double* x, const double* y,
     QhullInfo info(error_file, qh);
     qh_zero(qh, error_file);
     exitcode = qh_new_qhull(qh, ndim, (int)npoints, points.data(), False,
-                            (char*)"qhull d Qt Qbb Qc Qz", NULL, error_file);
+                            (char*)"qhull d Qt Qbb Qc Qz", nullptr, error_file);
     if (exitcode != qh_ERRnone) {
         std::string msg =
             py::str("Error in qhull Delaunay triangulation calculation: {} (exitcode={})")
@@ -229,7 +233,11 @@ delaunay_impl(py::ssize_t npoints, const double* x, const double* y,
             int indices[3];
             tri_indices[facet->id] = i++;
             get_facet_vertices(qh, facet, indices);
-            *triangles_ptr++ = (facet->toporient ? indices[0] : indices[2]);
+            // The analyzer takes a path where FOREACHvertex_ executes zero
+            // times, leaving indices[] uninitialized.  After qh_triangulate()
+            // every non-upperdelaunay facet is a triangle with exactly 3
+            // vertices, so this cannot happen.
+            *triangles_ptr++ = (facet->toporient ? indices[0] : indices[2]);  // NOLINT(clang-analyzer-core.uninitialized.Assign)
             *triangles_ptr++ = indices[1];
             *triangles_ptr++ = (facet->toporient ? indices[2] : indices[0]);
         }

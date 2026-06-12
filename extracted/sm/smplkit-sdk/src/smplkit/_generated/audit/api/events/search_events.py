@@ -60,10 +60,11 @@ def sync_detailed(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
-    single-environment credential is implied; otherwise send the
-    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
-    platform change events smplkit records about your own resources.
+    Scoped by `filter[environment]` (a comma-separated set). When omitted,
+    results cover every environment you can access. The reserved `smplkit`
+    value selects platform change events smplkit records about your own
+    resources; it is included by default when your plan grants change history,
+    and requesting it explicitly without that entitlement returns 402.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.
@@ -127,10 +128,11 @@ def sync(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
-    single-environment credential is implied; otherwise send the
-    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
-    platform change events smplkit records about your own resources.
+    Scoped by `filter[environment]` (a comma-separated set). When omitted,
+    results cover every environment you can access. The reserved `smplkit`
+    value selects platform change events smplkit records about your own
+    resources; it is included by default when your plan grants change history,
+    and requesting it explicitly without that entitlement returns 402.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.
@@ -189,10 +191,11 @@ async def asyncio_detailed(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
-    single-environment credential is implied; otherwise send the
-    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
-    platform change events smplkit records about your own resources.
+    Scoped by `filter[environment]` (a comma-separated set). When omitted,
+    results cover every environment you can access. The reserved `smplkit`
+    value selects platform change events smplkit records about your own
+    resources; it is included by default when your plan grants change history,
+    and requesting it explicitly without that entitlement returns 402.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.
@@ -254,10 +257,11 @@ async def asyncio(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
-    single-environment credential is implied; otherwise send the
-    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
-    platform change events smplkit records about your own resources.
+    Scoped by `filter[environment]` (a comma-separated set). When omitted,
+    results cover every environment you can access. The reserved `smplkit`
+    value selects platform change events smplkit records about your own
+    resources; it is included by default when your plan grants change history,
+    and requesting it explicitly without that entitlement returns 402.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.

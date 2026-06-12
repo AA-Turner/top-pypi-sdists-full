@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import sys
 
 from kafka.metrics.stats.sampled_stat import AbstractSampledStat
@@ -10,7 +8,7 @@ class Min(AbstractSampledStat):
     __slots__ = ('_initial_value', '_samples', '_current')
 
     def __init__(self):
-        super(Min, self).__init__(float(sys.maxsize))
+        super().__init__(float(sys.maxsize))
 
     def update(self, sample, config, value, now):
         sample.value = min(sample.value, value)

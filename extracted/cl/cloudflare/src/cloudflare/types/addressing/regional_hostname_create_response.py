@@ -1,6 +1,5 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
 from datetime import datetime
 
 from ..._models import BaseModel
@@ -21,5 +20,5 @@ class RegionalHostnameCreateResponse(BaseModel):
     region_key: str
     """Identifying key for the region"""
 
-    routing: Optional[str] = None
+    routing: str
     """Configure which routing method to use for the regional hostname"""

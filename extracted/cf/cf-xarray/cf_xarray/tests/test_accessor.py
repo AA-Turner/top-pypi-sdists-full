@@ -1255,6 +1255,44 @@ def test_grid_mappings_property():
 
 
 @requires_pyproj
+def test_grid_mappings_crs_construction_is_cached(monkeypatch):
+    """``pyproj.CRS.from_cf`` is memoized per grid-mapping attrs.
+
+    Building the CRS re-parses the datum/ellipsoid on every call. A dataset
+    references the same grid mapping from many variables and the property may
+    be accessed repeatedly, so each distinct grid mapping should be built once.
+    """
+    import pyproj
+
+    from ..accessor import _crs_from_cf_attrs
+
+    _crs_from_cf_attrs.cache_clear()
+
+    from ..datasets import hrrrds
+
+    ds = hrrrds
+
+    calls = {"n": 0}
+    orig = pyproj.CRS.from_cf
+
+    def counting_from_cf(*args, **kwargs):
+        calls["n"] += 1
+        return orig(*args, **kwargs)
+
+    monkeypatch.setattr(pyproj.CRS, "from_cf", staticmethod(counting_from_cf))
+
+    # Repeated property accesses, including via a DataArray, must not rebuild
+    # the same CRS: hrrrds has 3 distinct grid mappings, each built once.
+    ds.cf.grid_mappings
+    ds.cf.grid_mappings
+    ds.foo.cf.grid_mappings
+
+    assert calls["n"] == 3
+
+    _crs_from_cf_attrs.cache_clear()
+
+
+@requires_pyproj
 def test_grid_mappings_coordinates_attribute():
     """Test that coordinates attribute is always populated correctly for DataArray grid mappings."""
     from ..datasets import hrrrds
@@ -2482,6 +2520,43 @@ def test_sgrid():
         "Y": {"jface", "jnode"},
         "Z": {"kface", "knode"},
     }
+
+
+def test_sgrid_includes_topology_coordinates():
+    """Variables referenced in node/face/edge/volume_coordinates of the
+    grid_topology variable should be pulled in by ds.cf[[var]]."""
+    roms = sgrid_roms.copy()
+    for pos in ("psi", "rho", "u", "v"):
+        roms[f"lon_{pos}"] = ((f"xi_{pos}", f"eta_{pos}"), np.zeros((2, 2)))
+        roms[f"lat_{pos}"] = ((f"xi_{pos}", f"eta_{pos}"), np.zeros((2, 2)))
+
+    expected_coord_vars = {
+        "lon_psi",
+        "lat_psi",
+        "lon_rho",
+        "lat_rho",
+        "lon_u",
+        "lat_u",
+        "lon_v",
+        "lat_v",
+    }
+    assoc = roms.cf.get_associated_variable_names("u")
+    assert expected_coord_vars.issubset(set(assoc["coordinates"]))
+
+    subset = roms.cf[["u"]]
+    assert "grid" in subset.variables
+    assert expected_coord_vars.issubset(set(subset.variables))
+
+    # only dim-compatible coords attach to the DataArray form
+    u_da = roms.cf["u"]
+    assert {"lon_u", "lat_u"}.issubset(set(u_da.coords))
+
+    delft = sgrid_delft.copy()
+    delft["node_lon"] = (("inode", "jnode"), np.zeros((2, 2)))
+    delft["node_lat"] = (("inode", "jnode"), np.zeros((2, 2)))
+    delft["foo"] = (("icell", "jcell"), np.ones((2, 2)), {"grid": "grid"})
+    delft_subset = delft.cf[["foo"]]
+    assert {"grid", "node_lon", "node_lat"}.issubset(set(delft_subset.variables))
 
 
 def test_ancillary_variables_extra_dim():

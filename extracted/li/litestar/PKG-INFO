@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar
-Version: 2.23.0
+Version: 2.24.0
 Summary: Litestar - A production-ready, highly performant, extensible ASGI API Framework
 Project-URL: Blog, https://blog.litestar.dev
 Project-URL: Changelog, https://github.com/litestar-org/litestar/releases/
@@ -84,6 +84,7 @@ Requires-Dist: jsbeautifier; extra == 'full'
 Requires-Dist: mako>=1.2.4; extra == 'full'
 Requires-Dist: minijinja>=1.0.0; extra == 'full'
 Requires-Dist: opentelemetry-instrumentation-asgi; extra == 'full'
+Requires-Dist: opentelemetry-sdk; extra == 'full'
 Requires-Dist: piccolo; extra == 'full'
 Requires-Dist: picologging; (python_version < '3.13') and extra == 'full'
 Requires-Dist: prometheus-client; extra == 'full'
@@ -106,6 +107,7 @@ Provides-Extra: minijinja
 Requires-Dist: minijinja>=1.0.0; extra == 'minijinja'
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-instrumentation-asgi; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-sdk; extra == 'opentelemetry'
 Provides-Extra: piccolo
 Requires-Dist: piccolo; extra == 'piccolo'
 Provides-Extra: picologging
@@ -225,7 +227,7 @@ litestar run
 - [OpenAPI 3.1 schema generation](#openapi)
 - [Life Cycle Hooks](#request-life-cycle-hooks)
 - [Route Guards based Authorization](#route-guards)
-- Support for `dataclasses`, `TypedDict`, [`msgspec`](https://jcristharif.com/msgspec/), [pydantic version 1 and version 2 (even within the same application)](https://docs.pydantic.dev/latest/) and [(c)attrs](https://catt.rs/en/stable/)
+- Support for `dataclasses`, `TypedDict`, [`msgspec`](https://msgspec.dev), [pydantic version 1 and version 2 (even within the same application)](https://docs.pydantic.dev/latest/) and [(c)attrs](https://catt.rs/en/stable/)
 - Layered parameter declaration
 - Support for [RFC 9457](https://datatracker.ietf.org/doc/html/rfc9457) standardized "Problem Detail" error responses
 - [Automatic API documentation with](#redoc-swagger-ui-and-stoplight-elements-api-documentation):

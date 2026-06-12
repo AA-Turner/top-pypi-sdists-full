@@ -4,6 +4,7 @@ Embed in Tk
 ===========
 
 """
+# sphinx_gallery_thumbnail_path = '_static/embedding_in_tk.png'
 
 import tkinter
 
@@ -11,8 +12,7 @@ import numpy as np
 
 # Implement the default Matplotlib key bindings.
 from matplotlib.backend_bases import key_press_handler
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
-                                               NavigationToolbar2Tk)
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
 root = tkinter.Tk()

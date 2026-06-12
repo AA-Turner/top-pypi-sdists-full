@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.127
+Version: 0.16.10
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -134,7 +134,7 @@ Requires-Dist: pyjwt[crypto]<3.0.0,>=2.12.0; extra == "auth"
 Requires-Dist: okta-client-python<1.0.0,>=0.2.0; extra == "auth"
 Provides-Extra: eval
 Requires-Dist: nemo-evaluator-launcher; extra == "eval"
-Requires-Dist: anthropic>=0.40.0; extra == "eval"
+Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "eval"
 Requires-Dist: pyyaml>=6.0; extra == "eval"
 Provides-Extra: drmcpbase
 Requires-Dist: starlette>=1.0.1; extra == "drmcpbase"
@@ -143,6 +143,7 @@ Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcpbase"
 Requires-Dist: aiohttp-retry<3.0.0,>=2.8.3; extra == "drmcpbase"
 Requires-Dist: datarobot<4.0.0,>=3.16.0; extra == "drmcpbase"
 Requires-Dist: cachetools<8.0.0,>=5.0.0; extra == "drmcpbase"
+Provides-Extra: drmcputils
 Provides-Extra: drmcp
 Requires-Dist: starlette>=1.0.1; extra == "drmcp"
 Requires-Dist: fastmcp<4.0.0,>=3.4.1; extra == "drmcp"
@@ -282,6 +283,7 @@ You can also install:
 * `datarobot-genai[dragent]`&mdash;serve and orchestrate your agent with `DRAgent`.
 * `datarobot-genai[drtools]`&mdash;use the standard library of agentic tools DataRobot provides.
 * `datarobot-genai[drmcpbase]`&mdash;Base class to derive FastMCP servers.
+* `datarobot-genai[drmcputils]`&mdash;shared MCP utilities consumed by `drmcpbase` and `drtools`.
 * `datarobot-genai[drmcp]`&mdash;host a custom MCP server in DataRobot (includes `drmcpbase`, `drtools`, and template-server dependencies).
 * `datarobot-genai[memory]`&mdash;use the Mem0-backed memory client and NAT memory provider.
 * `datarobot-genai[eval]`&mdash;agent evaluation utilities built on the NeMo Evaluator launcher.

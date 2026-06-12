@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from smplkit import AsyncSmplManagementClient, NotFoundError
+from smplkit import AsyncSmplClient, NotFoundError
 
 _DEMO_LOGGER_IDS = [
     "showcase",
@@ -11,15 +11,15 @@ _DEMO_LOGGER_IDS = [
 ]
 
 
-async def setup_management_showcase(manage: AsyncSmplManagementClient) -> None:
-    await cleanup_management_showcase(manage)
+async def setup_management_showcase(client: AsyncSmplClient) -> None:
+    await cleanup_management_showcase(client)
 
 
 async def cleanup_management_showcase(
-    manage: AsyncSmplManagementClient,
+    client: AsyncSmplClient,
 ) -> None:
     for logger_id in _DEMO_LOGGER_IDS:
         try:
-            await manage.loggers.delete(logger_id)
+            await client.logging.loggers.delete(logger_id)
         except NotFoundError:
             pass

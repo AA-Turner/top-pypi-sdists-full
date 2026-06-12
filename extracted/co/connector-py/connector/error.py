@@ -13,6 +13,7 @@ from .oai.errors import (
     ErrorCode,
     ErrorResponse,
     ExceptionHandler,
+    GQLTransportHandler,
     HTTPHandler,
     InternalError,
     InvalidPageTokenError,
@@ -38,6 +39,7 @@ __all__ = [
     "ConnectorError",
     "DefaultHandler",
     "ExceptionHandler",
+    "GQLTransportHandler",
     "HTTPHandler",
     # Authentication
     "AuthenticationError",

@@ -1,10 +1,13 @@
+from pathlib import Path
 from typing import List, Optional
 
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
-    LinterRule,
+    PathScopedLinterRule,
+    linter_path_key,
 )
+from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.services.requirements import (
     Requirements,
     RequirementsRepository,
@@ -102,7 +105,7 @@ class InvalidImport(LinterIssue):
         self.fixes = []
 
 
-class ImportsRequirementsAnalyzer(LinterRule):
+class ImportsRequirementsAnalyzer(PathScopedLinterRule):
     """
     Unified analyzer for imports and requirements.txt.
 
@@ -113,38 +116,47 @@ class ImportsRequirementsAnalyzer(LinterRule):
     label = "Import and requirements analysis"
     type = "bug"
 
-    def find_issues(self) -> List[LinterIssue]:
+    def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         issues: List[LinterIssue] = []
 
-        # Use the shared analysis function
-        results, uninstalled_libs = analyze_project_imports(skip_pypi_check=False)
+        if path is not None:
+            project = LocalProjectRepository().load()
+            key = linter_path_key(path)
+            if key not in {linter_path_key(f) for f in project.project_files}:
+                return []
+            results, _ = analyze_project_imports(skip_pypi_check=False, paths=[path])
+        else:
+            results, uninstalled_libs = analyze_project_imports(skip_pypi_check=False)
 
-        # Report uninstalled libs first
-        if uninstalled_libs:
-            issues.append(UninstalledLibsInRequirements(uninstalled_libs))
+            # Report uninstalled libs first. Project-global issue (path=None):
+            # owned by full runs and the requirements/package-install triggers.
+            if uninstalled_libs:
+                issues.append(UninstalledLibsInRequirements(uninstalled_libs))
 
         # Convert analysis results to linter issues
         for result in results:
             file_path = str(result.file_path) if result.file_path else ""
+            issue_path = linter_path_key(result.file_path) if result.file_path else None
 
             if result.status == "missing_in_requirements":
-                issues.append(
-                    MissingPackageInRequirements(
-                        package_name=result.package_name,
-                        import_name=result.import_name,
-                        file_path=file_path,
-                        line=result.line,
-                    )
+                issue = MissingPackageInRequirements(
+                    package_name=result.package_name,
+                    import_name=result.import_name,
+                    file_path=file_path,
+                    line=result.line,
                 )
             elif result.status == "invalid_import":
-                issues.append(
-                    InvalidImport(
-                        import_name=result.import_name,
-                        file_path=file_path,
-                        line=result.line,
-                    )
+                issue = InvalidImport(
+                    import_name=result.import_name,
+                    file_path=file_path,
+                    line=result.line,
                 )
-            # "unknown" status is skipped (can't determine due to uninstalled libs)
-            # "ok" status is also skipped (no issue)
+            else:
+                # "unknown" status is skipped (can't determine due to uninstalled libs)
+                # "ok" status is also skipped (no issue)
+                continue
+
+            issue.path = issue_path
+            issues.append(issue)
 
         return issues

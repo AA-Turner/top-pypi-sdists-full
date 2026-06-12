@@ -1,35 +1,27 @@
-from __future__ import absolute_import
-
 import random
 
-from kafka.vendor import six
+from .abc import Partitioner
 
 
-class DefaultPartitioner(object):
+class DefaultPartitioner(Partitioner):
     """Default partitioner.
 
     Hashes key to partition using murmur2 hashing (from java client)
     If key is None, selects partition randomly from available,
     or from all partitions if none are currently available
     """
-    @classmethod
-    def __call__(cls, key, all_partitions, available):
-        """
-        Get the partition corresponding to key
-        :param key: partitioning key
-        :param all_partitions: list of all partitions sorted by partition ID
-        :param available: list of available partitions in no particular order
-        :return: one of the values from all_partitions or available
-        """
-        if key is None:
-            if available:
-                return random.choice(available)
-            return random.choice(all_partitions)
-
-        idx = murmur2(key)
-        idx &= 0x7fffffff
-        idx %= len(all_partitions)
-        return all_partitions[idx]
+    def partition(self, topic, key, serialized_key, value, serialized_value, cluster):
+        if topic not in cluster.topics():
+            raise ValueError("Topic %s not found in ClusterMetadata" % (topic,))
+        all_partitions = sorted(cluster.partitions_for_topic(topic))
+        available = list(cluster.available_partitions_for_topic(topic))
+        if serialized_key is not None:
+            idx = murmur2(serialized_key)
+            idx &= 0x7fffffff
+            idx %= len(all_partitions)
+            return all_partitions[idx]
+        pool = available if available else all_partitions
+        return random.choice(pool)
 
 
 # https://github.com/apache/kafka/blob/0.8.2/clients/src/main/java/org/apache/kafka/common/utils/Utils.java#L244
@@ -43,11 +35,6 @@ def murmur2(data):
 
     Returns: MurmurHash2 of data
     """
-    # Python2 bytes is really a str, causing the bitwise operations below to fail
-    # so convert to bytearray.
-    if six.PY2:
-        data = bytearray(bytes(data))
-
     length = len(data)
     seed = 0x9747b28c
     # 'm' and 'r' are mixing constants generated offline.

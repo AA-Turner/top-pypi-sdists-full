@@ -33,14 +33,14 @@ readme = "README.rst"
 urls = {Homepage = "https://github.com/dask/dask/"}
 requires-python = ">=3.10"
 dependencies = [
-    # NOTE: These are tested in `continuous_integration/test_imports.sh` If
-    # you modify these, make sure to change the corresponding line there.
+    # NOTE: These must match the versions listed in `pixi.toml`
+    # and in `docs/source/install.rst`
     "click >= 8.1",
     "cloudpickle >= 3.0.0",
     "fsspec >= 2021.09.0",
     "packaging >= 20.0",
     "partd >= 1.4.0",
-    "pyyaml >= 5.3.1",
+    "pyyaml >= 5.4.1",
     "toolz >= 0.12.0",
     # importlib.metadata has the following bugs fixed in 3.10.9 and 3.11.1
     # https://github.com/python/cpython/issues/99130
@@ -52,8 +52,6 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-# NOTE: These are tested in `continuous_integration/test_imports.sh` If
-# you modify these, make sure to change the corresponding line there.
 array = ["numpy >= 1.24"]
 # keeping for backwards compatibility
 bag = []
@@ -62,7 +60,7 @@ dataframe = [
     "pandas >= 2.0",
     "pyarrow >= 16.0",
 ]
-distributed = ["distributed >= 2026.3.0,<2026.3.1"]
+distributed = ["distributed >= 2026.6.0,<2026.6.1"]
 diagnostics = [
     "bokeh >= 3.1.0",
     "jinja2 >= 2.10.3",
@@ -71,7 +69,6 @@ diagnostics = [
 delayed = []
 complete = [
     "dask[array,dataframe,distributed,diagnostics]",
-    "pyarrow >= 16.0",
     "lz4 >= 4.3.2",
 ]
 test = [
@@ -178,6 +175,7 @@ filterwarnings = [
     "module:unclosed database in <sqlite3.Connection:ResourceWarning::",
     # Additional ignores only needed in the mindeps environments
     "ignore:distutils Version classes are deprecated. Use packaging.version instead.:DeprecationWarning:",
+    "ignore:The distutils package is deprecated:DeprecationWarning:",
     "ignore:_SixMetaPathImporter.find_spec:ImportWarning:",
     "ignore:`product` is deprecated as of NumPy 1.25.0:DeprecationWarning:",
     "ignore:Starting with ImageIO v3:DeprecationWarning:skimage",
@@ -237,3 +235,6 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"

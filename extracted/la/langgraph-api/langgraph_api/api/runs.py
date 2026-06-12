@@ -854,6 +854,19 @@ async def create_thread_cron(request: ApiRequest):
 
 
 @retry_db
+async def get_cron(request: ApiRequest) -> ApiResponse:
+    """Get a cron by ID."""
+    cron_id = request.path_params["cron_id"]
+    validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
+    async with connect() as conn:
+        cron = await Crons.get(conn, cron_id)
+    cron_dict = await fetchone(cron)
+    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
+        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    return ApiResponse(cron_dict)
+
+
+@retry_db
 async def patch_cron(request: ApiRequest):
     """Update a cron by ID."""
     cron_id = request.path_params["cron_id"]
@@ -992,6 +1005,7 @@ runs_routes = [
     ApiRoute("/threads/{thread_id}/runs", create_run, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs/crons", create_thread_cron, methods=["POST"]),
     ApiRoute("/threads/{thread_id}/runs", list_runs, methods=["GET"]),
+    ApiRoute("/runs/crons/{cron_id}", get_cron, methods=["GET"]),
     ApiRoute("/runs/crons/{cron_id}", patch_cron, methods=["PATCH"]),
     ApiRoute("/runs/crons/{cron_id}", delete_cron, methods=["DELETE"]),
 ]

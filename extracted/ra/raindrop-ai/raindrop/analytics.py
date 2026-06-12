@@ -82,11 +82,13 @@ __all__ = [
 ]
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Library logging: never call ``logging.basicConfig`` here — that mutates the
+# HOST application's root logger configuration (handlers, level, format) as an
+# import side effect. Attach a ``NullHandler`` per stdlib guidance for
+# libraries; warnings/errors still surface through the host's config (or
+# logging's lastResort handler) and ``set_debug_logs(True)`` raises verbosity.
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class _InstrumentationNoiseFilter(logging.Filter):
@@ -183,8 +185,87 @@ _direct_tool_spans_buffer: list[dict[str, Any]] = []
 
 _partial_buffers: dict[str, PartialTrackAIEvent] = {}
 _partial_timers: dict[str, Timer] = {}
-_partial_flush_queue: list[Dict[str, Any]] = []
+# Holds un-serialized PartialTrackAIEvent objects; serialization / redaction /
+# size checks run on the flush thread (see _serialize_partial_event) so that
+# interaction.finish() stays O(1) for the caller.
+_partial_flush_queue: list[PartialTrackAIEvent] = []
 _PARTIAL_TIMEOUT = 2  # 2 seconds
+
+# --- Outbound HTTP bounds ---------------------------------------------------
+# Telemetry must never wedge the host app: every cloud POST gets a finite
+# timeout, retries are capped with a short backoff, and shutdown runs under an
+# overall deadline so the atexit hook can never hang process exit on a dead or
+# slow network.
+_HTTP_CONNECT_TIMEOUT_SECONDS = 5.0
+_HTTP_READ_TIMEOUT_SECONDS = 15.0
+_HTTP_MAX_ATTEMPTS = 3
+_HTTP_RETRY_BACKOFF_SECONDS = (0.5, 1.0)  # sleep before attempt 2 / attempt 3
+_SHUTDOWN_DEADLINE_SECONDS = 10.0
+# After shutdown() completes (deadline cleared, shutdown_event still set),
+# stragglers send synchronously on the CALLER's thread — keep those to a
+# single short-bounded attempt so a late track_ai()/finish() can never block
+# a caller for the full retry schedule.
+_POST_SHUTDOWN_TIMEOUT = (2.0, 5.0)
+_shutdown_deadline: float | None = None  # time.monotonic() based; set by shutdown()
+
+# --- Payload bounds ----------------------------------------------------------
+# Maximum characters for a single serialized text field (ai input/output, tool
+# span input/output, LLM span content). Enforced BEFORE/DURING serialization so
+# the cost of an oversized payload is proportional to the cap, not the payload:
+# raw strings are length-checked in O(1) and structured payloads are encoded
+# incrementally with an output budget (see _dumps_bounded). Override via
+# init(max_text_field_chars=...). OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT still
+# applies when it is stricter.
+#
+# Default is 1M chars: a single ASCII field at the cap still fits under the
+# 1MiB event-level ingest gate (max_ingest_size_bytes), and production data
+# shows real-world fields in the 100k-1MB range that must keep round-
+# tripping unchanged. The cap exists to bound CPU on pathological multi-MB
+# payloads, not to shave real ones.
+max_text_field_chars = 1_000_000
+_TRUNCATION_MARKER = "...[truncated by raindrop]"
+
+# --- Log rate limiting -------------------------------------------------------
+# Failure-path logs (buffer overflow, send errors) fire per event / per batch;
+# under sustained backpressure that floods the host's stdout. Cap each distinct
+# failure family to one log line per interval.
+_RATE_LIMITED_LOG_INTERVAL_SECONDS = 30.0
+_rate_limited_log_last: dict[str, float] = {}
+_rate_limited_log_lock = threading.Lock()
+
+
+def _rate_limited_log(key: str, level: int, msg: str, *args) -> None:
+    now = time.monotonic()
+    with _rate_limited_log_lock:
+        last = _rate_limited_log_last.get(key)
+        if last is not None and (now - last) < _RATE_LIMITED_LOG_INTERVAL_SECONDS:
+            return
+        _rate_limited_log_last[key] = now
+    logger.log(level, msg, *args)
+
+
+def _shutdown_budget() -> float | None:
+    """Seconds left in the shutdown flush window, or None outside shutdown."""
+    if _shutdown_deadline is None:
+        return None
+    return _shutdown_deadline - time.monotonic()
+
+
+def _redact_url_for_log(url: str) -> str:
+    """Strip userinfo (and query) from a URL before logging.
+
+    ``init(endpoint=...)`` is caller-configurable, so integrators may supply
+    URLs containing credentials (``https://user:pass@host/...``); those must
+    never reach application logs or downstream log aggregation.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        netloc = parsed.netloc
+        if "@" in netloc:
+            netloc = netloc.rsplit("@", 1)[1]
+        return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
+    except Exception:
+        return "<unparseable-url>"
 
 
 def set_debug_logs(value: bool):
@@ -262,8 +343,24 @@ def flush() -> None:
             logger.debug(f"Sending {len(batch)} events to {endpoint}")
             send_request(endpoint, batch)
 
-    for partial_data in current_partials:
-        send_request("events/track_partial", partial_data)
+    for partial_event in current_partials:
+        # Serialization / PII redaction / size checks deliberately run here,
+        # on the flush thread, so interaction.finish() stays O(1) for callers.
+        # Guarded per event: one unserializable payload must not discard the
+        # rest of the drained batch.
+        try:
+            partial_data = _serialize_partial_event(partial_event)
+        except Exception as e:
+            _rate_limited_log(
+                "partial_serialize_failed",
+                logging.ERROR,
+                "Failed to serialize partial event %s: %s",
+                getattr(partial_event, "event_id", "<unknown>"),
+                e,
+            )
+            continue
+        if partial_data is not None:
+            send_request("events/track_partial", partial_data)
 
     _flush_direct_tool_spans(current_direct_tool_spans)
 
@@ -447,6 +544,18 @@ _LOCAL_MIRROR_TIMEOUT_SECONDS = 2.0
 def _post_local_mirror(path: str, payload: Any) -> None:
     if not local_workshop_url:
         return
+
+    # The mirror obeys the shutdown deadline too: with Workshop mirroring
+    # enabled, sequential 2s mirror POSTs during the final flush could
+    # otherwise push process exit well past the shutdown bound.
+    timeout = _LOCAL_MIRROR_TIMEOUT_SECONDS
+    budget = _shutdown_budget()
+    if budget is not None:
+        if budget <= 0:
+            logger.debug("Local Workshop mirror skipped: shutdown deadline exceeded")
+            return
+        timeout = min(timeout, budget)
+
     url = f"{local_workshop_url}{path}"
     # Deliberately omit Authorization: the local Workshop daemon doesn't
     # validate cloud credentials, and the mirror URL can come from env vars
@@ -454,9 +563,98 @@ def _post_local_mirror(path: str, payload: Any) -> None:
     # RAINDROP_WORKSHOP host receive the cloud write key.
     headers = {"Content-Type": "application/json"}
     try:
-        requests.post(url, json=payload, headers=headers, timeout=_LOCAL_MIRROR_TIMEOUT_SECONDS)
+        requests.post(url, json=payload, headers=headers, timeout=timeout)
     except Exception as exc:
-        logger.debug("Local Workshop mirror to %s failed: %s", url, exc)
+        logger.debug(
+            "Local Workshop mirror to %s failed: %s",
+            _redact_url_for_log(url),
+            type(exc).__name__,
+        )
+
+
+def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
+    """POST to the cloud API with bounded timeouts and capped retries.
+
+    Outside shutdown: up to ``_HTTP_MAX_ATTEMPTS`` attempts with a short,
+    capped backoff between them, each bounded by (connect, read) timeouts.
+
+    During shutdown — checked fresh on EVERY attempt, so a shutdown that
+    begins while a flush-thread POST is mid-retry takes effect immediately —
+    no further retries or backoff sleeps happen and the (connect, read)
+    timeouts are clamped so their SUM fits the remaining window (``requests``
+    applies the two limits independently and sequentially). Once the window
+    is exhausted, payloads are dropped with a rate-limited warning rather
+    than wedging process exit.
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {write_key}",
+    }
+    # Never log the raw URL: a caller-configured endpoint may embed userinfo
+    # credentials (https://user:pass@host/...).
+    safe_url = _redact_url_for_log(url)
+
+    for attempt in range(_HTTP_MAX_ATTEMPTS):
+        budget = _shutdown_budget()
+        if budget is not None and budget <= 0:
+            _rate_limited_log(
+                f"{log_key}.shutdown_deadline",
+                logging.WARNING,
+                "[raindrop] shutdown flush deadline exceeded; dropping payload for %s",
+                safe_url,
+            )
+            return
+
+        timeout = (_HTTP_CONNECT_TIMEOUT_SECONDS, _HTTP_READ_TIMEOUT_SECONDS)
+        if budget is not None:
+            # Split the remaining window between connect and read so their
+            # SUM stays within the budget (requests applies them in
+            # sequence); give connect at most half so a slow handshake can't
+            # starve the read phase.
+            connect_timeout = min(_HTTP_CONNECT_TIMEOUT_SECONDS, max(0.05, budget / 2))
+            read_timeout = min(
+                _HTTP_READ_TIMEOUT_SECONDS,
+                max(0.05, budget - connect_timeout),
+            )
+            timeout = (connect_timeout, read_timeout)
+        elif shutdown_event.is_set():
+            # shutdown() has completed and cleared the deadline; stragglers
+            # send synchronously on the caller's thread. Keep them short.
+            timeout = _POST_SHUTDOWN_TIMEOUT
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            response.raise_for_status()
+            logger.debug("Request successful: %s", response.status_code)
+            return
+        except requests.exceptions.RequestException as e:
+            # requests embeds the full request URL in exception messages;
+            # scrub it the same way.
+            error_text = str(e).replace(url, safe_url)
+            _rate_limited_log(
+                log_key,
+                logging.ERROR,
+                "Error sending request to %s (attempt %s/%s): %s: %s",
+                safe_url,
+                attempt + 1,
+                _HTTP_MAX_ATTEMPTS,
+                type(e).__name__,
+                error_text,
+            )
+            # In (or after) shutdown, the remaining time is better spent on
+            # other queued payloads than on retrying this one.
+            if _shutdown_budget() is not None or shutdown_event.is_set():
+                break
+            if attempt < _HTTP_MAX_ATTEMPTS - 1:
+                backoff_idx = min(attempt, len(_HTTP_RETRY_BACKOFF_SECONDS) - 1)
+                time.sleep(_HTTP_RETRY_BACKOFF_SECONDS[backoff_idx])
+
+    _rate_limited_log(
+        f"{log_key}.gave_up",
+        logging.ERROR,
+        "Failed to send request to %s",
+        safe_url,
+    )
 
 
 def _send_traces_request(payload: Dict[str, Any]) -> None:
@@ -468,30 +666,7 @@ def _send_traces_request(payload: Dict[str, Any]) -> None:
     url = urllib.parse.urljoin(
         api_url if api_url.endswith("/") else f"{api_url}/", "traces"
     )
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {write_key}",
-    }
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            logger.debug("Direct trace request successful: %s", response.status_code)
-            break
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                "Error sending direct trace request (attempt %s/%s): %s",
-                attempt + 1,
-                max_retries,
-                e,
-            )
-            if attempt == max_retries - 1:
-                logger.error(
-                    "Failed to send direct trace request after %s attempts",
-                    max_retries,
-                )
+    _post_with_retries(url, payload, log_key="send.traces")
 
 
 def _flush_direct_tool_spans(spans: List[Dict[str, Any]]) -> None:
@@ -507,7 +682,11 @@ def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
     global _direct_tool_spans_buffer
 
     if len(_direct_tool_spans_buffer) >= max_queue_size:
-        logger.error("Direct tool span buffer is full. Discarding span.")
+        _rate_limited_log(
+            "direct_tool_span_buffer_full",
+            logging.ERROR,
+            "Direct tool span buffer is full. Discarding span.",
+        )
         return
 
     if shutdown_event.is_set():
@@ -520,7 +699,7 @@ def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
 
 
 def send_request(
-    endpoint: str, data_entries: List[Dict[str, Union[str, Dict]]]
+    endpoint: str, data_entries: Union[List[Dict[str, Union[str, Dict]]], Dict[str, Any]]
 ) -> None:
     _post_local_mirror(endpoint, data_entries)
 
@@ -528,36 +707,23 @@ def send_request(
         return
 
     url = f"{api_url}{endpoint}"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {write_key}",
-    }
-
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(url, json=data_entries, headers=headers)
-            response.raise_for_status()
-            logger.debug(f"Request successful: {response.status_code}")
-            break
-        except requests.exceptions.RequestException as e:
-            logger.error(
-                f"Error sending request (attempt {attempt + 1}/{max_retries}): {e}"
-            )
-            if attempt == max_retries - 1:
-                logger.error(f"Failed to send request after {max_retries} attempts")
+    _post_with_retries(url, data_entries, log_key=f"send.{endpoint}")
 
 
 def save_to_buffer(event: Dict[str, Union[str, Dict]]) -> None:
     global buffer
 
     if len(buffer) >= max_queue_size * 0.8:
-        logger.warning(
-            f"Buffer is at {len(buffer) / max_queue_size * 100:.2f}% capacity"
+        _rate_limited_log(
+            "buffer_capacity",
+            logging.WARNING,
+            f"Buffer is at {len(buffer) / max_queue_size * 100:.2f}% capacity",
         )
 
     if len(buffer) >= max_queue_size:
-        logger.error("Buffer is full. Discarding event.")
+        _rate_limited_log(
+            "buffer_full", logging.ERROR, "Buffer is full. Discarding event."
+        )
         return
 
     logger.debug(f"Adding event to buffer: {event}")
@@ -604,8 +770,8 @@ def track_ai(
             properties=properties or {},
             ai_data=dict(  # Pydantic will coerce to AIData
                 model=model,
-                input=input,
-                output=output,
+                input=_cap_text(input) if input is not None else None,
+                output=_cap_text(output) if output is not None else None,
                 convo_id=convo_id,
             ),
             attachments=attachments,
@@ -639,14 +805,32 @@ def track_ai(
 
 
 def shutdown():
-    logger.info("Shutting down raindrop analytics")
-    for eid in list(_partial_timers.keys()):
-        _flush_partial_event(eid)
+    """Flush pending telemetry and stop, under a hard overall deadline.
 
-    shutdown_event.set()
-    if flush_thread:
-        flush_thread.join(timeout=10)
-    flush()  # Final flush to ensure all events are sent
+    Registered via ``atexit``: a dead or slow network must never wedge the
+    host process's exit. Every send issued after this point runs with a
+    single attempt clamped to the remaining shutdown budget (see
+    ``_post_with_retries``); once the budget is exhausted, remaining payloads
+    are dropped with a rate-limited warning.
+    """
+    global _shutdown_deadline
+    logger.info("Shutting down raindrop analytics")
+    _shutdown_deadline = time.monotonic() + _SHUTDOWN_DEADLINE_SECONDS
+
+    try:
+        for eid in list(_partial_timers.keys()):
+            _flush_partial_event(eid)
+
+        shutdown_event.set()
+        if flush_thread:
+            budget = _shutdown_budget()
+            flush_thread.join(timeout=max(0.1, budget if budget is not None else 10.0))
+        flush()  # Final flush to ensure all events are sent
+    finally:
+        # Scope the deadline to this call: nothing runs after the atexit hook
+        # in production, but tests (and manual callers) may keep using the
+        # module after an explicit shutdown().
+        _shutdown_deadline = None
 
 
 def _check_write_key():
@@ -702,6 +886,153 @@ def _truncate_json_if_needed(json_str: str) -> str:
     return json_str
 
 
+def _effective_field_limit() -> int:
+    """Character budget for one serialized payload field.
+
+    The SDK default (``max_text_field_chars``) always applies; the OTel
+    span-attribute limit env var additionally applies when it is stricter.
+    """
+    limit = max_text_field_chars
+    limit_str = os.getenv("OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT")
+    if limit_str:
+        try:
+            env_limit = int(limit_str)
+            if env_limit > 0:
+                limit = min(limit, env_limit)
+        except ValueError:
+            pass
+    return limit
+
+
+def _truncate_to_limit(text: str, limit: int) -> str:
+    """Truncate so the RESULT (marker included) never exceeds ``limit``.
+
+    The limit may come from ``OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT``, which
+    downstream consumers treat as a hard cap — appending the marker on top of
+    the slice would silently violate it. When the limit is too small to fit
+    the marker, hard-slice without it.
+    """
+    if limit > len(_TRUNCATION_MARKER):
+        return text[: limit - len(_TRUNCATION_MARKER)] + _TRUNCATION_MARKER
+    return text[:limit]
+
+
+def _cap_text(value: str, limit: int | None = None) -> str:
+    """Cap a raw text field BEFORE any serialization.
+
+    The length check is O(1), so multi-MB inputs/outputs cost nothing on the
+    caller's thread beyond the slice that keeps the first ``limit`` chars.
+    The result, truncation marker included, never exceeds ``limit``.
+    """
+    if not isinstance(value, str):
+        return value
+    if limit is None:
+        limit = _effective_field_limit()
+    if len(value) <= limit:
+        return value
+    return _truncate_to_limit(value, limit)
+
+
+def _bounded_clone(obj: Any, char_budget: int, _depth: int = 0) -> Any:
+    """Shallow-prune a payload to roughly ``char_budget`` characters of data.
+
+    ``JSONEncoder.iterencode`` emits each string LEAF as a single chunk, so a
+    payload shaped as one multi-MB string would still pay its full encoding
+    cost before a chunk-level budget check could fire. This walk caps every
+    string leaf and stops descending once the budget is consumed, so the
+    clone — and therefore its encoding — is O(budget) regardless of payload
+    shape. Each visited node also consumes a little budget, bounding the walk
+    itself on huge collections of small values.
+
+    Unknown / custom objects pass through untouched so a custom encoder's
+    ``default()`` hook still sees them.
+    """
+    budget = [char_budget]
+
+    def walk(o: Any, depth: int) -> Any:
+        if budget[0] <= 0:
+            return _TRUNCATION_MARKER
+        if isinstance(o, str):
+            if len(o) > budget[0]:
+                taken = o[: max(0, budget[0])] + _TRUNCATION_MARKER
+                budget[0] = 0
+                return taken
+            budget[0] -= max(len(o), 1)
+            return o
+        if o is None or isinstance(o, (bool, int, float)):
+            budget[0] -= 8
+            return o
+        if depth >= 12:
+            budget[0] -= 16
+            return f"<max depth: {type(o).__name__}>"
+        if isinstance(o, dict):
+            out: dict = {}
+            for k, v in o.items():
+                if budget[0] <= 0:
+                    out["..."] = _TRUNCATION_MARKER
+                    break
+                # Walk the key BEFORE the value: assignment evaluates the
+                # RHS first, so a budget-draining value would otherwise
+                # corrupt its own key.
+                key = walk(k, depth + 1) if isinstance(k, str) else k
+                out[key] = walk(v, depth + 1)
+            return out
+        if isinstance(o, (list, tuple)):
+            out_list: list = []
+            for v in o:
+                if budget[0] <= 0:
+                    out_list.append(_TRUNCATION_MARKER)
+                    break
+                out_list.append(walk(v, depth + 1))
+            return out_list
+        # Custom object: leave for the encoder's default() hook. Charge a
+        # token so unbounded sequences of custom objects still terminate.
+        budget[0] -= 16
+        return o
+
+    return walk(obj, _depth)
+
+
+def _dumps_bounded(obj: Any, *, limit: int | None = None, cls=None) -> str:
+    """JSON-serialize ``obj`` with a hard output budget.
+
+    Unlike serialize-then-truncate, the encoding cost here is proportional to
+    the budget, not the payload: the payload is first pruned by
+    ``_bounded_clone`` (caps string leaves, stops walking once the budget is
+    spent — a single multi-MB string leaf never reaches the encoder), and the
+    encode itself still breaks early on accumulated chunk size as a second
+    line of defense for content produced by custom ``default()`` hooks. So a
+    multi-MB tool payload can never burn seconds of CPU (and the GIL) on the
+    calling thread — which may be the host app's asyncio event loop. Matching
+    ``_truncate_json_if_needed`` semantics, a truncated result may not be
+    valid JSON; that is expected for display purposes.
+    """
+    if limit is None:
+        limit = _effective_field_limit()
+    if isinstance(obj, str):
+        # Cap first (O(limit) dumps cost), then re-truncate: quoting and
+        # escape expansion (\uXXXX) can push the encoded form past the limit.
+        text = json.dumps(_cap_text(obj, limit))
+        return text if len(text) <= limit else _truncate_to_limit(text, limit)
+
+    # Slack covers JSON syntax overhead (quotes, braces, escapes) so payloads
+    # near the limit don't get pruned twice.
+    pruned = _bounded_clone(obj, limit + len(_TRUNCATION_MARKER) + 256)
+
+    encoder = (cls or json.JSONEncoder)()
+    chunks: list[str] = []
+    total = 0
+    for chunk in encoder.iterencode(pruned):
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > limit:
+            break
+    text = "".join(chunks)
+    if total > limit:
+        return _truncate_to_limit(text, limit)
+    return text
+
+
 def _should_send_prompts():
     return (
         os.getenv("TRACELOOP_TRACE_CONTENT") or "true"
@@ -740,21 +1071,19 @@ def set_llm_span_io(
     try:
         if input is not None:
             input_str = (
-                json.dumps(input, cls=JSONEncoder)
+                _dumps_bounded(input, cls=JSONEncoder)
                 if not isinstance(input, str)
-                else input
+                else _cap_text(input)
             )
-            input_str = _truncate_json_if_needed(input_str)
             span.set_attribute("gen_ai.prompt.0.role", "user")
             span.set_attribute("gen_ai.prompt.0.content", input_str)
 
         if output is not None:
             output_str = (
-                json.dumps(output, cls=JSONEncoder)
+                _dumps_bounded(output, cls=JSONEncoder)
                 if not isinstance(output, str)
-                else output
+                else _cap_text(output)
             )
-            output_str = _truncate_json_if_needed(output_str)
             span.set_attribute("gen_ai.completion.0.role", "assistant")
             span.set_attribute("gen_ai.completion.0.content", output_str)
     except Exception as e:
@@ -895,7 +1224,8 @@ def begin(
     # Instantiate ai_data if either input or convo_id is supplied so that convo_id isn't lost when input is set later
     ai_data_partial = None
     if input is not None or convo_id is not None:
-        ai_data_partial = PartialAIData(input=input, convo_id=convo_id)
+        capped_input = _cap_text(input) if input is not None else None
+        ai_data_partial = PartialAIData(input=capped_input, convo_id=convo_id)
 
     # Combine properties with initial_fields, giving precedence to initial_fields if keys clash
     final_properties = (properties or {}).copy()
@@ -956,6 +1286,7 @@ def init(
     bypass_otel_for_tools: bool = False,
     endpoint: str | None = None,
     local_workshop_url: Any = UNSET,
+    max_text_field_chars: int | None = None,
     **traceloop_kwargs,
 ):
     """Initialize Raindrop with Traceloop integration.
@@ -979,10 +1310,23 @@ def init(
             ``str`` forces the URL; ``None`` opts out (suppresses env +
             auto-detect); omitted falls through to ``RAINDROP_LOCAL_DEBUGGER`` /
             ``RAINDROP_WORKSHOP`` env vars and a TCP probe of localhost:5899.
+        max_text_field_chars: Per-field character cap applied to ai
+            input/output and serialized tool/LLM span content BEFORE (or
+            during) serialization, so oversized payloads cost the cap — not
+            the payload — on the calling thread. Defaults to 1,000,000.
         **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
     """
+    if max_text_field_chars is not None:
+        if max_text_field_chars > 0:
+            globals()["max_text_field_chars"] = max_text_field_chars
+        else:
+            logger.warning(
+                "[raindrop] init(max_text_field_chars=%r) ignored; must be > 0",
+                max_text_field_chars,
+            )
+
     resolved_local = resolve_local_workshop_url(local_workshop_url)
 
     global write_key
@@ -1112,8 +1456,7 @@ class TraceEntitySpan:
     def record_input(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                json_input = json.dumps({"args": [data]}, cls=JSONEncoder)
-                truncated = _truncate_json_if_needed(json_input)
+                truncated = _dumps_bounded({"args": [data]}, cls=JSONEncoder)
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_INPUT, truncated
                 )
@@ -1123,8 +1466,7 @@ class TraceEntitySpan:
     def record_output(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                json_output = json.dumps(data, cls=JSONEncoder)
-                truncated = _truncate_json_if_needed(json_output)
+                truncated = _dumps_bounded(data, cls=JSONEncoder)
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_OUTPUT, truncated
                 )
@@ -1156,8 +1498,7 @@ class ManualSpan:
     def record_input(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                json_input = json.dumps({"args": [data]}, cls=JSONEncoder)
-                truncated = _truncate_json_if_needed(json_input)
+                truncated = _dumps_bounded({"args": [data]}, cls=JSONEncoder)
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_INPUT, truncated
                 )
@@ -1167,8 +1508,7 @@ class ManualSpan:
     def record_output(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                json_output = json.dumps(data, cls=JSONEncoder)
-                truncated = _truncate_json_if_needed(json_output)
+                truncated = _dumps_bounded(data, cls=JSONEncoder)
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_OUTPUT, truncated
                 )
@@ -1421,15 +1761,44 @@ def _should_drop_empty_ai_event(evt: PartialTrackAIEvent) -> bool:
     return not ai.input and not ai.output
 
 
+def _serialize_partial_event(evt: PartialTrackAIEvent) -> Optional[Dict[str, Any]]:
+    """Serialize a buffered partial event for ``events/track_partial``.
+
+    Runs on the background flush thread (or synchronously during shutdown) —
+    NOT on the caller's thread. Returns ``None`` when the event should be
+    skipped (oversized).
+    """
+    # convert to ordinary TrackAIEvent-ish dict before send
+    data = evt.model_dump(mode="json", exclude_none=True)
+
+    # Inject wizard session if set
+    if _wizard_session is not None:
+        if "properties" not in data or data["properties"] is None:
+            data["properties"] = {}
+        data["properties"]["raindrop.wizardSession"] = _wizard_session
+
+    # Apply PII redaction if enabled
+    if redact_pii:
+        data = perform_pii_redaction(data)
+
+    size = _get_size(data)
+    if size > max_ingest_size_bytes:
+        logger.warning(f"[raindrop] partial event {evt.event_id} > 1 MB; skipping")
+        return None
+
+    return data
+
+
 def _flush_partial_event(event_id: str) -> None:
     """
     Enqueue the accumulated patch for asynchronous send to `events/track_partial`.
 
-    Serialization happens on the calling thread so per-event PII redaction and
-    size checks still apply, but the actual HTTP POST is performed by the
-    background ``flush_loop`` thread (matching the TypeScript SDK semantics
-    where ``interaction.finish()`` is fire-and-forget rather than blocking the
-    caller on a network round trip).
+    The caller — often a request hot path or an asyncio event loop — only pops
+    the buffer and enqueues the model object; serialization, PII redaction,
+    and size checks all run on the background ``flush_loop`` thread (see
+    ``_serialize_partial_event``), so ``interaction.finish()`` is O(1) for the
+    caller regardless of payload size. During shutdown the event is serialized
+    and sent synchronously under the shutdown deadline.
     """
     if t := _partial_timers.pop(event_id, None):
         t.cancel()
@@ -1449,33 +1818,34 @@ def _flush_partial_event(event_id: str) -> None:
         )
         return
 
-    # convert to ordinary TrackAIEvent-ish dict before send
-    data = evt.model_dump(mode="json", exclude_none=True)
-
-    # Inject wizard session if set
-    if _wizard_session is not None:
-        if "properties" not in data or data["properties"] is None:
-            data["properties"] = {}
-        data["properties"]["raindrop.wizardSession"] = _wizard_session
-
-    # Apply PII redaction if enabled
-    if redact_pii:
-        data = perform_pii_redaction(data)
-
-    size = _get_size(data)
-    if size > max_ingest_size_bytes:
-        logger.warning(f"[raindrop] partial event {event_id} > 1 MB; skipping")
-        return
-
     if shutdown_event.is_set():
-        send_request("events/track_partial", data)
+        # Synchronous send on the caller's thread (e.g. a late finish()
+        # during atexit ordering). Guarded like the flush-thread path: a
+        # serialization failure must never propagate into caller code.
+        try:
+            data = _serialize_partial_event(evt)
+        except Exception as e:
+            _rate_limited_log(
+                "partial_serialize_failed",
+                logging.ERROR,
+                "Failed to serialize partial event %s: %s",
+                event_id,
+                e,
+            )
+            return
+        if data is not None:
+            send_request("events/track_partial", data)
         return
 
     with flush_lock:
         if len(_partial_flush_queue) >= max_queue_size:
-            logger.error("Partial queue is full. Discarding event.")
+            _rate_limited_log(
+                "partial_queue_full",
+                logging.ERROR,
+                "Partial queue is full. Discarding event.",
+            )
             return
-        _partial_flush_queue.append(data)
+        _partial_flush_queue.append(evt)
         start_flush_thread()
 
 

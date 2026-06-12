@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
+from pyfixest.demeaners import AnyDemeaner
 from pyfixest.estimation.api.utils import _estimation_input_checks
 from pyfixest.estimation.FixestMulti_ import FixestMulti
+from pyfixest.estimation.internals.demeaner_options import (
+    _resolve_demeaner,
+    _warn_if_deprecated_demeaner_backend,
+    _warn_if_deprecated_solver,
+    _warn_if_experimental_torch_demeaner,
+)
 from pyfixest.estimation.internals.literals import (
-    DemeanerBackendOptions,
     FixedRmOptions,
     SolverOptions,
     VcovTypeOptions,
@@ -26,8 +33,6 @@ def feols(
     weights: None | str = None,
     ssc: dict[str, str | bool] | None = None,
     fixef_rm: FixedRmOptions = "singleton",
-    fixef_tol=1e-06,
-    fixef_maxiter: int = 10_000,
     collin_tol: float = 1e-09,
     drop_intercept: bool = False,
     copy_data: bool = True,
@@ -35,7 +40,10 @@ def feols(
     lean: bool = False,
     weights_type: WeightsTypeOptions = "aweights",
     solver: SolverOptions = "scipy.linalg.solve",
-    demeaner_backend: DemeanerBackendOptions = "numba",
+    demeaner: AnyDemeaner | None = None,
+    demeaner_backend: str | None = None,
+    fixef_tol: float | None = None,
+    fixef_maxiter: int | None = None,
     use_compression: bool = False,
     reps: int = 100,
     context: int | Mapping[str, Any] | None = None,
@@ -94,12 +102,6 @@ def feols(
     collin_tol : float, optional
         Tolerance for collinearity check, by default 1e-10.
 
-    fixef_tol: float, optional
-        Tolerance for the fixed effects demeaning algorithm. Defaults to 1e-06.
-
-    fixef_maxiter: int, optional
-         Maximum number of iterations for the demeaning algorithm. Defaults to 100,000.
-
     drop_intercept : bool, optional
         Whether to drop the intercept from the model, by default False.
 
@@ -137,25 +139,37 @@ def feols(
         "np.linalg.solve", "scipy.linalg.solve", "scipy.sparse.linalg.lsqr" and "jax".
         Defaults to "scipy.linalg.solve".
 
-    demeaner_backend: DemeanerBackendOptions, optional
-        The backend to use for demeaning. Options include:
-        - "numba" (default): CPU-based demeaning using Numba JIT via the Alternating Projections Algorithm.
-        - "rust-cg": Implements the conjugate-gradient-schwarz algorithm from the
-          [`within`](https://github.com/py-econometrics/within) rust package.
-          Particularly effective for sparse fixed effects structures. See the
-          [difficult fixed effects vignette](https://pyfixest.org/explanation/difficult-fixed-effects.html)
-          for benchmarks.
-        - "rust": CPU-based demeaning implemented in Rust via the Alternating Projections Algorithm.
-        - "jax": CPU or GPU-accelerated using JAX (requires jax/jaxlib) via the Alternating Projections Algorithm.
-        - "cupy" or "cupy64": GPU-accelerated using CuPy with float64 precision via direct application of the Frisch-Waugh-Lovell Theorem on sparse
-          matrices (requires cupy & GPU, defaults to scipy/CPU if no GPU available)
-        - "cupy32": GPU-accelerated using CuPy with float32 precision via direct application of the Frisch-Waugh-Lovell Theorem on sparse
-          matrices (requires cupy & GPU, defaults to scipy/CPU and float64 if no GPU available)
-        - "scipy": Direct application of the Frisch-Waugh-Lovell Theorem on sparse matrice.
-          Forces to use a scipy-sparse backend even when cupy is installed and GPU is available.
-        Defaults to "numba".
+        .. deprecated::
+            ``solver="jax"`` is deprecated and will be removed in a future
+            release. Use one of the NumPy/SciPy solvers instead; for GPU
+            acceleration, see ``LsmrDemeaner(backend="torch", device="cuda")``.
+
+    demeaner : AnyDemeaner | None, optional
+        Typed demeaner configuration. Controls the fixed-effects demeaning
+        backend, tolerance, and iteration limits. Accepts a `MapDemeaner`
+        or `LsmrDemeaner` instance. Defaults to
+        `MapDemeaner()` (Rust MAP algorithm, tol=1e-6, maxiter=10_000).
+        For other options - including the optional Numba backend and the
+        torch-based LSMR backends - see the
+        [Demeaner Backends vignette](../../how-to/demeaner-backends.qmd).
+
+        .. deprecated::
+            The ``jax`` MAP backend and the ``cupy`` / ``scipy`` LSMR
+            backends are deprecated and will be removed in a future release.
+            Replacements:
+
+            - JAX MAP on CPU → ``MapDemeaner()`` (the default rust MAP).
+            - JAX MAP / cupy LSMR on GPU →
+              ``LsmrDemeaner(backend="torch", device="cuda")``.
+            - Scipy / cupy LSMR on CPU → ``LsmrDemeaner()``
+              (the default within backend).
 
     use_compression: bool
+        .. deprecated::
+            ``use_compression`` is deprecated and will be removed in a future release.
+            For out-of-memory regression on large datasets, consider using the
+            `duckreg <https://github.com/py-econometrics/duckreg>`_ package instead.
+
         Whether to use sufficient statistics to losslessly fit the regression model
         on compressed data. False by default. If True, the model is estimated on
         compressed data, which can lead to a significant speed-up for large data sets.
@@ -227,9 +241,9 @@ def feols(
     fit.tidy()
     ```
 
-    You can also access all elements in the tidy data frame by dedicated methods,
+    You can also access common outputs via dedicated methods,
     e.g. `fit.coef()` for the coefficients, `fit.se()` for the standard errors,
-    `fit.tstat()` for the t-statistics, and `fit.pval()` for the p-values, and
+    `fit.tstat()` for the t-statistics, `fit.pvalue()` for the p-values, and
     `fit.confint()` for the confidence intervals.
 
     The employed type of inference can be specified via the `vcov` argument. For compatibility
@@ -375,7 +389,8 @@ def feols(
     ```
 
     Last, `feols()` supports interaction of variables via the `i()` syntax.
-    Documentation on this is tba.
+    For a compact overview of formula features including `i()`, see the
+    [formula syntax tutorial](/tutorials/formula-syntax.html).
 
     You can pass custom transforms via the `context` argument. If you set `context = 0`, all
     functions from the level of the call to `feols()` will be available:
@@ -494,6 +509,27 @@ def feols(
     if ssc is None:
         ssc = ssc_func()
     context = {} if context is None else capture_context(context)
+    demeaner = _resolve_demeaner(
+        demeaner=demeaner,
+        demeaner_backend=demeaner_backend,
+        fixef_tol=fixef_tol,
+        fixef_maxiter=fixef_maxiter,
+    )
+    _warn_if_experimental_torch_demeaner(demeaner)
+    _warn_if_deprecated_demeaner_backend(demeaner)
+    _warn_if_deprecated_solver(solver)
+
+    if use_compression:
+        warnings.warn(
+            (
+                "The `use_compression` argument is deprecated and will be removed in a future release. "
+                "For out-of-memory regression on large datasets, consider using the "
+                "`duckreg` package (https://github.com/py-econometrics/duckreg) instead. "
+                "See https://github.com/py-econometrics/pyfixest/issues/1302 for context."
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     _estimation_input_checks(
         fml=fml,
@@ -507,8 +543,6 @@ def feols(
         copy_data=copy_data,
         store_data=store_data,
         lean=lean,
-        fixef_tol=fixef_tol,
-        fixef_maxiter=fixef_maxiter,
         weights_type=weights_type,
         use_compression=use_compression,
         reps=reps,
@@ -522,8 +556,6 @@ def feols(
         copy_data=copy_data,
         store_data=store_data,
         lean=lean,
-        fixef_tol=fixef_tol,
-        fixef_maxiter=fixef_maxiter,
         weights_type=weights_type,
         use_compression=use_compression,
         reps=reps,
@@ -552,7 +584,7 @@ def feols(
         solver=solver,
         vcov_kwargs=vcov_kwargs,
         collin_tol=collin_tol,
-        demeaner_backend=demeaner_backend,
+        demeaner=demeaner,
     )
 
     if fixest._is_multiple_estimation:

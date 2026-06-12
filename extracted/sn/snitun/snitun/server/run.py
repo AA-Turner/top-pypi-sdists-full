@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Coroutine, Iterator
+from collections.abc import Coroutine, Iterator, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import ipaddress
 from itertools import cycle
 import logging
 from multiprocessing import cpu_count
@@ -16,19 +17,70 @@ import socket
 from threading import Thread
 from typing import Any
 
-from ..exceptions import ParseSNIIncompleteError
+from ..exceptions import (
+    ParseProxyProtocolError,
+    ParseProxyProtocolIncompleteError,
+    ParseSNIIncompleteError,
+)
 from ..metrics import MetricsCollector, MetricsFactory, create_noop_metrics_collector
-from ..utils.asyncio import asyncio_timeout
+from ..utils.ipaddress import Hosts, normalize_hosts
 from ..utils.server import MAX_BUFFER_SIZE, MAX_READ_SIZE
 from .listener_peer import PeerListener
 from .listener_sni import SNIProxy
 from .peer_manager import PeerManager
+from .proxy_protocol import parse_proxy_protocol_header
 from .sni import ParseSNIError, parse_tls_sni
 from .worker import ServerWorker
 
 _LOGGER = logging.getLogger(__name__)
 
 WORKER_STALE_MAX = 30
+LISTEN_BACKLOG = 80 * 1000
+
+
+def create_listen_sockets(
+    hosts: Sequence[str] | None,
+    port: int,
+) -> list[socket.socket]:
+    """Create bound, listening TCP sockets for the given hosts.
+
+    Each host is resolved with ``getaddrinfo`` so both IPv4 and IPv6
+    addresses are supported. IPv6 sockets are bound with ``IPV6_V6ONLY`` so
+    that binding ``"::"`` does not collide with a separate ``"0.0.0.0"`` bind.
+    ``None`` binds the wildcard address(es), i.e. all interfaces.
+    """
+    targets: list[str | None] = [None] if hosts is None else list(hosts)
+    sockets: list[socket.socket] = []
+    seen: set[tuple] = set()
+    try:
+        for host in targets:
+            for family, sock_type, proto, _, sockaddr in socket.getaddrinfo(
+                host,
+                port,
+                type=socket.SOCK_STREAM,
+                flags=socket.AI_PASSIVE,
+            ):
+                if sockaddr in seen:
+                    continue
+                seen.add(sockaddr)
+
+                sock = socket.socket(family, sock_type, proto)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if family == socket.AF_INET6:
+                    sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+                sock.bind(sockaddr)
+                sock.setblocking(False)
+                sock.listen(LISTEN_BACKLOG)
+                sockets.append(sock)
+    except OSError:
+        for sock in sockets:
+            sock.close()
+        raise
+
+    if not sockets:
+        raise RuntimeError(f"No listening sockets created for hosts: {hosts}")
+
+    return sockets
 
 
 class SniTunServer:
@@ -38,14 +90,25 @@ class SniTunServer:
         self,
         fernet_keys: list[str],
         sni_port: int | None = None,
-        sni_host: str | None = None,
+        sni_host: Hosts = None,
         peer_port: int | None = None,
-        peer_host: str | None = None,
+        peer_host: Hosts = None,
         throttling: int | None = None,
+        proxy_protocol: bool = False,
     ) -> None:
-        """Initialize SniTun Server."""
+        """Initialize SniTun Server.
+
+        ``sni_host``/``peer_host`` accept a single address or a sequence of
+        addresses (e.g. ``["0.0.0.0", "::"]`` to listen on IPv4 and IPv6).
+        Each address may be a string (hostname or IP) or an ipaddress object.
+        """
         self._peers: PeerManager = PeerManager(fernet_keys, throttling=throttling)
-        self._list_sni: SNIProxy = SNIProxy(self._peers, host=sni_host, port=sni_port)
+        self._list_sni: SNIProxy = SNIProxy(
+            self._peers,
+            host=sni_host,
+            port=sni_port,
+            proxy_protocol=proxy_protocol,
+        )
         self._list_peer: PeerListener = PeerListener(
             self._peers,
             host=peer_host,
@@ -92,18 +155,28 @@ class SniTunServerSingle:
     def __init__(
         self,
         fernet_keys: list[str],
-        host: str | None = None,
+        host: Hosts = None,
         port: int | None = None,
         throttling: int | None = None,
+        proxy_protocol: bool = False,
     ) -> None:
-        """Initialize SniTun Server."""
-        self._loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        """Initialize SniTun Server.
+
+        ``host`` accepts a single address or a sequence of addresses (e.g.
+        ``["0.0.0.0", "::"]`` to listen on IPv4 and IPv6). Each address may be
+        a string (hostname or IP) or an ipaddress object. The default,
+        ``None``, binds all interfaces (IPv4 and IPv6).
+        """
         self._server: asyncio.AbstractServer | None = None
         self._peers: PeerManager = PeerManager(fernet_keys, throttling=throttling)
         self._list_sni: SNIProxy = SNIProxy(self._peers)
         self._list_peer: PeerListener = PeerListener(self._peers)
-        self._host: str = host or "0.0.0.0"
+        self._host: list[str] | None = normalize_hosts(host)
         self._port: int = port or 443
+        self._connection_tasks: set[asyncio.Task[None]] = set()
+        # Only trust a PROXY protocol header when explicitly enabled (i.e. when
+        # behind a known proxy); otherwise a client could spoof its source IP.
+        self._proxy_protocol = proxy_protocol
 
     @property
     def peers(self) -> PeerManager:
@@ -124,17 +197,59 @@ class SniTunServerSingle:
         self._server.close()
         await self._server.wait_closed()
 
+    async def _strip_proxy_protocol(
+        self,
+        reader: asyncio.StreamReader,
+        data: bytes,
+    ) -> tuple[bytes, ipaddress.IPv4Address | ipaddress.IPv6Address | None]:
+        """Strip an optional PROXY protocol header, returning (payload, source).
+
+        Reads more from ``reader`` if the header has not fully arrived. Raises
+        ParseProxyProtocolError for a malformed or unterminated header.
+        """
+        while True:
+            try:
+                header = parse_proxy_protocol_header(data)
+            except ParseProxyProtocolIncompleteError:
+                chunk = await reader.read(2048)
+                if not chunk:
+                    raise ParseProxyProtocolError(
+                        "Connection closed during PROXY protocol header",
+                    ) from None
+                data += chunk
+                continue
+            break
+
+        if header is None:
+            return data, None
+
+        data = data[header.size :]
+        if not data:
+            # The header consumed everything read so far; fetch the payload.
+            data = await reader.read(2048)
+        return data, header.source
+
     async def _handler(
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
         """Handle incoming connection."""
+        peer_address: ipaddress.IPv4Address | ipaddress.IPv6Address | None = None
         try:
-            async with asyncio_timeout.timeout(10):
+            async with asyncio.timeout(10):
                 data = await reader.read(2048)
+                if self._proxy_protocol:
+                    data, peer_address = await self._strip_proxy_protocol(
+                        reader,
+                        data,
+                    )
         except TimeoutError:
             _LOGGER.warning("Abort connection initializing")
+            writer.close()
+            return
+        except ParseProxyProtocolError:
+            _LOGGER.warning("Invalid PROXY protocol header")
             writer.close()
             return
         except OSError:
@@ -147,17 +262,27 @@ class SniTunServerSingle:
 
         # Select the correct handler for process data
         if data[0] == 0x16:
-            self._loop.create_task(
-                self._list_sni.handle_connection(reader, writer, data=data),
+            task = asyncio.create_task(
+                self._list_sni.handle_connection(
+                    reader,
+                    writer,
+                    data=data,
+                    peer_address=peer_address,
+                ),
             )
         elif data.startswith(b"gA"):
-            self._loop.create_task(
+            task = asyncio.create_task(
                 self._list_peer.handle_connection(reader, writer, data=data),
             )
         else:
             _LOGGER.warning("No valid ClientHello found: %s", data)
             writer.close()
             return
+
+        # Keep a reference so the fire-and-forget task is not garbage
+        # collected before it completes.
+        self._connection_tasks.add(task)
+        task.add_done_callback(self._connection_tasks.discard)
 
 
 @dataclass(slots=True)
@@ -169,6 +294,11 @@ class Connection:
     buffer: bytes = b""
     stale: int = 0
     close: bool = False
+    # PROXY protocol state (only used when the server enables it).
+    proxy_done: bool = False
+    peer_address: ipaddress.IPv4Address | ipaddress.IPv6Address | None = field(
+        default=None,
+    )
 
     @property
     def fileno(self) -> int:
@@ -195,17 +325,24 @@ class SniTunServerWorker(Thread):
     def __init__(
         self,
         fernet_keys: list[str],
-        host: str | None = None,
+        host: Hosts = None,
         port: int | None = None,
         worker_size: int | None = None,
         throttling: int | None = None,
         metrics_factory: MetricsFactory | None = None,
         metrics_interval: int = 60,
+        proxy_protocol: bool = False,
     ) -> None:
-        """Initialize SniTun Server."""
+        """Initialize SniTun Server.
+
+        ``host`` accepts a single address or a sequence of addresses (e.g.
+        ``["0.0.0.0", "::"]`` to listen on IPv4 and IPv6). Each address may be
+        a string (hostname or IP) or an ipaddress object. The default,
+        ``None``, binds all interfaces (IPv4 and IPv6).
+        """
         super().__init__()
 
-        self._host: str = host or "0.0.0.0"
+        self._hosts: list[str] | None = normalize_hosts(host)
         self._port: int = port or 443
         self._fernet_keys: list[str] = fernet_keys
         self._throttling: int | None = throttling
@@ -215,9 +352,12 @@ class SniTunServerWorker(Thread):
         self._metrics_factory = metrics_factory or create_noop_metrics_collector
         self._metrics_interval = metrics_interval
         self._metrics: MetricsCollector | None = None
+        # Only trust a PROXY protocol header when explicitly enabled (i.e. when
+        # behind a known proxy); otherwise a client could spoof its source IP.
+        self._proxy_protocol = proxy_protocol
 
         # TCP server
-        self._server: socket.socket | None = None
+        self._servers: list[socket.socket] = []
         self._poller: select.epoll | None = None
 
     @property
@@ -241,15 +381,12 @@ class SniTunServerWorker(Thread):
             worker.start()
             self._workers.append(worker)
 
-        self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._server.bind((self._host, self._port))
-        self._server.setblocking(False)
-        self._server.listen(80 * 1000)
+        self._servers = create_listen_sockets(self._hosts, self._port)
 
         self._running = True
         self._poller = select.epoll()
-        self._poller.register(self._server.fileno(), select.EPOLLIN)
+        for server in self._servers:
+            self._poller.register(server.fileno(), select.EPOLLIN)
 
         super().start()
 
@@ -264,28 +401,31 @@ class SniTunServerWorker(Thread):
             worker.close()
 
         self._workers.clear()
-        assert self._server is not None, "Server not started"
-        self._server.close()
+        assert self._servers, "Server not started"
+        for server in self._servers:
+            server.close()
         assert self._poller is not None, "Poller not started"
         self._poller.close()
 
     def run(self) -> None:
         """Handle incoming connection."""
-        assert self._server is not None, "Server not started"
-        fd_server = self._server.fileno()
+        assert self._servers, "Server not started"
+        servers: dict[int, socket.socket] = {
+            server.fileno(): server for server in self._servers
+        }
         connections: dict[int, Connection] = {}
         worker_lb = cycle(self._workers)
 
-        _LOGGER.info("Server started, fd: %s", fd_server)
+        _LOGGER.info("Server started, fds: %s", list(servers))
         assert self._poller is not None, "Poller not started"
 
         while self._running:
             events = self._poller.poll(1)
             for fileno, event in events:
                 # New Connection
-                if fileno == fd_server:
+                if server := servers.get(fileno):
                     try:
-                        con, _ = self._server.accept()
+                        con, _ = server.accept()
                     except OSError as err:
                         _LOGGER.warning("Accept failed: %s", err)
                         continue
@@ -351,6 +491,11 @@ class SniTunServerWorker(Thread):
             return
         client.buffer += data
 
+        # Strip an optional PROXY protocol header (only when trusted). Returns
+        # False when we should wait for more data or the connection was closed.
+        if not self._strip_proxy_protocol(client):
+            return
+
         # Peer connection
         if client.buffer.startswith(b"gA"):
             client.soft_close()
@@ -383,11 +528,44 @@ class SniTunServerWorker(Thread):
             if not worker.is_responsible_peer(hostname):
                 continue
             client.soft_close()
-            worker.handover_connection(client.sock, client.buffer, sni=hostname)
+            worker.handover_connection(
+                client.sock,
+                client.buffer,
+                sni=hostname,
+                peer_address=client.peer_address,
+            )
 
             _LOGGER.debug("Handover %s to %s", hostname, worker.name)
             return
         _LOGGER.debug("No responsible worker for %s", hostname)
-
         client.close_socket()
-        return
+
+    def _strip_proxy_protocol(self, client: Connection) -> bool:
+        """Strip an optional PROXY protocol header from the client buffer.
+
+        Returns ``True`` when processing can continue, ``False`` when more data
+        is required or the connection was closed (malformed header / oversized).
+        """
+        if not self._proxy_protocol or client.proxy_done:
+            return True
+
+        try:
+            header = parse_proxy_protocol_header(client.buffer)
+        except ParseProxyProtocolIncompleteError:
+            # Wait for the rest of the header (bounded by the buffer size).
+            if len(client.buffer) >= MAX_BUFFER_SIZE:
+                _LOGGER.warning("Connection %d exceed buffer size", client.fileno)
+                client.close_socket()
+            return False
+        except ParseProxyProtocolError:
+            _LOGGER.warning("Invalid PROXY protocol header")
+            client.close_socket()
+            return False
+
+        client.proxy_done = True
+        if header is not None:
+            client.buffer = client.buffer[header.size :]
+            client.peer_address = header.source
+
+        # Wait for the payload that follows the header.
+        return bool(client.buffer)

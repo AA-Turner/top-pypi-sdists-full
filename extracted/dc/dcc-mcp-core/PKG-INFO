@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.18.17
+Version: 0.18.20
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
+Requires-Dist: dcc-mcp-server>=0.18.17,<1.0.0
 Requires-Dist: dcc-mcp-core[test] ; extra == 'dev'
 Requires-Dist: ruff>=0.8.0 ; extra == 'dev'
 Requires-Dist: mypy>=1.0 ; extra == 'dev'
@@ -68,7 +69,7 @@ Project-URL: Repository, https://github.com/dcc-mcp/dcc-mcp-core
 
 `dcc-mcp-core` turns DCC applications into discoverable, routable MCP endpoints. Agents stop guessing from shell output and start working with live scene state, scoped tool catalogs, structured results, viewport diagnostics, audit logs, and workflows that can survive real production constraints.
 
-It combines **MCP 2025-03-26 Streamable HTTP**, a **zero-code Skills system** built on [agentskills.io 1.0](https://agentskills.io/specification), and a Rust gateway for discovery, routing, installation, linting, and operations. The Python package keeps **zero runtime Python dependencies** for embedded DCC hosts, while standalone `dcc-mcp-cli` and `dcc-mcp-server` binaries ship through GitHub Releases for workstation-style installs. Supports Python 3.7–3.14.
+It combines **MCP 2025-03-26 Streamable HTTP**, a **zero-code Skills system** built on [agentskills.io 1.0](https://agentskills.io/specification), and a Rust gateway for discovery, routing, installation, linting, and operations. The Python package keeps **zero third-party Python library dependencies** for embedded DCC hosts and depends on the companion `dcc-mcp-server` wheel so daemon-backed gateway startup has a packaged binary even when `PATH` is empty. Standalone `dcc-mcp-cli` and `dcc-mcp-server` binaries also ship through GitHub Releases for workstation-style installs. Supports Python 3.7–3.14.
 
 Use it when you want agents to operate production DCC sessions without flooding the context window, hand-writing Python glue for every tool, or shipping fragile one-off shell scripts. Start with the CLI in two commands, or embed the Python core directly in a DCC adapter.
 
@@ -316,6 +317,12 @@ By default, the installers download the latest GitHub Release asset:
 | Windows x86_64 | `dcc-mcp-cli-windows-x86_64.exe` |
 | macOS universal2 | `dcc-mcp-cli-macos-universal2` |
 
+For server deployments, each GitHub Release also attaches a ready-to-unpack
+bundle named `dcc-mcp-server-<version>-<platform>.zip`. The zip contains both
+`dcc-mcp-server` and `dcc-mcp-cli` at its root (`.exe` on Windows), so operators
+can place one archive on a machine and wire both the gateway daemon and control
+plane CLI into `PATH`.
+
 Pin a release or install somewhere custom:
 
 ```bash
@@ -354,7 +361,7 @@ vx just dev           # recommended — uses the project's canonical feature set
 # or: pip install -e .
 ```
 
-Every release attaches raw `dcc-mcp-cli` and `dcc-mcp-server` binaries for Linux, Windows, and macOS universal2. `dcc-mcp-server` also ships as the `dcc-mcp-server` Python wheel for hosts that prefer `pip install`.
+Every release attaches raw `dcc-mcp-cli` and `dcc-mcp-server` binaries for Linux, Windows, and macOS universal2, plus `dcc-mcp-server-<version>-<platform>.zip` bundles containing both binaries. `dcc-mcp-server` also ships as the `dcc-mcp-server` Python wheel for hosts that prefer `pip install`.
 
 ### Serve a DCC over MCP — Skills-First (recommended)
 
@@ -664,7 +671,7 @@ tools/list response (Maya session, nothing loaded yet):
 ## Highlights
 
 - **Rust-powered performance** — Zero-copy serialisation (`rmp-serde`), LZ4 shared memory, lock-free data structures.
-- **Zero runtime Python deps** — Everything compiled into the native extension.
+- **Zero third-party Python library deps** — Core logic is compiled into the native extension; the companion `dcc-mcp-server` wheel supplies the gateway daemon binary.
 - **Skills-First MCP server** — `create_skill_server()` gives a ready-to-use MCP 2025-03-26 Streamable HTTP endpoint with progressive discovery.
 - **Workflow primitive** — `WorkflowSpec` / `WorkflowExecutor`: declarative multi-step workflows with retry, timeout, idempotency keys, approval gates, foreach / parallel / branch steps, SQLite-backed recovery.
 - **Scheduler** — Cron + webhook (HMAC-SHA256) triggered workflows via sibling `schedules.yaml` (opt-in feature).

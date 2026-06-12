@@ -1,5 +1,4 @@
 from __future__ import annotations
-import json
 import time
 from typing import (
     Any,
@@ -62,8 +61,13 @@ class Interaction:
     def set_input(self, text: str) -> None:
         if self._disabled:
             return
+        # Cap BEFORE buffering: an O(1) length check keeps multi-MB inputs
+        # from ever entering the merge/serialize pipeline at full size.
         self._analytics._track_ai_partial(
-            PartialTrackAIEvent(event_id=self._event_id, ai_data={"input": text})
+            PartialTrackAIEvent(
+                event_id=self._event_id,
+                ai_data={"input": self._analytics._cap_text(text)},
+            )
         )
 
     def add_attachments(self, attachments: List[Attachment]) -> None:
@@ -88,20 +92,25 @@ class Interaction:
     def finish(self, *, output: str | None = None, **extra) -> None:
         """Mark the interaction complete.
 
-        This call is non-blocking: the merged payload is serialized on the
-        calling thread (so PII redaction and size checks still apply) and
-        then enqueued for the background flush thread to POST to
-        ``events/track_partial``. The HTTP request itself never runs on the
-        caller, so it is safe to call ``finish()`` from a request hot path.
+        This call is non-blocking AND O(1) for the caller: the output string
+        is capped with a cheap length check, the buffered event object is
+        enqueued as-is, and serialization, PII redaction, size checks, and
+        the HTTP POST all run on the background flush thread. It is safe to
+        call ``finish()`` from a request hot path or an asyncio event loop
+        regardless of payload size.
 
         On process shutdown, ``analytics.shutdown()`` (registered via
-        ``atexit``) drains any still-pending partials before exiting.
+        ``atexit``) drains any still-pending partials before exiting, under
+        the shutdown deadline.
         """
         if self._disabled:
             return
+        capped_output = (
+            self._analytics._cap_text(output) if output is not None else None
+        )
         payload = PartialTrackAIEvent(
             event_id=self._event_id,
-            ai_data={"output": output} if output is not None else None,
+            ai_data={"output": capped_output} if capped_output is not None else None,
             is_pending=False,
             **extra,
         )
@@ -213,23 +222,29 @@ class Interaction:
             for key, value in properties.items():
                 if key in association_props or value is None:
                     continue
-                if isinstance(value, (str, bool, int, float)):
+                if isinstance(value, str):
+                    merged_association_props[key] = _core._cap_text(value)
+                elif isinstance(value, (bool, int, float)):
                     merged_association_props[key] = value
                 else:
                     try:
-                        merged_association_props[key] = json.dumps(
+                        merged_association_props[key] = _core._dumps_bounded(
                             value, cls=_core.JSONEncoder
                         )
                     except Exception:
-                        merged_association_props[key] = str(value)
+                        merged_association_props[key] = _core._cap_text(str(value))
 
         serialized_input: str | None = None
         serialized_output: str | None = None
         if _core._should_send_prompts():
+            # Bounded serialization: cost is proportional to the configured
+            # field cap, not the payload, so huge tool payloads can't stall
+            # the calling thread (often the host app's event loop).
             if input is not None:
                 try:
-                    json_input = json.dumps({"args": [input]}, cls=_core.JSONEncoder)
-                    serialized_input = _core._truncate_json_if_needed(json_input)
+                    serialized_input = _core._dumps_bounded(
+                        {"args": [input]}, cls=_core.JSONEncoder
+                    )
                 except Exception as e:
                     _core.logger.debug(
                         f"[raindrop] Could not serialize input for span: {e}"
@@ -237,8 +252,9 @@ class Interaction:
 
             if output is not None:
                 try:
-                    json_output = json.dumps(output, cls=_core.JSONEncoder)
-                    serialized_output = _core._truncate_json_if_needed(json_output)
+                    serialized_output = _core._dumps_bounded(
+                        output, cls=_core.JSONEncoder
+                    )
                 except Exception as e:
                     _core.logger.debug(
                         f"[raindrop] Could not serialize output for span: {e}"

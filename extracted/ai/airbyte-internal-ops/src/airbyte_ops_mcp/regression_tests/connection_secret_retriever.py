@@ -8,7 +8,7 @@ other connection data via the public Cloud API.
 
 The secret retriever requires:
 - GCP credentials with appropriate permissions
-- Cloud SQL Proxy running to internal Postgres (or CI environment)
+- Cloud SQL Python Connector access to internal Postgres
 
 Usage:
     from airbyte_ops_mcp.regression_tests.connection_fetcher import fetch_connection_data

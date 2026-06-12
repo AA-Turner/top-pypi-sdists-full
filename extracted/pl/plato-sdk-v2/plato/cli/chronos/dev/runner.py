@@ -22,6 +22,13 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from plato.agents.install import (
+    CLEAN_WORLD_BUILD_ARTIFACTS_COMMAND,
+    DISCOVER_WORLD_PACKAGES_COMMAND,
+    ENSURE_FUSE3_COMMAND,
+    build_editable_install_commands,
+    build_world_deps_sync_command,
+)
 from plato.chronos.api.registry import (
     get_agent_schema_api_registry_agents__agent_name__schema_get as get_agent_schema_api,
 )
@@ -39,11 +46,11 @@ from plato.chronos.models import (
 )
 from plato.cli.chronos.config import Config
 from plato.cli.chronos.dev.ecr import ensure_image_exists
-from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.profiling import StartupProfiler
 from plato.cli.chronos.dev.ssh import SSHKeyPair
 from plato.cli.chronos.dev.sync import SyncManager
-from plato.cli.chronos.provision import provision_vm
+from plato.cli.chronos.env import resolve_config_env_vars
+from plato.cli.chronos.provision import build_sync_targets, provision_vm
 from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 
@@ -199,14 +206,6 @@ class DevRunner:
         self._serialized_session: SerializedSession | None = None
         self._startup_profiler = StartupProfiler(metadata={"config_path": str(config_path)})
 
-    def _resolve_path(self, path: Path | None) -> Path | None:
-        """Resolve a path relative to config file directory."""
-        if path is None:
-            return None
-        if path.is_absolute():
-            return path
-        return (self.config_path.parent / path).resolve()
-
     def _forwarded_debug_env_assignments(self) -> str:
         parts: list[str] = []
         for key in ("PLATO_FUSE_DEBUG", "PLATO_SMART_COMMIT_DEBUG", "RUST_LOG"):
@@ -279,6 +278,13 @@ class DevRunner:
                                     update={
                                         "session_id": chronos_session.public_id,
                                         "otel_url": chronos_session.otel_url or f"{settings.chronos_url}/api/otel",
+                                        # The launch backend fills these when it
+                                        # builds the VM config; dev must too, or
+                                        # the world's Chronos calls (workspace
+                                        # repo resolve, checkpoints) go out with
+                                        # an empty X-API-Key and 401.
+                                        "chronos_url": settings.chronos_url,
+                                        "api_key": self.api_key,
                                         "s3": s3_config,
                                     }
                                 )
@@ -408,6 +414,13 @@ class DevRunner:
                         )
                         labels = ["Package install", "ECR auth", "VS Code", "Config write"]
                         errors = [(labels[i], r) for i, r in enumerate(results) if isinstance(r, Exception)]
+                # VS Code is a convenience — a slow/failed code-server must not
+                # kill the session (worlds like webclone human-review start
+                # their own anyway). Warn and continue.
+                vscode_errors = [(label, err) for label, err in errors if label == "VS Code"]
+                errors = [(label, err) for label, err in errors if label != "VS Code"]
+                for label, err in vscode_errors:
+                    console.print(f"  [yellow]⚠ {label} setup failed (continuing without IDE): {err}[/yellow]")
                 if errors:
                     for label, err in errors:
                         _error(f"{label} failed: {err}")
@@ -573,43 +586,12 @@ class DevRunner:
         if not self.sync_manager or not self.world_env:
             raise RuntimeError("sync_manager and world_env must be initialized")
 
-        world_path = self._resolve_path(self.config.dev.world)
-        if world_path:
+        for target in build_sync_targets(self.config.dev, self.config_path.parent):
             self.sync_manager.add_target(
-                local_path=world_path,
-                remote_path="/world",
+                local_path=target.local_path,
+                remote_path=target.remote_path,
                 job_id=self.world_env.job_id,
             )
-
-        for name, agent_path in self.config.dev.agents.items():
-            resolved = self._resolve_path(agent_path)
-            if resolved:
-                self.sync_manager.add_target(
-                    local_path=resolved,
-                    remote_path=f"/agents/{name}",
-                    job_id=self.world_env.job_id,
-                )
-
-        for name, extra_path in self.config.dev.extra_sync.items():
-            resolved = self._resolve_path(extra_path)
-            if resolved:
-                self.sync_manager.add_target(
-                    local_path=resolved,
-                    remote_path=f"/extra/{name}",
-                    job_id=self.world_env.job_id,
-                )
-
-        if self.config.dev.sync_sdk:
-            if isinstance(self.config.dev.sync_sdk, Path):
-                sdk_root = self.config.dev.sync_sdk.resolve()
-            else:
-                sdk_root = get_sdk_root()
-            if sdk_root and (sdk_root / "pyproject.toml").exists():
-                self.sync_manager.add_target(
-                    local_path=sdk_root,
-                    remote_path="/sdk",
-                    job_id=self.world_env.job_id,
-                )
 
     async def _install_packages(self) -> None:
         """Install packages in editable mode."""
@@ -618,11 +600,7 @@ class DevRunner:
 
         # Ensure fuse3 userspace tools are present for the Rust plato-fuse binary.
         with self._startup_profiler.time("setup.env.packages.system_deps"):
-            await self.world_env.execute(
-                "dpkg -s fuse3 > /dev/null 2>&1 || "
-                "(apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1",
-                timeout=60,
-            )
+            await self.world_env.execute(ENSURE_FUSE3_COMMAND, timeout=60)
 
         # Sync local plato-fuse binary to VM if PLATO_FUSE_BINARY is set.
         fuse_binary = os.environ.get("PLATO_FUSE_BINARY")
@@ -654,10 +632,7 @@ class DevRunner:
         # Uninstall existing world package from Docker image
         if self.config.dev.world:
             with self._startup_profiler.time("setup.env.packages.uninstall_world"):
-                result = await self.world_env.execute(
-                    "python3 -c \"import importlib.metadata; eps = importlib.metadata.entry_points(group='plato.worlds'); print(' '.join(set(ep.dist.name for ep in eps)))\" 2>/dev/null || true",
-                    timeout=30,
-                )
+                result = await self.world_env.execute(DISCOVER_WORLD_PACKAGES_COMMAND, timeout=30)
                 if result.stdout.strip():
                     pkgs = result.stdout.strip()
                     await self.world_env.execute(f"uv pip uninstall --system {pkgs}", timeout=60)
@@ -669,18 +644,14 @@ class DevRunner:
 
         editable_paths = []
         if self.config.dev.sync_sdk:
-            editable_paths.append("'/sdk[worlds]'")
+            editable_paths.append("/sdk")
         if self.config.dev.world:
             with self._startup_profiler.time("setup.env.packages.prepare_world"):
-                await self.world_env.execute(
-                    "rm -rf /world/dist /world/*.egg-info /world/src/*.egg-info /world/build", timeout=10
-                )
+                await self.world_env.execute(CLEAN_WORLD_BUILD_ARTIFACTS_COMMAND, timeout=10)
             editable_paths.append("/world")
 
         if not editable_paths:
             return
-
-        from plato.agents.install import build_editable_install_commands
 
         install_cmds = build_editable_install_commands(editable_paths)
         with self._startup_profiler.time("setup.env.packages.editable_install"):
@@ -688,6 +659,14 @@ class DevRunner:
                 result = await self.world_env.execute(cmd, timeout=120)
                 if result.exit_code != 0:
                     raise RuntimeError(f"Package install failed: {result.stderr}")
+
+        # Editable installs are --no-deps, so deps added to the world's
+        # pyproject.toml after its image was baked are missing on the VM.
+        if self.config.dev.world:
+            with self._startup_profiler.time("setup.env.packages.world_deps_sync"):
+                result = await self.world_env.execute(build_world_deps_sync_command(), timeout=300)
+                if result.exit_code != 0:
+                    raise RuntimeError(f"World dependency sync failed: {result.stderr}")
 
     async def _setup_ecr_auth(self) -> None:
         """Setup ECR authentication on world VM."""
@@ -722,14 +701,40 @@ class DevRunner:
 
         VSCODE_PORT = 8080
 
-        install_cmd = (
-            "which code-server > /dev/null 2>&1 || "
-            "curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone"
+        # Probe by version output, not `which`: VM images can carry a VS Code
+        # terminal-integration shim named `code-server` on PATH that prints
+        # "Command is only available in WSL or inside a Visual Studio Code
+        # terminal." and exits — `which` finding it used to skip installation
+        # and then "start" the shim, so health never came up. The standalone
+        # install location is checked first for the same reason.
+        version_probe = (
+            "for c in /root/.local/bin/code-server "
+            "$(which code-server 2>/dev/null) "
+            "$(find /root/.local/lib -name code-server -type f -executable 2>/dev/null); do "
+            '"$c" --version 2>/dev/null | grep -q "with Code" && echo "$c" && break; '
+            "done"
         )
-        with self._startup_profiler.time("setup.env.vscode.install"):
-            result = await self.world_env.execute(install_cmd, timeout=120)
-        if result.exit_code != 0:
-            raise RuntimeError(f"VS Code Server installation failed: {result.stderr.strip()}")
+        with self._startup_profiler.time("setup.env.vscode.find_binary"):
+            probe_result = await self.world_env.execute(version_probe, timeout=15)
+        cs_bin = probe_result.stdout.strip().split("\n")[0]
+
+        if not cs_bin:
+            with self._startup_profiler.time("setup.env.vscode.install"):
+                result = await self.world_env.execute(
+                    "curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone",
+                    timeout=120,
+                )
+            if result.exit_code != 0:
+                raise RuntimeError(f"VS Code Server installation failed: {result.stderr.strip()}")
+            probe_result = await self.world_env.execute(version_probe, timeout=15)
+            cs_bin = probe_result.stdout.strip().split("\n")[0]
+
+        if not cs_bin:
+            raise RuntimeError(
+                "Could not find a working code-server binary after installation "
+                "(candidates failed the `--version` probe — PATH may hold a VS Code terminal shim)"
+            )
+        logger.info("code-server binary: %s", cs_bin)
 
         # Configure dark mode
         with self._startup_profiler.time("setup.env.vscode.configure"):
@@ -739,34 +744,70 @@ class DevRunner:
                 timeout=10,
             )
 
-        with self._startup_profiler.time("setup.env.vscode.find_binary"):
-            which_result = await self.world_env.execute(
-                "which code-server 2>/dev/null || find /root/.local/lib -name code-server -type f -executable 2>/dev/null | head -1",
-                timeout=10,
-            )
-        cs_bin = which_result.stdout.strip().split("\n")[0]
-        if not cs_bin:
-            raise RuntimeError("Could not find code-server binary after installation")
-
         start_cmd = (
             f"nohup {cs_bin} --bind-addr 0.0.0.0:{VSCODE_PORT} --auth none "
-            f"--disable-telemetry /workspace > /tmp/code-server.log 2>&1 &"
+            f'--disable-telemetry /workspace > /tmp/code-server.log 2>&1 & echo "pid=$!"'
         )
         with self._startup_profiler.time("setup.env.vscode.start"):
-            await self.world_env.execute(start_cmd, timeout=10)
+            start_result = await self.world_env.execute(start_cmd, timeout=10)
+        logger.info("code-server start: %s (binary=%s)", start_result.stdout.strip(), cs_bin)
 
-        # Wait for healthy
+        # Wait for healthy. Generous window: the cold start shares the VM with
+        # the parallel editable install / deps sync. Every few polls check the
+        # process is still alive so a killed/crashed code-server fails fast
+        # with diagnostics instead of timing out silently.
+        last_health = "000"
+        elapsed = 0
         with self._startup_profiler.time("setup.env.vscode.health_wait"):
-            for i in range(30):
+            for i in range(90):
                 health = await self.world_env.execute(
                     f"curl -s -o /dev/null -w '%{{http_code}}' http://localhost:{VSCODE_PORT}/healthz 2>/dev/null || echo 000",
                     timeout=5,
                 )
-                if health.stdout.strip() == "200":
+                last_health = health.stdout.strip()
+                if last_health == "200":
                     return
+                if i % 5 == 4:
+                    alive = await self.world_env.execute("pgrep -c -f code-server || echo 0", timeout=5)
+                    alive_count = alive.stdout.strip() or "0"
+                    logger.info("code-server wait: health=%s processes=%s after ~%ds", last_health, alive_count, i + 1)
+                    if alive_count == "0":
+                        elapsed = i + 1
+                        break
                 await asyncio.sleep(1)
+            else:
+                elapsed = 90
 
-        raise RuntimeError("VS Code Server failed to become healthy after 30s")
+        diagnostics = await self._collect_vscode_diagnostics(VSCODE_PORT, cs_bin)
+        raise RuntimeError(
+            f"VS Code Server failed to become healthy after ~{elapsed}s (last health={last_health}).\n{diagnostics}"
+        )
+
+    async def _collect_vscode_diagnostics(self, port: int, cs_bin: str) -> str:
+        """Gather evidence for why code-server isn't serving: process table,
+        port binding, server log, resource pressure, OOM kills."""
+        if not self.world_env:
+            return "(no world_env)"
+        checks = {
+            "process": "pgrep -af code-server || echo '(no code-server process)'",
+            "port": (
+                f"(ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | grep ':{port}' "
+                f"|| echo '(port {port} not listening)'"
+            ),
+            "version": f"{cs_bin} --version 2>&1 | head -1",
+            "log": "cat /tmp/code-server.log 2>/dev/null || echo '(no /tmp/code-server.log)'",
+            "resources": "free -m | sed -n '1,2p'; uptime",
+            "oom": "dmesg 2>/dev/null | grep -iE 'killed process|out of memory' | tail -3 || true",
+        }
+        sections = []
+        for label, cmd in checks.items():
+            try:
+                result = await self.world_env.execute(cmd, timeout=10)
+                output = (result.stdout or result.stderr or "").strip() or "(empty)"
+            except Exception as exc:
+                output = f"(diagnostic failed: {exc})"
+            sections.append(f"--- {label} ---\n{output}")
+        return "\n".join(sections)
 
     async def _write_config(self) -> None:
         """Write config to VM."""
@@ -932,6 +973,13 @@ class DevRunner:
                         update={"world": self.config.world.model_copy(update={"config": world_config})}
                     )
                     self._force_fresh_next_run = False
+                # Resolve ${VAR} placeholders the local env couldn't fill from
+                # the Chronos analyzer-env (org + user scope) — the same
+                # backend resolution `chronos test` and `launch` use. Local
+                # values (Config.from_file expands from the shell/.env) win;
+                # the backend fills the rest.
+                if self.config.world.config:
+                    await resolve_config_env_vars(self.config.world.config, self.api_key)
                 # Copy previously resolved agent images
                 old_agents = find_agent_configs(old_config.world.config or {})
                 new_agents = find_agent_configs(self.config.world.config or {})
@@ -963,7 +1011,7 @@ class DevRunner:
                 if run_count == 1:
                     reinstall_parts = []
                     if self.config.dev.sync_sdk:
-                        reinstall_parts.append("-e '/sdk[worlds]'")
+                        reinstall_parts.append("-e /sdk")
                     if self.config.dev.world:
                         reinstall_parts.append("-e /world")
                     if reinstall_parts:
@@ -971,6 +1019,12 @@ class DevRunner:
                         reinstall_cmd = (
                             f"uv pip install --python /opt/plato-venv/bin/python --no-deps {editables} -q 2>/dev/null; "
                         )
+                # Editable installs are --no-deps; sync the world's declared
+                # deps every run so a pyproject.toml edit picked up by the
+                # file sync gets its new deps installed before the world boots
+                # (no-op when already satisfied).
+                if self.config.dev.world:
+                    reinstall_cmd += f"{build_world_deps_sync_command()}; "
 
                 # Run the world
                 runner_cmd = (

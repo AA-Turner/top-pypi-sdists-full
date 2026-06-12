@@ -1,14 +1,15 @@
 import warnings
 from collections.abc import Mapping
+from dataclasses import replace
 from importlib import import_module
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
+from pyfixest.demeaners import AnyDemeaner, LsmrDemeaner
 from pyfixest.estimation.formula.parse import Formula as FixestFormula
 from pyfixest.estimation.internals.demean_ import demean_model
-from pyfixest.estimation.internals.literals import DemeanerBackendOptions
 from pyfixest.estimation.internals.solvers import solve_ols
 from pyfixest.estimation.models.feols_ import Feols, _drop_multicollinear_variables
 
@@ -44,9 +45,8 @@ class Feiv(Feols):
     solver: Literal["np.linalg.lstsq", "np.linalg.solve", "scipy.linalg.solve",
         "scipy.sparse.linalg.lsqr", "jax"],
         default is "scipy.linalg.solve". Solver to use for the estimation.
-    demeaner_backend: DemeanerBackendOptions, optional
-        The backend to use for demeaning. Can be either "numba", "jax", or "rust".
-        Defaults to "numba".
+    demeaner : Optional[AnyDemeaner]
+        Resolved typed demeaner configuration.
     weights_name : Optional[str]
         Name of the weights variable.
     weights_type : Optional[str]
@@ -144,8 +144,6 @@ class Feiv(Feols):
         weights: str | None,
         weights_type: str | None,
         collin_tol: float,
-        fixef_tol: float,
-        fixef_maxiter: int,
         lookup_demeaned_data: dict[frozenset[int], pd.DataFrame],
         solver: Literal[
             "np.linalg.lstsq",
@@ -154,7 +152,7 @@ class Feiv(Feols):
             "scipy.sparse.linalg.lsqr",
             "jax",
         ] = "scipy.linalg.solve",
-        demeaner_backend: DemeanerBackendOptions = "numba",
+        demeaner: AnyDemeaner | None = None,
         store_data: bool = True,
         copy_data: bool = True,
         lean: bool = False,
@@ -171,8 +169,6 @@ class Feiv(Feols):
             weights=weights,
             weights_type=weights_type,
             collin_tol=collin_tol,
-            fixef_tol=fixef_tol,
-            fixef_maxiter=fixef_maxiter,
             lookup_demeaned_data=lookup_demeaned_data,
             solver=solver,
             store_data=store_data,
@@ -181,7 +177,7 @@ class Feiv(Feols):
             sample_split_var=sample_split_var,
             sample_split_value=sample_split_value,
             context=context,
-            demeaner_backend=demeaner_backend,
+            demeaner=demeaner,
         )
 
         self._is_iv = True
@@ -208,17 +204,17 @@ class Feiv(Feols):
         "Demean instruments and endogeneous variable."
         super().demean()
         if self._has_fixef:
-            self._endogvard, self._Zd = demean_model(
+            self._endogvard, self._Zd, used_pre = demean_model(
                 self._endogvar,
                 self._Z,
                 self._fe,
                 self._weights.flatten(),
                 self._lookup_demeaned_data,
                 self._na_index,
-                self._fixef_tol,
-                self._fixef_maxiter,
-                self._demean_func,
+                self._demeaner,
+                cached_preconditioner=self._preconditioner,
             )
+            self._seed_preconditioner(used_pre)
         else:
             self._endogvard = self._endogvar
             self._Zd = self._Z
@@ -235,7 +231,6 @@ class Feiv(Feols):
             self._Z,
             self._coefnames_z,
             self._collin_tol,
-            self._find_collinear_variables_func,
         )
 
     def get_fit(self) -> None:
@@ -291,6 +286,10 @@ class Feiv(Feols):
         else:
             vcov_detail = self._vcov_type_detail
 
+        demeaner = self._demeaner
+        if isinstance(demeaner, LsmrDemeaner) and self._preconditioner is not None:
+            demeaner = replace(demeaner, preconditioner=self._preconditioner)
+
         # Do first stage regression
         model1 = fit_(
             fml=fml_first_stage,
@@ -299,6 +298,8 @@ class Feiv(Feols):
             weights=self._weights_name,
             weights_type=self._weights_type,
             collin_tol=self._collin_tol,
+            solver=self._solver,
+            demeaner=demeaner,
         )
 
         # Ensure model1 is of type Feols

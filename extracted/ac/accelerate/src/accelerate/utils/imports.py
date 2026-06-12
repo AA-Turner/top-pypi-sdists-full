@@ -77,6 +77,14 @@ def is_pynvml_available():
     return _is_package_available("pynvml") or _is_package_available("pynvml", "nvidia-ml-py")
 
 
+def is_amdsmi_available():
+    return _is_package_available("amdsmi")
+
+
+def is_rocm_available():
+    return torch.version.hip is not None and torch.cuda.is_available()
+
+
 def is_pytest_available():
     return _is_package_available("pytest")
 
@@ -248,7 +256,7 @@ def is_timm_available():
 
 def is_triton_available():
     if is_xpu_available():
-        return _is_package_available("triton", "pytorch-triton-xpu")
+        return _is_package_available("triton", "triton-xpu")
     return _is_package_available("triton")
 
 

@@ -317,6 +317,16 @@ impl Default for InMemoryFs {
 }
 
 impl InMemoryFs {
+    // File-count quotas cover every non-directory entry. Use negation so new
+    // FsEntry variants are automatically counted without an explicit update here.
+    fn entry_counts_toward_file_count(entry: &FsEntry) -> bool {
+        !matches!(entry, FsEntry::Directory { .. })
+    }
+
+    fn snapshot_entry_counts_toward_file_count(kind: &VfsEntryKind) -> bool {
+        !matches!(kind, VfsEntryKind::Directory)
+    }
+
     /// Create a new in-memory filesystem with default directories and default limits.
     ///
     /// Creates the following directory structure:
@@ -460,21 +470,17 @@ impl InMemoryFs {
         }
     }
 
-    /// THREAT[TM-DOS-003]: Generate bounded random bytes for /dev/urandom.
+    /// THREAT[TM-DOS-003]: Generate bounded random bytes for `/dev/urandom` and `/dev/random`.
     /// Returns exactly 8192 bytes to prevent unbounded reads while
     /// supporting common patterns like `od -N8 -tx1 /dev/urandom`.
-    fn generate_random_bytes() -> Vec<u8> {
-        use std::collections::hash_map::RandomState;
-        use std::hash::{BuildHasher, Hasher};
-
+    fn generate_random_bytes() -> Result<Vec<u8>> {
         const SIZE: usize = 8192;
-        let mut buf = Vec::with_capacity(SIZE);
-        while buf.len() < SIZE {
-            let h = RandomState::new().build_hasher().finish();
-            buf.extend_from_slice(&h.to_ne_bytes());
-        }
-        buf.truncate(SIZE);
-        buf
+        let mut buf = vec![0; SIZE];
+        // Important decision: use the OS CSPRNG backing getrandom, not
+        // non-CSPRNG hasher seeds, because scripts commonly use these paths
+        // for tokens, salts, nonces, and keys.
+        getrandom::fill(&mut buf).map_err(|_| IoError::other("random device unavailable"))?;
+        Ok(buf)
     }
 
     /// Compute current usage statistics.
@@ -488,7 +494,6 @@ impl InMemoryFs {
             match entry {
                 FsEntry::File { content, .. } | FsEntry::Fifo { content, .. } => {
                     total_bytes += content.len() as u64;
-                    file_count += 1;
                 }
                 FsEntry::Directory { .. } => {
                     dir_count += 1;
@@ -496,12 +501,14 @@ impl InMemoryFs {
                 FsEntry::LazyFile { metadata, .. } => {
                     // Lazy files count by their declared metadata size
                     total_bytes += metadata.size;
-                    file_count += 1;
                 }
-                FsEntry::Symlink { .. } => {
-                    // THREAT[TM-DOS-045]: Symlinks count toward file count
-                    file_count += 1;
+                FsEntry::Symlink { metadata, .. } => {
+                    // THREAT[TM-DOS-013]: Symlink target bytes count toward total usage
+                    total_bytes += metadata.size;
                 }
+            }
+            if Self::entry_counts_toward_file_count(entry) {
+                file_count += 1;
             }
         }
 
@@ -527,25 +534,23 @@ impl InMemoryFs {
         let mut is_new_file = true;
 
         for (entry_path, entry) in entries.iter() {
-            match entry {
+            let entry_size = match entry {
                 FsEntry::File { content, .. } | FsEntry::Fifo { content, .. } => {
-                    let size = content.len() as u64;
-                    current_total += size;
-                    current_file_count += 1;
-                    if entry_path == path {
-                        old_file_size = size;
-                        is_new_file = false;
-                    }
+                    content.len() as u64
                 }
-                FsEntry::LazyFile { metadata, .. } => {
-                    current_total += metadata.size;
-                    current_file_count += 1;
-                    if entry_path == path {
-                        old_file_size = metadata.size;
-                        is_new_file = false;
-                    }
+                // THREAT[TM-DOS-013]: Symlink target bytes count toward total usage
+                FsEntry::LazyFile { metadata, .. } | FsEntry::Symlink { metadata, .. } => {
+                    metadata.size
                 }
-                _ => {}
+                FsEntry::Directory { .. } => 0,
+            };
+            current_total += entry_size;
+            if Self::entry_counts_toward_file_count(entry) {
+                current_file_count += 1;
+                if entry_path == path {
+                    old_file_size = entry_size;
+                    is_new_file = false;
+                }
             }
         }
 
@@ -613,6 +618,10 @@ impl InMemoryFs {
         for path in lazy_paths {
             if let Some(FsEntry::LazyFile { loader, metadata }) = entries.remove(&path) {
                 let content = loader();
+                if let Err(_err) = self.check_write_limits(&entries, &path, content.len()) {
+                    entries.insert(path, FsEntry::LazyFile { loader, metadata });
+                    continue;
+                }
                 let mut metadata = metadata;
                 metadata.size = content.len() as u64;
                 entries.insert(path, FsEntry::File { content, metadata });
@@ -633,8 +642,7 @@ impl InMemoryFs {
                     });
                 }
                 FsEntry::LazyFile { .. } => {
-                    // All lazy files were materialized above
-                    unreachable!()
+                    // Lazy files that exceed limits stay lazy and are omitted.
                 }
                 FsEntry::Directory { metadata } => {
                     files.push(VfsEntry {
@@ -724,6 +732,8 @@ impl InMemoryFs {
                     .check_file_size(content.len() as u64)
                     .map_err(|e| IoError::other(e.to_string()))?;
                 total_bytes += content.len() as u64;
+            }
+            if Self::snapshot_entry_counts_toward_file_count(&entry.kind) {
                 file_count += 1;
             }
         }
@@ -732,7 +742,7 @@ impl InMemoryFs {
             return Err(IoError::other("snapshot total bytes exceed limit").into());
         }
         self.limits
-            .check_file_count(file_count)
+            .check_final_file_count(file_count)
             .map_err(|e| IoError::other(e.to_string()))?;
 
         let mut entries = self.entries.write().unwrap();
@@ -1010,7 +1020,7 @@ impl FileSystem for InMemoryFs {
 
         // /dev/urandom and /dev/random: return bounded random bytes
         if path == Path::new("/dev/urandom") || path == Path::new("/dev/random") {
-            return Ok(Self::generate_random_bytes());
+            return Self::generate_random_bytes();
         }
 
         // First try with a read lock for the common (non-lazy) case
@@ -1212,9 +1222,13 @@ impl FileSystem for InMemoryFs {
                 return Ok(());
             }
             Some(FsEntry::LazyFile { .. }) => {
-                // Materialize lazy file before appending
+                // Materialize lazy file before appending.
                 if let Some(FsEntry::LazyFile { loader, metadata }) = entries.remove(&path) {
                     let loaded = loader();
+                    if let Err(err) = self.check_write_limits(&entries, &path, loaded.len()) {
+                        entries.insert(path, FsEntry::LazyFile { loader, metadata });
+                        return Err(err);
+                    }
                     let mut metadata = metadata;
                     metadata.size = loaded.len() as u64;
                     entries.insert(
@@ -1262,6 +1276,9 @@ impl FileSystem for InMemoryFs {
                     ..
                 } => {
                     current_total += file_content.len() as u64;
+                }
+                FsEntry::LazyFile { metadata, .. } => {
+                    current_total += metadata.size;
                 }
                 _ => {}
             }
@@ -1560,28 +1577,17 @@ impl FileSystem for InMemoryFs {
         self.limits
             .validate_path(link)
             .map_err(|e| IoError::other(e.to_string()))?;
+        self.limits
+            .validate_path(target)
+            .map_err(|e| IoError::other(e.to_string()))?;
         let link = Self::normalize_path(link);
+        let target_size = target.as_os_str().as_encoded_bytes().len();
         let mut entries = self.entries.write().unwrap();
 
-        // THREAT[TM-DOS-045]: Symlinks count toward file count - enforce limit
-        let is_new = !entries.contains_key(&link);
-        if is_new {
-            let file_count = entries
-                .values()
-                .filter(|e| {
-                    matches!(
-                        e,
-                        FsEntry::File { .. }
-                            | FsEntry::LazyFile { .. }
-                            | FsEntry::Fifo { .. }
-                            | FsEntry::Symlink { .. }
-                    )
-                })
-                .count() as u64;
-            self.limits
-                .check_file_count(file_count)
-                .map_err(|e| IoError::other(e.to_string()))?;
-        }
+        // THREAT[TM-DOS-045]: Symlinks count toward file count.
+        // THREAT[TM-DOS-013]: Symlink target bytes count toward filesystem usage.
+        // check_write_limits enforces single-file size, total bytes, and file count.
+        self.check_write_limits(&entries, &link, target_size)?;
 
         entries.insert(
             link,
@@ -1589,7 +1595,7 @@ impl FileSystem for InMemoryFs {
                 target: target.to_path_buf(),
                 metadata: Metadata {
                     file_type: FileType::Symlink,
-                    size: 0,
+                    size: target_size as u64,
                     mode: 0o777,
                     modified: SystemTime::now(),
                     created: SystemTime::now(),
@@ -2148,6 +2154,98 @@ mod tests {
         assert!(!limited.exists(Path::new("/tmp/huge.bin")).await.unwrap());
     }
 
+    #[tokio::test]
+    async fn test_restore_allows_exact_file_count_limit() {
+        // InMemoryFs starts with 3 device files. Add 2 user files so the
+        // snapshot's final file count exactly matches the configured limit.
+        let source = InMemoryFs::new();
+        source
+            .write_file(Path::new("/tmp/one.txt"), b"one")
+            .await
+            .unwrap();
+        source
+            .write_file(Path::new("/tmp/two.txt"), b"two")
+            .await
+            .unwrap();
+        let snapshot = source.snapshot();
+
+        let limited = InMemoryFs::with_limits(FsLimits::new().max_file_count(5));
+        limited
+            .write_file(Path::new("/tmp/stale.txt"), b"stale")
+            .await
+            .unwrap();
+
+        limited
+            .restore(&snapshot)
+            .expect("exact-limit snapshots should restore successfully");
+
+        assert!(!limited.exists(Path::new("/tmp/stale.txt")).await.unwrap());
+        assert_eq!(
+            limited.read_file(Path::new("/tmp/one.txt")).await.unwrap(),
+            b"one"
+        );
+        assert_eq!(
+            limited.read_file(Path::new("/tmp/two.txt")).await.unwrap(),
+            b"two"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_restore_rejects_over_file_count_limit() {
+        let source = InMemoryFs::new();
+        for name in ["one", "two", "three"] {
+            source
+                .write_file(Path::new(&format!("/tmp/{name}.txt")), name.as_bytes())
+                .await
+                .unwrap();
+        }
+        let snapshot = source.snapshot();
+
+        let limited = InMemoryFs::with_limits(FsLimits::new().max_file_count(5));
+        limited
+            .write_file(Path::new("/tmp/stale.txt"), b"stale")
+            .await
+            .unwrap();
+
+        let err = limited.restore(&snapshot);
+
+        assert!(err.is_err(), "over-limit snapshots must fail closed");
+        assert_eq!(
+            limited
+                .read_file(Path::new("/tmp/stale.txt"))
+                .await
+                .unwrap(),
+            b"stale"
+        );
+        assert!(!limited.exists(Path::new("/tmp/three.txt")).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_restore_respects_fifo_file_count_limit() {
+        // Default snapshots include 3 /dev files. Add two FIFOs so restore
+        // must count named pipes as file-count entries before clearing.
+        let unlimited = InMemoryFs::with_limits(FsLimits::unlimited());
+        unlimited
+            .mkfifo(Path::new("/tmp/fifo1"), 0o644)
+            .await
+            .unwrap();
+        unlimited
+            .mkfifo(Path::new("/tmp/fifo2"), 0o644)
+            .await
+            .unwrap();
+        let snapshot = unlimited.snapshot();
+
+        let limited = InMemoryFs::with_limits(FsLimits::new().max_file_count(4));
+        let err = limited.restore(&snapshot);
+
+        assert!(
+            err.is_err(),
+            "restore must count FIFOs toward file-count limits"
+        );
+        assert!(!limited.exists(Path::new("/tmp/fifo1")).await.unwrap());
+        assert!(!limited.exists(Path::new("/tmp/fifo2")).await.unwrap());
+    }
+
     /// THREAT[TM-DOS-034]: Verify append_file uses single write lock,
     /// preventing TOCTOU race where size checks use stale data.
     #[tokio::test]
@@ -2278,6 +2376,29 @@ mod tests {
         let fs = InMemoryFs::new();
         let content = fs.read_file(Path::new("/dev/urandom")).await.unwrap();
         assert_eq!(content.len(), 8192);
+    }
+
+    #[test]
+    fn test_random_device_source_uses_csprng() {
+        let source = include_str!("memory.rs");
+        // Extract just the generate_random_bytes function body so the check
+        // is not brittle against imports, variable names, or other uses of
+        // RandomState elsewhere in the file.
+        let fn_body = source
+            .split("fn generate_random_bytes")
+            .nth(1)
+            .expect("generate_random_bytes must exist in memory.rs");
+        // Take up to the next top-level `fn ` at the same indentation level
+        // (four spaces + "fn "), which terminates the function block.
+        let fn_body = fn_body.split("\n    fn ").next().unwrap_or(fn_body);
+        assert!(
+            fn_body.contains("getrandom") && fn_body.contains("fill"),
+            "/dev/random devices must use the OS CSPRNG (getrandom::fill or use getrandom::fill)"
+        );
+        assert!(
+            !fn_body.contains("RandomState"),
+            "/dev/random devices must not use HashMap hasher seeds as randomness"
+        );
     }
 
     #[tokio::test]
@@ -2427,6 +2548,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_lazy_file_snapshot_rejects_oversized_materialization() {
+        let limits = FsLimits::new().max_file_size(5);
+        let fs = InMemoryFs::with_limits(limits);
+        fs.add_lazy_file("/tmp/lazy.txt", 1, 0o644, Arc::new(|| b"toolarge".to_vec()));
+
+        let snapshot = fs.snapshot();
+        assert!(
+            !snapshot
+                .entries
+                .iter()
+                .any(|e| e.path == Path::new("/tmp/lazy.txt"))
+        );
+
+        let result = fs.read_file(Path::new("/tmp/lazy.txt")).await;
+        assert!(result.is_err());
+        assert!(fs.exists(Path::new("/tmp/lazy.txt")).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_lazy_file_append_rejects_oversized_materialization() {
+        let limits = FsLimits::new().max_file_size(5);
+        let fs = InMemoryFs::with_limits(limits);
+        fs.add_lazy_file("/tmp/lazy.txt", 1, 0o644, Arc::new(|| b"toolarge".to_vec()));
+
+        let append_result = fs.append_file(Path::new("/tmp/lazy.txt"), b"!").await;
+        assert!(append_result.is_err());
+
+        let read_result = fs.read_file(Path::new("/tmp/lazy.txt")).await;
+        assert!(read_result.is_err());
+        assert!(fs.exists(Path::new("/tmp/lazy.txt")).await.unwrap());
+    }
+
+    #[tokio::test]
     async fn test_mkdir_respects_dir_count_limit() {
         // InMemoryFs starts with 6 dirs: /, /tmp, /home, /home/user, /dev, /dev/fd
         let limits = FsLimits::new().max_dir_count(8); // 6 existing + 2 new
@@ -2485,6 +2639,39 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("too many files") || err.contains("limit"));
+    }
+
+    #[tokio::test]
+    async fn test_symlink_validates_target_path_limits() {
+        let fs = InMemoryFs::new();
+        let long_component = "x".repeat(crate::fs::limits::DEFAULT_MAX_FILENAME_LENGTH + 1);
+        let target = PathBuf::from(format!("/tmp/{long_component}"));
+
+        let result = fs.symlink(&target, Path::new("/tmp/link")).await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("filename too long")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_symlink_target_bytes_count_toward_total_limit() {
+        let limits = FsLimits::new().max_total_bytes(20);
+        let fs = InMemoryFs::with_limits(limits);
+
+        fs.symlink(Path::new("/target-one"), Path::new("/tmp/link1"))
+            .await
+            .unwrap();
+        let result = fs
+            .symlink(Path::new("/target-two"), Path::new("/tmp/link2"))
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("filesystem full"));
     }
 
     #[tokio::test]

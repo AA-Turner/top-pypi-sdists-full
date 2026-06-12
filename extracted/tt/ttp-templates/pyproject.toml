@@ -1,0 +1,71 @@
+[tool.poetry]
+name = "ttp_templates"
+version = "0.5.8"
+description = "Template Text Parser Templates collections"
+license = "MIT"
+include = [
+    "platform/*.txt",
+    "yang/*.txt",
+    "misc/*/*.txt",
+]
+authors = ["Denis Mulyalin <d.mulyalin@gmail.com>"]
+maintainers = ["Denis Mulyalin <d.mulyalin@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/dmulyalin/ttp_templates"
+repository = "https://github.com/dmulyalin/ttp_templates"
+documentation = "https://dmulyalin.github.io/ttp_templates/"
+keywords = ["Parsing", "TTP", "regex"]
+classifiers = [
+    "Topic :: Utilities",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+ttp = { version = ">=0.10.0" }
+pydantic = { version = ">=2.0" }
+
+# docs dependencies for extras definition
+mkdocs = { version = "*", optional = true }
+mkdocs-material = { version = "*", optional = true }
+mkdocs-material-extensions = { version = "*", optional = true }
+mkdocstrings = { version = "*", optional = true, extras = ["python"] } 
+pygments = { version = "*", optional = true }
+pymdown-extensions = { version = "*", optional = true }
+
+[tool.poetry.group.dev.dependencies]
+bandit = { version = "*" }
+black = { version = "*" }
+flake8 = { version = "*" }
+pre-commit = { version = "*" }
+pyenchant = { version = "*" }
+pylint = { version = "*" }
+pytest = { version = "*" }
+cerberus = { version = "*" }
+jinja2 = { version = "*" }
+pyyaml = { version = "*" }
+deepdiff = { version = "*" }
+openpyxl = { version = "*" }
+tabulate = { version = "*" }
+yangson = { version = "*" }
+netmiko = { version = "*" }
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.extras]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-material-extensions",
+    "mkdocstrings",
+    "pygments",
+    "pymdown-extensions",
+]

@@ -23,15 +23,32 @@ pub(crate) const AWK_MAX_PARSER_DEPTH: usize = 100;
 pub(crate) const AWK_MAX_CALL_DEPTH: usize = 64;
 /// awk: total output byte cap per invocation.
 pub(crate) const AWK_MAX_OUTPUT_BYTES: usize = 10_000_000;
+/// awk: max distinct output redirection targets per invocation.
+pub(crate) const AWK_MAX_OUTPUT_TARGETS: usize = 1_024;
 /// awk: max distinct files held open by `getline < file`.
 pub(crate) const AWK_MAX_GETLINE_CACHED_FILES: usize = 100;
+/// awk: max bytes read from one `getline < file` input.
+pub(crate) const AWK_MAX_GETLINE_FILE_BYTES: usize = 10_000_000;
+/// awk: max total bytes retained by all `getline < file` inputs.
+pub(crate) const AWK_MAX_GETLINE_CACHE_BYTES: usize = 10_000_000;
 
 /// curl: max number of HTTP redirects to follow.
 #[cfg(feature = "http_client")]
 pub(crate) const CURL_MAX_REDIRECTS: u32 = 10;
+/// curl: max request body bytes for `-d`, `-d @-`, `-d @file`, and multipart assembly.
+#[cfg(feature = "http_client")]
+pub(crate) const CURL_MAX_REQUEST_BODY_BYTES: usize = 10_000_000;
+
+/// expand/unexpand: max accepted tab stop width.
+pub(crate) const EXPAND_MAX_TAB_STOP: usize = 10_000;
+/// expand: max output bytes per invocation before interpreter-level truncation.
+pub(crate) const EXPAND_MAX_OUTPUT_BYTES: usize = 1_048_576;
 
 /// dirs/pushd/popd: max entries on the directory stack.
 pub(crate) const DIRSTACK_MAX_SIZE: usize = 4096;
+
+/// find: total stdout cap for default and `-printf` output.
+pub(crate) const FIND_MAX_OUTPUT_BYTES: usize = 1_048_576;
 
 /// mktemp: max name-collision retries before giving up.
 pub(crate) const MKTEMP_MAX_ATTEMPTS: usize = 64;

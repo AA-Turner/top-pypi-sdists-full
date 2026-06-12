@@ -1,67 +1,61 @@
-from __future__ import absolute_import
-
-import abc
-
-from kafka.vendor.six import add_metaclass
+from abc import ABC, abstractmethod, abstractproperty
 
 
-@add_metaclass(abc.ABCMeta)
-class ABCRecord(object):
+class ABCRecord(ABC):
     __slots__ = ()
 
-    @abc.abstractproperty
+    @abstractproperty
     def size_in_bytes(self):
         """ Number of total bytes in record
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def offset(self):
         """ Absolute offset of record
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def timestamp(self):
         """ Epoch milliseconds
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def timestamp_type(self):
         """ CREATE_TIME(0) or APPEND_TIME(1)
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def key(self):
         """ Bytes key or None
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def value(self):
         """ Bytes value or None
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def checksum(self):
         """ Prior to v2 format CRC was contained in every message. This will
             be the checksum for v0 and v1 and None for v2 and above.
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def validate_crc(self):
         """ Return True if v0/v1 record matches checksum. noop/True for v2 records
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def headers(self):
         """ If supported by version list of key-value tuples, or empty list if
             not supported by format.
         """
 
 
-@add_metaclass(abc.ABCMeta)
-class ABCRecordBatchBuilder(object):
+class ABCRecordBatchBuilder(ABC):
     __slots__ = ()
 
-    @abc.abstractmethod
+    @abstractmethod
     def append(self, offset, timestamp, key, value, headers=None):
         """ Writes record to internal buffer.
 
@@ -80,14 +74,14 @@ class ABCRecordBatchBuilder(object):
                 above) and size of the written record.
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def size_in_bytes(self, offset, timestamp, key, value, headers):
         """ Return the expected size change on buffer (uncompressed) if we add
             this message. This will account for varint size changes and give a
             reliable size.
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def build(self):
         """ Close for append, compress if needed, write size and header and
             return a ready to send buffer object.
@@ -97,56 +91,54 @@ class ABCRecordBatchBuilder(object):
         """
 
 
-@add_metaclass(abc.ABCMeta)
-class ABCRecordBatch(object):
+class ABCRecordBatch(ABC):
     """ For v2 encapsulates a RecordBatch, for v0/v1 a single (maybe
         compressed) message.
     """
     __slots__ = ()
 
-    @abc.abstractmethod
+    @abstractmethod
     def __iter__(self):
         """ Return iterator over records (ABCRecord instances). Will decompress
             if needed.
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def base_offset(self):
         """ Return base offset for batch
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def size_in_bytes(self):
         """ Return size of batch in bytes (includes header overhead)
         """
 
-    @abc.abstractproperty
+    @abstractproperty
     def magic(self):
         """ Return magic value (0, 1, 2) for batch.
         """
 
 
-@add_metaclass(abc.ABCMeta)
-class ABCRecords(object):
+class ABCRecords(ABC):
     __slots__ = ()
 
-    @abc.abstractmethod
+    @abstractmethod
     def __init__(self, buffer):
         """ Initialize with bytes-like object conforming to the buffer
             interface (ie. bytes, bytearray, memoryview etc.).
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def size_in_bytes(self):
         """ Returns the size of inner buffer.
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def next_batch(self):
         """ Return next batch of records (ABCRecordBatch instances).
         """
 
-    @abc.abstractmethod
+    @abstractmethod
     def has_next(self):
         """ True if there are more batches to read, False otherwise.
         """

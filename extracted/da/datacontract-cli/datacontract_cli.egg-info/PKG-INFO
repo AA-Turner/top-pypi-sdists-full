@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.0.1
+Version: 1.0.2
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
 License-Expression: MIT
@@ -51,8 +51,10 @@ Provides-Extra: mysql
 Requires-Dist: datacontract-cli[duckdb]; extra == "mysql"
 Provides-Extra: postgres
 Requires-Dist: ibis-framework[postgres]<13.0.0,>=10.0.0; extra == "postgres"
+Requires-Dist: psycopg[binary]<4.0,>=3.1; extra == "postgres"
 Provides-Extra: redshift
 Requires-Dist: ibis-framework[postgres]<13.0.0,>=10.0.0; extra == "redshift"
+Requires-Dist: psycopg[binary]<4.0,>=3.1; extra == "redshift"
 Provides-Extra: s3
 Requires-Dist: s3fs<2027.0.0,>=2025.2.0; extra == "s3"
 Requires-Dist: duckdb-extension-httpfs<1.6.0,>=1.5.0; extra == "s3"
@@ -430,6 +432,7 @@ Usage: datacontract edit [OPTIONS] [LOCATION]
  Starts a local web server that opens the Data Contract Editor for the given file.                  
  The editor is bundled with the CLI, so no internet access is required.                             
  Saving in the editor writes directly back to the local file.                                       
+ If a URL is given, you are asked whether to download a local copy, which is then edited.           
  The server also acts as the editor's test runner: "Run test" in the editor executes                
  the data contract tests locally against the servers defined in the data contract.                  
  Credentials for the data sources must be provided as environment variables, see                    
@@ -437,7 +440,9 @@ Usage: datacontract edit [OPTIONS] [LOCATION]
                                                                                                     
 ╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────╮
 │   location      [LOCATION]  The path of the data contract yaml to edit. If the file does not     │
-│                             exist, you are asked whether to initialize a new data contract.      │
+│                             exist, you are asked whether to initialize a new data contract. If a │
+│                             URL is given, you are asked whether to download a local copy to      │
+│                             edit.                                                                │
 │                             [default: datacontract.yaml]                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────╮
@@ -791,6 +796,7 @@ models:
 |----------------------------------------------|---------------------------|---------------------------------------------------------|
 | `DATACONTRACT_BIGQUERY_ACCOUNT_INFO_JSON_PATH` | `~/service-access-key.json` | Service Account key JSON file. If not set, ADC/WIF is used automatically. |
 | `DATACONTRACT_BIGQUERY_IMPERSONATION_ACCOUNT` | `sa@project.iam.gserviceaccount.com` | Optional. Service account to impersonate. Works with both key file and ADC auth. |
+| `DATACONTRACT_BIGQUERY_BILLING_PROJECT` | `my-compute-project` | Optional. Google Cloud project ID to bill query jobs to. Use when the data lives in an external project and you want charges routed to your own project. Requires `bigquery.jobUser` on the billing project and `bigquery.dataViewer` on the data project. |
 
 </details>
 

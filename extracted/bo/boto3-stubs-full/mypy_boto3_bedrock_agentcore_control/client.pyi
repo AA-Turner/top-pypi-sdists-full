@@ -501,7 +501,7 @@ class BedrockAgentCoreControlClient(BaseClient):
         self, **kwargs: Unpack[CreateDatasetRequestTypeDef]
     ) -> CreateDatasetResponseTypeDef:
         """
-        Creates a new Dataset resource asynchronously.
+        Creates a new dataset resource asynchronously.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_dataset.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_dataset)
@@ -754,7 +754,7 @@ class BedrockAgentCoreControlClient(BaseClient):
         self, **kwargs: Unpack[DeleteDatasetRequestTypeDef]
     ) -> DeleteDatasetResponseTypeDef:
         """
-        Deletes a dataset version or an entire dataset (all versions + name claim).
+        Deletes a dataset version or an entire dataset asynchronously.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_dataset.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_dataset)
@@ -1021,7 +1021,7 @@ class BedrockAgentCoreControlClient(BaseClient):
 
     def get_dataset(self, **kwargs: Unpack[GetDatasetRequestTypeDef]) -> GetDatasetResponseTypeDef:
         """
-        Retrieves dataset metadata only.
+        Retrieves dataset metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_dataset.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_dataset)

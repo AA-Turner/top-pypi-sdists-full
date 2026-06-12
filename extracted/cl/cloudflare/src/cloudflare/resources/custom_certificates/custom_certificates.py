@@ -71,12 +71,12 @@ class CustomCertificatesResource(SyncAPIResource):
         *,
         zone_id: str,
         certificate: str,
-        private_key: str,
         bundle_method: BundleMethod | Omit = omit,
         custom_csr_id: str | Omit = omit,
         deploy: Literal["staging", "production"] | Omit = omit,
         geo_restrictions: GeoRestrictionsParam | Omit = omit,
         policy: str | Omit = omit,
+        private_key: str | Omit = omit,
         type: Literal["legacy_custom", "sni_custom"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -93,8 +93,6 @@ class CustomCertificatesResource(SyncAPIResource):
 
           certificate: The zone's SSL certificate or certificate and the intermediate(s).
 
-          private_key: The zone's private key.
-
           bundle_method: A ubiquitous bundle has the highest probability of being verified everywhere,
               even by clients using outdated or unusual trust stores. An optimal bundle uses
               the shortest chain and newest intermediates. And the force bundle verifies the
@@ -102,7 +100,7 @@ class CustomCertificatesResource(SyncAPIResource):
 
           custom_csr_id: The identifier for the Custom CSR that was used.
 
-          deploy: The environment to deploy the certificate to, defaults to production
+          deploy: The environment to deploy the certificate to, defaults to production.
 
           geo_restrictions: Specify the region where your private key can be held locally for optimal TLS
               performance. HTTPS connections to any excluded data center will still be fully
@@ -124,6 +122,9 @@ class CustomCertificatesResource(SyncAPIResource):
               "policy_restrictions" in requests. Responses return this field as
               "policy_restrictions".
 
+          private_key: The zone's private key. Not required if custom_csr_id is provided, in which case
+              the private key is retrieved from the CSR record held by Cloudflare.
+
           type: The type 'legacy_custom' enables support for legacy clients which do not include
               SNI in the TLS handshake.
 
@@ -142,12 +143,12 @@ class CustomCertificatesResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "certificate": certificate,
-                    "private_key": private_key,
                     "bundle_method": bundle_method,
                     "custom_csr_id": custom_csr_id,
                     "deploy": deploy,
                     "geo_restrictions": geo_restrictions,
                     "policy": policy,
+                    "private_key": private_key,
                     "type": type,
                 },
                 custom_certificate_create_params.CustomCertificateCreateParams,
@@ -316,7 +317,7 @@ class CustomCertificatesResource(SyncAPIResource):
 
           custom_csr_id: The identifier for the Custom CSR that was used.
 
-          deploy: The environment to deploy the certificate to, defaults to production
+          deploy: The environment to deploy the certificate to, defaults to production.
 
           geo_restrictions: Specify the region where your private key can be held locally for optimal TLS
               performance. HTTPS connections to any excluded data center will still be fully
@@ -338,7 +339,8 @@ class CustomCertificatesResource(SyncAPIResource):
               "policy_restrictions" in requests. Responses return this field as
               "policy_restrictions".
 
-          private_key: The zone's private key.
+          private_key: The zone's private key. Not required if custom_csr_id is provided, in which case
+              the private key is retrieved from the CSR record held by Cloudflare.
 
           extra_headers: Send extra headers
 
@@ -464,12 +466,12 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
         *,
         zone_id: str,
         certificate: str,
-        private_key: str,
         bundle_method: BundleMethod | Omit = omit,
         custom_csr_id: str | Omit = omit,
         deploy: Literal["staging", "production"] | Omit = omit,
         geo_restrictions: GeoRestrictionsParam | Omit = omit,
         policy: str | Omit = omit,
+        private_key: str | Omit = omit,
         type: Literal["legacy_custom", "sni_custom"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -486,8 +488,6 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
 
           certificate: The zone's SSL certificate or certificate and the intermediate(s).
 
-          private_key: The zone's private key.
-
           bundle_method: A ubiquitous bundle has the highest probability of being verified everywhere,
               even by clients using outdated or unusual trust stores. An optimal bundle uses
               the shortest chain and newest intermediates. And the force bundle verifies the
@@ -495,7 +495,7 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
 
           custom_csr_id: The identifier for the Custom CSR that was used.
 
-          deploy: The environment to deploy the certificate to, defaults to production
+          deploy: The environment to deploy the certificate to, defaults to production.
 
           geo_restrictions: Specify the region where your private key can be held locally for optimal TLS
               performance. HTTPS connections to any excluded data center will still be fully
@@ -517,6 +517,9 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
               "policy_restrictions" in requests. Responses return this field as
               "policy_restrictions".
 
+          private_key: The zone's private key. Not required if custom_csr_id is provided, in which case
+              the private key is retrieved from the CSR record held by Cloudflare.
+
           type: The type 'legacy_custom' enables support for legacy clients which do not include
               SNI in the TLS handshake.
 
@@ -535,12 +538,12 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "certificate": certificate,
-                    "private_key": private_key,
                     "bundle_method": bundle_method,
                     "custom_csr_id": custom_csr_id,
                     "deploy": deploy,
                     "geo_restrictions": geo_restrictions,
                     "policy": policy,
+                    "private_key": private_key,
                     "type": type,
                 },
                 custom_certificate_create_params.CustomCertificateCreateParams,
@@ -709,7 +712,7 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
 
           custom_csr_id: The identifier for the Custom CSR that was used.
 
-          deploy: The environment to deploy the certificate to, defaults to production
+          deploy: The environment to deploy the certificate to, defaults to production.
 
           geo_restrictions: Specify the region where your private key can be held locally for optimal TLS
               performance. HTTPS connections to any excluded data center will still be fully
@@ -731,7 +734,8 @@ class AsyncCustomCertificatesResource(AsyncAPIResource):
               "policy_restrictions" in requests. Responses return this field as
               "policy_restrictions".
 
-          private_key: The zone's private key.
+          private_key: The zone's private key. Not required if custom_csr_id is provided, in which case
+              the private key is retrieved from the CSR record held by Cloudflare.
 
           extra_headers: Send extra headers
 

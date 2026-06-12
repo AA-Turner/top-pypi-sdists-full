@@ -137,7 +137,7 @@ def tsqr(data, compute_svd=False, _max_vchunk_size=None):
     dependencies = data.__dask_graph__().dependencies.copy()
 
     # Block qr
-    name_qr_st1 = "qr" + token
+    name_qr_st1 = f"qr{token}"
     dsk_qr_st1 = blockwise(
         _wrapped_qr,
         name_qr_st1,
@@ -922,8 +922,7 @@ def svd(a, coerce_signs=True, full_matrices=False):
     """
     if full_matrices:
         raise NotImplementedError(
-            "full_matrices=True is not implemented for dask arrays. "
-            "Use full_matrices=False to compute the reduced SVD."
+            "full_matrices=True is not implemented for dask arrays. Use full_matrices=False to compute the reduced SVD."
         )
     nb = a.numblocks
     if a.ndim != 2:
@@ -1011,18 +1010,18 @@ def lu(a):
     hdim = len(a.chunks[1])
 
     token = tokenize(a)
-    name_lu = "lu-lu-" + token
+    name_lu = f"lu-lu-{token}"
 
-    name_p = "lu-p-" + token
-    name_l = "lu-l-" + token
-    name_u = "lu-u-" + token
+    name_p = f"lu-p-{token}"
+    name_l = f"lu-l-{token}"
+    name_u = f"lu-u-{token}"
 
     # for internal calculation
-    name_p_inv = "lu-p-inv-" + token
-    name_l_permuted = "lu-l-permute-" + token
-    name_u_transposed = "lu-u-transpose-" + token
-    name_plu_dot = "lu-plu-dot-" + token
-    name_lu_dot = "lu-lu-dot-" + token
+    name_p_inv = f"lu-p-inv-{token}"
+    name_l_permuted = f"lu-l-permute-{token}"
+    name_u_transposed = f"lu-u-transpose-{token}"
+    name_plu_dot = f"lu-plu-dot-{token}"
+    name_lu_dot = f"lu-lu-dot-{token}"
 
     dsk = {}
     for i in range(min(vdim, hdim)):
@@ -1138,10 +1137,7 @@ def solve_triangular(a, b, lower=False):
         if a.shape[1] != b.shape[0]:
             raise ValueError("a.shape[1] and b.shape[0] must be equal")
         if a.chunks[1] != b.chunks[0]:
-            msg = (
-                "a.chunks[1] and b.chunks[0] must be equal. "
-                "Use .rechunk method to change the size of chunks."
-            )
+            msg = "a.chunks[1] and b.chunks[0] must be equal. Use .rechunk method to change the size of chunks."
             raise ValueError(msg)
     else:
         raise ValueError("b must be 1 or 2 dimensional")
@@ -1149,11 +1145,11 @@ def solve_triangular(a, b, lower=False):
     vchunks = len(a.chunks[1])
     hchunks = 1 if b.ndim == 1 else len(b.chunks[1])
     token = tokenize(a, b, lower)
-    name = "solve-triangular-" + token
+    name = f"solve-triangular-{token}"
 
     # for internal calculation
     # (name, i, j, k, l) corresponds to a_ij.dot(b_kl)
-    name_mdot = "solve-tri-dot-" + token
+    name_mdot = f"solve-tri-dot-{token}"
 
     def _b_init(i, j):
         if b.ndim == 1:
@@ -1262,8 +1258,7 @@ def solve(a, b, sym_pos=None, assume_a="gen"):
         b = p.T.dot(b)
     else:
         raise ValueError(
-            f"{assume_a = } is not a recognized matrix structure, "
-            "valid structures in Dask are 'pos' and 'gen'."
+            f"{assume_a = } is not a recognized matrix structure, valid structures in Dask are 'pos' and 'gen'."
         )
 
     uy = solve_triangular(l, b, lower=True)
@@ -1286,6 +1281,11 @@ def inv(a):
         Inverse of the matrix `a`.
     """
     return solve(a, eye(a.shape[0], chunks=a.chunks[0][0]))
+
+
+def _conj_transpose(a):
+    # Note: conj() is a no-op for real dtypes
+    return np.transpose(a).conj()
 
 
 def _cholesky_lower(a):
@@ -1343,13 +1343,13 @@ def _cholesky(a):
     hdim = len(a.chunks[1])
 
     token = tokenize(a)
-    name = "cholesky-" + token
+    name = f"cholesky-{token}"
 
     # (name_lt_dot, i, j, k, l) corresponds to l_ij.dot(l_kl.T)
-    name_lt_dot = "cholesky-lt-dot-" + token
+    name_lt_dot = f"cholesky-lt-dot-{token}"
     # because transposed results are needed for calculation,
     # we can build graph for upper triangular simultaneously
-    name_upper = "cholesky-upper-" + token
+    name_upper = f"cholesky-upper-{token}"
 
     # calculates lower triangulars because subscriptions get simpler
     dsk = {}
@@ -1371,7 +1371,7 @@ def _cholesky(a):
                         prevs.append(prev)
                     target = (operator.sub, target, (sum, prevs))
                 dsk[name, i, i] = (_cholesky_lower, target)
-                dsk[name_upper, i, i] = (np.transpose, (name, i, i))
+                dsk[name_upper, i, i] = (_conj_transpose, (name, i, i))
             else:
                 # solving x.dot(L11.T) = (A21 - L20.dot(L10.T)) is equal to
                 # L11.dot(x.T) = A21.T - L10.dot(L20.T)
@@ -1385,7 +1385,7 @@ def _cholesky(a):
                         prevs.append(prev)
                     target = (operator.sub, target, (sum, prevs))
                 dsk[name_upper, j, i] = (_solve_triangular_lower, (name, j, j), target)
-                dsk[name, i, j] = (np.transpose, (name_upper, j, i))
+                dsk[name, i, j] = (_conj_transpose, (name_upper, j, i))
 
     graph_upper = HighLevelGraph.from_collections(name_upper, dsk, dependencies=[a])
     graph_lower = HighLevelGraph.from_collections(name, dsk, dependencies=[a])
@@ -1450,14 +1450,14 @@ def lstsq(a, b):
     # r must be a triangular with single block
 
     # rank
-    rname = "lstsq-rank-" + token
+    rname = f"lstsq-rank-{token}"
     rdsk = {(rname,): (np.linalg.matrix_rank, (r.name, 0, 0))}
     graph = HighLevelGraph.from_collections(rname, rdsk, dependencies=[r])
     # rank must be an integer
     rank = Array(graph, rname, shape=(), chunks=(), dtype=int)
 
     # singular
-    sname = "lstsq-singular-" + token
+    sname = f"lstsq-singular-{token}"
     rt = r.T.conj()
     sdsk = {
         (sname, 0): (

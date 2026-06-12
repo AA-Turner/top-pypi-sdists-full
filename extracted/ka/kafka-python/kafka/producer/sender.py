@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division
-
 import collections
 import copy
 import heapq
@@ -7,23 +5,23 @@ import logging
 import threading
 import time
 
-from kafka.vendor import six
-
 from kafka import errors as Errors
 from kafka.metrics.measurable import AnonMeasurable
 from kafka.metrics.stats import Avg, Max, Rate
-from kafka.producer.transaction_manager import ProducerIdAndEpoch
-from kafka.protocol.init_producer_id import InitProducerIdRequest
-from kafka.protocol.produce import ProduceRequest
+from kafka.producer.transaction_manager import TransactionManager
+from kafka.protocol.producer import ProduceRequest, ProduceResponse
 from kafka.structs import TopicPartition
+from kafka.util import ensure_valid_topic_name
 from kafka.version import __version__
 
 log = logging.getLogger(__name__)
 
 
-PartitionResponse = collections.namedtuple("PartitionResponse",
-   ["error", "base_offset", "last_offset", "log_append_time", "log_start_offset", "record_errors", "error_message", "current_leader"])
-PartitionResponse.__new__.__defaults__ = (Errors.NoError, -1, -1, -1, -1, (), None, (-1, -1))
+# Short alias for the protocol type used throughout the sender's batch-
+# completion paths. Synthetic instances (acks=0, locally-expired batches)
+# are constructed with just a few fields set; unset fields fall through to
+# the schema defaults via DataContainer.__getattr__.
+_PartitionProduceResponse = ProduceResponse.TopicProduceResponse.PartitionProduceResponse
 
 
 class Sender(threading.Thread):
@@ -47,7 +45,7 @@ class Sender(threading.Thread):
     }
 
     def __init__(self, client, metadata, accumulator, **configs):
-        super(Sender, self).__init__()
+        super().__init__()
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
             if key in configs:
@@ -86,7 +84,7 @@ class Sender(threading.Thread):
         """Get the in-flight batches that has reached delivery timeout."""
         expired_batches = []
         to_remove = []
-        for tp, queue in six.iteritems(self._in_flight_batches):
+        for tp, queue in self._in_flight_batches.items():
             while queue:
                 _created_at, batch = queue[0]
                 if batch.has_reached_delivery_timeout(self._accumulator.delivery_timeout_ms):
@@ -145,21 +143,30 @@ class Sender(threading.Thread):
     def run_once(self):
         """Run a single iteration of sending."""
         while self._topics_to_add:
-            self._client.add_topic(self._topics_to_add.pop())
+            self._metadata.add_topic(self._topics_to_add.pop())
 
         if self._transaction_manager:
             try:
-                if not self._transaction_manager.is_transactional():
-                    # this is an idempotent producer, so make sure we have a producer id
-                    self._maybe_wait_for_producer_id()
-                elif self._transaction_manager.has_in_flight_transactional_request() or self._maybe_send_transactional_request():
+                if (not self._transaction_manager.is_transactional()
+                        and not self._transaction_manager.has_producer_id()):
+                    # Idempotent producer: ensure an InitProducerIdHandler is
+                    # enqueued. Dispatch happens below via the same handler-queue
+                    # path used for transactional requests; the produce gate
+                    # below blocks new sends until the response arrives.
+                    self._transaction_manager.init_producer_id()
+
+                if self._transaction_manager.has_in_flight_transactional_request() or self._maybe_send_pending_request():
                     # as long as there are outstanding transactional requests, we simply wait for them to return
                     self._client.poll(timeout_ms=self.config['retry_backoff_ms'])
                     return
 
-                # do not continue sending if the transaction manager is in a failed state or if there
-                # is no producer id (for the idempotent case).
-                if self._transaction_manager.has_fatal_error() or not self._transaction_manager.has_producer_id():
+                # do not continue sending if the transaction manager is in a failed state, if there
+                # is no producer id (for the idempotent case), or if we're currently bumping the
+                # producer epoch (KIP-360) -- the InitProducerIdRequest has to complete before we
+                # can safely send any new produce requests under the new epoch.
+                if (self._transaction_manager.has_fatal_error()
+                        or not self._transaction_manager.has_producer_id()
+                        or self._transaction_manager.is_bumping_epoch()):
                     last_error = self._transaction_manager.last_error
                     if last_error is not None:
                         self._maybe_abort_batches(last_error)
@@ -181,7 +188,7 @@ class Sender(threading.Thread):
         self._client.poll(timeout_ms=poll_timeout_ms)
 
     def _send_producer_data(self, now=None):
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         # get the list of partitions with data ready to send
         result = self._accumulator.ready(self._metadata, now=now)
         ready_nodes, next_ready_check_delay, unknown_leaders_exist = result
@@ -206,7 +213,7 @@ class Sender(threading.Thread):
         batches_by_node = self._accumulator.drain(
             self._metadata, ready_nodes, self.config['max_request_size'], now=now)
 
-        for batch_list in six.itervalues(batches_by_node):
+        for batch_list in batches_by_node.values():
             for batch in batch_list:
                 item = (batch.created, batch)
                 queue = self._in_flight_batches[batch.topic_partition]
@@ -214,7 +221,7 @@ class Sender(threading.Thread):
 
         if self.config['guarantee_message_order']:
             # Mute all the partitions drained
-            for batch_list in six.itervalues(batches_by_node):
+            for batch_list in batches_by_node.values():
                 for batch in batch_list:
                     self._accumulator.muted.add(batch.topic_partition)
 
@@ -236,8 +243,8 @@ class Sender(threading.Thread):
         for expired_batch in expired_batches:
             error_message = "Expiring %d record(s) for %s: %s ms has passed since batch creation" % (
                 expired_batch.record_count, expired_batch.topic_partition,
-                int((time.time() - expired_batch.created) * 1000))
-            self._fail_batch(expired_batch, PartitionResponse(error=Errors.KafkaTimeoutError, error_message=error_message))
+                int((time.monotonic() - expired_batch.created) * 1000))
+            self._complete_batch_with_exception(expired_batch, Errors.KafkaTimeoutError(error_message))
 
         if self._sensors:
             self._sensors.update_produce_request_metrics(batches_by_node)
@@ -272,20 +279,25 @@ class Sender(threading.Thread):
             # metadata expiry time
             poll_timeout_ms = 0
 
-        for node_id, request in six.iteritems(requests):
+        for node_id, request in requests.items():
             batches = batches_by_node[node_id]
             log.debug('%s: Sending Produce Request: %r', str(self), request)
             (self._client.send(node_id, request, wakeup=False)
                  .add_callback(
-                     self._handle_produce_response, node_id, time.time(), batches)
+                     self._handle_produce_response, node_id, time.monotonic(), batches)
                  .add_errback(
                      self._failed_produce, batches, node_id))
         return poll_timeout_ms
 
-    def _maybe_send_transactional_request(self):
+    def _maybe_send_pending_request(self):
         if self._transaction_manager.is_completing() and self._accumulator.has_incomplete:
             if self._transaction_manager.is_aborting():
-                self._accumulator.abort_undrained_batches(Errors.KafkaError("Failing batch since transaction was aborted"))
+                # KIP-654: prefer the last error that triggered the abort;
+                # otherwise the user chose to abort with no underlying cause --
+                # surface a non-fatal TransactionAbortedError on the
+                # in-accumulator batches.
+                exception = self._transaction_manager.last_error or Errors.TransactionAbortedError()
+                self._accumulator.abort_undrained_batches(exception)
             # There may still be requests left which are being retried. Since we do not know whether they had
             # been successfully appended to the broker log, we must resend them until their final status is clear.
             # If they had been appended and we did not receive the error, then our sequence number would no longer
@@ -312,8 +324,10 @@ class Sender(threading.Thread):
                         break
                 else:
                     target_node = self._client.least_loaded_node()
-                    if target_node is not None and not self._client.await_ready(target_node, timeout_ms=self.config['request_timeout_ms']):
-                        target_node = None
+                    if target_node is None:
+                        self._client.poll(future=self._metadata.request_update())
+                    elif not self._client.await_ready(target_node, timeout_ms=self.config['request_timeout_ms']):
+                        continue
 
                 if target_node is not None:
                     if next_request_handler.is_retry:
@@ -324,13 +338,10 @@ class Sender(threading.Thread):
                     return True
 
             except Exception as e:
-                log.warn("%s: Got an exception when trying to find a node to send a transactional request to. Going to back off and retry: %s", str(self), e)
+                log.warning("%s: Got an exception when trying to find a node to send a transactional request to. Going to back off and retry: %s", str(self), e)
                 if next_request_handler.needs_coordinator():
                     self._transaction_manager.lookup_coordinator_for_request(next_request_handler)
                     break
-
-            time.sleep(self.config['retry_backoff_ms'] / 1000)
-            self._metadata.request_update()
 
         if target_node is None:
             self._transaction_manager.retry(next_request_handler)
@@ -340,6 +351,9 @@ class Sender(threading.Thread):
     def _maybe_abort_batches(self, exc):
         if self._accumulator.has_incomplete:
             log.error("%s: Aborting producer batches due to fatal error: %s", str(self), exc)
+            # Fatal: fail everything including in-flight batches; their broker
+            # responses won't recover us, and the user's pending futures need
+            # to resolve so close() can return.
             self._accumulator.abort_batches(exc)
 
     def initiate_close(self):
@@ -357,88 +371,35 @@ class Sender(threading.Thread):
         # This is generally called from a separate thread
         # so this needs to be a thread-safe operation
         # we assume that checking set membership across threads
-        # is ok where self._client._topics should never
+        # is ok where self._metadata._topics should never
         # remove topics for a producer instance, only add them.
-        if topic not in self._client._topics:
+        if topic not in self._metadata._topics:
+            ensure_valid_topic_name(topic)
             self._topics_to_add.add(topic)
             self.wakeup()
-
-    def _maybe_wait_for_producer_id(self):
-        while not self._transaction_manager.has_producer_id():
-            try:
-                node_id = self._client.least_loaded_node()
-                if node_id is None or not self._client.await_ready(node_id):
-                    log.debug("%s, Could not find an available broker to send InitProducerIdRequest to." +
-                              " Will back off and try again.", str(self))
-                    time.sleep(self._client.least_loaded_node_refresh_ms() / 1000)
-                    continue
-                version = self._client.api_version(InitProducerIdRequest, max_version=1)
-                request = InitProducerIdRequest[version](
-                    transactional_id=self.config['transactional_id'],
-                    transaction_timeout_ms=self.config['transaction_timeout_ms'],
-                )
-                response = self._client.send_and_receive(node_id, request)
-                error_type = Errors.for_code(response.error_code)
-                if error_type is Errors.NoError:
-                    self._transaction_manager.set_producer_id_and_epoch(ProducerIdAndEpoch(response.producer_id, response.producer_epoch))
-                    break
-                elif getattr(error_type, 'retriable', False):
-                    log.debug("%s: Retriable error from InitProducerId response: %s", str(self), error_type.__name__)
-                    if getattr(error_type, 'invalid_metadata', False):
-                        self._metadata.request_update()
-                else:
-                    self._transaction_manager.transition_to_fatal_error(error_type())
-                    break
-            except Errors.KafkaConnectionError:
-                log.debug("%s: Broker %s disconnected while awaiting InitProducerId response", str(self), node_id)
-            except Errors.RequestTimedOutError:
-                log.debug("%s: InitProducerId request to node %s timed out", str(self), node_id)
-            log.debug("%s: Retry InitProducerIdRequest in %sms.", str(self), self.config['retry_backoff_ms'])
-            time.sleep(self.config['retry_backoff_ms'] / 1000)
 
     def _failed_produce(self, batches, node_id, error):
         log.error("%s: Error sending produce request to node %d: %s", str(self), node_id, error) # trace
         for batch in batches:
-            self._complete_batch(batch, PartitionResponse(error=error))
+            self._complete_batch_with_exception(batch, error)
 
     def _handle_produce_response(self, node_id, send_time, batches, response):
         """Handle a produce response."""
         # if we have a response, parse it
         log.debug('%s: Parsing produce response: %r', str(self), response)
         if response:
-            batches_by_partition = dict([(batch.topic_partition, batch)
-                                         for batch in batches])
-
-            for topic, partitions in response.topics:
-                for partition_info in partitions:
-                    log_append_time = -1
-                    log_start_offset = -1
-                    record_errors = ()
-                    error_message = None
-                    if response.API_VERSION < 2:
-                        partition, error_code, base_offset = partition_info
-                    elif 2 <= response.API_VERSION <= 4:
-                        partition, error_code, base_offset, log_append_time = partition_info
-                    elif 5 <= response.API_VERSION <= 7:
-                        partition, error_code, base_offset, log_append_time, log_start_offset = partition_info
-                    else:
-                        partition, error_code, base_offset, log_append_time, log_start_offset, record_errors, error_message = partition_info
-                    tp = TopicPartition(topic, partition)
+            batches_by_partition = {batch.topic_partition: batch for batch in batches}
+            for topic_response in response.responses:
+                topic = topic_response.name
+                for partition_response in topic_response.partition_responses:
+                    tp = TopicPartition(topic, partition_response.index)
                     batch = batches_by_partition[tp]
-                    partition_response = PartitionResponse(
-                        error=Errors.for_code(error_code),
-                        base_offset=base_offset,
-                        last_offset=-1,
-                        log_append_time=log_append_time,
-                        log_start_offset=log_start_offset,
-                        record_errors=record_errors,
-                        error_message=error_message,
-                    )
                     self._complete_batch(batch, partition_response)
         else:
-            # this is the acks = 0 case, just complete all requests
+            # acks=0: no response data, synthesize a success response
+            synthetic = _PartitionProduceResponse(error_code=0)
             for batch in batches:
-                self._complete_batch(batch, PartitionResponse())
+                self._complete_batch(batch, synthetic)
 
     def _record_exceptions_fn(self, top_level_exception, record_errors, error_message):
         """Returns a fn mapping batch_index to exception"""
@@ -457,120 +418,238 @@ class Sender(threading.Thread):
             return exc(err_msg)
         return record_exceptions_fn
 
-    def _fail_batch(self, batch, partition_response):
-        if partition_response.error is Errors.TopicAuthorizationFailedError:
-            exception = Errors.TopicAuthorizationFailedError(batch.topic_partition.topic)
-        elif partition_response.error is Errors.ClusterAuthorizationFailedError:
-            exception = Errors.ClusterAuthorizationFailedError("The producer is not authorized to do idempotent sends")
-        else:
-            exception = partition_response.error(partition_response.error_message)
-
-        if self._transaction_manager:
-            if isinstance(exception, Errors.OutOfOrderSequenceNumberError) and \
-                    not self._transaction_manager.is_transactional() and \
-                    self._transaction_manager.has_producer_id(batch.producer_id):
-                log.error("%s: The broker received an out of order sequence number for topic-partition %s"
-                          " at offset %s. This indicates data loss on the broker, and should be investigated.",
-                          str(self), batch.topic_partition, partition_response.base_offset)
-
-                # Reset the transaction state since we have hit an irrecoverable exception and cannot make any guarantees
-                # about the previously committed message. Note that this will discard the producer id and sequence
-                # numbers for all existing partitions.
-                self._transaction_manager.reset_producer_id()
-            elif isinstance(exception, Errors.UnknownProducerIdError):
-                # If we get an UnknownProducerId for a partition, then the broker has no state for that producer. It will
-                # therefore accept a write with sequence number 0. We reset the sequence number for the partition here so
-                # that the producer can continue after aborting the transaction. All inflight-requests to this partition
-                # will also fail with an UnknownProducerId error, so the sequence will remain at 0. Note that if the
-                # broker supports bumping the epoch, we will later reset all sequence numbers after calling InitProducerId
-                self._transaction_manager.reset_sequence_for_partition(batch.topic_partition)
-            elif isinstance(exception, (Errors.ClusterAuthorizationFailedError,
-                                        Errors.TransactionalIdAuthorizationFailedError,
-                                        Errors.ProducerFencedError,
-                                        Errors.InvalidTxnStateError)):
-                self._transaction_manager.transition_to_fatal_error(exception)
-            elif self._transaction_manager.is_transactional():
-                self._transaction_manager.transition_to_abortable_error(exception)
-
-        if self._sensors:
-            self._sensors.record_errors(batch.topic_partition.topic, batch.record_count)
-
-        record_exceptions_fn = self._record_exceptions_fn(exception, partition_response.record_errors, partition_response.error_message)
-        if batch.complete_exceptionally(exception, record_exceptions_fn):
-            self._maybe_remove_from_inflight_batches(batch)
-            self._accumulator.deallocate(batch)
-
     def _complete_batch(self, batch, partition_response):
-        """Complete or retry the given batch of records.
+        """Complete or retry the given batch of records based on a broker response.
+
+        Handles both the success path (including treating
+        DuplicateSequenceNumberError as success, for max_in_flight > 1
+        retry arrivals) and the error path, which delegates to
+        _dispatch_error with a context-aware exception instance.
 
         Arguments:
             batch (ProducerBatch): The record batch
-            partition_response (PartitionResponse): Response details for partition
+            partition_response (PartitionProduceResponse): Protocol-layer
+                partition response from the broker (or a synthetic instance
+                for the acks=0 case).
         """
-        # Standardize no-error to None
-        error = partition_response.error
-        if error is Errors.NoError:
-            error = None
+        error_code = partition_response.error_code
+        if error_code != 0:
+            error_cls = Errors.for_code(error_code)
+            if error_cls is Errors.DuplicateSequenceNumberError:
+                # With max_in_flight > 1 and retries, a retried batch may
+                # arrive after the broker already committed the original.
+                # DUPLICATE_SEQUENCE_NUMBER means the records were already
+                # written successfully; treat as success.
+                log.debug("%s: Received DUPLICATE_SEQUENCE_NUMBER for %s - records already committed, treating as success",
+                          str(self), batch.topic_partition)
+                error_code = 0
 
-        if error is not None:
-            if self._can_retry(batch, error):
-                # retry
-                log.warning("%s: Got error produce response on topic-partition %s, retrying (%s attempts left): %s%s",
-                            str(self), batch.topic_partition,
-                            self.config['retries'] - batch.attempts - 1,
-                            error.__class__.__name__,
-                            (". Error Message: %s" % partition_response.error_message) if partition_response.error_message else "")
+        if error_code == 0:
+            # Success path
+            base_offset = partition_response.base_offset
+            log_append_time = partition_response.log_append_time_ms
+            if batch.complete(base_offset, log_append_time):
+                self._maybe_remove_from_inflight_batches(batch)
+                self._accumulator.deallocate(batch)
+            # Track last ack'd offset for KAFKA-5793 retention detection.
+            if self._transaction_manager and self._transaction_manager.producer_id_and_epoch.match(batch):
+                self._transaction_manager.update_last_acked_offset(
+                    batch.topic_partition, base_offset, batch.record_count)
+            if self.config['guarantee_message_order']:
+                self._accumulator.muted.remove(batch.topic_partition)
+            return
 
-                # If idempotence is enabled only retry the request if the batch matches our current producer id and epoch
-                if not self._transaction_manager or self._transaction_manager.producer_id_and_epoch.match(batch):
-                    log.debug("%s: Retrying batch to topic-partition %s. Sequence number: %s",
-                              str(self), batch.topic_partition,
-                              self._transaction_manager.sequence_number(batch.topic_partition) if self._transaction_manager else None)
-                    self._accumulator.reenqueue(batch)
-                    self._maybe_remove_from_inflight_batches(batch)
-                    if self._sensors:
-                        self._sensors.record_retries(batch.topic_partition.topic, batch.record_count)
-                else:
-                    log.warning("%s: Attempted to retry sending a batch but the producer id/epoch changed from %s/%s to %s/%s. This batch will be dropped",
-                                str(self), batch.producer_id, batch.producer_epoch,
-                                self._transaction_manager.producer_id_and_epoch.producer_id,
-                                self._transaction_manager.producer_id_and_epoch.epoch)
-                    self._fail_batch(batch, partition_response)
-            else:
-                # tell the user the result of their request
-                self._fail_batch(batch, partition_response)
-
-            if error is Errors.UnknownTopicOrPartitionError:
-                log.warning("%s: Received unknown topic or partition error in produce request on partition %s."
-                            " The topic/partition may not exist or the user may not have Describe access to it",
-                            str(self), batch.topic_partition)
-
-            if getattr(error, 'invalid_metadata', False):
-                self._metadata.request_update()
-
+        # Error path: construct the exception with context-specific wrappers
+        # for auth errors that carry a topic or producer-specific message.
+        if error_cls is Errors.TopicAuthorizationFailedError:
+            exception = Errors.TopicAuthorizationFailedError(batch.topic_partition.topic)
+        elif error_cls is Errors.ClusterAuthorizationFailedError:
+            exception = Errors.ClusterAuthorizationFailedError("The producer is not authorized to do idempotent sends")
         else:
-            if batch.complete(partition_response.base_offset, partition_response.log_append_time):
+            exception = error_cls(partition_response.error_message)
+        self._dispatch_error(batch, exception, partition_response)
+
+    def _complete_batch_with_exception(self, batch, exception):
+        """Complete a batch following a client-side failure.
+
+        Called from _failed_produce for network errors and from
+        _send_producer_data for locally-expired batches. The exception is
+        used as-is (no reconstruction), so any dynamic message is
+        preserved.
+
+        Arguments:
+            batch (ProducerBatch): The record batch
+            exception (Exception or type): The client-side exception or its
+                class (a bare class is instantiated with no message)
+        """
+        if isinstance(exception, type):
+            exception = exception(None)
+        self._dispatch_error(batch, exception, partition_response=None)
+
+    def _dispatch_error(self, batch, exception, partition_response):
+        """Apply the appropriate outcome for a failed batch.
+
+        Single decision point for both broker-reported errors (with a
+        partition_response) and client-side exceptions (partition_response
+        is None). Handles split / retry / retention-reset / fail along with
+        transaction-state transitions and post-error housekeeping
+        (metadata refresh, partition unmuting).
+        """
+        error_cls = type(exception)
+        log_start_offset = partition_response.log_start_offset if partition_response is not None else -1
+
+        if self._can_split(batch, error_cls):
+            log.warning("%s: Got %s on topic-partition %s with %d records, splitting batch and retrying",
+                        str(self), error_cls.__name__, batch.topic_partition, batch.record_count)
+            self._accumulator.split_and_reenqueue(batch)
+            self._maybe_remove_from_inflight_batches(batch)
+            self._accumulator.deallocate(batch)
+            self._record_retries(batch)
+        elif self._is_retention_based_unknown_producer_id(batch, error_cls, log_start_offset):
+            # KAFKA-5793: the broker's producer state aged out due to
+            # retention (log_start_offset > last_acked_offset), not
+            # actual data loss. Reset the partition sequence and retry.
+            log.warning("%s: UnknownProducerIdError for %s appears to be retention-based"
+                        " (log_start_offset=%s, last_acked_offset=%s); resetting sequence and retrying",
+                        str(self), batch.topic_partition, log_start_offset,
+                        self._transaction_manager.last_acked_offset(batch.topic_partition))
+            self._transaction_manager.reset_sequence_for_partition(batch.topic_partition)
+            self._accumulator.reenqueue(batch)
+            self._maybe_remove_from_inflight_batches(batch)
+            self._record_retries(batch)
+        elif self._can_retry(batch, error_cls):
+            error_message = exception.args[0] if exception.args and exception.args[0] is not None else None
+            log.warning("%s: Got error produce response on topic-partition %s, retrying (%s attempts left): %s%s",
+                        str(self), batch.topic_partition,
+                        self.config['retries'] - batch.attempts - 1,
+                        error_cls.__name__,
+                        (". Error Message: %s" % error_message) if error_message else "")
+            log.debug("%s: Retrying batch to topic-partition %s. Sequence number: %s",
+                      str(self), batch.topic_partition,
+                      self._transaction_manager.sequence_number(batch.topic_partition) if self._transaction_manager else None)
+            self._accumulator.reenqueue(batch)
+            self._maybe_remove_from_inflight_batches(batch)
+            self._record_retries(batch)
+        else:
+            # FAIL: dispatch transaction state transition via the
+            # classifier (KIP-360), then finalize the batch.
+            if self._transaction_manager:
+                classification = self._transaction_manager.classify_batch_error(
+                    exception, batch, log_start_offset=log_start_offset)
+
+                if classification == TransactionManager.ERROR_CLASS_NEEDS_EPOCH_BUMP:
+                    # KIP-360 (Kafka 2.5+): bump the producer epoch and
+                    # continue. The accumulator's unsent records will be
+                    # drained under the new epoch. In-flight batches at
+                    # this moment are lost; their futures (including this
+                    # one) fail.
+                    self._transaction_manager.bump_producer_id_and_epoch()
+                elif classification == TransactionManager.ERROR_CLASS_NEEDS_PRODUCER_ID_RESET:
+                    # Pre-KIP-360 fallback (non-transactional idempotent
+                    # producer on < 2.5 broker).
+                    if isinstance(exception, Errors.OutOfOrderSequenceNumberError) and \
+                            self._transaction_manager.has_producer_id(batch.producer_id):
+                        base_offset = partition_response.base_offset if partition_response is not None else -1
+                        log.error("%s: The broker received an out of order sequence number for topic-partition %s"
+                                  " at offset %s. This indicates data loss on the broker, and should be investigated.",
+                                  str(self), batch.topic_partition, base_offset)
+                    self._transaction_manager.reset_producer_id()
+                elif classification == TransactionManager.ERROR_CLASS_FATAL:
+                    self._transaction_manager.transition_to_fatal_error(exception)
+                elif classification == TransactionManager.ERROR_CLASS_ABORTABLE:
+                    self._transaction_manager.transition_to_abortable_error(exception)
+                # ERROR_CLASS_RETRIABLE at this point means we couldn't
+                # retry (e.g. delivery-timeout hit or retries exhausted);
+                # just fail the batch without any state transition.
+
+            if self._sensors:
+                self._sensors.record_errors(batch.topic_partition.topic, batch.record_count)
+
+            if partition_response is not None:
+                record_errors = partition_response.record_errors
+                error_message = partition_response.error_message
+            else:
+                record_errors = ()
+                error_message = exception.args[0] if exception.args and exception.args[0] is not None else None
+            record_exceptions_fn = self._record_exceptions_fn(exception, record_errors, error_message)
+            if batch.complete_exceptionally(exception, record_exceptions_fn):
                 self._maybe_remove_from_inflight_batches(batch)
                 self._accumulator.deallocate(batch)
 
-            if self._transaction_manager and self._transaction_manager.producer_id_and_epoch.match(batch):
-                self._transaction_manager.increment_sequence_number(batch.topic_partition, batch.record_count)
-                log.debug("%s: Incremented sequence number for topic-partition %s to %s", str(self), batch.topic_partition,
-                          self._transaction_manager.sequence_number(batch.topic_partition))
-
-        # Unmute the completed partition.
+        # Post-error housekeeping (runs for all branches above)
+        if error_cls is Errors.UnknownTopicOrPartitionError:
+            log.warning("%s: Received unknown topic or partition error in produce request on partition %s."
+                        " The topic/partition may not exist or the user may not have Describe access to it",
+                        str(self), batch.topic_partition)
+        if issubclass(error_cls, Errors.InvalidMetadataError):
+            self._metadata.request_update()
         if self.config['guarantee_message_order']:
             self._accumulator.muted.remove(batch.topic_partition)
 
-    def _can_retry(self, batch, error):
+    def _record_retries(self, batch):
+        if self._sensors:
+            self._sensors.record_retries(batch.topic_partition.topic, batch.record_count)
+
+    def _can_retry(self, batch, error_cls):
         """
-        We can retry a send if the error is transient and the number of
-        attempts taken is fewer than the maximum allowed
+        We can retry a send if the error is transient, the number of
+        attempts taken is fewer than the maximum allowed, and - for the
+        idempotent producer - the batch's producer id/epoch still matches
+        ours. A mismatched producer id/epoch (e.g. after a reset or future
+        KIP-360 epoch bump) means retrying would violate idempotence.
         """
-        return (not batch.has_reached_delivery_timeout(self._accumulator.delivery_timeout_ms) and
-                batch.attempts < self.config['retries'] and
+        if batch.has_reached_delivery_timeout(self._accumulator.delivery_timeout_ms):
+            return False
+        if batch.attempts >= self.config['retries']:
+            return False
+        if batch.final_state is not None:
+            return False
+        if not issubclass(error_cls, Errors.RetriableError):
+            return False
+        if self._transaction_manager and not self._transaction_manager.producer_id_and_epoch.match(batch):
+            log.warning("%s: Attempted to retry sending a batch but the producer id/epoch changed from %s/%s to %s/%s."
+                        " This batch will be dropped",
+                        str(self), batch.producer_id, batch.producer_epoch,
+                        self._transaction_manager.producer_id_and_epoch.producer_id,
+                        self._transaction_manager.producer_id_and_epoch.epoch)
+            return False
+        return True
+
+    def _is_retention_based_unknown_producer_id(self, batch, error_cls, log_start_offset):
+        """Detect retention-based UnknownProducerIdError (KAFKA-5793).
+
+        The broker returns UnknownProducerIdError either because the producer
+        state was legitimately removed by retention, or because of actual
+        data loss. If the broker's log_start_offset is strictly greater than
+        the last offset we acknowledged for this partition, then the records
+        we previously wrote have been aged out - the producer can safely
+        reset its sequence to 0 and resume.
+        """
+        if error_cls is not Errors.UnknownProducerIdError:
+            return False
+        if not self._transaction_manager:
+            return False
+        if not self._transaction_manager.producer_id_and_epoch.match(batch):
+            return False
+        if batch.has_reached_delivery_timeout(self._accumulator.delivery_timeout_ms):
+            return False
+        if batch.final_state is not None:
+            return False
+        if log_start_offset is None or log_start_offset < 0:
+            return False
+        last_acked = self._transaction_manager.last_acked_offset(batch.topic_partition)
+        return log_start_offset > last_acked
+
+    def _can_split(self, batch, error):
+        """
+        We can split and retry a batch if the error indicates the batch is too
+        large for the broker, the batch contains more than one record (so it
+        can actually be split), and the delivery timeout has not been reached.
+        """
+        return (error in (Errors.MessageSizeTooLargeError, Errors.RecordListTooLargeError) and
+                batch.record_count > 1 and
                 batch.final_state is None and
-                getattr(error, 'retriable', False))
+                not batch.has_reached_delivery_timeout(self._accumulator.delivery_timeout_ms))
 
     def _create_produce_requests(self, collated):
         """
@@ -584,7 +663,7 @@ class Sender(threading.Thread):
             dict: {node_id: ProduceRequest} (version depends on client api_versions)
         """
         requests = {}
-        for node_id, batches in six.iteritems(collated):
+        for node_id, batches in collated.items():
             if batches:
                 requests[node_id] = self._produce_request(
                     node_id, self.config['acks'],
@@ -597,34 +676,32 @@ class Sender(threading.Thread):
         Returns:
             ProduceRequest (version depends on client api_versions)
         """
-        produce_records_by_partition = collections.defaultdict(dict)
+        max_version = 9
+        min_version = 0
+        Topic = ProduceRequest.TopicProduceData
+        Partition = Topic.PartitionProduceData
+        topic_data = collections.defaultdict(list)
         for batch in batches:
             topic = batch.topic_partition.topic
-            partition = batch.topic_partition.partition
+            partition = Partition(
+                index=batch.topic_partition.partition,
+                records=batch.records.buffer(),
+            )
+            topic_data[topic].append(partition)
 
-            buf = batch.records.buffer()
-            produce_records_by_partition[topic][partition] = buf
-
-        version = self._client.api_version(ProduceRequest, max_version=8)
-        topic_partition_data = [
-            (topic, list(partition_info.items()))
-            for topic, partition_info in six.iteritems(produce_records_by_partition)]
         transactional_id = self._transaction_manager.transactional_id if self._transaction_manager else None
-        if version >= 3:
-            return ProduceRequest[version](
-                transactional_id=transactional_id,
-                required_acks=acks,
-                timeout=timeout,
-                topics=topic_partition_data,
-            )
-        else:
-            if transactional_id is not None:
-                log.warning('%s: Broker does not support ProduceRequest v3+, required for transactional_id', str(self))
-            return ProduceRequest[version](
-                required_acks=acks,
-                timeout=timeout,
-                topics=topic_partition_data,
-            )
+        if transactional_id is not None:
+            min_version = 3
+
+        return ProduceRequest(
+            transactional_id=transactional_id,
+            acks=acks,
+            timeout_ms=timeout,
+            topic_data=[Topic(name=topic, partition_data=partitions)
+                        for topic, partitions in topic_data.items()],
+            min_version=min_version,
+            max_version=max_version,
+        )
 
     def wakeup(self):
         """Wake up the selector associated with this send thread."""
@@ -637,7 +714,7 @@ class Sender(threading.Thread):
         return "<Sender client_id=%s transactional_id=%s>" % (self.config['client_id'], self.config['transactional_id'])
 
 
-class SenderMetrics(object):
+class SenderMetrics:
 
     def __init__(self, metrics, client, metadata):
         self.metrics = metrics

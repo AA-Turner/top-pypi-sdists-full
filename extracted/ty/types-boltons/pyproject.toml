@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-boltons"
-version = "25.0.0.20260518"
+version = "25.0.0.20260612"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for boltons"
@@ -26,10 +26,10 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`7e1dfd9d2db07c7c846b1cb7235cda67f30878d2`](https://github.com/python/typeshed/commit/7e1dfd9d2db07c7c846b1cb7235cda67f30878d2).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

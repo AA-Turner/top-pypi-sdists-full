@@ -68,7 +68,7 @@ from kafka.codec import (
 import kafka.codec as codecs
 
 
-class DefaultRecordBase(object):
+class DefaultRecordBase:
 
     __slots__ = ()
 
@@ -245,7 +245,7 @@ class DefaultRecordBatch(DefaultRecordBase, ABCRecordBatch):
                     uncompressed = lz4_decode(data.tobytes())
                 if compression_type == self.CODEC_ZSTD:
                     uncompressed = zstd_decode(data.tobytes())
-                self._buffer = bytearray(uncompressed)
+                self._buffer = bytearray(uncompressed)  # pylint: disable=E0606
                 self._pos = 0
         self._decompressed = True
 
@@ -359,7 +359,7 @@ class DefaultRecordBatch(DefaultRecordBase, ABCRecordBatch):
 
         crc = self.crc
         data_view = memoryview(self._buffer)[self.ATTRIBUTES_OFFSET:]
-        verify_crc = calc_crc32c(data_view.tobytes())
+        verify_crc = calc_crc32c(data_view)
         return crc == verify_crc
 
     def __str__(self):
@@ -450,7 +450,7 @@ class ControlRecord(DefaultRecord):
     )
 
     def __init__(self, size_in_bytes, offset, timestamp, timestamp_type, key, value, headers):
-        super(ControlRecord, self).__init__(size_in_bytes, offset, timestamp, timestamp_type, key, value, headers)
+        super().__init__(size_in_bytes, offset, timestamp, timestamp_type, key, value, headers)
         (self._version, self._type) = self.KEY_STRUCT.unpack(self._key)
 
     # see https://kafka.apache.org/documentation/#controlbatch
@@ -526,6 +526,10 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
     @property
     def producer_epoch(self):
         return self._producer_epoch
+
+    @property
+    def base_sequence(self):
+        return self._base_sequence
 
     def _get_attributes(self, include_compression_type=True):
         attrs = 0
@@ -642,7 +646,9 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
             self._base_sequence,
             self._num_records
         )
-        crc = calc_crc32c(self._buffer[self.ATTRIBUTES_OFFSET:])
+        # Use memoryview to avoid a full-body copy of ~batch_size bytes.
+        # The decode path at _check_crc already does this.
+        crc = calc_crc32c(memoryview(self._buffer)[self.ATTRIBUTES_OFFSET:])
         struct.pack_into(">I", self._buffer, self.CRC_OFFSET, crc)
 
     def _maybe_compress(self):
@@ -658,7 +664,7 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
                 compressed = lz4_encode(data)
             elif self._compression_type == self.CODEC_ZSTD:
                 compressed = zstd_encode(data)
-            compressed_size = len(compressed)
+            compressed_size = len(compressed)  # pylint: disable=E0606
             if len(data) <= compressed_size:
                 # We did not get any benefit from compression, lets send
                 # uncompressed
@@ -744,7 +750,7 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
                 self._num_records))
 
 
-class DefaultRecordMetadata(object):
+class DefaultRecordMetadata:
 
     __slots__ = ("_size", "_timestamp", "_offset")
 
