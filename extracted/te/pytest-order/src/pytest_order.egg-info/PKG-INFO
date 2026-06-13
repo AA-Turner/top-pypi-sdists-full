@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-order
-Version: 1.4.0
+Version: 1.5.0
 Summary: pytest plugin to run tests in a specific order
 Author-email: mrbean-bremen <hansemrbean@googlemail.com>
 License-Expression: MIT

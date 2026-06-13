@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from smplkit._errors import Error
+from smplkit.errors import Error
 
 
 # Known config keys and their corresponding environment variables.

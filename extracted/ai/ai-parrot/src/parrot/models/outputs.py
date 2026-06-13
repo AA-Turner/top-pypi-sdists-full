@@ -656,6 +656,11 @@ class MapLayer(BaseModel):
         capped: True when the per-dataset result was truncated at the hard cap.
         geodesic: Whether the executed path was geodesic (True) or
             spherical-approximate (False). Sourced from ``SpatialLayerResult``.
+        marker_color: Optional marker/pin color for every feature in this layer,
+            derived from the user's request (piggyback — no extra LLM call). A
+            canonical CSS color name (e.g. ``"red"``, ``"blue"``) or a hex string
+            (e.g. ``"#1f77b4"``). ``None`` = the frontend uses its default marker
+            color.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -691,6 +696,14 @@ class MapLayer(BaseModel):
     geodesic: Optional[bool] = Field(
         default=None,
         description="True = geodesic path; False = spherical-approx. From SpatialLayerResult.",
+    )
+    marker_color: Optional[str] = Field(
+        default=None,
+        alias="markerColor",
+        description=(
+            "Optional marker/pin color for this layer (CSS color name or hex). "
+            "Derived from the user's request; None = frontend default."
+        ),
     )
 
 
@@ -744,8 +757,11 @@ class StructuredMapConfig(BaseModel):
 
     Attributes:
         layers: One ``MapLayer`` per dataset with data-schema + presentation hints.
-        data: Flat data rows or per-layer payloads — INPUT-ONLY; excluded from
-            ``output``, routed to ``response.data`` by the renderer.
+        data: Flat tabular rows — INPUT-ONLY; excluded from ``output``,
+            routed to ``response.data`` by the renderer.
+        datasets: Per-layer GeoJSON/rows payloads — INCLUDED in ``output``
+            (unlike ``data``); stripped from the FEAT-224 artifact definition
+            to keep chat storage lean.
         viewport: Viewport hints (bbox + optional center/zoom).
         query: Echoed ``SpatialFilterSpec`` parameters (point / radius / unit).
         base_layer: Optional base-tile/style hint for the frontend (e.g. an OSM
@@ -763,8 +779,16 @@ class StructuredMapConfig(BaseModel):
     data: List[dict] = Field(
         default_factory=list,
         description=(
-            "Per-layer payloads; INPUT-ONLY — excluded from ``output``, "
+            "Flat tabular rows; INPUT-ONLY — excluded from ``output``, "
             "routed to response.data by the renderer."
+        ),
+    )
+    datasets: List[dict] = Field(
+        default_factory=list,
+        description=(
+            "Per-layer GeoJSON/rows payloads [{dataset, layer, data_shape, payload}]; "
+            "INCLUDED in output (unlike ``data``). Stripped from the FEAT-224 "
+            "artifact definition to keep chat storage lean."
         ),
     )
     viewport: Optional[MapViewport] = Field(

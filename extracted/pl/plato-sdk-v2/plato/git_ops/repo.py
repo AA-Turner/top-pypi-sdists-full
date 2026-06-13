@@ -118,6 +118,33 @@ def auto_commit(repo_path: str, commit_message: str) -> GitOpResult:
     return GitOpResult(ok=True, git_status=repo.git.status("--short"))
 
 
+def _refresh_existing_clone(target: Path, origin_url: str) -> Repo | None:
+    """Refresh an existing clone in place instead of wiping it.
+
+    A wipe-and-reclone unlinks the whole working tree, which strands anything
+    running out of it — most importantly a dev server, which keeps serving
+    deleted inodes and wedges. Refreshing in place preserves git-ignored state
+    (node_modules, .runtime, build caches), so the server survives the sync
+    and hot-reloads the new checkout. Returns None when the directory is not
+    a reusable clone of ``origin_url``; the caller falls back to a fresh clone.
+    """
+    if not (target / ".git").is_dir():
+        return None
+    try:
+        trust_git_directory(target)
+        repo = Repo(target)
+        if repo.remotes.origin.url != origin_url:
+            return None
+        repo.remote("origin").fetch(prune=True)
+        # Drop dirty/untracked leftovers from a crashed prior turn. No -x:
+        # keeping ignored files is the point of reusing the clone.
+        repo.git.reset("--hard")
+        repo.git.clean("-fd")
+        return repo
+    except (GitCommandError, ValueError, OSError):
+        return None
+
+
 def clone_setup(
     repo_path: str,
     *,
@@ -126,9 +153,15 @@ def clone_setup(
     branch_name: str | None,
 ) -> GitOpResult:
     target = Path(repo_path)
-    shutil.rmtree(target, ignore_errors=True)
-    repo = Repo.clone_from(f"world-git:{bare_repo_path}", target)
-    trust_git_directory(target)
+    origin_url = f"world-git:{bare_repo_path}"
+    # In-place reuse only applies when a checkout ref pins the result — with
+    # no ref the legacy contract is "fresh clone on the default branch", and
+    # a reused repo could be sitting on a stale task branch.
+    repo = _refresh_existing_clone(target, origin_url) if checkout_ref is not None else None
+    if repo is None:
+        shutil.rmtree(target, ignore_errors=True)
+        repo = Repo.clone_from(origin_url, target)
+        trust_git_directory(target)
     with repo.config_writer() as config:
         config.set_value("user", "email", AGENT_ACTOR.email)
         config.set_value("user", "name", AGENT_ACTOR.name)

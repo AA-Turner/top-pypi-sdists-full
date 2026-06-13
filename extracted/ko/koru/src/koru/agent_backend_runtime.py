@@ -281,15 +281,15 @@ class Nlp2UriDesktopBackend:
         return _nlp2uri_desktop_send(prompt, ide=ide, submit=submit, dry_run=self.dry_run)
 
 
-def _build_plugin_socket_backend(client: IDEControlClient | None) -> AgentBackend:
+def _build_plugin_socket_backend(client: IDEControlClient | None = None) -> AgentBackend:
     if client is None:
         raise ValueError("plugin_socket backend requires an IDEControlClient")
     return PluginSocketBackend(client=client)
 
-def _build_mcp_tool_backend(mcp_server: str | None) -> AgentBackend:
+def _build_mcp_tool_backend(mcp_server: str | None = None) -> AgentBackend:
     return McpToolBackend(mcp_server=mcp_server)
 
-def _build_vendor_agent_cli_backend(shell_client_id: str | None) -> AgentBackend:
+def _build_vendor_agent_cli_backend(shell_client_id: str | None = None) -> AgentBackend:
     return TillmShellBackend(
         client_id=shell_client_id or os.environ.get("KORU_TILLM_CLIENT", "aider"),
         execute=os.environ.get("KORU_TILLM_DRY_RUN", "").strip().lower()
@@ -369,11 +369,11 @@ def build_agent_backend(
     normalized = normalize_agent_backend_id(backend_id or "")
     builder = _BACKEND_BUILDERS.get(bid) or _BACKEND_BUILDERS.get(normalized)
     if builder:
-        if "client" in builder.__code__.co_varnames and client is not None:
+        if "client" in builder.__code__.co_varnames:
             return builder(client=client)
-        elif "mcp_server" in builder.__code__.co_varnames and mcp_server is not None:
+        elif "mcp_server" in builder.__code__.co_varnames:
             return builder(mcp_server=mcp_server)
-        elif "shell_client_id" in builder.__code__.co_varnames and shell_client_id is not None:
+        elif "shell_client_id" in builder.__code__.co_varnames:
             return builder(shell_client_id=shell_client_id)
         elif "noop_reason" in builder.__code__.co_varnames:
             return builder(noop_reason=noop_reason)

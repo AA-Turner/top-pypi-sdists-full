@@ -5,12 +5,12 @@ use jiff::{SignedDuration, Span, SpanArithmetic, SpanRelativeTo, SpanRound};
 use pyo3::prelude::*;
 use pyo3::types::{PyDelta, PyDict, PyFloat, PyInt, PyIterator, PyTuple};
 use pyo3::{BoundObject, IntoPyObjectExt};
-use ryo3_core::{
-    PyAsciiString, PyCastExactOpt, any_repr, map_py_overflow_err, map_py_value_err, py_key_err,
-    py_overflow_error, py_type_err, py_value_err, py_value_error,
+use ryo3_core::macros::{
+    any_repr, py_key_err, py_overflow_error, py_type_err, py_value_err, py_value_error,
 };
+use ryo3_core::{PyAsciiString, PyCastExactOpt, map_py_overflow_err, map_py_value_err};
 
-use crate::py_temporal_like::PyTemporalTypes;
+use crate::py_temporal_like::PyTemporalArg;
 use crate::ry_signed_duration::RySignedDuration;
 use crate::span_units::{SpanUnit, SpanUnits};
 use crate::spanish::Spanish;
@@ -71,7 +71,7 @@ impl PartialEq for RySpan {
 
 #[pymethods]
 impl RySpan {
-    #[expect(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments, reason = "python kwargs")]
     #[new]
     #[pyo3(
         signature = (
@@ -132,17 +132,6 @@ impl RySpan {
             .parse_span(s)
             .map(Self::from)
             .map_err(map_py_value_err)
-    }
-
-    #[pyo3(
-        warn(
-            message = "`TimeSpan.from_isoformat` is deprecated; use `TimeSpan.fromisoformat` instead [removal: v0.0.96]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    #[staticmethod]
-    fn from_isoformat(s: &str) -> PyResult<Self> {
-        Self::fromisoformat(s)
     }
 
     fn __str__(&self) -> PyAsciiString {
@@ -311,17 +300,6 @@ impl RySpan {
         jiff_span.into_pyobject(py)
     }
 
-    #[pyo3(
-        warn(
-            message = "`TimeSpan.parse_common_iso` is deprecated; use `TimeSpan.fromisoformat` instead [removal: v0.0.96]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    #[staticmethod]
-    fn parse_common_iso(s: &str) -> PyResult<Self> {
-        Self::fromisoformat(s)
-    }
-
     // <UNIFORM>
     #[staticmethod]
     #[pyo3(signature = (s, /))]
@@ -341,7 +319,7 @@ impl RySpan {
     }
     // </UNIFORM>
 
-    #[expect(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments, reason = "python kwargs")]
     #[pyo3(
         signature = (
             *,
@@ -544,7 +522,6 @@ impl RySpan {
         }
     }
 
-    // #[expect(clippy::needless_pass_by_value)]
     fn __add__<'py>(
         &self,
         py: Python<'py>,
@@ -553,7 +530,6 @@ impl RySpan {
         other.add_span(py, self)
     }
 
-    // #[expect(clippy::needless_pass_by_value)]
     fn add<'py>(
         &self,
         py: Python<'py>,
@@ -1041,7 +1017,9 @@ impl<'a, 'py> From<&'a IntoSpanArithmetic<'a, 'py>> for SpanArithmetic<'a> {
         match value {
             IntoSpanArithmetic::Uno(s) => match s {
                 Spanish::Span(sp) => SpanArithmetic::from(sp.get().0).days_are_24_hours(),
-                Spanish::Duration(dur) => SpanArithmetic::from(dur.get().0).days_are_24_hours(),
+                Spanish::Duration(dur) => {
+                    SpanArithmetic::from(*(dur.get().inner())).days_are_24_hours()
+                }
                 Spanish::SignedDuration(dur) => {
                     SpanArithmetic::from(dur.get().0).days_are_24_hours()
                 }
@@ -1057,10 +1035,14 @@ impl<'a, 'py> From<&'a IntoSpanArithmetic<'a, 'py>> for SpanArithmetic<'a> {
                     }
                 },
                 Spanish::Duration(dur) => match r {
-                    RySpanRelativeTo::Zoned(z) => SpanArithmetic::from((dur.get().0, &z.get().0)),
-                    RySpanRelativeTo::Date(d) => SpanArithmetic::from((dur.get().0, d.get().0)),
+                    RySpanRelativeTo::Zoned(z) => {
+                        SpanArithmetic::from((*(dur.get().inner()), &z.get().0))
+                    }
+                    RySpanRelativeTo::Date(d) => {
+                        SpanArithmetic::from((*(dur.get().inner()), d.get().0))
+                    }
                     RySpanRelativeTo::DateTime(dt) => {
-                        SpanArithmetic::from((dur.get().0, dt.get().0))
+                        SpanArithmetic::from((*(dur.get().inner()), dt.get().0))
                     }
                 },
                 Spanish::SignedDuration(dur) => match r {
@@ -1084,14 +1066,14 @@ impl<'a, 'py> From<&'a IntoSpanArithmetic<'a, 'py>> for SpanArithmetic<'a> {
 #[derive(Debug, Clone)]
 pub(crate) enum SpanAddTarget<'a, 'py> {
     Span(IntoSpanArithmetic<'a, 'py>),
-    TemporalType(PyTemporalTypes<'a, 'py>),
+    TemporalType(PyTemporalArg<'a, 'py>),
 }
 
 impl<'a, 'py> FromPyObject<'a, 'py> for SpanAddTarget<'a, 'py> {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
-        if let Ok(temporal_ish) = obj.extract::<PyTemporalTypes<'a, 'py>>() {
+        if let Ok(temporal_ish) = obj.extract::<PyTemporalArg<'a, 'py>>() {
             Ok(Self::TemporalType(temporal_ish))
         } else if let Ok(span_arith) = obj.extract::<IntoSpanArithmetic<'a, 'py>>() {
             Ok(Self::Span(span_arith))
@@ -1132,7 +1114,7 @@ impl_span_add_for_borrowed!(RyTime);
 impl_span_add_for_borrowed!(RyZoned);
 impl_span_add_for_borrowed!(RyTimestamp);
 
-impl<'a, 'py> SpanAdd<'a, 'py> for PyTemporalTypes<'a, 'py> {
+impl<'a, 'py> SpanAdd<'a, 'py> for PyTemporalArg<'a, 'py> {
     type Target = PyAny;
     type Output = Bound<'py, PyAny>;
     fn add_span(self, py: Python<'py>, span: &RySpan) -> PyResult<Self::Output> {

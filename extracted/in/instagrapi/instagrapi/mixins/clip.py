@@ -35,22 +35,33 @@ def _make_tmp_path(suffix: str) -> str:
 CLIP_FB_CROSSPOSTING_UNIFIED_CONFIG_CLIENT_DOC_ID = "216179630714134719310007237117"
 CLIP_FB_CROSSPOSTING_UNIFIED_CONFIG_FRIENDLY_NAME = "CrosspostingUnifiedConfigsQuery"
 CLIP_FB_CROSSPOSTING_UNIFIED_CONFIG_ROOT_FIELD = "xcxp_unified_crossposting_configs_root"
+CLIP_FB_STORY_CROSSPOSTING_SURFACE = {
+    "source_surface": "STORY",
+    "destination_app": "FB",
+    "destination_surface": "STORY",
+}
+CLIP_FB_FEED_CROSSPOSTING_SURFACE = {
+    "source_surface": "FEED",
+    "destination_app": "FB",
+    "destination_surface": "FEED",
+}
+CLIP_FB_REELS_CROSSPOSTING_SURFACE = {
+    "source_surface": "REELS",
+    "destination_app": "FB",
+    "destination_surface": "REELS",
+}
 CLIP_FB_CROSSPOSTING_SURFACES = [
-    {
-        "source_surface": "STORY",
-        "destination_app": "FB",
-        "destination_surface": "STORY",
-    },
-    {
-        "source_surface": "FEED",
-        "destination_app": "FB",
-        "destination_surface": "FEED",
-    },
-    {
-        "source_surface": "REELS",
-        "destination_app": "FB",
-        "destination_surface": "REELS",
-    },
+    CLIP_FB_STORY_CROSSPOSTING_SURFACE,
+    CLIP_FB_FEED_CROSSPOSTING_SURFACE,
+    CLIP_FB_REELS_CROSSPOSTING_SURFACE,
+]
+CLIP_FB_CROSSPOSTING_SURFACE_FALLBACKS = [
+    [CLIP_FB_REELS_CROSSPOSTING_SURFACE],
+    [
+        CLIP_FB_REELS_CROSSPOSTING_SURFACE,
+        CLIP_FB_STORY_CROSSPOSTING_SURFACE,
+        CLIP_FB_FEED_CROSSPOSTING_SURFACE,
+    ],
 ]
 
 
@@ -81,6 +92,30 @@ class ClipMixin:
             status_code=status_code,
             error_response=error_response,
             response_text=response_text,
+        )
+
+    def clip_mashup_info(self, media_pk: str) -> Dict:
+        """
+        Fetch Reel remix/reuse availability metadata.
+
+        Parameters
+        ----------
+        media_pk: str
+            PK for the Reel
+
+        Returns
+        -------
+        Dict
+            A dictionary of response from the call
+        """
+        assert self.user_id, "Login required"
+        return self.private_request(
+            "clips/get_mashup_info_for_media/",
+            data={
+                "media_id": str(media_pk),
+                "_uid": str(self.user_id),
+                "_uuid": self.uuid,
+            },
         )
 
     def clip_pin(self, media_pk: str, revert: bool = False) -> bool:
@@ -350,6 +385,11 @@ class UploadClipMixin:
                     merged.update(nested)
             yield merged
 
+    def _clip_share_to_fb_unified_config_variants(self):
+        yield self.clip_share_to_fb_unified_config()
+        for surface_list in CLIP_FB_CROSSPOSTING_SURFACE_FALLBACKS:
+            yield self.clip_share_to_fb_unified_config(crosspost_app_surface_list=surface_list)
+
     def clip_share_to_fb_unified_destination(self, config: Optional[Dict[str, object]] = None) -> Dict[str, object]:
         """
         Resolve a confirmed Reel Facebook destination from unified config.
@@ -364,12 +404,13 @@ class UploadClipMixin:
         Dict[str, object]
             Normalized destination fields.
         """
-        unified_config = config if config is not None else self.clip_share_to_fb_unified_config()
-        for candidate in self._clip_share_to_fb_unified_destination_candidates(unified_config or {}):
-            try:
-                return self.clip_share_to_fb_destination(config=candidate, use_unified_config=False)
-            except ClientError:
-                continue
+        unified_configs = (config,) if config is not None else self._clip_share_to_fb_unified_config_variants()
+        for unified_config in unified_configs:
+            for candidate in self._clip_share_to_fb_unified_destination_candidates(unified_config or {}):
+                try:
+                    return self.clip_share_to_fb_destination(config=candidate, use_unified_config=False)
+                except ClientError:
+                    continue
         raise ClientError("Facebook Reel sharing unified config has no confirmed Reel Facebook destination")
 
     def clip_share_to_fb_destination(
@@ -869,11 +910,19 @@ class UploadClipMixin:
             video = VideoFileClip(str(path))
             audio_clip = AudioFileClip(str(tmpaudio))
             # set the start time of the audio and create the actual media
+            video_duration = float(video.duration)
             start = highlight_start_time / 1000
-            end = highlight_start_time / 1000 + video.duration
+            end = start + video_duration
+            audio_duration = getattr(audio_clip, "duration", None)
+            if audio_duration:
+                audio_duration = float(audio_duration)
+                if end > audio_duration:
+                    start = max(0.0, audio_duration - video_duration)
+                    end = audio_duration
             audio_clip = audio_clip.subclipped(start, end)
             video = video.with_audio(audio_clip)
-            video_duration = video.duration
+            audio_asset_start_time = int(start * 1000)
+            overlap_duration = int((end - start) * 1000)
             # save the media in tmp folder
             tmpvideo = Path(_make_tmp_path(".mp4"))
             video.write_videofile(str(tmpvideo))
@@ -881,8 +930,8 @@ class UploadClipMixin:
             data = self.clip_music_extra_data(
                 track,
                 extra_data=extra_data,
-                audio_asset_start_time=highlight_start_time,
-                overlap_duration=int(video_duration * 1000),
+                audio_asset_start_time=audio_asset_start_time,
+                overlap_duration=overlap_duration,
                 original_volume=0.0,
             )
             return self.clip_upload(tmpvideo, caption, extra_data=data)

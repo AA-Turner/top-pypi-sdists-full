@@ -1,6 +1,10 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2025-2026 The Board of Trustees of the Leland Stanford Junior University
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from io import StringIO
 from typing import List
 
 import draccus
@@ -19,6 +23,11 @@ class C:
     elems: List[A] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class FutureDumpConfig:
+    name: str = "train"
+
+
 def test_future_annotations():
     an_a: A = draccus.parse(config_class=A, args="")
     assert an_a.b == 1
@@ -27,3 +36,11 @@ def test_future_annotations():
 def test_nested_future_annotations():
     c: C = draccus.parse(config_class=C, args="")
     assert c.a.b == 1
+
+
+def test_dump_future_annotation_string_field():
+    stream = StringIO()
+
+    draccus.dump(FutureDumpConfig(), stream)
+
+    assert "name: train" in stream.getvalue()

@@ -614,6 +614,9 @@ class PremiumMarketingComponentProperties(_message.Message):
         DISMISSIBLE_CONTENT_APP_WIDGET_V2_PROFILE_UPSELL_SUGGESTED: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 763
         DISMISSIBLE_CONTENT_GUILD_THEME_NUX_FOLLOWUP: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 764
         DISMISSIBLE_CONTENT_GIFT_CARD_MOBILE_CONSUMPTION_UNAVAILABLE_HALFSHEET: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 765
+        DISMISSIBLE_CONTENT_BOUNTIES_SWIPE_UP_NUX: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 766
+        DISMISSIBLE_CONTENT_IN_APP_NOTIFICATION_EXPAND_NUX: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 767
+        DISMISSIBLE_CONTENT_PREMIUM_OFFER_TAB_BADGE_POPOVER: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 768
 
     class DismissibleContent(_DismissibleContent, metaclass=_DismissibleContentEnumTypeWrapper): ...
     DISMISSIBLE_CONTENT_HUB_WAITLIST_UPSELL: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 0
@@ -1178,6 +1181,9 @@ class PremiumMarketingComponentProperties(_message.Message):
     DISMISSIBLE_CONTENT_APP_WIDGET_V2_PROFILE_UPSELL_SUGGESTED: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 763
     DISMISSIBLE_CONTENT_GUILD_THEME_NUX_FOLLOWUP: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 764
     DISMISSIBLE_CONTENT_GIFT_CARD_MOBILE_CONSUMPTION_UNAVAILABLE_HALFSHEET: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 765
+    DISMISSIBLE_CONTENT_BOUNTIES_SWIPE_UP_NUX: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 766
+    DISMISSIBLE_CONTENT_IN_APP_NOTIFICATION_EXPAND_NUX: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 767
+    DISMISSIBLE_CONTENT_PREMIUM_OFFER_TAB_BADGE_POPOVER: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 768
 
     class _AssetVariant:
         ValueType = _typing.NewType("ValueType", _builtins.int)

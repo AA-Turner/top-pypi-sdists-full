@@ -9,8 +9,10 @@ from dataclasses import fields
 from pathlib import Path
 from sys import exit as sysexit
 from sys import stdin, stdout
+from typing import Any
 
-from fhconfparser import FHConfParser, SimpleConf
+from configurator import Config
+from configurator.node import ConfigNode
 
 from licensecheck import checker, fmt, license_matrix, packageinfo, types
 
@@ -29,7 +31,7 @@ def cli() -> None:  # pragma: no cover
 	parser.add_argument(
 		"--format",
 		"-f",
-		help=f"Output format. one of: {', '.join(list(fmt.formatMap))}. default=simple",
+		help=f"Output format. one of: {', '.join(set(fmt.formatMap))}. default=simple",
 	)
 	parser.add_argument(
 		"--requirements-paths",
@@ -56,42 +58,42 @@ def cli() -> None:  # pragma: no cover
 	)
 	parser.add_argument(
 		"--ignore-packages",
-		help="List of packages/dependencies to ignore (compat=True), globs are supported",
+		help="set of packages/dependencies to ignore (compat=True), globs are supported",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--fail-packages",
-		help="List of packages/dependencies to fail (compat=False), globs are supported",
+		help="set of packages/dependencies to fail (compat=False), globs are supported",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--ignore-licenses",
-		help="List of licenses to ignore (skipped, compat may still be False)",
+		help="set of licenses to ignore (skipped, compat may still be False)",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--fail-licenses",
-		help="List of licenses to fail (compat=False)",
+		help="set of licenses to fail (compat=False)",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--only-licenses",
-		help="List of allowed licenses (packages/dependencies with any other license will fail)",
+		help="set of allowed licenses (packages/dependencies with any other license will fail)",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--skip-dependencies",
-		help="List of packages/dependencies to skip (this sets the 'compatability' to True)",
+		help="set of packages/dependencies to skip (this sets the 'compatability' to True)",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--hide-output-parameters",
-		help="List of parameters to hide from the produced output",
+		help="set of parameters to hide from the produced output",
 		nargs="+",
 	)
 	parser.add_argument(
 		"--show-only-failing",
-		help="Only output a list of incompatible/ failing packages from this lib",
+		help="Only output a set of incompatible/ failing packages from this lib",
 		action="store_true",
 	)
 	parser.add_argument(
@@ -120,7 +122,7 @@ def cli() -> None:  # pragma: no cover
 	sysexit(ec)
 
 
-def main(args: dict) -> int:
+def main(args: dict[str, Any]) -> int:
 	"""Test entry point.
 
 	Note: FHConfParser (Parses in the following order: `pyproject.toml`,
@@ -129,43 +131,44 @@ def main(args: dict) -> int:
 	"""
 	exitCode = 0
 
-	configparser = FHConfParser()
-	namespace = ["tool"]
-	configparser.parseConfigList(
-		[("pyproject.toml", "toml"), ("setup.cfg", "ini")]
-		+ [
-			(f"{directory}/licensecheck.{ext}", ext)
-			for ext in ("toml", "json", "ini")
-			for directory in [".", str(Path.home())]
-		],
-		namespace,
-		namespace,
-	)
-	simpleConf = SimpleConf(configparser, "licensecheck", args)
+	config: ConfigNode = Config()
+
+	config_files = [
+		"~/licensecheck.json",
+		"~/licensecheck.toml",
+		"licensecheck.json",
+		"licensecheck.toml",
+		"setup.cfg",
+		"pyproject.toml",
+	]
+
+	for file in config_files:
+		config += Config.from_path(file, optional=True)
+
+	scopedData: ConfigNode = config.get("tool", {}).get("licensecheck", ConfigNode())
+	scopedConfig: dict[str, Any] = {**scopedData.data, **args}
 
 	# File
-	requirements_paths = simpleConf.get("requirements_paths") or ["__stdin__"]
+	requirements_paths = scopedConfig.get("requirements_paths") or ["__stdin__"]
 	output_file = (
 		stdout
-		if simpleConf.get("file") is None
-		else Path(simpleConf.get("file")).open("w", encoding="utf-8")
+		if scopedConfig.get("file") in [None, ""]
+		else Path(scopedConfig.get("file")).open("w", encoding="utf-8")
 	)
 
 	# Get my license
-	this_license_text = (
-		args["license"] if args.get("license") else packageinfo.ProjectMetadata.get_license()
-	)
-	this_license = license_matrix.licenseType(this_license_text)[0]
+	this_license_text = scopedConfig.get("license") or packageinfo.ProjectMetadata.get_license()
+	this_license = license_matrix.licenseType(this_license_text).pop()
 
-	def getFromConfig(key: str) -> list[types.ucstr]:
-		return list(map(types.ucstr, simpleConf.get(key, [])))
+	def getFromConfig(key: str) -> set[types.ucstr]:
+		return set(map(types.ucstr, scopedConfig.get(key, [])))
 
-	package_info_manager = packageinfo.PackageInfoManager(simpleConf.get("pypi_api"))
+	package_info_manager = packageinfo.PackageInfoManager(scopedConfig.get("pypi_api"))
 
 	incompatible, depsWithLicenses = checker.check(
-		requirements_paths=requirements_paths,
-		groups=simpleConf.get("groups", []),
-		extras=simpleConf.get("extras", []),
+		requirements_paths=set(requirements_paths),
+		groups=set(scopedConfig.get("groups", [])),
+		extras=set(scopedConfig.get("extras", [])),
 		this_license=this_license,
 		package_info_manager=package_info_manager,
 		ignore_packages=getFromConfig("ignore_packages"),
@@ -177,7 +180,9 @@ def main(args: dict) -> int:
 	)
 
 	# Format the results
-	hide_output_parameters = [types.ucstr(x) for x in simpleConf.get("hide_output_parameters", [])]
+	hide_output_parameters = [
+		types.ucstr(x) for x in scopedConfig.get("hide_output_parameters", [])
+	]
 	available_params = [param.name.upper() for param in fields(types.PackageInfo)]
 	if not all(hop in available_params for hop in hide_output_parameters):
 		msg = (
@@ -185,14 +190,14 @@ def main(args: dict) -> int:
 			f"Valid parameters are: {', '.join(available_params)}"
 		)
 		raise ValueError(msg)
-	if simpleConf.get("format", "simple") in fmt.formatMap:
+	if scopedConfig.get("format", "simple") in fmt.formatMap:
 		print(
 			fmt.fmt(
-				simpleConf.get("format", "simple"),
+				scopedConfig.get("format", "simple"),
 				this_license,
 				sorted(depsWithLicenses),
 				hide_output_parameters,
-				show_only_failing=args.get("show_only_failing", False),
+				show_only_failing=scopedConfig.get("show_only_failing", False),
 			),
 			file=output_file,
 		)
@@ -200,10 +205,10 @@ def main(args: dict) -> int:
 		exitCode = 2
 
 	# Exit code of 1 if args.zero
-	if simpleConf.get("zero", False) and incompatible:
+	if scopedConfig.get("zero", False) and incompatible:
 		exitCode = 1
 
 	# Cleanup + exit
-	if simpleConf.get("file") is not None:
+	if scopedConfig.get("file") not in [None, ""]:
 		output_file.close()
 	return exitCode

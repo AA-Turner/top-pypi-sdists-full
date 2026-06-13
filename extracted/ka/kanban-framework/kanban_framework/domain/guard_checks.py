@@ -241,6 +241,8 @@ class GuardChecks:
         return CheckResult(passed=len(failures) == 0, failures=failures, warnings=warnings)
 
     def check_file(self, task: Task, filename: str) -> CheckResult:
+        import time
+
         task_dir = self._fs.task_dir(task.id)
         candidates = [
             task_dir / filename,
@@ -268,18 +270,23 @@ class GuardChecks:
                 for f in sorted(reviews_dir.glob(f"{base}_r*.json")):
                     candidates.append(f)
 
-        for filepath in candidates:
-            if self._fs.file_exists(filepath):
-                if filepath.stat().st_size == 0:
-                    return CheckResult(passed=False, failures=[
-                        f"{filename} exists but is empty (0 bytes). "
-                        f"Fix: ensure the agent writes actual content to {filename}"])
-                return CheckResult(passed=True)
+        # Check candidates with retry for fs metadata sync delay (#640)
+        for attempt in range(2):
+            for filepath in candidates:
+                if self._fs.file_exists(filepath):
+                    if filepath.stat().st_size == 0:
+                        return CheckResult(passed=False, failures=[
+                            f"{filename} exists but is empty (0 bytes). "
+                            f"Fix: ensure the agent writes actual content to {filename}"])
+                    return CheckResult(passed=True)
+            if attempt == 0:
+                time.sleep(0.2)  # 200ms retry — fs metadata may lag on macOS/network drives
 
+        # Not found — list actual searched paths for debugging (#640)
+        searched = "\n".join(f"  ❌ {c}" for c in candidates)
         return CheckResult(passed=False, failures=[
-            f"{filename} not found in task directory. "
-            f"Searched: task root, iteration-N/, plan/, execute/, reviews/. "
-            f"Fix: ensure the agent produces {filename} in the correct location"])
+            f"{filename} not found. Searched {len(candidates)} paths:\n{searched}\n"
+            f"Fix: ensure the agent produces {filename} in one of these locations"])
 
     def check_test_files(self, task: Task) -> CheckResult:
         """IR-10: Verify test files exist alongside implementation files."""

@@ -224,6 +224,44 @@ def _claude_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _claude_mcp_artifact_id(scope: str, server_name: str) -> str:
+    return f"claude-code:{scope}:mcp:{server_name}"
+
+
+_CLAUDE_BUILTIN_HOOK_TOOL_NAMES = frozenset(
+    {
+        "bash",
+        "shell",
+        "sh",
+        "zsh",
+        "terminal",
+        "run_command",
+        "run_terminal_command",
+        "read",
+        "read_file",
+        "open_file",
+        "view",
+        "view_file",
+        "cat_file",
+        "write",
+        "edit",
+        "multiedit",
+        "write_file",
+        "edit_file",
+        "webfetch",
+        "websearch",
+        "askuserquestion",
+    }
+)
+
+
+def claude_hook_fallback_artifact_id(scope: str, tool_name: str) -> str:
+    normalized_tool = tool_name.strip()
+    if normalized_tool.lower() in _CLAUDE_BUILTIN_HOOK_TOOL_NAMES:
+        return f"claude-code:{scope}:{normalized_tool}"
+    return _claude_mcp_artifact_id(scope, normalized_tool)
+
+
 def _metadata_with_digest(path: Path) -> dict[str, object]:
     try:
         digest = _claude_digest(path)
@@ -318,7 +356,7 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
                     url = server_config.get("url")
                     artifacts.append(
                         GuardArtifact(
-                            artifact_id=f"claude-code:{scope}:{name}",
+                            artifact_id=_claude_mcp_artifact_id(scope, name),
                             name=name,
                             harness=self.harness,
                             artifact_type="mcp_server",
@@ -450,24 +488,7 @@ class ClaudeCodeHarnessAdapter(HarnessAdapter):
                         harness=self.harness,
                         artifact_type="instruction",
                         artifact_id_prefix="instruction",
-                        name_for_path=lambda artifact_path, _base_dir: artifact_path.stem,
-                    )
-                )
-            project_claude_md = context.workspace_dir / "CLAUDE.md"
-            if project_claude_md.is_file() and resolves_within_root(
-                context.workspace_dir,
-                project_claude_md,
-                require_exists=True,
-            ):
-                artifacts.append(
-                    GuardArtifact(
-                        artifact_id="claude-code:project:instruction:claude-md",
-                        name="CLAUDE.md",
-                        harness=self.harness,
-                        artifact_type="instruction",
-                        source_scope="project",
-                        config_path=str(project_claude_md),
-                        metadata=_metadata_with_digest(project_claude_md),
+                        name_for_path=lambda artifact_path, _base_dir: f"rules-{artifact_path.stem}",
                     )
                 )
         resolved_executable = self.resolved_executable(context)

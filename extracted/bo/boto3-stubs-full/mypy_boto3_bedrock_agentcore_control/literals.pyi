@@ -35,6 +35,7 @@ __all__ = (
     "BrowserStatusType",
     "ClaimMatchOperatorTypeType",
     "ClientAuthenticationMethodTypeType",
+    "ClusteringFrequencyType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
     "ConfigurationBundleStatusType",
@@ -171,6 +172,7 @@ ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 ClientAuthenticationMethodTypeType = Literal[
     "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST"
 ]
+ClusteringFrequencyType = Literal["DAILY", "MONTHLY", "WEEKLY"]
 CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"

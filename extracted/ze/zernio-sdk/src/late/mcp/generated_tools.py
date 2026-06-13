@@ -3683,6 +3683,39 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get YouTube video retention curve",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_you_tube_video_retention(
+        video_id: str,
+        account_id: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> str:
+        """Get YouTube video retention curve
+
+        Args:
+            video_id: The YouTube video ID (e.g., "dQw4w9WgXcQ") (required)
+            account_id: The Zernio account ID for the YouTube account (required)
+            start_date: Start date (YYYY-MM-DD). Defaults to the video's publish date (lifetime curve).
+            end_date: End date (YYYY-MM-DD). Defaults to 3 days ago (YouTube data latency)."""
+        client = _get_client()
+        try:
+            response = client.analytics.get_you_tube_video_retention(
+                video_id=video_id,
+                account_id=account_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get Facebook Page insights",
             readOnlyHint=True,
             destructiveHint=False,
@@ -3902,16 +3935,20 @@ def register_generated_tools(mcp, _get_client):
         from_date: str | None = None,
         to_date: str | None = None,
         source: str = "all",
+        attribution: str = "publish",
     ) -> str:
         """Get daily aggregated metrics
 
-        Args:
-            platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
-            profile_id: Filter by profile ID. Omit for all profiles.
-            account_id: Filter by social account ID
-            from_date: Inclusive start date (ISO 8601). Defaults to 180 days ago.
-            to_date: Inclusive end date (ISO 8601). Defaults to now.
-            source: Filter by post origin. "late" for posts published via Zernio, "external" for posts imported from platforms."""
+            Args:
+                platform: Filter by platform (e.g. "instagram", "tiktok"). Omit for all platforms.
+                profile_id: Filter by profile ID. Omit for all profiles.
+                account_id: Filter by social account ID
+                from_date: Inclusive start date (ISO 8601). Defaults to 180 days ago.
+                to_date: Inclusive end date (ISO 8601). Defaults to now.
+                source: Filter by post origin. "late" for posts published via Zernio, "external" for posts imported from platforms.
+                attribution: How each post's engagement is attributed to a day.
+        "publish" (default) sums each post's lifetime total on its publish date.
+        "received" buckets the per-day increase in engagement by the day it actually arrived (engagement-over-time), so engagement on older posts appears on the day it was gained rather than the post's publish date."""
         client = _get_client()
         try:
             response = client.analytics.get_daily_metrics(
@@ -3921,6 +3958,7 @@ def register_generated_tools(mcp, _get_client):
                 from_date=from_date,
                 to_date=to_date,
                 source=source,
+                attribution=attribution,
             )
             return _format_response(response)
         except Exception as e:
@@ -5173,17 +5211,23 @@ def register_generated_tools(mcp, _get_client):
         `instagram`, `linkedin`, `pinterest`) and standalone (`googleads`) platforms.
                 redirect_url: Custom redirect URL after OAuth completes (same-token platforms only)
                 headless: Enable headless mode (same-token platforms only)
-                ad_account_id: (metaads only) Scope ad sync to a single Meta ad account. Without this
-        param, sync covers every `act_*` the connected token can see. Pass this
-        to limit `sync.totalAds` / `synced` and the resulting ads to one ad
-        account. Format: `act_<digits>` (matches what `/me/adaccounts` returns).
-        Validated against the connected token; unreachable IDs return 400.
-        For multiple accounts use `adAccountIds` instead.
-                ad_account_ids: (metaads only) Scope ad sync to multiple Meta ad accounts. Repeat the
-        param (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate
-        (`?adAccountIds=act_1,act_2`). Validated against the connected token.
-        Persisted server-side; latest call wins. Omitting both `adAccountId`
-        and `adAccountIds` keeps any previously persisted scope unchanged."""
+                ad_account_id: Scope ad sync to a single platform ad account. Without this param,
+        sync covers every ad account the connected token can see. Supported
+        on `facebook`/`instagram` (Meta, `act_<digits>`), `linkedin` (bare
+        numeric sponsored-account id), `googleads` (bare customer id digits)
+        and `twitter` (X Ads, base36 account id). `tiktok` scopes advertisers
+        at OAuth and `pinterest` has no ads discovery, so both ignore it.
+        Meta ids are additionally validated against the connected token;
+        unreachable IDs return 400. Setting a scope also removes already
+        synced ads from de-scoped ad accounts. For multiple accounts use
+        `adAccountIds` instead.
+                ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform
+        support and id shapes as `adAccountId`). Repeat the param
+        (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate
+        (`?adAccountIds=act_1,act_2`). Persisted server-side; latest call
+        wins, and de-scoped ad accounts have their synced ads removed.
+        Omitting both `adAccountId` and `adAccountIds` keeps any previously
+        persisted scope unchanged."""
         client = _get_client()
         try:
             response = client.connect.connect_ads(
@@ -7798,8 +7842,14 @@ def register_generated_tools(mcp, _get_client):
         Use `buttons` / `quickReplies` for simple button replies
         (WhatsApp's `interactive.type: "button"`) — the abstraction caps at
         3 buttons and handles the auto-conversion for you. Use this field
-        only for `list`, `cta_url`, `flow`, or `location_request_message`
-        messages.
+        only for `list`, `cta_url`, `flow`, `location_request_message`, or
+        `voice_call` messages.
+
+        For `voice_call`, the message renders WhatsApp's native call
+        button; tapping it starts a voice call to your business number.
+        Requires WhatsApp Business Calling to be enabled on the sending
+        number. The optional `parameters.payload` string is echoed back on
+        the `calls` webhook (as `cta_payload`) for attribution.
 
         For `location_request_message`, `action` may be omitted (we default
         it to `{ "name": "send_location" }`). WhatsApp renders a localized
@@ -10178,6 +10228,29 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Check if a user is blocked",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def whatsapp_get_whats_app_block_status(account_id: str, user: str) -> str:
+        """Check if a user is blocked
+
+        Args:
+            account_id: (required)
+            user: Consumer wa_id or E.164 phone (leading + optional) (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.get_whats_app_block_status(
+                account_id=account_id, user=user
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List blocked users",
             readOnlyHint=True,
             destructiveHint=False,
@@ -11553,6 +11626,7 @@ def register_generated_tools(mcp, _get_client):
         country: str,
         submission_id: str | None = None,
         reuse: bool | None = None,
+        reuse_from: str | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
         values: dict[str, Any] | None = None,
@@ -11566,6 +11640,7 @@ def register_generated_tools(mcp, _get_client):
             country: (required)
             submission_id: Idempotency token for this submission attempt. A retry/double-submit with the same token returns the same number; omit and each call creates a new number.
             reuse: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately).
+            reuse_from: Which approved verification to reuse when several exist: the phone number it was originally approved for (GET reusable.options[].fromPhoneNumber). Omitted = newest. No match = 409.
             end_user_first_name: End user's legal first name. Required when the country has an action/ID-verification (Onfido) requirement.
             end_user_last_name: End user's legal last name. Same condition as endUserFirstName.
             values: requirementId → textual value
@@ -11578,6 +11653,7 @@ def register_generated_tools(mcp, _get_client):
                 country=country,
                 submission_id=submission_id,
                 reuse=reuse,
+                reuse_from=reuse_from,
                 end_user_first_name=end_user_first_name,
                 end_user_last_name=end_user_last_name,
                 values=values,

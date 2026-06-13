@@ -8,8 +8,6 @@
 # pyre-unsafe
 
 
-import binascii
-import collections
 import inspect
 import os
 import struct
@@ -21,7 +19,6 @@ import uuid
 from pywatchman import (
     bser,
     client,
-    load,
     pybser,
     SocketConnectError,
     SocketTimeout,
@@ -206,8 +203,7 @@ class TestBSERDump(unittest.TestCase):
     def test_raw(self):
         self.raw(
             {"name": "Tom"},
-            b"\x00\x01\x05\x10\x00\x00\x00\x01\x03\x01\x02\x03\x04name\x02"
-            b"\x03\x03Tom",
+            b"\x00\x01\x05\x10\x00\x00\x00\x01\x03\x01\x02\x03\x04name\x02\x03\x03Tom",
         )
         self.raw(
             {"names": ["Tom", "Jerry"]},
@@ -216,8 +212,7 @@ class TestBSERDump(unittest.TestCase):
         )
         self.raw(
             ["Tom", "Jerry"],
-            b"\x00\x01\x05\x11\x00\x00\x00\x00\x03\x02\x02\x03\x03Tom\x02"
-            b"\x03\x05Jerry",
+            b"\x00\x01\x05\x11\x00\x00\x00\x00\x03\x02\x02\x03\x03Tom\x02\x03\x05Jerry",
         )
         self.raw(
             [1, 123, 12345, 1234567, 12345678912345678],

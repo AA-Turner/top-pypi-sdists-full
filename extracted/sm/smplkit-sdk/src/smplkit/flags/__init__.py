@@ -1,11 +1,11 @@
 """Smpl Flags SDK module — wraps generated flags client.
 
 The fused ``FlagsClient`` / ``AsyncFlagsClient`` live in
-``smplkit.flags._client`` and are re-exported only from the top-level
+``smplkit.flags.clients`` and are re-exported only from the top-level
 ``smplkit`` package (mirroring config), not from here.
 """
 
-from smplkit.flags._client import (
+from smplkit.flags.clients import (
     FlagChangeEvent,
     FlagStats,
 )

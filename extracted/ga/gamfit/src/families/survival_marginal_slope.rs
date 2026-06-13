@@ -50,7 +50,7 @@ use crate::families::survival_time_constraints::{
     build_time_derivative_guard_constraints,
 };
 use crate::families::wiggle::monotone_wiggle_basis_with_derivative_order;
-use crate::matrix::{DesignMatrix, SymmetricMatrix};
+use crate::matrix::{DesignMatrix, LinearOperator, SymmetricMatrix};
 use crate::pirls::LinearInequalityConstraints;
 use crate::probability::signed_probit_logcdf_and_mills_ratio;
 use crate::smooth::{
@@ -3537,12 +3537,8 @@ fn survival_nonrigid_pilot_eta(
             event.len(),
         ));
     }
-    let loc_dense =
-        location_anchor_design.try_to_dense_arc("survival_nonrigid_pilot_eta: location anchor")?;
-    let g_dense =
-        logslope_design.try_to_dense_arc("survival_nonrigid_pilot_eta: logslope design")?;
-    let p_loc = loc_dense.ncols();
-    let p_g = g_dense.ncols();
+    let p_loc = location_anchor_design.ncols();
+    let p_g = logslope_design.ncols();
     let p_joint = p_loc + p_g;
     if p_joint == 0 {
         return Ok((
@@ -3568,40 +3564,33 @@ fn survival_nonrigid_pilot_eta(
         slope[i] = baseline_slope + logslope_offset[i];
         eta1[i] = rigid_observed_eta(q_exit[i], slope[i], z_primary[i], probit_scale);
     }
-    // Build the η₁ chain-corrected joint design: each location column scales
-    // by c(g_i), each logslope column scales by (q_i·c'(g_i) + s_f'(g_i)·z_i).
-    // This makes the Newton update directly act on η₁ so the resulting pilot
-    // η₁ is the one-shot best linear fit along the dominant channel.
-    let mut x_chain = Array2::<f64>::zeros((n, p_joint));
+    // Per-row chain factors and IRLS gradient/Hessian along η₁.
+    //
+    //   η₁ = q·c(g) + s(g)·z   with c(g) = sqrt(1 + s(g)²), s(g) = observed_logslope(g)
+    //   ∂η₁/∂q = c(g)
+    //   ∂η₁/∂g = q·c'(g) + s'(g)·z
+    //
+    // The chain factors come from `rigid_observed_eta` via numerical
+    // finite-difference on a tiny step (the parametric closed-form
+    // derivatives live further down in `c_derivatives`; reusing it would
+    // couple this helper to private internals, while finite-difference at
+    // 1e-7 is well within the IRLS pilot's accuracy budget — the result is
+    // just used to weight the W metric, not propagated into a final
+    // coefficient).
+    let mut chain_q = Array1::<f64>::zeros(n);
+    let mut chain_g = Array1::<f64>::zeros(n);
     let mut grad_eta1 = Array1::<f64>::zeros(n);
     let mut hess_eta1 = Array1::<f64>::zeros(n);
     for i in 0..n {
         let g_i = slope[i];
         let z_i = z_primary[i];
-        // Chain factors along the η₁ row direction.
-        //   η₁ = q·c(g) + s(g)·z   with c(g) = sqrt(1 + s(g)²), s(g) = observed_logslope(g)
-        //   ∂η₁/∂q = c(g)
-        //   ∂η₁/∂g = q·c'(g) + s'(g)·z
-        // We only need ∂η₁/∂q and ∂η₁/∂g for the chain rule below; rebuild
-        // them from `rigid_observed_eta` via numerical finite-difference on
-        // a tiny step (the parametric closed-form derivatives live further
-        // down in `c_derivatives`; reusing it would couple this helper to
-        // private internals, while finite-difference at 1e-7 is well within
-        // the IRLS pilot's accuracy budget — the result is just used to
-        // weight the W metric, not propagated into a final coefficient).
         let h_fd: f64 = 1.0e-7;
-        let chain_q = (rigid_observed_eta(q_exit[i] + h_fd, g_i, z_i, probit_scale)
+        chain_q[i] = (rigid_observed_eta(q_exit[i] + h_fd, g_i, z_i, probit_scale)
             - rigid_observed_eta(q_exit[i] - h_fd, g_i, z_i, probit_scale))
             / (2.0 * h_fd);
-        let chain_g = (rigid_observed_eta(q_exit[i], g_i + h_fd, z_i, probit_scale)
+        chain_g[i] = (rigid_observed_eta(q_exit[i], g_i + h_fd, z_i, probit_scale)
             - rigid_observed_eta(q_exit[i], g_i - h_fd, z_i, probit_scale))
             / (2.0 * h_fd);
-        for j in 0..p_loc {
-            x_chain[[i, j]] = chain_q * loc_dense[[i, j]];
-        }
-        for j in 0..p_g {
-            x_chain[[i, p_loc + j]] = chain_g * g_dense[[i, j]];
-        }
         // Row gradient and Hessian along η₁ (mirror
         // `survival_pilot_irls_row_metric_at_eta`'s formula):
         //   censored:  d(-log Φ(-η))/dη at weight w·(1-d). The primitive
@@ -3628,16 +3617,55 @@ fn survival_nonrigid_pilot_eta(
         }
     }
     // Normal equations: (Xᵀ W X + λI) β = -Xᵀ g, where W = diag(hess_eta1)
-    // along η₁ and g = grad_eta1. The minus sign is the Newton step
-    // direction.
-    let mut gram = fast_xt_diag_x(&x_chain, &hess_eta1);
-    let rhs = {
-        let mut neg_g = grad_eta1.clone();
-        for i in 0..n {
-            neg_g[i] = -neg_g[i];
+    // along η₁, g = grad_eta1, and X is the η₁ chain-corrected joint design
+    // (each location column scaled by chain_q, each logslope column by
+    // chain_g). X is never materialized at full height: a one-shot dense
+    // `(n, p_joint)` build was ~0.7 GiB at biobank scale (n=320k) and sat
+    // co-resident with the construction phase's other dense transients —
+    // one of the contributors to the #979 large-scale OOM. Instead the Gram
+    // and rhs accumulate over fixed-height row chunks, so peak extra memory
+    // is `chunk × p_joint` regardless of n.
+    let mut gram = Array2::<f64>::zeros((p_joint, p_joint));
+    let mut rhs = Array1::<f64>::zeros(p_joint);
+    const PILOT_ROW_CHUNK: usize = 4096;
+    let mut x_chunk = Array2::<f64>::zeros((PILOT_ROW_CHUNK.min(n), p_joint));
+    let mut chunk_start = 0usize;
+    while chunk_start < n {
+        let chunk_end = (chunk_start + PILOT_ROW_CHUNK).min(n);
+        let rows = chunk_end - chunk_start;
+        let loc_rows = location_anchor_design
+            .try_row_chunk(chunk_start..chunk_end)
+            .map_err(|e| format!("survival_nonrigid_pilot_eta: location anchor rows: {e}"))?;
+        let g_rows = logslope_design
+            .try_row_chunk(chunk_start..chunk_end)
+            .map_err(|e| format!("survival_nonrigid_pilot_eta: logslope rows: {e}"))?;
+        {
+            let mut x_view = x_chunk.slice_mut(s![..rows, ..]);
+            for local in 0..rows {
+                let i = chunk_start + local;
+                for j in 0..p_loc {
+                    x_view[[local, j]] = chain_q[i] * loc_rows[[local, j]];
+                }
+                for j in 0..p_g {
+                    x_view[[local, p_loc + j]] = chain_g[i] * g_rows[[local, j]];
+                }
+            }
         }
-        fast_atv(&x_chain, &neg_g)
-    };
+        let h_chunk = hess_eta1.slice(s![chunk_start..chunk_end]).to_owned();
+        let mut neg_g_chunk = Array1::<f64>::zeros(rows);
+        for local in 0..rows {
+            neg_g_chunk[local] = -grad_eta1[chunk_start + local];
+        }
+        if rows == x_chunk.nrows() {
+            gram += &fast_xt_diag_x(&x_chunk, &h_chunk);
+            rhs += &fast_atv(&x_chunk, &neg_g_chunk);
+        } else {
+            let x_tail = x_chunk.slice(s![..rows, ..]).to_owned();
+            gram += &fast_xt_diag_x(&x_tail, &h_chunk);
+            rhs += &fast_atv(&x_tail, &neg_g_chunk);
+        }
+        chunk_start = chunk_end;
+    }
     // Adaptive ridge: 1e-6 × average diagonal, floored at 1e-12. Keeps the
     // Cholesky well-conditioned even when the rigid design has near-null
     // directions (which it often does at construction — the whole point of
@@ -3668,8 +3696,8 @@ fn survival_nonrigid_pilot_eta(
     for j in 0..p_g {
         beta_g[j] = beta_step[p_loc + j];
     }
-    let q_delta = fast_av(&loc_dense, &beta_loc);
-    let g_delta = fast_av(&g_dense, &beta_g);
+    let q_delta = location_anchor_design.apply(&beta_loc);
+    let g_delta = logslope_design.apply(&beta_g);
     // Trust-region cap to prevent a runaway first step on ill-conditioned
     // pilots: limit |Δη₁| per row to 4·σ_η (σ_η ≈ 1 under probit), measured
     // by the rigid pilot's η₁ standard deviation. This keeps the pilot in
@@ -14091,40 +14119,36 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
             return None;
         }
         let n_rows = self.family.n;
-        let rank = factor.ncols();
-        if rank == 0 {
-            return Some(Array2::<f64>::zeros((n_rows, 0)));
-        }
+        // Whole-projection build: each axis uses the batched design matvec
+        // (`fast_ab` on dense, one operator `dot` per column on operator-backed
+        // designs).
+        Some(self.assemble_jf(factor, n_rows, |design, factor_block| {
+            survival_axis_jf_via_design(design, factor_block, n_rows)
+        }))
+    }
 
-        let f_time = factor.slice(s![self.slices.time.clone(), ..]);
-        let f_marginal = factor.slice(s![self.slices.marginal.clone(), ..]);
-        let f_logslope = factor.slice(s![self.slices.logslope.clone(), ..]);
-
-        let jf_entry = survival_axis_jf_via_design(&self.family.design_entry, f_time, n_rows);
-        let jf_exit = survival_axis_jf_via_design(&self.family.design_exit, f_time, n_rows);
-        let jf_derivative =
-            survival_axis_jf_via_design(&self.family.design_derivative_exit, f_time, n_rows);
-        let jf_marginal =
-            survival_axis_jf_via_design(&self.family.marginal_design, f_marginal, n_rows);
-        let jf_logslope =
-            survival_axis_jf_via_design(&self.family.logslope_design, f_logslope, n_rows);
-
-        let mut jf = Array2::<f64>::zeros((n_rows, 4 * rank));
-        {
-            let mut axis0 = jf.slice_mut(s![.., 0..rank]);
-            axis0.assign(&jf_entry);
-            axis0 += &jf_marginal;
+    fn jacobian_action_matrix_rows(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        start: usize,
+        end: usize,
+    ) -> Array2<f64> {
+        if factor.nrows() != self.slices.total {
+            // Shape contract broken (the tiled trace always passes the
+            // coefficient-width factor, so this is defensive only): fall back
+            // to the exact generic per-row build over the range.
+            return crate::families::row_kernel::row_kernel_jacobian_action_matrix_generic_rows(
+                self, factor, start, end,
+            );
         }
-        {
-            let mut axis1 = jf.slice_mut(s![.., rank..2 * rank]);
-            axis1.assign(&jf_exit);
-            axis1 += &jf_marginal;
-        }
-        jf.slice_mut(s![.., 2 * rank..3 * rank])
-            .assign(&jf_derivative);
-        jf.slice_mut(s![.., 3 * rank..4 * rank])
-            .assign(&jf_logslope);
-        Some(jf)
+        // Block-tiled build for one row-tile: dense designs slice to a
+        // contiguous row block and GEMM (`fast_ab`), operator/sparse designs
+        // fall to a row-local dot over the range. Bounds peak memory to the
+        // tile while keeping BLAS-3 on the materialized designs.
+        let b = end.saturating_sub(start);
+        self.assemble_jf(factor, b, |design, factor_block| {
+            survival_axis_jf_via_design_rows(design, factor_block, start, end)
+        })
     }
 
     fn jacobian_transpose_action(&self, row: usize, v: &[f64; 4], out: &mut [f64]) {
@@ -14234,6 +14258,51 @@ impl RowKernel<4> for SurvivalMarginalSlopeRowKernel {
     }
 }
 
+impl SurvivalMarginalSlopeRowKernel {
+    /// Assemble the `(n_out × 4·rank)` joint Jacobian-action projection `Jᵢ · F`
+    /// from the four primary axes — `[entry+marginal | exit+marginal |
+    /// derivative | logslope]` — given a per-axis builder `axis(design,
+    /// factor_block)` that produces that design's `n_out × rank` contribution.
+    /// The whole-projection path passes the batched builder; the block-tiled
+    /// path passes the row-range builder. Either way at most one axis transient
+    /// is alive at a time: the marginal block feeds both the entry and exit
+    /// axes, so it is built once and dropped, and every other axis is a
+    /// statement-scoped temporary — keeping the assembly peak at
+    /// `output + one n_out×rank block` rather than five blocks at once.
+    fn assemble_jf<F>(&self, factor: ArrayView2<'_, f64>, n_out: usize, axis: F) -> Array2<f64>
+    where
+        F: Fn(&DesignMatrix, ArrayView2<'_, f64>) -> Array2<f64>,
+    {
+        let rank = factor.ncols();
+        if rank == 0 {
+            return Array2::<f64>::zeros((n_out, 0));
+        }
+        let f_time = factor.slice(s![self.slices.time.clone(), ..]);
+        let f_marginal = factor.slice(s![self.slices.marginal.clone(), ..]);
+        let f_logslope = factor.slice(s![self.slices.logslope.clone(), ..]);
+
+        let mut jf = Array2::<f64>::zeros((n_out, 4 * rank));
+        {
+            let jf_marginal = axis(&self.family.marginal_design, f_marginal);
+            {
+                let mut axis0 = jf.slice_mut(s![.., 0..rank]);
+                axis0.assign(&axis(&self.family.design_entry, f_time));
+                axis0 += &jf_marginal;
+            }
+            {
+                let mut axis1 = jf.slice_mut(s![.., rank..2 * rank]);
+                axis1.assign(&axis(&self.family.design_exit, f_time));
+                axis1 += &jf_marginal;
+            }
+        }
+        jf.slice_mut(s![.., 2 * rank..3 * rank])
+            .assign(&axis(&self.family.design_derivative_exit, f_time));
+        jf.slice_mut(s![.., 3 * rank..4 * rank])
+            .assign(&axis(&self.family.logslope_design, f_logslope));
+        jf
+    }
+}
+
 fn survival_axis_jf_via_design(
     design: &DesignMatrix,
     factor_block: ArrayView2<'_, f64>,
@@ -14251,6 +14320,42 @@ fn survival_axis_jf_via_design(
             for c in 0..rank {
                 let result = design.dot(&factor.column(c).to_owned());
                 out.column_mut(c).assign(&result);
+            }
+            out
+        }
+    }
+}
+
+/// Row-range analogue of [`survival_axis_jf_via_design`]: one design's
+/// `(end-start) × rank` Jacobian-action block over rows `[start, end)`. Dense
+/// designs slice to a contiguous row block and GEMM via `fast_ab` (BLAS-3,
+/// zero-copy slice); sparse/operator designs fall to a row-local
+/// `dot_row_view` over the range (each entry touches only its own row, so
+/// tiling never re-walks the full operator). Used by the block-tiled trace to
+/// hold one row-tile at a time instead of the whole `n × rank` projection.
+fn survival_axis_jf_via_design_rows(
+    design: &DesignMatrix,
+    factor_block: ArrayView2<'_, f64>,
+    start: usize,
+    end: usize,
+) -> Array2<f64> {
+    let b = end.saturating_sub(start);
+    let rank = factor_block.ncols();
+    if rank == 0 {
+        return Array2::<f64>::zeros((b, 0));
+    }
+    let factor = factor_block.as_standard_layout().into_owned();
+    match design.as_dense_ref() {
+        Some(dense) => {
+            let block = dense.slice(s![start..end, ..]);
+            fast_ab(&block, &factor)
+        }
+        None => {
+            let mut out = Array2::<f64>::zeros((b, rank));
+            for (i, row) in (start..end).enumerate() {
+                for c in 0..rank {
+                    out[[i, c]] = design.dot_row_view(row, factor.column(c));
+                }
             }
             out
         }
@@ -17673,8 +17778,11 @@ impl SurvivalMarginalSlopeFamilyScalars {
 /// ∂ad1[i]/∂β = 0
 /// ```
 pub struct LogslopeBlockJacobian {
-    /// The logslope basis design (n × p_logslope).
-    design: Array2<f64>,
+    /// The logslope basis design (n × p_logslope). Held behind an `Arc` so a
+    /// materialized design is shared with its owner rather than deep-copied —
+    /// at biobank scale each retained `n × p` copy in these construction-time
+    /// callbacks was hundreds of MiB held for the whole fit (#979 OOM).
+    design: Arc<Array2<f64>>,
     /// Per-row covariate score z_i (length n).
     z: Vec<f64>,
     /// Probit scale s.
@@ -17682,18 +17790,25 @@ pub struct LogslopeBlockJacobian {
 }
 
 impl LogslopeBlockJacobian {
-    pub fn new(design: Array2<f64>, z: Vec<f64>, s: f64) -> Self {
-        Self { design, z, s }
+    pub fn new(design: impl Into<Arc<Array2<f64>>>, z: Vec<f64>, s: f64) -> Self {
+        Self {
+            design: design.into(),
+            z,
+            s,
+        }
     }
 }
 
 impl crate::custom_family::BlockEffectiveJacobian for LogslopeBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design.nrows();
         let p = self.design.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         // Read s_f from the linearization state so that outer-loop σ updates are
         // reflected without requiring the spec to be rebuilt.  Every construction
         // site sets probit_frailty_scale = 1.0 when it does not know the family's
@@ -17712,10 +17827,11 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeBlockJacobian {
         // initialisation call where beta may be shorter or empty.
         let beta = state.beta;
         let p_use = p.min(beta.len());
-        let mut g_rows = vec![0.0_f64; n];
-        for i in 0..n {
+        let mut g_rows = vec![0.0_f64; chunk];
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             for j in 0..p_use {
-                g_rows[i] += self.design[[i, j]] * beta[j];
+                g_rows[local_i] += self.design[[i, j]] * beta[j];
             }
         }
 
@@ -17738,13 +17854,14 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeBlockJacobian {
                 .to_string());
         }
 
-        let mut jac = Array2::<f64>::zeros((3 * n, p));
+        let mut jac = Array2::<f64>::zeros((3 * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             // g_i computed from beta above; c_i from family_scalars when present,
             // otherwise computed from g_i.  q0/q1/qd1 from family_scalars -
             // guaranteed present by the contract check whenever g_i != 0.
-            let g = g_rows[i];
+            let g = g_rows[local_i];
             let (q0, q1, qd1, c) = match scalars {
                 Some(sc) => (sc.q0_i[i], sc.q1_i[i], sc.qd1_i[i], sc.c_i[i]),
                 None => {
@@ -17761,9 +17878,9 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeBlockJacobian {
 
             for j in 0..p {
                 let g_ij = self.design[[i, j]];
-                jac[[i, j]] = coeff_eta0 * g_ij;
-                jac[[n + i, j]] = coeff_eta1 * g_ij;
-                jac[[2 * n + i, j]] = coeff_ad1 * g_ij;
+                jac[[local_i, j]] = coeff_eta0 * g_ij;
+                jac[[chunk + local_i, j]] = coeff_eta1 * g_ij;
+                jac[[2 * chunk + local_i, j]] = coeff_ad1 * g_ij;
             }
         }
         Ok(jac)
@@ -17787,23 +17904,29 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeBlockJacobian {
 ///
 /// At g=0 (β=0 init): c=1, so each row is just M[i,:].
 pub struct MarginalBlockJacobian {
-    /// The marginal basis design (n × p_marginal).
-    design: Array2<f64>,
+    /// The marginal basis design (n × p_marginal), `Arc`-shared with its
+    /// owner (see [`LogslopeBlockJacobian::design`]).
+    design: Arc<Array2<f64>>,
 }
 
 impl MarginalBlockJacobian {
-    pub fn new(design: Array2<f64>) -> Self {
-        Self { design }
+    pub fn new(design: impl Into<Arc<Array2<f64>>>) -> Self {
+        Self {
+            design: design.into(),
+        }
     }
 }
 
 impl crate::custom_family::BlockEffectiveJacobian for MarginalBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design.nrows();
         let p = self.design.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
 
         // c_i = sqrt(1 + (s * g_i)^2) depends on the logslope block's g at the
         // current beta.  This block does not own the logslope design so it cannot
@@ -17825,9 +17948,10 @@ impl crate::custom_family::BlockEffectiveJacobian for MarginalBlockJacobian {
                 .to_string());
         }
 
-        let mut jac = Array2::<f64>::zeros((3 * n, p));
+        let mut jac = Array2::<f64>::zeros((3 * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let c = match scalars {
                 Some(sc) => sc.c_i[i],
                 // beta is all-zero here (enforced above), so g = 0 and c = 1.
@@ -17835,8 +17959,8 @@ impl crate::custom_family::BlockEffectiveJacobian for MarginalBlockJacobian {
             };
             for j in 0..p {
                 let m_ij = c * self.design[[i, j]];
-                jac[[i, j]] = m_ij;
-                jac[[n + i, j]] = m_ij;
+                jac[[local_i, j]] = m_ij;
+                jac[[chunk + local_i, j]] = m_ij;
                 // jac[[2*n + i, j]] = 0 -- ad1 row stays zero
             }
         }
@@ -17861,32 +17985,36 @@ impl crate::custom_family::BlockEffectiveJacobian for MarginalBlockJacobian {
 ///
 /// At g=0 (β=0 init): c=1.
 pub struct TimeBlockJacobian {
-    design_entry: Array2<f64>,
-    design_exit: Array2<f64>,
-    design_deriv: Array2<f64>,
+    // `Arc`-shared with their owners (see [`LogslopeBlockJacobian::design`]).
+    design_entry: Arc<Array2<f64>>,
+    design_exit: Arc<Array2<f64>>,
+    design_deriv: Arc<Array2<f64>>,
 }
 
 impl TimeBlockJacobian {
     pub fn new(
-        design_entry: Array2<f64>,
-        design_exit: Array2<f64>,
-        design_deriv: Array2<f64>,
+        design_entry: impl Into<Arc<Array2<f64>>>,
+        design_exit: impl Into<Arc<Array2<f64>>>,
+        design_deriv: impl Into<Arc<Array2<f64>>>,
     ) -> Self {
         Self {
-            design_entry,
-            design_exit,
-            design_deriv,
+            design_entry: design_entry.into(),
+            design_exit: design_exit.into(),
+            design_deriv: design_deriv.into(),
         }
     }
 }
 
 impl crate::custom_family::BlockEffectiveJacobian for TimeBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design_entry.nrows();
         let p = self.design_entry.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
 
         if self.design_exit.nrows() != n || self.design_deriv.nrows() != n {
             return Err(format!(
@@ -17923,18 +18051,19 @@ impl crate::custom_family::BlockEffectiveJacobian for TimeBlockJacobian {
                 .to_string());
         }
 
-        let mut jac = Array2::<f64>::zeros((3 * n, p));
+        let mut jac = Array2::<f64>::zeros((3 * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let c = match scalars {
                 Some(sc) => sc.c_i[i],
                 // beta is all-zero here (enforced above), so g = 0 and c = 1.
                 None => 1.0_f64,
             };
             for j in 0..p {
-                jac[[i, j]] = c * self.design_entry[[i, j]];
-                jac[[n + i, j]] = c * self.design_exit[[i, j]];
-                jac[[2 * n + i, j]] = c * self.design_deriv[[i, j]];
+                jac[[local_i, j]] = c * self.design_entry[[i, j]];
+                jac[[chunk + local_i, j]] = c * self.design_exit[[i, j]];
+                jac[[2 * chunk + local_i, j]] = c * self.design_deriv[[i, j]];
             }
         }
         Ok(jac)
@@ -18187,9 +18316,10 @@ impl LogslopeFlexBlockJacobian {
 }
 
 impl crate::custom_family::BlockEffectiveJacobian for LogslopeFlexBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let flex: &SurvivalFlexFamilyScalars = state
             .family_scalars
@@ -18203,6 +18333,8 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeFlexBlockJacobian 
 
         let n = self.design.nrows();
         let p = self.design.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         if flex.eta_u_entry.nrows() != n || flex.eta_u_exit.nrows() != n {
             return Err(format!(
                 "LogslopeFlexBlockJacobian: flex scalars have {} rows but design has {n}",
@@ -18214,9 +18346,10 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeFlexBlockJacobian 
         // coords are zero (time, marginal, h, w do not depend on β_logslope).
         // So: ∂output/∂β_j = output_u[idx_g] * design[i,j].
         const N_OUT: usize = 6;
-        let mut jac = Array2::<f64>::zeros((N_OUT * n, p));
+        let mut jac = Array2::<f64>::zeros((N_OUT * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let g_idx = flex.idx_g;
             let cu_eta0_g = flex.eta_u_entry[[i, g_idx]];
             let cu_eta1_g = flex.eta_u_exit[[i, g_idx]];
@@ -18236,10 +18369,10 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeFlexBlockJacobian 
 
             for j in 0..p {
                 let x_ij = self.design[[i, j]];
-                jac[[i, j]] = cu_eta0_g * x_ij;
-                jac[[1 * n + i, j]] = cu_eta1_g * x_ij;
-                jac[[2 * n + i, j]] = cu_logchi1_g * x_ij;
-                jac[[3 * n + i, j]] = cu_logd1_g * x_ij;
+                jac[[local_i, j]] = cu_eta0_g * x_ij;
+                jac[[chunk + local_i, j]] = cu_eta1_g * x_ij;
+                jac[[2 * chunk + local_i, j]] = cu_logchi1_g * x_ij;
+                jac[[3 * chunk + local_i, j]] = cu_logd1_g * x_ij;
                 // rows 4 and 5 remain zero
             }
         }
@@ -18263,9 +18396,10 @@ impl crate::custom_family::BlockEffectiveJacobian for LogslopeFlexBlockJacobian 
 pub struct MarginalFlexBlockJacobian;
 
 impl crate::custom_family::BlockEffectiveJacobian for MarginalFlexBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let flex: &SurvivalFlexFamilyScalars = state
             .family_scalars
@@ -18278,18 +18412,21 @@ impl crate::custom_family::BlockEffectiveJacobian for MarginalFlexBlockJacobian 
 
         let n = flex.dq0_marginal.nrows();
         let p = flex.dq0_marginal.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         if p == 0 {
-            return Ok(Array2::<f64>::zeros((6 * n, 0)));
+            return Ok(Array2::<f64>::zeros((6 * chunk, 0)));
         }
 
         const N_OUT: usize = 6;
-        let mut jac = Array2::<f64>::zeros((N_OUT * n, p));
+        let mut jac = Array2::<f64>::zeros((N_OUT * chunk, p));
 
         let q0_idx = flex.idx_q0;
         let q1_idx = flex.idx_q1;
         let qd1_idx = flex.idx_qd1;
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let chi1 = flex.chi_exit[i];
             let d1 = flex.d_exit[i];
             let q1 = flex.q1_i[i];
@@ -18330,12 +18467,12 @@ impl crate::custom_family::BlockEffectiveJacobian for MarginalFlexBlockJacobian 
                 // ∂log_qd1/∂β_m[k] = dqd1 / qd1
                 let dlogqd1 = if qd1 > 0.0 { dqd1 / qd1 } else { 0.0 };
 
-                jac[[i, k]] = deta0;
-                jac[[1 * n + i, k]] = deta1;
-                jac[[2 * n + i, k]] = dlogchi1;
-                jac[[3 * n + i, k]] = dlogd1;
-                jac[[4 * n + i, k]] = dq1_logphi;
-                jac[[5 * n + i, k]] = dlogqd1;
+                jac[[local_i, k]] = deta0;
+                jac[[chunk + local_i, k]] = deta1;
+                jac[[2 * chunk + local_i, k]] = dlogchi1;
+                jac[[3 * chunk + local_i, k]] = dlogd1;
+                jac[[4 * chunk + local_i, k]] = dq1_logphi;
+                jac[[5 * chunk + local_i, k]] = dlogqd1;
             }
         }
         Ok(jac)
@@ -18357,9 +18494,10 @@ impl crate::custom_family::BlockEffectiveJacobian for MarginalFlexBlockJacobian 
 pub struct TimeFlexBlockJacobian;
 
 impl crate::custom_family::BlockEffectiveJacobian for TimeFlexBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let flex: &SurvivalFlexFamilyScalars = state
             .family_scalars
@@ -18372,18 +18510,21 @@ impl crate::custom_family::BlockEffectiveJacobian for TimeFlexBlockJacobian {
 
         let n = flex.dq0_time.nrows();
         let p = flex.dq0_time.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         if p == 0 {
-            return Ok(Array2::<f64>::zeros((6 * n, 0)));
+            return Ok(Array2::<f64>::zeros((6 * chunk, 0)));
         }
 
         const N_OUT: usize = 6;
-        let mut jac = Array2::<f64>::zeros((N_OUT * n, p));
+        let mut jac = Array2::<f64>::zeros((N_OUT * chunk, p));
 
         let q0_idx = flex.idx_q0;
         let q1_idx = flex.idx_q1;
         let qd1_idx = flex.idx_qd1;
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let chi1 = flex.chi_exit[i];
             let d1 = flex.d_exit[i];
             let q1 = flex.q1_i[i];
@@ -18420,12 +18561,12 @@ impl crate::custom_family::BlockEffectiveJacobian for TimeFlexBlockJacobian {
                 let dq1_logphi = -q1 * dq1;
                 let dlogqd1 = if qd1 > 0.0 { dqd1 / qd1 } else { 0.0 };
 
-                jac[[i, k]] = deta0;
-                jac[[1 * n + i, k]] = deta1;
-                jac[[2 * n + i, k]] = dlogchi1;
-                jac[[3 * n + i, k]] = dlogd1;
-                jac[[4 * n + i, k]] = dq1_logphi;
-                jac[[5 * n + i, k]] = dlogqd1;
+                jac[[local_i, k]] = deta0;
+                jac[[chunk + local_i, k]] = deta1;
+                jac[[2 * chunk + local_i, k]] = dlogchi1;
+                jac[[3 * chunk + local_i, k]] = dlogd1;
+                jac[[4 * chunk + local_i, k]] = dq1_logphi;
+                jac[[5 * chunk + local_i, k]] = dlogqd1;
             }
         }
         Ok(jac)
@@ -18445,9 +18586,10 @@ impl crate::custom_family::BlockEffectiveJacobian for TimeFlexBlockJacobian {
 pub struct ScoreWarpFlexBlockJacobian;
 
 impl crate::custom_family::BlockEffectiveJacobian for ScoreWarpFlexBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let flex: &SurvivalFlexFamilyScalars = state
             .family_scalars
@@ -18460,8 +18602,10 @@ impl crate::custom_family::BlockEffectiveJacobian for ScoreWarpFlexBlockJacobian
 
         let n = flex.score_warp_design.nrows();
         let p = flex.score_warp_design.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         if p == 0 || flex.h_len == 0 {
-            return Ok(Array2::<f64>::zeros((6 * n, p)));
+            return Ok(Array2::<f64>::zeros((6 * chunk, p)));
         }
         if flex.h_len != p {
             return Err(format!(
@@ -18471,9 +18615,10 @@ impl crate::custom_family::BlockEffectiveJacobian for ScoreWarpFlexBlockJacobian
         }
 
         const N_OUT: usize = 6;
-        let mut jac = Array2::<f64>::zeros((N_OUT * n, p));
+        let mut jac = Array2::<f64>::zeros((N_OUT * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let chi1 = flex.chi_exit[i];
             let d1 = flex.d_exit[i];
 
@@ -18498,10 +18643,10 @@ impl crate::custom_family::BlockEffectiveJacobian for ScoreWarpFlexBlockJacobian
                 };
                 // rows 4 and 5 (q1_logphi, log_qd1) are zero: q1, qd1 do not depend on β_h
 
-                jac[[i, k]] = deta0;
-                jac[[1 * n + i, k]] = deta1;
-                jac[[2 * n + i, k]] = dlogchi1;
-                jac[[3 * n + i, k]] = dlogd1;
+                jac[[local_i, k]] = deta0;
+                jac[[chunk + local_i, k]] = deta1;
+                jac[[2 * chunk + local_i, k]] = dlogchi1;
+                jac[[3 * chunk + local_i, k]] = dlogd1;
             }
         }
         Ok(jac)
@@ -18520,9 +18665,10 @@ impl crate::custom_family::BlockEffectiveJacobian for ScoreWarpFlexBlockJacobian
 pub struct LinkDevFlexBlockJacobian;
 
 impl crate::custom_family::BlockEffectiveJacobian for LinkDevFlexBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let flex: &SurvivalFlexFamilyScalars = state
             .family_scalars
@@ -18535,8 +18681,10 @@ impl crate::custom_family::BlockEffectiveJacobian for LinkDevFlexBlockJacobian {
 
         let n = flex.link_dev_design.nrows();
         let p = flex.link_dev_design.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         if p == 0 || flex.w_len == 0 {
-            return Ok(Array2::<f64>::zeros((6 * n, p)));
+            return Ok(Array2::<f64>::zeros((6 * chunk, p)));
         }
         if flex.w_len != p {
             return Err(format!(
@@ -18546,9 +18694,10 @@ impl crate::custom_family::BlockEffectiveJacobian for LinkDevFlexBlockJacobian {
         }
 
         const N_OUT: usize = 6;
-        let mut jac = Array2::<f64>::zeros((N_OUT * n, p));
+        let mut jac = Array2::<f64>::zeros((N_OUT * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let chi1 = flex.chi_exit[i];
             let d1 = flex.d_exit[i];
 
@@ -18570,10 +18719,10 @@ impl crate::custom_family::BlockEffectiveJacobian for LinkDevFlexBlockJacobian {
                     0.0
                 };
 
-                jac[[i, k]] = deta0;
-                jac[[1 * n + i, k]] = deta1;
-                jac[[2 * n + i, k]] = dlogchi1;
-                jac[[3 * n + i, k]] = dlogd1;
+                jac[[local_i, k]] = deta0;
+                jac[[chunk + local_i, k]] = deta1;
+                jac[[2 * chunk + local_i, k]] = dlogchi1;
+                jac[[3 * chunk + local_i, k]] = dlogd1;
             }
         }
         Ok(jac)
@@ -18690,12 +18839,15 @@ impl SmsTimewiggleTimeJacobian {
 }
 
 impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleTimeJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design_entry.nrows();
         let p = self.p_time;
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         let p_base = p.saturating_sub(self.p_tw);
 
         let beta = state.beta;
@@ -18736,9 +18888,10 @@ impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleTimeJacobian 
         let knots = &self.time_wiggle_knots;
         let degree = self.time_wiggle_degree;
 
-        let mut jac = Array2::<f64>::zeros((3 * n, p));
+        let mut jac = Array2::<f64>::zeros((3 * chunk, p));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             // c_i computed directly from logslope design and joint β_g.
             let g_i: f64 = beta_g
                 .iter()
@@ -18808,9 +18961,9 @@ impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleTimeJacobian 
                 let xe = self.design_entry[[i, j]];
                 let xx = self.design_exit[[i, j]];
                 let xd = self.design_deriv[[i, j]];
-                jac[[i, j]] = c_i * entry_dq * xe;
-                jac[[n + i, j]] = c_i * exit_dq * xx;
-                jac[[2 * n + i, j]] = c_i * (exit_d2q * d_raw * xx + exit_dq * xd);
+                jac[[local_i, j]] = c_i * entry_dq * xe;
+                jac[[chunk + local_i, j]] = c_i * exit_dq * xx;
+                jac[[2 * chunk + local_i, j]] = c_i * (exit_d2q * d_raw * xx + exit_dq * xd);
             }
 
             // Wiggle tail columns.
@@ -18819,9 +18972,9 @@ impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleTimeJacobian 
                 let b0 = entry_basis.as_ref().map_or(0.0, |b| b[[0, local_idx]]);
                 let b1 = exit_basis.as_ref().map_or(0.0, |b| b[[0, local_idx]]);
                 let bd1 = exit_basis_d1.as_ref().map_or(0.0, |b| b[[0, local_idx]]);
-                jac[[i, col]] = c_i * b0;
-                jac[[n + i, col]] = c_i * b1;
-                jac[[2 * n + i, col]] = c_i * bd1 * d_raw;
+                jac[[local_i, col]] = c_i * b0;
+                jac[[chunk + local_i, col]] = c_i * b1;
+                jac[[2 * chunk + local_i, col]] = c_i * bd1 * d_raw;
             }
         }
         Ok(jac)
@@ -18895,12 +19048,15 @@ impl SmsTimewiggleMarginalJacobian {
 }
 
 impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleMarginalJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &crate::custom_family::FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design_marginal.nrows();
         let p_m = self.design_marginal.ncols();
+        let rows = rows.start.min(n)..rows.end.min(n);
+        let chunk = rows.end - rows.start;
         let p_t = self.p_time;
         let p_base = p_t.saturating_sub(self.p_tw);
 
@@ -18931,9 +19087,10 @@ impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleMarginalJacob
         let knots = &self.time_wiggle_knots;
         let degree = self.time_wiggle_degree;
 
-        let mut jac = Array2::<f64>::zeros((3 * n, p_m));
+        let mut jac = Array2::<f64>::zeros((3 * chunk, p_m));
 
-        for i in 0..n {
+        for i in rows.clone() {
+            let local_i = i - rows.start;
             let g_i: f64 = beta_g
                 .iter()
                 .enumerate()
@@ -18989,9 +19146,9 @@ impl crate::custom_family::BlockEffectiveJacobian for SmsTimewiggleMarginalJacob
 
             for j in 0..p_m {
                 let m_ij = self.design_marginal[[i, j]];
-                jac[[i, j]] = c_i * entry_dq * m_ij;
-                jac[[n + i, j]] = c_i * exit_dq * m_ij;
-                jac[[2 * n + i, j]] = c_i * exit_d2q * d_raw * m_ij;
+                jac[[local_i, j]] = c_i * entry_dq * m_ij;
+                jac[[chunk + local_i, j]] = c_i * exit_dq * m_ij;
+                jac[[2 * chunk + local_i, j]] = c_i * exit_d2q * d_raw * m_ij;
             }
         }
         Ok(jac)
@@ -19115,27 +19272,22 @@ fn build_time_blockspec(
     rho: Array1<f64>,
     beta_hint: Option<Array1<f64>>,
 ) -> ParameterBlockSpec {
-    // Build the three dense design matrices for the multi-output Jacobian.
-    // Densification is cheap here (done once at construction, not per PIRLS
-    // iteration). Falls back to no callback if densification fails.
+    // Share the three dense design matrices with the multi-output Jacobian
+    // via `Arc` — `try_to_dense_arc` is zero-copy for materialized designs,
+    // so the callback retains no duplicate `n × p` storage. Falls back to no
+    // callback if densification fails.
     let jac_cb: Option<Arc<dyn crate::custom_family::BlockEffectiveJacobian>> = (|| {
         let d_entry = time_block
             .design_entry
             .try_to_dense_arc("build_time_blockspec::entry")
-            .ok()?
-            .as_ref()
-            .clone();
+            .ok()?;
         let d_exit = design_exit
             .try_to_dense_arc("build_time_blockspec::exit")
-            .ok()?
-            .as_ref()
-            .clone();
+            .ok()?;
         let d_deriv = time_block
             .design_derivative_exit
             .try_to_dense_arc("build_time_blockspec::deriv")
-            .ok()?
-            .as_ref()
-            .clone();
+            .ok()?;
         if d_entry.dim() != d_exit.dim() || d_entry.dim() != d_deriv.dim() {
             return None;
         }
@@ -19178,11 +19330,8 @@ fn build_logslope_blockspec(
         .try_to_dense_arc("build_logslope_blockspec")
         .ok()
         .map(|d| {
-            Arc::new(LogslopeBlockJacobian::new(
-                d.as_ref().clone(),
-                z_vec,
-                probit_scale,
-            )) as Arc<dyn crate::custom_family::BlockEffectiveJacobian>
+            Arc::new(LogslopeBlockJacobian::new(d, z_vec, probit_scale))
+                as Arc<dyn crate::custom_family::BlockEffectiveJacobian>
         });
 
     ParameterBlockSpec {
@@ -19211,7 +19360,7 @@ fn build_marginal_blockspec(
         .try_to_dense_arc("build_marginal_blockspec")
         .ok()
         .map(|d| {
-            Arc::new(MarginalBlockJacobian::new(d.as_ref().clone()))
+            Arc::new(MarginalBlockJacobian::new(d))
                 as Arc<dyn crate::custom_family::BlockEffectiveJacobian>
         });
 
@@ -20218,7 +20367,7 @@ enum BlockDesignCoords {
 /// slice and the block tag used in the failure diagnostic.
 pub(crate) struct JointPreflightSegment {
     pub block: JointPreflightBlock,
-    pub columns: Array2<f64>,
+    pub columns: DesignMatrix,
 }
 
 /// W-metric joint training-row design preflight.
@@ -20237,7 +20386,7 @@ pub(crate) fn joint_training_design_preflight(
     segments: &[JointPreflightSegment],
     weights: &Array1<f64>,
 ) -> Result<(), SurvivalMarginalSlopeError> {
-    use crate::faer_ndarray::FaerSvd;
+    use crate::faer_ndarray::{FaerEigh, fast_xt_diag_y};
 
     if segments.is_empty() {
         return Ok(());
@@ -20266,53 +20415,75 @@ pub(crate) fn joint_training_design_preflight(
         return Ok(());
     }
 
-    let mut sqrt_w = Array1::<f64>::zeros(n);
     for (i, &w) in weights.iter().enumerate() {
         if !w.is_finite() || w < 0.0 {
             return Err(SurvivalMarginalSlopeError::InvalidInput {
                 reason: format!("joint preflight: weights[{i}] = {w} is not finite/non-negative",),
             });
         }
-        sqrt_w[i] = w.sqrt();
     }
 
-    let mut j_sqw = Array2::<f64>::zeros((n, p_joint));
-    for (seg, (_, start, end)) in segments.iter().zip(block_ranges.iter()) {
-        let width = *end - *start;
-        let mut dst = j_sqw.slice_mut(s![.., *start..*end]);
-        dst.assign(&seg.columns);
-        for i in 0..n {
-            let s_i = sqrt_w[i];
-            for j in 0..width {
-                dst[[i, j]] *= s_i;
+    // W-metric joint Gram `G = Jᵀ diag(w) J`, accumulated over fixed-height
+    // row chunks of the operator-backed segments. The previous implementation
+    // stacked a dense `(n, p_joint)` sqrt(W)-scaled copy of the joint design
+    // and ran a thin-SVD over it — at biobank scale that transient (plus the
+    // SVD's own workspace) was a multi-GiB contributor to the #979 survival
+    // construction-phase OOM, and the budget guard that protected against it
+    // silently skipped the diagnostic at exactly the scale where it matters.
+    // The Gram route needs `O(chunk × p_joint + p_joint²)` memory at any n,
+    // so the preflight always runs. Singular values come back as √eigenvalue;
+    // squaring the spectrum coarsens the detectable near-alias floor from
+    // ~`dim·ε·σ_max` to ~`sqrt(dim·ε)·σ_max`, which is immaterial here:
+    // structural aliases (σ exactly 0) are detected identically, and this
+    // preflight is observability-only — the canonical-gauge RRQR audit
+    // downstream remains the fail-closed authority on borderline cases.
+    const PREFLIGHT_GRAM_ROW_CHUNK: usize = 4096;
+    let mut gram = Array2::<f64>::zeros((p_joint, p_joint));
+    let mut chunk_start = 0usize;
+    while chunk_start < n {
+        let chunk_end = (chunk_start + PREFLIGHT_GRAM_ROW_CHUNK).min(n);
+        let chunks: Vec<Array2<f64>> = segments
+            .iter()
+            .map(|seg| {
+                seg.columns
+                    .try_row_chunk(chunk_start..chunk_end)
+                    .map_err(|e| SurvivalMarginalSlopeError::NumericalFailure {
+                        reason: format!(
+                            "joint preflight: block {} rows {chunk_start}..{chunk_end}: {e}",
+                            seg.block
+                        ),
+                    })
+            })
+            .collect::<Result<_, _>>()?;
+        let w_chunk = weights.slice(s![chunk_start..chunk_end]);
+        for (s, (_, s0, s1)) in block_ranges.iter().enumerate() {
+            for (t, (_, t0, t1)) in block_ranges.iter().enumerate().skip(s) {
+                let g_st = fast_xt_diag_y(&chunks[s], &w_chunk, &chunks[t]);
+                let mut dst = gram.slice_mut(s![*s0..*s1, *t0..*t1]);
+                dst += &g_st;
+                if t > s {
+                    let mut dst_t = gram.slice_mut(s![*t0..*t1, *s0..*s1]);
+                    dst_t += &g_st.t();
+                }
             }
         }
+        chunk_start = chunk_end;
     }
 
-    let (_u, sigma, vt) =
-        j_sqw
-            .svd(false, true)
+    let (eigvals, eigvecs) =
+        gram.eigh(faer::Side::Lower)
             .map_err(|e| SurvivalMarginalSlopeError::NumericalFailure {
-                reason: format!("joint preflight: W-metric thin-SVD failed: {e:?}"),
+                reason: format!("joint preflight: W-metric Gram eigh failed: {e:?}"),
             })?;
-    let vt = vt.ok_or_else(|| SurvivalMarginalSlopeError::NumericalFailure {
-        reason: "joint preflight: thin-SVD requested right singular vectors but none returned"
-            .to_string(),
-    })?;
-    if vt.nrows() != sigma.len() || vt.ncols() != p_joint {
-        return Err(SurvivalMarginalSlopeError::NumericalFailure {
-            reason: format!(
-                "joint preflight: SVD shape inconsistent - sigma.len()={}, vt={:?}, p_joint={}",
-                sigma.len(),
-                vt.shape(),
-                p_joint,
-            ),
-        });
-    }
-
+    // σ_i = sqrt(max(λ_i, 0)); roundoff can push numerically-zero Gram
+    // eigenvalues slightly negative.
+    let sigma: Vec<f64> = eigvals.iter().map(|&l| l.max(0.0).sqrt()).collect();
     let sigma_max = sigma.iter().copied().fold(0.0_f64, f64::max);
     let rank_dim = n.max(p_joint) as f64;
-    let rank_tol = sigma_max * rank_dim * 16.0 * f64::EPSILON;
+    // Gram-spectrum near-alias floor (see the block comment above): aliases
+    // are directions whose singular value is at or below
+    // `σ_max · sqrt(dim · 16ε)`.
+    let rank_tol = sigma_max * (rank_dim * 16.0 * f64::EPSILON).sqrt();
 
     let alias_idx: Vec<usize> = sigma
         .iter()
@@ -20321,7 +20492,7 @@ pub(crate) fn joint_training_design_preflight(
         .collect();
     let rank = sigma.len() - alias_idx.len();
 
-    if alias_idx.is_empty() && sigma.len() == p_joint {
+    if alias_idx.is_empty() {
         let sigma_min = sigma.iter().copied().fold(f64::INFINITY, f64::min);
         let condition = if sigma_min > 0.0 {
             sigma_max / sigma_min
@@ -20335,15 +20506,17 @@ pub(crate) fn joint_training_design_preflight(
         return Ok(());
     }
 
-    let structural_alias = p_joint.saturating_sub(sigma.len());
+    let structural_alias = p_joint.saturating_sub(n.min(p_joint));
 
     let mut columns: Vec<(JointPreflightBlock, usize, f64)> = Vec::new();
     for &idx in alias_idx.iter() {
-        let v_row = vt.row(idx);
+        // Eigenvector column `idx` of the Gram is the right singular vector
+        // of the collapsing direction.
+        let v_col = eigvecs.column(idx);
         let mut best_j = 0usize;
         let mut best_w = 0.0_f64;
         for j in 0..p_joint {
-            let w = v_row[j].abs();
+            let w = v_col[j].abs();
             if w > best_w {
                 best_w = w;
                 best_j = j;
@@ -20940,139 +21113,52 @@ pub fn fit_survival_marginal_slope_terms(
     // Aborting here would defeat the canonical reduction. We emit an info-
     // level diagnostic with the (block, ncols, rank) tuple so the rank-deficit
     // is visible in the log without being fatal.
-    // The joint rank diagnostic densifies time/marginal/logslope and
-    // stacks them into a single n × p_joint matrix for column-pivoted QR.
-    // At large n the time block alone (n × p_time, where p_time grows
-    // multiplicatively with the time-tensor + timewiggle basis) materializes
-    // to multiple GiB and OOMs the host before the rrqr / W-metric SVD even
-    // starts. The block is explicitly "Diagnostic only" — any rank
-    // deficiency at this point is handled by the canonical-gauge pipeline in
-    // `canonicalize_for_identifiability` (called centrally before the inner
-    // Newton). When the dense footprint exceeds the strict-mode
-    // single-materialization budget we skip the whole block with a `warn!`
-    // and leave the canonical-gauge pipeline as the source of truth, mirror-
-    // ing the smgs phase-4b preflights above.
-    const RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES: usize = 256 * 1024 * 1024;
+    //
+    // The diagnostic streams the W-metric joint Gram over row chunks of the
+    // operator-backed block designs (see `joint_training_design_preflight`),
+    // so it runs at any n in `O(chunk × p_joint + p_joint²)` memory. The
+    // previous implementation densified every block, stacked an `(n,
+    // p_joint)` joint matrix, and ran column-pivoted QR plus a thin-SVD over
+    // it — multi-GiB of co-resident transients at biobank scale (#979
+    // survival construction OOM), guarded by a budget that silently skipped
+    // the diagnostic at exactly the scale where it matters. The unweighted
+    // RRQR rank pass was deleted along with the densification: the W-metric
+    // spectrum is the rank diagnostic PIRLS actually solves under (and the
+    // two coincide at uniform sample weights).
     let rank_diagnostic_outcome: Result<(), String> = (|| -> Result<(), String> {
-        use crate::linalg::faer_ndarray::rrqr_with_permutation;
-        let time_dense = spec
-            .time_block
-            .design_exit
-            .try_to_dense_by_chunks_budgeted(
-                "survival-marginal-slope joint rank diagnostic time",
-                RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES,
-            )?;
-        let marginal_dense = marginal_design.design.try_to_dense_by_chunks_budgeted(
-            "survival-marginal-slope joint rank diagnostic marginal",
-            RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES,
-        )?;
-        let logslope_dense = logslope_design.design.try_to_dense_by_chunks_budgeted(
-            "survival-marginal-slope joint rank diagnostic logslope",
-            RANK_DIAGNOSTIC_MATERIALIZATION_BUDGET_BYTES,
-        )?;
-        let score_warp_dense = score_warp_prepared
+        let score_warp_design = score_warp_prepared
             .as_ref()
             .map(|sw| sw.runtime.design_at_training_with_residual(&z_primary))
-            .transpose()?;
-        let link_dev_dense = link_dev_prepared
+            .transpose()?
+            .map(|m| DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(m)));
+        let link_dev_design = link_dev_prepared
             .as_ref()
             .map(|ld| {
                 ld.runtime
                     .design_at_training_with_residual(&cross_block_pilot_eta)
             })
-            .transpose()?;
-        let mut total_cols = time_dense.ncols() + marginal_dense.ncols() + logslope_dense.ncols();
-        if let Some(ref m) = score_warp_dense {
-            total_cols += m.ncols();
-        }
-        if let Some(ref m) = link_dev_dense {
-            total_cols += m.ncols();
-        }
-        let mut joint = Array2::<f64>::zeros((n, total_cols));
-        let mut cursor = 0usize;
-        joint
-            .slice_mut(s![.., cursor..cursor + time_dense.ncols()])
-            .assign(&time_dense);
-        cursor += time_dense.ncols();
-        joint
-            .slice_mut(s![.., cursor..cursor + marginal_dense.ncols()])
-            .assign(&marginal_dense);
-        cursor += marginal_dense.ncols();
-        joint
-            .slice_mut(s![.., cursor..cursor + logslope_dense.ncols()])
-            .assign(&logslope_dense);
-        cursor += logslope_dense.ncols();
-        if let Some(ref m) = score_warp_dense {
-            joint
-                .slice_mut(s![.., cursor..cursor + m.ncols()])
-                .assign(m);
-            cursor += m.ncols();
-        }
-        if let Some(ref m) = link_dev_dense {
-            joint
-                .slice_mut(s![.., cursor..cursor + m.ncols()])
-                .assign(m);
-            cursor += m.ncols();
-        }
-        assert_eq!(cursor, total_cols);
-        // Joint is n × p_total with `n ≫ p_total` at large scale, so the
-        // left null space of the *transpose* has dimension `n - rank` and a
-        // basis for it would be n × (n - rank). Materializing that basis is
-        // catastrophic: at n=195780, p_total≈33 the f64 buffer is ≈286 GiB
-        // and faer aborts with `AllocError` deep inside the FFI boundary.
-        // The diagnostic only consumes `rank`, so use `rrqr_with_permutation`
-        // which runs the same column-pivoted QR + diagonal-threshold count
-        // and never builds the null basis.
-        let rank = rrqr_with_permutation(
-            &joint,
-            crate::linalg::faer_ndarray::default_rrqr_rank_alpha(),
-        )
-        .map_err(|e| format!("survival-marginal-slope joint rank diagnostic QR failed: {e}"))?
-        .rank;
-        if rank < total_cols {
-            log::info!(
-                "[survival-marginal-slope joint rank diagnostic] rank={rank} < ncols={total_cols} \
-                 (time={p_time} marginal={p_marginal} logslope={p_logslope} \
-                 score_warp={p_sw} link_dev={p_ld}); canonical-gauge pipeline \
-                 will attribute the {n_drop} surplus column(s) to lower-priority blocks \
-                 via gauge_priority (time=200, marginal=150, logslope=120, \
-                 score_warp=80, link_dev=60) and proceed with reduced specs.",
-                p_time = time_dense.ncols(),
-                p_marginal = marginal_dense.ncols(),
-                p_logslope = logslope_dense.ncols(),
-                p_sw = score_warp_dense.as_ref().map_or(0, |m| m.ncols()),
-                p_ld = link_dev_dense.as_ref().map_or(0, |m| m.ncols()),
-                n_drop = total_cols - rank,
-            );
-        }
-
-        // W-metric SVD preflight (complement to the unweighted rrqr above).
-        // Surfaces near-rank-deficiency under the actual PIRLS curvature
-        // metric and localises the alias to (block, local_col, weight)
-        // triples so the operator sees exactly which column dominates the
-        // collapsing direction. The rrqr above catches structural rank
-        // deficiency; this catches numerical-rank deficiency at the same
-        // tolerance PIRLS will solve under.
+            .transpose()?
+            .map(|m| DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(m)));
         let mut segments: Vec<JointPreflightSegment> = Vec::with_capacity(5);
         segments.push(JointPreflightSegment {
             block: JointPreflightBlock::Time,
-            columns: time_dense,
+            columns: spec.time_block.design_exit.clone(),
         });
         segments.push(JointPreflightSegment {
             block: JointPreflightBlock::Marginal,
-            columns: marginal_dense,
+            columns: marginal_design.design.clone(),
         });
         segments.push(JointPreflightSegment {
             block: JointPreflightBlock::Logslope,
-            columns: logslope_dense,
+            columns: logslope_design.design.clone(),
         });
-        if let Some(m) = score_warp_dense {
+        if let Some(m) = score_warp_design {
             segments.push(JointPreflightSegment {
                 block: JointPreflightBlock::ScoreWarp,
                 columns: m,
             });
         }
-        if let Some(m) = link_dev_dense {
+        if let Some(m) = link_dev_design {
             segments.push(JointPreflightSegment {
                 block: JointPreflightBlock::LinkDev,
                 columns: m,
@@ -21082,12 +21168,11 @@ pub fn fit_survival_marginal_slope_terms(
             .map_err(|e| format!("survival-marginal-slope joint preflight failed: {e}"))?;
         Ok(())
     })();
+    // Observability-only: a failure inside the rank diagnostic must never
+    // abort the fit — the canonical-gauge pipeline downstream is the
+    // fail-closed authority on identifiability.
     if let Err(reason) = rank_diagnostic_outcome {
-        if reason.contains("refusing to densify") {
-            log::warn!("[survival-marginal-slope joint rank diagnostic] skipped: {reason}");
-        } else {
-            return Err(reason);
-        }
+        log::warn!("[survival-marginal-slope joint rank diagnostic] skipped: {reason}");
     }
     // Penalty seeds for the flex/aux blocks beyond the core (time/marginal/
     // logslope). The absorbed influence block (#461) contributes ONE trailing
@@ -24416,15 +24501,16 @@ mod tests {
         };
         use crate::families::row_kernel::RowKernel;
 
-        let n = 5;
-        let z = [0.4, -1.1, 0.0, 0.7, -0.3];
-        let weights = [1.0, 0.8, 1.3, 0.9, 1.1];
-        // Mix of events (d=1) and censored (d=0); row 2 censored, row 4 event.
-        let event = [1.0, 0.0, 0.0, 1.0, 1.0];
+        let n = 7;
+        let z = [0.4, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
+        let weights = [1.0, 0.8, 1.3, 0.9, 1.1, 0.7, 1.4];
+        // Mix exact events and right-censored rows; the last two rows push
+        // eta into opposite normal-tail regimes while retaining finite truth.
+        let event = [1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
         // logslope eta (g) per row, fed through block 2.
-        let g_eta = array![0.2, -0.5, 0.35, -0.15, 0.6];
+        let g_eta = array![0.2, -0.5, 0.35, -0.15, 0.6, 0.45, -0.55];
         // marginal eta (block 1) — additive index shared by η0 and η1.
-        let marginal_eta = array![0.1, -0.2, 0.05, 0.12, -0.08];
+        let marginal_eta = array![0.1, -0.2, 0.05, 0.12, -0.08, 6.2, -7.4];
 
         // Deterministic pseudo-random direction vectors (no RNG dependency).
         let dirs: [[f64; 4]; 3] = [

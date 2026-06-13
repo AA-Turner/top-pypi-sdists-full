@@ -14,6 +14,7 @@ use crate::{
         function::{
             FunctionBodyKind, FunctionDecorators, FunctionLiteral, FunctionType, KnownFunction,
             OverloadLiteral, function_body_kind, is_implicit_classmethod,
+            same_module_uncached_raw_signature,
         },
         generics::{enclosing_generic_contexts, typing_self},
         infer::{
@@ -80,16 +81,18 @@ impl<'db> ExpectedReturnType<'db> {
 
         let public = normalize(
             db,
-            function
-                .last_definition_raw_signature(db, ReturnCallableTypeVarScope::Public)
+            same_module_uncached_raw_signature(db, function, ReturnCallableTypeVarScope::Public)
                 .return_ty,
         );
         let lexical = function_node.type_params.is_some().then(|| {
             normalize(
                 db,
-                function
-                    .last_definition_raw_signature(db, ReturnCallableTypeVarScope::Lexical)
-                    .return_ty,
+                same_module_uncached_raw_signature(
+                    db,
+                    function,
+                    ReturnCallableTypeVarScope::Lexical,
+                )
+                .return_ty,
             )
         });
 
@@ -167,9 +170,12 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
 
             let enclosing_function = nearest_enclosing_function(db, self.index, self.scope())
                 .expect("should be in a function body scope");
-            let declared_ty = enclosing_function
-                .last_definition_raw_signature(db, ReturnCallableTypeVarScope::Public)
-                .return_ty;
+            let declared_ty = same_module_uncached_raw_signature(
+                db,
+                enclosing_function,
+                ReturnCallableTypeVarScope::Public,
+            )
+            .return_ty;
             let expected_return =
                 ExpectedReturnType::from_function(db, enclosing_function, function);
             let expected_ty = expected_return.public();
@@ -317,7 +323,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
 
         let mut decorator_types_and_nodes = Vec::with_capacity(decorator_list.len());
         let mut function_decorators = FunctionDecorators::empty();
-        let mut deprecated = None;
         let mut dataclass_transformer_params = None;
         let mut final_decorator = None;
 
@@ -346,9 +351,6 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                     }
                     _ => {}
                 },
-                Type::KnownInstance(KnownInstanceType::Deprecated(deprecated_inst)) => {
-                    deprecated = Some(deprecated_inst);
-                }
                 Type::DataclassTransformer(params) => {
                     dataclass_transformer_params = Some(params);
                 }
@@ -413,13 +415,11 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             known_function,
             body_scope,
             function_decorators,
-            deprecated,
+            None,
             dataclass_transformer_params,
             function.returns.is_some(),
         );
-        let function_literal = FunctionLiteral {
-            last_definition: overload_literal,
-        };
+        let function_literal = FunctionLiteral::new(db, overload_literal);
 
         let mut inferred_ty = Type::FunctionLiteral(FunctionType::new(db, function_literal, None));
         if !decorator_list.is_empty() {
@@ -448,7 +448,14 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         }
 
         for (decorator_ty, decorator_node) in decorator_types_and_nodes.iter().rev() {
-            inferred_ty = self.apply_decorator(*decorator_ty, inferred_ty, decorator_node);
+            inferred_ty = if let Type::KnownInstance(KnownInstanceType::Deprecated(deprecated)) =
+                decorator_ty
+                && let Type::FunctionLiteral(function) = inferred_ty
+            {
+                Type::FunctionLiteral(function.with_deprecated(db, *deprecated))
+            } else {
+                self.apply_decorator(*decorator_ty, inferred_ty, decorator_node)
+            };
         }
 
         self.add_declaration_with_binding(

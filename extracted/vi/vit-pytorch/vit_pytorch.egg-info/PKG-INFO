@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.22.0
+Version: 1.23.2
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
@@ -2431,6 +2431,18 @@ Coming from computer vision and new to transformers? Here are some resources tha
     archivePrefix = {arXiv},
     primaryClass = {cs.CV},
     url     = {https://arxiv.org/abs/2605.26636},
+}
+```
+
+```bibtex
+@misc{yoshihashi2026whatwheretransformer,
+    title   = {What-Where Transformer: A Slot-Centric Visual Backbone for Concurrent Representation and Localization},
+    author  = {Ryota Yoshihashi and Masahiro Kada and Satoshi Ikehata and Rei Kawakami and Ikuro Sato},
+    year    = {2026},
+    eprint  = {2605.12021},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CV},
+    url     = {https://arxiv.org/abs/2605.12021},
 }
 ```
 

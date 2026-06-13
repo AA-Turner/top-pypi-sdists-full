@@ -136,12 +136,15 @@ class PackageConfig(google.protobuf.message.Message):
     BILLING_INTERVAL_FIELD_NUMBER: builtins.int
     TITLE_FIELD_NUMBER: builtins.int
     SUPPORTED_MONTH_INTERVALS_FIELD_NUMBER: builtins.int
+    ADMIN_TITLE_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
     billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType
     """Deprecated. Use supported_month_intervals."""
     title: builtins.str
+    admin_title: builtins.str
+    """Title shown in admin interfaces, not customer-facing."""
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
@@ -165,8 +168,9 @@ class PackageConfig(google.protobuf.message.Message):
         billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType = ...,
         title: builtins.str = ...,
         supported_month_intervals: collections.abc.Iterable[builtins.int] | None = ...,
+        admin_title: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid"]) -> None: ...
 
 global___PackageConfig = PackageConfig

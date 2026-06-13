@@ -47,6 +47,7 @@ import type {
   GuardReceiptDailyActivity,
   GuardReceiptHarnessStat,
   GuardRuntimeSnapshot,
+  GuardCloudConnectStatusResponse,
   SupplyChainSnapshot,
   GuardSettingsPayload,
   GuardSettingsExport,
@@ -973,6 +974,9 @@ function queueSearchParams(input: GuardApprovalPageFilters): URLSearchParams {
   if (typeof input.limit === "number") {
     params.set("limit", String(input.limit));
   }
+  if (input.includeTotals === false) {
+    params.set("include_totals", "0");
+  }
   return params;
 }
 
@@ -995,6 +999,7 @@ export async function fetchAllPendingRequests(): Promise<GuardApprovalRequest[]>
       status: "pending",
       limit: PENDING_QUEUE_PAGE_LIMIT,
       cursor,
+      includeTotals: pageIndex === 0,
     });
     items.push(...page.items);
     if (!page.next_cursor || page.next_cursor === cursor) {
@@ -1088,7 +1093,7 @@ export function buildDemoRuntimeSnapshot(): GuardRuntimeSnapshot {
     "This machine is connected to Guard Cloud, but the first protected session has not landed yet. Open Watched Apps while the first sync settles.";
   const dashboardUrl = "https://hol.org/guard";
   const inboxUrl = "https://hol.org/guard/inbox";
-  const fleetUrl = "https://hol.org/guard/fleet";
+  const fleetUrl = "https://hol.org/guard/protect";
   const connectUrl = "https://hol.org/guard/connect";
   return {
     generated_at: now,
@@ -1481,7 +1486,7 @@ export async function publishInsightsShare(input: {
     return {
       slug: "demo-share",
       publicUrl: "https://hol.org/guard/insights/demo-share",
-      ogImageUrl: "https://hol.org/api/og/guard/insights/demo-share",
+      ogImageUrl: "https://hol.org/hol-og-image.jpg",
       expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
     };
   }
@@ -1519,6 +1524,30 @@ export async function publishInsightsShare(input: {
   throw new Error("Invalid insights share response");
 }
 
+function normalizeGuardCloudConnectStatus(value: unknown): GuardCloudConnectStatusResponse {
+  if (!isRecord(value)) {
+    return { connect_required: false, connect_flow: null };
+  }
+  return {
+    connect_required: value.connect_required === true,
+    connect_flow: normalizePackageFirewallConnectFlow(value.connect_flow),
+  };
+}
+
+export async function fetchGuardCloudConnectStatus(): Promise<GuardCloudConnectStatusResponse> {
+  return normalizeGuardCloudConnectStatus(await readJson<unknown>("/v1/cloud/connect"));
+}
+
+export async function startGuardCloudConnect(): Promise<GuardCloudConnectStatusResponse> {
+  return normalizeGuardCloudConnectStatus(
+    await readJson<unknown>("/v1/cloud/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
+  );
+}
+
 export async function fetchLatestReceipt(
   artifactId: string,
   harness: string
@@ -1554,6 +1583,30 @@ export async function fetchPolicies(): Promise<GuardPolicyDecision[]> {
   }
   const payload = await readJson<{ items: GuardPolicyDecision[] }>("/v1/policy");
   return payload.items;
+}
+
+export async function savePolicyDecision(input: {
+  harness: string;
+  scope: DecisionScope;
+  action: string;
+  artifact_id?: string;
+  workspace?: string;
+  publisher?: string;
+  reason?: string;
+  approval_password?: string;
+  approval_totp_code?: string;
+}): Promise<{ saved: boolean }> {
+  if (isGuardDemoMode()) {
+    return { saved: true };
+  }
+  return readJson<{ saved: boolean }>("/v1/policy/decisions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...guardAuthHeaders(),
+    },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function clearPolicy(input: {
@@ -2543,7 +2596,7 @@ export async function runAuditRemediation(input: AuditRemediationInput): Promise
 }
 
 export async function runPackageAudit(): Promise<PackageFirewallActionResponse> {
-  const response = await readJson<unknown>("/v1/supply-chain/audit", {
+  const response = await fetchGuardApi("/v1/supply-chain/audit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -2551,11 +2604,18 @@ export async function runPackageAudit(): Promise<PackageFirewallActionResponse> 
     },
     body: JSON.stringify({}),
   });
-  return normalizePackageFirewallAction(response);
+  const payloadBody = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    throw new GuardHarnessActionError(
+      response.status,
+      isGuardHarnessActionErrorPayload(payloadBody) ? payloadBody : null,
+    );
+  }
+  return normalizePackageFirewallAction(payloadBody);
 }
 
 export async function runPackageSync(): Promise<PackageFirewallActionResponse> {
-  const response = await readJson<unknown>("/v1/supply-chain/sync", {
+  const response = await fetchGuardApi("/v1/supply-chain/sync", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -2563,7 +2623,14 @@ export async function runPackageSync(): Promise<PackageFirewallActionResponse> {
     },
     body: JSON.stringify({}),
   });
-  return normalizePackageFirewallAction(response);
+  const payloadBody = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    throw new GuardHarnessActionError(
+      response.status,
+      isGuardHarnessActionErrorPayload(payloadBody) ? payloadBody : null,
+    );
+  }
+  return normalizePackageFirewallAction(payloadBody);
 }
 
 export type EvidencePageData = {

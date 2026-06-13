@@ -47,11 +47,11 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
-    pub fn new(event_logger: Arc<EventLogger>, sdk_key: &str) -> Self {
+    pub fn new(event_logger: Arc<EventLogger>, sdk_instance_id: &str) -> Self {
         Self {
             event_logger,
             marker_map: Mutex::new(HashMap::new()),
-            global_configs: GlobalConfigs::get_instance(sdk_key),
+            global_configs: GlobalConfigs::get_instance(sdk_instance_id),
             context: Mutex::new(ContextType::Initialize),
         }
     }

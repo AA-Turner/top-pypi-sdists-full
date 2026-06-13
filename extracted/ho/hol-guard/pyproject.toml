@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling<1.28"]
+requires = ["hatchling<1.31"]
 build-backend = "hatchling.build"
 
 [project]
 name = "hol-guard"
-version = "2.0.607"
+version = "2.0.646"
 description = "Protect local AI harnesses with HOL Guard before tools run in Codex, Claude Code, Cursor, Gemini, and OpenCode."
 readme = "README.md"
 license = "Apache-2.0"
@@ -40,12 +40,12 @@ cisco = [
     "cisco-ai-mcp-scanner~=4.6; python_version >= '3.11'",
 ]
 dev = [
-    "build>=1.2.2",
+    "build>=1.5.0",
     "jsonschema>=4.26.0",
     "pyyaml>=6.0.3",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
-    "ruff>=0.15.11",
+    "ruff>=0.15.15",
 ]
 publish = [
     "twine>=6.2.0",

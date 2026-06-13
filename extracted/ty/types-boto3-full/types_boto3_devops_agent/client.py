@@ -38,6 +38,7 @@ from .paginator import (
     ListGoalsPaginator,
     ListJournalRecordsPaginator,
     ListServicesPaginator,
+    ListTriggersPaginator,
 )
 from .type_defs import (
     AssociateServiceInputTypeDef,
@@ -54,11 +55,14 @@ from .type_defs import (
     CreateChatResponseTypeDef,
     CreatePrivateConnectionInputTypeDef,
     CreatePrivateConnectionOutputTypeDef,
+    CreateTriggerRequestTypeDef,
+    CreateTriggerResponseTypeDef,
     DeleteAgentSpaceInputTypeDef,
     DeleteAssetFileRequestTypeDef,
     DeleteAssetRequestTypeDef,
     DeletePrivateConnectionInputTypeDef,
     DeletePrivateConnectionOutputTypeDef,
+    DeleteTriggerRequestTypeDef,
     DeregisterServiceInputTypeDef,
     DescribePrivateConnectionInputTypeDef,
     DescribePrivateConnectionOutputTypeDef,
@@ -86,6 +90,8 @@ from .type_defs import (
     GetRecommendationResponseTypeDef,
     GetServiceInputTypeDef,
     GetServiceOutputTypeDef,
+    GetTriggerRequestTypeDef,
+    GetTriggerResponseTypeDef,
     ListAgentSpacesInputTypeDef,
     ListAgentSpacesOutputTypeDef,
     ListAssetFilesRequestTypeDef,
@@ -117,6 +123,8 @@ from .type_defs import (
     ListServicesOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTriggersRequestTypeDef,
+    ListTriggersResponseTypeDef,
     ListWebhooksInputTypeDef,
     ListWebhooksOutputTypeDef,
     RegisterServiceInputTypeDef,
@@ -143,6 +151,8 @@ from .type_defs import (
     UpdatePrivateConnectionCertificateOutputTypeDef,
     UpdateRecommendationRequestTypeDef,
     UpdateRecommendationResponseTypeDef,
+    UpdateTriggerRequestTypeDef,
+    UpdateTriggerResponseTypeDef,
     ValidateAwsAssociationsInputTypeDef,
 )
 
@@ -272,6 +282,16 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#create_private_connection)
         """
 
+    def create_trigger(
+        self, **kwargs: Unpack[CreateTriggerRequestTypeDef]
+    ) -> CreateTriggerResponseTypeDef:
+        """
+        Creates a new Trigger in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/create_trigger.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#create_trigger)
+        """
+
     def delete_agent_space(self, **kwargs: Unpack[DeleteAgentSpaceInputTypeDef]) -> dict[str, Any]:
         """
         Deletes an AgentSpace.
@@ -304,6 +324,14 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_private_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#delete_private_connection)
+        """
+
+    def delete_trigger(self, **kwargs: Unpack[DeleteTriggerRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a Trigger from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_trigger.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#delete_trigger)
         """
 
     def deregister_service(self, **kwargs: Unpack[DeregisterServiceInputTypeDef]) -> dict[str, Any]:
@@ -446,6 +474,14 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_service.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_service)
+        """
+
+    def get_trigger(self, **kwargs: Unpack[GetTriggerRequestTypeDef]) -> GetTriggerResponseTypeDef:
+        """
+        Gets a Trigger from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_trigger.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_trigger)
         """
 
     def list_agent_spaces(
@@ -601,6 +637,16 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_tags_for_resource)
         """
 
+    def list_triggers(
+        self, **kwargs: Unpack[ListTriggersRequestTypeDef]
+    ) -> ListTriggersResponseTypeDef:
+        """
+        Lists Triggers in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_triggers.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_triggers)
+        """
+
     def list_webhooks(
         self, **kwargs: Unpack[ListWebhooksInputTypeDef]
     ) -> ListWebhooksOutputTypeDef:
@@ -737,6 +783,16 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#update_recommendation)
         """
 
+    def update_trigger(
+        self, **kwargs: Unpack[UpdateTriggerRequestTypeDef]
+    ) -> UpdateTriggerResponseTypeDef:
+        """
+        Updates the status of an existing Trigger.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_trigger.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#update_trigger)
+        """
+
     def validate_aws_associations(
         self, **kwargs: Unpack[ValidateAwsAssociationsInputTypeDef]
     ) -> dict[str, Any]:
@@ -862,6 +918,17 @@ class DevOpsAgentServiceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_services"]
     ) -> ListServicesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_triggers"]
+    ) -> ListTriggersPaginator:
         """
         Create a paginator for an operation.
 

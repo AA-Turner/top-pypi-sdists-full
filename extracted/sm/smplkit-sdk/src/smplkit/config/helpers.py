@@ -1,6 +1,6 @@
 """Stateless conversion helpers for the unified config client.
 
-The fused :class:`smplkit.config._client.ConfigClient` (and its async
+The fused :class:`smplkit.config.clients.ConfigClient` (and its async
 counterpart) convert generated API responses to/from :class:`Config`
 models on both its management (CRUD) and live surfaces. Keeping these
 helpers in a separate stateless module avoids import cycles between the
@@ -24,7 +24,7 @@ from smplkit._generated.config.models.config_response import ConfigResponse
 from smplkit.config.models import AsyncConfig, Config, ConfigEnvironment
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.config._client import AsyncConfigClient, ConfigClient
+    from smplkit.config.clients import AsyncConfigClient, ConfigClient
 
 
 def _make_items(items: dict[str, Any] | None) -> ConfigItemsType0 | None:

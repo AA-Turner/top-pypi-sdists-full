@@ -42,8 +42,7 @@ use crate::families::custom_family::{
     PenaltyMatrix,
 };
 use crate::families::identifiability_compiler::{
-    IdentityRowHessian, RowJacobianOperator, orthogonalize_design_blocks,
-    scale_jacobian_by_sqrt_h_with,
+    IdentityRowHessian, RowJacobianOperator, orthogonalize_design_blocks, symmetric_sqrt_into,
 };
 use crate::linalg::faer_ndarray::{default_rrqr_rank_alpha, rrqr_with_permutation};
 use crate::linalg::matrix::{CoefficientTransformOperator, DenseDesignMatrix, DesignMatrix};
@@ -52,91 +51,139 @@ use crate::solver::identifiability_audit::{
     IdentifiabilityAudit, audit_identifiability, audit_identifiability_channel_aware,
 };
 
-/// A [`RowJacobianOperator`] built from a [`BlockEffectiveJacobian`] callback.
+enum BlockJacobianSource {
+    Callback(Arc<dyn BlockEffectiveJacobian>),
+    FlatDesign(DesignMatrix),
+}
+
+/// A lazy [`RowJacobianOperator`] for identifiability audit blocks.
 ///
-/// At audit time we call `effective_jacobian_at` once with `beta = 0` and
-/// no family scalars.  The callback returns an `(n * k, p)` **channel-major**
-/// stacked matrix: rows `r·n .. (r+1)·n` carry channel `r`'s row Jacobian, so
-/// `stacked[r·n + i, j]` is observation `i`'s row at output `r`.  Every
-/// existing implementation — `AdditiveBlockJacobian`, the
-/// survival-marginal-slope time/marginal/logslope callbacks, etc. — emits
-/// this layout (see `BlockEffectiveJacobian::effective_jacobian_at`).
-/// We reshape that into the `(n, p, k)` tensor that `RowJacobianOperator`
-/// expects.
+/// Callback blocks stream `BlockEffectiveJacobian::effective_jacobian_rows`;
+/// plain blocks stream `DesignMatrix::row_chunk_into` and embed the flat rows in
+/// channel 0. No `(n, p, K)` tensor is held across blocks.
 struct BlockJacobianAsRowOp {
-    /// Materialised `(n, p, k)` Jacobian tensor.
-    jac: Array3<f64>,
+    source: BlockJacobianSource,
+    n: usize,
+    p: usize,
+    k_block: usize,
+    k_target: usize,
+    block_name: String,
 }
 
 impl BlockJacobianAsRowOp {
     /// Build from a `BlockEffectiveJacobian` callback.
     ///
-    /// `n_rows` is the number of training observations, `k` is the number of
-    /// output channels.  The `effective_jacobian_at` call uses `beta = 0` and
-    /// `family_scalars = None`.
+    /// `n_rows` is the number of training observations; `k_target` is the
+    /// channel count of the emitted tensor. A callback whose `n_outputs()`
+    /// is smaller than `k_target` has its Jacobian embedded in the leading
+    /// channels with the trailing channels zero — built directly into the
+    /// padded tensor, so no intermediate `(n, p, k_block)` tensor plus copy
+    /// is ever materialized (at biobank scale every avoided `(n, p, k)`
+    /// duplicate is hundreds of MiB, #979). The `effective_jacobian_at`
+    /// call uses `beta = 0` and `family_scalars = None`.
     fn from_callback(
-        cb: &dyn BlockEffectiveJacobian,
+        cb: Arc<dyn BlockEffectiveJacobian>,
         n_rows: usize,
+        p_block: usize,
+        k_target: usize,
         block_name: &str,
     ) -> Result<Self, String> {
-        // Pass a zero beta of length 0 — the contract for `effective_jacobian_at`
-        // at pre-fit initialization is that `beta = &[]` or `beta = &[0, ..., 0]`
-        // both produce the linearised Jacobian at the origin.  Callbacks that
-        // need a specific p-length vector will read the design width from their
-        // captured state, not from the beta length.
         let k = cb.n_outputs();
-        let zeros: Vec<f64> = Vec::new();
-        let state = FamilyLinearizationState {
-            beta: &zeros,
-            family_scalars: None,
-            channel_hessian: None,
-            probit_frailty_scale: 1.0,
-        };
-        let stacked = cb
-            .effective_jacobian_at(&state)
-            .map_err(|e| format!("BlockJacobianAsRowOp block '{block_name}': {e}"))?;
-        // stacked: (n_rows * k, p_block)
-        let nk = stacked.nrows();
-        let p_block = stacked.ncols();
         if k == 0 {
             return Err(format!(
                 "BlockJacobianAsRowOp block '{block_name}': n_outputs=0 is invalid"
             ));
         }
-        if nk != n_rows * k {
+        if k > k_target {
             return Err(format!(
-                "BlockJacobianAsRowOp block '{block_name}': effective_jacobian_at returned \
-                 {} rows but expected n_rows({n_rows}) * k({k}) = {}",
-                nk,
-                n_rows * k,
+                "BlockJacobianAsRowOp block '{block_name}': n_outputs({k}) exceeds the \
+                 audit channel count k_target({k_target})"
             ));
         }
-        // Reshape (n*k, p) → (n, p, k) using the channel-major layout produced
-        // by every BlockEffectiveJacobian implementation: row `r*n + i` of
-        // `stacked` is observation `i`, channel `r`.
-        let mut jac = Array3::<f64>::zeros((n_rows, p_block, k));
-        for r in 0..k {
-            let row_base = r * n_rows;
-            for i in 0..n_rows {
-                let src_row = row_base + i;
-                for j in 0..p_block {
-                    jac[[i, j, r]] = stacked[[src_row, j]];
+        Ok(Self {
+            source: BlockJacobianSource::Callback(cb),
+            n: n_rows,
+            p: p_block,
+            k_block: k,
+            k_target,
+            block_name: block_name.to_string(),
+        })
+    }
+
+    fn from_flat_design(
+        design: DesignMatrix,
+        n_rows: usize,
+        k_target: usize,
+        block_name: &str,
+    ) -> Self {
+        let p = design.ncols();
+        Self {
+            source: BlockJacobianSource::FlatDesign(design),
+            n: n_rows,
+            p,
+            k_block: 1,
+            k_target,
+            block_name: block_name.to_string(),
+        }
+    }
+
+    fn zero_state() -> FamilyLinearizationState<'static> {
+        FamilyLinearizationState {
+            beta: &[],
+            family_scalars: None,
+            channel_hessian: None,
+            probit_frailty_scale: 1.0,
+        }
+    }
+
+    fn stacked_rows(&self, start: usize, end: usize) -> Result<Array2<f64>, String> {
+        match &self.source {
+            BlockJacobianSource::Callback(cb) => {
+                let state = Self::zero_state();
+                let stacked = cb
+                    .effective_jacobian_rows(&state, start..end)
+                    .map_err(|e| {
+                        format!("BlockJacobianAsRowOp block '{}': {e}", self.block_name)
+                    })?;
+                let chunk = end - start;
+                if stacked.nrows() != self.k_block * chunk || stacked.ncols() != self.p {
+                    return Err(format!(
+                        "BlockJacobianAsRowOp block '{}': effective_jacobian_rows returned \
+                         shape {:?}, expected [{}, {}]",
+                        self.block_name,
+                        stacked.shape(),
+                        self.k_block * chunk,
+                        self.p,
+                    ));
                 }
+                Ok(stacked)
+            }
+            BlockJacobianSource::FlatDesign(design) => {
+                let chunk = end - start;
+                let mut out = Array2::<f64>::zeros((chunk, self.p));
+                design
+                    .row_chunk_into(start..end, out.view_mut())
+                    .map_err(|e| {
+                        format!(
+                            "BlockJacobianAsRowOp block '{}': flat design row chunk failed: {e}",
+                            self.block_name
+                        )
+                    })?;
+                Ok(out)
             }
         }
-        Ok(Self { jac })
     }
 }
 
 impl RowJacobianOperator for BlockJacobianAsRowOp {
     fn k(&self) -> usize {
-        self.jac.shape()[2]
+        self.k_target
     }
     fn ncols(&self) -> usize {
-        self.jac.shape()[1]
+        self.p
     }
     fn nrows(&self) -> usize {
-        self.jac.shape()[0]
+        self.n
     }
     fn apply_row(&self, row: usize, delta_beta: &[f64], out: &mut [f64]) {
         let k = self.k();
@@ -145,26 +192,73 @@ impl RowJacobianOperator for BlockJacobianAsRowOp {
         for r in 0..k {
             out[r] = 0.0;
         }
-        for (j, &b) in delta_beta.iter().enumerate() {
-            for r in 0..k {
-                out[r] += self.jac[[row, j, r]] * b;
+        let stacked = self
+            .stacked_rows(row, row + 1)
+            .expect("BlockJacobianAsRowOp::apply_row failed to read row");
+        for r in 0..self.k_block {
+            for (j, &b) in delta_beta.iter().enumerate() {
+                out[r] += stacked[[r, j]] * b;
             }
         }
     }
     fn evaluate_full(&self) -> Array3<f64> {
-        self.jac.clone()
+        let entries = self.n.saturating_mul(self.p).saturating_mul(self.k_target);
+        const MAX_EVALUATE_FULL_ENTRIES: usize = 10_000_000;
+        assert!(
+            entries <= MAX_EVALUATE_FULL_ENTRIES,
+            "BlockJacobianAsRowOp::evaluate_full refused to materialize {entries} entries"
+        );
+        let mut out = Array3::<f64>::zeros((self.n, self.p, self.k_target));
+        for start in (0..self.n).step_by(4096) {
+            let end = (start + 4096).min(self.n);
+            let stacked = self
+                .stacked_rows(start, end)
+                .expect("BlockJacobianAsRowOp::evaluate_full failed to read row chunk");
+            let chunk = end - start;
+            for ch in 0..self.k_block {
+                for local_i in 0..chunk {
+                    for col in 0..self.p {
+                        out[[start + local_i, col, ch]] = stacked[[ch * chunk + local_i, col]];
+                    }
+                }
+            }
+        }
+        out
     }
     fn scaled_design_by_sqrt_h(&self, h_full: &Array3<f64>) -> Array2<f64> {
-        // Scale straight out of the stored `(n, p, K)` tensor: the closure
-        // reads `self.jac` element-wise, so the `(n·K, p)` design the compiler
-        // consumes is produced without cloning the whole tensor first (the
-        // default impl's `evaluate_full()` clone). (#738: a capability is not a
-        // representation — supply the scaled design directly from the stored
-        // layout instead of materialising a dense tensor to be re-scaled.)
         let n = self.nrows();
         let p = self.ncols();
         let k = self.k();
-        scale_jacobian_by_sqrt_h_with(n, p, k, h_full, |i, a, c| self.jac[[i, a, c]])
+        assert_eq!(h_full.shape(), &[n, k, k]);
+        let mut out = Array2::<f64>::zeros((n * k, p));
+        let mut sqrt_h = Array2::<f64>::zeros((k, k));
+        let mut h_i = Array2::<f64>::zeros((k, k));
+        for start in (0..n).step_by(4096) {
+            let end = (start + 4096).min(n);
+            let chunk = end - start;
+            let mut rows = Array2::<f64>::zeros((chunk * k, p));
+            self.channel_flattened_rows(start..end, &mut rows);
+            for local_i in 0..chunk {
+                let row = start + local_i;
+                for a in 0..k {
+                    for b in 0..k {
+                        h_i[[a, b]] = h_full[[row, a, b]];
+                    }
+                }
+                symmetric_sqrt_into(&h_i, &mut sqrt_h);
+                for ch in 0..k {
+                    let dst = row * k + ch;
+                    for col in 0..p {
+                        let mut acc = 0.0;
+                        for cp in 0..k {
+                            acc += sqrt_h[[ch, cp]] * rows[[local_i * k + cp, col]];
+                        }
+                        out[[dst, col]] = acc;
+                    }
+                }
+            }
+        }
+        out
     }
     fn channel_flattened_column(&self, col: usize, out: &mut [f64]) {
         let n = self.nrows();
@@ -175,10 +269,35 @@ impl RowJacobianOperator for BlockJacobianAsRowOp {
             self.ncols()
         );
         assert_eq!(out.len(), n * k);
-        // Stream the column straight out of the stored tensor — no full clone.
-        for i in 0..n {
-            for ch in 0..k {
-                out[i * k + ch] = self.jac[[i, col, ch]];
+        let mut offset = 0usize;
+        for start in (0..n).step_by(4096) {
+            let end = (start + 4096).min(n);
+            let chunk = end - start;
+            let mut rows = Array2::<f64>::zeros((chunk * k, self.p));
+            self.channel_flattened_rows(start..end, &mut rows);
+            for local_i in 0..chunk {
+                for ch in 0..k {
+                    out[offset + local_i * k + ch] = rows[[local_i * k + ch, col]];
+                }
+            }
+            offset += chunk * k;
+        }
+    }
+
+    fn channel_flattened_rows(&self, rows: std::ops::Range<usize>, out: &mut Array2<f64>) {
+        let start = rows.start.min(self.n);
+        let end = rows.end.min(self.n);
+        let chunk = end - start;
+        assert_eq!(out.shape(), &[chunk * self.k_target, self.p]);
+        out.fill(0.0);
+        let stacked = self
+            .stacked_rows(start, end)
+            .expect("BlockJacobianAsRowOp::channel_flattened_rows failed to read rows");
+        for ch in 0..self.k_block {
+            for local_i in 0..chunk {
+                for col in 0..self.p {
+                    out[[local_i * self.k_target + ch, col]] = stacked[[ch * chunk + local_i, col]];
+                }
             }
         }
     }
@@ -352,18 +471,28 @@ fn canonicalize_for_identifiability_inner(
     // Log the Frobenius norm and row-count of each block's effective
     // Jacobian before the audit so discrepancies between pilot and outer-fit
     // audits are visible in the log stream.
-    for spec in specs.iter() {
-        let jac_nrows = if use_channel_aware {
+    //
+    // This is purely diagnostic: the only consumer of `frob_sq` is the
+    // `log::debug!` below.  A full `effective_jacobian_at` probe materialises
+    // the block's entire `(n·k, p)` effective Jacobian — an `(n, p, k)`-class
+    // transient that at biobank scale is hundreds of MiB per block, paid every
+    // canonicalisation even when debug logging is OFF (#979).  Gate the whole
+    // loop behind the log level so production fits (info/warn) pay nothing, and
+    // when it does run, accumulate the Frobenius norm by streaming 4096-row
+    // chunks instead of holding the full Jacobian.
+    if log::log_enabled!(log::Level::Debug) {
+        const FROB_CHUNK: usize = 4096;
+        for spec in specs.iter() {
             let k = spec
                 .jacobian_callback
                 .as_ref()
                 .map(|cb| cb.n_outputs())
                 .unwrap_or(1);
-            n_rows * k
-        } else {
-            n_rows
-        };
-        let frob_sq: f64 = {
+            let jac_nrows = if use_channel_aware {
+                n_rows * k
+            } else {
+                n_rows
+            };
             let p = spec.design.ncols();
             let zeros = vec![0.0f64; p];
             let state = FamilyLinearizationState {
@@ -372,24 +501,42 @@ fn canonicalize_for_identifiability_inner(
                 channel_hessian: None,
                 probit_frailty_scale: 1.0,
             };
-            match spec.effective_jacobian_at("canonicalize_for_identifiability", &state) {
-                Ok(j) => j.iter().map(|v| v * v).sum(),
-                Err(e) => {
-                    log::debug!(
-                        "[CANON]   block '{}': effective_jacobian_at probe failed: {e}",
-                        spec.name,
-                    );
-                    f64::NAN
+            let mut frob_sq = 0.0_f64;
+            let mut probe_err: Option<String> = None;
+            for start in (0..n_rows).step_by(FROB_CHUNK) {
+                let end = (start + FROB_CHUNK).min(n_rows);
+                let chunk = match spec.jacobian_callback.as_ref() {
+                    Some(cb) => cb.effective_jacobian_rows(&state, start..end),
+                    None => {
+                        let mut out = Array2::<f64>::zeros((end - start, p));
+                        spec.design
+                            .row_chunk_into(start..end, out.view_mut())
+                            .map(|()| out)
+                            .map_err(|e| e.to_string())
+                    }
+                };
+                match chunk {
+                    Ok(rows) => frob_sq += rows.iter().map(|v| v * v).sum::<f64>(),
+                    Err(e) => {
+                        probe_err = Some(e);
+                        break;
+                    }
                 }
             }
-        };
-        log::debug!(
-            "[CANON]   block '{}': p={} jac_nrows={} frob_norm={:.4e}",
-            spec.name,
-            spec.design.ncols(),
-            jac_nrows,
-            frob_sq.sqrt(),
-        );
+            match probe_err {
+                Some(e) => log::debug!(
+                    "[CANON]   block '{}': effective_jacobian probe failed: {e}",
+                    spec.name,
+                ),
+                None => log::debug!(
+                    "[CANON]   block '{}': p={} jac_nrows={} frob_norm={:.4e}",
+                    spec.name,
+                    p,
+                    jac_nrows,
+                    frob_sq.sqrt(),
+                ),
+            }
+        }
     }
 
     // ── Run the audit ─────────────────────────────────────────────────────
@@ -401,73 +548,32 @@ fn canonicalize_for_identifiability_inner(
         let mut operators: Vec<Arc<dyn RowJacobianOperator>> = Vec::with_capacity(specs.len());
         for spec in specs.iter() {
             let op: Arc<dyn RowJacobianOperator> = match spec.jacobian_callback.as_ref() {
-                Some(cb) if cb.n_outputs() == k => {
-                    let row_op =
-                        BlockJacobianAsRowOp::from_callback(cb.as_ref(), n_rows, &spec.name)
-                            .map_err(|e| CustomFamilyError::DimensionMismatch {
-                                reason: format!(
-                                    "canonicalize_for_identifiability: build \
+                Some(cb) => {
+                    // `from_callback` zero-pads the trailing channels for
+                    // blocks with fewer outputs than the audit's common k,
+                    // building the padded tensor directly.
+                    let row_op = BlockJacobianAsRowOp::from_callback(
+                        Arc::clone(cb),
+                        n_rows,
+                        spec.design.ncols(),
+                        k,
+                        &spec.name,
+                    )
+                    .map_err(|e| CustomFamilyError::DimensionMismatch {
+                        reason: format!(
+                            "canonicalize_for_identifiability: build \
                                          BlockJacobianAsRowOp for block '{}': {e}",
-                                    spec.name,
-                                ),
-                            })?;
+                            spec.name,
+                        ),
+                    })?;
                     Arc::new(row_op)
                 }
-                Some(cb) => {
-                    // k mismatch: this block has fewer outputs than
-                    // max_n_outputs — embed its Jacobian in the top
-                    // channels and zero-pad the rest.
-                    let k_block = cb.n_outputs();
-                    let row_op =
-                        BlockJacobianAsRowOp::from_callback(cb.as_ref(), n_rows, &spec.name)
-                            .map_err(|e| CustomFamilyError::DimensionMismatch {
-                                reason: format!(
-                                    "canonicalize_for_identifiability: build \
-                                         BlockJacobianAsRowOp (k_mismatch) for block '{}': {e}",
-                                    spec.name,
-                                ),
-                            })?;
-                    // Embed: extend jac channels from k_block to k by
-                    // zero-padding the trailing channels.
-                    let mut jac_ext = Array3::<f64>::zeros((row_op.nrows(), row_op.ncols(), k));
-                    let jac_inner = row_op.evaluate_full();
-                    for i in 0..row_op.nrows() {
-                        for j in 0..row_op.ncols() {
-                            for r in 0..k_block {
-                                jac_ext[[i, j, r]] = jac_inner[[i, j, r]];
-                            }
-                        }
-                    }
-                    Arc::new(BlockJacobianAsRowOp { jac: jac_ext })
-                }
-                None => {
-                    // Single-output block: embed the flat design in the
-                    // first channel.
-                    let p = spec.design.ncols();
-                    let zeros = vec![0.0f64; p];
-                    let state = FamilyLinearizationState {
-                        beta: &zeros,
-                        family_scalars: None,
-                        channel_hessian: None,
-                        probit_frailty_scale: 1.0,
-                    };
-                    let flat = spec
-                        .effective_jacobian_at("canonicalize_for_identifiability", &state)
-                        .map_err(|e| CustomFamilyError::DimensionMismatch {
-                            reason: format!(
-                                "canonicalize_for_identifiability: effective_jacobian_at \
-                                     for block '{}': {e}",
-                                spec.name,
-                            ),
-                        })?;
-                    let mut jac_ext = Array3::<f64>::zeros((n_rows, flat.ncols(), k));
-                    for i in 0..n_rows {
-                        for j in 0..flat.ncols() {
-                            jac_ext[[i, j, 0]] = flat[[i, j]];
-                        }
-                    }
-                    Arc::new(BlockJacobianAsRowOp { jac: jac_ext })
-                }
+                None => Arc::new(BlockJacobianAsRowOp::from_flat_design(
+                    spec.design.clone(),
+                    n_rows,
+                    k,
+                    &spec.name,
+                )),
             };
             operators.push(op);
         }

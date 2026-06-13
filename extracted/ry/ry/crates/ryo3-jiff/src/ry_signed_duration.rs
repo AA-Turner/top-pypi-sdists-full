@@ -252,17 +252,6 @@ impl RySignedDuration {
             .map_err(map_py_value_err)
     }
 
-    #[pyo3(
-        warn(
-            message = "`SignedDuration.from_isoformat` is deprecated; use `SignedDuration.fromisoformat` instead [removal: v0.0.96]",
-            category = pyo3::exceptions::PyDeprecationWarning
-        )
-    )]
-    #[staticmethod]
-    fn from_isoformat(s: &str) -> PyResult<Self> {
-        Self::fromisoformat(s)
-    }
-
     #[pyo3(signature = (*, friendly = false), name = "to_string")]
     fn py_to_string(&self, friendly: bool) -> String {
         if friendly {
@@ -753,7 +742,7 @@ mod maths {
     use ryo3_macro_rules::{py_overflow_error, py_type_err, py_zero_division_err};
 
     use super::RySignedDuration;
-    use crate::py_temporal_like::PyTemporalTypes;
+    use crate::py_temporal_like::PyTemporalArg;
     use crate::{RyDate, RyDateTime, RyTime, RyTimestamp, RyZoned};
 
     // ========================================================================
@@ -763,7 +752,7 @@ mod maths {
     pub(crate) enum SignedDurationAddTarget<'a, 'py> {
         SignedDuration(Borrowed<'a, 'py, RySignedDuration>),
         Delta(SignedDuration),
-        TemporalType(PyTemporalTypes<'a, 'py>),
+        TemporalType(PyTemporalArg<'a, 'py>),
     }
 
     impl<'a, 'py> FromPyObject<'a, 'py> for SignedDurationAddTarget<'a, 'py> {
@@ -777,7 +766,7 @@ mod maths {
             } else if let Ok(d) = obj.cast::<pyo3::types::PyDelta>() {
                 let rs_dur: SignedDuration = d.extract()?;
                 Ok(Self::Delta(rs_dur))
-            } else if let Ok(date_time_type) = obj.extract::<PyTemporalTypes<'a, 'py>>() {
+            } else if let Ok(date_time_type) = obj.extract::<PyTemporalArg<'a, 'py>>() {
                 Ok(Self::TemporalType(date_time_type))
             } else {
                 py_type_err!(
@@ -842,7 +831,7 @@ mod maths {
     impl_signed_duration_add_for_borrowed_temporal!(RyZoned);
     impl_signed_duration_add_for_borrowed_temporal!(RyTimestamp);
 
-    impl<'a, 'py> PySignedDurationAdd<'a, 'py> for PyTemporalTypes<'a, 'py> {
+    impl<'a, 'py> PySignedDurationAdd<'a, 'py> for PyTemporalArg<'a, 'py> {
         type Output = PySignedDurationAddOutput;
         fn add_signed_duration(self, sd: &RySignedDuration) -> PyResult<Self::Output> {
             match self {

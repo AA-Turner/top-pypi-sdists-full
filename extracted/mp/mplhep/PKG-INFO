@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mplhep
-Version: 1.2.1
+Version: 1.3.0
 Summary: Matplotlib styles for HEP
 Project-URL: Homepage, https://github.com/scikit-hep/mplhep
 Author-email: andrzejnovak <novak5andrzej@gmail.com>
@@ -10,14 +10,13 @@ Classifier: Framework :: Matplotlib
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.10
-Requires-Dist: matplotlib>=3.10.8
+Requires-Python: >=3.11
+Requires-Dist: matplotlib>=3.11.0
 Requires-Dist: mplhep-data>=0.0.4
 Requires-Dist: numpy>=1.16.0
 Requires-Dist: packaging

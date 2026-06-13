@@ -2,7 +2,7 @@ import flask
 import flask_sock
 
 from abstra_internals.controllers.execution.execution_stdio import BroadcastController
-from abstra_internals.logger import AbstraLogger
+from abstra_internals.server.socket_listener import serve_listener_websocket
 
 
 def get_editor_bp(_):
@@ -11,13 +11,10 @@ def get_editor_bp(_):
 
     @sock.route("/listen")
     def _websocket(ws: flask_sock.Server):
-        try:
-            ws.thread.name = "StdioWebSocket"
-            BroadcastController.register(ws)
-            ws.event.wait()
-        except Exception as e:
-            AbstraLogger.capture_exception(e)
-        finally:
-            BroadcastController.unregister(ws)
+        serve_listener_websocket(
+            ws,
+            thread_name="StdioWebSocket",
+            registry=BroadcastController,
+        )
 
     return bp

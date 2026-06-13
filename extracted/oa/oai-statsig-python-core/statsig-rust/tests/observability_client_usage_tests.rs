@@ -18,6 +18,7 @@ use utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};
 
 const SDK_KEY: &str = "secret-key";
 const LONG_SDK_KEY: &str = "secret-key-123456789";
+const SDK_EXCEPTION_SERVICE_NAME: &str = "sdk-exception-service";
 
 async fn setup(observability_client: &Arc<MockObservabilityClient>) -> (MockScrapi, Statsig) {
     setup_with_sdk_key(observability_client, SDK_KEY).await
@@ -654,6 +655,7 @@ async fn test_sdk_error_capture_uses_real_network_failure() {
             specs_url: Some(mock_scrapi.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
             disable_all_logging: Some(true),
             output_log_level: Some(LogLevel::Debug),
+            service_name: Some(SDK_EXCEPTION_SERVICE_NAME.to_string()),
             ..StatsigOptions::new()
         })),
     );
@@ -689,11 +691,13 @@ async fn test_sdk_error_capture_uses_real_network_failure() {
                 RecordedCall::Increment(metric_name, value, Some(tags)) => {
                     metric_name == "statsig.sdk.sdk_exceptions_count"
                         && *value == 1.0
-                        && tags
-                            == &std::collections::HashMap::from([
-                                ("tag".to_string(), "NetworkClient".to_string()),
-                                ("exception".to_string(), "RetriesExhausted".to_string()),
-                            ])
+                        && tags.get("tag").map(String::as_str) == Some("NetworkClient")
+                        && tags.get("exception").map(String::as_str) == Some("RetriesExhausted")
+                        && tags.get("request_path").map(String::as_str)
+                            == Some("/v2/download_config_specs")
+                        && tags.get("status_code").map(String::as_str) == Some("500")
+                        && tags.get("sdk_type").map(String::as_str) == Some("statsig-server-core")
+                        && tags.get("sdk_version").is_some_and(|v| !v.is_empty())
                 }
                 _ => false,
             });
@@ -728,6 +732,21 @@ async fn test_sdk_error_capture_uses_real_network_failure() {
     assert!(
         found_sdk_exception_post,
         "Expected SDK exception post to be routed to MockScrapi"
+    );
+
+    let sdk_exception_requests = mock_scrapi.get_requests_for_endpoint(Endpoint::SdkException);
+    let sdk_exception_body: serde_json::Value =
+        serde_json::from_slice(&sdk_exception_requests[0].body).unwrap();
+    let statsig_options_raw = sdk_exception_body
+        .get("statsigOptions")
+        .and_then(|value| value.as_str())
+        .expect("Expected SDK exception body to include statsigOptions");
+    let statsig_options: serde_json::Value = serde_json::from_str(statsig_options_raw).unwrap();
+    assert_eq!(
+        statsig_options
+            .get("service_name")
+            .and_then(|value| value.as_str()),
+        Some(SDK_EXCEPTION_SERVICE_NAME)
     );
 }
 

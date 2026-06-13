@@ -2,7 +2,6 @@ import textwrap
 from pathlib import Path
 from typing import Annotated, Any
 
-import click
 import typer
 from rich.console import Console
 
@@ -20,11 +19,7 @@ from robocop.runtime.resolver import ConfigResolver
 
 
 class CliWithVersion(typer.core.TyperGroup):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        click.version_option(version=__version__)(self)
-
-    def list_commands(self, ctx: click.Context) -> list[str]:  # noqa: ARG002
+    def list_commands(self, ctx: Any) -> list[str]:  # noqa: ARG002
         """Return the list of commands in the set order."""
         commands = ["check", "check-project", "format", "list", "docs"]
         for command in self.commands:
@@ -43,6 +38,28 @@ app = typer.Typer(
 )
 list_app = typer.Typer(help="List available rules, reports or formatters.")
 app.add_typer(list_app, name="list")
+
+
+def version_callback(value: bool | None) -> None:
+    if not value:
+        return
+    typer.echo(f"robocop, version {__version__}")
+    raise typer.Exit
+
+
+@app.callback()
+def main_callback(
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            help="Show the version and exit.",
+            callback=version_callback,
+            is_eager=True,
+        ),
+    ] = None,
+) -> None:
+    """Run Robocop."""
 
 
 config_option = Annotated[

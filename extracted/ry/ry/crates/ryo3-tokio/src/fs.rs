@@ -6,8 +6,8 @@ use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use pyo3::types::PyDict;
 use ryo3_bytes::RyBytes;
-use ryo3_core::py_not_implemented_err;
 use ryo3_core::types::PyOpenMode;
+use ryo3_macro_rules::py_not_implemented_err;
 use ryo3_std::fs::PyMetadata;
 mod async_file;
 mod async_file_read_stream;
@@ -25,18 +25,18 @@ pub fn canonicalize_async(py: Python<'_>, path: PathBuf) -> PyResult<Bound<'_, P
     future_into_py(py, async move {
         tokio::fs::canonicalize(path)
             .await
-            .map(|p| p.to_string_lossy().to_string())
+            .map(|p| p.into_os_string())
             .map_err(PyErr::from)
     })
 }
 
 #[cfg(feature = "experimental-async")]
 #[pyfunction]
-pub async fn canonicalize_async(path: PathBuf) -> PyResult<String> {
+pub async fn canonicalize_async(path: PathBuf) -> PyResult<std::ffi::OsString> {
     on_tokio_py(async move {
         tokio::fs::canonicalize(path)
             .await
-            .map(|p| p.to_string_lossy().to_string())
+            .map(Into::into)
             .map_err(PyErr::from)
     })
     .await
@@ -169,18 +169,18 @@ pub fn read_link_async(py: Python<'_>, path: PathBuf) -> PyResult<Bound<'_, PyAn
     future_into_py(py, async move {
         tokio::fs::read_link(path)
             .await
-            .map(|p| p.to_string_lossy().to_string())
+            .map(|p| p.into_os_string())
             .map_err(PyErr::from)
     })
 }
 
 #[cfg(feature = "experimental-async")]
 #[pyfunction]
-pub async fn read_link_async(path: PathBuf) -> PyResult<String> {
+pub async fn read_link_async(path: PathBuf) -> PyResult<std::ffi::OsString> {
     on_tokio_py(async move {
         tokio::fs::read_link(path)
             .await
-            .map(|p| p.to_string_lossy().to_string())
+            .map(Into::into)
             .map_err(PyErr::from)
     })
     .await

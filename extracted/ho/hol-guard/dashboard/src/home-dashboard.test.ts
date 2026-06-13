@@ -140,6 +140,7 @@ const displayNames = [
   { harness: "hermes", expected: "Hermes" },
   { harness: "openclaw", expected: "OpenClaw" },
   { harness: "kimi", expected: "Kimi" },
+  { harness: "grok", expected: "Grok" },
 ];
 
 for (const { harness, expected } of displayNames) {
@@ -374,7 +375,7 @@ const setupHomeState = deriveHomeState({
   watchedAppsCount: 0,
 });
 assert(
-  setupHomeState.heroStatus === "setup_gap" && setupHomeState.ctaTarget === "fleet",
+  setupHomeState.heroStatus === "setup_gap" && setupHomeState.ctaTarget === "protect",
   "GR177: first Home view routes setup gaps to Apps"
 );
 assert(

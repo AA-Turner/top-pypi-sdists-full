@@ -48,6 +48,7 @@ __all__ = (
     "HarnessToolTypeType",
     "HarnessToolUseStatusType",
     "HarnessToolUseTypeType",
+    "InsightsFailureCategoryType",
     "InstrumentBalanceTokenType",
     "LanguageRuntimeType",
     "ListABTestsPaginatorName",
@@ -162,6 +163,41 @@ HarnessToolTypeType = Literal[
 ]
 HarnessToolUseStatusType = Literal["error", "success"]
 HarnessToolUseTypeType = Literal["mcp_tool_use", "server_tool_use", "tool_use"]
+InsightsFailureCategoryType = Literal[
+    "coding-use-case-specific-failure-types-category-dependency-issues",
+    "coding-use-case-specific-failure-types-category-edge-case-oversights",
+    "configuration-mismatch-category-tool-definition",
+    "context-handling-error-category-context-handling-failures",
+    "execution-error-category-authentication",
+    "execution-error-category-environment",
+    "execution-error-category-formatting",
+    "execution-error-category-rate-limiting",
+    "execution-error-category-resource-exhaustion",
+    "execution-error-category-resource-not-found",
+    "execution-error-category-service-errors",
+    "execution-error-category-timeout",
+    "execution-error-category-tool-schema",
+    "hallucination-category-fabricate-tool-outputs",
+    "hallucination-category-hall-capabilities",
+    "hallucination-category-hall-history",
+    "hallucination-category-hall-misunderstand",
+    "hallucination-category-hall-params",
+    "hallucination-category-hall-usage",
+    "incorrect-actions-category-clarification",
+    "incorrect-actions-category-inappropriate-info-request",
+    "incorrect-actions-category-poor-information-retrieval",
+    "incorrect-actions-category-tool-selection",
+    "llm-output-category-nonsensical",
+    "orchestration-related-errors-category-goal-deviation",
+    "orchestration-related-errors-category-premature-termination",
+    "orchestration-related-errors-category-reasoning-mismatch",
+    "orchestration-related-errors-category-unaware-termination",
+    "repetitive-behavior-category-repetition-info",
+    "repetitive-behavior-category-repetition-tool",
+    "repetitive-behavior-category-step-repetition",
+    "task-instruction-category-non-compliance",
+    "task-instruction-category-problem-id",
+]
 InstrumentBalanceTokenType = Literal["USDC"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListABTestsPaginatorName = Literal["list_ab_tests"]

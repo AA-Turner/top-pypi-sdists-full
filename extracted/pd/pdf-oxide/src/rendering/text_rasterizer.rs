@@ -128,6 +128,20 @@ fn system_fontdb() -> std::sync::Arc<fontdb::Database> {
         .get_or_init(|| {
             let mut db = fontdb::Database::new();
             db.load_system_fonts();
+            // Guarantee a CJK-covering face exists no matter which fonts the
+            // host has installed. Registered under its real family name
+            // ("Droid Sans Fallback"), so the existing fallback resolver only
+            // reaches it as a last resort — after any system CJK font (Noto
+            // Sans/Serif CJK, SimSun, …). Without this, a composite (Type 0)
+            // font that references a glyph collection but embeds no outlines
+            // renders blank on CJK-fontless hosts. ISO 32000-2 §9.7.5.2: a
+            // processor shall support the Adobe predefined character
+            // collections even when the PDF embeds no outlines for them.
+            #[cfg(feature = "cjk-render-fallback")]
+            db.load_font_data(
+                crate::fonts::form_fallback::font_bytes(crate::fonts::form_fallback::Fallback::Cjk)
+                    .to_vec(),
+            );
             std::sync::Arc::new(db)
         })
         .clone()
@@ -282,6 +296,33 @@ fn get_cjk_fallback_cached(db: &fontdb::Database) -> Option<(fontdb::ID, Arc<Vec
         .map(|(id, arc, idx)| (*id, Arc::clone(arc), *idx))
 }
 
+/// Process-wide cache for the bundled Droid Sans Fallback face used by the
+/// page-render substitution path (ISO 32000-2 §9.7.5.2 — predefined CIDFont
+/// glyph supply).
+///
+/// Gated on `cjk-render-fallback`; when the feature is off the constant is
+/// not compiled in and substitution falls through to the existing
+/// system-font path. Cached once per process so we don't re-parse the 3.4 MB
+/// font on every glyph paint.
+#[cfg(feature = "cjk-render-fallback")]
+static RENDER_CJK_FALLBACK_FACE: std::sync::OnceLock<Option<Arc<CachedFace>>> =
+    std::sync::OnceLock::new();
+
+#[cfg(feature = "cjk-render-fallback")]
+fn render_cjk_fallback_face() -> Option<Arc<CachedFace>> {
+    RENDER_CJK_FALLBACK_FACE
+        .get_or_init(|| {
+            let bytes: &'static [u8] = crate::fonts::form_fallback::render_cjk_fallback_bytes();
+            // `CachedFace::new` takes `Arc<Vec<u8>>`. The bundled font is
+            // `'static` data baked into the binary by `include_bytes!`;
+            // copying it into a `Vec<u8>` once at first use is acceptable
+            // because it happens at most once per process. After that the
+            // `Arc<CachedFace>` is shared via the `OnceLock`.
+            CachedFace::new(Arc::new(bytes.to_vec()), 0).map(Arc::new)
+        })
+        .clone()
+}
+
 /// Rasterizer for PDF text operations.
 pub struct TextRasterizer {
     /// Font database for system font fallback.
@@ -358,6 +399,40 @@ impl TextRasterizer {
         // Text rendering mode 3 = invisible text (used for searchable OCR layers)
         if gs.render_mode == 3 {
             paint.set_color(tiny_skia::Color::from_rgba(0.0, 0.0, 0.0, 0.0).unwrap());
+        }
+
+        // Predefined CIDFont substitution path: if this font was flagged
+        // at load time as an Adobe predefined CIDFont with no embedded
+        // outlines (Ryumin-Light, GothicBBB-Medium, STSong-Light,
+        // MHei-Medium, HYSMyeongJo-Medium, …), route the paint through
+        // the bundled Droid Sans Fallback. ISO 32000-2 §9.7.5.2 requires a
+        // conforming reader to materialise glyphs for these collections;
+        // pre-substitution the renderer dropped every glyph to .notdef and
+        // produced a blank page. Gated on `cjk-render-fallback` — when the
+        // feature is off the substitution field is still populated (so the
+        // metadata is observable to embedders) but no bundled font ships and
+        // we fall through to the existing routing, which in practice means
+        // the document still renders blank for the substituted font but the
+        // rest of the page paints normally.
+        #[cfg(feature = "cjk-render-fallback")]
+        if let Some(ref info) = font_info {
+            if let Some(collection) = info.cjk_substitution {
+                log::debug!(
+                    "Routing font '{}' through CJK substitution path (collection {:?})",
+                    info.base_font,
+                    collection
+                );
+                return self.render_substituted_cjk(
+                    pixmap,
+                    text,
+                    info,
+                    collection,
+                    &paint,
+                    base_transform,
+                    gs,
+                    clip_mask,
+                );
+            }
         }
 
         // Find and load font - prioritize embedded font data
@@ -1478,6 +1553,218 @@ impl TextRasterizer {
         Ok(if wmode == 0 { x_cursor } else { y_cursor })
     }
 
+    /// Paint a Tj / TJ string for an Adobe predefined CIDFont whose source
+    /// PDF doesn't embed glyph outlines (ISO 32000-2 §9.7.5.2 — Ryumin-Light,
+    /// GothicBBB-Medium, STSong-Light, MHei-Medium, HYSMyeongJo-Medium, …).
+    ///
+    /// Routes each CID through the appropriate Adobe character-collection
+    /// table to a Unicode code point, then through Droid Sans Fallback's
+    /// Unicode `cmap` to a glyph_id, then paints the outline. Advance widths
+    /// come from the PDF's own metrics (`/W`, `/DW`) so the layout matches the
+    /// original document even though the glyph shapes are sans-serif
+    /// substitutes for whichever face the producer requested.
+    ///
+    /// When a CID has no Unicode mapping under the resolved collection (rare
+    /// — both real-world fixtures probe every CID in the Adobe-Japan1 table
+    /// without a miss) or when Droid Sans Fallback has no glyph for the
+    /// resolved Unicode (sparse for archaic CJK ideographs at the edges of
+    /// the Adobe collections), the paint is skipped but the advance is
+    /// preserved so subsequent glyphs land at the correct text-space
+    /// position.
+    ///
+    /// Honours vertical writing mode (`gs.text_wmode == 1`): the text cursor
+    /// advances along y, the glyph origin is offset by the PDF's `(v_x, v_y)`
+    /// from `/W2` / `/DW2`, and the glyph itself is painted with the same
+    /// shape Droid Sans Fallback supplies (vertical-form variant glyphs are
+    /// not provided — sans-serif glyph integrity is preferable to a blank
+    /// column).
+    #[cfg(feature = "cjk-render-fallback")]
+    fn render_substituted_cjk(
+        &self,
+        pixmap: &mut Pixmap,
+        bytes: &[u8],
+        font_info: &crate::fonts::FontInfo,
+        collection: crate::fonts::predefined_cidfont::CharacterCollection,
+        paint: &Paint,
+        base_transform: Transform,
+        gs: &GraphicsState,
+        clip_mask: Option<&tiny_skia::Mask>,
+    ) -> Result<f32> {
+        let face = match render_cjk_fallback_face() {
+            Some(f) => f,
+            None => {
+                log::warn!(
+                    "Font '{}': CJK predefined-CIDFont substitution unavailable — \
+                     bundled Droid Sans Fallback face failed to load. Falling back \
+                     to .notdef paint with advance-only.",
+                    font_info.base_font
+                );
+                return self.measure_only_advance(bytes, font_info, gs);
+            },
+        };
+        let ttf_face = &face.ttf_face;
+        let font_size = gs.font_size;
+        let h_scale = gs.horizontal_scaling / 100.0;
+        let units_per_em = face.units_per_em;
+        let scale = font_size / units_per_em;
+
+        let text_transform = Transform::from_row(
+            gs.text_matrix.a,
+            gs.text_matrix.b,
+            gs.text_matrix.c,
+            gs.text_matrix.d,
+            gs.text_matrix.e,
+            gs.text_matrix.f,
+        );
+        let combined_base = base_transform.pre_concat(text_transform);
+
+        let mut x_cursor: f32 = 0.0;
+        let mut y_cursor: f32 = 0.0;
+        let wmode = gs.text_wmode;
+
+        let mut glyphs_painted: usize = 0;
+        let mut glyphs_missing: usize = 0;
+
+        for (char_code, _) in TextCharIter::new(bytes, Some(font_info)) {
+            // code == CID holds by construction: the load-time gate in
+            // `FontInfo::from_dict` only sets `cjk_substitution` when the
+            // /Encoding resolved to `Encoding::Identity` (Identity-H/V or an
+            // Adobe-collection identity CMap stream). Non-Identity predefined
+            // CMaps (90ms-RKSJ-H, GBK-EUC-H, …) carry raw legacy multi-byte
+            // codes and are never routed here.
+            let cid = char_code;
+
+            // PDF advance metrics (font's own /W array) — paint position is
+            // independent of the substituted glyph's native advance.
+            let pdf_width = font_info.get_glyph_width(cid);
+            let x_advance = pdf_width * font_size / 1000.0;
+            let (y_step, paint_origin_dx, paint_origin_dy) = if wmode == 1 {
+                let m = font_info.get_vertical_metrics(cid);
+                (
+                    m.w1y * font_size / 1000.0,
+                    -m.v_x * font_size / 1000.0,
+                    -m.v_y * font_size / 1000.0,
+                )
+            } else {
+                (0.0, 0.0, 0.0)
+            };
+
+            // CID → Unicode → glyph_id. The PDF's CID is resolved to a
+            // Unicode code point, then the bundled font's `cmap` maps that
+            // point to a glyph_id. Source of the CID → Unicode mapping,
+            // in priority order:
+            //   1. the font's /ToUnicode CMap — authoritative for this
+            //      font's CIDs (§9.10.2), and the only correct mapping for
+            //      an Identity-encoded subset whose CIDs are not the Adobe
+            //      collection's CIDs;
+            //   2. the Adobe character collection table (e.g. UniJIS-UCS2-H
+            //      for Adobe-Japan1) — the common case for the real
+            //      predefined CIDFonts (Ryumin-Light, …) this substitution
+            //      targets, which usually ship no /ToUnicode.
+            // Either step can miss for CIDs outside both sources or Unicode
+            // points outside Droid Sans Fallback's coverage — then we paint
+            // nothing but still advance the cursor so the rest lands right.
+            let mut gid: u16 = 0;
+            let mut ch: char = '\0';
+            let unicode = font_info
+                .to_unicode
+                .as_ref()
+                .and_then(|lazy| lazy.get())
+                .and_then(|cmap| cmap.get(&(cid as u32)).and_then(|s| s.chars().next()))
+                .filter(|c| !matches!(*c, '\u{FFFD}' | '\u{FFFE}' | '\u{FFFF}'))
+                .or_else(|| collection.cid_to_unicode(cid).and_then(char::from_u32));
+            if let Some(c) = unicode {
+                ch = c;
+                if let Some(g) = ttf_face.glyph_index(c) {
+                    gid = g.0;
+                }
+            }
+
+            // Treat ASCII whitespace as advance-only: the glyph shape is a
+            // blank box in DroidSans and would paint nothing anyway, but
+            // routing through `outline_glyph` for every space costs a
+            // path-build allocation we can skip.
+            let is_whitespace = ch.is_whitespace();
+            if gid != 0 && !is_whitespace {
+                let mut pb = PathBuilder::new();
+                let mut builder = SkiaOutlineBuilder(&mut pb);
+                if ttf_face
+                    .outline_glyph(ttf_parser::GlyphId(gid), &mut builder)
+                    .is_some()
+                {
+                    if let Some(path) = pb.finish() {
+                        let (rise_x, rise_y) = if wmode == 0 {
+                            (0.0, gs.text_rise)
+                        } else {
+                            (gs.text_rise, 0.0)
+                        };
+                        let px = (x_cursor + paint_origin_dx) * h_scale + rise_x;
+                        let py = y_cursor + paint_origin_dy + rise_y;
+                        let glyph_transform =
+                            combined_base.pre_translate(px, py).pre_scale(scale, scale);
+                        pixmap.fill_path(
+                            &path,
+                            paint,
+                            tiny_skia::FillRule::Winding,
+                            glyph_transform,
+                            clip_mask,
+                        );
+                        glyphs_painted += 1;
+                    }
+                }
+            } else if !is_whitespace {
+                glyphs_missing += 1;
+            }
+
+            if wmode == 0 {
+                x_cursor += x_advance + gs.char_space;
+                if ch == ' ' {
+                    x_cursor += gs.word_space;
+                }
+            } else {
+                y_cursor += y_step + gs.char_space;
+                if ch == ' ' {
+                    y_cursor += gs.word_space;
+                }
+            }
+        }
+
+        if glyphs_missing > 0 {
+            log::debug!(
+                "Font '{}': CJK substitution painted {} glyphs, skipped {} \
+                 (no Unicode mapping or no glyph in Droid Sans Fallback)",
+                font_info.base_font,
+                glyphs_painted,
+                glyphs_missing
+            );
+        }
+        // §9.4.4: tx = ((w0·Tfs)+Tc+Tw)·Th, ty has no Th factor. The paint
+        // loop above defers Th to the per-glyph `px` computation, so the
+        // returned text-space advance applies it here — matching
+        // `measure_text_bytes`, which this function falls back to when the
+        // bundled face is unavailable.
+        Ok(if wmode == 0 {
+            x_cursor * h_scale
+        } else {
+            y_cursor
+        })
+    }
+
+    /// Advance-only fallback used when CJK substitution is requested but the
+    /// bundled face is unavailable (feature off at the include site, or the
+    /// loader failed). Returns the cumulative advance along the active writing
+    /// axis so downstream text continues at the correct position even though
+    /// no glyph was painted.
+    #[cfg(feature = "cjk-render-fallback")]
+    fn measure_only_advance(
+        &self,
+        bytes: &[u8],
+        font_info: &crate::fonts::FontInfo,
+        gs: &GraphicsState,
+    ) -> Result<f32> {
+        Ok(measure_text_bytes(bytes, gs, Some(font_info)))
+    }
+
     /// Fallback simple rendering if no font found.
     /// Returns the total horizontal advance in PDF points.
     fn render_text_fallback(
@@ -1754,6 +2041,62 @@ mod tests {
     use crate::fonts::{Encoding, FontInfo, VerticalMetrics};
     use std::collections::HashMap;
 
+    /// Query helper: the family name the CJK fallback resolver looks up.
+    #[cfg(feature = "cjk-render-fallback")]
+    fn query_droid_fallback(db: &fontdb::Database) -> Option<fontdb::ID> {
+        db.query(&fontdb::Query {
+            families: &[fontdb::Family::Name("Droid Sans Fallback")],
+            weight: fontdb::Weight::NORMAL,
+            stretch: fontdb::Stretch::Normal,
+            style: fontdb::Style::Normal,
+        })
+    }
+
+    /// The bundled CJK fallback (feature `cjk-render-fallback`) must provide
+    /// real glyph coverage for the Adobe predefined character collections even
+    /// on a host with NO fonts installed. Build a database holding only the
+    /// bundled face — deliberately skipping `load_system_fonts` — and confirm
+    /// it is both discoverable under the family name the resolver queries and
+    /// able to outline representative CJK glyphs. Host-independent: it never
+    /// consults system fonts.
+    #[cfg(feature = "cjk-render-fallback")]
+    #[test]
+    fn bundled_cjk_fallback_covers_cjk_without_system_fonts() {
+        let mut db = fontdb::Database::new();
+        db.load_font_data(
+            crate::fonts::form_fallback::font_bytes(crate::fonts::form_fallback::Fallback::Cjk)
+                .to_vec(),
+        );
+        let id = query_droid_fallback(&db)
+            .expect("bundled Droid Sans Fallback must be queryable by family name");
+
+        // Representative Japanese kanji / Chinese hanzi / Korean hangul from
+        // the Adobe-Japan1 / Adobe-GB1 / Adobe-Korea1 collections.
+        let covered = db
+            .with_face_data(id, |data, index| {
+                let face = ttf_parser::Face::parse(data, index).expect("parse bundled face");
+                ['東', '中', '가']
+                    .iter()
+                    .all(|&c| face.glyph_index(c).is_some())
+            })
+            .expect("bundled face data must be present");
+        assert!(covered, "bundled CJK fallback must cover representative CJK glyphs");
+    }
+
+    /// The process-wide system font database must always expose a CJK-capable
+    /// "Droid Sans Fallback" face when the feature is on — the guaranteed
+    /// last-resort lookup key `get_cjk_fallback_cached` and `load_font_data`
+    /// rely on. Without the feature this would be absent on a CJK-fontless host
+    /// and composite fonts with no embedded outlines would render blank.
+    #[cfg(feature = "cjk-render-fallback")]
+    #[test]
+    fn system_fontdb_registers_cjk_fallback() {
+        assert!(
+            query_droid_fallback(&system_fontdb()).is_some(),
+            "system_fontdb must expose Droid Sans Fallback under cjk-render-fallback"
+        );
+    }
+
     /// Build a minimal Type0 FontInfo for advance-measurement tests.
     /// All horizontal widths are 1000 (one full em) and vertical metrics
     /// default to [`VerticalMetrics::SPEC_DEFAULT`] (`w1y = -1000`,
@@ -1793,6 +2136,7 @@ mod tests {
             wmode: 1,
             cid_vertical_metrics: None,
             cid_default_vertical_metrics: VerticalMetrics::SPEC_DEFAULT,
+            cjk_substitution: None,
         }
     }
 
@@ -1922,6 +2266,54 @@ mod tests {
             (total - (-21.0)).abs() < 0.01,
             "measure_tj_array total should be -21 in vertical mode, got {}",
             total
+        );
+    }
+
+    /// The advance returned by the CJK substitution paint path must include
+    /// Th (horizontal scaling) per ISO 32000-1 §9.4.4
+    /// (`tx = ((w0·Tfs)+Tc+Tw)·Th`), matching `measure_text_bytes` — which
+    /// the same function falls back to when the bundled face is unavailable.
+    /// Halving Tz must halve the returned advance.
+    #[cfg(feature = "cjk-render-fallback")]
+    #[test]
+    fn substituted_cjk_advance_applies_horizontal_scaling() {
+        let mut font = make_vertical_test_font();
+        font.wmode = 0;
+        font.cjk_substitution =
+            Some(crate::fonts::predefined_cidfont::CharacterCollection::AdobeJapan1);
+
+        let rasterizer = TextRasterizer::with_fontdb(std::sync::Arc::new(fontdb::Database::new()));
+        let mut pixmap = Pixmap::new(16, 16).expect("pixmap");
+        let paint = Paint::default();
+        // CID 1200 (一) twice — default width 1000 ⇒ 10 pt per glyph at Tfs 10.
+        let bytes: &[u8] = &[0x04, 0xB0, 0x04, 0xB0];
+
+        let advance_at = |h_scaling: f32, pixmap: &mut Pixmap| {
+            let mut gs = GraphicsState::new();
+            gs.font_size = 10.0;
+            gs.text_wmode = 0;
+            gs.horizontal_scaling = h_scaling;
+            rasterizer
+                .render_substituted_cjk(
+                    pixmap,
+                    bytes,
+                    &font,
+                    crate::fonts::predefined_cidfont::CharacterCollection::AdobeJapan1,
+                    &paint,
+                    Transform::identity(),
+                    &gs,
+                    None,
+                )
+                .expect("substituted render")
+        };
+
+        let full = advance_at(100.0, &mut pixmap);
+        let half = advance_at(50.0, &mut pixmap);
+
+        assert!((full - 20.0).abs() < 0.01, "Th=100% advance should be 20.0, got {full}");
+        assert!(
+            (half - 10.0).abs() < 0.01,
+            "Th=50% must halve the returned advance (§9.4.4 tx·Th): got {half}, full was {full}"
         );
     }
 }

@@ -77,8 +77,21 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
     if not is_valid:
         return {"error": f"unknown step: {step_id}. Use 'kanban workflow steps {task_id}' to see valid step IDs."}
     status = "completed"
-    if len(args) >= 4:
-        status = args[3]
+    # Accept both positional (`mark-step TASK step completed`) and flag
+    # (`mark-step TASK step --status completed`) forms. The flag form is the
+    # natural convention users try — without this, status gets the literal
+    # string "--status" and next-step never advances (#644).
+    for i, a in enumerate(args):
+        if a == "--status" and i + 1 < len(args):
+            status = args[i + 1]
+            break
+        if a == "-s" and i + 1 < len(args):
+            status = args[i + 1]
+            break
+    else:
+        # Fall back to positional arg at index 3 (legacy form)
+        if len(args) >= 4 and not args[3].startswith("-"):
+            status = args[3]
     session_id = ""
     for i, a in enumerate(args):
         if a == "--session" and i + 1 < len(args):

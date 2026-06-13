@@ -50,19 +50,6 @@ class InternalStreamFailureTypeDef(TypedDict):
     Message: NotRequired[str]
 
 
-class InvokeEndpointAsyncInputTypeDef(TypedDict):
-    EndpointName: str
-    InputLocation: str
-    ContentType: NotRequired[str]
-    Accept: NotRequired[str]
-    CustomAttributes: NotRequired[str]
-    InferenceId: NotRequired[str]
-    S3OutputPathExtension: NotRequired[str]
-    Filename: NotRequired[str]
-    RequestTTLSeconds: NotRequired[int]
-    InvocationTimeoutSeconds: NotRequired[int]
-
-
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
@@ -78,6 +65,20 @@ class ModelStreamErrorTypeDef(TypedDict):
 
 class PayloadPartTypeDef(TypedDict):
     Bytes: NotRequired[bytes]
+
+
+class InvokeEndpointAsyncInputTypeDef(TypedDict):
+    EndpointName: str
+    ContentType: NotRequired[str]
+    Accept: NotRequired[str]
+    CustomAttributes: NotRequired[str]
+    InferenceId: NotRequired[str]
+    InputLocation: NotRequired[str]
+    S3OutputPathExtension: NotRequired[str]
+    Filename: NotRequired[str]
+    RequestTTLSeconds: NotRequired[int]
+    InvocationTimeoutSeconds: NotRequired[int]
+    Body: NotRequired[BlobTypeDef]
 
 
 class InvokeEndpointInputTypeDef(TypedDict):

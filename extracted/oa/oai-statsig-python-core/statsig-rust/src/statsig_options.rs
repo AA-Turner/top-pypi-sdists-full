@@ -60,6 +60,7 @@ pub struct StatsigOptions {
     pub override_adapter: Option<Arc<dyn OverrideAdapter>>,
     pub persistent_storage: Option<Arc<dyn PersistentStorage>>,
     pub service_name: Option<String>,
+    pub sdk_instance_id: Option<String>,
 
     pub spec_adapters_config: Option<Vec<SpecAdapterConfig>>, // Specs to customized spec adapter, order matters, reflecting priority of trying
     pub specs_adapter: Option<Arc<dyn SpecsAdapter>>,
@@ -89,6 +90,10 @@ impl StatsigOptions {
     #[must_use]
     pub fn builder() -> StatsigOptionsBuilder {
         StatsigOptionsBuilder::default()
+    }
+
+    pub(crate) fn get_sdk_instance_id<'a>(&'a self, sdk_key: &'a str) -> &'a str {
+        self.sdk_instance_id.as_deref().unwrap_or(sdk_key)
     }
 }
 
@@ -296,6 +301,12 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn sdk_instance_id(mut self, sdk_instance_id: Option<String>) -> Self {
+        self.inner.sdk_instance_id = sdk_instance_id;
+        self
+    }
+
+    #[must_use]
     pub fn fallback_to_statsig_api(mut self, fallback_to_statsig_api: Option<bool>) -> Self {
         self.inner.fallback_to_statsig_api = fallback_to_statsig_api;
         self
@@ -373,7 +384,7 @@ impl Serialize for StatsigOptions {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("StatsigOptions", 22)?;
+        let mut state = serializer.serialize_struct("StatsigOptions", 23)?;
         serialize_if_not_none!(state, "spec_url", &self.specs_url);
         serialize_if_not_none!(
             state,
@@ -433,7 +444,8 @@ impl Serialize for StatsigOptions {
             "override_adapter",
             &get_if_set(&self.override_adapter)
         );
-        serialize_if_not_none!(state, "service_name", &get_if_set(&self.service_name));
+        serialize_if_not_none!(state, "service_name", &self.service_name);
+        serialize_if_not_none!(state, "sdk_instance_id", &get_if_set(&self.sdk_instance_id));
         serialize_if_not_none!(state, "global_custom_fields", &self.global_custom_fields);
         serialize_if_not_none!(state, "experimental_flags", &self.experimental_flags);
 

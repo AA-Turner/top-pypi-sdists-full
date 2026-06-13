@@ -489,6 +489,20 @@ class Client:
             metric_name=metric_name,
         )
 
+    def download_entity_time_series_csv_post(
+        self,
+        quality_check_run_id: int,
+        entity_filter: dict,
+        metric_name: str,
+    ):
+        return self._api_call(
+            "download_entity_time_series_csv",
+            method="POST",
+            quality_check_run_id=quality_check_run_id,
+            entity_filter=entity_filter,
+            metric_name=metric_name,
+        )
+
     def create_check(self, table_id, check_type, **params):
         return self._api_call(
             "create_check",

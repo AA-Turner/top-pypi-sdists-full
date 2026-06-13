@@ -750,6 +750,11 @@ impl ParametricColumnConditioning {
             // or Hessian. Drop it across column-conditioning transforms rather
             // than applying the wrong congruence map.
             inf.coefficient_influence = None;
+            // X'WX is a congruence object under column-conditioning transforms;
+            // its companion `F` is dropped here, so drop the stored Gram too and
+            // let the WPS correction fall back to the conditional EDF rather than
+            // applying a mismatched congruence map.
+            inf.weighted_gram = None;
             inf.bias_correction_beta = inf
                 .bias_correction_beta
                 .take()
@@ -3549,6 +3554,59 @@ fn external_reml_seed_config(k: usize, link: LinkFunction) -> SeedConfig {
     }
 }
 
+fn reml_inner_progress_feedback(
+    state: &crate::solver::estimate::reml::RemlState<'_>,
+) -> crate::solver::outer_strategy::InnerProgressFeedback {
+    crate::solver::outer_strategy::InnerProgressFeedback {
+        cap: Arc::clone(&state.outer_inner_cap),
+        accepted_iter: Arc::new(AtomicUsize::new(0)),
+        last_iters: Arc::clone(&state.last_inner_iters),
+        last_converged: Arc::clone(&state.last_inner_converged),
+        ift_residual: Arc::clone(&state.last_ift_prediction_residual),
+        accept_rho: Arc::clone(&state.last_pirls_accept_rho),
+    }
+}
+
+fn with_reml_beta_seed_hook<'state, 'data>() -> impl FnMut(
+    &mut &'state mut crate::solver::estimate::reml::RemlState<'data>,
+    &Array1<f64>,
+) -> Result<(), EstimationError> {
+    |state, beta| {
+        state.setwarm_start_original_beta(Some(beta.view()));
+        Ok(())
+    }
+}
+
+enum RemlInnerCapGuardArm {
+    Standard,
+    MixtureSas,
+}
+
+fn run_outer_inner_cap_guard(
+    state: &mut crate::solver::estimate::reml::RemlState<'_>,
+    rho: &Array1<f64>,
+    arm: RemlInnerCapGuardArm,
+) -> Result<(), EstimationError> {
+    let prev_cap = state.outer_inner_cap.swap(0, Ordering::Relaxed);
+    if prev_cap != 0 {
+        let guard_start = std::time::Instant::now();
+        state.compute_cost(rho)?;
+        match arm {
+            RemlInnerCapGuardArm::Standard => log::info!(
+                "[OUTER guard] convergence-guard re-eval at converged ρ done (prev_cap={prev_cap}, elapsed={:.3}s)",
+                guard_start.elapsed().as_secs_f64()
+            ),
+            RemlInnerCapGuardArm::MixtureSas => log::info!(
+                "[OUTER guard] convergence-guard re-eval at converged ρ done (mixture/SAS arm; prev_cap={prev_cap}, elapsed={:.3}s)",
+                guard_start.elapsed().as_secs_f64()
+            ),
+        }
+    } else if matches!(arm, RemlInnerCapGuardArm::Standard) {
+        log::debug!("[OUTER guard] schedule never lifted (prev_cap=0); skipping refit");
+    }
+    Ok(())
+}
+
 /// The weighted-mean response level an unpenalized intercept would absorb, used
 /// to center the response during outer REML λ-selection (issue #1000).
 ///
@@ -3753,7 +3811,7 @@ where
         crate::bail_invalid_estim!("simultaneous mixture and SAS optimization is not supported");
     } else if mixture_dim == 0 && sas_dim == 0 {
         use crate::solver::outer_strategy::{
-            DeclaredHessianForm, Derivative, InnerProgressFeedback, OuterEvalOrder, OuterProblem,
+            DeclaredHessianForm, Derivative, OuterEvalOrder, OuterProblem,
         };
 
         let analytic_outer_hessian_available = reml_state.analytic_outer_hessian_enabled();
@@ -3812,19 +3870,13 @@ where
             .with_max_iter(reml_max_iter)
             .with_seed_config(reml_seed_config)
             .with_screening_cap(Arc::clone(&reml_state.screening_max_inner_iterations))
-            .with_outer_inner_cap(InnerProgressFeedback {
-                cap: Arc::clone(&reml_state.outer_inner_cap),
-                accepted_iter: Arc::new(AtomicUsize::new(0)),
-                last_iters: Arc::clone(&reml_state.last_inner_iters),
-                last_converged: Arc::clone(&reml_state.last_inner_converged),
-                ift_residual: Arc::clone(&reml_state.last_ift_prediction_residual),
-                accept_rho: Arc::clone(&reml_state.last_pirls_accept_rho),
-            })
+            .with_outer_inner_cap(reml_inner_progress_feedback(&reml_state))
             .with_objective_scale(if gaussian_identity {
                 Some(n_obs as f64)
             } else {
                 None
             })
+            .with_problem_size(n_obs, x_o.ncols())
             .with_arc_initial_regularization(if gaussian_identity { Some(0.25) } else { None })
             .with_operator_initial_trust_radius(if gaussian_identity { Some(4.0) } else { None })
             .with_rho_bound(crate::estimate::RHO_BOUND);
@@ -3979,14 +4031,10 @@ where
         // solver started (issue #236). Wire the symmetric consumer:
         // when the pre-warm forwards the cached β, install it into the
         // same `warm_start_beta` slot the publisher reads from.
-        let mut obj = obj.with_seed_inner_state(
-            |state: &mut &mut crate::solver::estimate::reml::RemlState<'_>, beta: &Array1<f64>| {
-                state.setwarm_start_original_beta(Some(beta.view()));
-                Ok(())
-            },
-        );
+        let mut obj = obj.with_seed_inner_state(with_reml_beta_seed_hook());
 
         let strategy_result = problem.run(&mut obj, "standard REML")?;
+        drop(obj);
         // Convergence guard for the outer-aware inner-PIRLS schedule
         // (path #3): the BFGS bridge stores a coarsen-then-tighten cap
         // into `reml_state.outer_inner_cap` on every accepted gradient
@@ -3996,23 +4044,11 @@ where
         // 5/10/20 rather than the full inner budget. Reset the cap to 0
         // and run one final cost eval at the converged ρ so the cached
         // β is at full inner tolerance.
-        let prev_cap = reml_state
-            .outer_inner_cap
-            .swap(0, std::sync::atomic::Ordering::Relaxed);
-        if prev_cap != 0 {
-            // Only re-eval when the schedule had actually capped the inner
-            // solve. If prev_cap was already 0 the cached β is at full
-            // tolerance and the refit would be a wasted inner Newton solve
-            // (~30s at large-scale n=320k).
-            let guard_start = std::time::Instant::now();
-            reml_state.compute_cost(&strategy_result.rho)?;
-            log::info!(
-                "[OUTER guard] convergence-guard re-eval at converged ρ done (prev_cap={prev_cap}, elapsed={:.3}s)",
-                guard_start.elapsed().as_secs_f64()
-            );
-        } else {
-            log::debug!("[OUTER guard] schedule never lifted (prev_cap=0); skipping refit");
-        }
+        run_outer_inner_cap_guard(
+            &mut reml_state,
+            &strategy_result.rho,
+            RemlInnerCapGuardArm::Standard,
+        )?;
         (
             strategy_result.rho.clone(),
             cfg.link_kind.mixture_state().cloned(),
@@ -4063,8 +4099,7 @@ where
         let mut reml_seed_config_mix = reml_seed_config;
         reml_seed_config_mix.num_auxiliary_trailing = aux_dim_outer;
         use crate::solver::outer_strategy::{
-            DeclaredHessianForm, Derivative, HessianResult, InnerProgressFeedback, OuterEval,
-            OuterProblem,
+            DeclaredHessianForm, Derivative, HessianResult, OuterEval, OuterProblem,
         };
         let initial_link_kind = cfg.link_kind.clone();
         let problem = OuterProblem::new(theta_dim)
@@ -4080,14 +4115,7 @@ where
             .with_max_iter(reml_max_iter)
             .with_seed_config(reml_seed_config_mix)
             .with_screening_cap(Arc::clone(&reml_state.screening_max_inner_iterations))
-            .with_outer_inner_cap(InnerProgressFeedback {
-                cap: Arc::clone(&reml_state.outer_inner_cap),
-                accepted_iter: Arc::new(AtomicUsize::new(0)),
-                last_iters: Arc::clone(&reml_state.last_inner_iters),
-                last_converged: Arc::clone(&reml_state.last_inner_converged),
-                ift_residual: Arc::clone(&reml_state.last_ift_prediction_residual),
-                accept_rho: Arc::clone(&reml_state.last_pirls_accept_rho),
-            })
+            .with_outer_inner_cap(reml_inner_progress_feedback(&reml_state))
             .with_rho_bound(crate::estimate::RHO_BOUND);
         let problem = if let Some(h) = heuristic_theta_ref {
             problem.with_heuristic_lambdas(h.to_vec())
@@ -4294,32 +4322,20 @@ where
         // `inner_beta_hint = state.current_original_basis_beta()` (see
         // src/solver/estimate.rs:3275), so continuation pre-warm needs
         // a real seed hook to install it.
-        let mut obj = obj.with_seed_inner_state(
-            |state: &mut &mut crate::solver::estimate::reml::RemlState<'_>, beta: &Array1<f64>| {
-                state.setwarm_start_original_beta(Some(beta.view()));
-                Ok(())
-            },
-        );
+        let mut obj = obj.with_seed_inner_state(with_reml_beta_seed_hook());
         let outer_result = problem.run(&mut obj, "mixture/SAS flexible link")?;
+        drop(obj);
         // Convergence guard for the outer-aware inner-PIRLS schedule
         // (path #3) — see the matching comment in the standard REML arm
         // above. Reset the cap and run one final compute_cost at the
         // converged ρ so the cached warm-start β is at full inner
         // tolerance regardless of where the BFGS schedule was when the
         // optimizer terminated.
-        let prev_cap_mix = reml_state
-            .outer_inner_cap
-            .swap(0, std::sync::atomic::Ordering::Relaxed);
-        if prev_cap_mix != 0 {
-            // See standard-REML arm: only re-eval when the schedule had
-            // capped, otherwise the cached β is already at full tolerance.
-            let guard_start_mix = std::time::Instant::now();
-            reml_state.compute_cost(&outer_result.rho)?;
-            log::info!(
-                "[OUTER guard] convergence-guard re-eval at converged ρ done (mixture/SAS arm; prev_cap={prev_cap_mix}, elapsed={:.3}s)",
-                guard_start_mix.elapsed().as_secs_f64()
-            );
-        }
+        run_outer_inner_cap_guard(
+            &mut reml_state,
+            &outer_result.rho,
+            RemlInnerCapGuardArm::MixtureSas,
+        )?;
         let final_rho = outer_result.rho.slice(s![..k]).to_owned();
         let final_mix_state = if use_mixture {
             let final_mix_rho = outer_result.rho.slice(s![k..(k + mixture_dim)]).to_owned();
@@ -4502,11 +4518,13 @@ where
     let mut beta_standard_errors_corrected = None;
     let mut beta_covariance_frequentist = None;
     let mut coefficient_influence = None;
+    let mut weighted_gram = None;
     // Factorization of stabilized Hessian in transformed basis, reused for
     // SE computation via solve-on-demand after dispersion is determined.
     let mut edf_factor: Option<Box<dyn FactorizedSystem>> = None;
     let mut bias_correction_beta = None;
     let mut rho_posterior_certificate = None;
+    let mut rho_posterior_escalation = None;
 
     if opts.compute_inference {
         // EDF by block using stabilized H and penalty roots in transformed basis.
@@ -4740,7 +4758,15 @@ where
 
             // Frequentist covariance Ve = F H⁻¹ φ and influence matrix F = H⁻¹ X'WX.
             // Both require the full unscaled inverse; computed in original basis.
-            let mut s_mat = Array2::<f64>::zeros((p_cov, p_cov));
+            //
+            // The canonical penalties live in the TRANSFORMED frame, while
+            // `h_inv` is the ORIGINAL-basis inverse — assemble S(λ) in the
+            // transformed frame and map it through the same congruence as the
+            // Hessian (`S_orig = Qs·S_t·Qsᵀ`, issue #1027). Pairing the
+            // transformed-frame S directly with the original-frame inverse made
+            // `F` (and everything reconstructed from it) frame-inconsistent.
+            let p_t = qs.ncols();
+            let mut s_t = Array2::<f64>::zeros((p_t, p_t));
             for (kk, cp) in pirls_res
                 .reparam_result
                 .canonical_transformed
@@ -4755,16 +4781,35 @@ where
                 let lam = lambdas[kk];
                 for i in 0..cp.block_dim() {
                     for j in 0..cp.block_dim() {
-                        s_mat[[r.start + i, r.start + j]] += lam * local[[i, j]];
+                        s_t[[r.start + i, r.start + j]] += lam * local[[i, j]];
                     }
                 }
             }
+            let mut s_mat = qs.dot(&s_t).dot(&qs.t());
+            enforce_symmetry(&mut s_mat);
+            // Influence matrix F = I − H⁻¹·S(λ) = H⁻¹·X'WX. This is a product
+            // of two symmetric matrices and is therefore generally NOT
+            // symmetric; it must not be symmetrized — `enforce_symmetry(F)`
+            // both breaks the H·F = X'WX consistency identity (so any
+            // downstream code that reconstructs X'WX from H·F lands on an
+            // asymmetric/indefinite matrix) AND corrupts the frequentist
+            // covariance `Ve = F·H⁻¹·φ` (since (F_sym)·H⁻¹ ≠ H⁻¹·X'WX·H⁻¹)
+            // AND distorts the Wood-corrected reference d.f.
+            // `tr(F_jj)² / tr(F_jj²)` consumed by `smooth_test::reference_df`
+            // (tr(F²) ≠ tr(F_sym²) in general). See issue #1027.
             let mut f_mat = Array2::<f64>::eye(p_cov);
             f_mat -= &h_inv.dot(&s_mat);
-            enforce_symmetry(&mut f_mat);
             let mut ve = f_mat.dot(h_inv);
             ve *= cov_scale;
             enforce_symmetry(&mut ve);
+            // X'WX = H − S(λ) in the original basis — the genuine PSD weighted
+            // Gram, reconstructed from the same `penalized_hessian` and `s_mat`
+            // that define `F = H⁻¹X'WX` (issue #1027). Stored directly so the
+            // WPS corrected-EDF correction never has to recover it from an
+            // inconsistent `H·F` product.
+            let mut xwx = &penalized_hessian - &s_mat;
+            enforce_symmetry(&mut xwx);
+            weighted_gram = Some(xwx);
             coefficient_influence = Some(f_mat);
             beta_covariance_frequentist = Some(ve);
         }
@@ -4795,8 +4840,11 @@ where
         // certificate runs against the SAME objective the fit converged on, so
         // its criterion is the fit's own bit-for-bit (no retain/rebuild). Absent
         // when there are no smoothing parameters or the outer Hessian is
-        // unavailable; never fatal.
-        rho_posterior_certificate = reml_state.tier0_rho_certificate(&final_rho, None);
+        // unavailable; never fatal. When the certificate reads Escalate, the
+        // auto-selected escalation tier (quadrature for K≤4, NUTS over ρ for
+        // K≤16, honest Unavailable beyond) runs at this same live seam.
+        (rho_posterior_certificate, rho_posterior_escalation) =
+            reml_state.rho_posterior_inference(&final_rho, None);
 
         // Standard errors: prefer the diagonal of the full inverse when
         // available; otherwise use the factorised Hessian from the EDF pass
@@ -4906,6 +4954,7 @@ where
         beta_standard_errors_corrected,
         beta_covariance_frequentist,
         coefficient_influence,
+        weighted_gram,
         bias_correction_beta,
     });
 
@@ -4961,6 +5010,7 @@ where
             pirls: Some(pirls_res),
             criterion_certificate: outer_result.criterion_certificate.clone(),
             rho_posterior_certificate,
+            rho_posterior_escalation,
             ..Default::default()
         },
         inference,
@@ -5115,11 +5165,18 @@ pub struct FitArtifacts {
     /// the Pareto-`k̂` diagnostic that says whether the plug-in + first-order
     /// `V_ρ` correction is adequate or `ρ`-uncertainty needs a heavier
     /// quadrature/NUTS treatment. Computed against the live REML objective at
-    /// the converged `ρ̂` (see `RemlState::tier0_rho_certificate`). `None` when
-    /// there are no smoothing parameters or the outer Hessian was unavailable.
-    /// Re-derivable from the fit, so it is not serialized.
+    /// the converged `ρ̂` (see `RemlState::rho_posterior_inference`). `None`
+    /// when there are no smoothing parameters or the outer Hessian was
+    /// unavailable. Re-derivable from the fit, so it is not serialized.
     #[serde(default, skip_serializing, skip_deserializing)]
     pub rho_posterior_certificate: Option<crate::inference::rho_posterior::RhoPosteriorCertificate>,
+    /// Escalation outcome (#938) when the Tier-0 certificate read `Escalate`:
+    /// the Tier-1 quadrature mixture (`K ≤ 4`), the Tier-2 NUTS draws
+    /// (`K ≤ 16`), or an honest `Unavailable` report. `None` whenever the
+    /// certificate did not escalate (or is itself absent). Computed at the same
+    /// live-objective seam as the certificate; re-derivable, not serialized.
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub rho_posterior_escalation: Option<crate::inference::rho_posterior::RhoPosteriorEscalation>,
 }
 
 impl std::fmt::Debug for FitArtifacts {
@@ -5141,6 +5198,7 @@ impl std::fmt::Debug for FitArtifacts {
             )
             .field("criterion_certificate", &self.criterion_certificate)
             .field("rho_posterior_certificate", &self.rho_posterior_certificate)
+            .field("rho_posterior_escalation", &self.rho_posterior_escalation)
             .finish()
     }
 }
@@ -5215,6 +5273,14 @@ pub struct FitInference {
     /// Coefficient-space influence matrix F = H⁻¹ X'WX. Its trace is the total EDF.
     #[serde(default)]
     pub coefficient_influence: Option<Array2<f64>>,
+    /// Weighted Gram `X'WX = H − S(λ)` in the original coefficient basis —
+    /// symmetric PSD by construction. Stored directly (issue #1027) so the
+    /// Wood–Pya–Säfken corrected-EDF correction `tr(X'WX·Σ_ρ)` pairs the true
+    /// PSD Gram with `Σ_ρ`, rather than reconstructing it as `H·F` from a
+    /// Hessian surface that need not satisfy `H·F = X'WX` (which made the
+    /// correction indefinite and the corrected EDF drop below the conditional).
+    #[serde(default)]
+    pub weighted_gram: Option<Array2<f64>>,
     /// O(n⁻¹) frequentist bias-correction vector b̂ = H⁻¹ S(λ̂) β̂ in the
     /// original (untransformed) coefficient basis. Predictions apply
     /// η̂_BC(x) = η̂(x) + s_*(x)^T b̂ to remove first-order shrinkage bias.
@@ -5636,6 +5702,9 @@ impl FitInference {
         }
         if let Some(v) = self.coefficient_influence.as_ref() {
             validate_all_finite_estimation("fit_result.coefficient_influence", v.iter().copied())?;
+        }
+        if let Some(v) = self.weighted_gram.as_ref() {
+            validate_all_finite_estimation("fit_result.weighted_gram", v.iter().copied())?;
         }
         if let Some(v) = self.bias_correction_beta.as_ref() {
             validate_all_finite_estimation("fit_result.bias_correction_beta", v.iter().copied())?;
@@ -6218,6 +6287,15 @@ impl UnifiedFitResult {
             .and_then(|inf| inf.coefficient_influence.as_ref())
     }
 
+    /// Get the original-basis weighted Gram `X'WX = H − S(λ)` if available —
+    /// the symmetric PSD matrix the Wood–Pya–Säfken corrected-EDF correction
+    /// pairs with the smoothing-parameter uncertainty covariance (issue #1027).
+    pub fn weighted_gram(&self) -> Option<&Array2<f64>> {
+        self.inference
+            .as_ref()
+            .and_then(|inf| inf.weighted_gram.as_ref())
+    }
+
     /// Dispersion used to scale covariance matrices.
     pub fn dispersion(&self) -> Option<Dispersion> {
         self.inference.as_ref().map(|inf| inf.dispersion)
@@ -6562,6 +6640,14 @@ pub struct SmoothTermSummary {
     pub ref_df: f64,
     pub chi_sq: Option<f64>,
     pub pvalue: Option<f64>,
+    /// Second-order (Bartlett-corrected) p-value (#939), reported alongside —
+    /// never replacing — the first-order `pvalue`. `None` when no exact
+    /// correction factor is available for this term/family.
+    pub pvalue_corrected: Option<f64>,
+    /// The Bartlett factor `c = E[W]/d` behind `pvalue_corrected`; `|c − 1|`
+    /// above [`crate::inference::higher_order::MATERIAL_DISTORTION_THRESHOLD`]
+    /// means the first-order inference is materially distorted at this `n`.
+    pub bartlett_factor: Option<f64>,
     pub continuous_order: Option<ContinuousSmoothnessOrder>,
     /// Issue #340: human-readable note describing an automatic B-spline
     /// basis-shrink performed at fit time when `n` was too small for the
@@ -6993,6 +7079,41 @@ impl fmt::Display for ModelSummary {
             )?;
         }
         writeln!(f)?;
+        // #939: second-order (Bartlett-corrected) p-values, alongside — never
+        // replacing — the first-order column above. A term is flagged when
+        // |c − 1| exceeds the material-distortion threshold: at this n the
+        // first-order χ²/F reference is too far off to trust uncorrected.
+        let bartlett_terms = self
+            .smooth_terms
+            .iter()
+            .filter_map(|t| {
+                t.bartlett_factor
+                    .zip(t.pvalue_corrected)
+                    .map(|(c, p)| (&t.name, c, p))
+            })
+            .collect::<Vec<_>>();
+        if !bartlett_terms.is_empty() {
+            writeln!(f, "Second-Order (Bartlett-Corrected) P-Values:")?;
+            for (name, c, p_corr) in bartlett_terms {
+                let flag = if (c - 1.0).abs()
+                    > crate::inference::higher_order::MATERIAL_DISTORTION_THRESHOLD
+                {
+                    "  [first-order p materially distorted at this n]"
+                } else {
+                    ""
+                };
+                writeln!(
+                    f,
+                    "{:<namew$} corrected p = {:>10}  factor c = {:.4}{}",
+                    name,
+                    format_pvalue(Some(p_corr)),
+                    c,
+                    flag,
+                    namew = smoothnamew
+                )?;
+            }
+            writeln!(f)?;
+        }
         let order_terms = self
             .smooth_terms
             .iter()
@@ -8470,6 +8591,7 @@ mod estimate_policy_tests {
                 beta_standard_errors_corrected: Some(array![1.2_f64.sqrt(), 2.2_f64.sqrt()]),
                 beta_covariance_frequentist: None,
                 coefficient_influence: None,
+                weighted_gram: None,
                 bias_correction_beta: None,
             }),
             fitted_link: FittedLinkState::Standard(None),

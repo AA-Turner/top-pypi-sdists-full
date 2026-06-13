@@ -34,6 +34,7 @@ from .literals import (
     BrowserStatusType,
     ClaimMatchOperatorTypeType,
     ClientAuthenticationMethodTypeType,
+    ClusteringFrequencyType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
     ConfigurationBundleStatusType,
@@ -159,6 +160,9 @@ __all__ = (
     "CloudWatchLogsInputConfigOutputTypeDef",
     "CloudWatchLogsInputConfigTypeDef",
     "CloudWatchOutputConfigTypeDef",
+    "ClusteringConfigOutputTypeDef",
+    "ClusteringConfigTypeDef",
+    "ClusteringConfigUnionTypeDef",
     "CodeBasedEvaluatorConfigTypeDef",
     "CodeConfigurationOutputTypeDef",
     "CodeConfigurationTypeDef",
@@ -486,6 +490,7 @@ __all__ = (
     "InferenceConfigurationOutputTypeDef",
     "InferenceConfigurationTypeDef",
     "InlineExamplesSourceTypeDef",
+    "InsightTypeDef",
     "InterceptorConfigurationTypeDef",
     "InterceptorInputConfigurationTypeDef",
     "InvocationConfigurationInputTypeDef",
@@ -1104,6 +1109,14 @@ class CloudWatchOutputConfigTypeDef(TypedDict):
     logGroupName: str
 
 
+class ClusteringConfigOutputTypeDef(TypedDict):
+    frequencies: list[ClusteringFrequencyType]
+
+
+class ClusteringConfigTypeDef(TypedDict):
+    frequencies: Sequence[ClusteringFrequencyType]
+
+
 class LambdaEvaluatorConfigTypeDef(TypedDict):
     lambdaArn: str
     lambdaTimeoutInSeconds: NotRequired[int]
@@ -1247,6 +1260,10 @@ IndexedKeyTypeDef = TypedDict(
 
 class EvaluatorReferenceTypeDef(TypedDict):
     evaluatorId: NotRequired[str]
+
+
+class InsightTypeDef(TypedDict):
+    insightId: str
 
 
 class CreatePolicyEngineRequestTypeDef(TypedDict):
@@ -2034,18 +2051,6 @@ class Oauth2CredentialProviderItemTypeDef(TypedDict):
 class ListOnlineEvaluationConfigsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
-
-
-class OnlineEvaluationConfigSummaryTypeDef(TypedDict):
-    onlineEvaluationConfigArn: str
-    onlineEvaluationConfigId: str
-    onlineEvaluationConfigName: str
-    status: OnlineEvaluationConfigStatusType
-    executionStatus: OnlineEvaluationExecutionStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    description: NotRequired[str]
-    failureReason: NotRequired[str]
 
 
 class ListPaymentConnectorsRequestTypeDef(TypedDict):
@@ -3214,6 +3219,9 @@ class OutputConfigTypeDef(TypedDict):
     cloudWatchConfig: CloudWatchOutputConfigTypeDef
 
 
+ClusteringConfigUnionTypeDef = Union[ClusteringConfigTypeDef, ClusteringConfigOutputTypeDef]
+
+
 class CodeBasedEvaluatorConfigTypeDef(TypedDict):
     lambdaConfig: NotRequired[LambdaEvaluatorConfigTypeDef]
 
@@ -3364,6 +3372,20 @@ class VersionLineageMetadataTypeDef(TypedDict):
     branchName: NotRequired[str]
     createdBy: NotRequired[VersionCreatedBySourceTypeDef]
     commitMessage: NotRequired[str]
+
+
+class OnlineEvaluationConfigSummaryTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    onlineEvaluationConfigId: str
+    onlineEvaluationConfigName: str
+    status: OnlineEvaluationConfigStatusType
+    executionStatus: OnlineEvaluationExecutionStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    failureReason: NotRequired[str]
+    insights: NotRequired[list[InsightTypeDef]]
+    clusteringConfig: NotRequired[ClusteringConfigOutputTypeDef]
 
 
 class CredentialProviderOutputTypeDef(TypedDict):
@@ -3874,12 +3896,6 @@ class ListOauth2CredentialProvidersResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class ListOnlineEvaluationConfigsResponseTypeDef(TypedDict):
-    onlineEvaluationConfigs: list[OnlineEvaluationConfigSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 class ListPaymentConnectorsResponseTypeDef(TypedDict):
     paymentConnectors: list[PaymentConnectorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4205,6 +4221,7 @@ class CreateConfigurationBundleRequestTypeDef(TypedDict):
     branchName: NotRequired[str]
     commitMessage: NotRequired[str]
     createdBy: NotRequired[VersionCreatedBySourceTypeDef]
+    kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -4218,6 +4235,7 @@ class UpdateConfigurationBundleRequestTypeDef(TypedDict):
     branchName: NotRequired[str]
     commitMessage: NotRequired[str]
     createdBy: NotRequired[VersionCreatedBySourceTypeDef]
+    kmsKeyArn: NotRequired[str]
 
 
 class WeightedOverrideOutputTypeDef(TypedDict):
@@ -4253,6 +4271,7 @@ class GetConfigurationBundleResponseTypeDef(TypedDict):
     lineageMetadata: VersionLineageMetadataTypeDef
     createdAt: datetime
     updatedAt: datetime
+    kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4266,7 +4285,14 @@ class GetConfigurationBundleVersionResponseTypeDef(TypedDict):
     lineageMetadata: VersionLineageMetadataTypeDef
     createdAt: datetime
     versionCreatedAt: datetime
+    kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListOnlineEvaluationConfigsResponseTypeDef(TypedDict):
+    onlineEvaluationConfigs: list[OnlineEvaluationConfigSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class CredentialProviderConfigurationOutputTypeDef(TypedDict):
@@ -4874,6 +4900,8 @@ class GetOnlineEvaluationConfigResponseTypeDef(TypedDict):
     rule: RuleOutputTypeDef
     dataSourceConfig: DataSourceConfigOutputTypeDef
     evaluators: list[EvaluatorReferenceTypeDef]
+    insights: list[InsightTypeDef]
+    clusteringConfig: ClusteringConfigOutputTypeDef
     outputConfig: OutputConfigTypeDef
     evaluationExecutionRoleArn: str
     status: OnlineEvaluationConfigStatusType
@@ -5031,11 +5059,13 @@ class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigName: str
     rule: RuleUnionTypeDef
     dataSourceConfig: DataSourceConfigUnionTypeDef
-    evaluators: Sequence[EvaluatorReferenceTypeDef]
     evaluationExecutionRoleArn: str
     enableOnCreate: bool
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
+    insights: NotRequired[Sequence[InsightTypeDef]]
+    clusteringConfig: NotRequired[ClusteringConfigUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -5046,6 +5076,8 @@ class UpdateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     rule: NotRequired[RuleUnionTypeDef]
     dataSourceConfig: NotRequired[DataSourceConfigUnionTypeDef]
     evaluators: NotRequired[Sequence[EvaluatorReferenceTypeDef]]
+    insights: NotRequired[Sequence[InsightTypeDef]]
+    clusteringConfig: NotRequired[ClusteringConfigUnionTypeDef]
     evaluationExecutionRoleArn: NotRequired[str]
     executionStatus: NotRequired[OnlineEvaluationExecutionStatusType]
 

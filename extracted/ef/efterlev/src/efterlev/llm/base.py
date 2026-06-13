@@ -90,6 +90,11 @@ class StubLLMClient:
     """
 
     response_text: str = "{}"
+    # Optional per-call response sequence (v0.1.226): when non-empty, call N
+    # returns response_texts[N] (clamped to the last entry once exhausted).
+    # Lets retry-path tests serve a bad response first and a good one second.
+    # `response_text` remains the single-response fast path when unset.
+    response_texts: list[str] = field(default_factory=list)
     model: str = "stub-model"
     last_system: str = ""
     last_messages: list[LLMMessage] = field(default_factory=list)
@@ -122,8 +127,11 @@ class StubLLMClient:
         self.last_system = system
         self.last_messages = list(messages)
         self.last_max_tokens = max_tokens
+        text = self.response_text
+        if self.response_texts:
+            text = self.response_texts[min(self.call_count, len(self.response_texts) - 1)]
         self.call_count += 1
         joined = system + "\n".join(m.content for m in messages)
         prompt_hash = hashlib.sha256(joined.encode("utf-8")).hexdigest()
         self.last_prompt_hash = prompt_hash
-        return LLMResponse(text=self.response_text, model=self.model, prompt_hash=prompt_hash)
+        return LLMResponse(text=text, model=self.model, prompt_hash=prompt_hash)

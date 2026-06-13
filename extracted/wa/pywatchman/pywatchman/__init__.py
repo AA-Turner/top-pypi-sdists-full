@@ -21,6 +21,7 @@ from . import capabilities, encoding
 # Sometimes it's really hard to get Python extensions to compile,
 # so fall back to a pure Python implementation.
 try:
+    # pyrefly: ignore [missing-module-attribute]
     from . import bser
 
     # Demandimport causes modules to be loaded lazily. Force the load now
@@ -112,6 +113,17 @@ def _win32_strerror(err):
 
 
 class WatchmanError(Exception):
+    """Base exception for watchman client errors.
+
+    This exception and its subclasses are raised when errors occur during
+    watchman client operations, such as communication failures, invalid
+    responses, or command execution errors.
+
+    Attributes:
+        msg: Error message describing the problem.
+        cmd: Optional command that was being executed when the error occurred.
+    """
+
     def __init__(self, msg=None, cmd=None):
         self.msg = msg
         self.cmd = cmd
@@ -297,6 +309,7 @@ class SocketTransport(Transport):
         except socket.timeout:
             raise SocketTimeout("timed out waiting for response")
 
+    # pyrefly: ignore [bad-override-param-name]
     def write(self, data):
         try:
             log("write %r", data)
@@ -550,6 +563,7 @@ class WindowsNamedPipeTransport(Transport):
         self._iobuf = buf[returned_size:]
         return buf[:returned_size]
 
+    # pyrefly: ignore [bad-override-param-name]
     def write(self, data):
         olap = OVERLAPPED()
         olap.hEvent = self._waitable
@@ -659,6 +673,7 @@ class CLIProcessTransport(Transport):
             raise WatchmanError("EOF on CLI process transport")
         return res
 
+    # pyrefly: ignore [bad-override-param-name]
     def write(self, data):
         if self.closed:
             self.close()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curies
-Version: 0.13.12
+Version: 0.13.13
 Summary: Idiomatic conversion between URIs and compact URIs (CURIEs)
 Keywords: snekpack,cookiecutter,semantic web,compact uniform resource identifiers,uniform resource identifiers,curies,IRIs,URIs
 Author: Charles Tapley Hoyt

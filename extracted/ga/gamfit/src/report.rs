@@ -33,6 +33,7 @@ pub struct ReportInput {
     pub edf_blocks: Vec<EdfBlockRow>,
     pub continuous_order: Vec<ContinuousOrderRow>,
     pub anisotropic_scales: Vec<AnisotropicScalesRow>,
+    pub measure_jet_spectra: Vec<MeasureJetSpectrumRow>,
     pub diagnostics: Option<DiagnosticsInput>,
     pub smooth_plots: Vec<SmoothPlotData>,
     pub alo: Option<AloData>,
@@ -84,6 +85,26 @@ pub struct AnisotropicScalesRow {
     pub global_length_scale: Option<f64>,
     /// Per-axis: (axis_index, eta, per_axis_length_scale, per_axis_kappa)
     pub axes: Vec<(usize, f64, Option<f64>, Option<f64>)>,
+}
+
+/// Measure-jet scale spectrum row: the realized multiscale band of one
+/// measure-jet term, plus — in per-scale-candidate mode — the fitted
+/// physical λ̂_ℓ per scale and the implied continuous order
+/// ŝ = −½ · (least-squares slope of ln λ̂_ℓ on ln ε_ℓ). `per_scale` empty
+/// means the term carries a single fused jet-energy penalty, so only the
+/// band and the spec's order are shown. main.rs computes everything
+/// (`measure_jet_implied_order` derives ŝ); this row stays plain data like
+/// the rest of the file.
+pub struct MeasureJetSpectrumRow {
+    pub term_name: String,
+    pub eps_min: f64,
+    pub eps_max: f64,
+    pub n_scales: usize,
+    pub length_scale: f64,
+    pub spec_order_s: f64,
+    /// Per-scale (ε_ℓ, physical λ̂_ℓ) pairs, ascending in ε; empty = fused.
+    pub per_scale: Vec<(f64, f64)>,
+    pub implied_order: Option<f64>,
 }
 
 pub struct DiagnosticsInput {
@@ -563,6 +584,53 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
         )
     };
 
+    // Measure-jet scale spectrum: one compact line per term (only if present)
+    let measure_jet_section = if input.measure_jet_spectra.is_empty() {
+        String::new()
+    } else {
+        let lines = input
+            .measure_jet_spectra
+            .iter()
+            .map(|r| {
+                let band = format!(
+                    "band {}..{} ({} scales, \u{2113}={})",
+                    fmt_num(r.eps_min),
+                    fmt_num(r.eps_max),
+                    r.n_scales,
+                    fmt_num(r.length_scale),
+                );
+                let tail = if r.per_scale.is_empty() {
+                    format!("fused penalty, spec order s={:.2}", r.spec_order_s)
+                } else {
+                    let lams = r
+                        .per_scale
+                        .iter()
+                        .map(|&(_, lam)| format!("{lam:.3e}"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let implied = r
+                        .implied_order
+                        .map(|s| format!("implied order s\u{0302}\u{2248}{s:.2}"))
+                        .unwrap_or_else(|| "implied order \u{2014}".to_string());
+                    format!(
+                        "&lambda;<sub>\u{2113}</sub> = [{lams}], {implied} (spec s={:.2})",
+                        r.spec_order_s
+                    )
+                };
+                format!(
+                    "<p class=\"mono\">{}: measure-jet {band}, {tail}</p>",
+                    esc(&r.term_name)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "<section class=\"card\" id=\"sec-mjet-spectrum\">\n\
+             <h2>Measure-Jet Scale Spectrum</h2>\n\
+             {lines}\n</section>"
+        )
+    };
+
     // Diagnostics plots grid
     let diagnostics_section = if input.diagnostics.is_some() {
         let has_cal = input
@@ -659,6 +727,9 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
     }
     if !input.anisotropic_scales.is_empty() {
         nav_items.push(("sec-aniso-scales", "Anisotropy"));
+    }
+    if !input.measure_jet_spectra.is_empty() {
+        nav_items.push(("sec-mjet-spectrum", "Measure-Jet"));
     }
     if input.diagnostics.is_some() {
         nav_items.push(("sec-diagnostics", "Diagnostics"));
@@ -828,6 +899,7 @@ details[open] .toggle::before {{ content:'\25BC\FE0E  '; }}
 
 {continuous_section}
 {aniso_section}
+{measure_jet_section}
 {diagnostics_section}
 {smooth_section}
 {alo_section}
@@ -849,6 +921,7 @@ details[open] .toggle::before {{ content:'\25BC\FE0E  '; }}
         edf_section = edf_section,
         continuous_section = continuous_section,
         aniso_section = aniso_section,
+        measure_jet_section = measure_jet_section,
         diagnostics_section = diagnostics_section,
         smooth_section = smooth_section,
         alo_section = alo_section,

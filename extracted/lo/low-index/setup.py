@@ -19,9 +19,12 @@ sources = [
 ]
 
 if sys.platform.startswith('win'):
+    # '/MT' statically links against the C++ runtime `msvcp140.dll`
+    # which is not part of Windows proper and has various incompatible
+    # versions.
     extra_compile_args = ['/Ox', '/std:c++14', '/MT']
 else:
-    extra_compile_args = ['-O3', '-std=c++11']
+    extra_compile_args = ['-O3', '-std=c++14']
 
 ext_modules = [
     Extension(

@@ -14,7 +14,7 @@ import httpx
 import pytest
 
 from smplkit import AsyncJobsClient, JobsClient
-from smplkit._errors import ConflictError, NotFoundError
+from smplkit.errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
 from smplkit.jobs import AsyncJob, HttpConfig, Job, Run, Usage
 
@@ -157,7 +157,7 @@ class TestModels:
     def test_parse_dt_passthrough(self):
         from datetime import datetime, timezone
 
-        from smplkit.jobs._client import _parse_dt
+        from smplkit.jobs.clients import _parse_dt
 
         now = datetime(2026, 1, 1, tzinfo=timezone.utc)
         assert _parse_dt(now) is now and _parse_dt(None) is None

@@ -62,7 +62,6 @@ pub fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&POSSIBLY_MISSING_IMPLICIT_CALL);
     registry.register_lint(&INVALID_DATACLASS_OVERRIDE);
     registry.register_lint(&INVALID_DATACLASS);
-    registry.register_lint(&CONFLICTING_ARGUMENT_FORMS);
     registry.register_lint(&CONFLICTING_DECLARATIONS);
     registry.register_lint(&CONFLICTING_METACLASS);
     registry.register_lint(&CYCLIC_CLASS_DEFINITION);
@@ -243,32 +242,6 @@ declare_lint! {
         summary: "detects implicit calls to possibly missing methods",
         status: LintStatus::stable("0.0.1-alpha.22"),
         default_level: Level::Warn,
-    }
-}
-
-declare_lint! {
-    /// ## What it does
-    /// Checks whether an argument is used as both a value and a type form in a call.
-    ///
-    /// ## Why is this bad?
-    /// Such calls have confusing semantics and often indicate a logic error.
-    ///
-    /// ## Examples
-    /// ```python
-    /// from typing import reveal_type
-    /// from ty_extensions import is_singleton
-    ///
-    /// if flag:
-    ///     f = repr  # Expects a value
-    /// else:
-    ///     f = is_singleton  # Expects a type form
-    ///
-    /// f(int)  # error
-    /// ```
-    pub static CONFLICTING_ARGUMENT_FORMS = {
-        summary: "detects when an argument is used as both a value and a type form in a call",
-        status: LintStatus::stable("0.0.1-alpha.1"),
-        default_level: Level::Error,
     }
 }
 
@@ -1418,7 +1391,6 @@ declare_lint! {
     /// from typing import TypeVar
     ///
     /// T = TypeVar("T")  # okay
-    /// Q = TypeVar("S")  # error: TypeVar name must match the variable it's assigned to
     /// T = TypeVar("T")  # error: TypeVars should not be redefined
     ///
     /// # error: TypeVar must be immediately assigned to a variable
@@ -1446,7 +1418,7 @@ declare_lint! {
     /// from typing import ParamSpec
     ///
     /// P1 = ParamSpec("P1")  # okay
-    /// P2 = ParamSpec("S2")  # error: ParamSpec name must match the variable it's assigned to
+    /// P2 = ParamSpec()  # error: ParamSpec requires a name
     /// ```
     ///
     /// ## References
@@ -1520,10 +1492,11 @@ declare_lint! {
     ///
     /// ## Examples
     /// ```python
-    /// from typing import NewType, TypeVar
+    /// from typing import NewType, ParamSpec, TypeVar
     /// from typing_extensions import TypedDict
     ///
     /// T = TypeVar("U")  # error: [mismatched-type-name]
+    /// P = ParamSpec("Q")  # error: [mismatched-type-name]
     /// UserId = NewType("Id", int)  # error: [mismatched-type-name]
     /// Movie = TypedDict("Film", {"title": str})  # error: [mismatched-type-name]
     /// ```
@@ -1875,11 +1848,12 @@ declare_lint! {
     /// ```python
     /// from typing import TypeIs
     ///
-    /// def f(v: object) -> TypeIs[int]: ...
+    /// def is_int(value: object = object()) -> TypeIs[int]:
+    ///     return isinstance(value, int)
     ///
-    /// f()  # Error
-    /// f(*a)  # Error
-    /// f(10)  # Error
+    /// is_int()  # Error: no positional narrowing target
+    ///
+    /// is_int(value=1)  # Error: narrowing target passed by keyword
     /// ```
     pub static INVALID_TYPE_GUARD_CALL = {
         summary: "detects type guard function calls that has no narrowing effect",
@@ -4829,6 +4803,20 @@ pub fn report_invalid_class_match_pattern<T: Ranged>(
     diagnostic.set_primary_message("This will raise `TypeError` at runtime");
 }
 
+pub fn report_too_many_positional_patterns_for_callable_class_pattern<T: Ranged>(
+    context: &InferContext,
+    first_excess_pattern: T,
+    positional_count: usize,
+) {
+    let Some(builder) = context.report_lint(&INVALID_MATCH_PATTERN, first_excess_pattern) else {
+        return;
+    };
+    let mut diagnostic = builder.into_diagnostic(format_args!(
+        "Too many positional subpatterns for `collections.abc.Callable`: expected 0, got {positional_count}"
+    ));
+    diagnostic.set_primary_message("This will raise `TypeError` at runtime");
+}
+
 pub fn add_type_expression_reference_link<'db, 'ctx>(
     mut diag: LintDiagnosticGuard<'db, 'ctx>,
 ) -> LintDiagnosticGuard<'db, 'ctx> {
@@ -5314,14 +5302,14 @@ pub fn report_invalid_or_unsupported_base(
                         }
                     }
                 }
-                CallDunderError::CallError(CallErrorKind::NotCallable, _) => {
+                CallDunderError::CallError(CallErrorKind::NotCallable, _, _) => {
                     explain_mro_entries(&mut diagnostic);
                     diagnostic.info(format_args!(
                         "Type `{}` has an `__mro_entries__` attribute, but it is not callable",
                         base_type.display(db)
                     ));
                 }
-                CallDunderError::CallError(CallErrorKind::BindingError, _) => {
+                CallDunderError::CallError(CallErrorKind::BindingError, _, _) => {
                     explain_mro_entries(&mut diagnostic);
                     diagnostic.info(format_args!(
                         "Type `{}` has an `__mro_entries__` method, \
@@ -5333,7 +5321,7 @@ pub fn report_invalid_or_unsupported_base(
                         `def __mro_entries__(self, bases: tuple[type, ...], /) -> tuple[type, ...]`"
                     );
                 }
-                CallDunderError::CallError(CallErrorKind::PossiblyNotCallable, _) => {
+                CallDunderError::CallError(CallErrorKind::PossiblyNotCallable, _, _) => {
                     explain_mro_entries(&mut diagnostic);
                     diagnostic.info(format_args!(
                         "Type `{}` has an `__mro_entries__` method, \
@@ -5598,6 +5586,8 @@ pub fn report_cannot_pop_required_field_on_typed_dict<'db>(
 pub enum TypedDictDeleteErrorKind {
     /// The key exists but is required (not `NotRequired`)
     RequiredKey,
+    /// The key refers to a read-only extra item.
+    ReadOnlyExtraItem,
     /// The key does not exist in the `TypedDict`
     UnknownKey,
 }
@@ -5620,6 +5610,9 @@ pub fn report_cannot_delete_typed_dict_key<'db>(
     let mut diagnostic = match error_kind {
         TypedDictDeleteErrorKind::RequiredKey => builder.into_diagnostic(format_args!(
             "Cannot delete required key \"{field_name}\" from TypedDict `{typed_dict_name}`"
+        )),
+        TypedDictDeleteErrorKind::ReadOnlyExtraItem => builder.into_diagnostic(format_args!(
+            "Cannot delete read-only extra item \"{field_name}\" from TypedDict `{typed_dict_name}`"
         )),
         TypedDictDeleteErrorKind::UnknownKey => builder.into_diagnostic(format_args!(
             "Cannot delete unknown key \"{field_name}\" from TypedDict `{typed_dict_name}`"

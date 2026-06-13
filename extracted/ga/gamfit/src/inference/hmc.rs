@@ -459,6 +459,31 @@ fn solve_upper_triangular_transpose(l: &Array2<f64>, dim: usize) -> Array2<f64> 
     result
 }
 
+struct WhiteningTransform {
+    chol: Array2<f64>,
+    chol_t: Array2<f64>,
+}
+
+fn hessian_whitening_transform(
+    hessian: ArrayView2<f64>,
+    dim: usize,
+    cov_scale: f64,
+    cholesky_error_prefix: &str,
+) -> Result<WhiteningTransform, String> {
+    let hessian_owned = hessian.to_owned();
+    let chol_factor = hessian_owned
+        .cholesky(Side::Lower)
+        .map_err(|e| format!("{cholesky_error_prefix}: {:?}", e))?;
+    let l_h = chol_factor.lower_triangular();
+    let mut chol = solve_upper_triangular_transpose(&l_h, dim);
+    let sqrt_cov_scale = cov_scale.max(0.0).sqrt();
+    if (sqrt_cov_scale - 1.0).abs() > 0.0 {
+        chol.mapv_inplace(|v| v * sqrt_cov_scale);
+    }
+    let chol_t = chol.t().to_owned();
+    Ok(WhiteningTransform { chol, chol_t })
+}
+
 /// Shared data for NUTS posterior (wrapped in Arc to prevent cloning).
 ///
 /// This struct holds read-only data that is shared across all chains.
@@ -704,21 +729,6 @@ impl NutsPosterior {
                 .map_err(String::from)?;
         }
 
-        // Use faer for numerically stable Cholesky decomposition of H
-        // H = L_H L_H^T where L_H is lower triangular
-        let hessian_owned = hessian.to_owned();
-        let chol_factor = hessian_owned
-            .cholesky(Side::Lower)
-            .map_err(|e| format!("Hessian Cholesky decomposition failed: {:?}", e))?;
-
-        // We need L where L L^T = H^{-1}
-        // Since H = L_H L_H^T, we have H^{-1} = L_H^{-T} L_H^{-1}
-        // So L = L_H^{-T} (the inverse transpose of the Cholesky factor)
-        //
-        // To get L_H^{-T}, we solve L_H^T * X = I using back-substitution
-        // Since L_H is lower triangular, L_H^T is upper triangular
-        let l_h = chol_factor.lower_triangular();
-        let mut chol = solve_upper_triangular_transpose(&l_h, dim);
         // Whitening metric: `L Lᵀ` must equal the posterior covariance the
         // sampler reproduces, `Vb = cov_scale · H⁻¹` (#679/#680 invariant), so
         // scale `L` by `√cov_scale`. Only the profiled-Gaussian model carries a
@@ -728,13 +738,14 @@ impl NutsPosterior {
         // a previous `sqrt_phi()` multiply that wrongly scaled Gamma (and any
         // φ-bearing family) by `√φ`, mis-preconditioning against `φ·H⁻¹`.
         let cov_scale = nuts_family.coefficient_covariance_scale(dispersion.phi());
-        {
-            let sqrt_cov_scale = cov_scale.max(0.0).sqrt();
-            if (sqrt_cov_scale - 1.0).abs() > 0.0 {
-                chol.mapv_inplace(|v| v * sqrt_cov_scale);
-            }
-        }
-        let chol_t = chol.t().to_owned();
+        let whitening = hessian_whitening_transform(
+            hessian,
+            dim,
+            cov_scale,
+            "Hessian Cholesky decomposition failed",
+        )?;
+        let chol = whitening.chol;
+        let chol_t = whitening.chol_t;
 
         // Precompute the whitened penalty operator and constants so that the
         // penalty contribution to logp/grad becomes a single symv against z.
@@ -1824,6 +1835,7 @@ mod tests {
                 beta_standard_errors_corrected: None,
                 beta_covariance_frequentist: None,
                 coefficient_influence: None,
+                weighted_gram: None,
                 bias_correction_beta: None,
             }),
             None,
@@ -4106,6 +4118,128 @@ pub struct NutsResult {
     pub converged: bool,
 }
 
+#[derive(Clone, Copy)]
+struct NutsConvergenceThresholds {
+    max_rhat: f64,
+    min_ess: Option<f64>,
+}
+
+impl NutsConvergenceThresholds {
+    #[inline]
+    fn converged(self, rhat: f64, ess: f64) -> bool {
+        let rhat_ok = rhat < self.max_rhat;
+        match self.min_ess {
+            Some(min_ess) => rhat_ok && ess > min_ess,
+            None => rhat_ok,
+        }
+    }
+}
+
+fn run_whitened_nuts_samples<Target>(
+    target: Target,
+    initial_positions: Vec<Array1<f64>>,
+    config: &NutsConfig,
+    dim: usize,
+    mass_cfg: NUTSMassMatrixConfig,
+    transition_seed_stream: u64,
+    sampling_error_label: &str,
+) -> Result<(Array3<f64>, String), String>
+where
+    Target: HamiltonianTarget<Array1<f64>> + Sync + Send,
+{
+    let mut sampler = GenericNUTS::new_with_mass_matrix(
+        target,
+        initial_positions,
+        robust_target_accept(config.target_accept, dim),
+        mass_cfg,
+    )
+    .set_seed(nuts_transition_seed(config.seed, transition_seed_stream));
+
+    let (samples_array, run_stats) = sampler
+        .run_progress(config.n_samples, config.nwarmup)
+        .map_err(|e| format!("{sampling_error_label}: {e}"))?;
+    Ok((samples_array, run_stats.to_string()))
+}
+
+fn unwhiten_samples(
+    samples_array: &Array3<f64>,
+    mode: &Array1<f64>,
+    chol: &Array2<f64>,
+    dim: usize,
+    z_start: usize,
+) -> Array2<f64> {
+    let shape = samples_array.shape();
+    let n_chains = shape[0];
+    let n_samples_out = shape[1];
+    let total_samples = n_chains * n_samples_out;
+
+    let mut samples = Array2::<f64>::zeros((total_samples, dim));
+    let mut z_buffer = Array1::<f64>::zeros(dim);
+    for chain in 0..n_chains {
+        for sample_i in 0..n_samples_out {
+            let zview = samples_array.slice(ndarray::s![chain, sample_i, z_start..z_start + dim]);
+            z_buffer.assign(&zview);
+            let beta = mode + &chol.dot(&z_buffer);
+            let sample_idx = chain * n_samples_out + sample_i;
+            samples.row_mut(sample_idx).assign(&beta);
+        }
+    }
+
+    samples
+}
+
+fn summarize_unwhitened_nuts_samples(
+    samples: Array2<f64>,
+    samples_array: &Array3<f64>,
+    empty_mean: Array1<f64>,
+    convergence: NutsConvergenceThresholds,
+) -> NutsResult {
+    let posterior_mean = samples.mean_axis(Axis(0)).unwrap_or(empty_mean);
+    let posterior_std = samples.std_axis(Axis(0), 0.0);
+    let (rhat, ess) = compute_split_rhat_and_ess(samples_array);
+    let converged = convergence.converged(rhat, ess);
+
+    NutsResult {
+        samples,
+        posterior_mean,
+        posterior_std,
+        rhat,
+        ess,
+        converged,
+    }
+}
+
+fn run_whitened_nuts_result<Target>(
+    target: Target,
+    mode: &Array1<f64>,
+    chol: &Array2<f64>,
+    initial_positions: Vec<Array1<f64>>,
+    config: &NutsConfig,
+    dim: usize,
+    mass_cfg: NUTSMassMatrixConfig,
+    transition_seed_stream: u64,
+    sampling_error_label: &str,
+    empty_mean: Array1<f64>,
+    convergence: NutsConvergenceThresholds,
+) -> Result<(NutsResult, String), String>
+where
+    Target: HamiltonianTarget<Array1<f64>> + Sync + Send,
+{
+    let (samples_array, run_stats) = run_whitened_nuts_samples(
+        target,
+        initial_positions,
+        config,
+        dim,
+        mass_cfg,
+        transition_seed_stream,
+        sampling_error_label,
+    )?;
+    let samples = unwhiten_samples(&samples_array, mode, chol, dim, 0);
+    let result =
+        summarize_unwhitened_nuts_samples(samples, &samples_array, empty_mean, convergence);
+    Ok((result, run_stats))
+}
+
 impl NutsResult {
     /// Computes the posterior mean of a function applied to coefficients.
     /// Returns 0.0 if samples is empty to avoid divide-by-zero.
@@ -4548,61 +4682,26 @@ pub(crate) fn run_nuts_sampling(
     let mode_arr = target.mode().clone();
 
     let initial_positions = jittered_initial_positions(config, dim, 0.1, 0x0F65_83B2_BC71_4D9E);
-
-    // Create GenericNUTS sampler - it auto-tunes step size!
     let mass_cfg = robust_mass_matrix_config(dim, config.nwarmup);
-    let mut sampler = GenericNUTS::new_with_mass_matrix(
+    let (result, run_stats) = run_whitened_nuts_result(
         target,
+        &mode_arr,
+        &chol,
         initial_positions,
-        robust_target_accept(config.target_accept, dim),
+        config,
+        dim,
         mass_cfg,
-    )
-    .set_seed(nuts_transition_seed(config.seed, 0xF1D3_C2B5_A697_804E));
-
-    let (samples_array, run_stats) = sampler
-        .run_progress(config.n_samples, config.nwarmup)
-        .map_err(|e| format!("NUTS sampling failed: {e}"))?;
+        0xF1D3_C2B5_A697_804E,
+        "NUTS sampling failed",
+        Array1::zeros(dim),
+        NutsConvergenceThresholds {
+            max_rhat: 1.1,
+            min_ess: Some(100.0),
+        },
+    )?;
     log::info!("NUTS sampling complete: {}", run_stats);
 
-    // Convert samples from whitened space back to original space
-    // samples_array has shape [n_chains, n_samples, dim]
-    let shape = samples_array.shape();
-    let n_chains = shape[0];
-    let n_samples_out = shape[1];
-    let total_samples = n_chains * n_samples_out;
-
-    let mut samples = Array2::<f64>::zeros((total_samples, dim));
-    let mut z_buffer = Array1::<f64>::zeros(dim);
-    for chain in 0..n_chains {
-        for sample_i in 0..n_samples_out {
-            let zview = samples_array.slice(ndarray::s![chain, sample_i, ..]);
-            z_buffer.assign(&zview);
-            let beta = &mode_arr + &chol.dot(&z_buffer);
-            let sample_idx = chain * n_samples_out + sample_i;
-            samples.row_mut(sample_idx).assign(&beta);
-        }
-    }
-
-    // Compute split-chain R-hat and ESS for proper convergence diagnostics
-    let posterior_mean = samples
-        .mean_axis(Axis(0))
-        .unwrap_or_else(|| Array1::zeros(dim));
-    let posterior_std = samples.std_axis(Axis(0), 0.0);
-
-    // Split-chain R-hat: compare variance within vs between chains
-    // Gelman-Rubin diagnostic with split chains
-    let (rhat, ess) = compute_split_rhat_and_ess(&samples_array);
-
-    let converged = rhat < 1.1 && ess > 100.0;
-
-    Ok(NutsResult {
-        samples,
-        posterior_mean,
-        posterior_std,
-        rhat,
-        ess,
-        converged,
-    })
+    Ok(result)
 }
 
 /// Terminal never-fail Gaussian-posterior sampling target.
@@ -4721,64 +4820,216 @@ pub fn sample_gaussian_mode_posterior(
         h[[i, i]] += jitter;
     }
 
-    let chol_factor = h
-        .cholesky(Side::Lower)
-        .map_err(|e| format!("Gaussian-posterior fallback Cholesky failed: {e:?}"))?;
-    let l_h = chol_factor.lower_triangular();
-    // L = L_H^{-T} so that L Lᵀ = (L_H L_Hᵀ)⁻¹ = H⁻¹ (same identity as
-    // `NutsPosterior::new`).
-    let chol = solve_upper_triangular_transpose(&l_h, dim);
-
     let mode_owned = mode.to_owned();
+    let whitening = hessian_whitening_transform(
+        h.view(),
+        dim,
+        1.0,
+        "Gaussian-posterior fallback Cholesky failed",
+    )?;
+    let chol = whitening.chol;
     let target = GaussianModeTarget;
     let initial_positions = jittered_initial_positions(config, dim, 0.1, 0x51A6_2C73_90E4_1DBF);
     let mass_cfg = robust_mass_matrix_config(dim, config.nwarmup);
-    let mut sampler = GenericNUTS::new_with_mass_matrix(
+    let (result, run_stats) = run_whitened_nuts_result(
         target,
+        &mode_owned,
+        &chol,
         initial_positions,
-        robust_target_accept(config.target_accept, dim),
+        config,
+        dim,
         mass_cfg,
-    )
-    .set_seed(nuts_transition_seed(config.seed, 0x7C19_5A3E_82D6_44B1));
-
-    let (samples_array, run_stats) = sampler
-        .run_progress(config.n_samples, config.nwarmup)
-        .map_err(|e| format!("Gaussian-posterior fallback NUTS sampling failed: {e}"))?;
+        0x7C19_5A3E_82D6_44B1,
+        "Gaussian-posterior fallback NUTS sampling failed",
+        mode_owned.clone(),
+        NutsConvergenceThresholds {
+            max_rhat: 1.1,
+            min_ess: None,
+        },
+    )?;
     log::info!(
         "never-fail Gaussian-posterior fallback: sampling complete dim={dim} {}",
         run_stats
     );
 
-    let shape = samples_array.shape();
-    let n_chains = shape[0];
-    let n_samples_out = shape[1];
-    let total_samples = n_chains * n_samples_out;
-    let mut samples = Array2::<f64>::zeros((total_samples, dim));
-    let mut z_buffer = Array1::<f64>::zeros(dim);
-    for chain in 0..n_chains {
-        for sample_i in 0..n_samples_out {
-            let zview = samples_array.slice(ndarray::s![chain, sample_i, ..]);
-            z_buffer.assign(&zview);
-            let beta = &mode_owned + &chol.dot(&z_buffer);
-            samples
-                .row_mut(chain * n_samples_out + sample_i)
-                .assign(&beta);
+    Ok(GaussianModePosterior {
+        samples: result.samples,
+        posterior_mean: result.posterior_mean,
+        posterior_std: result.posterior_std,
+        rhat: result.rhat,
+        ess: result.ess,
+    })
+}
+
+/// Penalty subtracted from the log-density when the `ρ`-criterion closure
+/// reports an infeasible / non-finite point during Tier-2 `ρ`-posterior NUTS
+/// (#938). The fallback density is the whitened standard normal shifted down by
+/// this constant, so the sampler sees a smooth, coercive pull back toward the
+/// feasible region around `ρ̂` instead of a `-inf` cliff.
+const RHO_NUTS_INFEASIBLE_LOGP_PENALTY: f64 = 1.0e8;
+
+/// Tier-2 of the exact marginal-smoothing inference stack (#938): the whitened
+/// `ρ`-criterion Hamiltonian target.
+///
+/// This reuses the module's β-level whitening design ONE LEVEL UP: the target
+/// log-density is `logp(ρ) = −(criterion(ρ) − criterion(ρ̂))` — i.e.
+/// `π(ρ|y) ∝ exp(−LAML(ρ))`, the exact profiled criterion the outer optimizer
+/// minimizes — expressed in the whitened coordinates `ρ = ρ̂ + L z` with
+/// `L Lᵀ = H_ρ⁻¹` built from the exact outer Hessian at `ρ̂`. The gradient is
+/// the caller's exact profiled `ρ`-gradient pushed through the chain rule:
+/// `∇_z logp = −Lᵀ ∇_ρ criterion`.
+///
+/// The criterion closure is `FnMut` (each evaluation is one warm inner profile
+/// solve with interior caches), so it is serialized behind a `Mutex`; chains
+/// take turns evaluating, which also keeps the inner warm-start trajectory
+/// coherent.
+struct WhitenedRhoCriterionTarget<F> {
+    /// `ρ ↦ (criterion(ρ), ∇_ρ criterion(ρ))`; `None` marks an infeasible point.
+    criterion_and_grad: Mutex<F>,
+    /// `ρ̂`, the converged smoothing parameters (the whitening center).
+    mode: Array1<f64>,
+    /// `L` with `L Lᵀ = H_ρ⁻¹`: maps whitened `z` to `ρ = ρ̂ + L z`.
+    chol: Array2<f64>,
+    /// `Lᵀ`, for the gradient chain rule.
+    chol_t: Array2<f64>,
+    /// `criterion(ρ̂)`, subtracted for numerical stability (cancels in MCMC).
+    cost_hat: f64,
+}
+
+impl<F> HamiltonianTarget<Array1<f64>> for WhitenedRhoCriterionTarget<F>
+where
+    F: FnMut(&Array1<f64>) -> Option<(f64, Array1<f64>)> + Send,
+{
+    fn logp_and_grad(&self, position: &Array1<f64>, grad: &mut Array1<f64>) -> f64 {
+        let rho = &self.mode + &self.chol.dot(position);
+        let eval = {
+            let mut criterion = self
+                .criterion_and_grad
+                .lock()
+                .expect("rho-criterion mutex poisoned");
+            (*criterion)(&rho)
+        };
+        match eval {
+            Some((cost, g))
+                if cost.is_finite()
+                    && g.len() == position.len()
+                    && g.iter().all(|v| v.is_finite()) =>
+            {
+                let grad_z = self.chol_t.dot(&g);
+                for (gi, &v) in grad.iter_mut().zip(grad_z.iter()) {
+                    *gi = -v;
+                }
+                -(cost - self.cost_hat)
+            }
+            _ => {
+                // Infeasible criterion: smooth coercive fallback toward ρ̂.
+                let mut quad = 0.0;
+                for (gi, &zi) in grad.iter_mut().zip(position.iter()) {
+                    *gi = -zi;
+                    quad += zi * zi;
+                }
+                -0.5 * quad - RHO_NUTS_INFEASIBLE_LOGP_PENALTY
+            }
         }
     }
+}
 
-    let posterior_mean = samples
-        .mean_axis(Axis(0))
-        .unwrap_or_else(|| mode_owned.clone());
-    let posterior_std = samples.std_axis(Axis(0), 0.0);
-    let (rhat, ess) = compute_split_rhat_and_ess(&samples_array);
+/// Run NUTS over the smoothing parameters `ρ` with the exact profiled criterion
+/// and gradient (#938 Tier 2).
+///
+/// * `rho_hat` — converged `ρ̂` (the whitening center and chain seed).
+/// * `outer_hessian` — exact outer Hessian `H_ρ` at `ρ̂` (symmetrized and
+///   jittered defensively, then Cholesky-factored for the whitening).
+/// * `criterion_and_grad` — `ρ ↦ (LAML(ρ), ∇_ρ LAML(ρ))`, both exact; `None`
+///   for infeasible `ρ`. Each call is one warm inner profile solve.
+/// * `config` — sampler configuration; determinism comes from `config.seed`
+///   through the same splitmix64 chain/transition streams as every other NUTS
+///   entry point (no clock, no global RNG).
+///
+/// Returns draws in the ORIGINAL `ρ` space (un-whitened), with split-R̂/ESS
+/// diagnostics.
+pub fn run_rho_criterion_nuts<F>(
+    rho_hat: ArrayView1<f64>,
+    outer_hessian: ArrayView2<f64>,
+    mut criterion_and_grad: F,
+    config: &NutsConfig,
+) -> Result<NutsResult, String>
+where
+    F: FnMut(&Array1<f64>) -> Option<(f64, Array1<f64>)> + Send,
+{
+    validate_nuts_config(config).map_err(String::from)?;
+    let dim = rho_hat.len();
+    if dim == 0 {
+        return Err("rho-posterior NUTS: zero-dimensional rho".to_string());
+    }
+    if outer_hessian.nrows() != dim || outer_hessian.ncols() != dim {
+        return Err(format!(
+            "rho-posterior NUTS: outer Hessian shape {:?} does not match rho dim {dim}",
+            outer_hessian.dim()
+        ));
+    }
 
-    Ok(GaussianModePosterior {
-        samples,
-        posterior_mean,
-        posterior_std,
-        rhat,
-        ess,
-    })
+    // Symmetrize + jitter the exact outer Hessian so a boundary optimum that is
+    // SPD-up-to-roundoff still factors; jitter only widens the proposal metric.
+    let mut h = outer_hessian.to_owned();
+    for i in 0..dim {
+        for j in (i + 1)..dim {
+            let avg = 0.5 * (h[[i, j]] + h[[j, i]]);
+            h[[i, j]] = avg;
+            h[[j, i]] = avg;
+        }
+    }
+    let diag_scale = (0..dim).map(|i| h[[i, i]].abs()).fold(0.0_f64, f64::max);
+    let jitter = (diag_scale * 1e-10).max(1e-12);
+    for i in 0..dim {
+        h[[i, i]] += jitter;
+    }
+
+    let mode = rho_hat.to_owned();
+    let whitening = hessian_whitening_transform(
+        h.view(),
+        dim,
+        1.0,
+        "rho-posterior NUTS: outer-Hessian Cholesky failed",
+    )?;
+
+    let cost_hat = match criterion_and_grad(&mode) {
+        Some((cost, _)) if cost.is_finite() => cost,
+        _ => {
+            return Err(
+                "rho-posterior NUTS: criterion is infeasible at rho_hat itself".to_string(),
+            );
+        }
+    };
+
+    let chol = whitening.chol;
+    let target = WhitenedRhoCriterionTarget {
+        criterion_and_grad: Mutex::new(criterion_and_grad),
+        mode: mode.clone(),
+        chol: chol.clone(),
+        chol_t: whitening.chol_t,
+        cost_hat,
+    };
+    let initial_positions = jittered_initial_positions(config, dim, 0.1, 0x3D8A_91C4_E27B_5F60);
+    let mass_cfg = robust_mass_matrix_config(dim, config.nwarmup);
+    let (result, run_stats) = run_whitened_nuts_result(
+        target,
+        &mode,
+        &chol,
+        initial_positions,
+        config,
+        dim,
+        mass_cfg,
+        0x6B42_E9A1_05D7_C83F,
+        "rho-posterior NUTS sampling failed",
+        mode.clone(),
+        NutsConvergenceThresholds {
+            max_rhat: 1.1,
+            min_ess: None,
+        },
+    )?;
+    log::info!("rho-posterior NUTS (#938 tier 2): sampling complete dim={dim} {run_stats}");
+    Ok(result)
 }
 
 /// Flattened numeric inputs for GLM-family NUTS sampling.
@@ -5231,12 +5482,6 @@ impl LinkWigglePosterior {
             validate_count_responses("negative-binomial link-wiggle NUTS", &y, &weights)
                 .map_err(String::from)?;
         }
-        let hessian_owned = hessian.to_owned();
-        let chol_factor = hessian_owned
-            .cholesky(Side::Lower)
-            .map_err(|e| format!("LinkWigglePosterior Cholesky failed: {:?}", e))?;
-        let l_h = chol_factor.lower_triangular();
-        let mut chol = solve_upper_triangular_transpose(&l_h, dim);
         // Whitening metric `L Lᵀ = cov_scale · H⁻¹` (#679/#680 invariant), so
         // scale `L` by `√cov_scale`. For the link-wiggle joint target `scale`
         // is σ (Gaussian), so the profiled-Gaussian covariance scale is
@@ -5249,11 +5494,14 @@ impl LinkWigglePosterior {
             NutsFamily::Gaussian => scale * scale,
             _ => 1.0,
         };
-        let sqrt_cov_scale = cov_scale.max(0.0).sqrt();
-        if (sqrt_cov_scale - 1.0).abs() > 0.0 {
-            chol.mapv_inplace(|v| v * sqrt_cov_scale);
-        }
-        let chol_t = chol.t().to_owned();
+        let whitening = hessian_whitening_transform(
+            hessian,
+            dim,
+            cov_scale,
+            "LinkWigglePosterior Cholesky failed",
+        )?;
+        let chol = whitening.chol;
+        let chol_t = whitening.chol_t;
         Ok(Self {
             x: Arc::new(x.to_owned()),
             y: Arc::new(y.to_owned()),
@@ -5626,51 +5874,25 @@ pub fn run_link_wiggle_nuts_sampling(
     let initial_positions = jittered_initial_positions(config, dim, 0.1, 0x8C48_0F65_3A2B_D917);
 
     let mass_cfg = robust_mass_matrix_config(dim, config.nwarmup);
-    let mut sampler = GenericNUTS::new_with_mass_matrix(
+    let (result, run_stats) = run_whitened_nuts_result(
         target,
+        &mode_arr,
+        &chol,
         initial_positions,
-        robust_target_accept(config.target_accept, dim),
+        config,
+        dim,
         mass_cfg,
-    )
-    .set_seed(nuts_transition_seed(config.seed, 0x2E31_A4B6_C908_F57D));
-
-    let (samples_array, run_stats) = sampler
-        .run_progress(config.n_samples, config.nwarmup)
-        .map_err(|e| format!("Link-wiggle NUTS sampling failed: {e}"))?;
+        0x2E31_A4B6_C908_F57D,
+        "Link-wiggle NUTS sampling failed",
+        Array1::zeros(dim),
+        NutsConvergenceThresholds {
+            max_rhat: 1.1,
+            min_ess: Some(100.0),
+        },
+    )?;
     log::info!("Link-wiggle NUTS sampling complete: {}", run_stats);
 
-    // Un-whiten samples: β = mode + L·z
-    let shape = samples_array.shape();
-    let n_chains = shape[0];
-    let n_samples_out = shape[1];
-    let total_samples = n_chains * n_samples_out;
-
-    let mut samples = Array2::<f64>::zeros((total_samples, dim));
-    let mut z_buffer = Array1::<f64>::zeros(dim);
-    for chain in 0..n_chains {
-        for sample_i in 0..n_samples_out {
-            z_buffer.assign(&samples_array.slice(ndarray::s![chain, sample_i, ..]));
-            samples
-                .row_mut(chain * n_samples_out + sample_i)
-                .assign(&(&mode_arr + &chol.dot(&z_buffer)));
-        }
-    }
-
-    let posterior_mean = samples
-        .mean_axis(Axis(0))
-        .unwrap_or_else(|| Array1::zeros(dim));
-    let posterior_std = samples.std_axis(Axis(0), 0.0);
-    let (rhat, ess) = compute_split_rhat_and_ess(&samples_array);
-    let converged = rhat < 1.1 && ess > 100.0;
-
-    Ok(NutsResult {
-        samples,
-        posterior_mean,
-        posterior_std,
-        rhat,
-        ess,
-        converged,
-    })
+    Ok(result)
 }
 
 // ============================================================================
@@ -6685,14 +6907,14 @@ impl JointBetaRhoPosterior {
             validate_binary_responses("binomial joint HMC", &y, &weights).map_err(String::from)?;
         }
 
-        // Cholesky of H for β-whitening (same as NutsPosterior)
-        let hessian_owned = hessian.to_owned();
-        let chol_factor = hessian_owned
-            .cholesky(Side::Lower)
-            .map_err(|e| format!("Joint HMC: Hessian Cholesky failed: {:?}", e))?;
-        let l_h = chol_factor.lower_triangular();
-        let chol = solve_upper_triangular_transpose(&l_h, n_beta);
-        let chol_t = chol.t().to_owned();
+        let whitening = hessian_whitening_transform(
+            hessian,
+            n_beta,
+            1.0,
+            "Joint HMC: Hessian Cholesky failed",
+        )?;
+        let chol = whitening.chol;
+        let chol_t = whitening.chol_t;
 
         let data = SharedData {
             x: Arc::new(x.to_owned()),
@@ -7179,17 +7401,15 @@ pub fn run_joint_beta_rho_sampling(
     // encode cross-block covariance from a transient mode switch.
     let mass_cfg = robust_mass_matrix_config(total_dim, config.nwarmup);
 
-    let mut sampler = GenericNUTS::new_with_mass_matrix(
+    let (samples_array, run_stats) = run_whitened_nuts_samples(
         target,
         initial_positions,
-        robust_target_accept(config.target_accept, total_dim),
+        config,
+        total_dim,
         mass_cfg,
-    )
-    .set_seed(nuts_transition_seed(config.seed, 0x63AF_175B_D820_C94E));
-
-    let (samples_array, run_stats) = sampler
-        .run_progress(config.n_samples, config.nwarmup)
-        .map_err(|e| format!("Joint (β,ρ) NUTS sampling failed: {e}"))?;
+        0x63AF_175B_D820_C94E,
+        "Joint (β,ρ) NUTS sampling failed",
+    )?;
     log::info!("[Joint HMC] Sampling complete: {}", run_stats);
 
     // Unpack samples
@@ -7198,7 +7418,7 @@ pub fn run_joint_beta_rho_sampling(
     let n_samples_out = shape[1];
     let total_samples = n_chains * n_samples_out;
 
-    let mut beta_samples = Array2::<f64>::zeros((total_samples, n_beta));
+    let beta_samples = unwhiten_samples(&samples_array, mode_arr.as_ref(), &chol, n_beta, 0);
     let mut rho_samples = Array2::<f64>::zeros((total_samples, n_rho));
     let mut link_param_samples = Array2::<f64>::zeros((total_samples, n_link_params));
 
@@ -7206,11 +7426,6 @@ pub fn run_joint_beta_rho_sampling(
         for sample_i in 0..n_samples_out {
             let sample_idx = chain * n_samples_out + sample_i;
             let zview = samples_array.slice(ndarray::s![chain, sample_i, ..]);
-
-            // Un-whiten β: β = μ + L z
-            let z_beta = zview.slice(ndarray::s![..n_beta]).to_owned();
-            let beta = mode_arr.as_ref() + &chol.dot(&z_beta);
-            beta_samples.row_mut(sample_idx).assign(&beta);
 
             // ρ and adaptive link parameters are stored directly
             let rho_slice = zview.slice(ndarray::s![n_beta..n_beta + n_rho]);
@@ -7232,7 +7447,11 @@ pub fn run_joint_beta_rho_sampling(
 
     let (rhat, ess) = compute_split_rhat_and_ess(&samples_array);
 
-    let converged = rhat < 1.1 && ess > 50.0;
+    let converged = NutsConvergenceThresholds {
+        max_rhat: 1.1,
+        min_ess: Some(50.0),
+    }
+    .converged(rhat, ess);
     if !converged {
         log::warn!(
             "[Joint HMC] Convergence warning: R-hat={:.3}, ESS={:.1}",
@@ -7353,14 +7572,14 @@ mod survival_hmc {
             let sampler_mode = mode.to_owned();
             let dim = sampler_mode.len();
 
-            // Compute whitening transform via Cholesky of Hessian
-            let chol_factor = hessian
-                .to_owned()
-                .cholesky(Side::Lower)
-                .map_err(|e| format!("Hessian Cholesky decomposition failed: {:?}", e))?;
-            let l_h = chol_factor.lower_triangular();
-            let chol = solve_upper_triangular_transpose(&l_h, dim);
-            let chol_t = chol.t().to_owned();
+            let whitening = hessian_whitening_transform(
+                hessian,
+                dim,
+                1.0,
+                "Hessian Cholesky decomposition failed",
+            )?;
+            let chol = whitening.chol;
+            let chol_t = whitening.chol_t;
 
             let data = SharedSurvivalData {
                 base_model: Arc::new(base_model),
@@ -7463,59 +7682,27 @@ mod survival_hmc {
 
         let initial_positions = jittered_initial_positions(config, dim, 0.1, 0xEC2D_7A9B_4051_F638);
 
-        // Create GenericNUTS sampler
         let mass_cfg = robust_survival_mass_matrix_config(dim, config.nwarmup);
-        let mut sampler = GenericNUTS::new_with_mass_matrix(
+        let (result, run_stats) = run_whitened_nuts_result(
             target,
+            &mode_arr,
+            &chol,
             initial_positions,
-            robust_target_accept(config.target_accept, dim),
+            config,
+            dim,
             mass_cfg,
-        )
-        .set_seed(nuts_transition_seed(config.seed, 0x731B_60D4_AE52_9C8F));
-
-        // Run sampling with progress bar
-        let (samples_array, run_stats) = sampler
-            .run_progress(config.n_samples, config.nwarmup)
-            .map_err(|e| format!("NUTS sampling failed: {}", e))?;
+            0x731B_60D4_AE52_9C8F,
+            "NUTS sampling failed",
+            Array1::zeros(dim),
+            NutsConvergenceThresholds {
+                max_rhat: 1.1,
+                min_ess: None,
+            },
+        )?;
 
         log::info!("Survival NUTS sampling complete: {}", run_stats);
 
-        // Convert samples from whitened space back to original space
-        let shape = samples_array.shape();
-        let n_chains = shape[0];
-        let n_samples_out = shape[1];
-        let total_samples = n_chains * n_samples_out;
-
-        let mut samples = Array2::<f64>::zeros((total_samples, dim));
-        let mut z_buffer = Array1::<f64>::zeros(dim);
-        for chain in 0..n_chains {
-            for sample_i in 0..n_samples_out {
-                let zview = samples_array.slice(ndarray::s![chain, sample_i, ..]);
-                z_buffer.assign(&zview);
-
-                let beta = &mode_arr + &chol.dot(&z_buffer);
-
-                let sample_idx = chain * n_samples_out + sample_i;
-                samples.row_mut(sample_idx).assign(&beta);
-            }
-        }
-
-        // Compute statistics
-        let posterior_mean = samples
-            .mean_axis(Axis(0))
-            .unwrap_or_else(|| Array1::zeros(dim));
-        let posterior_std = samples.std_axis(Axis(0), 0.0);
-        let (rhat, ess) = compute_split_rhat_and_ess(&samples_array);
-        let converged = rhat < 1.1;
-
-        Ok(NutsResult {
-            samples,
-            posterior_mean,
-            posterior_std,
-            rhat,
-            ess,
-            converged,
-        })
+        Ok(result)
     }
 }
 

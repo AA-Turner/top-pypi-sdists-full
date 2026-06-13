@@ -847,7 +847,7 @@ currently only supports Node.js-based user handlers, represents permissions as r
 JSON blobs instead of `iam.PolicyStatement` objects, and it does not have
 support for asynchronous waiting (handler cannot exceed the 15min lambda
 timeout). The `CustomResourceProviderRuntime` supports runtime `nodejs12.x`,
-`nodejs14.x`, `nodejs16.x`, `nodejs18.x`, `nodejs20.x`, and `nodejs22.x`.
+`nodejs14.x`, `nodejs16.x`, `nodejs18.x`, `nodejs20.x`, `nodejs22.x` and `nodejs24.x`.
 
 > **As an application builder, we do not recommend you use this provider type.** This provider exists purely for custom resources that are part of the AWS Construct Library.
 >
@@ -859,7 +859,7 @@ stack-unique identifier and returns the service token:
 ```python
 service_token = CustomResourceProvider.get_or_create(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_22_X,
+    runtime=CustomResourceProviderRuntime.NODEJS_24_X,
     description="Lambda function created by the custom resource provider"
 )
 
@@ -13009,6 +13009,8 @@ class CustomResourceProviderRuntime(enum.Enum):
     '''Node.js 20.x.'''
     NODEJS_22_X = "NODEJS_22_X"
     '''Node.js 22.x.'''
+    NODEJS_24_X = "NODEJS_24_X"
+    '''Node.js 24.x.'''
 
 
 @jsii.data_type(

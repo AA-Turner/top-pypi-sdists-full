@@ -1183,6 +1183,21 @@ class TinyB:
         except Exception:
             return False
 
+    def validate_dynamodb(
+        self, table_arn: str, region: str, role_arn: str, external_id_seed: Optional[str] = None
+    ) -> Dict[str, Any]:
+        body: Dict[str, Any] = {"table_arn": table_arn, "region": region, "role_arn": role_arn}
+        if external_id_seed:
+            body["external_id_seed"] = external_id_seed
+        response = self._req_raw(
+            "/v1/integrations/dynamodb/validate",
+            method="POST",
+            data=json.dumps(body),
+        )
+        if response.status_code >= 400:
+            raise requests.HTTPError(parse_error_response(response), response=response)
+        return response.json()
+
     def get_trust_policy(self, service: str, external_id_seed: Optional[str] = None) -> Dict[str, Any]:
         params = {}
         if external_id_seed:
@@ -1195,11 +1210,15 @@ class TinyB:
             params["bucket"] = bucket
         return self._req(f"/v0/integrations/{service}/policies/write-access-policy?{urlencode(params)}")
 
-    def get_access_read_policy(self, service: str, bucket: Optional[str] = None) -> Dict[str, Any]:
+    def get_access_read_policy(
+        self, service: str, bucket: Optional[str] = None, table_name: Optional[str] = None
+    ) -> Dict[str, Any]:
         params = {}
         if bucket:
             # The Kafka endpoint scopes the policy via `msk_cluster_arn`, not `bucket`.
             params["msk_cluster_arn" if service == "kafka" else "bucket"] = bucket
+        if table_name:
+            params["table_name"] = table_name
         return self._req(f"/v0/integrations/{service}/policies/read-access-policy?{urlencode(params)}")
 
     def sql_get_format(self, sql: str, with_clickhouse_format: bool = False) -> str:

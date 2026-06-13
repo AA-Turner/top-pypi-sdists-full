@@ -2,14 +2,17 @@ use crate::basis::{
     BSplineBasisSpec, BSplineBoundaryConditions, BSplineEndpointBoundaryCondition,
     BSplineIdentifiability, BSplineKnotSpec, BasisBuildResult, BasisError, BasisMetadata,
     BasisOptions, BasisPsiDerivativeResult, BasisPsiSecondDerivativeResult, BasisWorkspace,
-    CenterStrategy, CenterStrategyKind, Dense, DuchonBasisSpec, KnotSource, KroneckerFactoredBasis,
-    MaternBasisSpec, MaternIdentifiability, OneDimensionalBoundary, PenaltyCandidate, PenaltyInfo,
+    CenterStrategy, CenterStrategyKind, ConstantCurvatureBasisSpec,
+    ConstantCurvatureIdentifiability, Dense, DuchonBasisSpec, KnotSource, KroneckerFactoredBasis,
+    MaternBasisSpec, MaternIdentifiability, MeasureJetBasisSpec, MeasureJetFrozenQuadrature,
+    MeasureJetIdentifiability, OneDimensionalBoundary, PenaltyCandidate, PenaltyInfo,
     PenaltySource, SpatialIdentifiability, SphericalSplineBasisSpec,
     SphericalSplineIdentifiability, ThinPlateBasisSpec, apply_sum_to_zero_constraint,
-    build_bspline_basis_1d, build_duchon_basis, build_duchon_basiswithworkspace,
-    build_matern_basis, build_matern_basis_log_kappa_aniso_derivatives,
-    build_matern_basis_log_kappa_derivatives, build_matern_basiswithworkspace,
-    build_matern_collocation_operator_matrices, build_spherical_spline_basis,
+    build_bspline_basis_1d, build_constant_curvature_basis, build_duchon_basis,
+    build_duchon_basiswithworkspace, build_matern_basis,
+    build_matern_basis_log_kappa_aniso_derivatives, build_matern_basis_log_kappa_derivatives,
+    build_matern_basiswithworkspace, build_matern_collocation_operator_matrices,
+    build_measure_jet_basis, build_measure_jet_basis_psi_derivatives, build_spherical_spline_basis,
     build_thin_plate_basis, build_thin_plate_basis_log_kappa_derivatives, center_strategy_is_auto,
     center_strategy_kind, center_strategy_num_centers, center_strategy_with_num_centers,
     estimate_penalty_nullity, filter_active_penalty_candidates,
@@ -401,9 +404,29 @@ pub enum SmoothBasisSpec {
         feature_cols: Vec<usize>,
         spec: SphericalSplineBasisSpec,
     },
+    /// Constant-curvature (`M_κ`) geodesic-kernel smooth over κ-stereographic
+    /// chart coordinates (#944): one construction interpolating
+    /// S^d → ℝ^d → H^d through the spec's fixed κ. The Wahba S² smooth is the
+    /// structural template; the geometry comes from
+    /// `geometry::constant_curvature::ConstantCurvature`.
+    ConstantCurvature {
+        feature_cols: Vec<usize>,
+        spec: ConstantCurvatureBasisSpec,
+    },
     Matern {
         feature_cols: Vec<usize>,
         spec: MaternBasisSpec,
+        #[serde(default)]
+        input_scales: Option<Vec<f64>>,
+    },
+    /// Measure-jet spline smooth: multiscale local-jet-residual energy of the
+    /// empirical measure (centers as μ-quadrature, masses as μ-weights — no
+    /// graph, mesh, or neighbor set inside the statistical object). The
+    /// feature columns are ambient coordinates of data concentrated near an
+    /// unknown low-dimensional, possibly stratified set.
+    MeasureJet {
+        feature_cols: Vec<usize>,
+        spec: MeasureJetBasisSpec,
         #[serde(default)]
         input_scales: Option<Vec<f64>>,
     },
@@ -480,7 +503,9 @@ impl SmoothBasisSpec {
             }
             Self::ThinPlate { .. }
             | Self::Sphere { .. }
+            | Self::ConstantCurvature { .. }
             | Self::Matern { .. }
+            | Self::MeasureJet { .. }
             | Self::Duchon { .. } => RADIAL_FLOOR,
             Self::Pca { basis_matrix, .. } => basis_matrix.ncols().max(1),
             Self::TensorBSpline { spec, .. } => {
@@ -558,7 +583,9 @@ impl SmoothBasisSpec {
             Self::FactorSmooth { .. } => "factor_smooth",
             Self::ThinPlate { .. } => "thin_plate",
             Self::Sphere { .. } => "sphere",
+            Self::ConstantCurvature { .. } => "constant_curvature",
             Self::Matern { .. } => "matern",
+            Self::MeasureJet { .. } => "measurejet",
             Self::Duchon { .. } => "duchon",
             Self::Pca { .. } => "pca",
             Self::TensorBSpline { .. } => "tensor_bspline",
@@ -578,7 +605,9 @@ impl SmoothBasisSpec {
             Self::BSpline1D { feature_col, .. } => vec![*feature_col],
             Self::ThinPlate { feature_cols, .. }
             | Self::Sphere { feature_cols, .. }
+            | Self::ConstantCurvature { feature_cols, .. }
             | Self::Matern { feature_cols, .. }
+            | Self::MeasureJet { feature_cols, .. }
             | Self::Duchon { feature_cols, .. }
             | Self::Pca { feature_cols, .. }
             | Self::TensorBSpline { feature_cols, .. } => feature_cols.clone(),
@@ -1214,6 +1243,47 @@ impl TermCollectionSpec {
                         ));
                     }
                 }
+                SmoothBasisSpec::ConstantCurvature { spec, .. } => {
+                    if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: ConstantCurvature centers must be UserProvided",
+                            st.name
+                        ))
+                        .into());
+                    }
+                    if !(spec.length_scale.is_finite() && spec.length_scale > 0.0) {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: ConstantCurvature length_scale must be the realized positive value",
+                            st.name
+                        ))
+                        .into());
+                    }
+                }
+                SmoothBasisSpec::MeasureJet { spec, .. } => {
+                    if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: MeasureJet centers must be UserProvided",
+                            st.name
+                        ))
+                        .into());
+                    }
+                    if !(spec.length_scale.is_finite() && spec.length_scale > 0.0) {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: MeasureJet length_scale must be the realized positive value",
+                            st.name
+                        ))
+                        .into());
+                    }
+                    // The penalty depends on the FIT data through masses and
+                    // band; a frozen term must carry them for exact replay.
+                    if spec.frozen_quadrature.is_none() {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: MeasureJet frozen_quadrature (masses + band) is missing",
+                            st.name
+                        ))
+                        .into());
+                    }
+                }
                 SmoothBasisSpec::Matern { spec, .. } => {
                     if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
                         return Err(SmoothError::invalid_config(format!(
@@ -1425,7 +1495,9 @@ where
         }
         SmoothBasisSpec::ThinPlate { feature_cols, .. }
         | SmoothBasisSpec::Sphere { feature_cols, .. }
+        | SmoothBasisSpec::ConstantCurvature { feature_cols, .. }
         | SmoothBasisSpec::Matern { feature_cols, .. }
+        | SmoothBasisSpec::MeasureJet { feature_cols, .. }
         | SmoothBasisSpec::Duchon { feature_cols, .. }
         | SmoothBasisSpec::Pca { feature_cols, .. }
         | SmoothBasisSpec::TensorBSpline { feature_cols, .. } => {
@@ -2595,6 +2667,15 @@ impl SpatialLogKappaCoords {
         let mut vals = Vec::new();
         let mut dims = Vec::new();
         for &term_idx in term_indices {
+            // Measure-jet: dial coordinates seeded directly from the term's
+            // realized (α, τ[, s]); the −ln(length_scale) convention below is
+            // κ-semantics and never applies to dials.
+            if let Some(mj) = measure_jet_term_spec(spec, term_idx) {
+                let seed = measure_jet_psi_seed(mj);
+                dims.push(seed.len());
+                vals.extend(seed);
+                continue;
+            }
             let length_scale = get_spatial_length_scale(spec, term_idx)
                 .unwrap_or(options.min_length_scale)
                 .clamp(options.min_length_scale, options.max_length_scale);
@@ -2738,6 +2819,18 @@ impl SpatialLogKappaCoords {
         let mut cursor = 0;
         for (slot, &term_idx) in term_indices.iter().enumerate() {
             let d = dims_per_term[slot];
+            // Measure-jet: per-coordinate dial boxes, never κ-window geometry
+            // (which would reject legitimate dial values outright).
+            if let Some(mj) = measure_jet_term_spec(spec, term_idx) {
+                let bounds = measure_jet_psi_bound_values(mj, matches!(end, AnisoBoundEnd::Upper));
+                for (offset, bound) in bounds.into_iter().enumerate() {
+                    if offset < d {
+                        values[cursor + offset] = bound;
+                    }
+                }
+                cursor += d;
+                continue;
+            }
             let psi_bound = {
                 let (lo, hi) = spatial_term_psi_bounds(data, spec, term_idx, options);
                 match end {
@@ -2783,6 +2876,12 @@ impl SpatialLogKappaCoords {
         let mut cursor = 0;
         for (slot, &term_idx) in term_indices.iter().enumerate() {
             let d = self.dims_per_term[slot];
+            // Measure-jet dials are seeded from the realized spec and must
+            // not be recentered into a κ data window.
+            if measure_jet_term_spec(spec, term_idx).is_some() {
+                cursor += d;
+                continue;
+            }
             let Some(psi_bar_new) = spatial_term_psi_seed(data, spec, term_idx, options) else {
                 cursor += d;
                 continue;
@@ -2925,6 +3024,12 @@ impl SpatialLogKappaCoords {
         for (slot, &term_idx) in term_indices.iter().enumerate() {
             let psi = self.term_slice(slot);
             let d = self.dims_per_term[slot];
+            // Measure-jet: write the dial coordinates straight back; the
+            // κ-translation below would misread them as log-scales.
+            if measure_jet_term_spec(&updated, term_idx).is_some() {
+                set_measure_jet_psi_dials(&mut updated, term_idx, psi)?;
+                continue;
+            }
             let (next_length_scale, next_aniso) = spatial_term_psi_to_length_scale_and_aniso(psi);
             if (d == 1 || next_length_scale.is_some())
                 && let Some(length_scale) = next_length_scale
@@ -2997,7 +3102,159 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
     {
         return true;
     }
+
+    // Measure-jet: the geometry dials (α, lnτ[, s]) are penalty-only ψ
+    // coordinates with zero design drift, produced by
+    // `build_measure_jet_basis_psi_derivatives` on the SAME realized
+    // geometry as the fit-time candidates and FD-gated end to end. The
+    // ln-τ channel needs a positive ridge, so τ = 0 (the pseudo-inverse
+    // oracle mode) keeps the term out of the outer ψ vector entirely.
+    if let Some(term) = spec.smooth_terms.get(term_idx)
+        && let SmoothBasisSpec::MeasureJet { spec: mj, .. } = &term.basis
+    {
+        return mj.tau0 > 0.0;
+    }
     get_spatial_length_scale(spec, term_idx).is_some()
+}
+
+/// The measure-jet term's spec, when `term_idx` is a measure-jet smooth.
+/// Single accessor for every dial-plumbing dispatch below.
+fn measure_jet_term_spec(
+    spec: &TermCollectionSpec,
+    term_idx: usize,
+) -> Option<&crate::basis::MeasureJetBasisSpec> {
+    spec.smooth_terms
+        .get(term_idx)
+        .and_then(|term| match &term.basis {
+            SmoothBasisSpec::MeasureJet { spec, .. } => Some(spec),
+            _ => None,
+        })
+}
+
+/// Measure-jet ψ dial boxes. The dials are NOT log-kernel-scales, so the
+/// κ-window machinery never applies: `s` stays inside the admissible order
+/// interval of the affine-jet energy, `α` spans density-weighted (0) through
+/// past-Coifman–Lafon (>1) normalization, and `lnτ` covers the ridge from
+/// numerically-exact-projection to heavy noise-floor damping.
+const MEASURE_JET_PSI_S_BOUNDS: (f64, f64) = (0.05, 1.95);
+const MEASURE_JET_PSI_ALPHA_BOUNDS: (f64, f64) = (-1.0, 3.0);
+const MEASURE_JET_PSI_LN_TAU_BOUNDS: (f64, f64) = (-18.420680743952367, 4.605170185988092);
+
+/// Is this measure-jet term in fused (pinned-order) mode? The `order_s`
+/// sentinel is the spectral/fused mode marker (see the basis module docs).
+fn measure_jet_is_fused(mj: &crate::basis::MeasureJetBasisSpec) -> bool {
+    mj.order_s > 0.0
+}
+
+/// ψ dimension of a measure-jet term: fused mode carries (s, α, lnτ);
+/// per-level (spectral) mode carries (α, lnτ) — the order is absorbed by the
+/// REML-learned per-scale amplitudes. MUST agree with the coordinate layout
+/// of `build_measure_jet_basis_psi_derivatives`.
+fn measure_jet_psi_dim(mj: &crate::basis::MeasureJetBasisSpec) -> usize {
+    if measure_jet_is_fused(mj) { 3 } else { 2 }
+}
+
+/// Seed ψ from the term's realized dials, in producer coordinate order.
+fn measure_jet_psi_seed(mj: &crate::basis::MeasureJetBasisSpec) -> Vec<f64> {
+    let ln_tau = mj.tau0.max(f64::MIN_POSITIVE).ln();
+    if measure_jet_is_fused(mj) {
+        vec![mj.order_s, mj.alpha, ln_tau]
+    } else {
+        vec![mj.alpha, ln_tau]
+    }
+}
+
+/// One end of the per-coordinate dial boxes, in producer coordinate order.
+fn measure_jet_psi_bound_values(mj: &crate::basis::MeasureJetBasisSpec, upper: bool) -> Vec<f64> {
+    let pick = |b: (f64, f64)| if upper { b.1 } else { b.0 };
+    if measure_jet_is_fused(mj) {
+        vec![
+            pick(MEASURE_JET_PSI_S_BOUNDS),
+            pick(MEASURE_JET_PSI_ALPHA_BOUNDS),
+            pick(MEASURE_JET_PSI_LN_TAU_BOUNDS),
+        ]
+    } else {
+        vec![
+            pick(MEASURE_JET_PSI_ALPHA_BOUNDS),
+            pick(MEASURE_JET_PSI_LN_TAU_BOUNDS),
+        ]
+    }
+}
+
+/// Write optimized ψ dials back into a measure-jet spec. Returns `true` when
+/// any dial actually moved. The geometry (centers, masses, band, ℓ, z) is
+/// ψ-FIXED by contract — only the dials change, so frozen-quadrature
+/// rebuilds reproduce the identical penalty layout at the new dials.
+fn apply_measure_jet_psi(
+    mj: &mut crate::basis::MeasureJetBasisSpec,
+    psi: &[f64],
+) -> Result<bool, EstimationError> {
+    if psi.len() != measure_jet_psi_dim(mj) {
+        crate::bail_invalid_estim!(
+            "measure-jet ψ write-back dimension mismatch: got {} values for a {}-dial term",
+            psi.len(),
+            measure_jet_psi_dim(mj)
+        );
+    }
+    let (next_s, next_alpha, next_tau) = if measure_jet_is_fused(mj) {
+        (Some(psi[0]), psi[1], psi[2].exp())
+    } else {
+        (None, psi[0], psi[1].exp())
+    };
+    if !(next_alpha.is_finite() && next_tau.is_finite() && next_tau > 0.0) {
+        crate::bail_invalid_estim!(
+            "measure-jet ψ write-back produced non-finite dials (alpha={next_alpha}, tau={next_tau})"
+        );
+    }
+    let mut changed = false;
+    if let Some(s) = next_s
+        && s != mj.order_s
+    {
+        mj.order_s = s;
+        changed = true;
+    }
+    if next_alpha != mj.alpha {
+        mj.alpha = next_alpha;
+        changed = true;
+    }
+    if next_tau != mj.tau0 {
+        mj.tau0 = next_tau;
+        changed = true;
+    }
+    Ok(changed)
+}
+
+/// Collection-level measure-jet dial write-back (the `apply_tospec` /
+/// realizer-side entry). Returns whether anything moved.
+fn set_measure_jet_psi_dials(
+    spec: &mut TermCollectionSpec,
+    term_idx: usize,
+    psi: &[f64],
+) -> Result<bool, EstimationError> {
+    let Some(term) = spec.smooth_terms.get_mut(term_idx) else {
+        crate::bail_invalid_estim!("measure-jet ψ write-back: term index {term_idx} out of range");
+    };
+    let SmoothBasisSpec::MeasureJet { spec: mj, .. } = &mut term.basis else {
+        crate::bail_invalid_estim!(
+            "measure-jet ψ write-back targeted a non-measure-jet term ({term_idx})"
+        );
+    };
+    apply_measure_jet_psi(mj, psi)
+}
+
+/// Single-term variant for the cached per-trial build spec. Returns the
+/// same moved flag as the collection-level setter; the realizer caller has
+/// already change-checked at the collection level and rebuilds regardless.
+fn set_single_term_measure_jet_psi_dials(
+    term: &mut SmoothTermSpec,
+    psi: &[f64],
+) -> Result<bool, EstimationError> {
+    let SmoothBasisSpec::MeasureJet { spec: mj, .. } = &mut term.basis else {
+        crate::bail_invalid_estim!(
+            "measure-jet ψ write-back targeted a non-measure-jet build spec"
+        );
+    };
+    apply_measure_jet_psi(mj, psi)
 }
 
 /// Returns `true` when a spatial term has NO outer optimization axes — i.e.
@@ -7088,6 +7345,74 @@ fn build_single_local_smooth_term(
             let x = select_columns(data, feature_cols)?;
             build_spherical_spline_basis(x.view(), spec)?
         }
+        SmoothBasisSpec::ConstantCurvature { feature_cols, spec } => {
+            if term.shape != ShapeConstraint::None {
+                crate::bail_invalid_basis!(
+                    "ShapeConstraint::{:?} for term '{}' is not supported on constant-curvature smooths",
+                    term.shape,
+                    term.name
+                );
+            }
+            // Chart coordinates are consumed verbatim: NO auto-standardization.
+            // Rescaling axes would change the chart gauge `1 + κ‖x‖²` and
+            // silently redefine which curvature κ refers to (the same point
+            // cloud at a different chart scale has a different κ̂); the user's
+            // coordinates ARE the geometry here, exactly as for the sphere
+            // smooth's (lat, lon).
+            let x = select_columns(data, feature_cols)?;
+            build_constant_curvature_basis(x.view(), spec)?
+        }
+        SmoothBasisSpec::MeasureJet {
+            feature_cols,
+            spec,
+            input_scales,
+        } => {
+            if term.shape != ShapeConstraint::None {
+                crate::bail_invalid_basis!(
+                    "ShapeConstraint::{:?} for term '{}' is not supported on measure-jet smooths",
+                    term.shape,
+                    term.name
+                );
+            }
+            let mut x = select_columns(data, feature_cols)?;
+            // Matern-style per-axis standardization: the measure-jet geometry
+            // (band, masses, local Grams) is built in standardized coordinates
+            // so no ambient axis dominates by units; the realized σ vector is
+            // persisted into the metadata for predict-time replay.
+            //
+            // Length-scale round-trip contract (the Duchon double-compensation
+            // trap, resolved differently here): `input_scales: Some` marks the
+            // REPLAY path — the frozen spec's length_scale is already the
+            // realized post-standardization value, so it passes through
+            // verbatim. On the fresh path an explicit user length_scale is in
+            // ORIGINAL coordinates and gets the σ_geom compensation; the 0.0
+            // auto sentinel passes through (auto-derivation runs inside the
+            // builder, post-standardization, and needs no compensation).
+            let (scales, length_scale_eff) = if let Some(s) = input_scales {
+                apply_input_standardization(&mut x, s);
+                (Some(s.clone()), spec.length_scale)
+            } else if let Some(s) = compute_spatial_input_scales(x.view()) {
+                apply_input_standardization(&mut x, &s);
+                let l_eff = if spec.length_scale > 0.0 {
+                    compensate_length_scale_for_standardization(spec.length_scale, &s)
+                } else {
+                    spec.length_scale
+                };
+                (Some(s), l_eff)
+            } else {
+                (None, spec.length_scale)
+            };
+            let mut spec_local = spec.clone();
+            spec_local.length_scale = length_scale_eff;
+            let mut result = build_measure_jet_basis(x.view(), &spec_local)?;
+            if let BasisMetadata::MeasureJet {
+                input_scales: ms, ..
+            } = &mut result.metadata
+            {
+                *ms = scales;
+            }
+            result
+        }
         SmoothBasisSpec::Matern {
             feature_cols,
             spec,
@@ -8245,7 +8570,9 @@ fn smooth_basis_feature_cols(basis: &SmoothBasisSpec) -> Vec<usize> {
         SmoothBasisSpec::BSpline1D { feature_col, .. } => vec![*feature_col],
         SmoothBasisSpec::ThinPlate { feature_cols, .. }
         | SmoothBasisSpec::Sphere { feature_cols, .. }
+        | SmoothBasisSpec::ConstantCurvature { feature_cols, .. }
         | SmoothBasisSpec::Matern { feature_cols, .. }
+        | SmoothBasisSpec::MeasureJet { feature_cols, .. }
         | SmoothBasisSpec::Duchon { feature_cols, .. }
         | SmoothBasisSpec::Pca { feature_cols, .. }
         | SmoothBasisSpec::TensorBSpline { feature_cols, .. } => feature_cols.clone(),
@@ -8281,6 +8608,8 @@ fn smooth_basis_family_rank(term: &SmoothTermSpec) -> u8 {
         SmoothBasisSpec::Matern { .. } => 4,
         SmoothBasisSpec::Duchon { .. } => 5,
         SmoothBasisSpec::Pca { .. } => 6,
+        SmoothBasisSpec::ConstantCurvature { .. } => 8,
+        SmoothBasisSpec::MeasureJet { .. } => 9,
         SmoothBasisSpec::BySmooth { smooth, .. } => smooth_basis_family_rank(&SmoothTermSpec {
             name: term.name.clone(),
             basis: (**smooth).clone(),
@@ -8317,6 +8646,20 @@ fn smooth_has_frozen_identifiability(term: &SmoothTermSpec) -> bool {
                 || matches!(
                     spec.identifiability,
                     SphericalSplineIdentifiability::FrozenTransform { .. }
+                )
+        }
+        SmoothBasisSpec::ConstantCurvature { spec, .. } => {
+            matches!(spec.center_strategy, CenterStrategy::UserProvided(_))
+                || matches!(
+                    spec.identifiability,
+                    ConstantCurvatureIdentifiability::FrozenTransform { .. }
+                )
+        }
+        SmoothBasisSpec::MeasureJet { spec, .. } => {
+            matches!(spec.center_strategy, CenterStrategy::UserProvided(_))
+                || matches!(
+                    spec.identifiability,
+                    MeasureJetIdentifiability::FrozenTransform { .. }
                 )
         }
         SmoothBasisSpec::Matern { spec, .. } => matches!(
@@ -9261,6 +9604,22 @@ fn smooth_requires_parametric_orthogonality(termspec: &SmoothTermSpec) -> bool {
                     SphericalSplineIdentifiability::CenterSumToZero
                 )
         }
+        // Constant-curvature geodesic kernel: same #531 collision class as the
+        // Wahba sphere — the coefficient-space sum-to-zero `z` leaves the
+        // realized `K·z` design spanning the constant on the data rows, so the
+        // global parametric orthogonalization must compose onto `z` (#532).
+        SmoothBasisSpec::ConstantCurvature { spec, .. } => matches!(
+            spec.identifiability,
+            ConstantCurvatureIdentifiability::CenterSumToZero
+        ),
+        // Measure-jet representer: identical #531 collision class — Gaussian
+        // RBF columns times the center-space sum-to-zero `z` still span the
+        // constant on the data rows, so `z` must absorb the parametric
+        // orthogonalization (#532).
+        SmoothBasisSpec::MeasureJet { spec, .. } => matches!(
+            spec.identifiability,
+            MeasureJetIdentifiability::CenterSumToZero
+        ),
         SmoothBasisSpec::BSpline1D { .. }
         | SmoothBasisSpec::TensorBSpline { .. }
         | SmoothBasisSpec::Pca { .. }
@@ -9349,6 +9708,44 @@ fn with_identifiability_transform(
             method: *method,
             max_degree: *max_degree,
             wahba_kernel: *wahba_kernel,
+            constraint_transform: compose_identifiability_transforms(
+                constraint_transform.as_ref(),
+                transform,
+            )?,
+        }),
+        BasisMetadata::ConstantCurvature {
+            centers,
+            kappa,
+            length_scale,
+            constraint_transform,
+        } => Ok(BasisMetadata::ConstantCurvature {
+            centers: centers.clone(),
+            kappa: *kappa,
+            length_scale: *length_scale,
+            constraint_transform: compose_identifiability_transforms(
+                constraint_transform.as_ref(),
+                transform,
+            )?,
+        }),
+        BasisMetadata::MeasureJet {
+            centers,
+            input_scales,
+            length_scale,
+            eps_band,
+            order_s,
+            alpha,
+            tau0,
+            masses,
+            constraint_transform,
+        } => Ok(BasisMetadata::MeasureJet {
+            centers: centers.clone(),
+            input_scales: input_scales.clone(),
+            length_scale: *length_scale,
+            eps_band: eps_band.clone(),
+            order_s: *order_s,
+            alpha: *alpha,
+            tau0: *tau0,
+            masses: masses.clone(),
             constraint_transform: compose_identifiability_transforms(
                 constraint_transform.as_ref(),
                 transform,
@@ -11973,6 +12370,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 beta_standard_errors_corrected: None,
                 beta_covariance_frequentist: None,
                 coefficient_influence: None,
+                weighted_gram: None,
                 bias_correction_beta: None,
             };
             let geometry = Some(crate::estimate::FitGeometry {
@@ -12103,11 +12501,14 @@ struct BoundedEffectiveJacobian {
 }
 
 impl BlockEffectiveJacobian for BoundedEffectiveJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &FamilyLinearizationState<'_>,
+        rows: std::ops::Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let p = self.design.ncols();
+        let n = self.design.nrows();
+        let rows = rows.start.min(n)..rows.end.min(n);
         if !state.beta.is_empty() {
             if state.beta.len() != p {
                 return Err(format!(
@@ -12123,7 +12524,10 @@ impl BlockEffectiveJacobian for BoundedEffectiveJacobian {
                 );
             }
         }
-        let mut jac = self.design.clone();
+        let mut jac = self
+            .design
+            .slice(ndarray::s![rows.start..rows.end, ..])
+            .to_owned();
         for term in &self.bounded_terms {
             let theta = if state.beta.is_empty() {
                 0.0
@@ -14553,6 +14957,7 @@ fn fit_bounded_term_collection_with_design(
                 beta_standard_errors_corrected: None,
                 beta_covariance_frequentist: None,
                 coefficient_influence: None,
+                weighted_gram: None,
                 bias_correction_beta: None,
             };
             let covariance_conditional = beta_covariance;
@@ -15409,6 +15814,24 @@ fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(
             build_matern_basis_log_kappa_aniso_derivatives(x.view(), spec)
                 .map_err(EstimationError::from)?
         }
+        // Measure-jet: the grouped dial coordinates (α, lnτ[, s]) ride the
+        // same per-axis carrier. The producer runs on the FROZEN spec
+        // (UserProvided barycenter nodes + frozen quadrature + frozen
+        // transform — the driver runs post-freeze), so per-trial derivative
+        // rebuilds move only the dials; design drift is identically zero and
+        // the penalty jets share the fit-time candidate normalization.
+        SmoothBasisSpec::MeasureJet {
+            feature_cols,
+            spec,
+            input_scales,
+        } => {
+            let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
+            if let Some(s) = input_scales {
+                apply_input_standardization(&mut x, s);
+            }
+            build_measure_jet_basis_psi_derivatives(x.view(), spec)
+                .map_err(EstimationError::from)?
+        }
         _ => return Ok(None),
     };
     // Get number of axes from the shared operator when available; otherwise
@@ -15590,6 +16013,16 @@ fn try_build_spatial_term_log_kappa_derivative(
                 .map_err(EstimationError::from)?
         }
         SmoothBasisSpec::Sphere { .. } => return Ok(None),
+        // Constant-curvature smooths hold κ fixed at construction (#944 stage 3
+        // foundation); the κ-as-ψ derivative channel is a later stage, so there
+        // is no log-κ derivative bundle to expose here yet.
+        SmoothBasisSpec::ConstantCurvature { .. } => return Ok(None),
+        // Measure-jet routes through the GROUPED dial builder
+        // (`try_build_spatial_term_log_kappa_aniso_derivativeinfos`):
+        // `spatial_term_uses_per_axis_psi` is true for every enrolled
+        // measure-jet term, so this isotropic path only sees unenrolled
+        // (τ = 0 oracle-mode) terms, which expose no ψ bundle.
+        SmoothBasisSpec::MeasureJet { .. } => return Ok(None),
         SmoothBasisSpec::Matern {
             feature_cols,
             spec,
@@ -16607,6 +17040,13 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
 /// all consult it, so the outer optimizer's `n_params = rho_dim + Σ ψ_per_term`
 /// always matches the gradient length produced by the inner unified evaluator.
 fn spatial_term_uses_per_axis_psi(resolvedspec: &TermCollectionSpec, term_idx: usize) -> bool {
+    // Measure-jet enrolls a multi-coordinate DIAL group (α, lnτ[, s]) —
+    // grouped like per-axis anisotropy in the θ layout, but the coordinates
+    // are geometry dials, not axis scales. Same eligibility condition as
+    // `spatial_term_supports_hyper_optimization` so the layout sources agree.
+    if let Some(mj) = measure_jet_term_spec(resolvedspec, term_idx) {
+        return mj.tau0 > 0.0;
+    }
     let Some(d) = get_spatial_feature_dim(resolvedspec, term_idx) else {
         return false;
     };
@@ -16637,7 +17077,11 @@ pub(crate) fn spatial_dims_per_term(
     spatial_terms
         .iter()
         .map(|&term_idx| {
-            if spatial_term_uses_per_axis_psi(resolvedspec, term_idx) {
+            if let Some(mj) = measure_jet_term_spec(resolvedspec, term_idx) {
+                // Dial group, not per-axis anisotropy: 2 in per-level mode
+                // (α, lnτ), 3 in fused mode (s, α, lnτ).
+                measure_jet_psi_dim(mj)
+            } else if spatial_term_uses_per_axis_psi(resolvedspec, term_idx) {
                 get_spatial_feature_dim(resolvedspec, term_idx).unwrap_or(1)
             } else {
                 1
@@ -17744,7 +18188,22 @@ fn run_exact_joint_spatial_optimization(
             "[{label}] analytic outer Hessian unavailable for family/design; routing without second-order geometry (coord_dim={coord_dim})"
         );
     }
-    let prefer_gradient_only = false;
+    // Second-order outer routing is COST-AWARE here, mirroring the n-block
+    // path's work-budget policy: the exact joint outer Hessian materializes
+    // pairwise hyper operators for every (θ_i, θ_j), so its per-eval cost
+    // grows quadratically in θ-dim (profiled: TauTauPairHyperOperator::
+    // mul_vec dominates wall-clock for spectral-mode measure-jet terms,
+    // whose per-scale candidates push θ-dim to ~9–11). Past the pair
+    // budget, gradient-only quasi-Newton is convergent to the same optimum
+    // and strictly cheaper per eval — the n-block path documents the same
+    // trade; below it, exact second-order keeps the ARC/TR-CG geometry.
+    let prefer_gradient_only = theta_dim > EXACT_JOINT_SECOND_ORDER_THETA_CAP;
+    if prefer_gradient_only {
+        log::info!(
+            "[{label}] joint θ-dim {theta_dim} exceeds the exact pair-Hessian budget \
+             ({EXACT_JOINT_SECOND_ORDER_THETA_CAP}); routing gradient-only quasi-Newton"
+        );
+    }
 
     log::trace!(
         "[{}] starting analytic optimization: rho_dim={}, coord_dim={}, dims_per_term={:?}",
@@ -18176,6 +18635,77 @@ fn freeze_smooth_basis_from_metadata(
                 },
                 None => SphericalSplineIdentifiability::CenterSumToZero,
             };
+        }
+        (
+            SmoothBasisSpec::ConstantCurvature { spec: s, .. },
+            BasisMetadata::ConstantCurvature {
+                centers,
+                kappa,
+                length_scale,
+                constraint_transform,
+            },
+        ) => {
+            s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
+            s.kappa = *kappa;
+            // Pin the REALIZED kernel range so a `0.0` auto-sentinel spec
+            // replays the exact fit-time geometry at predict time (and at the
+            // future ψ-channel per-trial rebuilds) instead of re-deriving ℓ
+            // from whatever rows the rebuild sees.
+            s.length_scale = *length_scale;
+            // #532 pattern: freeze the composed `z · z_parametric` so the
+            // rebuild replays the fit-time realized transform verbatim.
+            s.identifiability = match constraint_transform {
+                Some(z) => ConstantCurvatureIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => ConstantCurvatureIdentifiability::CenterSumToZero,
+            };
+        }
+        (
+            SmoothBasisSpec::MeasureJet {
+                spec: s,
+                input_scales,
+                ..
+            },
+            BasisMetadata::MeasureJet {
+                centers,
+                input_scales: meta_scales,
+                length_scale,
+                eps_band,
+                order_s,
+                alpha,
+                tau0,
+                masses,
+                constraint_transform,
+            },
+        ) => {
+            s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
+            // Pin every realized hyperparameter so auto sentinels cannot
+            // re-derive geometry from predict rows. The replay dispatch
+            // consumes length_scale VERBATIM (`input_scales: Some` marks the
+            // replay path — no σ_geom re-compensation; see the build
+            // dispatch's round-trip contract).
+            s.length_scale = *length_scale;
+            s.order_s = *order_s;
+            s.alpha = *alpha;
+            s.tau0 = *tau0;
+            s.num_scales = eps_band.len();
+            // The penalty depends on the FIT data through masses + band;
+            // freeze both so the rebuilt penalty is the one the coefficients
+            // were estimated under.
+            s.frozen_quadrature = Some(MeasureJetFrozenQuadrature {
+                masses: masses.clone(),
+                eps_band: eps_band.clone(),
+            });
+            // #532 pattern: freeze the composed `z · z_parametric` so the
+            // rebuild replays the fit-time realized transform verbatim.
+            s.identifiability = match constraint_transform {
+                Some(z) => MeasureJetIdentifiability::FrozenTransform {
+                    transform: z.clone(),
+                },
+                None => MeasureJetIdentifiability::CenterSumToZero,
+            };
+            *input_scales = meta_scales.clone();
         }
         (
             SmoothBasisSpec::Matern {
@@ -19128,22 +19658,37 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             ))
             .into());
         }
-        let current_length_scale = get_spatial_length_scale(&self.spec, term_idx);
-        let current_aniso = get_spatial_aniso_log_scales(&self.spec, term_idx);
-        let (next_length_scale, next_aniso) = spatial_term_psi_to_length_scale_and_aniso(psi);
-        let same_length = spatial_length_scale_matches(current_length_scale, next_length_scale);
-        let same_aniso = spatial_aniso_matches(current_aniso.as_deref(), next_aniso.as_deref());
-        if same_length && same_aniso {
-            return Ok(false);
-        }
-
-        if let Some(length_scale) = next_length_scale {
-            set_spatial_length_scale(&mut self.spec, term_idx, length_scale)
-                .map_err(|e| e.to_string())?;
-        }
-        if let Some(eta) = next_aniso.clone() {
-            set_spatial_aniso_log_scales(&mut self.spec, term_idx, eta)
-                .map_err(|e| e.to_string())?;
+        // Measure-jet terms carry DIAL coordinates (α, lnτ[, s]) rather than
+        // κ/length-scale ψ; the κ-translation below would misread them as
+        // log-scales and corrupt the geometry. Route through the dial setter.
+        let measure_jet_term = measure_jet_term_spec(&self.spec, term_idx).is_some();
+        let mut next_length_scale = None;
+        let mut next_aniso: Option<Vec<f64>> = None;
+        if measure_jet_term {
+            if !set_measure_jet_psi_dials(&mut self.spec, term_idx, psi)
+                .map_err(|e| e.to_string())?
+            {
+                return Ok(false);
+            }
+        } else {
+            let current_length_scale = get_spatial_length_scale(&self.spec, term_idx);
+            let current_aniso = get_spatial_aniso_log_scales(&self.spec, term_idx);
+            let (ls, eta) = spatial_term_psi_to_length_scale_and_aniso(psi);
+            next_length_scale = ls;
+            next_aniso = eta;
+            let same_length = spatial_length_scale_matches(current_length_scale, next_length_scale);
+            let same_aniso = spatial_aniso_matches(current_aniso.as_deref(), next_aniso.as_deref());
+            if same_length && same_aniso {
+                return Ok(false);
+            }
+            if let Some(length_scale) = next_length_scale {
+                set_spatial_length_scale(&mut self.spec, term_idx, length_scale)
+                    .map_err(|e| e.to_string())?;
+            }
+            if let Some(eta) = next_aniso.clone() {
+                set_spatial_aniso_log_scales(&mut self.spec, term_idx, eta)
+                    .map_err(|e| e.to_string())?;
+            }
         }
 
         // Pick the spec to drive the rebuild. If the per-term geometry cache
@@ -19169,13 +19714,21 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 .ok_or_else(|| format!("incremental realizer smooth term {term_idx} out of range"))?
                 .clone(),
         };
-        if let Some(length_scale) = next_length_scale {
-            set_single_term_spatial_length_scale(&mut build_spec, length_scale)
+        if measure_jet_term {
+            // The cached build spec carries the frozen geometry (UserProvided
+            // barycenter nodes, frozen quadrature + transform); only the
+            // dials move per trial.
+            set_single_term_measure_jet_psi_dials(&mut build_spec, psi)
                 .map_err(|e| e.to_string())?;
-        }
-        if let Some(eta) = next_aniso {
-            set_single_term_spatial_aniso_log_scales(&mut build_spec, eta)
-                .map_err(|e| e.to_string())?;
+        } else {
+            if let Some(length_scale) = next_length_scale {
+                set_single_term_spatial_length_scale(&mut build_spec, length_scale)
+                    .map_err(|e| e.to_string())?;
+            }
+            if let Some(eta) = next_aniso {
+                set_single_term_spatial_aniso_log_scales(&mut build_spec, eta)
+                    .map_err(|e| e.to_string())?;
+            }
         }
 
         let termname = build_spec.name.clone();
@@ -19739,6 +20292,14 @@ pub(crate) fn seed_risk_profile_for_likelihood_family(
     }
 }
 
+/// Joint-θ dimension above which the single-block exact-joint driver routes
+/// gradient-only: the exact outer Hessian builds θ(θ+1)/2 pairwise hyper
+/// operators, so per-eval cost grows quadratically in θ-dim — profiled to
+/// dominate wall-clock at spectral-mode measure-jet candidate counts
+/// (θ ≈ 9–11), while θ ≤ 8 (classic Matérn κ/η fits) keeps cheap exact
+/// second-order geometry.
+const EXACT_JOINT_SECOND_ORDER_THETA_CAP: usize = 8;
+
 pub(crate) fn exact_joint_multistart_outer_problem(
     theta0: &Array1<f64>,
     lower: &Array1<f64>,
@@ -20160,6 +20721,7 @@ where
          -> Result<OuterEval, EstimationError> {
             if let Some((cost, grad, hess)) = ctx.cache.memoized_eval(theta) {
                 let cached_satisfies_order = match order {
+                    OuterEvalOrder::Value => true,
                     OuterEvalOrder::ValueAndGradient => true,
                     OuterEvalOrder::ValueGradientHessian => hess.is_analytic(),
                 };
@@ -21345,7 +21907,9 @@ mod tests {
                 }
                 SmoothBasisSpec::ThinPlate { feature_cols, .. }
                 | SmoothBasisSpec::Sphere { feature_cols, .. }
+                | SmoothBasisSpec::ConstantCurvature { feature_cols, .. }
                 | SmoothBasisSpec::Matern { feature_cols, .. }
+                | SmoothBasisSpec::MeasureJet { feature_cols, .. }
                 | SmoothBasisSpec::Duchon { feature_cols, .. }
                 | SmoothBasisSpec::Pca { feature_cols, .. }
                 | SmoothBasisSpec::TensorBSpline { feature_cols, .. } => {

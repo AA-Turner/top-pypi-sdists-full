@@ -42,7 +42,8 @@ impl ConsoleCaptureInstance {
             .clone()
             .unwrap_or_default();
         let enabled = console_capture_options.enabled;
-        let ops_stats_instance = OPS_STATS.get_for_instance(sdk_key);
+        let sdk_instance_id = statsig_options.get_sdk_instance_id(sdk_key);
+        let ops_stats_instance = OPS_STATS.get_for_instance(sdk_instance_id);
         let allowed_log_levels = console_capture_options
             .log_levels
             .filter(|levels| !levels.is_empty())
@@ -95,7 +96,8 @@ impl ConsoleCaptureRegistry {
             .try_read_for(std::time::Duration::from_secs(5))
         {
             Some(read_guard) => {
-                if let Some(instance) = read_guard.get(sdk_key) {
+                let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
+                if let Some(instance) = read_guard.get(sdk_instance_id) {
                     if let Some(instance) = instance.upgrade() {
                         return instance.clone();
                     }
@@ -115,7 +117,8 @@ impl ConsoleCaptureRegistry {
             .try_write_for(std::time::Duration::from_secs(5))
         {
             Some(mut write_guard) => {
-                write_guard.insert(sdk_key.into(), Arc::downgrade(&instance));
+                let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
+                write_guard.insert(sdk_instance_id.into(), Arc::downgrade(&instance));
             }
             None => {
                 log_e!(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.0.607
+Version: 2.0.646
 Summary: Protect local AI harnesses with HOL Guard before tools run in Codex, Claude Code, Cursor, Gemini, and OpenCode.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard
@@ -30,12 +30,12 @@ Requires-Dist: tomli>=2.0; python_version < '3.11'
 Provides-Extra: cisco
 Requires-Dist: cisco-ai-mcp-scanner~=4.6; (python_version >= '3.11') and extra == 'cisco'
 Provides-Extra: dev
-Requires-Dist: build>=1.2.2; extra == 'dev'
+Requires-Dist: build>=1.5.0; extra == 'dev'
 Requires-Dist: jsonschema>=4.26.0; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.0.3; extra == 'dev'
 Requires-Dist: pyyaml>=6.0.3; extra == 'dev'
-Requires-Dist: ruff>=0.15.11; extra == 'dev'
+Requires-Dist: ruff>=0.15.15; extra == 'dev'
 Provides-Extra: publish
 Requires-Dist: twine>=6.2.0; extra == 'publish'
 Description-Content-Type: text/markdown
@@ -178,6 +178,8 @@ See [docs/guard/get-started.md](docs/guard/get-started.md) for the full local fl
   Guard authors package-level policy while OpenCode keeps native once, always, or reject prompts for managed MCP tools.
 - `kimi`
   Guard installs managed `PreToolUse` and `UserPromptSubmit` hooks in `~/.kimi-code/config.toml`, blocks with exit code `2` and a JSON `permissionDecision: "deny"` response, and fails open on hook crash or timeout.
+- `grok`
+  Guard installs managed Grok hook JSON under `~/.grok/hooks/` plus permission deny rules in `~/.grok/managed_config.toml`, blocks with exit code `2` and a Grok-native `{"decision":"deny"}` response, and never reads `~/.grok/auth`.
 - `hermes`
   Guard installs a managed Hermes overlay bundle, routes MCP servers through Guard proxies, and prefers native-or-center delivery for blocked requests.
 - `gemini`

@@ -4,11 +4,13 @@ import json
 from pathlib import Path
 
 from codex_plugin_scanner.guard.adapters.base import HarnessContext
+from codex_plugin_scanner.guard.adapters.claude_code import ClaudeCodeHarnessAdapter
 from codex_plugin_scanner.guard.adapters.cursor import CursorHarnessAdapter
 from codex_plugin_scanner.guard.adapters.hermes import HermesHarnessAdapter
 from codex_plugin_scanner.guard.adapters.openclaw import OpenClawHarnessAdapter
 from codex_plugin_scanner.guard.aibom_detection import (
     INVENTORY_ITEM_KINDS,
+    discover_codex_skill_artifacts,
     discover_shared_workspace_aibom_artifacts,
     extend_detection_with_workspace_aibom,
     file_content_hash,
@@ -16,7 +18,7 @@ from codex_plugin_scanner.guard.aibom_detection import (
 )
 from codex_plugin_scanner.guard.consumer.service import artifact_hash, diff_artifact
 from codex_plugin_scanner.guard.inventory_contract import inventory_snapshot_from_detection
-from codex_plugin_scanner.guard.models import HarnessDetection
+from codex_plugin_scanner.guard.models import GuardArtifact, HarnessDetection
 
 
 def test_inventory_item_kinds_align_with_portal_contract() -> None:
@@ -69,6 +71,49 @@ def test_discover_agents_md_and_cursor_rules(tmp_path: Path) -> None:
     assert "cursor_rules" in roles
 
 
+def test_instruction_role_for_path_recognizes_standards_files() -> None:
+    assert instruction_role_for_path(Path("PRODUCT.md")) == "product_md"
+    assert instruction_role_for_path(Path("DESIGN.md")) == "design_md"
+    assert instruction_role_for_path(Path("CLAUDE.md")) == "claude_md"
+    assert instruction_role_for_path(Path("docs/PRODUCT.md")) == "product_md"
+
+
+def test_discover_standards_context_files_in_root_and_fallback_dirs(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "PRODUCT.md").write_text("# Product\n", encoding="utf-8")
+    (workspace / "DESIGN.md").write_text("# Design\n", encoding="utf-8")
+    (workspace / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
+
+    context_dir = workspace / ".agents" / "context"
+    context_dir.mkdir(parents=True)
+    (context_dir / "PRODUCT.md").write_text("# Product context\n", encoding="utf-8")
+
+    docs_dir = workspace / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "DESIGN.md").write_text("# Design docs\n", encoding="utf-8")
+
+    artifacts = discover_shared_workspace_aibom_artifacts(
+        "codex",
+        home_dir=tmp_path,
+        workspace_dir=workspace,
+    )
+    roles = {
+        artifact.metadata.get("instructionRole")
+        for artifact in artifacts
+        if artifact.artifact_type == "instruction" and isinstance(artifact.metadata, dict)
+    }
+    names = {
+        artifact.name
+        for artifact in artifacts
+        if artifact.artifact_type == "instruction"
+    }
+
+    assert roles == {"product_md", "design_md", "claude_md"}
+    assert "PRODUCT.md (.agents/context)" in names
+    assert "DESIGN.md (docs)" in names
+
+
 def test_discover_codex_skills_and_marketplace_plugins(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     plugin_dir = workspace / "plugins" / "demo"
@@ -92,15 +137,19 @@ def test_discover_codex_skills_and_marketplace_plugins(tmp_path: Path) -> None:
     skill_root.mkdir(parents=True)
     (skill_root / "SKILL.md").write_text("---\nname: lint\n---\n", encoding="utf-8")
 
-    artifacts = discover_shared_workspace_aibom_artifacts(
+    shared_artifacts = discover_shared_workspace_aibom_artifacts(
         "codex",
         home_dir=tmp_path,
         workspace_dir=workspace,
     )
-    artifact_types = {artifact.artifact_type for artifact in artifacts}
+    skill_artifacts = discover_codex_skill_artifacts(
+        "codex",
+        home_dir=tmp_path,
+        workspace_dir=workspace,
+    )
 
-    assert "skill" in artifact_types
-    assert "plugin" in artifact_types
+    assert "plugin" in {artifact.artifact_type for artifact in shared_artifacts}
+    assert "skill" in {artifact.artifact_type for artifact in skill_artifacts}
 
 
 def test_content_hash_detects_tail_changes_beyond_one_mebibyte(tmp_path: Path) -> None:
@@ -230,6 +279,35 @@ def test_instruction_role_ignores_unrelated_rules_paths(tmp_path: Path) -> None:
     assert instruction_role_for_path(cursor_rule) == "cursor_rules"
 
 
+def test_discover_named_instruction_docs(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "DESIGN.md").write_text("# Design\n", encoding="utf-8")
+    (workspace / "SECURITY.md").write_text("# Security\n", encoding="utf-8")
+    standards_dir = workspace / "docs" / "standards"
+    standards_dir.mkdir(parents=True)
+    (standards_dir / "api.md").write_text("# Standards\n", encoding="utf-8")
+    policies_dir = workspace / "docs" / "policies"
+    policies_dir.mkdir(parents=True)
+    (policies_dir / "access.md").write_text("# Policy\n", encoding="utf-8")
+
+    artifacts = discover_shared_workspace_aibom_artifacts(
+        "cursor",
+        home_dir=tmp_path,
+        workspace_dir=workspace,
+    )
+    roles = {
+        artifact.metadata.get("instructionRole")
+        for artifact in artifacts
+        if isinstance(artifact.metadata, dict)
+    }
+
+    assert "design_md" in roles
+    assert "security_md" in roles
+    assert "standards_md" in roles
+    assert "policy_md" in roles
+
+
 def test_marketplace_escape_path_does_not_read_outside_workspace(tmp_path: Path) -> None:
     workspace = tmp_path / "repo"
     outside = tmp_path / "outside"
@@ -262,6 +340,87 @@ def test_marketplace_escape_path_does_not_read_outside_workspace(tmp_path: Path)
 
     assert len(evil_plugins) == 1
     assert "content_hash" not in evil_plugins[0].metadata
+
+
+def test_extend_detection_replaces_legacy_rules_collision_with_workspace_claude_md(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    root_claude_md = workspace / "CLAUDE.md"
+    root_claude_md.write_text("# root instructions\n", encoding="utf-8")
+    legacy_rule = workspace / ".claude" / "rules" / "claude-md.md"
+    legacy_rule.parent.mkdir(parents=True)
+    legacy_rule.write_text("# legacy rule id\n", encoding="utf-8")
+
+    base = HarnessDetection(
+        harness="claude-code",
+        installed=True,
+        command_available=True,
+        config_paths=(str(legacy_rule),),
+        artifacts=(
+            GuardArtifact(
+                artifact_id="claude-code:project:instruction:claude-md",
+                name="claude-md",
+                harness="claude-code",
+                artifact_type="instruction",
+                source_scope="project",
+                config_path=str(legacy_rule),
+                metadata={"instructionRole": "cursor_rules"},
+            ),
+        ),
+    )
+    extended = extend_detection_with_workspace_aibom(
+        base,
+        home_dir=tmp_path,
+        workspace_dir=workspace,
+    )
+    artifacts = {artifact.artifact_id: artifact for artifact in extended.artifacts}
+
+    assert artifacts["claude-code:project:instruction:claude-md"].config_path == str(root_claude_md)
+    assert artifacts["claude-code:project:instruction:claude-md"].metadata.get("instructionRole") == "claude_md"
+
+
+def test_extend_detection_does_not_replace_colliding_mcp_server_with_claude_md(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "CLAUDE.md").write_text("# root instructions\n", encoding="utf-8")
+    mcp_config = workspace / ".mcp.json"
+    mcp_config.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "instruction:claude-md": {
+                        "command": "python3",
+                        "args": ["-m", "http.server", "9000"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    context = HarnessContext(home_dir=tmp_path, workspace_dir=workspace, guard_home=tmp_path / ".hol-guard")
+    detection = ClaudeCodeHarnessAdapter().detect(context)
+    artifacts = {artifact.artifact_id: artifact for artifact in detection.artifacts}
+
+    assert artifacts["claude-code:project:mcp:instruction:claude-md"].artifact_type == "mcp_server"
+    assert artifacts["claude-code:project:instruction:claude-md"].artifact_type == "instruction"
+
+
+def test_extend_detection_prefers_workspace_root_claude_md_on_legacy_id_collision(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    root_claude_md = workspace / "CLAUDE.md"
+    root_claude_md.write_text("# root instructions\n", encoding="utf-8")
+    colliding_rule = workspace / ".claude" / "rules" / "claude-md.md"
+    colliding_rule.parent.mkdir(parents=True)
+    colliding_rule.write_text("# colliding rule\n", encoding="utf-8")
+
+    context = HarnessContext(home_dir=tmp_path, workspace_dir=workspace, guard_home=tmp_path / ".hol-guard")
+    detection = ClaudeCodeHarnessAdapter().detect(context)
+    artifacts = {artifact.artifact_id: artifact for artifact in detection.artifacts}
+
+    assert artifacts["claude-code:project:instruction:claude-md"].config_path == str(root_claude_md)
+    assert artifacts["claude-code:project:instruction:rules-claude-md"].config_path == str(colliding_rule)
 
 
 def test_extend_detection_does_not_mark_harness_installed_from_workspace_files(tmp_path: Path) -> None:

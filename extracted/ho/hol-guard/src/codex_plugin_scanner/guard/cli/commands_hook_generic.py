@@ -136,13 +136,29 @@ def _run_hook_generic_payload(
     )
     approval_context = _native_approval_center_context(payload, harness=args.harness)
     if _should_emit_native_hook_exit_block(args, event_name=hook_event_name, policy_action=policy_action):
-        _emit_native_hook_block_stderr(
-            _native_hook_reason_for_harness(
-                args.harness,
-                incoming_reason,
-                approval_context,
-            )
+        block_reason = _native_hook_reason_for_harness(
+            args.harness,
+            incoming_reason,
+            approval_context,
         )
+        if _canonical_harness_name(args.harness) == "kimi":
+            _emit_native_hook_response(
+                harness=args.harness,
+                policy_action=policy_action,
+                event_name=hook_event_name,
+                reason=block_reason,
+                output_stream=output_stream,
+            )
+        elif _canonical_harness_name(args.harness) == "grok":
+            from ..adapters.grok_hooks import emit_grok_hook_response
+
+            emit_grok_hook_response(
+                policy_action=policy_action,
+                reason=block_reason,
+                output_stream=output_stream,
+            )
+        # Kimi surfaces stderr to the user as the blocking explanation.
+        _emit_native_hook_block_stderr(block_reason)
         return 2
     if _canonical_harness_name(args.harness) == "codex" and (
         hook_event_name == "UserPromptSubmit" or approval_context is not None
@@ -170,6 +186,15 @@ def _run_hook_generic_payload(
         event_name=hook_event_name,
         output_stream=output_stream,
     ):
+        if _canonical_harness_name(args.harness) == "grok":
+            from ..adapters.grok_hooks import emit_grok_hook_response
+
+            emit_grok_hook_response(
+                policy_action=policy_action,
+                reason=reason,
+                output_stream=output_stream,
+            )
+            return 0 if policy_action not in {"block", "sandbox-required", "require-reapproval"} else 2
         system_message = None
         canonical_harness = _canonical_harness_name(args.harness)
         if (

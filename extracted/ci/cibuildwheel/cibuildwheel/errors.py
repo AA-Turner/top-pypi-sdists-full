@@ -4,6 +4,8 @@ a different return code, by defining them all here, we can ensure that they're
 semantically clear and unique.
 """
 
+__lazy_modules__ = {"textwrap"}
+
 import textwrap
 
 
@@ -109,3 +111,19 @@ class AuditCommandFailedError(FatalError):
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.return_code = 9
+
+
+class BuildProducedNoWheelError(FatalError):
+    def __init__(self) -> None:
+        message = textwrap.dedent(
+            """
+            Build failed because the build frontend completed successfully but
+            did not produce a wheel.
+
+            This usually indicates a problem with your project configuration or
+            build backend. Check your project configuration, or run cibuildwheel
+            with CIBW_BUILD_VERBOSITY=1 to view build logs.
+            """
+        )
+        super().__init__(message)
+        self.return_code = 10

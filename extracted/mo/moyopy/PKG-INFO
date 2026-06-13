@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moyopy
-Version: 0.11.0
+Version: 0.12.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
@@ -69,6 +69,17 @@ Python interface of [moyo](https://github.com/spglib/moyo), a fast and robust cr
 pip install moyopy
 # If you want to convert structures into Pymatgen or ASE objects
 pip install moyopy[interface]
+```
+
+## Development
+
+Run from the repo root with `just`:
+
+```shell
+just py-install   # uv sync
+just py-build     # maturin develop
+just py-test      # pytest
+just py-docs      # build and serve the Sphinx docs
 ```
 
 ## How to cite moyopy

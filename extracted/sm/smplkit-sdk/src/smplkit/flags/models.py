@@ -6,7 +6,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from smplkit.flags._client import AsyncFlagsClient, FlagsClient
+    from smplkit.flags.clients import AsyncFlagsClient, FlagsClient
 
 
 @dataclasses.dataclass(frozen=True)

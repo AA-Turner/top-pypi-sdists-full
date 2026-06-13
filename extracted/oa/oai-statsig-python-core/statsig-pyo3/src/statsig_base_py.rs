@@ -26,6 +26,7 @@ use pyo3::{
 use pyo3_stub_gen::derive::*;
 use serde_json::Value;
 use statsig_rust::interned_string::InternedString;
+use statsig_rust::user::fast_statsig_user::FastStatsigUser;
 use statsig_rust::user::StatsigUserInternal;
 use statsig_rust::{
     log_e, sdk_event_emitter::SubscriptionID, BulkEvaluationOptions, ClientInitResponseOptions,
@@ -137,6 +138,10 @@ impl StatsigBasePy {
 
     pub fn is_initialized(&self) -> bool {
         self.inner.is_initialized()
+    }
+
+    pub fn is_config_spec_ready(&self) -> bool {
+        self.inner.is_config_spec_ready()
     }
 
     pub fn flush_events(&self, py: Python) -> PyResult<Py<PyAny>> {
@@ -315,16 +320,17 @@ impl StatsigBasePy {
     #[pyo3(signature = (user, name, options=None))]
     pub fn check_gate(
         &self,
+        py: Python<'_>,
         user: &StatsigUserPy,
         name: &str,
         options: Option<FeatureGateEvaluationOptionsPy>,
     ) -> bool {
-        let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
-        self.inner.check_gate_with_options_for_internal_user(
-            &user_internal,
-            name,
-            options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into()),
-        )
+        let statsig = self.inner.clone();
+        let user = user.inner.clone();
+        let name = name.to_string();
+        let options = options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into());
+
+        py.detach(move || check_gate_for_python(statsig.as_ref(), &user, &name, options))
     }
 
     #[pyo3(name="_INTERNAL_get_feature_gate", signature = (user, name, options=None))]
@@ -782,6 +788,16 @@ fn convert_to_string(value: Option<&Bound<PyAny>>) -> Option<String> {
 
 fn extract_event_metadata(metadata: Option<Bound<PyDict>>) -> Option<HashMap<String, Value>> {
     metadata.map(|m| py_dict_to_json_value_map(&m))
+}
+
+fn check_gate_for_python(
+    statsig: &Statsig,
+    user: &FastStatsigUser,
+    name: &str,
+    options: FeatureGateEvaluationOptions,
+) -> bool {
+    let user_internal = StatsigUserInternal::from_fast_user(user, Some(statsig));
+    statsig.check_gate_with_options_for_internal_user(&user_internal, name, options)
 }
 
 fn bulk_evaluate_to_py_dict(

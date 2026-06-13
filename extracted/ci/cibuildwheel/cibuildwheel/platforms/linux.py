@@ -1,5 +1,22 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "cibuildwheel.audit",
+    "cibuildwheel.frontend",
+    "cibuildwheel.logger",
+    "cibuildwheel.util",
+    "cibuildwheel.util.file",
+    "cibuildwheel.util.helpers",
+    "cibuildwheel.util.packaging",
+    "collections",
+    "contextlib",
+    "pathlib",
+    "shutil",
+    "subprocess",
+    "textwrap",
+    "typing",
+}
+
 import contextlib
 import dataclasses
 import shutil
@@ -346,7 +363,10 @@ def build_in_container(
                 case _:
                     assert_never(build_frontend)
 
-            built_wheel = container.glob(built_wheel_dir, "*.whl")[0]
+            try:
+                built_wheel = container.glob(built_wheel_dir, "*.whl")[0]
+            except IndexError:
+                raise errors.BuildProducedNoWheelError() from None
 
             repaired_wheel_dir = temp_dir / "repaired_wheel"
             container.call(["rm", "-rf", repaired_wheel_dir])

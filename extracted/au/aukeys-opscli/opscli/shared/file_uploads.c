@@ -2069,9 +2069,6 @@ static int __Pyx_GetException(PyObject **type, PyObject **value, PyObject **tb);
 /* RaiseUnboundLocalError.proto */
 static void __Pyx_RaiseUnboundLocalError(const char *varname);
 
-/* RaiseUnexpectedTypeError.proto */
-static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
-
 /* unicode_tailmatch.proto */
 static int __Pyx_PyUnicode_Tailmatch(
     PyObject* s, PyObject* substr, Py_ssize_t start, Py_ssize_t end, int direction);
@@ -2111,17 +2108,6 @@ static int __Pyx_PyUnicode_Tailmatch(
     ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
     PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right))
 
-/* SwapException.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_ExceptionSwap(type, value, tb)  __Pyx__ExceptionSwap(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionSwap(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
-#else
-static CYTHON_INLINE void __Pyx_ExceptionSwap(PyObject **type, PyObject **value, PyObject **tb);
-#endif
-
-/* PyLongCompare.proto */
-static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
-
 /* dict_getitem_default.proto */
 static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value);
 
@@ -2136,6 +2122,20 @@ static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* 
 #else
 #define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
 #endif
+
+/* SwapException.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_ExceptionSwap(type, value, tb)  __Pyx__ExceptionSwap(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionSwap(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
+#else
+static CYTHON_INLINE void __Pyx_ExceptionSwap(PyObject **type, PyObject **value, PyObject **tb);
+#endif
+
+/* PyLongCompare.proto */
+static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
+
+/* RaiseUnexpectedTypeError.proto */
+static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
 /* HasAttr.proto (used by ImportImpl) */
 #if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
@@ -2496,8 +2496,9 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_2ena
 static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upload(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_path, PyObject *__pyx_v_purpose, PyObject *__pyx_v_folder, PyObject *__pyx_v_public, PyObject *__pyx_v_metadata); /* proto */
 static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_6_get_auth(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_alias); /* proto */
 static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_endpoint); /* proto */
-static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_response); /* proto */
-static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_payload); /* proto */
+static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_has_mcp_api_key(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_headers); /* proto */
+static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_parse_upload_response(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_response); /* proto */
+static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_6_extract_upload_url(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_payload); /* proto */
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
 /* SmallCodeConfig */
@@ -2524,8 +2525,8 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   __Pyx_CachedCFunction __pyx_umethod_PyUnicode_Type__strip;
   PyObject *__pyx_tuple[3];
-  PyObject *__pyx_codeobj_tab[9];
-  PyObject *__pyx_string_tab[188];
+  PyObject *__pyx_codeobj_tab[10];
+  PyObject *__pyx_string_tab[193];
   PyObject *__pyx_number_tab[5];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -2579,182 +2580,187 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_JSON_2 __pyx_string_tab[9]
 #define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[10]
 #define __pyx_kp_u_OPS __pyx_string_tab[11]
-#define __pyx_kp_u__10 __pyx_string_tab[12]
-#define __pyx_kp_u__11 __pyx_string_tab[13]
-#define __pyx_kp_u__12 __pyx_string_tab[14]
-#define __pyx_kp_u__2 __pyx_string_tab[15]
-#define __pyx_kp_u__4 __pyx_string_tab[16]
-#define __pyx_kp_u__7 __pyx_string_tab[17]
-#define __pyx_kp_u__8 __pyx_string_tab[18]
-#define __pyx_kp_u__9 __pyx_string_tab[19]
-#define __pyx_kp_u_add_note __pyx_string_tab[20]
-#define __pyx_kp_u_application_octet_stream __pyx_string_tab[21]
-#define __pyx_kp_u_dict_str_Any __pyx_string_tab[22]
-#define __pyx_kp_u_dict_str_Any_None __pyx_string_tab[23]
-#define __pyx_kp_u_http __pyx_string_tab[24]
-#define __pyx_kp_u_https __pyx_string_tab[25]
-#define __pyx_kp_u_httpx_Response __pyx_string_tab[26]
-#define __pyx_kp_u_int_str __pyx_string_tab[27]
-#define __pyx_kp_u_opscli_shared_file_uploads_py __pyx_string_tab[28]
-#define __pyx_kp_u_str_None __pyx_string_tab[29]
-#define __pyx_kp_u_str_Path __pyx_string_tab[30]
-#define __pyx_kp_u_tuple_dict_str_str_dict_str_str __pyx_string_tab[31]
-#define __pyx_kp_u_v1_file_upload __pyx_string_tab[32]
-#define __pyx_n_u_Any __pyx_string_tab[33]
-#define __pyx_n_u_AuthClient __pyx_string_tab[34]
-#define __pyx_n_u_Authorization __pyx_string_tab[35]
-#define __pyx_n_u_DEFAULT_ENDPOINT __pyx_string_tab[36]
-#define __pyx_n_u_DEFAULT_FILE_FIELD __pyx_string_tab[37]
-#define __pyx_n_u_DEFAULT_FOLDER __pyx_string_tab[38]
-#define __pyx_n_u_DEFAULT_PUBLIC __pyx_string_tab[39]
-#define __pyx_n_u_DEFAULT_TIMEOUT __pyx_string_tab[40]
-#define __pyx_n_u_ENV_FILE_UPLOAD_ENDPOINT __pyx_string_tab[41]
-#define __pyx_n_u_ENV_FILE_UPLOAD_FIELD __pyx_string_tab[42]
-#define __pyx_n_u_ENV_FILE_UPLOAD_FOLDER __pyx_string_tab[43]
-#define __pyx_n_u_ENV_FILE_UPLOAD_PUBLIC __pyx_string_tab[44]
-#define __pyx_n_u_FILE_UPLOAD_BAD_JSON __pyx_string_tab[45]
-#define __pyx_n_u_FILE_UPLOAD_BUSINESS_ERROR __pyx_string_tab[46]
-#define __pyx_n_u_FILE_UPLOAD_ERROR __pyx_string_tab[47]
-#define __pyx_n_u_FILE_UPLOAD_HTTP_ERROR __pyx_string_tab[48]
-#define __pyx_n_u_FileUploadBadJsonError __pyx_string_tab[49]
-#define __pyx_n_u_FileUploadBusinessError __pyx_string_tab[50]
-#define __pyx_n_u_FileUploadBusinessError___init __pyx_string_tab[51]
-#define __pyx_n_u_FileUploadClient __pyx_string_tab[52]
-#define __pyx_n_u_FileUploadClient___init __pyx_string_tab[53]
-#define __pyx_n_u_FileUploadClient__get_auth __pyx_string_tab[54]
-#define __pyx_n_u_FileUploadClient_enabled __pyx_string_tab[55]
-#define __pyx_n_u_FileUploadClient_upload __pyx_string_tab[56]
-#define __pyx_n_u_FileUploadError __pyx_string_tab[57]
-#define __pyx_n_u_FileUploadHttpError __pyx_string_tab[58]
-#define __pyx_n_u_FileUploadHttpError___init __pyx_string_tab[59]
-#define __pyx_n_u_FileUploadResult __pyx_string_tab[60]
-#define __pyx_n_u_None __pyx_string_tab[61]
-#define __pyx_n_u_OPSCLI_FILE_UPLOAD_ENDPOINT __pyx_string_tab[62]
-#define __pyx_n_u_OPSCLI_FILE_UPLOAD_FIELD __pyx_string_tab[63]
-#define __pyx_n_u_OPSCLI_FILE_UPLOAD_FOLDER __pyx_string_tab[64]
-#define __pyx_n_u_OPSCLI_FILE_UPLOAD_PUBLIC __pyx_string_tab[65]
-#define __pyx_n_u_OPS_URL __pyx_string_tab[66]
-#define __pyx_n_u_Path __pyx_string_tab[67]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[68]
-#define __pyx_n_u_RemoteError __pyx_string_tab[69]
-#define __pyx_n_u__3 __pyx_string_tab[70]
-#define __pyx_n_u__5 __pyx_string_tab[71]
-#define __pyx_n_u_alias __pyx_string_tab[72]
-#define __pyx_n_u_annotations __pyx_string_tab[73]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[74]
-#define __pyx_n_u_auth_client __pyx_string_tab[75]
-#define __pyx_n_u_bool __pyx_string_tab[76]
-#define __pyx_n_u_build_request_auth __pyx_string_tab[77]
-#define __pyx_n_u_business_code __pyx_string_tab[78]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[79]
-#define __pyx_n_u_code __pyx_string_tab[80]
-#define __pyx_n_u_cookies __pyx_string_tab[81]
-#define __pyx_n_u_data __pyx_string_tab[82]
-#define __pyx_n_u_dataclass __pyx_string_tab[83]
-#define __pyx_n_u_dataclasses __pyx_string_tab[84]
-#define __pyx_n_u_doc __pyx_string_tab[85]
-#define __pyx_n_u_downloadUrl __pyx_string_tab[86]
-#define __pyx_n_u_download_url __pyx_string_tab[87]
-#define __pyx_n_u_dumps __pyx_string_tab[88]
-#define __pyx_n_u_enabled __pyx_string_tab[89]
-#define __pyx_n_u_endpoint __pyx_string_tab[90]
-#define __pyx_n_u_ensure_ascii __pyx_string_tab[91]
-#define __pyx_n_u_enter __pyx_string_tab[92]
-#define __pyx_n_u_exc __pyx_string_tab[93]
-#define __pyx_n_u_exists __pyx_string_tab[94]
-#define __pyx_n_u_exit __pyx_string_tab[95]
-#define __pyx_n_u_extract_error_message __pyx_string_tab[96]
-#define __pyx_n_u_extract_upload_url __pyx_string_tab[97]
-#define __pyx_n_u_fields __pyx_string_tab[98]
-#define __pyx_n_u_file __pyx_string_tab[99]
-#define __pyx_n_u_fileUrl __pyx_string_tab[100]
-#define __pyx_n_u_file_field __pyx_string_tab[101]
-#define __pyx_n_u_file_handle __pyx_string_tab[102]
-#define __pyx_n_u_file_path __pyx_string_tab[103]
-#define __pyx_n_u_file_url __pyx_string_tab[104]
-#define __pyx_n_u_files __pyx_string_tab[105]
-#define __pyx_n_u_folder __pyx_string_tab[106]
-#define __pyx_n_u_frozen __pyx_string_tab[107]
-#define __pyx_n_u_func __pyx_string_tab[108]
-#define __pyx_n_u_get __pyx_string_tab[109]
-#define __pyx_n_u_get_auth __pyx_string_tab[110]
-#define __pyx_n_u_get_mcp_request_headers __pyx_string_tab[111]
-#define __pyx_n_u_get_token_by_session __pyx_string_tab[112]
-#define __pyx_n_u_getenv __pyx_string_tab[113]
-#define __pyx_n_u_guess_type __pyx_string_tab[114]
-#define __pyx_n_u_headers __pyx_string_tab[115]
-#define __pyx_n_u_httpx __pyx_string_tab[116]
-#define __pyx_n_u_init __pyx_string_tab[117]
-#define __pyx_n_u_int __pyx_string_tab[118]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[119]
-#define __pyx_n_u_items __pyx_string_tab[120]
-#define __pyx_n_u_json __pyx_string_tab[121]
-#define __pyx_n_u_jwt __pyx_string_tab[122]
-#define __pyx_n_u_key __pyx_string_tab[123]
-#define __pyx_n_u_main __pyx_string_tab[124]
-#define __pyx_n_u_message __pyx_string_tab[125]
-#define __pyx_n_u_metaclass __pyx_string_tab[126]
-#define __pyx_n_u_metadata __pyx_string_tab[127]
-#define __pyx_n_u_mime_type __pyx_string_tab[128]
-#define __pyx_n_u_mimetypes __pyx_string_tab[129]
-#define __pyx_n_u_module __pyx_string_tab[130]
-#define __pyx_n_u_mro_entries __pyx_string_tab[131]
-#define __pyx_n_u_name __pyx_string_tab[132]
-#define __pyx_n_u_name_2 __pyx_string_tab[133]
-#define __pyx_n_u_open __pyx_string_tab[134]
-#define __pyx_n_u_ops __pyx_string_tab[135]
-#define __pyx_n_u_opscli_auth __pyx_string_tab[136]
-#define __pyx_n_u_opscli_mcp_context __pyx_string_tab[137]
-#define __pyx_n_u_opscli_shared_exceptions __pyx_string_tab[138]
-#define __pyx_n_u_opscli_shared_file_uploads __pyx_string_tab[139]
-#define __pyx_n_u_opscli_shared_http __pyx_string_tab[140]
-#define __pyx_n_u_os __pyx_string_tab[141]
-#define __pyx_n_u_parse_upload_response __pyx_string_tab[142]
-#define __pyx_n_u_path __pyx_string_tab[143]
-#define __pyx_n_u_pathlib __pyx_string_tab[144]
-#define __pyx_n_u_payload __pyx_string_tab[145]
-#define __pyx_n_u_polarisUserToken __pyx_string_tab[146]
-#define __pyx_n_u_pop __pyx_string_tab[147]
-#define __pyx_n_u_post __pyx_string_tab[148]
-#define __pyx_n_u_prepare __pyx_string_tab[149]
-#define __pyx_n_u_property __pyx_string_tab[150]
-#define __pyx_n_u_public __pyx_string_tab[151]
-#define __pyx_n_u_purpose __pyx_string_tab[152]
-#define __pyx_n_u_qualname __pyx_string_tab[153]
-#define __pyx_n_u_raw __pyx_string_tab[154]
-#define __pyx_n_u_rb __pyx_string_tab[155]
-#define __pyx_n_u_resolve_endpoint __pyx_string_tab[156]
-#define __pyx_n_u_response __pyx_string_tab[157]
-#define __pyx_n_u_return __pyx_string_tab[158]
-#define __pyx_n_u_rstrip __pyx_string_tab[159]
-#define __pyx_n_u_self __pyx_string_tab[160]
-#define __pyx_n_u_session_id __pyx_string_tab[161]
-#define __pyx_n_u_set_name __pyx_string_tab[162]
-#define __pyx_n_u_setdefault __pyx_string_tab[163]
-#define __pyx_n_u_source __pyx_string_tab[164]
-#define __pyx_n_u_status_code __pyx_string_tab[165]
-#define __pyx_n_u_str __pyx_string_tab[166]
-#define __pyx_n_u_strip __pyx_string_tab[167]
-#define __pyx_n_u_super __pyx_string_tab[168]
-#define __pyx_n_u_test __pyx_string_tab[169]
-#define __pyx_n_u_text __pyx_string_tab[170]
-#define __pyx_n_u_timeout __pyx_string_tab[171]
-#define __pyx_n_u_typing __pyx_string_tab[172]
-#define __pyx_n_u_update __pyx_string_tab[173]
-#define __pyx_n_u_upload __pyx_string_tab[174]
-#define __pyx_n_u_uploads __pyx_string_tab[175]
-#define __pyx_n_u_url __pyx_string_tab[176]
-#define __pyx_n_u_value __pyx_string_tab[177]
-#define __pyx_n_u_values __pyx_string_tab[178]
-#define __pyx_kp_b_iso88591_4A_7_ay_4z_G1G_a_F_aq_z_d_vQ_uF __pyx_string_tab[179]
-#define __pyx_kp_b_iso88591_86_t_b_1_q_t4_1_t1_2QgWAV1 __pyx_string_tab[180]
-#define __pyx_kp_b_iso88591_8_q_A_Q_t_Qiq_AQ_x_Cq_8MQiWZZhh __pyx_string_tab[181]
-#define __pyx_kp_b_iso88591_A_4t1_q_D_4y_q_AQ_4z_wa_a_gS_A_g __pyx_string_tab[182]
-#define __pyx_kp_b_iso88591_A_A_Q_Q_A_L_BgQ_H_1_N_S_2I_A_JgS __pyx_string_tab[183]
-#define __pyx_kp_b_iso88591_A_t1D __pyx_string_tab[184]
-#define __pyx_kp_b_iso88591_N_Ry_O1 __pyx_string_tab[185]
-#define __pyx_kp_b_iso88591_Ry_Q __pyx_string_tab[186]
-#define __pyx_kp_b_iso88591_xq_4q_e3d_C1D_UV_1_Yay8LDPQ_t_2 __pyx_string_tab[187]
+#define __pyx_kp_u_X_MCP_API_Key __pyx_string_tab[12]
+#define __pyx_kp_u__10 __pyx_string_tab[13]
+#define __pyx_kp_u__11 __pyx_string_tab[14]
+#define __pyx_kp_u__12 __pyx_string_tab[15]
+#define __pyx_kp_u__2 __pyx_string_tab[16]
+#define __pyx_kp_u__4 __pyx_string_tab[17]
+#define __pyx_kp_u__7 __pyx_string_tab[18]
+#define __pyx_kp_u__8 __pyx_string_tab[19]
+#define __pyx_kp_u__9 __pyx_string_tab[20]
+#define __pyx_kp_u_add_note __pyx_string_tab[21]
+#define __pyx_kp_u_application_octet_stream __pyx_string_tab[22]
+#define __pyx_kp_u_dict_str_Any __pyx_string_tab[23]
+#define __pyx_kp_u_dict_str_Any_None __pyx_string_tab[24]
+#define __pyx_kp_u_dict_str_str __pyx_string_tab[25]
+#define __pyx_kp_u_http __pyx_string_tab[26]
+#define __pyx_kp_u_https __pyx_string_tab[27]
+#define __pyx_kp_u_httpx_Response __pyx_string_tab[28]
+#define __pyx_kp_u_int_str __pyx_string_tab[29]
+#define __pyx_kp_u_opscli_shared_file_uploads_py __pyx_string_tab[30]
+#define __pyx_kp_u_str_None __pyx_string_tab[31]
+#define __pyx_kp_u_str_Path __pyx_string_tab[32]
+#define __pyx_kp_u_tuple_dict_str_str_dict_str_str __pyx_string_tab[33]
+#define __pyx_kp_u_v1_file_upload __pyx_string_tab[34]
+#define __pyx_n_u_Any __pyx_string_tab[35]
+#define __pyx_n_u_AuthClient __pyx_string_tab[36]
+#define __pyx_n_u_Authorization __pyx_string_tab[37]
+#define __pyx_n_u_DEFAULT_ENDPOINT __pyx_string_tab[38]
+#define __pyx_n_u_DEFAULT_FILE_FIELD __pyx_string_tab[39]
+#define __pyx_n_u_DEFAULT_FOLDER __pyx_string_tab[40]
+#define __pyx_n_u_DEFAULT_PUBLIC __pyx_string_tab[41]
+#define __pyx_n_u_DEFAULT_TIMEOUT __pyx_string_tab[42]
+#define __pyx_n_u_ENV_FILE_UPLOAD_ENDPOINT __pyx_string_tab[43]
+#define __pyx_n_u_ENV_FILE_UPLOAD_FIELD __pyx_string_tab[44]
+#define __pyx_n_u_ENV_FILE_UPLOAD_FOLDER __pyx_string_tab[45]
+#define __pyx_n_u_ENV_FILE_UPLOAD_PUBLIC __pyx_string_tab[46]
+#define __pyx_n_u_FILE_UPLOAD_BAD_JSON __pyx_string_tab[47]
+#define __pyx_n_u_FILE_UPLOAD_BUSINESS_ERROR __pyx_string_tab[48]
+#define __pyx_n_u_FILE_UPLOAD_ERROR __pyx_string_tab[49]
+#define __pyx_n_u_FILE_UPLOAD_HTTP_ERROR __pyx_string_tab[50]
+#define __pyx_n_u_FileUploadBadJsonError __pyx_string_tab[51]
+#define __pyx_n_u_FileUploadBusinessError __pyx_string_tab[52]
+#define __pyx_n_u_FileUploadBusinessError___init __pyx_string_tab[53]
+#define __pyx_n_u_FileUploadClient __pyx_string_tab[54]
+#define __pyx_n_u_FileUploadClient___init __pyx_string_tab[55]
+#define __pyx_n_u_FileUploadClient__get_auth __pyx_string_tab[56]
+#define __pyx_n_u_FileUploadClient_enabled __pyx_string_tab[57]
+#define __pyx_n_u_FileUploadClient_upload __pyx_string_tab[58]
+#define __pyx_n_u_FileUploadError __pyx_string_tab[59]
+#define __pyx_n_u_FileUploadHttpError __pyx_string_tab[60]
+#define __pyx_n_u_FileUploadHttpError___init __pyx_string_tab[61]
+#define __pyx_n_u_FileUploadResult __pyx_string_tab[62]
+#define __pyx_n_u_None __pyx_string_tab[63]
+#define __pyx_n_u_OPSCLI_FILE_UPLOAD_ENDPOINT __pyx_string_tab[64]
+#define __pyx_n_u_OPSCLI_FILE_UPLOAD_FIELD __pyx_string_tab[65]
+#define __pyx_n_u_OPSCLI_FILE_UPLOAD_FOLDER __pyx_string_tab[66]
+#define __pyx_n_u_OPSCLI_FILE_UPLOAD_PUBLIC __pyx_string_tab[67]
+#define __pyx_n_u_OPS_URL __pyx_string_tab[68]
+#define __pyx_n_u_Path __pyx_string_tab[69]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[70]
+#define __pyx_n_u_RemoteError __pyx_string_tab[71]
+#define __pyx_n_u__3 __pyx_string_tab[72]
+#define __pyx_n_u__5 __pyx_string_tab[73]
+#define __pyx_n_u_alias __pyx_string_tab[74]
+#define __pyx_n_u_annotations __pyx_string_tab[75]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[76]
+#define __pyx_n_u_auth_client __pyx_string_tab[77]
+#define __pyx_n_u_bool __pyx_string_tab[78]
+#define __pyx_n_u_build_request_auth __pyx_string_tab[79]
+#define __pyx_n_u_business_code __pyx_string_tab[80]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[81]
+#define __pyx_n_u_code __pyx_string_tab[82]
+#define __pyx_n_u_cookies __pyx_string_tab[83]
+#define __pyx_n_u_data __pyx_string_tab[84]
+#define __pyx_n_u_dataclass __pyx_string_tab[85]
+#define __pyx_n_u_dataclasses __pyx_string_tab[86]
+#define __pyx_n_u_doc __pyx_string_tab[87]
+#define __pyx_n_u_downloadUrl __pyx_string_tab[88]
+#define __pyx_n_u_download_url __pyx_string_tab[89]
+#define __pyx_n_u_dumps __pyx_string_tab[90]
+#define __pyx_n_u_enabled __pyx_string_tab[91]
+#define __pyx_n_u_endpoint __pyx_string_tab[92]
+#define __pyx_n_u_ensure_ascii __pyx_string_tab[93]
+#define __pyx_n_u_enter __pyx_string_tab[94]
+#define __pyx_n_u_exc __pyx_string_tab[95]
+#define __pyx_n_u_exists __pyx_string_tab[96]
+#define __pyx_n_u_exit __pyx_string_tab[97]
+#define __pyx_n_u_extract_error_message __pyx_string_tab[98]
+#define __pyx_n_u_extract_upload_url __pyx_string_tab[99]
+#define __pyx_n_u_fields __pyx_string_tab[100]
+#define __pyx_n_u_file __pyx_string_tab[101]
+#define __pyx_n_u_fileUrl __pyx_string_tab[102]
+#define __pyx_n_u_file_field __pyx_string_tab[103]
+#define __pyx_n_u_file_handle __pyx_string_tab[104]
+#define __pyx_n_u_file_path __pyx_string_tab[105]
+#define __pyx_n_u_file_url __pyx_string_tab[106]
+#define __pyx_n_u_files __pyx_string_tab[107]
+#define __pyx_n_u_folder __pyx_string_tab[108]
+#define __pyx_n_u_frozen __pyx_string_tab[109]
+#define __pyx_n_u_func __pyx_string_tab[110]
+#define __pyx_n_u_get __pyx_string_tab[111]
+#define __pyx_n_u_get_auth __pyx_string_tab[112]
+#define __pyx_n_u_get_mcp_request_headers __pyx_string_tab[113]
+#define __pyx_n_u_get_token_by_session __pyx_string_tab[114]
+#define __pyx_n_u_getenv __pyx_string_tab[115]
+#define __pyx_n_u_guess_type __pyx_string_tab[116]
+#define __pyx_n_u_has_mcp_api_key __pyx_string_tab[117]
+#define __pyx_n_u_headers __pyx_string_tab[118]
+#define __pyx_n_u_httpx __pyx_string_tab[119]
+#define __pyx_n_u_init __pyx_string_tab[120]
+#define __pyx_n_u_int __pyx_string_tab[121]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[122]
+#define __pyx_n_u_items __pyx_string_tab[123]
+#define __pyx_n_u_json __pyx_string_tab[124]
+#define __pyx_n_u_jwt __pyx_string_tab[125]
+#define __pyx_n_u_key __pyx_string_tab[126]
+#define __pyx_n_u_main __pyx_string_tab[127]
+#define __pyx_n_u_mcp_headers __pyx_string_tab[128]
+#define __pyx_n_u_message __pyx_string_tab[129]
+#define __pyx_n_u_metaclass __pyx_string_tab[130]
+#define __pyx_n_u_metadata __pyx_string_tab[131]
+#define __pyx_n_u_mime_type __pyx_string_tab[132]
+#define __pyx_n_u_mimetypes __pyx_string_tab[133]
+#define __pyx_n_u_module __pyx_string_tab[134]
+#define __pyx_n_u_mro_entries __pyx_string_tab[135]
+#define __pyx_n_u_name __pyx_string_tab[136]
+#define __pyx_n_u_name_2 __pyx_string_tab[137]
+#define __pyx_n_u_open __pyx_string_tab[138]
+#define __pyx_n_u_ops __pyx_string_tab[139]
+#define __pyx_n_u_opscli_auth __pyx_string_tab[140]
+#define __pyx_n_u_opscli_mcp_context __pyx_string_tab[141]
+#define __pyx_n_u_opscli_shared_exceptions __pyx_string_tab[142]
+#define __pyx_n_u_opscli_shared_file_uploads __pyx_string_tab[143]
+#define __pyx_n_u_opscli_shared_http __pyx_string_tab[144]
+#define __pyx_n_u_os __pyx_string_tab[145]
+#define __pyx_n_u_parse_upload_response __pyx_string_tab[146]
+#define __pyx_n_u_path __pyx_string_tab[147]
+#define __pyx_n_u_pathlib __pyx_string_tab[148]
+#define __pyx_n_u_payload __pyx_string_tab[149]
+#define __pyx_n_u_polarisUserToken __pyx_string_tab[150]
+#define __pyx_n_u_pop __pyx_string_tab[151]
+#define __pyx_n_u_post __pyx_string_tab[152]
+#define __pyx_n_u_prepare __pyx_string_tab[153]
+#define __pyx_n_u_property __pyx_string_tab[154]
+#define __pyx_n_u_public __pyx_string_tab[155]
+#define __pyx_n_u_purpose __pyx_string_tab[156]
+#define __pyx_n_u_qualname __pyx_string_tab[157]
+#define __pyx_n_u_raw __pyx_string_tab[158]
+#define __pyx_n_u_rb __pyx_string_tab[159]
+#define __pyx_n_u_resolve_endpoint __pyx_string_tab[160]
+#define __pyx_n_u_response __pyx_string_tab[161]
+#define __pyx_n_u_return __pyx_string_tab[162]
+#define __pyx_n_u_rstrip __pyx_string_tab[163]
+#define __pyx_n_u_self __pyx_string_tab[164]
+#define __pyx_n_u_session_id __pyx_string_tab[165]
+#define __pyx_n_u_set_name __pyx_string_tab[166]
+#define __pyx_n_u_setdefault __pyx_string_tab[167]
+#define __pyx_n_u_source __pyx_string_tab[168]
+#define __pyx_n_u_status_code __pyx_string_tab[169]
+#define __pyx_n_u_str __pyx_string_tab[170]
+#define __pyx_n_u_strip __pyx_string_tab[171]
+#define __pyx_n_u_super __pyx_string_tab[172]
+#define __pyx_n_u_test __pyx_string_tab[173]
+#define __pyx_n_u_text __pyx_string_tab[174]
+#define __pyx_n_u_timeout __pyx_string_tab[175]
+#define __pyx_n_u_typing __pyx_string_tab[176]
+#define __pyx_n_u_update __pyx_string_tab[177]
+#define __pyx_n_u_upload __pyx_string_tab[178]
+#define __pyx_n_u_uploads __pyx_string_tab[179]
+#define __pyx_n_u_url __pyx_string_tab[180]
+#define __pyx_n_u_value __pyx_string_tab[181]
+#define __pyx_n_u_values __pyx_string_tab[182]
+#define __pyx_kp_b_iso88591_1_4q_t1A __pyx_string_tab[183]
+#define __pyx_kp_b_iso88591_4A_7_ay_4z_G1G_a_F_aq_z_d_vQ_uF __pyx_string_tab[184]
+#define __pyx_kp_b_iso88591_86_t_b_1_q_t4_1_t1_2QgWAV1 __pyx_string_tab[185]
+#define __pyx_kp_b_iso88591_8_q_A_Q_t_Qiq_AQ_x_Cq_8MQiWZZhh __pyx_string_tab[186]
+#define __pyx_kp_b_iso88591_A_4t1_q_D_4y_q_AQ_4z_gS_A_gS_A_q __pyx_string_tab[187]
+#define __pyx_kp_b_iso88591_A_A_Q_Q_A_L_BgQ_H_1_N_S_2I_A_JgS __pyx_string_tab[188]
+#define __pyx_kp_b_iso88591_A_t1D __pyx_string_tab[189]
+#define __pyx_kp_b_iso88591_N_Ry_O1 __pyx_string_tab[190]
+#define __pyx_kp_b_iso88591_Ry_Q __pyx_string_tab[191]
+#define __pyx_kp_b_iso88591_xq_Q_4q_e3d_C1D_UV_7_1_1_Q_4q_a __pyx_string_tab[192]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_60 __pyx_number_tab[1]
 #define __pyx_int_200 __pyx_number_tab[2]
@@ -2775,8 +2781,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   __Pyx_State_RemoveModule(NULL);
   #endif
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<9; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<188; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<10; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<193; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -2801,8 +2807,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_bytes);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<9; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<188; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<10; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<193; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -4327,8 +4333,8 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
  *             raise FileUploadError(f"{file_path}")
  * 
  *         headers, cookies = self._get_auth("ops")             # <<<<<<<<<<<<<<
- *         headers.update(get_mcp_request_headers())
  *         fields: list[tuple[str, Any]] = [
+ *             ("folder", (None, folder or self.folder)),
 */
   __pyx_t_5 = __pyx_v_self;
   __Pyx_INCREF(__pyx_t_5);
@@ -4395,235 +4401,192 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
   __pyx_v_cookies = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "opscli/shared/file_uploads.py":115
- * 
+  /* "opscli/shared/file_uploads.py":116
  *         headers, cookies = self._get_auth("ops")
- *         headers.update(get_mcp_request_headers())             # <<<<<<<<<<<<<<
- *         fields: list[tuple[str, Any]] = [
- *             ("folder", (None, folder or self.folder)),
-*/
-  __pyx_t_7 = __pyx_v_headers;
-  __Pyx_INCREF(__pyx_t_7);
-  __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_mcp_request_headers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 115, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_8 = 1;
-  #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_4))) {
-    __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_4);
-    assert(__pyx_t_6);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
-    __Pyx_INCREF(__pyx_t_6);
-    __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
-    __pyx_t_8 = 0;
-  }
-  #endif
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
-    __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 115, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-  }
-  __pyx_t_8 = 0;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_5};
-    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 115, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-  }
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "opscli/shared/file_uploads.py":117
- *         headers.update(get_mcp_request_headers())
  *         fields: list[tuple[str, Any]] = [
  *             ("folder", (None, folder or self.folder)),             # <<<<<<<<<<<<<<
  *             ("public", (None, public or self.public)),
  *             ("purpose", (None, purpose)),
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_folder); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_folder); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_folder);
     __pyx_t_1 = __pyx_v_folder;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_folder); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 117, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_INCREF(__pyx_t_5);
-  __pyx_t_1 = __pyx_t_5;
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_folder); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 116, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_INCREF(__pyx_t_7);
+  __pyx_t_1 = __pyx_t_7;
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_L7_bool_binop_done:;
-  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 117, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 116, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, Py_None) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, Py_None) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
   __pyx_t_1 = 0;
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_folder);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_folder);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_folder) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
-  __pyx_t_5 = 0;
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_folder) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_7);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
+  __pyx_t_7 = 0;
 
-  /* "opscli/shared/file_uploads.py":118
+  /* "opscli/shared/file_uploads.py":117
  *         fields: list[tuple[str, Any]] = [
  *             ("folder", (None, folder or self.folder)),
  *             ("public", (None, public or self.public)),             # <<<<<<<<<<<<<<
  *             ("purpose", (None, purpose)),
  *         ]
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_public); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_public); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_public);
-    __pyx_t_5 = __pyx_v_public;
+    __pyx_t_7 = __pyx_v_public;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_public); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 118, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_INCREF(__pyx_t_7);
-  __pyx_t_5 = __pyx_t_7;
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_public); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_INCREF(__pyx_t_5);
+  __pyx_t_7 = __pyx_t_5;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_L9_bool_binop_done:;
-  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 118, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, Py_None) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
-  __pyx_t_5 = 0;
-  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 118, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, Py_None) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_7);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
+  __pyx_t_7 = 0;
+  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_public);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_public);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_public) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
-  __pyx_t_7 = 0;
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_n_u_public) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 117, __pyx_L1_error);
+  __pyx_t_5 = 0;
 
-  /* "opscli/shared/file_uploads.py":119
+  /* "opscli/shared/file_uploads.py":118
  *             ("folder", (None, folder or self.folder)),
  *             ("public", (None, public or self.public)),
  *             ("purpose", (None, purpose)),             # <<<<<<<<<<<<<<
  *         ]
  *         if metadata:
 */
-  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 119, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 118, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, Py_None) != (0)) __PYX_ERR(0, 119, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, Py_None) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_purpose);
   __Pyx_GIVEREF(__pyx_v_purpose);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_v_purpose) != (0)) __PYX_ERR(0, 119, __pyx_L1_error);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 119, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v_purpose) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
+  __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 118, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_purpose);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_purpose);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_purpose) != (0)) __PYX_ERR(0, 119, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 119, __pyx_L1_error);
-  __pyx_t_7 = 0;
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_purpose) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_5);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 118, __pyx_L1_error);
+  __pyx_t_5 = 0;
 
-  /* "opscli/shared/file_uploads.py":116
+  /* "opscli/shared/file_uploads.py":115
+ * 
  *         headers, cookies = self._get_auth("ops")
- *         headers.update(get_mcp_request_headers())
  *         fields: list[tuple[str, Any]] = [             # <<<<<<<<<<<<<<
  *             ("folder", (None, folder or self.folder)),
  *             ("public", (None, public or self.public)),
 */
-  __pyx_t_7 = PyList_New(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 116, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_5 = PyList_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 2, __pyx_t_4) != (0)) __PYX_ERR(0, 116, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 115, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_7);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 115, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_6);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 115, __pyx_L1_error);
   __pyx_t_1 = 0;
-  __pyx_t_5 = 0;
-  __pyx_t_4 = 0;
-  __pyx_v_fields = ((PyObject*)__pyx_t_7);
   __pyx_t_7 = 0;
+  __pyx_t_6 = 0;
+  __pyx_v_fields = ((PyObject*)__pyx_t_5);
+  __pyx_t_5 = 0;
 
-  /* "opscli/shared/file_uploads.py":121
+  /* "opscli/shared/file_uploads.py":120
  *             ("purpose", (None, purpose)),
  *         ]
  *         if metadata:             # <<<<<<<<<<<<<<
  *             fields.append(("metadata", (None, json.dumps(metadata, ensure_ascii=False))))
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_metadata); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_metadata); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/shared/file_uploads.py":122
+    /* "opscli/shared/file_uploads.py":121
  *         ]
  *         if metadata:
  *             fields.append(("metadata", (None, json.dumps(metadata, ensure_ascii=False))))             # <<<<<<<<<<<<<<
  * 
  *         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
 */
-    __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
+    __pyx_t_6 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 121, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_8 = 1;
     #if CYTHON_UNPACK_METHODS
     if (unlikely(PyMethod_Check(__pyx_t_1))) {
-      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_1);
-      assert(__pyx_t_4);
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_1);
+      assert(__pyx_t_6);
       PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
-      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_6);
       __Pyx_INCREF(__pyx__function);
       __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
       __pyx_t_8 = 0;
     }
     #endif
     {
-      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_metadata};
-      __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
-      __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 122, __pyx_L1_error)
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_v_metadata};
+      __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 121, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 121, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
     }
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 122, __pyx_L1_error);
-    __Pyx_GIVEREF(__pyx_t_7);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 122, __pyx_L1_error);
-    __pyx_t_7 = 0;
-    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 122, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 121, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_5);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 121, __pyx_L1_error);
+    __pyx_t_5 = 0;
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_metadata);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_metadata);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_n_u_metadata) != (0)) __PYX_ERR(0, 122, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_mstate_global->__pyx_n_u_metadata) != (0)) __PYX_ERR(0, 121, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 122, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 121, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_fields, __pyx_t_7); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 122, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_fields, __pyx_t_5); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 121, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "opscli/shared/file_uploads.py":121
+    /* "opscli/shared/file_uploads.py":120
  *             ("purpose", (None, purpose)),
  *         ]
  *         if metadata:             # <<<<<<<<<<<<<<
@@ -4632,61 +4595,61 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
 */
   }
 
-  /* "opscli/shared/file_uploads.py":124
+  /* "opscli/shared/file_uploads.py":123
  *             fields.append(("metadata", (None, json.dumps(metadata, ensure_ascii=False))))
  * 
  *         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"             # <<<<<<<<<<<<<<
  *         with file_path.open("rb") as file_handle:
  *             fields.append((self.file_field, (file_path.name, file_handle, mime_type)))
 */
-  __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_mimetypes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_guess_type); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_7 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_mimetypes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_file_path, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_guess_type); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_file_path, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 123, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_8 = 1;
   #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_6))) {
-    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
-    assert(__pyx_t_5);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
-    __Pyx_INCREF(__pyx_t_5);
+  if (unlikely(PyMethod_Check(__pyx_t_4))) {
+    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_4);
+    assert(__pyx_t_7);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+    __Pyx_INCREF(__pyx_t_7);
     __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
     __pyx_t_8 = 0;
   }
   #endif
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_4};
-    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_6};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_1, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 123, __pyx_L1_error)
   if (!__pyx_t_2) {
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   } else {
-    __Pyx_INCREF(__pyx_t_6);
-    __pyx_t_7 = __pyx_t_6;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_INCREF(__pyx_t_4);
+    __pyx_t_5 = __pyx_t_4;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     goto __pyx_L12_bool_binop_done;
   }
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_application_octet_stream);
-  __pyx_t_7 = __pyx_mstate_global->__pyx_kp_u_application_octet_stream;
+  __pyx_t_5 = __pyx_mstate_global->__pyx_kp_u_application_octet_stream;
   __pyx_L12_bool_binop_done:;
-  __pyx_v_mime_type = __pyx_t_7;
-  __pyx_t_7 = 0;
+  __pyx_v_mime_type = __pyx_t_5;
+  __pyx_t_5 = 0;
 
-  /* "opscli/shared/file_uploads.py":125
+  /* "opscli/shared/file_uploads.py":124
  * 
  *         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
  *         with file_path.open("rb") as file_handle:             # <<<<<<<<<<<<<<
@@ -4694,44 +4657,44 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
  *             response = httpx.post(
 */
   /*with:*/ {
-    __pyx_t_6 = __pyx_v_file_path;
-    __Pyx_INCREF(__pyx_t_6);
+    __pyx_t_4 = __pyx_v_file_path;
+    __Pyx_INCREF(__pyx_t_4);
     __pyx_t_8 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_n_u_rb};
-      __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_open, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 125, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_7);
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_n_u_rb};
+      __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_open, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 124, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
     }
-    __pyx_t_11 = __Pyx_PyObject_LookupSpecial(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_LookupSpecial(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_1 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L14_error)
-    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L14_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_8 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (likely(PyMethod_Check(__pyx_t_4))) {
-      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_4);
+    if (likely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_6);
       assert(__pyx_t_1);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
       __pyx_t_8 = 0;
     }
     #endif
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
-      __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L14_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L14_error)
+      __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_4 = __pyx_t_6;
-    __pyx_t_6 = 0;
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_6 = __pyx_t_4;
+    __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     /*try:*/ {
       {
         __Pyx_PyThreadState_declare
@@ -4741,132 +4704,132 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
         __Pyx_XGOTREF(__pyx_t_13);
         __Pyx_XGOTREF(__pyx_t_14);
         /*try:*/ {
-          __pyx_v_file_handle = __pyx_t_4;
-          __pyx_t_4 = 0;
+          __pyx_v_file_handle = __pyx_t_6;
+          __pyx_t_6 = 0;
 
-          /* "opscli/shared/file_uploads.py":126
+          /* "opscli/shared/file_uploads.py":125
  *         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
  *         with file_path.open("rb") as file_handle:
  *             fields.append((self.file_field, (file_path.name, file_handle, mime_type)))             # <<<<<<<<<<<<<<
  *             response = httpx.post(
  *                 _resolve_endpoint(self.endpoint),
 */
-          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_file_field); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L18_error)
-          __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_file_path, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 126, __pyx_L18_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_6 = PyTuple_New(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L18_error)
+          __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_file_field); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_6);
-          __Pyx_GIVEREF(__pyx_t_7);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_7) != (0)) __PYX_ERR(0, 126, __pyx_L18_error);
+          __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_file_path, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L18_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __pyx_t_4 = PyTuple_New(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L18_error)
+          __Pyx_GOTREF(__pyx_t_4);
+          __Pyx_GIVEREF(__pyx_t_5);
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_5) != (0)) __PYX_ERR(0, 125, __pyx_L18_error);
           __Pyx_INCREF(__pyx_v_file_handle);
           __Pyx_GIVEREF(__pyx_v_file_handle);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_file_handle) != (0)) __PYX_ERR(0, 126, __pyx_L18_error);
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_v_file_handle) != (0)) __PYX_ERR(0, 125, __pyx_L18_error);
           __Pyx_INCREF(__pyx_v_mime_type);
           __Pyx_GIVEREF(__pyx_v_mime_type);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 2, __pyx_v_mime_type) != (0)) __PYX_ERR(0, 126, __pyx_L18_error);
-          __pyx_t_7 = 0;
-          __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 126, __pyx_L18_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          __Pyx_GIVEREF(__pyx_t_4);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_4) != (0)) __PYX_ERR(0, 126, __pyx_L18_error);
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 2, __pyx_v_mime_type) != (0)) __PYX_ERR(0, 125, __pyx_L18_error);
+          __pyx_t_5 = 0;
+          __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L18_error)
+          __Pyx_GOTREF(__pyx_t_5);
           __Pyx_GIVEREF(__pyx_t_6);
-          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 126, __pyx_L18_error);
-          __pyx_t_4 = 0;
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_6) != (0)) __PYX_ERR(0, 125, __pyx_L18_error);
+          __Pyx_GIVEREF(__pyx_t_4);
+          if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 125, __pyx_L18_error);
           __pyx_t_6 = 0;
-          __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_fields, __pyx_t_7); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 126, __pyx_L18_error)
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          __pyx_t_4 = 0;
+          __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_fields, __pyx_t_5); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 125, __pyx_L18_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-          /* "opscli/shared/file_uploads.py":127
+          /* "opscli/shared/file_uploads.py":126
  *         with file_path.open("rb") as file_handle:
  *             fields.append((self.file_field, (file_path.name, file_handle, mime_type)))
  *             response = httpx.post(             # <<<<<<<<<<<<<<
  *                 _resolve_endpoint(self.endpoint),
  *                 headers=headers,
 */
-          __pyx_t_6 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L18_error)
-          __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_post); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L18_error)
+          __pyx_t_4 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L18_error)
+          __Pyx_GOTREF(__pyx_t_6);
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_post); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+          __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-          /* "opscli/shared/file_uploads.py":128
+          /* "opscli/shared/file_uploads.py":127
  *             fields.append((self.file_field, (file_path.name, file_handle, mime_type)))
  *             response = httpx.post(
  *                 _resolve_endpoint(self.endpoint),             # <<<<<<<<<<<<<<
  *                 headers=headers,
  *                 cookies=cookies,
 */
-          __pyx_t_5 = NULL;
-          __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_resolve_endpoint); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 128, __pyx_L18_error)
+          __pyx_t_7 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_resolve_endpoint); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 127, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_15);
-          __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 128, __pyx_L18_error)
+          __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 127, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_16);
           __pyx_t_8 = 1;
           #if CYTHON_UNPACK_METHODS
           if (unlikely(PyMethod_Check(__pyx_t_15))) {
-            __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_15);
-            assert(__pyx_t_5);
+            __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_15);
+            assert(__pyx_t_7);
             PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_15);
-            __Pyx_INCREF(__pyx_t_5);
+            __Pyx_INCREF(__pyx_t_7);
             __Pyx_INCREF(__pyx__function);
             __Pyx_DECREF_SET(__pyx_t_15, __pyx__function);
             __pyx_t_8 = 0;
           }
           #endif
           {
-            PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_16};
-            __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_15, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-            __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+            PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_16};
+            __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_15, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L18_error)
-            __Pyx_GOTREF(__pyx_t_4);
+            if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L18_error)
+            __Pyx_GOTREF(__pyx_t_6);
           }
 
-          /* "opscli/shared/file_uploads.py":132
+          /* "opscli/shared/file_uploads.py":131
  *                 cookies=cookies,
  *                 files=fields,
  *                 timeout=DEFAULT_TIMEOUT,             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-          __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_DEFAULT_TIMEOUT); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 132, __pyx_L18_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_DEFAULT_TIMEOUT); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 131, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_8 = 1;
           #if CYTHON_UNPACK_METHODS
           if (unlikely(PyMethod_Check(__pyx_t_1))) {
-            __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_1);
-            assert(__pyx_t_6);
+            __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_1);
+            assert(__pyx_t_4);
             PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
-            __Pyx_INCREF(__pyx_t_6);
+            __Pyx_INCREF(__pyx_t_4);
             __Pyx_INCREF(__pyx__function);
             __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
             __pyx_t_8 = 0;
           }
           #endif
           {
-            PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 4 : 0)] = {__pyx_t_6, __pyx_t_4};
-            __pyx_t_16 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 127, __pyx_L18_error)
+            PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 4 : 0)] = {__pyx_t_4, __pyx_t_6};
+            __pyx_t_16 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 126, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_16);
-            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_v_headers, __pyx_t_16, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 127, __pyx_L18_error)
-            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cookies, __pyx_v_cookies, __pyx_t_16, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 127, __pyx_L18_error)
-            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_files, __pyx_v_fields, __pyx_t_16, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 127, __pyx_L18_error)
-            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_t_15, __pyx_t_16, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 127, __pyx_L18_error)
-            __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_16);
-            __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-            __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_v_headers, __pyx_t_16, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 126, __pyx_L18_error)
+            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cookies, __pyx_v_cookies, __pyx_t_16, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 126, __pyx_L18_error)
+            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_files, __pyx_v_fields, __pyx_t_16, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 126, __pyx_L18_error)
+            if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_t_15, __pyx_t_16, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 126, __pyx_L18_error)
+            __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_16);
+            __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+            __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
             __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 127, __pyx_L18_error)
-            __Pyx_GOTREF(__pyx_t_7);
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L18_error)
+            __Pyx_GOTREF(__pyx_t_5);
           }
-          __pyx_v_response = __pyx_t_7;
-          __pyx_t_7 = 0;
+          __pyx_v_response = __pyx_t_5;
+          __pyx_t_5 = 0;
 
-          /* "opscli/shared/file_uploads.py":125
+          /* "opscli/shared/file_uploads.py":124
  * 
  *         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
  *         with file_path.open("rb") as file_handle:             # <<<<<<<<<<<<<<
@@ -4888,30 +4851,30 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("opscli.shared.file_uploads.FileUploadClient.upload", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_1, &__pyx_t_16) < 0) __PYX_ERR(0, 125, __pyx_L20_except_error)
-          __Pyx_XGOTREF(__pyx_t_7);
+          if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_1, &__pyx_t_16) < 0) __PYX_ERR(0, 124, __pyx_L20_except_error)
+          __Pyx_XGOTREF(__pyx_t_5);
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_16);
-          __pyx_t_15 = PyTuple_Pack(3, __pyx_t_7, __pyx_t_1, __pyx_t_16); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 125, __pyx_L20_except_error)
+          __pyx_t_15 = PyTuple_Pack(3, __pyx_t_5, __pyx_t_1, __pyx_t_16); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 124, __pyx_L20_except_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_17 = __Pyx_PyObject_Call(__pyx_t_11, __pyx_t_15, NULL);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 125, __pyx_L20_except_error)
+          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 124, __pyx_L20_except_error)
           __Pyx_GOTREF(__pyx_t_17);
           __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_17);
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (__pyx_t_2 < (0)) __PYX_ERR(0, 125, __pyx_L20_except_error)
+          if (__pyx_t_2 < (0)) __PYX_ERR(0, 124, __pyx_L20_except_error)
           __pyx_t_3 = (!__pyx_t_2);
           if (unlikely(__pyx_t_3)) {
-            __Pyx_GIVEREF(__pyx_t_7);
+            __Pyx_GIVEREF(__pyx_t_5);
             __Pyx_GIVEREF(__pyx_t_1);
             __Pyx_XGIVEREF(__pyx_t_16);
-            __Pyx_ErrRestoreWithState(__pyx_t_7, __pyx_t_1, __pyx_t_16);
-            __pyx_t_7 = 0;  __pyx_t_1 = 0;  __pyx_t_16 = 0; 
-            __PYX_ERR(0, 125, __pyx_L20_except_error)
+            __Pyx_ErrRestoreWithState(__pyx_t_5, __pyx_t_1, __pyx_t_16);
+            __pyx_t_5 = 0;  __pyx_t_1 = 0;  __pyx_t_16 = 0; 
+            __PYX_ERR(0, 124, __pyx_L20_except_error)
           }
-          __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+          __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
           goto __pyx_L19_exception_handled;
@@ -4935,7 +4898,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
         if (__pyx_t_11) {
           __pyx_t_14 = __Pyx_PyObject_Call(__pyx_t_11, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 125, __pyx_L1_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 124, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_14);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         }
@@ -4950,7 +4913,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
     __pyx_L27:;
   }
 
-  /* "opscli/shared/file_uploads.py":135
+  /* "opscli/shared/file_uploads.py":134
  *             )
  * 
  *         payload = _parse_upload_response(response)             # <<<<<<<<<<<<<<
@@ -4958,77 +4921,77 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
  *         if not url:
 */
   __pyx_t_1 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_parse_upload_response); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 135, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  if (unlikely(!__pyx_v_response)) { __Pyx_RaiseUnboundLocalError("response"); __PYX_ERR(0, 135, __pyx_L1_error) }
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_parse_upload_response); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (unlikely(!__pyx_v_response)) { __Pyx_RaiseUnboundLocalError("response"); __PYX_ERR(0, 134, __pyx_L1_error) }
   __pyx_t_8 = 1;
   #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_7))) {
-    __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_7);
+  if (unlikely(PyMethod_Check(__pyx_t_5))) {
+    __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_5);
     assert(__pyx_t_1);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
     __Pyx_INCREF(__pyx_t_1);
     __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
     __pyx_t_8 = 0;
   }
   #endif
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_response};
-    __pyx_t_16 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __pyx_t_16 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 135, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
   }
   __pyx_v_payload = __pyx_t_16;
   __pyx_t_16 = 0;
 
-  /* "opscli/shared/file_uploads.py":136
+  /* "opscli/shared/file_uploads.py":135
  * 
  *         payload = _parse_upload_response(response)
  *         url = _extract_upload_url(payload)             # <<<<<<<<<<<<<<
  *         if not url:
  *             raise FileUploadBadJsonError("")
 */
-  __pyx_t_7 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_extract_upload_url); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_5 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_extract_upload_url); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_8 = 1;
   #if CYTHON_UNPACK_METHODS
   if (unlikely(PyMethod_Check(__pyx_t_1))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_1);
-    assert(__pyx_t_7);
+    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_1);
+    assert(__pyx_t_5);
     PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
-    __Pyx_INCREF(__pyx_t_7);
+    __Pyx_INCREF(__pyx_t_5);
     __Pyx_INCREF(__pyx__function);
     __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
     __pyx_t_8 = 0;
   }
   #endif
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_payload};
+    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_payload};
     __pyx_t_16 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 136, __pyx_L1_error)
+    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
   }
   __pyx_v_url = __pyx_t_16;
   __pyx_t_16 = 0;
 
-  /* "opscli/shared/file_uploads.py":137
+  /* "opscli/shared/file_uploads.py":136
  *         payload = _parse_upload_response(response)
  *         url = _extract_upload_url(payload)
  *         if not url:             # <<<<<<<<<<<<<<
  *             raise FileUploadBadJsonError("")
  *         return FileUploadResult(url=url, raw=payload)
 */
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_url); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_url); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
   __pyx_t_2 = (!__pyx_t_3);
   if (unlikely(__pyx_t_2)) {
 
-    /* "opscli/shared/file_uploads.py":138
+    /* "opscli/shared/file_uploads.py":137
  *         url = _extract_upload_url(payload)
  *         if not url:
  *             raise FileUploadBadJsonError("")             # <<<<<<<<<<<<<<
@@ -5036,33 +4999,33 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
  * 
 */
     __pyx_t_1 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_FileUploadBadJsonError); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 138, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FileUploadBadJsonError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_8 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_7))) {
-      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_7);
+    if (unlikely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_5);
       assert(__pyx_t_1);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
       __pyx_t_8 = 0;
     }
     #endif
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_mstate_global->__pyx_n_u__3};
-      __pyx_t_16 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __pyx_t_16 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 138, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 137, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_16);
     }
     __Pyx_Raise(__pyx_t_16, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-    __PYX_ERR(0, 138, __pyx_L1_error)
+    __PYX_ERR(0, 137, __pyx_L1_error)
 
-    /* "opscli/shared/file_uploads.py":137
+    /* "opscli/shared/file_uploads.py":136
  *         payload = _parse_upload_response(response)
  *         url = _extract_upload_url(payload)
  *         if not url:             # <<<<<<<<<<<<<<
@@ -5071,7 +5034,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
 */
   }
 
-  /* "opscli/shared/file_uploads.py":139
+  /* "opscli/shared/file_uploads.py":138
  *         if not url:
  *             raise FileUploadBadJsonError("")
  *         return FileUploadResult(url=url, raw=payload)             # <<<<<<<<<<<<<<
@@ -5079,32 +5042,32 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
  *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_7 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FileUploadResult); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_5 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FileUploadResult); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_8 = 1;
   #if CYTHON_UNPACK_METHODS
   if (unlikely(PyMethod_Check(__pyx_t_1))) {
-    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_1);
-    assert(__pyx_t_7);
+    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_1);
+    assert(__pyx_t_5);
     PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
-    __Pyx_INCREF(__pyx_t_7);
+    __Pyx_INCREF(__pyx_t_5);
     __Pyx_INCREF(__pyx__function);
     __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
     __pyx_t_8 = 0;
   }
   #endif
   {
-    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_7, NULL};
-    __pyx_t_15 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 139, __pyx_L1_error)
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_5, NULL};
+    __pyx_t_15 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_url, __pyx_v_url, __pyx_t_15, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 139, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_raw, __pyx_v_payload, __pyx_t_15, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 139, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_url, __pyx_v_url, __pyx_t_15, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_raw, __pyx_v_payload, __pyx_t_15, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
     __pyx_t_16 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_15);
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 139, __pyx_L1_error)
+    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
   }
   __pyx_r = __pyx_t_16;
@@ -5145,12 +5108,12 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_4upl
   return __pyx_r;
 }
 
-/* "opscli/shared/file_uploads.py":141
+/* "opscli/shared/file_uploads.py":140
  *         return FileUploadResult(url=url, raw=payload)
  * 
  *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
 */
 
 /* Python wrapper */
@@ -5193,39 +5156,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_alias,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 141, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 140, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 140, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 140, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_auth", 0) < (0)) __PYX_ERR(0, 141, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_auth", 0) < (0)) __PYX_ERR(0, 140, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_auth", 1, 2, 2, i); __PYX_ERR(0, 141, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_auth", 1, 2, 2, i); __PYX_ERR(0, 140, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 141, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 140, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 141, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 140, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_alias = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_auth", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 141, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_auth", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 140, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5236,7 +5199,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 141, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 140, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_6_get_auth(__pyx_self, __pyx_v_self, __pyx_v_alias);
 
   /* function exit code */
@@ -5257,45 +5220,82 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_6_get_auth(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_alias) {
+  PyObject *__pyx_v_mcp_headers = NULL;
   PyObject *__pyx_v_jwt = NULL;
+  PyObject *__pyx_v_headers = NULL;
+  PyObject *__pyx_v_cookies = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
+  PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
-  size_t __pyx_t_7;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *(*__pyx_t_8)(PyObject *);
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_auth", 0);
 
-  /* "opscli/shared/file_uploads.py":142
+  /* "opscli/shared/file_uploads.py":141
  * 
  *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()             # <<<<<<<<<<<<<<
+ *         if self.session_id:
+ *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_mcp_request_headers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_mcp_headers = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/shared/file_uploads.py":142
+ *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:             # <<<<<<<<<<<<<<
  *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
- *             return {"Authorization": f"Bearer {jwt}"}, {"polarisUserToken": self.session_id}
+ *             headers = {"Authorization": f"Bearer {jwt}"}
 */
   __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__pyx_t_2) {
+  if (__pyx_t_5) {
 
     /* "opscli/shared/file_uploads.py":143
- *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
  *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)             # <<<<<<<<<<<<<<
- *             return {"Authorization": f"Bearer {jwt}"}, {"polarisUserToken": self.session_id}
- *         return self.auth_client.build_request_auth(alias)
+ *             headers = {"Authorization": f"Bearer {jwt}"}
+ *             headers.update(mcp_headers)
 */
     __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
-    if (!__pyx_t_2) {
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
+    if (!__pyx_t_5) {
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     } else {
       __Pyx_INCREF(__pyx_t_3);
@@ -5303,19 +5303,19 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_6_ge
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L4_bool_binop_done;
     }
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 143, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __pyx_t_5;
-    __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = 0;
+    __pyx_t_2 = __pyx_t_6;
+    __Pyx_INCREF(__pyx_t_2);
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_4 = 0;
     {
-      PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_t_6, __pyx_v_alias};
-      __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_token_by_session, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_t_7, __pyx_v_alias};
+      __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_token_by_session, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 143, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
@@ -5329,98 +5329,368 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_16FileUploadClient_6_ge
     /* "opscli/shared/file_uploads.py":144
  *         if self.session_id:
  *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
- *             return {"Authorization": f"Bearer {jwt}"}, {"polarisUserToken": self.session_id}             # <<<<<<<<<<<<<<
- *         return self.auth_client.build_request_auth(alias)
- * 
+ *             headers = {"Authorization": f"Bearer {jwt}"}             # <<<<<<<<<<<<<<
+ *             headers.update(mcp_headers)
+ *             return headers, {"polarisUserToken": self.session_id}
 */
-    __Pyx_XDECREF(__pyx_r);
     __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_jwt, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Bearer, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Bearer, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Authorization, __pyx_t_5) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_polarisUserToken, __pyx_t_3) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 144, __pyx_L1_error);
-    __Pyx_GIVEREF(__pyx_t_5);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 144, __pyx_L1_error);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Authorization, __pyx_t_6) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_v_headers = __pyx_t_1;
     __pyx_t_1 = 0;
-    __pyx_t_5 = 0;
+
+    /* "opscli/shared/file_uploads.py":145
+ *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
+ *             headers = {"Authorization": f"Bearer {jwt}"}
+ *             headers.update(mcp_headers)             # <<<<<<<<<<<<<<
+ *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:
+*/
+    __pyx_t_6 = __pyx_v_headers;
+    __Pyx_INCREF(__pyx_t_6);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_mcp_headers};
+      __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "opscli/shared/file_uploads.py":146
+ *             headers = {"Authorization": f"Bearer {jwt}"}
+ *             headers.update(mcp_headers)
+ *             return headers, {"polarisUserToken": self.session_id}             # <<<<<<<<<<<<<<
+ *         if self.jwt:
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_polarisUserToken, __pyx_t_6) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_INCREF(__pyx_v_headers);
+    __Pyx_GIVEREF(__pyx_v_headers);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 146, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_1);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 146, __pyx_L1_error);
+    __pyx_t_1 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_6);
+    __pyx_t_6 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/shared/file_uploads.py":142
+ *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()
+ *         if self.session_id:             # <<<<<<<<<<<<<<
+ *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
+ *             headers = {"Authorization": f"Bearer {jwt}"}
+*/
+  }
+
+  /* "opscli/shared/file_uploads.py":147
+ *             headers.update(mcp_headers)
+ *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:             # <<<<<<<<<<<<<<
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)
+*/
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/shared/file_uploads.py":148
+ *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}             # <<<<<<<<<<<<<<
+ *             headers.update(mcp_headers)
+ *             return headers, {}
+*/
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Bearer, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Authorization, __pyx_t_1) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_v_headers = __pyx_t_6;
+    __pyx_t_6 = 0;
+
+    /* "opscli/shared/file_uploads.py":149
+ *         if self.jwt:
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)             # <<<<<<<<<<<<<<
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):
+*/
+    __pyx_t_1 = __pyx_v_headers;
+    __Pyx_INCREF(__pyx_t_1);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_mcp_headers};
+      __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+    }
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+    /* "opscli/shared/file_uploads.py":150
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)
+ *             return headers, {}             # <<<<<<<<<<<<<<
+ *         if _has_mcp_api_key(mcp_headers):
+ *             return mcp_headers, {}
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_INCREF(__pyx_v_headers);
+    __Pyx_GIVEREF(__pyx_v_headers);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 150, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_6);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 150, __pyx_L1_error);
+    __pyx_t_6 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/shared/file_uploads.py":147
+ *             headers.update(mcp_headers)
+ *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:             # <<<<<<<<<<<<<<
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)
+*/
+  }
+
+  /* "opscli/shared/file_uploads.py":151
+ *             headers.update(mcp_headers)
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):             # <<<<<<<<<<<<<<
+ *             return mcp_headers, {}
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+*/
+  __pyx_t_6 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_has_mcp_api_key); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_6);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_6);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_mcp_headers};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/shared/file_uploads.py":152
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):
+ *             return mcp_headers, {}             # <<<<<<<<<<<<<<
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+ *         headers.update(mcp_headers)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 152, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_INCREF(__pyx_v_mcp_headers);
+    __Pyx_GIVEREF(__pyx_v_mcp_headers);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_mcp_headers) != (0)) __PYX_ERR(0, 152, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_1);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 152, __pyx_L1_error);
+    __pyx_t_1 = 0;
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/shared/file_uploads.py":142
- * 
- *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:
- *         if self.session_id:             # <<<<<<<<<<<<<<
- *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
- *             return {"Authorization": f"Bearer {jwt}"}, {"polarisUserToken": self.session_id}
+    /* "opscli/shared/file_uploads.py":151
+ *             headers.update(mcp_headers)
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):             # <<<<<<<<<<<<<<
+ *             return mcp_headers, {}
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
 */
   }
 
-  /* "opscli/shared/file_uploads.py":145
- *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
- *             return {"Authorization": f"Bearer {jwt}"}, {"polarisUserToken": self.session_id}
- *         return self.auth_client.build_request_auth(alias)             # <<<<<<<<<<<<<<
+  /* "opscli/shared/file_uploads.py":153
+ *         if _has_mcp_api_key(mcp_headers):
+ *             return mcp_headers, {}
+ *         headers, cookies = self.auth_client.build_request_auth(alias)             # <<<<<<<<<<<<<<
+ *         headers.update(mcp_headers)
+ *         return headers, cookies
+*/
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_1 = __pyx_t_6;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_alias};
+    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_build_request_auth, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  if ((likely(PyTuple_CheckExact(__pyx_t_3))) || (PyList_CheckExact(__pyx_t_3))) {
+    PyObject* sequence = __pyx_t_3;
+    Py_ssize_t size = __Pyx_PySequence_SIZE(sequence);
+    if (unlikely(size != 2)) {
+      if (size > 2) __Pyx_RaiseTooManyValuesError(2);
+      else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
+      __PYX_ERR(0, 153, __pyx_L1_error)
+    }
+    #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+    if (likely(PyTuple_CheckExact(sequence))) {
+      __pyx_t_6 = PyTuple_GET_ITEM(sequence, 0);
+      __Pyx_INCREF(__pyx_t_6);
+      __pyx_t_1 = PyTuple_GET_ITEM(sequence, 1);
+      __Pyx_INCREF(__pyx_t_1);
+    } else {
+      __pyx_t_6 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+      __Pyx_XGOTREF(__pyx_t_6);
+      __pyx_t_1 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+      __Pyx_XGOTREF(__pyx_t_1);
+    }
+    #else
+    __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_1 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    #endif
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  } else {
+    Py_ssize_t index = -1;
+    __pyx_t_7 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7);
+    index = 0; __pyx_t_6 = __pyx_t_8(__pyx_t_7); if (unlikely(!__pyx_t_6)) goto __pyx_L8_unpacking_failed;
+    __Pyx_GOTREF(__pyx_t_6);
+    index = 1; __pyx_t_1 = __pyx_t_8(__pyx_t_7); if (unlikely(!__pyx_t_1)) goto __pyx_L8_unpacking_failed;
+    __Pyx_GOTREF(__pyx_t_1);
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_8(__pyx_t_7), 2) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __pyx_t_8 = NULL;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    goto __pyx_L9_unpacking_done;
+    __pyx_L8_unpacking_failed:;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_8 = NULL;
+    if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
+    __PYX_ERR(0, 153, __pyx_L1_error)
+    __pyx_L9_unpacking_done:;
+  }
+  __pyx_v_headers = __pyx_t_6;
+  __pyx_t_6 = 0;
+  __pyx_v_cookies = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/shared/file_uploads.py":154
+ *             return mcp_headers, {}
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+ *         headers.update(mcp_headers)             # <<<<<<<<<<<<<<
+ *         return headers, cookies
+ * 
+*/
+  __pyx_t_1 = __pyx_v_headers;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_mcp_headers};
+    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/shared/file_uploads.py":155
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+ *         headers.update(mcp_headers)
+ *         return headers, cookies             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __pyx_t_1;
-  __Pyx_INCREF(__pyx_t_5);
-  __pyx_t_7 = 0;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_alias};
-    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_build_request_auth, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 145, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-  }
-  if (!(likely(PyTuple_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("tuple", __pyx_t_3))) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_INCREF(__pyx_v_headers);
+  __Pyx_GIVEREF(__pyx_v_headers);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 155, __pyx_L1_error);
+  __Pyx_INCREF(__pyx_v_cookies);
+  __Pyx_GIVEREF(__pyx_v_cookies);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_cookies) != (0)) __PYX_ERR(0, 155, __pyx_L1_error);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/shared/file_uploads.py":141
+  /* "opscli/shared/file_uploads.py":140
  *         return FileUploadResult(url=url, raw=payload)
  * 
  *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_AddTraceback("opscli.shared.file_uploads.FileUploadClient._get_auth", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_mcp_headers);
   __Pyx_XDECREF(__pyx_v_jwt);
+  __Pyx_XDECREF(__pyx_v_headers);
+  __Pyx_XDECREF(__pyx_v_cookies);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "opscli/shared/file_uploads.py":148
+/* "opscli/shared/file_uploads.py":158
  * 
  * 
  * def _resolve_endpoint(endpoint: str) -> str:             # <<<<<<<<<<<<<<
@@ -5467,32 +5737,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_endpoint,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 148, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 158, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 148, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 158, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_resolve_endpoint", 0) < (0)) __PYX_ERR(0, 148, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_resolve_endpoint", 0) < (0)) __PYX_ERR(0, 158, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_resolve_endpoint", 1, 1, 1, i); __PYX_ERR(0, 148, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_resolve_endpoint", 1, 1, 1, i); __PYX_ERR(0, 158, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 148, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 158, __pyx_L3_error)
     }
     __pyx_v_endpoint = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_resolve_endpoint", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 148, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_resolve_endpoint", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 158, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5503,7 +5773,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_endpoint), (&PyUnicode_Type), 0, "endpoint", 2))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_endpoint), (&PyUnicode_Type), 0, "endpoint", 2))) __PYX_ERR(0, 158, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(__pyx_self, __pyx_v_endpoint);
 
   /* function exit code */
@@ -5539,29 +5809,29 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_resolve_endpoint", 0);
 
-  /* "opscli/shared/file_uploads.py":149
+  /* "opscli/shared/file_uploads.py":159
  * 
  * def _resolve_endpoint(endpoint: str) -> str:
  *     text = endpoint.strip()             # <<<<<<<<<<<<<<
  *     if text.startswith(("http://", "https://")):
  *         return text
 */
-  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__strip, __pyx_v_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__strip, __pyx_v_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_text = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/shared/file_uploads.py":150
+  /* "opscli/shared/file_uploads.py":160
  * def _resolve_endpoint(endpoint: str) -> str:
  *     text = endpoint.strip()
  *     if text.startswith(("http://", "https://")):             # <<<<<<<<<<<<<<
  *         return text
  *     if not text.startswith("/"):
 */
-  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_text, __pyx_mstate_global->__pyx_tuple[1], 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_text, __pyx_mstate_global->__pyx_tuple[1], 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 160, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/shared/file_uploads.py":151
+    /* "opscli/shared/file_uploads.py":161
  *     text = endpoint.strip()
  *     if text.startswith(("http://", "https://")):
  *         return text             # <<<<<<<<<<<<<<
@@ -5573,7 +5843,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
     __pyx_r = __pyx_v_text;
     goto __pyx_L0;
 
-    /* "opscli/shared/file_uploads.py":150
+    /* "opscli/shared/file_uploads.py":160
  * def _resolve_endpoint(endpoint: str) -> str:
  *     text = endpoint.strip()
  *     if text.startswith(("http://", "https://")):             # <<<<<<<<<<<<<<
@@ -5582,30 +5852,30 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
 */
   }
 
-  /* "opscli/shared/file_uploads.py":152
+  /* "opscli/shared/file_uploads.py":162
  *     if text.startswith(("http://", "https://")):
  *         return text
  *     if not text.startswith("/"):             # <<<<<<<<<<<<<<
  *         text = f"/{text}"
  *     return f"{OPS_URL.rstrip('/')}{text}"
 */
-  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_text, __pyx_mstate_global->__pyx_kp_u__4, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_text, __pyx_mstate_global->__pyx_kp_u__4, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 162, __pyx_L1_error)
   __pyx_t_3 = (!__pyx_t_2);
   if (__pyx_t_3) {
 
-    /* "opscli/shared/file_uploads.py":153
+    /* "opscli/shared/file_uploads.py":163
  *         return text
  *     if not text.startswith("/"):
  *         text = f"/{text}"             # <<<<<<<<<<<<<<
  *     return f"{OPS_URL.rstrip('/')}{text}"
  * 
 */
-    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__4, __pyx_v_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__4, __pyx_v_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_text, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/file_uploads.py":152
+    /* "opscli/shared/file_uploads.py":162
  *     if text.startswith(("http://", "https://")):
  *         return text
  *     if not text.startswith("/"):             # <<<<<<<<<<<<<<
@@ -5614,7 +5884,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
 */
   }
 
-  /* "opscli/shared/file_uploads.py":154
+  /* "opscli/shared/file_uploads.py":164
  *     if not text.startswith("/"):
  *         text = f"/{text}"
  *     return f"{OPS_URL.rstrip('/')}{text}"             # <<<<<<<<<<<<<<
@@ -5623,9 +5893,9 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_OPS_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_OPS_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rstrip); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rstrip); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -5645,20 +5915,20 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_6, __pyx_v_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_6, __pyx_v_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/shared/file_uploads.py":148
+  /* "opscli/shared/file_uploads.py":158
  * 
  * 
  * def _resolve_endpoint(endpoint: str) -> str:             # <<<<<<<<<<<<<<
@@ -5681,7 +5951,157 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
   return __pyx_r;
 }
 
-/* "opscli/shared/file_uploads.py":157
+/* "opscli/shared/file_uploads.py":167
+ * 
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:             # <<<<<<<<<<<<<<
+ *     return bool(headers.get("X-MCP-API-Key"))
+ * 
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_3_has_mcp_api_key(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_6shared_12file_uploads_3_has_mcp_api_key = {"_has_mcp_api_key", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_6shared_12file_uploads_3_has_mcp_api_key, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_3_has_mcp_api_key(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_headers = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_has_mcp_api_key (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_headers,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 167, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 167, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_has_mcp_api_key", 0) < (0)) __PYX_ERR(0, 167, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_has_mcp_api_key", 1, 1, 1, i); __PYX_ERR(0, 167, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 167, __pyx_L3_error)
+    }
+    __pyx_v_headers = ((PyObject*)values[0]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_has_mcp_api_key", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 167, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.shared.file_uploads._has_mcp_api_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_headers), (&PyDict_Type), 0, "headers", 2))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads_2_has_mcp_api_key(__pyx_self, __pyx_v_headers);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_has_mcp_api_key(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_headers) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_has_mcp_api_key", 0);
+
+  /* "opscli/shared/file_uploads.py":168
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:
+ *     return bool(headers.get("X-MCP-API-Key"))             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_headers, __pyx_mstate_global->__pyx_kp_u_X_MCP_API_Key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_2))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/shared/file_uploads.py":167
+ * 
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:             # <<<<<<<<<<<<<<
+ *     return bool(headers.get("X-MCP-API-Key"))
+ * 
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("opscli.shared.file_uploads._has_mcp_api_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/shared/file_uploads.py":171
  * 
  * 
  * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -5690,15 +6110,15 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads__resolve_endpoint(CYTHO
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_3_parse_upload_response(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_5_parse_upload_response(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_6shared_12file_uploads_3_parse_upload_response = {"_parse_upload_response", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_6shared_12file_uploads_3_parse_upload_response, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_3_parse_upload_response(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_6shared_12file_uploads_5_parse_upload_response = {"_parse_upload_response", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_6shared_12file_uploads_5_parse_upload_response, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_5_parse_upload_response(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5728,32 +6148,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_response,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 157, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 171, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 157, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_upload_response", 0) < (0)) __PYX_ERR(0, 157, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_upload_response", 0) < (0)) __PYX_ERR(0, 171, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_upload_response", 1, 1, 1, i); __PYX_ERR(0, 157, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_upload_response", 1, 1, 1, i); __PYX_ERR(0, 171, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 157, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
     }
     __pyx_v_response = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_parse_upload_response", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 157, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_parse_upload_response", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 171, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5764,7 +6184,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response(__pyx_self, __pyx_v_response);
+  __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads_4_parse_upload_response(__pyx_self, __pyx_v_response);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -5774,7 +6194,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_response) {
+static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_parse_upload_response(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_response) {
   PyObject *__pyx_v_payload = NULL;
   PyObject *__pyx_v_exc = NULL;
   PyObject *__pyx_v_code = NULL;
@@ -5808,7 +6228,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_parse_upload_response", 0);
 
-  /* "opscli/shared/file_uploads.py":158
+  /* "opscli/shared/file_uploads.py":172
  * 
  * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:
  *     try:             # <<<<<<<<<<<<<<
@@ -5824,7 +6244,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "opscli/shared/file_uploads.py":159
+      /* "opscli/shared/file_uploads.py":173
  * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:
  *     try:
  *         payload = response.json()             # <<<<<<<<<<<<<<
@@ -5838,13 +6258,13 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
         PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_json, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_payload = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "opscli/shared/file_uploads.py":158
+      /* "opscli/shared/file_uploads.py":172
  * 
  * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:
  *     try:             # <<<<<<<<<<<<<<
@@ -5860,7 +6280,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "opscli/shared/file_uploads.py":160
+    /* "opscli/shared/file_uploads.py":174
  *     try:
  *         payload = response.json()
  *     except Exception as exc:             # <<<<<<<<<<<<<<
@@ -5870,7 +6290,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
     __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_7) {
       __Pyx_AddTraceback("opscli.shared.file_uploads._parse_upload_response", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 160, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 174, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_8);
@@ -5878,7 +6298,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __pyx_v_exc = __pyx_t_5;
       /*try:*/ {
 
-        /* "opscli/shared/file_uploads.py":161
+        /* "opscli/shared/file_uploads.py":175
  *         payload = response.json()
  *     except Exception as exc:
  *         raise FileUploadBadJsonError(" JSON") from exc             # <<<<<<<<<<<<<<
@@ -5886,7 +6306,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
  *         raise FileUploadBadJsonError(" JSON ")
 */
         __pyx_t_10 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_FileUploadBadJsonError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 161, __pyx_L14_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_FileUploadBadJsonError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 175, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_6 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -5905,15 +6325,15 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
           __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 161, __pyx_L14_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 175, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, __pyx_v_exc);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 161, __pyx_L14_error)
+        __PYX_ERR(0, 175, __pyx_L14_error)
       }
 
-      /* "opscli/shared/file_uploads.py":160
+      /* "opscli/shared/file_uploads.py":174
  *     try:
  *         payload = response.json()
  *     except Exception as exc:             # <<<<<<<<<<<<<<
@@ -5957,7 +6377,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/shared/file_uploads.py":158
+    /* "opscli/shared/file_uploads.py":172
  * 
  * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:
  *     try:             # <<<<<<<<<<<<<<
@@ -5973,7 +6393,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
     __pyx_L8_try_end:;
   }
 
-  /* "opscli/shared/file_uploads.py":162
+  /* "opscli/shared/file_uploads.py":176
  *     except Exception as exc:
  *         raise FileUploadBadJsonError(" JSON") from exc
  *     if not isinstance(payload, dict):             # <<<<<<<<<<<<<<
@@ -5984,7 +6404,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
   __pyx_t_21 = (!__pyx_t_20);
   if (unlikely(__pyx_t_21)) {
 
-    /* "opscli/shared/file_uploads.py":163
+    /* "opscli/shared/file_uploads.py":177
  *         raise FileUploadBadJsonError(" JSON") from exc
  *     if not isinstance(payload, dict):
  *         raise FileUploadBadJsonError(" JSON ")             # <<<<<<<<<<<<<<
@@ -5992,7 +6412,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
  *         raise FileUploadHttpError(response.status_code, extract_error_message(payload) or f"HTTP {response.status_code}")
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FileUploadBadJsonError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 163, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_FileUploadBadJsonError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6011,14 +6431,14 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 163, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 177, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     __Pyx_Raise(__pyx_t_8, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __PYX_ERR(0, 163, __pyx_L1_error)
+    __PYX_ERR(0, 177, __pyx_L1_error)
 
-    /* "opscli/shared/file_uploads.py":162
+    /* "opscli/shared/file_uploads.py":176
  *     except Exception as exc:
  *         raise FileUploadBadJsonError(" JSON") from exc
  *     if not isinstance(payload, dict):             # <<<<<<<<<<<<<<
@@ -6027,22 +6447,22 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
 */
   }
 
-  /* "opscli/shared/file_uploads.py":164
+  /* "opscli/shared/file_uploads.py":178
  *     if not isinstance(payload, dict):
  *         raise FileUploadBadJsonError(" JSON ")
  *     if response.status_code >= 400:             # <<<<<<<<<<<<<<
  *         raise FileUploadHttpError(response.status_code, extract_error_message(payload) or f"HTTP {response.status_code}")
  *     code = payload.get("code")
 */
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_4 = PyObject_RichCompare(__pyx_t_8, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_4 = PyObject_RichCompare(__pyx_t_8, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (unlikely(__pyx_t_21)) {
 
-    /* "opscli/shared/file_uploads.py":165
+    /* "opscli/shared/file_uploads.py":179
  *         raise FileUploadBadJsonError(" JSON ")
  *     if response.status_code >= 400:
  *         raise FileUploadHttpError(response.status_code, extract_error_message(payload) or f"HTTP {response.status_code}")             # <<<<<<<<<<<<<<
@@ -6050,12 +6470,12 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
  *     if code not in (None, 0, 200, 201, "0", "200", "201"):
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FileUploadHttpError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FileUploadHttpError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_22 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_extract_error_message); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_extract_error_message); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_23);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6074,10 +6494,10 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_23, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
       __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 165, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 179, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
-    __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
     if (!__pyx_t_21) {
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     } else {
@@ -6086,12 +6506,12 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       goto __pyx_L22_bool_binop_done;
     }
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_23 = __Pyx_PyObject_FormatSimple(__pyx_t_10, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_23 = __Pyx_PyObject_FormatSimple(__pyx_t_10, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_23);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_HTTP, __pyx_t_23); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 165, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_HTTP, __pyx_t_23); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
     __Pyx_INCREF(__pyx_t_10);
@@ -6117,14 +6537,14 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 165, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 179, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 165, __pyx_L1_error)
+    __PYX_ERR(0, 179, __pyx_L1_error)
 
-    /* "opscli/shared/file_uploads.py":164
+    /* "opscli/shared/file_uploads.py":178
  *     if not isinstance(payload, dict):
  *         raise FileUploadBadJsonError(" JSON ")
  *     if response.status_code >= 400:             # <<<<<<<<<<<<<<
@@ -6133,7 +6553,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
 */
   }
 
-  /* "opscli/shared/file_uploads.py":166
+  /* "opscli/shared/file_uploads.py":180
  *     if response.status_code >= 400:
  *         raise FileUploadHttpError(response.status_code, extract_error_message(payload) or f"HTTP {response.status_code}")
  *     code = payload.get("code")             # <<<<<<<<<<<<<<
@@ -6147,13 +6567,13 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_code};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_code = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/shared/file_uploads.py":167
+  /* "opscli/shared/file_uploads.py":181
  *         raise FileUploadHttpError(response.status_code, extract_error_message(payload) or f"HTTP {response.status_code}")
  *     code = payload.get("code")
  *     if code not in (None, 0, 200, 201, "0", "200", "201"):             # <<<<<<<<<<<<<<
@@ -6162,52 +6582,52 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
 */
   __Pyx_INCREF(__pyx_v_code);
   __pyx_t_4 = __pyx_v_code;
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
-  __pyx_t_20 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_20 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_20) {
   } else {
     __pyx_t_21 = __pyx_t_20;
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_20 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_20 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   if (__pyx_t_20) {
   } else {
     __pyx_t_21 = __pyx_t_20;
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_20 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_200, 0xC8, 0)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_20 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_200, 0xC8, 0)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   if (__pyx_t_20) {
   } else {
     __pyx_t_21 = __pyx_t_20;
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_20 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_201, 0xC9, 0)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_20 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_201, 0xC9, 0)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   if (__pyx_t_20) {
   } else {
     __pyx_t_21 = __pyx_t_20;
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_20 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_0, Py_NE)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_20 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_0, Py_NE)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   if (__pyx_t_20) {
   } else {
     __pyx_t_21 = __pyx_t_20;
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_20 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_200, Py_NE)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_20 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_200, Py_NE)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   if (__pyx_t_20) {
   } else {
     __pyx_t_21 = __pyx_t_20;
     goto __pyx_L25_bool_binop_done;
   }
-  __pyx_t_20 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_201, Py_NE)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_20 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_201, Py_NE)); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
   __pyx_t_21 = __pyx_t_20;
   __pyx_L25_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_20 = __pyx_t_21;
   if (unlikely(__pyx_t_20)) {
 
-    /* "opscli/shared/file_uploads.py":168
+    /* "opscli/shared/file_uploads.py":182
  *     code = payload.get("code")
  *     if code not in (None, 0, 200, 201, "0", "200", "201"):
  *         raise FileUploadBusinessError(code, extract_error_message(payload) or "")             # <<<<<<<<<<<<<<
@@ -6215,10 +6635,10 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
  * 
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_FileUploadBusinessError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 168, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_FileUploadBusinessError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_10 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_extract_error_message); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 168, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_extract_error_message); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 182, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_23);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6237,10 +6657,10 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_23, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 168, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
-    __pyx_t_20 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_20 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_20 < 0))) __PYX_ERR(0, 182, __pyx_L1_error)
     if (!__pyx_t_20) {
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     } else {
@@ -6270,14 +6690,14 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 168, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 168, __pyx_L1_error)
+    __PYX_ERR(0, 182, __pyx_L1_error)
 
-    /* "opscli/shared/file_uploads.py":167
+    /* "opscli/shared/file_uploads.py":181
  *         raise FileUploadHttpError(response.status_code, extract_error_message(payload) or f"HTTP {response.status_code}")
  *     code = payload.get("code")
  *     if code not in (None, 0, 200, 201, "0", "200", "201"):             # <<<<<<<<<<<<<<
@@ -6286,7 +6706,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
 */
   }
 
-  /* "opscli/shared/file_uploads.py":169
+  /* "opscli/shared/file_uploads.py":183
  *     if code not in (None, 0, 200, 201, "0", "200", "201"):
  *         raise FileUploadBusinessError(code, extract_error_message(payload) or "")
  *     return payload             # <<<<<<<<<<<<<<
@@ -6296,12 +6716,12 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_4);
-  if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 169, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 183, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "opscli/shared/file_uploads.py":157
+  /* "opscli/shared/file_uploads.py":171
  * 
  * 
  * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -6330,7 +6750,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
   return __pyx_r;
 }
 
-/* "opscli/shared/file_uploads.py":172
+/* "opscli/shared/file_uploads.py":186
  * 
  * 
  * def _extract_upload_url(payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
@@ -6339,15 +6759,15 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_2_parse_upload_response
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_5_extract_upload_url(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_7_extract_upload_url(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_6shared_12file_uploads_5_extract_upload_url = {"_extract_upload_url", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_6shared_12file_uploads_5_extract_upload_url, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_5_extract_upload_url(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_6shared_12file_uploads_7_extract_upload_url = {"_extract_upload_url", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_6shared_12file_uploads_7_extract_upload_url, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_6shared_12file_uploads_7_extract_upload_url(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6377,32 +6797,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_payload,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 172, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 186, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 186, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_extract_upload_url", 0) < (0)) __PYX_ERR(0, 172, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_extract_upload_url", 0) < (0)) __PYX_ERR(0, 186, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_extract_upload_url", 1, 1, 1, i); __PYX_ERR(0, 172, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_extract_upload_url", 1, 1, 1, i); __PYX_ERR(0, 186, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 186, __pyx_L3_error)
     }
     __pyx_v_payload = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_extract_upload_url", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 172, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_extract_upload_url", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 186, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6413,8 +6833,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 172, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(__pyx_self, __pyx_v_payload);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_6shared_12file_uploads_6_extract_upload_url(__pyx_self, __pyx_v_payload);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6433,7 +6853,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_payload) {
+static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_6_extract_upload_url(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_payload) {
   PyObject *__pyx_v_source = NULL;
   PyObject *__pyx_v_key = NULL;
   PyObject *__pyx_v_value = NULL;
@@ -6453,22 +6873,22 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_extract_upload_url", 0);
 
-  /* "opscli/shared/file_uploads.py":173
+  /* "opscli/shared/file_uploads.py":187
  * 
  * def _extract_upload_url(payload: dict[str, Any]) -> str | None:
  *     for source in (payload.get("data"), payload):             # <<<<<<<<<<<<<<
  *         if not isinstance(source, dict):
  *             continue
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_data, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_data, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 173, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 187, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_payload);
   __Pyx_GIVEREF(__pyx_v_payload);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_payload) != (0)) __PYX_ERR(0, 173, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_payload) != (0)) __PYX_ERR(0, 187, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_1 = __pyx_t_2; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_3 = 0;
@@ -6481,12 +6901,12 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
     __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_3);
     #endif
     ++__pyx_t_3;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_source, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "opscli/shared/file_uploads.py":174
+    /* "opscli/shared/file_uploads.py":188
  * def _extract_upload_url(payload: dict[str, Any]) -> str | None:
  *     for source in (payload.get("data"), payload):
  *         if not isinstance(source, dict):             # <<<<<<<<<<<<<<
@@ -6497,7 +6917,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
     __pyx_t_5 = (!__pyx_t_4);
     if (__pyx_t_5) {
 
-      /* "opscli/shared/file_uploads.py":175
+      /* "opscli/shared/file_uploads.py":189
  *     for source in (payload.get("data"), payload):
  *         if not isinstance(source, dict):
  *             continue             # <<<<<<<<<<<<<<
@@ -6506,7 +6926,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
 */
       goto __pyx_L3_continue;
 
-      /* "opscli/shared/file_uploads.py":174
+      /* "opscli/shared/file_uploads.py":188
  * def _extract_upload_url(payload: dict[str, Any]) -> str | None:
  *     for source in (payload.get("data"), payload):
  *         if not isinstance(source, dict):             # <<<<<<<<<<<<<<
@@ -6515,7 +6935,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
 */
     }
 
-    /* "opscli/shared/file_uploads.py":176
+    /* "opscli/shared/file_uploads.py":190
  *         if not isinstance(source, dict):
  *             continue
  *         for key in ("url", "download_url", "downloadUrl", "file_url", "fileUrl"):             # <<<<<<<<<<<<<<
@@ -6532,12 +6952,12 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
       __pyx_t_7 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_6);
       #endif
       ++__pyx_t_6;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 176, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 190, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_XDECREF_SET(__pyx_v_key, ((PyObject*)__pyx_t_7));
       __pyx_t_7 = 0;
 
-      /* "opscli/shared/file_uploads.py":177
+      /* "opscli/shared/file_uploads.py":191
  *             continue
  *         for key in ("url", "download_url", "downloadUrl", "file_url", "fileUrl"):
  *             value = source.get(key)             # <<<<<<<<<<<<<<
@@ -6551,13 +6971,13 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
         PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_key};
         __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 177, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 191, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_7);
       __pyx_t_7 = 0;
 
-      /* "opscli/shared/file_uploads.py":178
+      /* "opscli/shared/file_uploads.py":192
  *         for key in ("url", "download_url", "downloadUrl", "file_url", "fileUrl"):
  *             value = source.get(key)
  *             if isinstance(value, str) and value.strip():             # <<<<<<<<<<<<<<
@@ -6577,16 +6997,16 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
         PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
         __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 178, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 192, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
-      __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 178, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 192, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_5 = __pyx_t_4;
       __pyx_L9_bool_binop_done:;
       if (__pyx_t_5) {
 
-        /* "opscli/shared/file_uploads.py":179
+        /* "opscli/shared/file_uploads.py":193
  *             value = source.get(key)
  *             if isinstance(value, str) and value.strip():
  *                 return value.strip()             # <<<<<<<<<<<<<<
@@ -6600,17 +7020,17 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
           PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
           __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 179, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 193, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
         }
-        if (!(likely(PyUnicode_CheckExact(__pyx_t_7))||((__pyx_t_7) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_7))) __PYX_ERR(0, 179, __pyx_L1_error)
+        if (!(likely(PyUnicode_CheckExact(__pyx_t_7))||((__pyx_t_7) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_7))) __PYX_ERR(0, 193, __pyx_L1_error)
         __pyx_r = ((PyObject*)__pyx_t_7);
         __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "opscli/shared/file_uploads.py":178
+        /* "opscli/shared/file_uploads.py":192
  *         for key in ("url", "download_url", "downloadUrl", "file_url", "fileUrl"):
  *             value = source.get(key)
  *             if isinstance(value, str) and value.strip():             # <<<<<<<<<<<<<<
@@ -6619,7 +7039,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
 */
       }
 
-      /* "opscli/shared/file_uploads.py":176
+      /* "opscli/shared/file_uploads.py":190
  *         if not isinstance(source, dict):
  *             continue
  *         for key in ("url", "download_url", "downloadUrl", "file_url", "fileUrl"):             # <<<<<<<<<<<<<<
@@ -6629,7 +7049,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "opscli/shared/file_uploads.py":173
+    /* "opscli/shared/file_uploads.py":187
  * 
  * def _extract_upload_url(payload: dict[str, Any]) -> str | None:
  *     for source in (payload.get("data"), payload):             # <<<<<<<<<<<<<<
@@ -6640,7 +7060,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/shared/file_uploads.py":180
+  /* "opscli/shared/file_uploads.py":194
  *             if isinstance(value, str) and value.strip():
  *                 return value.strip()
  *     return None             # <<<<<<<<<<<<<<
@@ -6649,7 +7069,7 @@ static PyObject *__pyx_pf_6opscli_6shared_12file_uploads_4_extract_upload_url(CY
   __pyx_r = ((PyObject*)Py_None); __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "opscli/shared/file_uploads.py":172
+  /* "opscli/shared/file_uploads.py":186
  * 
  * 
  * def _extract_upload_url(payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
@@ -7856,25 +8276,25 @@ __Pyx_RefNannySetupContext("PyInit_file_uploads", 0);
   if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_upload, __pyx_t_4) < (0)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/shared/file_uploads.py":141
+  /* "opscli/shared/file_uploads.py":140
  *         return FileUploadResult(url=url, raw=payload)
  * 
  *     def _get_auth(self, alias: str) -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt or self.auth_client.get_token_by_session(self.session_id, alias)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_tuple_dict_str_str_dict_str_str) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_16FileUploadClient_7_get_auth, 0, __pyx_mstate_global->__pyx_n_u_FileUploadClient__get_auth, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 141, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 140, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_tuple_dict_str_str_dict_str_str) < (0)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_16FileUploadClient_7_get_auth, 0, __pyx_mstate_global->__pyx_n_u_FileUploadClient__get_auth, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_auth, __pyx_t_7) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_auth, __pyx_t_7) < (0)) __PYX_ERR(0, 140, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
   /* "opscli/shared/file_uploads.py":72
@@ -7893,78 +8313,99 @@ __Pyx_RefNannySetupContext("PyInit_file_uploads", 0);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/shared/file_uploads.py":148
+  /* "opscli/shared/file_uploads.py":158
  * 
  * 
  * def _resolve_endpoint(endpoint: str) -> str:             # <<<<<<<<<<<<<<
  *     text = endpoint.strip()
  *     if text.startswith(("http://", "https://")):
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_1_resolve_endpoint, 0, __pyx_mstate_global->__pyx_n_u_resolve_endpoint, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_1_resolve_endpoint, 0, __pyx_mstate_global->__pyx_n_u_resolve_endpoint, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_resolve_endpoint, __pyx_t_7) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_resolve_endpoint, __pyx_t_7) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/shared/file_uploads.py":157
+  /* "opscli/shared/file_uploads.py":167
  * 
  * 
- * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
- *     try:
- *         payload = response.json()
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:             # <<<<<<<<<<<<<<
+ *     return bool(headers.get("X-MCP-API-Key"))
+ * 
 */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_response, __pyx_mstate_global->__pyx_kp_u_httpx_Response) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_3_parse_upload_response, 0, __pyx_mstate_global->__pyx_n_u_parse_upload_response, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_headers, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_3_has_mcp_api_key, 0, __pyx_mstate_global->__pyx_n_u_has_mcp_api_key, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_upload_response, __pyx_t_2) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_has_mcp_api_key, __pyx_t_2) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/shared/file_uploads.py":172
+  /* "opscli/shared/file_uploads.py":171
  * 
  * 
- * def _extract_upload_url(payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
- *     for source in (payload.get("data"), payload):
- *         if not isinstance(source, dict):
+ * def _parse_upload_response(response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
+ *     try:
+ *         payload = response.json()
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_5_extract_upload_url, 0, __pyx_mstate_global->__pyx_n_u_extract_upload_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_response, __pyx_mstate_global->__pyx_kp_u_httpx_Response) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_5_parse_upload_response, 0, __pyx_mstate_global->__pyx_n_u_parse_upload_response, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_extract_upload_url, __pyx_t_7) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_upload_response, __pyx_t_7) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/shared/file_uploads.py":186
+ * 
+ * 
+ * def _extract_upload_url(payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
+ *     for source in (payload.get("data"), payload):
+ *         if not isinstance(source, dict):
+*/
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 186, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_12file_uploads_7_extract_upload_url, 0, __pyx_mstate_global->__pyx_n_u_extract_upload_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_file_uploads, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_7);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_extract_upload_url, __pyx_t_2) < (0)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/shared/file_uploads.py":1
  * """"""             # <<<<<<<<<<<<<<
  * 
  * from __future__ import annotations
 */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_7) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_2) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -8033,36 +8474,36 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/shared/file_uploads.py":125
+  /* "opscli/shared/file_uploads.py":124
  * 
  *         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
  *         with file_path.open("rb") as file_handle:             # <<<<<<<<<<<<<<
  *             fields.append((self.file_field, (file_path.name, file_handle, mime_type)))
  *             response = httpx.post(
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/shared/file_uploads.py":150
+  /* "opscli/shared/file_uploads.py":160
  * def _resolve_endpoint(endpoint: str) -> str:
  *     text = endpoint.strip()
  *     if text.startswith(("http://", "https://")):             # <<<<<<<<<<<<<<
  *         return text
  *     if not text.startswith("/"):
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_http, __pyx_mstate_global->__pyx_kp_u_https); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_http, __pyx_mstate_global->__pyx_kp_u_https); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 160, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "opscli/shared/file_uploads.py":176
+  /* "opscli/shared/file_uploads.py":190
  *         if not isinstance(source, dict):
  *             continue
  *         for key in ("url", "download_url", "downloadUrl", "file_url", "fileUrl"):             # <<<<<<<<<<<<<<
  *             value = source.get(key)
  *             if isinstance(value, str) and value.strip():
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(5, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_download_url, __pyx_mstate_global->__pyx_n_u_downloadUrl, __pyx_mstate_global->__pyx_n_u_file_url, __pyx_mstate_global->__pyx_n_u_fileUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 176, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(5, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_download_url, __pyx_mstate_global->__pyx_n_u_downloadUrl, __pyx_mstate_global->__pyx_n_u_file_url, __pyx_mstate_global->__pyx_n_u_fileUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 190, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -8095,34 +8536,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{7},{1},{3},{3},{17},{7},{26},{27},{35},{36},{179},{50},{33},{21},{1},{24},{1},{1},{21},{27},{8},{24},{14},{21},{7},{8},{14},{9},{29},{10},{10},{37},{15},{3},{10},{13},{16},{18},{14},{14},{15},{24},{21},{22},{22},{20},{26},{17},{22},{22},{23},{32},{16},{25},{26},{24},{23},{15},{19},{28},{16},{4},{27},{24},{25},{25},{7},{4},{20},{11},{36},{24},{5},{15},{18},{11},{4},{18},{13},{18},{4},{7},{4},{9},{11},{7},{11},{12},{5},{7},{8},{12},{9},{3},{6},{8},{21},{19},{6},{4},{7},{10},{11},{9},{8},{5},{6},{6},{8},{3},{9},{23},{20},{6},{10},{7},{5},{8},{3},{13},{5},{4},{3},{3},{8},{7},{13},{8},{9},{9},{10},{15},{4},{8},{4},{3},{11},{18},{24},{26},{18},{2},{22},{4},{7},{7},{16},{3},{4},{11},{8},{6},{7},{12},{3},{2},{17},{8},{6},{6},{4},{10},{12},{10},{6},{11},{3},{5},{5},{8},{4},{7},{6},{6},{6},{7},{3},{5},{6},{103},{71},{166},{317},{157},{16},{25},{27},{75}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2169 bytes) */
-const char* const cstring = "BZh91AY&SY\356\320\t\222\000\006\210\377\377\377\377\377\372\357\377\375\336\277\367\377\272\277\377\377\377_\377o\377~\317\355\377\300@@@O\340\300\000`\007\035\234\035\201\302\034\206\200\252p\007\336`\2254\246\2113I\223j2h\311\215OC&\200FM\001\240`L\214\203FM6\240i\240\315\023\006\220\320i\223@\321\247\244\320\310d\r6\220d\332M6\220b@\200#F\200\2322I\2314\325\031=4\324\323z\220\003&&\023\002\000\030\203\t\241\210\310\3206\247\25020\203 \302\032a44\000\rS\321\241\244$a5\0316Sjm&M\000\000\310\000\000\000h\0004\0004\006\203F\200\000\000\000\0004\000\032\001\246\211\032*~*y2\206OQ\2204\001\240\310\000\003@\000\000\000\000\000\006\201\240\000\000\000\000\0004\000\010\003M\032\006M24\320d\000\310h\300\200\032d4\0314\r\003A\220i\2044\0310F\203L#\020\014\214M0M\006\203&\200\351\275Q\240h\000\310i\223M\000`&\230@\320\320\321\2102\003L\214\2154\304\006@b`\2004\r4i\223F\2002h\000\r\020\213$\317\364S\276\236\260\245B\363QIT\355\005\262\372 H\221\316\026\177\360xf@\277g\202\201%\"\022\016\213\n\304>\375\342\"\364\210E\361$R\360C\000\215Y\251\201\017!\"\034\264D\026\002\nB\242+\376\310zO\001\203\350\021\240\244 \026\345\214\331\224\206\211\003I\344\352\253\274Nq\200b\224\222lu\310\205B\233g\326\260\026\273\351X\317g;\223\004\256\n\262\333\276$x\346\361NF\360\332-\341h\266\231-jD\215\226\216\n\257\263\331\036\325U4h\025\362\260\253\341\236\025F\245\001\336\237{\006\024\036*\333\0303\2600\370\333\030M\376J!\023\303\326\273\021}e$ANnBh\247 \331\216\233O=\202\335n\005kmX\272\020\032\024\013\310\311\253\320w\265\003I\t\212\330]Mv\026Bu\225\271b\330'O]J\316\n\332&la\270N<\343SS\246`\200\306~\025\226\025\341z*\025K\321\223\321Jl\251,7\242\216\232\035U\022{\"R\212Z&A\256\345r&\315\260\314\303UM\322\222)\302\020\366E\261\273\004\277\200\tb\301\313\367\275\367\017\177\336w\375\354\010\367\207\275 \355f\033\272'\"\343\224\324\035W\325\342q\201\252\262\016\377%al\232ri\357\210\240\014\224\260\265\000\221\031\333\210q\237\265S'\206\314*\340\033\256\374\264\306a\035\273\316\360\000h\331\276^""\004\364\327\322:\245UB\3619[d\036\003\224\r\260\016^A\023r\344\247\234\271\221`*\253:\037\262a\2656 \rg!\274\315\253.\313\261#\202\261\000\322\304\001\221\350\205\200\334el\2346\250\321wA\246\033\357\344\010\344\231\374\251>\341i\271\261\024s\374\r{\225\t\310\233\3003i}\302\323\307\222\275f>\001\316G\036s\302D\210=\005\372\265\200q.\014\026\000gCl\246\244\326\021\322\002*\312\030b\266\372\027!PE\254\323\322P\353\013\261$\222\254\036\204L\3121\316g\200\221\264)X\263\352\022\307\025L\317\277AV\223:\214\021\275\010qJ\223\033H\305R\031^\216\020\032\370U\030\031\031Y^\254\201\2111\024\013\032\305\002\200\325\266++\200|qD\245\210\204\026\021\305\002(\221\002\\J\006\030G\206A\030\344\371\263\225\325\341\363\001f\243\\s\267G\033\300o\025\331\340\316!\241x\030\326\270\225\243\237Y\345\317z\032h\237\203\2209-\315no\013\345\217@\277\357\006\300\354\231\262\341\243oD\250\343V\257\203\316\350N\006{W9es6\301H2\n\250\212\021\017\004$\013\365ap\024\205\235L1b\236P\020n\032\274Y\n\355\021a0d&f\323\233Fk6a\232\207\246$\3666\214\361`\322|\004T\"\306a)\271\0332\007\363\2620\023\010\254Z\261Nq\223j\002\333\033QR(\316\234\211P\366$ \003\n\227\032JP2Z\222z\341B\006\260DO\245)/\222@\340\241  \215bC\"Ckf\200\242@\245=f\3114\221.d\030,;\006\256\207(\215\335k\232\346uY\256\212\302\323j\277p8\312O\324\270\260\rb~\237\0304N\003\026\300\307\232\210l\030D_\316\302\016\244F09\227\325\312\020\000;>\235\250{0\n 6\335ii\242\207\013N\300\3601-\261TDRB\301~\035\347M\301\250\245L\320\332\341\327\n\245]\202t\030\205\231F\204\234\t\301\215\201\343\205\205@\306`q\265s\315\356\t\210\213\202$\304\232\322\003K!Q$\322\321\2520 xP\n\271\213\364\n\347\254*\212\245Y0\210\314\245L\204\004D\262\263\020\222D.x\200\205\202v\256$0\222\005$\231\230{sxt+$\213\366b;V\343\023\364\265\271m\350\321`d9 &Q*\221\247\026\030Fj\230?\032%\363\006\211x\242\326\3134E\370\203OIO\252\345[\254\315H\271\223\000\330\027N@H\240k6\033l\266Y\250\260A\201\305s5\266]\021\247\\\361\033\333\323\357\356\275\350\271.&\215\001 +\005\230 \314Z}y0""\250T\3404b\220r\020\230 \035>i\302G\034\321\274\001\021\265\036\230\032\025\0143L\334\371\255s\3640\323[\204'\2362\203\005Lgq|\246\005\316\331\013(\210X\024\215\270nB\332g\320v6\0038\307\037w\313\266\312q\305(\220H\004\002(\020-\307\000\005\001\2313\301u:\205\226Yd\252\201K\201!*/\033\244PF1\024\234\232,\\\244R\300!\007\270\276/|[3A\316\310\\\254\t\005SAB\21230`'\307S\020\216th\223\200\014\301e$\200\363#\252\361\240\2012\266\312\005Nj\261\365G\214\006=v\214\\\307\014#xg\215\255\262O\257^\314\000K\r\222yR\261{Q_(XB\230\335\2767-\256\355\305\253\245\234S\306\315\207b\240\201f\3754\361!\013\251\277VBi\235\207\212TLcf\314\014$:\204]e_\212\341D\021Q\246j\006U~Z'\364\317\370\201\317\355(#\320A-I\324R\253\236\2522\331\340\202!T-hn4\310Z\343\202\240\203\315^P\231\260\317B\367\275\337{\210\202\243\337\260\265\245\234\272\356T\346\231kK\177\r'\222\253\013\322\214\253F\373\313\262i\341(7\202\244\rO\361<\177\033\250:4\342c\371\3242\271\247\353\036\277*\236\230V~\356\2714\376tg\307}4\274Y\366\022\373#\204N\277\2331\236^M\236\317Q\205\203ca?]B\321\225@\357C0*g\312r\205TT\001\254Q\234`\017l\245\213DK\327\363\321s\223Sh>\307\026\\aX\312\225\270\213\225t\353\"da\235]M\313\026\031+\215Q\001\013HY\206\216\203\245A\374\243L\351#\007\261\306\230a\332\253x\256J\261\332P9r\351\363W\030\316JG\216f330)%\367\371\364j J\227\316\024/,\321A\003iw]_#k\300\250\220\306\216\326\224\261q\227\003&D\345\230\032\373\377yp\354{\002\222zZ\272\022\2055F\305\030\335L\200\325\020\005\215\241>X\251\232R\202'\244\362\310\313\274\266\254\311\316\361\231\313\352\305\272\217\257\n\t\320i\366\303\004m\033\222\032\256\236\364\271\261d\005\204\341\025'\017nrl\206\256G?\030.f\202\207\016\000H\323K\233\335G\003E\306\201\374\267\206\254\211\301H\021\202\270\232\326\324=\320|X\325\211\0141\010c\302\205\233X\2678\023\211\202\023dm\013\237\231\303@.`\030\222\027\005p}\373O\250\002\314\000\313\234Q\241\3169N @\202\322\357\30624\337\352\263\206%\355\326\326#J\"\332\230\324HM\031\375t\330\223\t\010\350gk\272\324\204\022""\232\273\003U\221\245\037\261\264_\"F-\303\020\337i\231\377\370\273\222)\302\204\207v\200L\220";
-    PyObject *data = __Pyx_DecompressString(cstring, 2169, 2);
+    const struct { const unsigned int length: 9; } index[] = {{7},{1},{3},{3},{17},{7},{26},{27},{35},{36},{179},{50},{13},{33},{21},{1},{24},{1},{1},{21},{27},{8},{24},{14},{21},{14},{7},{8},{14},{9},{29},{10},{10},{37},{15},{3},{10},{13},{16},{18},{14},{14},{15},{24},{21},{22},{22},{20},{26},{17},{22},{22},{23},{32},{16},{25},{26},{24},{23},{15},{19},{28},{16},{4},{27},{24},{25},{25},{7},{4},{20},{11},{36},{24},{5},{15},{18},{11},{4},{18},{13},{18},{4},{7},{4},{9},{11},{7},{11},{12},{5},{7},{8},{12},{9},{3},{6},{8},{21},{19},{6},{4},{7},{10},{11},{9},{8},{5},{6},{6},{8},{3},{9},{23},{20},{6},{10},{16},{7},{5},{8},{3},{13},{5},{4},{3},{3},{8},{11},{7},{13},{8},{9},{9},{10},{15},{4},{8},{4},{3},{11},{18},{24},{26},{18},{2},{22},{4},{7},{7},{16},{3},{4},{11},{8},{6},{7},{12},{3},{2},{17},{8},{6},{6},{4},{10},{12},{10},{6},{11},{3},{5},{5},{8},{4},{7},{6},{6},{6},{7},{3},{5},{6},{23},{103},{71},{166},{305},{157},{16},{25},{27},{166}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2263 bytes) */
+const char* const cstring = "BZh91AY&SY\352\347P@\000\006\326\377\377\377\377\377\373\357\377\375\377\277\377\377\372\277\377\377\377_\377o\377~\317\355\377\300@@@O\340\300\000`\007Y\252k\000\211\010*\222Q\200\031\006\211\010\232\230\217SO@\233Bl\232\237\244\324\303D\310\365\r\006\23121\036\2204z\232i\247\250\323L\2150\021\344\200i\202\r4\030\236\223\020z\201\2656SFM\251\206\220bH\000C@L\230\024\311\251\372$\311\211\264\2151\000\000\000\000\000\000\014&\32444\0324\320\r\000\000\000\000\000\001\246\2044\223@\247\251\352=L&S'\250\031\001\352\001\240h\320\000\003A\240\000\320\003@\0004\032=@\000\000\000\000h\000\020\000hdh\3104\323M\r\0324\320\014L\206\232dhh\030\206&A\246\200\000\0004hbi\240\321\243\004\r2\031\000\321\211\210\323L@\001\241\221\243 \323M44h\323@12\032i\221\241\240b\030\231\006\232\000\000\000\321\241\211\246\203F\214\0204\310d\003F&#M1\000\006\206F\214\203M4\320\321\243M\000\304\310i\246F\206\201\210bd\032h\000\000\003F\206&\232\r\0320@\323!\220\r\030\230\2154\311\215\310\035\037\242\236\372}aJ\205\322\036\321bX\006\013\271\375\002$#\270\275\377\n\006d\020\337\264!(\210\204\204%\036\212.\211Py\270\305\310\030\310!\nMa\000\016\240\206\001\031\356L\371\017\020\221\016W`\005\200}\010D\344M\364\217\331\203<\221`\366\t\330\204\211\003\235yPO\025\347\242H\326\305\245\231\332\273d\342$AI\013\346\272qwB,*5k\025\256\347\205\264\036\036\362\306\337\352\340\357\315\177\t\271m\317\2137\035\007\214\364\373\267\240>L\220\r\365z\\\321E3\375\325\002\352z\376\301\3735\313\320\335\nk\364\rs\006\357\272\323,\273\3575\327\t\005\025\032\312R\321)8\255\311LS\276\331X,\250\2537\0145\374P\235\353B\302\323c\214d(\370\251\214u\333l\255\216|\017!\354\007\301\361\252\2232N(\311(\351\236fWHs\327&\032\256[!*\035\twW\347\301PK\023\2273\nK\250\2606j\232jIEFk\265:m\243\200\0359\330b\234$6\315\363\363\237\240u\251U\236\r\246~\226\330 \332\221\203\272#\035\341\223\214\325\321vm\253\235\232\312\365p\350\007\004\363\233\302\250\317BN\274k\306\330\005\272\337@\002V'\323\345wz\355N\377Sp\371\034\241\334\020o\346\014""\370\210\244\3332\207K_n\342\371\226b\016\216\222\252\326n\331\273\271\"@,\312\302\242\001\".6\324j\236\2753'\203[\023k\0067p\245\202!\005\373v\216\200\000]\305\224\274\004\223Q\263t\352y\306\215\261!XH:G0\n\300\033\232\262#\216\035\214\222\0272,\004\363\335C\341\214_\212\300\006\203l\3321`\271\222\275\204j\316\037\014\364:\273 \030\216\302\2405\314ubp\3016m}+\357\345y\265\231D1>\363\367,\n\206\226\262Q\273\314\344\3070\214\210\265\014Y\257R*\035\010U\225p\352\034\3024#7\310\204\203\237f\376 \ru\245V\200\025H/l/;{\035\342\"\327S\266L\261\323\234.!u[\274\301\355\356T\222I\234!(N\346\033'j\000\225i\246\372\2702&\337c\201\251\243-\004\272\370\245Z!\016S4\325\256h\272\262R\354#\211\036>j\214\r\254\254\026!\235\003\336X-b\240[\212\363P\0326\353u\300\245\221\nX\211\202\302\261$Qj\004\326\024\0145tFAQ\345\374\334\376\217 )t\013,lWIH\202\303\3007\230\353O>\347\210gY\002\302\305\001Wx3\235\204vP\275$yF\254g\351\354\264\3660Ef\360\265\345\206\254\353y\227)\223\r\350d\316\235Z}\343\252\t\300\307Qp\025\3073d\002R\224\006\331\213\n\007\010\t\010\372\274,\005\300r\214\014X\253I$\227_n\342\2247o\212(\250R*\253\231\223~\311{[\206,r\250\211\263\3005SP\264y\014TY\321R\251\025\3365\272\200\376f5\002\005\301\260\233\013\217-Pi\\\275\013wC32#UYE\200\007\013\246\2660\250r\313\031\255d\024v\004\232\3378+\200\207L\373\242\005\254.\312\344<\347\214\0050\025\243s\317\325\242U\262}\202\2547\371\006\r\205\301\r~y\315]\235>ex\025-\026\013X\203\2140\275\201m\252\214b=\013 \311\030\t\212\342\023\035\232#B\265\"\027\270\024\203\213\033\021l\215;s\353C\340\007_\303\211\375x\005\020\033%\t_\222G\n\246\200\360\030\026!4\002\004\220\240Z\255\242\350\265\230JR\304\376\rnG\346\206z\004r\260q\n\342\206T\234\t\253a\201\341\202\254\2370D\r\206\2428\270\322`\020<\t\241%\205\000\351\245L%\236j0\"\371\020\212\316,\347\330\306\321^\026j\212\245T\250\230\310im\004\204\305\016\245P)%\001\322\022\022\276#j !\204(\024\222fa\2676\203\237\234\222-c\260sjY\021\355'r\301j\355\001H\327\000T\315\r\301\227\213\014\247""\026\250}9Dx\0134qe\365\324\304\306<Akq\021zjT\356\242\344\242\226L-\240\352\313l@H\240h5\rZ\225a\216J\003\354\rzY\252QL\002\366(\340\031r\345\221\331\036;&}\317$\036h$\t\0218,\305\006b\325\317\324a2\265\200\312\305@\304J\001\001\253\222\240\224\323\304\361\200&3'\260\ta\261S$.\224_g\312Q\227u\204\253Y\322J\r\311\316\256\222h\010\315\272J\365\223\007\001\242_\303J\025%\216\351\306\325Lb\303\240\3448\232\224Kb\003]\004\200@!J\003\n\331\221I\344\324\341=m\203M4\322\340}\223\301 nh\344\006B,\010\022rh\030\271BR\252\037\223\262<\335\346\271\026L\332\204cx\022\025N\231B\214WX0\030+\233\002\267\352\211|\020\347\006\231$\004*W\263\271\020\200\235T\242A3\232k\034\301\325\034\3538\352\213\032n\024\215\001v\n\255\222\027\250\307\222\260\020\323D/\025\r\013\213\023\351\n\010Q\032\364\2145'\247\n\277\264\214K\252\271[\032\220\201G\r,\273T\037\245Kf\375\242e\327G@\023GMg\203\3122\031\227?\315\371\273\242!\202`Y\306O\353\276\206zcC\346\000\261\267\"\022F\014\035\270\2362*\333\222\331\330\\\031\0303\343\203A\230\335j\010\213\305!\001\016\271\017\301\347-\271\003}z/\274\227X\246\nO \314\372\312\005L\260I\255:\020w8\\OEU\347\260\322\254\014\250\305\003\321;`\031\006p\310\300\326\325\024\003\372\314\200wP\r\366(H\310\356\270\275\201\221\210V\303\016\307.lZ\003\307n\024\234\277\344=\236${F\3453\275n\370\363)\3020'\307\271\333\311\361\223\214\037aW\364h\250\234,J\250\2474`\001WB*C\202\336\356\300\212!\010Q_\212\233\005E\231\233\314\212\025\364\r\347\314=\311\010\0278U\355\005g\255\r&\246\261&\302\216j\356\342\253\263\021\036B\t\2138\220\006\226\214\321C\3175\220\245\206\005\257*i6\305\270@\254T9\r\216\205UZ\274\\\317\035QL\355\\\026\320)ZhQ\220\202\310=\230 \215'\340\030\016\003\032\261[(\0351\354\323\355d\261\234A^)\243\230\\\004\222\023\266@\t\017\006`\270l-\340\322\267V\017&\266!\002\2156\003\2046\344\220\003\\\030\001\001\204G\250\005;P\032FuZ\327\207\357-\334\345\302\317\224\372\330\362\351#c\215&H\346\337\346\220\276\213\265\262\357\007\r\277\016\351W\317K\210\017\245\243\323|""\337\016\331\376R9\314Mr\345[\3328sg\356\304D\314\236-!\367\025\023bh\026\004HoE\203\345\326`~1V\024i\020\241\340(\272\354$\315\265\220\244\201\241\230\261\345l\303gs<*\017\355\007\020G\336a'\231w\242\000\264\000)\253\216\026\007a\323(P\241\254y\351\t\rL\215u\026\366\225\274J2/\375\027uR5\216\"\3053u\023\333\000\306EkT=\326\210\004\306\273\001\256\220\323\223\221\265El\256\312e5\277\251\270\357\370\273\222)\302\204\207W:\202\000";
+    PyObject *data = __Pyx_DecompressString(cstring, 2263, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1972 bytes) */
-const char* const cstring = "x\332}V\335o\333\326\025\217;/U\022;\216l7m2\014\241P;\316RW\256Rc5\262\006\205l\313\211\002U\226l+E\033\004\304\225xe1\241H\212\274t\254\354\003F\327nj\327\024\034\222m\267i\0260[\213\022X;+X\321\252i\272\372Q\217|\324c\200Y\262\363\324\375\t;\227\244\345\21783L\362\334\3379\367\334s~\347\360Pk\017\3567\253\177\344^:\365\022\374G\242\006)LH\"\226\t\367+.\251\310x\034#\rk\334\372\367\267\327\376\261\274\276\374u\353\336\333\315O\356\255\177\371\351\017\017>877\227\342Z\177\376\375\352\267_\255\326\336_}`q.\362\350\346G\353\313\313\377Yz\333\337\364\375\315\346\307wV\357\377\256\365\027\253\365\257?\255\177\366\367\326\035s\355\326;\334\371\331\351\344V\223\265oo\264\356\274\263Z\273\336\242\313\256\222k.\177\263~\357nR!\230#\005D\270\2112)(2'\352\234\200%1\2135D\260T\346t\242\2119\002Q\202\221\314\245b\251\027G\307F9$\013\234\206/\343\034\3219\335\310\346$\244\353X\347\224<\2275D\211\2102G\312*\326\303\\<\317\225\025\203\2231\0268\242p*\330m\335@\nX\346tL\230\300\r!YV\010\"\242\"\363\260]\224\347\2078A\324\340\020q\001\263\335SH\322q\270\371\311\365\265\23367\235\232\345\036\275\367e\353\257\277\205|\233\357~\336|\367\336V\272\232\377\374[\253\3625\344\017\\m\303o\\o\336\277\351\321\321&s\253\201\253\272\r\340k\336zCw\275\371\005m\336\266\177xpk$\274\325~W'\253\265[\315\367\357\266UH\020xH\r#U\225\304\234\233\341\210\002\254\222\027\201^\214\212\002P|\021\304a.*\227/m_\371\275R D==2\302\036\272\377\\\014\317`]Ud\035\213nK\301\026E\325s\2228\242\027\240\261\204\221\274(a\336P%\005\tzX-\203\336w\346I)D\n\004\324\370\342\346\211p\2734\314m__\032Y\210\270\276F<_\020\325f+3I\321\304knR\223\261\251h&1\307\307\222\223\251\351xrnc=\025O\304\340\026KL\266\221\351\304dlfc\225\312\214'\342\023\033\253\271\370\353\261\351\314\\,y\301\333\230I%\246\243\223m\247;q\327\357c\240\353\177'\352\235\263\025\031\207\213\275\016\333\260\314l<\031\233\235\345c33\3233\333B\330\t\260w\322G\201\237\214K\3178\022\316\353\212\034\3234E\333\202\032\272\010\304\353\377\017\016\363\274(\213\204""\3477\365\036\311;\327O4\014\363\363\230\360\010j\362\230\006\313(+a\3411\334\253\351&\274#\300s\320hO\202v\t\003:\322\220\010\3531x?'\022\361]+\270\213\312-\342n\270[\307]\024^)A\301gf\022\254\223y>U^\204k\022z\227O\342E2\203\3633\270\010o\235\033\353.3\300\035\316\253\265?\254\177\367\335\243\033\377n}\370\25170\275w\267\365\336g\353w?\360\3061\222D\244\363\374\346xb\013\275,\347D%\234S4\305 \254\206\214u>\347\222\232U\024\211\rB\201\327p\311\200\327\315-I\326\2575\237S\004\014\2062\006\372x\242\241\034\316\242\334\025\027U\224+\"\326\005D\020\273\3341\331\0260\034+(9v\273*3\2623\232\264!\362\006\310FQ\325\3752cYP\025\030\013X\326\r\rC\2649Q\344y\010\rk\360X\314\341EQ':\023Y\375\200-\210\202\360\2301\305\027!F4\217\333\250\327!\354\204\274\210%Ag\243\200]\031\006\300\204qQW\202O\204\340\351x\025J\342\315\037\317J\317+\222\200\265\274\246\\\3032\317\347\r\031\022a\315\272\321\260\354Y\314\251m\306\n\030\201\275\316`\242\\\201=\3312\017\024\350@?`X^\2307\030\227\354;\343\233\2723q\243%!w^dT\373\345\021\t.\352\227\341\275\274|\225\\\301e\236/\" \277\235+\010>\313\236\310H/\212E\354\372g\202\373=\003\235\"\030\220\024\374\0255\205\361\251\211\014\226\021\230\372wE\3052\314ao\024\207Yj\276\010\331A\273@\t\026\211\217xs:\314\352\241\272}\265\035\337:\277\267kX\252\212\016$k\372\206\005\020\347}\014\030\363\354\202\217\270\212\312L\245*\022\322D=\243cm\216Q\251**\354\006\222T\r\254\241=@\200\2505\310\321\310\302\007J54\320\003\\2\220\344%\245\241\253Z\226\035\241H\013\320\031~wm\034\251abh\262\306~+@\007Jy\277N\274(\360P3\342\023\003\222\200\363\010\346\203\256\030Z\016\212\214\210\341\275\r\260\323\333l\250\254A\tk\000\236\021E\200z(\240\367s\300P\241,\330K\327\247\005\272k\001I\006vo\272\263'\344\204F\253\321Fg\240\262\337\014\231\257\320\001\212h\331\356h\004\016TF+\327h\220\236\260B\215\256\356F\240\253r\326\214\230g\235\237\274`\277V\033^A\215\256~s\3125/5\272z\\\323!\353\031K\260\007\355\205j\272q\350Y\323\240S\260\267\363@%\342\354\341\254\0008\005y\314\3749\r6:""\237^\"\225_\230Yz\300\2124\002=\225\222\207\214V~IC\324E\210\031a\346\247*\351\312\274\371\006\215\322\013\026\270\031t\006\307j\340\347\307\215@\257y\202\016\302\331`t\206B\274\007\235\203\003V\324\031<SK{\316N\233iS\004\003_c\271\360b\345\327t\302\007CV\320:a\207\235\261\327\353\351\272\350\274\361\226\363V\301)\210\216XrJ\032\363\373\2129`\"\323\215\315\250\234\203l\237\247\031k\3202\354\263\325\210\353a\320J[yg8\272\022\\\371Y\375\345:r\223]\212><\330\3630\330\333\010\0342;\374[\257\031j\354\333\377\320%\225e\326\325k\216\300\351\203V\211Q\335oN\322\016`\305U\227\351\323\214Q\317\340\244\035\265\323\017\003A\363(\035\245\327\354\240\035b\334\\5\221\363l\330F\215\300\t\330\336\375\034\335K\347\255Y\273\323\216\356X\034\241\207i\211\235\352\2368D{\351\031{\257-T\217\327:jGW\3168)\360\335o\306\351E\273\303>\342\242}\265\211Z\251\321}\330\3044B\343\300\231\277o\224\376\306~\263:_\273T\207n`\245\215Y\301\306!\306\340\200\205\032\207\236\203\nx\267\303\246\267\374\357\336=\373\372\234^\010\320\016\266\331\016y)\262\364\332\252\036\247\347\030-Y\235V\314\356\267\323KQw#\320\005\201E\267R\370\214\231n\004\272+iO\261o?\353\310\004\335g\365Y\343\326\274\235v\302\347\352?\252G\030\232\244/\000\001O\331C\325\240s*^\357\253G\031z\336\234\247\263\326S\326\220\035tN\216\257<\277\222~2:M_\265t\373d5\352\267\275\3475\264\024m\0349\3527'+\231\3239`%\253!\026\326\014\324\315-!\333\034q:\217;\307O\327vh\234\256\237\322\264\323y\214.Z\245M\"\240\3070}\231\n\326\260\023\236X\211\254L\326\273\235\314\205FW\237\031q\372\007\2557md\227\235\261D}\022\252\345\235\375\252s\354T5T\215\374\0171V{\342";
-    PyObject *data = __Pyx_DecompressString(cstring, 1972, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2052 bytes) */
+const char* const cstring = "x\332}V\335S\033\327\0257)\265\301\006c\001!\2613IV\0230\324\006\0219L\343\272\245\031\001\302\226\213A\002\344\264\361xv\256\264W\260\366\262\273\332\275\213\221\233v\2304i\2254\356l\307nr\353\272\236u\233Lv\246\037\310\323L\243:N\303#\217\373\250G\317\024\t\374\224\376\t=\367\356\362i\\\217wu\357\357|\334s~\347\334\263\254=|P-\375Vx\365\324\253\360?\032\263\310\354\260\"c\225\010o\013\343\232\212\20702\260!\254\177}g\355/K\353K_\324\356\277S\375\344\376\372\347\237~\363\360\303s\323\323I\241\366\321\257V\277\374\347j\371\203\325\207\216\300\221\307\267~\277\276\264\364\237\305w\002\243\257oU\377pw\365\301/k\037;\265\177\374n\375\263?\327\356\332k\267\337\025\316OM\214oWY\373\362f\355\356\273\253\345\0335\272\304\205Bu\351_\353\367\357\215k\004\013d\026\021a\270@f5U\220MA\302\212\234\301\006\"X)\010&1\344,\201(AI\025\222\361d\337\300\351\001\001\251\222`\340+8KL\301\2642Y\005\231&6\005-'d,Y!\262*\220\202\216\315\210\220\310\t\005\315\022T\214%\201h\202\016z\333\r\310,V\005\023\023\266\020\272\221\252j\004\021YSE0\227\325\231nA\222\r8D\236\307\314z\024)&\216T?\271\261v\313\025&\222S\302\343\367?\257\375\361\027\220o\365\275\277V\337\273\277\235\256\352\337\377T+~\001\371\003W?\356\2730\234\354\213%\023}?\302\205\035J7oT\037\334\362\271\331dv\273\002\027\335\001\360\r\177\277!\273Q\375\033\255\336q\277yx\273?\262]\177O'\253\345\333\325\017\356m\212\220$\211\220'F\272\256\310Y\236n\277\006\024\223>\340\032\2439\t\370\276\004\313^!\246\026.\357\334\005\215\263\005\302\353\362,!\372\231\376~\366c\006\277\013\221Il\352\232jb\231w\033\250i\272\231U\344~s\026zN\352\317\311\n\026-]\321\220dF\364\002\310\003\327\376*\211\310,\0011\276\264\363\250^a\347\376r\377|\224\373\352\367}A\214[]\316V\232!_\347)\216\304Gc\351\261i1>>\222\234H\214Oo\354G\023cqx\305\307F6\221\211\261\221\370\344\306.\231\036\032K\014o\354\246\023\027\342\023\351\351\370\370E\3370\235\034\233\210\215l:\335\215s\277O\200\334\377n\324?g;2\004\017\273);\260\364Tb<>5%\306'''&w\204\260\033`\3275@\201\2374\247g""\010I\347MM\215\033\206flC-S\006\342\315\377\007GDQVe\"\212[r\237\344\335\373\247*F\304\031LD\0045yB\202U\224Q\260\364\004\356\327t\013\336\025\3409h\264\247A{\204\001\035i)\204\365\030\\\335\341\261\304\236\025\334C\304\213\270\027\316\353\270\207\300/%\010\304\364\344\030\353dQL\026\026\340\031\201\336\025\307\361\002\231\304\271I<\007w\220\307\272\307D\340s{\265\374\353\365\257\276z|\363\337\265\337|\352\317R\377&\327\336\377l\375\336\207\376\244F\212\214LQ\334\232\\lc\026\324\254\254E\262\232\241Y\204\325\220\261.f9\251\031MS\330\214\224D\003\347-\270n\274$\231\240\326bV\2230(\252\030\350\023\211\201\2628\203\262W9\252iWelJ\210 \366\360\t\272\271\300p\254\244e\331\353\232\312\310N\033\312\306R\264`m\315\351fPf\254J\272\006c\001\253\246e`\2106+\313\242\010\241a\003~\026\262xA6\211\311\226\254~\300\026DAD\314\230\022\347 F4\2037Q\277C\330\t9\031+\222\311F\001{\322\014\200\t\303Q\276\202\257\207\344\313D\035J\342\317\037_\313\314i\212\204\215\234\241]\307\252(\346,\025\022a\315\272\321\260\354w.\253o26\213\021\350\233\014&\332U\260\311\024D\240\300\004\372\001\303\352\374\214\305\270d\237 8\327\344\266H\227\305\253\270\020\230\362\031\271\321\242\300\205(3\352\203r\311\004\317\231W\340\236^\271F\300D\024\347\020\024\203{\t\3147h\000>\202\002\370KV\2179y\016\363\243\331\202\177\005A\246I\026\344\013\377\346\014\215Qm\310\014V\021\250\006oM\307*\214h\177JGX\326\301\022\216\205N\202\352,\220\000\361Gx\204\225J\347-\267\023\337>\332wJX\326\232\t\374\033\346\206\006p\352\177'XQ\330\003\237~\035\025\230H\327\024d\310f\332\304\3064cY\327t\260\006\276t\003\264\241s`\001Q\033\220\243\225\201/\231n\031 \0078o!\305O\312@\327\214\014;BS\346\241i\202\306\3338\322\300\3042T\203\375\205\001\315\251\344\202\022\212\262$B9I@\014\254$\234C0:L\3152\262P\177D,\377\242\200\245ol\351\254w\t\353\r\221\021E\200z\250\245\377G\204\245CY\260\237n@\0134\336<R,\314_\246\267\357%\357\245h)T\251?T\034(\346\355\0036\241Q\032\363\366\205\275\360@)V\251o(\036\264\303\366\353\264\223\"Zp\353*\rL""\357:\r\321\036'\\ij\25644\025\317\332Q\373\254\367\302I\367\215r\3572\2524\265\333\243\\=_ij\341\252\335\316\263\216\344v\271\363\245T\345\310s\266EG\301\026\016\214z\373\004\247\001\234\302\372\264\375]\nQ\034X$\305\357\333\031z\310\211V\032Z\212y\037\031(\376\224\206)G\210\035e\352\247\212\251\342\214\375&\215\321\213\016\270\351\362\272N\227\301\317\267+\r\255v\017\355\202\263Ai\220B\274\207\275\303\235N\314\353\032,\247|gg\354\224-\203B q8\274P\374\031\035\016\300\260\023rz\334\210w\372\302JjE\366\336|\313{k\326\233\225=9\357\345\r\346\367u\273\323F6\217\315*\236\203l_\241i\247\313\261\334\263\245(\367\320\345\244\234\234\327\033[\016-\177g\345\265\025\304\223]\214=:\334\362(\324Zi8b\327\005\257V;\\i<\370\210\223\3122kj\265\373\341\364.'\317\250n\267Gh\035\260\302\305\005z\2001\352+\234pcn\352QC\310>F\007\350u7\344\206+\r=`\322\374<\335Og\234)\267\336\215\355\332\034\245\0354\317N\342\247t\323V:\350\356w\245\322\361r]\371\330\362\240\227\004\177\355v\202^r\353\334\243\034m+\017\227\363\225\346\016\033CK$\200\247\300n\200\376\334\375Ii\246|y\005:\200\2253\356\204*G\030k\235\016\252\034y\036X\367_\035\266\277\375\357\376}\215m^+\004\350\2066\031\016\373i\261\2246E-^\313\3134\357\324;q\267\335M-\306\270!P\004\201\305\266\323\366\254\235\25244\027S\276\240\361 \353\3021\332\350\2649C\316\214\233\362\"\347V\276\265\022e\3508=\t\004<\343v\227B\336\251\304J\333J\214\241\347\355\031:\345<\343t\273!\357\304\320\362+\313\251\247\243\023\364\007\216\351\236(\305\202V\367\275\206\027c\225\243\307\202\206de\362\352;\235\361R\230\2055\t\265\342ec\306Q\257\376\270w\374Ly\227\304kz\221\246\274\372\227\351\202\003M\327\341u\364\271\251-B\240\2770}\215JN\257\027\031^\216.\217\2544{\351\213@\266\367\\\217\333X\n\3019Mmp)\331\235\200\305\031\357\305h\251\275\264\345`S\257\263\204vh~\217B\032\207\274C/\260K\316\200A\007\350\364\333\350m\357\344\017\313\010*\016I]\343\375\r\013\210\367\177\256\213\264\263";
+    PyObject *data = __Pyx_DecompressString(cstring, 2052, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3373 bytes) */
-const char* const bytes = "\347\274\272\345\260\221 0200201AuthClient | NoneBearer \350\277\234\347\253\257\350\257\267\346\261\202\345\244\261\350\264\245\357\274\214HTTP \346\226\207\344\273\266\344\270\212\344\274\240 HTTP \351\224\231\350\257\257\343\200\202\350\277\234\347\253\257\350\277\224\345\233\236\344\272\206\346\227\240\346\263\225\350\247\243\346\236\220\347\232\204 JSON\350\277\234\347\253\257\350\277\224\345\233\236\347\273\223\346\236\204\344\270\215\346\230\257 JSON \345\257\271\350\261\241Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.\345\244\215\347\224\250 OPS \351\211\264\346\235\203\347\232\204\345\205\254\345\205\261\346\226\207\344\273\266\344\270\212\344\274\240\345\256\242\346\210\267\347\253\257\343\200\202\346\226\207\344\273\266\344\270\212\344\274\240\345\223\215\345\272\224\347\273\223\346\236\204\351\224\231\350\257\257\343\200\202\346\226\207\344\273\266\344\270\212\344\274\240\347\273\223\346\236\234\343\200\202?\344\270\212\344\274\240\346\226\207\344\273\266\344\270\215\345\255\230\345\234\250\357\274\232/.\346\226\207\344\273\266\344\270\212\344\274\240\351\224\231\350\257\257\343\200\202\346\226\207\344\273\266\344\270\212\344\274\240\344\270\232\345\212\241\351\224\231\350\257\257\343\200\202add_noteapplication/octet-streamdict[str, Any]dict[str, Any] | Nonehttp://https://httpx.Responseint | stropscli/shared/file_uploads.pystr | Nonestr | Pathtuple[dict[str, str], dict[str, str]]/v1/file/uploadAnyAuthClientAuthorizationDEFAULT_ENDPOINTDEFAULT_FILE_FIELDDEFAULT_FOLDERDEFAULT_PUBLICDEFAULT_TIMEOUTENV_FILE_UPLOAD_ENDPOINTENV_FILE_UPLOAD_FIELDENV_FILE_UPLOAD_FOLDERENV_FILE_UPLOAD_PUBLICFILE_UPLOAD_BAD_JSONFILE_UPLOAD_BUSINESS_ERRORFILE_UPLOAD_ERRORFILE_UPLOAD_HTTP_ERRORFileUploadBadJsonErrorFileUploadBusinessErrorFileUploadBusinessError.__init__FileUploadClientFileUploadClient.__init__FileUploadClient._get_authFileUploadClient"".enabledFileUploadClient.uploadFileUploadErrorFileUploadHttpErrorFileUploadHttpError.__init__FileUploadResultNoneOPSCLI_FILE_UPLOAD_ENDPOINTOPSCLI_FILE_UPLOAD_FIELDOPSCLI_FILE_UPLOAD_FOLDEROPSCLI_FILE_UPLOAD_PUBLICOPS_URLPath__Pyx_PyDict_NextRefRemoteError\346\226\207\344\273\266\344\270\212\344\274\240\345\223\215\345\272\224\347\274\272\345\260\221\344\270\213\350\275\275\351\223\276\346\216\245\350\277\234\347\253\257\344\270\232\345\212\241\346\211\247\350\241\214\345\244\261\350\264\245alias__annotations__asyncio.coroutinesauth_clientboolbuild_request_authbusiness_codecline_in_tracebackcodecookiesdatadataclassdataclasses__doc__downloadUrldownload_urldumpsenabledendpointensure_ascii__enter__excexists__exit__extract_error_message_extract_upload_urlfieldsfilefileUrlfile_fieldfile_handlefile_pathfile_urlfilesfolderfrozen__func__get_get_authget_mcp_request_headersget_token_by_sessiongetenvguess_typeheadershttpx__init__int_is_coroutineitemsjsonjwtkey__main__message__metaclass__metadatamime_typemimetypes__module____mro_entries__name__name__openopsopscli.authopscli.mcp.contextopscli.shared.exceptionsopscli.shared.file_uploadsopscli.shared.httpos_parse_upload_responsepathpathlibpayloadpolarisUserTokenpoppost__prepare__propertypublicpurpose__qualname__rawrb_resolve_endpointresponsereturnrstripselfsession_id__set_name__setdefaultsourcestatus_codestrstripsuper__test__texttimeouttypingupdateuploaduploadsurlvaluevalues\320\000!\320!4\260A\330\004\010\210\n\220!\2207\230$\230a\230y\250\001\330\010\013\2104\210z\230\021\230(\240!\330\014\r\330\010\014\210G\2201\220G\320\033+\250?\270,\300a\330\014\024\220F\230$\230a\230q\330\014\017\210z\230\021\230'\240\025\240d\250%\250v\260Q\330\020\027\220u\230F\240!\330\004\013\2101\320\000 \240\010\250\001\330\004\013\2108\2206\230\021\330\004\007\200t\210;\220b\230\013\2401\330\010\017\210q\330\004\007\200t\2104\210{\230!\2301\330\010\017\210t\2201\330\004\013\2102\210Q\210g\220W\230A\230V\2401\320\000%\320%8\270\001\330\004\005\330""\010\022\220(\230%\230q\330\004\013\210=\230\001\330\010\016\320\016$\240A\320%=\270Q\330\004\007\200t\210:\220Q\220i\230q\330\010\016\320\016$\240A\240Q\330\004\007\200x\210}\230C\230q\330\010\016\320\016!\240\021\240(\250.\3208M\310Q\310i\320WZ\320Zh\320hi\320iq\320qr\330\004\013\2107\220$\220a\220q\330\004\007\200u\210H\220F\230#\230U\240%\240u\250G\2601\330\010\016\320\016%\240Q\240f\320,A\300\021\300)\3103\310a\330\004\013\2101\200A\340\016\017\340\021\022\330\010\020\220\001\330\010\020\220\001\330\010\022\220!\330\t\n\340\010\013\2104\210t\2201\330\014\022\220/\240\021\240%\240q\250\001\330\010\024\220D\230\001\230\021\330\010\013\2104\210y\230\007\230q\330\014\022\220/\240\021\240*\250A\250Q\340\010\021\220\032\2304\230z\250\021\250!\330\010\017\210w\220a\320\027.\250a\330\010(\250\001\330\r\030\230\006\230g\240S\250\004\250A\330\r\030\230\006\230g\240S\250\004\250A\330\r\031\230\026\230q\340\010\013\2101\330\014\022\220'\230\022\230=\250\006\250d\260&\270\001\270\032\300=\320PQ\340\010\024\220I\230[\250\001\250\031\260&\270\001\270\023\270C\270q\330\r\026\220e\2301\230I\240Q\330\014\022\220'\230\022\2304\230~\250Y\260g\270]\310!\330\014\027\220u\230E\240\021\330\020!\240\021\240$\240a\330\020\030\230\001\330\020\030\230\001\330\020\026\220a\330\020\030\230\001\360\006\000\t\023\320\022(\250\001\250\021\330\010\016\320\016!\240\021\240!\330\010\013\2104\210q\330\014\022\320\022(\250\001\250\021\330\010\017\320\017\037\230q\240\004\240E\250\024\250Q\200A\360\006\000\t\023\220!\330\010\024\220A\330\010\020\220\001\330\010\020\220\001\330\010\025\220Q\330\010\r\210Q\330\010\024\220A\330\t\n\330\010\014\210L\230\t\240\023\240B\240g\250Q\320.H\310\003\3101\330\010\014\210N\230+\240S\250\002\250'\260\021\3202I\310\023\310A\330\010\014\210J\220g\230S\240\002\240'\250\021\320*B\300#\300Q\330\010\014\210J\220g\230S\240\002\240'\250\021\320*B\300#\300Q\330\010\014\210O\230<\240s\250*\260A\330\010\014\210G\2201\330\010\014\210N\230!\200A\330\031\032\330\010\017\210t""\2201\220D\230\001\320\004$\240N\260!\330\010\r\210R\210y\230\001\230\021\330\010\014\210O\2301\320\004&\320&:\270!\330\010\r\210R\210y\230\001\230\021\330\010\014\320\014\035\230Q\320\004\037\230x\240q\330\010\013\2104\210q\330\014\022\220$\220e\2303\230d\240,\320.C\3001\300D\310\r\320UV\330\014\023\2201\320\024%\240Y\250a\250y\3208L\310D\320PQ\330\010\017\210t\220<\320\0372\260!\2601";
+    #else /* compression: none (3529 bytes) */
+const char* const bytes = "\347\274\272\345\260\221 0200201AuthClient | NoneBearer \350\277\234\347\253\257\350\257\267\346\261\202\345\244\261\350\264\245\357\274\214HTTP \346\226\207\344\273\266\344\270\212\344\274\240 HTTP \351\224\231\350\257\257\343\200\202\350\277\234\347\253\257\350\277\224\345\233\236\344\272\206\346\227\240\346\263\225\350\247\243\346\236\220\347\232\204 JSON\350\277\234\347\253\257\350\277\224\345\233\236\347\273\223\346\236\204\344\270\215\346\230\257 JSON \345\257\271\350\261\241Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.\345\244\215\347\224\250 OPS \351\211\264\346\235\203\347\232\204\345\205\254\345\205\261\346\226\207\344\273\266\344\270\212\344\274\240\345\256\242\346\210\267\347\253\257\343\200\202X-MCP-API-Key\346\226\207\344\273\266\344\270\212\344\274\240\345\223\215\345\272\224\347\273\223\346\236\204\351\224\231\350\257\257\343\200\202\346\226\207\344\273\266\344\270\212\344\274\240\347\273\223\346\236\234\343\200\202?\344\270\212\344\274\240\346\226\207\344\273\266\344\270\215\345\255\230\345\234\250\357\274\232/.\346\226\207\344\273\266\344\270\212\344\274\240\351\224\231\350\257\257\343\200\202\346\226\207\344\273\266\344\270\212\344\274\240\344\270\232\345\212\241\351\224\231\350\257\257\343\200\202add_noteapplication/octet-streamdict[str, Any]dict[str, Any] | Nonedict[str, str]http://https://httpx.Responseint | stropscli/shared/file_uploads.pystr | Nonestr | Pathtuple[dict[str, str], dict[str, str]]/v1/file/uploadAnyAuthClientAuthorizationDEFAULT_ENDPOINTDEFAULT_FILE_FIELDDEFAULT_FOLDERDEFAULT_PUBLICDEFAULT_TIMEOUTENV_FILE_UPLOAD_ENDPOINTENV_FILE_UPLOAD_FIELDENV_FILE_UPLOAD_FOLDERENV_FILE_UPLOAD_PUBLICFILE_UPLOAD_BAD_JSONFILE_UPLOAD_BUSINESS_ERRORFILE_UPLOAD_ERRORFILE_UPLOAD_HTTP_ERRORFileUploadBadJsonErrorFileUploadBusinessErrorFileUploadBusinessError.__init__FileUploadClientFileUploadClient.__init__FileUploadClien""t._get_authFileUploadClient.enabledFileUploadClient.uploadFileUploadErrorFileUploadHttpErrorFileUploadHttpError.__init__FileUploadResultNoneOPSCLI_FILE_UPLOAD_ENDPOINTOPSCLI_FILE_UPLOAD_FIELDOPSCLI_FILE_UPLOAD_FOLDEROPSCLI_FILE_UPLOAD_PUBLICOPS_URLPath__Pyx_PyDict_NextRefRemoteError\346\226\207\344\273\266\344\270\212\344\274\240\345\223\215\345\272\224\347\274\272\345\260\221\344\270\213\350\275\275\351\223\276\346\216\245\350\277\234\347\253\257\344\270\232\345\212\241\346\211\247\350\241\214\345\244\261\350\264\245alias__annotations__asyncio.coroutinesauth_clientboolbuild_request_authbusiness_codecline_in_tracebackcodecookiesdatadataclassdataclasses__doc__downloadUrldownload_urldumpsenabledendpointensure_ascii__enter__excexists__exit__extract_error_message_extract_upload_urlfieldsfilefileUrlfile_fieldfile_handlefile_pathfile_urlfilesfolderfrozen__func__get_get_authget_mcp_request_headersget_token_by_sessiongetenvguess_type_has_mcp_api_keyheadershttpx__init__int_is_coroutineitemsjsonjwtkey__main__mcp_headersmessage__metaclass__metadatamime_typemimetypes__module____mro_entries__name__name__openopsopscli.authopscli.mcp.contextopscli.shared.exceptionsopscli.shared.file_uploadsopscli.shared.httpos_parse_upload_responsepathpathlibpayloadpolarisUserTokenpoppost__prepare__propertypublicpurpose__qualname__rawrb_resolve_endpointresponsereturnrstripselfsession_id__set_name__setdefaultsourcestatus_codestrstripsuper__test__texttimeouttypingupdateuploaduploadsurlvaluevalues\320\000\036\320\0361\260\021\330\004\013\2104\210q\220\007\220t\2301\230A\320\000!\320!4\260A\330\004\010\210\n\220!\2207\230$\230a\230y\250\001\330\010\013\2104\210z\230\021\230(\240!\330\014\r\330\010\014\210G\2201\220G\320\033+\250?\270,\300a\330\014\024\220F\230$\230a\230q\330\014\017\210z\230\021\230'\240\025\240d\250%\250v\260Q\330\020\027\220u\230F\240!\330\004\013\2101\320\000 \240\010\250\001\330\004\013\2108\2206\230\021\330\004\007\200t\210;\220b\230\013\2401\330\010\017\210q\330\004\007\200t""\2104\210{\230!\2301\330\010\017\210t\2201\330\004\013\2102\210Q\210g\220W\230A\230V\2401\320\000%\320%8\270\001\330\004\005\330\010\022\220(\230%\230q\330\004\013\210=\230\001\330\010\016\320\016$\240A\320%=\270Q\330\004\007\200t\210:\220Q\220i\230q\330\010\016\320\016$\240A\240Q\330\004\007\200x\210}\230C\230q\330\010\016\320\016!\240\021\240(\250.\3208M\310Q\310i\320WZ\320Zh\320hi\320iq\320qr\330\004\013\2107\220$\220a\220q\330\004\007\200u\210H\220F\230#\230U\240%\240u\250G\2601\330\010\016\320\016%\240Q\240f\320,A\300\021\300)\3103\310a\330\004\013\2101\200A\340\016\017\340\021\022\330\010\020\220\001\330\010\020\220\001\330\010\022\220!\330\t\n\340\010\013\2104\210t\2201\330\014\022\220/\240\021\240%\240q\250\001\330\010\024\220D\230\001\230\021\330\010\013\2104\210y\230\007\230q\330\014\022\220/\240\021\240*\250A\250Q\340\010\021\220\032\2304\230z\250\021\250!\330\010(\250\001\330\r\030\230\006\230g\240S\250\004\250A\330\r\030\230\006\230g\240S\250\004\250A\330\r\031\230\026\230q\340\010\013\2101\330\014\022\220'\230\022\230=\250\006\250d\260&\270\001\270\032\300=\320PQ\340\010\024\220I\230[\250\001\250\031\260&\270\001\270\023\270C\270q\330\r\026\220e\2301\230I\240Q\330\014\022\220'\230\022\2304\230~\250Y\260g\270]\310!\330\014\027\220u\230E\240\021\330\020!\240\021\240$\240a\330\020\030\230\001\330\020\030\230\001\330\020\026\220a\330\020\030\230\001\360\006\000\t\023\320\022(\250\001\250\021\330\010\016\320\016!\240\021\240!\330\010\013\2104\210q\330\014\022\320\022(\250\001\250\021\330\010\017\320\017\037\230q\240\004\240E\250\024\250Q\200A\360\006\000\t\023\220!\330\010\024\220A\330\010\020\220\001\330\010\020\220\001\330\010\025\220Q\330\010\r\210Q\330\010\024\220A\330\t\n\330\010\014\210L\230\t\240\023\240B\240g\250Q\320.H\310\003\3101\330\010\014\210N\230+\240S\250\002\250'\260\021\3202I\310\023\310A\330\010\014\210J\220g\230S\240\002\240'\250\021\320*B\300#\300Q\330\010\014\210J\220g\230S\240\002\240'\250\021\320*B\300#\300Q\330\010\014\210O\230<""\240s\250*\260A\330\010\014\210G\2201\330\010\014\210N\230!\200A\330\031\032\330\010\017\210t\2201\220D\230\001\320\004$\240N\260!\330\010\r\210R\210y\230\001\230\021\330\010\014\210O\2301\320\004&\320&:\270!\330\010\r\210R\210y\230\001\230\021\330\010\014\320\014\035\230Q\320\004\037\230x\240q\330\010\026\320\026-\250Q\330\010\013\2104\210q\330\014\022\220$\220e\2303\230d\240,\320.C\3001\300D\310\r\320UV\330\014\027\320\027(\250\t\260\021\260!\330\014\023\2207\230!\2301\330\014\023\220:\320\0351\260\024\260Q\330\010\013\2104\210q\330\014\027\320\027(\250\t\260\021\260$\260a\330\014\023\2207\230!\2301\330\014\023\2209\230A\330\010\013\320\013\033\2301\230A\330\014\023\220=\240\001\330\010\021\220\032\2304\230|\320+>\270a\270q\330\010\017\210w\220a\220q\330\010\017\210y\230\001";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 179; i++) {
+    for (int i = 0; i < 183; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 33) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 35) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -8130,7 +8571,7 @@ const char* const bytes = "\347\274\272\345\260\221 0200201AuthClient | NoneBear
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 179; i < 188; i++) {
+    for (int i = 183; i < 193; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -8141,15 +8582,15 @@ const char* const bytes = "\347\274\272\345\260\221 0200201AuthClient | NoneBear
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 188; i++) {
+    for (Py_ssize_t i = 0; i < 193; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 179;
-      for (Py_ssize_t i=0; i<9; ++i) {
+      PyObject **table = stringtab + 183;
+      for (Py_ssize_t i=0; i<10; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -8244,27 +8685,32 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   {
     const __Pyx_PyCode_New_function_description descr = {2, 0, 4, 15, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 98};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_path, __pyx_mstate->__pyx_n_u_purpose, __pyx_mstate->__pyx_n_u_folder, __pyx_mstate->__pyx_n_u_public, __pyx_mstate->__pyx_n_u_metadata, __pyx_mstate->__pyx_n_u_file_path, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_cookies, __pyx_mstate->__pyx_n_u_fields, __pyx_mstate->__pyx_n_u_mime_type, __pyx_mstate->__pyx_n_u_file_handle, __pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_url};
-    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_upload, __pyx_mstate->__pyx_kp_b_iso88591_A_4t1_q_D_4y_q_AQ_4z_wa_a_gS_A_g, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_upload, __pyx_mstate->__pyx_kp_b_iso88591_A_4t1_q_D_4y_q_AQ_4z_gS_A_gS_A_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 141};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_jwt};
-    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_get_auth, __pyx_mstate->__pyx_kp_b_iso88591_xq_4q_e3d_C1D_UV_1_Yay8LDPQ_t_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 140};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_mcp_headers, __pyx_mstate->__pyx_n_u_jwt, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_cookies};
+    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_get_auth, __pyx_mstate->__pyx_kp_b_iso88591_xq_Q_4q_e3d_C1D_UV_7_1_1_Q_4q_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 148};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 158};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_endpoint, __pyx_mstate->__pyx_n_u_text};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_resolve_endpoint, __pyx_mstate->__pyx_kp_b_iso88591_86_t_b_1_q_t4_1_t1_2QgWAV1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 157};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_code};
-    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_parse_upload_response, __pyx_mstate->__pyx_kp_b_iso88591_8_q_A_Q_t_Qiq_AQ_x_Cq_8MQiWZZhh, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 167};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_headers};
+    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_has_mcp_api_key, __pyx_mstate->__pyx_kp_b_iso88591_1_4q_t1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 172};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 171};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_code};
+    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_parse_upload_response, __pyx_mstate->__pyx_kp_b_iso88591_8_q_A_Q_t_Qiq_AQ_x_Cq_8MQiWZZhh, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 186};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_source, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_extract_upload_url, __pyx_mstate->__pyx_kp_b_iso88591_4A_7_ay_4z_G1G_a_F_aq_z_d_vQ_uF, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_file_uploads_py, __pyx_mstate->__pyx_n_u_extract_upload_url, __pyx_mstate->__pyx_kp_b_iso88591_4A_7_ay_4z_G1G_a_F_aq_z_d_vQ_uF, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -10191,17 +10637,6 @@ static void __Pyx_RaiseUnboundLocalError(const char *varname) {
     PyErr_Format(PyExc_UnboundLocalError, "local variable '%s' referenced before assignment", varname);
 }
 
-/* RaiseUnexpectedTypeError */
-static int
-__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
-{
-    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
-    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
-                 expected, obj_type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    return 0;
-}
-
 /* unicode_tailmatch */
 static int __Pyx_PyUnicode_TailmatchTuple(PyObject* s, PyObject* substrings,
                                           Py_ssize_t start, Py_ssize_t end, int direction) {
@@ -10301,6 +10736,95 @@ static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_le
     }
   }
 #endif
+
+/* PyObjectCall2Args (used by CallUnboundCMethod1) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
+    PyObject *args[3] = {NULL, arg1, arg2};
+    return __Pyx_PyObject_FastCall(function, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
+}
+
+/* CallUnboundCMethod1 */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg) {
+    int was_initialized =  __Pyx_CachedCFunction_GetAndSetInitializing(cfunc);
+    if (likely(was_initialized == 2 && cfunc->func)) {
+        int flag = cfunc->flag;
+        if (flag == METH_O) {
+            return __Pyx_CallCFunction(cfunc, self, arg);
+        } else if (flag == METH_FASTCALL) {
+            return __Pyx_CallCFunctionFast(cfunc, self, &arg, 1);
+        } else if (flag == (METH_FASTCALL | METH_KEYWORDS)) {
+            return __Pyx_CallCFunctionFastWithKeywords(cfunc, self, &arg, 1, NULL);
+        }
+    }
+#if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
+    else if (unlikely(was_initialized == 1)) {
+        __Pyx_CachedCFunction tmp_cfunc = {
+#ifndef __cplusplus
+            0
+#endif
+        };
+        tmp_cfunc.type = cfunc->type;
+        tmp_cfunc.method_name = cfunc->method_name;
+        return __Pyx__CallUnboundCMethod1(&tmp_cfunc, self, arg);
+    }
+#endif
+    PyObject* result = __Pyx__CallUnboundCMethod1(cfunc, self, arg);
+    __Pyx_CachedCFunction_SetFinishedInitializing(cfunc);
+    return result;
+}
+#endif
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg){
+    PyObject *result = NULL;
+    if (unlikely(!cfunc->func && !cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_COMPILING_IN_CPYTHON
+    if (cfunc->func && (cfunc->flag & METH_VARARGS)) {
+        PyObject *args = PyTuple_New(1);
+        if (unlikely(!args)) return NULL;
+        Py_INCREF(arg);
+        PyTuple_SET_ITEM(args, 0, arg);
+        if (cfunc->flag & METH_KEYWORDS)
+            result = __Pyx_CallCFunctionWithKeywords(cfunc, self, args, NULL);
+        else
+            result = __Pyx_CallCFunction(cfunc, self, args);
+        Py_DECREF(args);
+    } else
+#endif
+    {
+        result = __Pyx_PyObject_Call2Args(cfunc->method, self, arg);
+    }
+    return result;
+}
+
+/* dict_getitem_default */
+static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value) {
+    PyObject* value;
+#if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07020000
+    value = PyDict_GetItemWithError(d, key);
+    if (unlikely(!value)) {
+        if (unlikely(PyErr_Occurred()))
+            return NULL;
+        value = default_value;
+    }
+    Py_INCREF(value);
+    if ((1));
+#else
+    if (PyBytes_CheckExact(key) || PyUnicode_CheckExact(key) || PyLong_CheckExact(key)) {
+        value = PyDict_GetItem(d, key);
+        if (unlikely(!value)) {
+            value = default_value;
+        }
+        Py_INCREF(value);
+    }
+#endif
+    else {
+        if (default_value == Py_None)
+            value = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key);
+        else
+            value = __Pyx_CallUnboundCMethod2(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key, default_value);
+    }
+    return value;
+}
 
 /* SwapException */
 #if CYTHON_FAST_THREAD_STATE
@@ -10417,93 +10941,15 @@ static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, l
         PyObject_RichCompare(op1, op2, Py_NE));
 }
 
-/* PyObjectCall2Args (used by CallUnboundCMethod1) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
-    PyObject *args[3] = {NULL, arg1, arg2};
-    return __Pyx_PyObject_FastCall(function, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
-}
-
-/* CallUnboundCMethod1 */
-#if CYTHON_COMPILING_IN_CPYTHON
-static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg) {
-    int was_initialized =  __Pyx_CachedCFunction_GetAndSetInitializing(cfunc);
-    if (likely(was_initialized == 2 && cfunc->func)) {
-        int flag = cfunc->flag;
-        if (flag == METH_O) {
-            return __Pyx_CallCFunction(cfunc, self, arg);
-        } else if (flag == METH_FASTCALL) {
-            return __Pyx_CallCFunctionFast(cfunc, self, &arg, 1);
-        } else if (flag == (METH_FASTCALL | METH_KEYWORDS)) {
-            return __Pyx_CallCFunctionFastWithKeywords(cfunc, self, &arg, 1, NULL);
-        }
-    }
-#if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-    else if (unlikely(was_initialized == 1)) {
-        __Pyx_CachedCFunction tmp_cfunc = {
-#ifndef __cplusplus
-            0
-#endif
-        };
-        tmp_cfunc.type = cfunc->type;
-        tmp_cfunc.method_name = cfunc->method_name;
-        return __Pyx__CallUnboundCMethod1(&tmp_cfunc, self, arg);
-    }
-#endif
-    PyObject* result = __Pyx__CallUnboundCMethod1(cfunc, self, arg);
-    __Pyx_CachedCFunction_SetFinishedInitializing(cfunc);
-    return result;
-}
-#endif
-static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg){
-    PyObject *result = NULL;
-    if (unlikely(!cfunc->func && !cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
-#if CYTHON_COMPILING_IN_CPYTHON
-    if (cfunc->func && (cfunc->flag & METH_VARARGS)) {
-        PyObject *args = PyTuple_New(1);
-        if (unlikely(!args)) return NULL;
-        Py_INCREF(arg);
-        PyTuple_SET_ITEM(args, 0, arg);
-        if (cfunc->flag & METH_KEYWORDS)
-            result = __Pyx_CallCFunctionWithKeywords(cfunc, self, args, NULL);
-        else
-            result = __Pyx_CallCFunction(cfunc, self, args);
-        Py_DECREF(args);
-    } else
-#endif
-    {
-        result = __Pyx_PyObject_Call2Args(cfunc->method, self, arg);
-    }
-    return result;
-}
-
-/* dict_getitem_default */
-static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value) {
-    PyObject* value;
-#if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07020000
-    value = PyDict_GetItemWithError(d, key);
-    if (unlikely(!value)) {
-        if (unlikely(PyErr_Occurred()))
-            return NULL;
-        value = default_value;
-    }
-    Py_INCREF(value);
-    if ((1));
-#else
-    if (PyBytes_CheckExact(key) || PyUnicode_CheckExact(key) || PyLong_CheckExact(key)) {
-        value = PyDict_GetItem(d, key);
-        if (unlikely(!value)) {
-            value = default_value;
-        }
-        Py_INCREF(value);
-    }
-#endif
-    else {
-        if (default_value == Py_None)
-            value = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key);
-        else
-            value = __Pyx_CallUnboundCMethod2(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key, default_value);
-    }
-    return value;
+/* RaiseUnexpectedTypeError */
+static int
+__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
+{
+    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
+    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
+                 expected, obj_type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    return 0;
 }
 
 /* HasAttr (used by ImportImpl) */

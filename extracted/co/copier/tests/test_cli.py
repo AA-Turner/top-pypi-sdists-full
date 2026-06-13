@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from collections.abc import Callable, Generator
+from contextlib import nullcontext as does_not_raise
 from pathlib import Path
 from unittest.mock import patch
 
@@ -311,24 +312,35 @@ def test_good_cli_run_dot_config(
 
     Added based on the discussion: https://github.com/copier-org/copier/discussions/859
     """
+    deprecated = (
+        does_not_raise()
+        if config_folder == Path()
+        else pytest.deprecated_call(
+            match=(
+                r"Answers file template locations other than the template root "
+                r"directory are deprecated"
+            )
+        )
+    )
 
     src = template_path_with_dot_config(str(config_folder))
 
     with local.cwd(src):
         git_commands()
 
-    run_result = CopierApp.run(
-        [
-            "copier",
-            "copy",
-            "--quiet",
-            "-a",
-            str(config_folder / "altered-answers.yml"),
-            src,
-            str(tmp_path),
-        ],
-        exit=False,
-    )
+    with deprecated:
+        run_result = CopierApp.run(
+            [
+                "copier",
+                "copy",
+                "--quiet",
+                "-a",
+                str(config_folder / "altered-answers.yml"),
+                src,
+                str(tmp_path),
+            ],
+            exit=False,
+        )
     a_txt = tmp_path / "a.txt"
     assert run_result[1] == 0
     assert a_txt.exists()
@@ -340,17 +352,18 @@ def test_good_cli_run_dot_config(
     with local.cwd(str(tmp_path)):
         git_commands()
 
-    run_update = CopierApp.run(
-        [
-            "copier",
-            "update",
-            str(tmp_path),
-            "--answers-file",
-            str(config_folder / "altered-answers.yml"),
-            "--quiet",
-        ],
-        exit=False,
-    )
+    with deprecated:
+        run_update = CopierApp.run(
+            [
+                "copier",
+                "update",
+                str(tmp_path),
+                "--answers-file",
+                str(config_folder / "altered-answers.yml"),
+                "--quiet",
+            ],
+            exit=False,
+        )
     assert run_update[1] == 0
     assert answers["_src_path"] == src
 
@@ -381,6 +394,7 @@ Usage:
     copier copy [SWITCHES] template_src destination_path
 
 Meta-switches:
+    --completions SHELL:{bash, fish} Prints shell completion script and quits
     -h, --help                      Prints this help message and quits
     --help-all                      Prints help messages of all sub-commands and
                                     quits
@@ -447,6 +461,7 @@ Usage:
     copier update [SWITCHES] [destination_path=.]
 
 Meta-switches:
+    --completions SHELL:{bash, fish} Prints shell completion script and quits
     -h, --help                      Prints this help message and quits
     --help-all                      Prints help messages of all sub-commands and
                                     quits
@@ -515,6 +530,7 @@ Usage:
     copier check-update [SWITCHES] [destination_path=.]
 
 Meta-switches:
+    --completions SHELL:{bash, fish} Prints shell completion script and quits
     -h, --help                      Prints this help message and quits
     --help-all                      Prints help messages of all sub-commands and
                                     quits

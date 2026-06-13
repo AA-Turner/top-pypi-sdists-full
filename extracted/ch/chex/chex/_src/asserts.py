@@ -37,9 +37,11 @@ ArrayDType = pytypes.ArrayDType  # pylint:disable=invalid-name
 ArrayTree = pytypes.ArrayTree
 
 
+# pylint: disable=invalid-name
 _value_assertion = _ai.chex_assertion
 _static_assertion = functools.partial(
     _ai.chex_assertion, jittable_assert_fn=None)
+# pylint: enable=invalid-name
 
 
 def disable_asserts() -> None:
@@ -828,7 +830,7 @@ def assert_type(
         f"got {len(inputs)} != {len(expected_types)}."
     )
   for idx, (x, expected) in enumerate(zip(inputs, expected_types)):
-    dtype = np.result_type(x)
+    dtype = x.dtype if hasattr(x, "dtype") else np.result_type(x)
     if expected in {float, jnp.floating}:
       if not jnp.issubdtype(dtype, jnp.floating):
         errors.append((idx, dtype, expected))
@@ -1058,7 +1060,7 @@ def assert_tree_has_only_ndarrays(tree: ArrayTree) -> None:
 # This is for backwards compatibility.
 def _check_sharding(x):
   if hasattr(jax, "Array") and isinstance(x, jax.Array):
-    if isinstance(x.sharding, jax.sharding.PmapSharding):
+    if not jax.typeof(x).sharding.is_fully_replicated:
       return True
     else:
       return len(x.sharding.device_set) > 1
@@ -1639,9 +1641,12 @@ assert_trees_all_equal = _value_assertion(
 )
 
 
-def _assert_trees_all_close_static(*trees: ArrayTree,
-                                   rtol: float = 1e-06,
-                                   atol: float = .0) -> None:
+def _assert_trees_all_close_static(
+    *trees: ArrayTree,
+    rtol: float = 1e-06,
+    atol: float = 0.0,
+    strict: bool = False,
+) -> None:
   """Checks that all trees have leaves with approximately equal values.
 
   This compares the difference between values of actual and desired up to
@@ -1651,6 +1656,9 @@ def _assert_trees_all_close_static(*trees: ArrayTree,
     *trees: A sequence of (at least 2) trees with array leaves.
     rtol: A relative tolerance.
     atol: An absolute tolerance.
+    strict: If True, raise an AssertionError when either the shape or the data
+      type of the arguments does not match. The special handling for scalars
+      mentioned in the Notes section of `np.allclose` is disabled.
 
   Raises:
     AssertionError: If actual and desired values are not equal up to
@@ -1662,7 +1670,9 @@ def _assert_trees_all_close_static(*trees: ArrayTree,
         _ai.jnp_to_np_array(arr_2),
         rtol=rtol,
         atol=atol,
-        err_msg="Error in value equality check: Values not approximately equal")
+        err_msg="Error in value equality check: Values not approximately equal",
+        strict=strict,
+    )
 
   def cmp_fn(arr_1, arr_2) -> bool:
     try:
@@ -1683,10 +1693,19 @@ def _assert_trees_all_close_static(*trees: ArrayTree,
   assert_trees_all_equal_comparator(cmp_fn, err_msg_fn, *trees)
 
 
-def _assert_trees_all_close_jittable(*trees: ArrayTree,
-                                     rtol: float = 1e-06,
-                                     atol: float = .0) -> Array:
+def _assert_trees_all_close_jittable(
+    *trees: ArrayTree,
+    rtol: float = 1e-06,
+    atol: float = 0.0,
+    strict: bool = False,
+) -> Array:
   """A jittable version of `_assert_trees_all_close_static`."""
+  if strict:
+    raise NotImplementedError(
+        "`strict=True` is not implemented by"
+        " `_assert_trees_all_close_jittable`."
+    )
+
   err_msg_template = (
       f"Values not approximately equal ({rtol=}, {atol=}): "
       + "{arr_1} != {arr_2}."

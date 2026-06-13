@@ -3288,6 +3288,19 @@ def agent_document(
             "— the FRMR attestation entries are still generated either way."
         ),
     ),
+    llm_model: str = typer.Option(
+        None,
+        "--llm-model",
+        help=(
+            "Override the workspace-configured model for THIS documentation run "
+            "only — config.toml is NOT modified, and the cached gap report is "
+            "untouched (the gap and documentation stages cache independently). "
+            "Use case (v0.1.227): the gap stage ran on Haiku but a stronger "
+            "model is wanted for narratives — e.g. after a "
+            "deterministic_guard_fallback warning. Examples: claude-sonnet-4-6, "
+            "claude-haiku-4-5."
+        ),
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -3417,10 +3430,17 @@ def agent_document(
             from efterlev.llm.factory import get_client_from_config
 
             dry_run_session = DryRunSession() if is_dry_run else None
+            # v0.1.227: --llm-model overrides for this run only. model_copy on
+            # the frozen LLMConfig — config.toml on disk is never touched.
+            llm_config = (
+                config.llm
+                if llm_model is None
+                else config.llm.model_copy(update={"model": llm_model})
+            )
             agent = DocumentationAgent(
-                model=config.llm.model,
+                model=llm_config.model,
                 client=get_client_from_config(
-                    config.llm, workspace_root=root, cache_mode=config.cache.mode
+                    llm_config, workspace_root=root, cache_mode=config.cache.mode
                 ),
             )
             with friendly_llm_error_handler():
@@ -5814,8 +5834,14 @@ def report_run(
         if _has_inherited_declaration(target.resolve()):
             stages.append(("scope apply", ["scope", "apply", "--target", target_str]))
         stages.append(("agent gap", ["agent", "gap", "--target", target_str]))
-        if not skip_document:
-            stages.append(("agent document", ["agent", "document", "--target", target_str]))
+        # v0.1.226: the deterministic gap-derived emits (poam, vdr, oscal)
+        # run BEFORE `agent document`. They derive from the gap
+        # classifications, not the narratives, so a documentation-stage
+        # failure must not take them down — the 2026-06-11 onboarding run
+        # lost POA&M + VDR + OSCAL to a doc-agent guard rejection at KSI
+        # 29/60 even though all three were already fully computable. Only
+        # the inspector (which assembles the attestation narratives) stays
+        # downstream of document.
         if not skip_poam:
             stages.append(("poam", ["poam", "--target", target_str]))
         if not skip_vdr:
@@ -5859,6 +5885,11 @@ def report_run(
                     ],
                 )
             )
+        if not skip_document:
+            # v0.1.226: document moved AFTER the deterministic emits (see
+            # comment above the poam stage). It still precedes the
+            # inspector, which assembles its narratives.
+            stages.append(("agent document", ["agent", "document", "--target", target_str]))
         if not skip_inspector:
             # v0.1.168 / #374: 3PAO inspector — single-page HTML assembling
             # FRMR statements + attestation narratives + RFC-0017 gate into

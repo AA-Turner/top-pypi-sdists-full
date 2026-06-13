@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-gitlab
-Version: 0.3.4
+Version: 0.3.5
 Summary: A Prefect collection for working with GitLab repositories.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: prefect>=3.6.17
+Requires-Dist: prefect>=3.7.4
 Requires-Dist: python-gitlab>=3.12.0
 Requires-Dist: tenacity>=8.2.3
 Dynamic: license-file

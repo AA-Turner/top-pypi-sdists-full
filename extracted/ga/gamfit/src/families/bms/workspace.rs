@@ -96,6 +96,33 @@ fn fill_link_basis_cell_coeff_jet(
     cbb[idx] = scale_coeff4(dc_bbw_raw, scale);
 }
 
+fn assemble_bms_block_local_s_psi(
+    deriv: &crate::custom_family::CustomFamilyBlockPsiDerivative,
+    per_block_rho: &Array1<f64>,
+    p_block: usize,
+) -> Array2<f64> {
+    if let Some(ref components) = deriv.s_psi_penalty_components {
+        let mut s_psi = Array2::<f64>::zeros((p_block, p_block));
+        for (penalty_idx, s_part) in components {
+            s_part.add_scaled_to(per_block_rho[*penalty_idx].exp(), &mut s_psi);
+        }
+        return s_psi;
+    }
+    if let Some(ref components) = deriv.s_psi_components {
+        let mut s_psi = Array2::<f64>::zeros((p_block, p_block));
+        for (penalty_idx, s_part) in components {
+            s_psi.scaled_add(per_block_rho[*penalty_idx].exp(), s_part);
+        }
+        s_psi
+    } else if let Some(penalty_idx) = deriv.penalty_index {
+        deriv
+            .s_psi
+            .mapv(|value| per_block_rho[penalty_idx].exp() * value)
+    } else {
+        Array2::<f64>::zeros((p_block, p_block))
+    }
+}
+
 impl BernoulliMarginalSlopeFamily {
     #[inline]
     pub(super) fn probit_frailty_scale(&self) -> f64 {
@@ -173,7 +200,7 @@ impl BernoulliMarginalSlopeFamily {
     }
 
     /// Unified scalar-objective dispatcher for the rigid Bernoulli kernel.
-    /// Routes to [`RigidProbitKernel::neglog_only`] for the standard-normal
+    /// Routes to [`rigid_standard_normal_neglog_only`] for the standard-normal
     /// latent measure and [`Self::empirical_rigid_neglog_only`] for any
     /// empirical-grid measure. Replaces `rigid_row_kernel_eval(...)`'s
     /// `(neglog, _, _)` return when only the scalar is needed.
@@ -184,7 +211,7 @@ impl BernoulliMarginalSlopeFamily {
         slope: f64,
     ) -> Result<f64, String> {
         match self.latent_measure.empirical_grid_for_training_row(row)? {
-            None => RigidProbitKernel::neglog_only(
+            None => rigid_standard_normal_neglog_only(
                 marginal.q,
                 slope,
                 self.z[row],
@@ -920,21 +947,14 @@ impl BernoulliMarginalSlopeFamily {
         slope: f64,
     ) -> Result<(f64, [f64; 2], [[f64; 2]; 2]), String> {
         match self.latent_measure.empirical_grid_for_training_row(row)? {
-            None => {
-                let kernel = RigidProbitKernel::new(
-                    marginal.q,
-                    slope,
-                    self.z[row],
-                    self.y[row],
-                    self.weights[row],
-                    self.probit_frailty_scale(),
-                )?;
-                Ok((
-                    -self.weights[row] * kernel.logcdf,
-                    rigid_transformed_gradient(marginal, &kernel),
-                    rigid_transformed_hessian(marginal, &kernel),
-                ))
-            }
+            None => rigid_standard_normal_row_kernel(
+                marginal,
+                slope,
+                self.z[row],
+                self.y[row],
+                self.weights[row],
+                self.probit_frailty_scale(),
+            ),
             Some(grid) => self.empirical_rigid_primary_grad_hess_closed_form(
                 row,
                 marginal,
@@ -1162,7 +1182,7 @@ impl BernoulliMarginalSlopeFamily {
     /// Per-row uncontracted third-derivative tensor in the rigid path.
     ///
     /// The standard-normal latent measure uses the analytic
-    /// `rigid_transformed_third_full`; empirical-grid rows use the closed-form
+    /// `rigid_standard_normal_third_full`; empirical-grid rows use the closed-form
     /// implicit-function-theorem tensor `empirical_rigid_third_full_closed_form`.
     /// Both yield the four distinct symmetric components `T_mmm, T_mmg, T_mgg,
     /// T_ggg`; the `rank`-many ψ-axis directions are folded in later by a cheap
@@ -1174,17 +1194,14 @@ impl BernoulliMarginalSlopeFamily {
         slope: f64,
     ) -> Result<[[[f64; 2]; 2]; 2], String> {
         match self.latent_measure.empirical_grid_for_training_row(row)? {
-            None => {
-                let kernel = RigidProbitKernel::new(
-                    marginal.q,
-                    slope,
-                    self.z[row],
-                    self.y[row],
-                    self.weights[row],
-                    self.probit_frailty_scale(),
-                )?;
-                Ok(rigid_transformed_third_full(marginal, &kernel))
-            }
+            None => rigid_standard_normal_third_full(
+                marginal,
+                slope,
+                self.z[row],
+                self.y[row],
+                self.weights[row],
+                self.probit_frailty_scale(),
+            ),
             Some(grid) => self.empirical_rigid_third_full_closed_form(
                 row,
                 marginal,
@@ -1198,7 +1215,7 @@ impl BernoulliMarginalSlopeFamily {
     /// Per-row uncontracted fourth-derivative tensor in the rigid path.
     ///
     /// The standard-normal latent measure drops out of
-    /// `rigid_transformed_fourth_full` (five axis-invariant primary-space
+    /// `rigid_standard_normal_fourth_full` (five axis-invariant primary-space
     /// components). Empirical-grid rows use the closed-form implicit-function-
     /// theorem tensor `empirical_rigid_fourth_full_closed_form`, yielding the
     /// five distinct symmetric components `T_mmmm, T_mmmg, T_mmgg, T_mggg,
@@ -1211,17 +1228,14 @@ impl BernoulliMarginalSlopeFamily {
         slope: f64,
     ) -> Result<[[[[f64; 2]; 2]; 2]; 2], String> {
         match self.latent_measure.empirical_grid_for_training_row(row)? {
-            None => {
-                let kernel = RigidProbitKernel::new(
-                    marginal.q,
-                    slope,
-                    self.z[row],
-                    self.y[row],
-                    self.weights[row],
-                    self.probit_frailty_scale(),
-                )?;
-                Ok(rigid_transformed_fourth_full(marginal, &kernel))
-            }
+            None => rigid_standard_normal_fourth_full(
+                marginal,
+                slope,
+                self.z[row],
+                self.y[row],
+                self.weights[row],
+                self.probit_frailty_scale(),
+            ),
             Some(grid) => self.empirical_rigid_fourth_full_closed_form(
                 row,
                 marginal,
@@ -1275,7 +1289,7 @@ impl BernoulliMarginalSlopeFamily {
             // gradient and Hessian returned by `rigid_row_kernel_eval` would
             // be immediately discarded. `rigid_row_neglog_only` dispatches
             // to:
-            //   * `RigidProbitKernel::neglog_only` (standard-normal): a single
+            //   * `rigid_standard_normal_neglog_only` (standard-normal): a single
             //     `signed_probit_logcdf_and_mills_ratio` call, skipping the
             //     `u_k`/`c_k`/`eta_*` chain-rule scaffolding.
             //   * `empirical_rigid_neglog_only` (empirical-grid): the
@@ -3107,13 +3121,35 @@ impl BernoulliMarginalSlopeFamily {
         let row_cell_started = std::time::Instant::now();
         let row_cell_moments =
             self.build_row_cell_moments_bundle(block_states, &row_contexts, 9, row_cell_mask)?;
+        // #979 Stage C: when the dense bundle was refused (the large-n
+        // regime), build the certified Chebyshev cell-moment family forest
+        // instead — O(leaves × combos × m²) ladder evaluations once per β,
+        // then transcendental-free per-row moment lookups with per-cell
+        // ladder fallback.
+        let cell_family_forest = if row_cell_moments.is_none() {
+            self.build_cell_family_forest(block_states, &row_contexts)?
+        } else {
+            None
+        };
         if log_exact_work(n) {
             log::info!(
-                "[BMS exact-cache] row-cell phase done n={} selected_rows={} built={} elapsed={:.3}s",
+                "[BMS exact-cache] row-cell phase done n={} selected_rows={} built={} forest={} elapsed={:.3}s",
                 n,
                 row_cell_mask.map_or(n, <[usize]>::len),
                 row_cell_moments.is_some(),
+                cell_family_forest.is_some(),
                 row_cell_started.elapsed().as_secs_f64()
+            );
+            // Ladder + forest observability (#979): does the progressive GL
+            // ladder certify early (win) or fall through to 384 (cost), and
+            // does the family forest actually cover rows or fall back to the
+            // ladder? Cumulative process-wide counters — the deltas across a
+            // fit reveal whether either mechanism earns its complexity.
+            let (ladder_hist, ladder_terminal) = exact_kernel::non_affine_ladder_cert_histogram();
+            let (forest_hits, forest_fallbacks) =
+                crate::families::cell_moment_family::forest_coverage_counts();
+            log::info!(
+                "[BMS ladder/forest stats] ladder_cert_by_rung={ladder_hist:?} ladder_terminal_384={ladder_terminal} forest_covered_rows={forest_hits} forest_fallback_rows={forest_fallbacks}"
             );
             log::info!(
                 "[BMS exact-cache] build done n={} context_rows={} p={} flex={} elapsed={:.3}s",
@@ -3130,6 +3166,7 @@ impl BernoulliMarginalSlopeFamily {
             primary,
             row_contexts,
             row_cell_moments,
+            cell_family_forest,
             row_cell_moments_d15: crate::resource::RayonSafeOnce::new(),
             row_cell_moments_d21: crate::resource::RayonSafeOnce::new(),
             row_primary_hessians: RowPrimaryEvalCache::Empty,
@@ -3138,6 +3175,108 @@ impl BernoulliMarginalSlopeFamily {
             flex_axis_third_tensors: crate::resource::RayonSafeOnce::new(),
             flex_axis_fourth_tensors: crate::resource::RayonSafeOnce::new(),
         })
+    }
+
+    /// Build the certified Chebyshev cell-moment family forest for the
+    /// current β snapshot (#979 Stage C). `None` (never an error) when the
+    /// FLEX path is inactive, the latent measure is non-standard-normal,
+    /// there are no deviation breakpoints, or the forest partition fails —
+    /// every caller falls back to direct ladder quadrature per cell, so a
+    /// missing forest is a performance regression only, never a numerical
+    /// one.
+    fn build_cell_family_forest(
+        &self,
+        block_states: &[ParameterBlockState],
+        row_contexts: &[BernoulliMarginalSlopeRowExactContext],
+    ) -> Result<Option<crate::families::cell_moment_family::CellFamilyForest>, String> {
+        use crate::families::cell_moment_family::{
+            CellFamilyForest, CellMomentFamilySpec, ComboKey,
+        };
+        if !self.effective_flex_active(block_states)? {
+            return Ok(None);
+        }
+        if !matches!(self.latent_measure, LatentMeasureKind::StandardNormal) {
+            return Ok(None);
+        }
+        let n = self.y.len();
+        if row_contexts.len() != n {
+            return Ok(None);
+        }
+        let score_breaks: Vec<f64> = self
+            .score_warp
+            .as_ref()
+            .map(|runtime| runtime.breakpoints().to_vec())
+            .unwrap_or_default();
+        let link_breaks: Vec<f64> = self
+            .link_dev
+            .as_ref()
+            .map(|runtime| runtime.breakpoints().to_vec())
+            .unwrap_or_default();
+        if score_breaks.is_empty() && link_breaks.is_empty() {
+            return Ok(None);
+        }
+        let beta_h = self.score_beta(block_states)?;
+        let beta_w = self.link_beta(block_states)?;
+        let mut a_rows = vec![0.0_f64; n];
+        let mut b_rows = vec![0.0_f64; n];
+        for row in 0..n {
+            a_rows[row] = row_contexts[row].intercept;
+            b_rows[row] = block_states[1].eta[row];
+        }
+        // Subsampled cache builds leave unselected rows at NaN intercepts;
+        // the forest requires finite coordinates, so skip the forest rather
+        // than poison the partition (those builds are small by design).
+        if a_rows.iter().any(|v| !v.is_finite()) || b_rows.iter().any(|v| !v.is_finite()) {
+            return Ok(None);
+        }
+        let started = std::time::Instant::now();
+        let mut forest =
+            match CellFamilyForest::partition(&a_rows, &b_rows, &score_breaks, &link_breaks) {
+                Ok(forest) => forest,
+                Err(reason) => {
+                    log::debug!("[BMS cell-family-forest] partition skipped: {reason}");
+                    return Ok(None);
+                }
+            };
+        // Demand pass: every row's interior finite cells, keyed by combo.
+        // Tail (semi-infinite) cells keep their closed-form affine anchors —
+        // interpolating them would be slower than the closed form.
+        let demands: Vec<(usize, ComboKey, CellMomentFamilySpec)> = (0..n)
+            .into_par_iter()
+            .map(|row| -> Result<Vec<_>, String> {
+                let cells =
+                    self.denested_partition_cells(a_rows[row], b_rows[row], beta_h, beta_w)?;
+                Ok(cells
+                    .into_iter()
+                    .filter(|pc| pc.cell.left.is_finite() && pc.cell.right.is_finite())
+                    .map(|pc| {
+                        (
+                            row,
+                            ComboKey::new(pc.score_span, pc.link_span, pc.left_edge, pc.right_edge),
+                            CellMomentFamilySpec {
+                                score_span: pc.score_span,
+                                link_span: pc.link_span,
+                                left: pc.left_edge,
+                                right: pc.right_edge,
+                                max_degree: 9,
+                            },
+                        )
+                    })
+                    .collect())
+            })
+            .try_reduce(Vec::new, |mut left, right| {
+                left.extend(right);
+                Ok(left)
+            })?;
+        forest.build_families(demands);
+        log::info!(
+            "[BMS cell-family-forest] built n={} leaves={} eligible={} elapsed={:.3}s",
+            n,
+            forest.total_leaves(),
+            forest.eligible_leaves(),
+            started.elapsed().as_secs_f64(),
+        );
+        Ok(Some(forest))
     }
 
     /// Build a top-of-cycle [`RowCellMomentsBundle`] at the given
@@ -4390,80 +4529,15 @@ impl BernoulliMarginalSlopeFamily {
         }
         let completed_rows = AtomicUsize::new(0);
         let progress_step = (n / 10).max(1);
-        // Allocate the three packed arrays up front, then fill them one row
-        // chunk at a time: each chunk is computed in parallel into a small
-        // `Vec<(f64, Vec, Vec)>` (safe disjoint-row collect) and copied into the
-        // packed arrays before the next chunk's scratch is allocated. This caps
-        // transient overhead at one chunk (~tens of MiB) instead of holding a
-        // second full `n×r²` copy alongside the packed arrays — the old
-        // collect-all-then-copy form peaked at ~2× the planned cache size, so
-        // the byte estimate the materialize/stream policy budgets against
-        // (`plan.bytes`) now actually bounds peak memory.
-        let mut packed_neglog = Array1::<f64>::zeros(n);
-        let mut packed_grad = Array2::<f64>::zeros((n, r));
-        let mut packed_hess = Array2::<f64>::zeros((n, r * r));
-        // ~tens of MiB of transient per-chunk scratch at r=20 (8192 * 421 * 8 ≈
-        // 27 MiB) regardless of n.
-        const ROW_PRIMARY_BUILD_CHUNK: usize = 8192;
-        let mut chunk_start = 0usize;
-        while chunk_start < n {
-            let chunk_end = (chunk_start + ROW_PRIMARY_BUILD_CHUNK).min(n);
-            let chunk_evals: Vec<(f64, Vec<f64>, Vec<f64>)> = (chunk_start..chunk_end)
-                .into_par_iter()
-                .map(|row| -> Result<(f64, Vec<f64>, Vec<f64>), String> {
-                    let row_ctx = Self::row_ctx(cache, row);
-                    let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(r);
-                    let row_moments = cache
-                        .row_cell_moments
-                        .as_ref()
-                        .and_then(|bundle| bundle.row(row, 9));
-                    let neglog = self.compute_row_analytic_flex_into_with_moments(
-                        row,
-                        block_states,
-                        primary,
-                        row_ctx,
-                        row_moments,
-                        true,
-                        &mut scratch,
-                    )?;
-                    if log_exact_work(n) {
-                        let done = completed_rows.fetch_add(1, Ordering::Relaxed) + 1;
-                        if done == n || done % progress_step == 0 {
-                            log::info!(
-                                "[BMS row-primary-hessian-cache] progress rows={}/{} elapsed={:.3}s",
-                                done,
-                                n,
-                                started.elapsed().as_secs_f64()
-                            );
-                        }
-                    }
-                    Ok((
-                        neglog,
-                        scratch.grad.to_vec(),
-                        scratch
-                            .hess
-                            .as_slice()
-                            .expect("hess is contiguous")
-                            .to_vec(),
-                    ))
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            for (offset, (neglog, grad_flat, hess_flat)) in chunk_evals.into_iter().enumerate() {
-                let row = chunk_start + offset;
-                packed_neglog[row] = neglog;
-                packed_grad
-                    .row_mut(row)
-                    .iter_mut()
-                    .zip(grad_flat.iter())
-                    .for_each(|(d, s)| *d = *s);
-                packed_hess
-                    .row_mut(row)
-                    .iter_mut()
-                    .zip(hess_flat.iter())
-                    .for_each(|(d, s)| *d = *s);
-            }
-            chunk_start = chunk_end;
-        }
+        let rows = self.build_row_primary_hessian_pin(
+            block_states,
+            cache,
+            0..n,
+            &completed_rows,
+            progress_step,
+            started,
+            plan.bytes,
+        )?;
         if log_exact_work(n) {
             log::info!(
                 "[BMS row-primary-hessian-cache] build done n={} r={} elapsed={:.3}s",
@@ -4473,12 +4547,7 @@ impl BernoulliMarginalSlopeFamily {
             );
         }
         drop(process_monitor_guard);
-        Ok(RowPrimaryEvalCache::Host(RowPrimaryEvalPin::new(
-            packed_neglog,
-            packed_grad,
-            packed_hess,
-            plan.bytes,
-        )))
+        Ok(RowPrimaryEvalCache::Host(rows))
     }
 
     fn row_primary_eval_tile_bytes(rows: usize, r: usize) -> u64 {
@@ -4500,6 +4569,32 @@ impl BernoulliMarginalSlopeFamily {
         progress_step: usize,
         started: std::time::Instant,
     ) -> Result<RowPrimaryEvalTile, String> {
+        let tile_len = rows.end - rows.start;
+        let bytes = Self::row_primary_eval_tile_bytes(tile_len, cache.primary.total);
+        Ok(RowPrimaryEvalTile {
+            row_start: rows.start,
+            rows: self.build_row_primary_hessian_pin(
+                block_states,
+                cache,
+                rows,
+                completed_rows,
+                progress_step,
+                started,
+                bytes,
+            )?,
+        })
+    }
+
+    fn build_row_primary_hessian_pin(
+        &self,
+        block_states: &[ParameterBlockState],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        rows: std::ops::Range<usize>,
+        completed_rows: &AtomicUsize,
+        progress_step: usize,
+        started: std::time::Instant,
+        bytes: u64,
+    ) -> Result<RowPrimaryEvalPin, String> {
         let n = self.y.len();
         let r = cache.primary.total;
         let tile_len = rows.end - rows.start;
@@ -4522,6 +4617,7 @@ impl BernoulliMarginalSlopeFamily {
                     &cache.primary,
                     row_ctx,
                     row_moments,
+                    cache.cell_family_forest.as_ref(),
                     true,
                     &mut scratch,
                 )?;
@@ -4560,11 +4656,12 @@ impl BernoulliMarginalSlopeFamily {
                 .zip(hess_flat.iter())
                 .for_each(|(d, s)| *d = *s);
         }
-        let bytes = Self::row_primary_eval_tile_bytes(tile_len, r);
-        Ok(RowPrimaryEvalTile {
-            row_start: rows.start,
-            rows: RowPrimaryEvalPin::new(packed_neglog, packed_grad, packed_hess, bytes),
-        })
+        Ok(RowPrimaryEvalPin::new(
+            packed_neglog,
+            packed_grad,
+            packed_hess,
+            bytes,
+        ))
     }
 
     /// Look up the cached per-row primary Hessian (`r × r`) materialized at
@@ -4985,6 +5082,7 @@ impl BernoulliMarginalSlopeFamily {
                 block_states,
                 primary,
                 row_ctx,
+                None,
                 true,
                 &mut scratch,
             )?;
@@ -5031,6 +5129,7 @@ impl BernoulliMarginalSlopeFamily {
                 primary,
                 row_ctx,
                 row_moments,
+                cache.cell_family_forest.as_ref(),
                 false,
                 &mut scratch,
             )?;
@@ -5047,6 +5146,7 @@ impl BernoulliMarginalSlopeFamily {
         block_states: &[ParameterBlockState],
         primary: &PrimarySlices,
         row_ctx: &BernoulliMarginalSlopeRowExactContext,
+        family_forest: Option<&crate::families::cell_moment_family::CellFamilyForest>,
         need_hessian: bool,
         scratch: &mut BernoulliMarginalSlopeFlexRowScratch,
     ) -> Result<f64, String> {
@@ -5056,6 +5156,7 @@ impl BernoulliMarginalSlopeFamily {
             primary,
             row_ctx,
             None,
+            family_forest,
             need_hessian,
             scratch,
         )
@@ -5068,6 +5169,7 @@ impl BernoulliMarginalSlopeFamily {
         primary: &PrimarySlices,
         row_ctx: &BernoulliMarginalSlopeRowExactContext,
         row_cell_moments: Option<&[CachedDenestedCellMoments]>,
+        family_forest: Option<&crate::families::cell_moment_family::CellFamilyForest>,
         need_hessian: bool,
         scratch: &mut BernoulliMarginalSlopeFlexRowScratch,
     ) -> Result<f64, String> {
@@ -5084,6 +5186,7 @@ impl BernoulliMarginalSlopeFamily {
             beta_w,
             row_ctx,
             row_cell_moments,
+            family_forest,
             need_hessian,
             scratch,
         )
@@ -5099,6 +5202,7 @@ impl BernoulliMarginalSlopeFamily {
         beta_w: Option<&Array1<f64>>,
         row_ctx: &BernoulliMarginalSlopeRowExactContext,
         row_cell_moments: Option<&[CachedDenestedCellMoments]>,
+        family_forest: Option<&crate::families::cell_moment_family::CellFamilyForest>,
         need_hessian: bool,
         scratch: &mut BernoulliMarginalSlopeFlexRowScratch,
     ) -> Result<f64, String> {
@@ -5154,9 +5258,14 @@ impl BernoulliMarginalSlopeFamily {
                 .iter()
                 .zip(empirical_grid.weights.iter())
             {
+                // coeff_u is read by every per-node loop; coeff_au and coeff_bu
+                // are only read inside the `if need_hessian` branches below, so
+                // their per-node zero-fills are dead work in gradient-only mode.
                 coeff_u.fill([0.0; 4]);
-                coeff_au.fill([0.0; 4]);
-                coeff_bu.fill([0.0; 4]);
+                if need_hessian {
+                    coeff_au.fill([0.0; 4]);
+                    coeff_bu.fill([0.0; 4]);
+                }
 
                 let obs = self.observed_denested_cell_partials_at_z(node, a, b, beta_h, beta_w)?;
                 let eta = eval_coeff4_at(&obs.coeff, node);
@@ -5302,15 +5411,51 @@ impl BernoulliMarginalSlopeFamily {
                     .into_iter()
                     .map(|partition_cell| {
                         let degree = if need_hessian { 9 } else { 3 };
+                        // #979 Stage C: certified Chebyshev family lookup
+                        // first — transcendental-free when this row's leaf
+                        // certified this cell combo; ladder fallback
+                        // otherwise. Families are built at degree 9, which
+                        // covers both the gradient (3) and Hessian (9)
+                        // consumers.
+                        if let Some(forest) = family_forest
+                            && partition_cell.cell.left.is_finite()
+                            && partition_cell.cell.right.is_finite()
+                        {
+                            let key = crate::families::cell_moment_family::ComboKey::new(
+                                partition_cell.score_span,
+                                partition_cell.link_span,
+                                partition_cell.left_edge,
+                                partition_cell.right_edge,
+                            );
+                            let mut family_moments = [0.0_f64; 10];
+                            if forest
+                                .moments_into(row, key, a, b, &mut family_moments)
+                                .is_some()
+                            {
+                                let state = exact::CellDerivativeMomentState {
+                                    branch: exact::branch_cell(partition_cell.cell)?,
+                                    moments: exact::CellMomentVec::from_slice(&family_moments),
+                                };
+                                return Ok((partition_cell, std::borrow::Cow::Owned(state)));
+                            }
+                        }
                         self.evaluate_cell_derivative_moments_lru(partition_cell.cell, degree)
                             .map(|state| (partition_cell, std::borrow::Cow::Owned(state)))
                     })
                     .collect::<Result<Vec<_>, String>>()?
             };
             for (partition_cell, state) in cached_cells {
+                // coeff_u is consumed by `cell_first_derivative_from_moments`
+                // for every cell; coeff_au and coeff_bu only feed the
+                // `if need_hessian` blocks below, so their per-cell zero-fills
+                // — and the `coeff_au[1] = [0.0; 4]; coeff_bu[1] = [0.0; 4];`
+                // pair that used to seed them explicitly — are dead work in
+                // gradient-only mode.
                 coeff_u.fill([0.0; 4]);
-                coeff_au.fill([0.0; 4]);
-                coeff_bu.fill([0.0; 4]);
+                if need_hessian {
+                    coeff_au.fill([0.0; 4]);
+                    coeff_bu.fill([0.0; 4]);
+                }
                 let cell = partition_cell.cell;
                 let z_mid = exact::interval_probe_point(cell.left, cell.right)?;
                 let u_mid = a + b * z_mid;
@@ -5325,8 +5470,6 @@ impl BernoulliMarginalSlopeFamily {
                 let dc_db = scale_coeff4(dc_db_raw, scale);
 
                 coeff_u[1] = dc_db;
-                coeff_au[1] = [0.0; 4];
-                coeff_bu[1] = [0.0; 4];
                 if need_hessian {
                     let (dc_daa_raw, dc_dab_raw, dc_dbb_raw) = exact::denested_cell_second_partials(
                         partition_cell.score_span,
@@ -5479,12 +5622,18 @@ impl BernoulliMarginalSlopeFamily {
         let eta_aa_obs = eval_coeff4_at(&obs.dc_daa, z_obs);
         let eta_val = eval_coeff4_at(&obs.coeff, z_obs);
 
+        // `g_u_fixed` feeds `rho` (always read); `g_au_fixed` / `g_bu_fixed`
+        // only feed `tau` and the symmetric-Hessian `pair_from_b_family`
+        // contraction, so their per-row zero-fill and `[1]` seeding are dead
+        // work in gradient-only mode.
         g_u_fixed.fill([0.0; 4]);
-        g_au_fixed.fill([0.0; 4]);
-        g_bu_fixed.fill([0.0; 4]);
         g_u_fixed[1] = obs.dc_db;
-        g_au_fixed[1] = obs.dc_dab;
-        g_bu_fixed[1] = obs.dc_dbb;
+        if need_hessian {
+            g_au_fixed.fill([0.0; 4]);
+            g_bu_fixed.fill([0.0; 4]);
+            g_au_fixed[1] = obs.dc_dab;
+            g_bu_fixed[1] = obs.dc_dbb;
+        }
         if let (Some(h_range), Some(runtime)) = (h_range, score_runtime) {
             Self::for_each_deviation_basis_cubic_at(
                 runtime,
@@ -5541,13 +5690,19 @@ impl BernoulliMarginalSlopeFamily {
             zero_family,
         );
 
+        // `scratch.reset(need_hessian)` at the top of this function zeroed both
+        // `rho` and `tau` unconditionally, so no manual fill is needed here.
+        // `tau` is consumed only by the symmetric-Hessian assembly below, so
+        // its per-row eval_coeff4_at sweep is dead work in gradient-only mode.
         let rho = &mut scratch.rho;
         let tau = &mut scratch.tau;
-        rho.fill(0.0);
-        tau.fill(0.0);
         for u in 1..r {
             rho[u] = eval_coeff4_at(&g_jet.first[u], z_obs);
-            tau[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs);
+        }
+        if need_hessian {
+            for u in 1..r {
+                tau[u] = eval_coeff4_at(&g_jet.a_first[u], z_obs);
+            }
         }
 
         let eta_u = &mut scratch.grad;
@@ -9309,6 +9464,7 @@ impl BernoulliMarginalSlopeFamily {
                                     primary,
                                     row_ctx,
                                     row_moments,
+                                    cache.cell_family_forest.as_ref(),
                                     true,
                                     &mut scratch,
                                 )?;
@@ -9523,6 +9679,7 @@ impl BernoulliMarginalSlopeFamily {
                                     primary,
                                     row_ctx,
                                     row_moments,
+                                    cache.cell_family_forest.as_ref(),
                                     cached_hess.is_none(),
                                     &mut scratch,
                                 )?;
@@ -9814,6 +9971,7 @@ impl BernoulliMarginalSlopeFamily {
                         primary,
                         row_ctx,
                         row_moments,
+                        cache.cell_family_forest.as_ref(),
                         false,
                         &mut scratch,
                     )?;
@@ -10265,6 +10423,7 @@ impl BernoulliMarginalSlopeFamily {
                                     primary,
                                     row_ctx,
                                     row_moments,
+                                    cache.cell_family_forest.as_ref(),
                                     true,
                                     &mut scratch,
                                 )?;
@@ -10793,6 +10952,7 @@ impl BernoulliMarginalSlopeFamily {
                                 primary,
                                 row_ctx,
                                 row_moments,
+                                cache.cell_family_forest.as_ref(),
                                 true,
                                 &mut scratch,
                             )?;
@@ -13266,6 +13426,7 @@ impl BernoulliMarginalSlopeFamily {
                                 &primary,
                                 row_ctx,
                                 row_moments,
+                                cache.cell_family_forest.as_ref(),
                                 true,
                                 &mut scratch,
                             )?;
@@ -13710,11 +13871,16 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         hessian_workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
     ) -> Result<Option<BatchedOuterGradientTerms>, String> {
         let psi_dim: usize = derivative_blocks.iter().map(Vec::len).sum();
-        if psi_dim != 0 {
-            return Ok(None);
-        }
         if block_states.len() != specs.len() {
             return Ok(None);
+        }
+        if derivative_blocks.len() != specs.len() {
+            return Ok(None);
+        }
+        for psi_index in 0..psi_dim {
+            if self.is_sigma_aux_index(derivative_blocks, psi_index) {
+                return Ok(None);
+            }
         }
         // Two-phase auto-subsample schedule. Phase 1: stratified
         // Horvitz–Thompson mask (≈ 1 % gradient noise) for the first
@@ -13769,11 +13935,12 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             };
         let ranges = Self::block_ranges_from_specs(specs);
         let total = ranges.last().map(|(_, end)| *end).unwrap_or(0);
+        let theta_dim = rho.len() + psi_dim;
         if total == 0 {
             return Ok(Some(BatchedOuterGradientTerms {
-                objective_theta: Array1::zeros(0),
-                trace_h_inv_hdot: Array1::zeros(0),
-                trace_s_pinv_sdot: Array1::zeros(0),
+                objective_theta: Array1::zeros(theta_dim),
+                trace_h_inv_hdot: Array1::zeros(theta_dim),
+                trace_s_pinv_sdot: Array1::zeros(theta_dim),
             }));
         }
         if rho.len() != specs.iter().map(|spec| spec.penalties.len()).sum::<usize>() {
@@ -13840,8 +14007,8 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         } else {
             0.0
         };
-        let mut objective_theta = Array1::<f64>::zeros(rho.len());
-        let mut trace_s_pinv_sdot = Array1::<f64>::zeros(rho.len());
+        let mut objective_theta = Array1::<f64>::zeros(theta_dim);
+        let mut trace_s_pinv_sdot = Array1::<f64>::zeros(theta_dim);
         let mut penalty_cursor = 0usize;
         let mut per_block_rho: Vec<Array1<f64>> = Vec::with_capacity(specs.len());
         let mut penalties_dense: Vec<Vec<Array2<f64>>> = Vec::with_capacity(specs.len());
@@ -13881,14 +14048,25 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         } else {
             0.0
         };
-        let per_block_penalty_refs: Vec<&[Array2<f64>]> =
-            penalties_dense.iter().map(Vec::as_slice).collect();
-        let penalty_logdet = crate::estimate::reml::unified::compute_block_penalty_logdet_derivs(
-            &per_block_rho,
-            &per_block_penalty_refs,
-            penalty_logdet_ridge,
-        )?;
-        trace_s_pinv_sdot.assign(&penalty_logdet.first);
+        let mut penalty_logdet_blocks = Vec::with_capacity(specs.len());
+        penalty_cursor = 0;
+        for (block_idx, block_rho) in per_block_rho.iter().enumerate() {
+            let lambdas = block_rho.mapv(f64::exp).to_vec();
+            let pld = crate::estimate::reml::penalty_logdet::PenaltyPseudologdet::from_components(
+                &penalties_dense[block_idx],
+                &lambdas,
+                penalty_logdet_ridge,
+            )
+            .map_err(|e| {
+                format!("bernoulli marginal-slope penalty logdet failed for block {block_idx}: {e}")
+            })?;
+            let first = pld.rho_derivatives(&penalties_dense[block_idx], &lambdas).0;
+            for (local_idx, value) in first.iter().enumerate() {
+                trace_s_pinv_sdot[penalty_cursor + local_idx] = *value;
+            }
+            penalty_cursor += block_rho.len();
+            penalty_logdet_blocks.push(pld);
+        }
         if log_exact_work(self.y.len()) {
             log::info!(
                 "[BMS batched outer-gradient] penalty assembly/logdet done n={} p={} rho={} elapsed={:.3}s",
@@ -13912,8 +14090,8 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
                 spectral_started.elapsed().as_secs_f64()
             );
         }
-        let mut trace_h_inv_hdot = Array1::<f64>::zeros(rho.len());
-        let mut directions = Array2::<f64>::zeros((total, rho.len()));
+        let mut trace_h_inv_hdot = Array1::<f64>::zeros(theta_dim);
+        let mut directions = Array2::<f64>::zeros((total, theta_dim));
         let direction_started = std::time::Instant::now();
         penalty_cursor = 0;
         for (block_idx, spec) in specs.iter().enumerate() {
@@ -13933,12 +14111,88 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             }
             penalty_cursor += spec.penalties.len();
         }
+
+        let psi_cache = if psi_dim == 0 {
+            None
+        } else {
+            Some(self.build_exact_eval_cache_with_options(block_states, Some(options))?)
+        };
+        if let Some(cache) = psi_cache.as_ref() {
+            let mut axes: Vec<PsiAxisSpec> = Vec::with_capacity(psi_dim);
+            let mut psi_locations: Vec<(usize, usize)> = Vec::with_capacity(psi_dim);
+            for psi_index in 0..psi_dim {
+                let Some((block_idx, local_idx)) =
+                    psi_derivative_location(derivative_blocks, psi_index)
+                else {
+                    return Ok(None);
+                };
+                axes.push(self.resolve_psi_axis_spec(derivative_blocks, block_idx, local_idx)?);
+                psi_locations.push((block_idx, local_idx));
+            }
+            let psi_terms = self.run_psi_row_pass_for_axes(block_states, cache, options, &axes)?;
+            if psi_terms.len() != psi_dim {
+                return Err(format!(
+                    "bernoulli marginal-slope batched gradient psi terms length {} != psi_dim {psi_dim}",
+                    psi_terms.len()
+                ));
+            }
+            for (psi_index, ((block_idx, local_idx), terms)) in psi_locations
+                .into_iter()
+                .zip(psi_terms.into_iter())
+                .enumerate()
+            {
+                let idx = rho.len() + psi_index;
+                if terms.score_psi.len() != total {
+                    return Err(format!(
+                        "bernoulli marginal-slope batched gradient psi score length {} != p {total}",
+                        terms.score_psi.len()
+                    ));
+                }
+                if terms.hessian_psi.nrows() > 0
+                    && (terms.hessian_psi.nrows() != total || terms.hessian_psi.ncols() != total)
+                {
+                    return Err(format!(
+                        "bernoulli marginal-slope batched gradient psi Hessian shape {}x{} != {total}x{total}",
+                        terms.hessian_psi.nrows(),
+                        terms.hessian_psi.ncols()
+                    ));
+                }
+                let (start, end) = ranges[block_idx];
+                let p_block = end - start;
+                let deriv = &derivative_blocks[block_idx][local_idx];
+                let s_psi_local =
+                    assemble_bms_block_local_s_psi(deriv, &per_block_rho[block_idx], p_block);
+                let beta_block = beta.slice(s![start..end]);
+                let s_psi_beta_local = s_psi_local.dot(&beta_block);
+                objective_theta[idx] =
+                    terms.objective_psi + 0.5 * beta_block.dot(&s_psi_beta_local);
+                let mut rhs = terms.score_psi.clone();
+                {
+                    let mut rhs_block = rhs.slice_mut(s![start..end]);
+                    rhs_block += &s_psi_beta_local;
+                }
+                let v = spectral.solve(&rhs);
+                directions.column_mut(idx).assign(&(-&v));
+                if terms.hessian_psi.nrows() > 0 {
+                    trace_h_inv_hdot[idx] += spectral.trace_logdet_gradient(&terms.hessian_psi);
+                }
+                if let Some(operator) = terms.hessian_psi_operator.as_ref() {
+                    trace_h_inv_hdot[idx] += spectral.trace_logdet_operator(operator.as_ref());
+                }
+                trace_h_inv_hdot[idx] +=
+                    spectral.trace_logdet_block_local(&s_psi_local, 1.0, start, end);
+                trace_s_pinv_sdot[idx] =
+                    penalty_logdet_blocks[block_idx].tau_gradient_component(&s_psi_local);
+            }
+        }
         if log_exact_work(self.y.len()) {
             log::info!(
-                "[BMS batched outer-gradient] direction solves done n={} p={} rho={} elapsed={:.3}s",
+                "[BMS batched outer-gradient] direction solves done n={} p={} theta={} rho={} psi={} elapsed={:.3}s",
                 self.y.len(),
                 total,
+                theta_dim,
                 rho.len(),
+                psi_dim,
                 direction_started.elapsed().as_secs_f64()
             );
         }
@@ -13965,6 +14219,8 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
                     options,
                     subsample.mask.as_slice(),
                 )?
+            } else if let Some(cache) = psi_cache {
+                cache
             } else {
                 self.build_exact_eval_cache_with_options(block_states, Some(options))?
             };
@@ -13989,10 +14245,12 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         trace_h_inv_hdot += &correction_traces;
         if log_exact_work(self.y.len()) {
             log::info!(
-                "[BMS batched outer-gradient] done n={} p={} rho={} trace_elapsed={:.3}s total_elapsed={:.3}s",
+                "[BMS batched outer-gradient] done n={} p={} theta={} rho={} psi={} trace_elapsed={:.3}s total_elapsed={:.3}s",
                 self.y.len(),
                 total,
+                theta_dim,
                 rho.len(),
+                psi_dim,
                 started.elapsed().as_secs_f64(),
                 batched_started.elapsed().as_secs_f64()
             );

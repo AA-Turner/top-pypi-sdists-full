@@ -22,7 +22,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.local_common import get_local_tokens, get_test_workspace_name
 from tinybird.tb.modules.project import Project
 
-yaml.SafeDumper.org_represent_str = yaml.SafeDumper.represent_str  # type: ignore[attr-defined]
+yaml.SafeDumper.org_represent_str = yaml.SafeDumper.represent_str  # type: ignore[attr-defined, unused-ignore]
 
 
 def repr_str(dumper, data):

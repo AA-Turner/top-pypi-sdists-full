@@ -8,8 +8,8 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::PyType;
+use ryo3_core::macros::{py_value_err, py_value_error};
 use ryo3_core::sync::RyMutex;
-use ryo3_core::{py_value_err, py_value_error};
 
 use crate::pattern::PyGlobPattern;
 
@@ -273,7 +273,7 @@ fn extract_dtype(dtype: Option<Bound<'_, PyType>>) -> PyResult<GlobDType> {
         } else if dtype.is(ry_fspath_type(py)?) {
             Ok(GlobDType::FsPath)
         } else {
-            let repr = dtype.repr()?.to_string_lossy().into_owned();
+            let repr = dtype.repr()?.to_string();
             py_value_err!(
                 "Invalid dtype: {repr} (only `str`, `pathlib.Path` or `ry.ryo3.FsPath` are supported)"
             )

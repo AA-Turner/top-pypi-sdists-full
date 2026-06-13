@@ -45,7 +45,16 @@ def cmd_init(args: list[str]) -> dict:
     clean_orphaned = "--clean-orphaned" in args
     apply_updates = "--apply" in args
     force_skills = "--force-skills" in args
-    non_interactive = "--non-interactive" in args or "--json" in args
+    # main.py strips `--json` from args before dispatch, so check the module
+    # global as the authoritative source. Fall back to scanning args for safety
+    # (#644: init was prompting interactively even with --json, breaking
+    # subprocess JSON parsing).
+    try:
+        from kanban_framework.cli.main import _USE_JSON as _cli_use_json
+        _cli_json_mode = bool(_cli_use_json)
+    except Exception:
+        _cli_json_mode = False
+    non_interactive = "--non-interactive" in args or "--json" in args or _cli_json_mode
 
     fs, _, _ = _resolve()
     root = Filesystem.find_project_root()

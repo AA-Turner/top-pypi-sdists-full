@@ -48,13 +48,12 @@ async def main() -> None:
 
     # or SmplClient for synchronous use
     async with AsyncSmplClient(environment="production") as client:
-        audit = client.audit
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 
         # ----- Events: record / list / get --------------------------------
 
         # record an event
-        await audit.events.record(
+        await client.audit.events.record(
             actor_id="billing-bot:42",
             actor_label="finance@example.com",
             actor_type="USER",
@@ -72,7 +71,7 @@ async def main() -> None:
         print(f"Recorded event for invoice {some_resource_id}")
 
         # list events
-        page = await audit.events.list(
+        page = await client.audit.events.list(
             resource_type="invoice", resource_id=some_resource_id
         )
         assert some_resource_id in {e.resource_id for e in page.events}
@@ -80,7 +79,7 @@ async def main() -> None:
         print(f"Listed {len(page)} event(s) for invoice {some_resource_id}")
 
         # fetch an event
-        event = await audit.events.get(recorded_event_id)
+        event = await client.audit.events.get(recorded_event_id)
         assert event.id == recorded_event_id
         assert event.resource_id == some_resource_id
         assert event.event_type == "invoice.created"
@@ -94,15 +93,15 @@ async def main() -> None:
 
         # ----- Discovery: distinct resource_types / event_types / categories
 
-        resource_types = await audit.resource_types.list()
+        resource_types = await client.audit.resource_types.list()
         assert "invoice" in {rt.id for rt in resource_types}
         print(f"Observed resource types: {[rt.id for rt in resource_types]}")
 
-        event_types = await audit.event_types.list()
+        event_types = await client.audit.event_types.list()
         assert "invoice.created" in {et.id for et in event_types}
         print(f"Observed event types: {[et.id for et in event_types]}")
 
-        categories = await audit.categories.list()
+        categories = await client.audit.categories.list()
         assert "billing" in {c.id for c in categories}
         print(f"Observed categories: {[c.id for c in categories]}")
 
@@ -112,7 +111,7 @@ async def main() -> None:
 
         try:
             # create a forwarder (disabled by default)
-            forwarder = audit.forwarders.new(
+            forwarder = client.audit.forwarders.new(
                 forwarder_id,
                 configuration=HttpConfiguration(
                     headers=[HttpHeader(name="X-Showcase", value="ok")],
@@ -128,7 +127,7 @@ async def main() -> None:
             print(f"Created forwarder: {forwarder.name} (id={forwarder.id})")
 
             # list forwarders
-            listed = await audit.forwarders.list()
+            listed = await client.audit.forwarders.list()
             assert forwarder.id in {f.id for f in listed.forwarders}
             print(f"Account has {len(listed.forwarders)} forwarder(s)")
 
@@ -157,13 +156,13 @@ async def main() -> None:
 
             # delete a forwarder
             await forwarder.delete()
-            remaining = await audit.forwarders.list()
+            remaining = await client.audit.forwarders.list()
             assert forwarder_id not in {f.id for f in remaining.forwarders}
             print(f"Deleted forwarder: {forwarder.name}")
         finally:
             # tear-down: never leave the showcase forwarder behind, even on failure
             try:
-                await audit.forwarders.delete(forwarder_id)
+                await client.audit.forwarders.delete(forwarder_id)
             except NotFoundError:
                 pass
 

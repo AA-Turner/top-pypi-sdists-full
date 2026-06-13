@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ml_goodput_measurement
-Version: 0.0.16
+Version: 0.2.0
 Summary: Package to monitor Goodput, Badput and other metrics of ML workloads.
 Keywords: 
 Author-email: Cloud TPU Team <cloud-tpu-eng@google.com>
@@ -18,8 +18,13 @@ Requires-Dist: requests
 Requires-Dist: scipy
 Requires-Dist: tensorboardx
 Requires-Dist: urllib3
+Requires-Dist: absl-py ; extra == "test"
+Requires-Dist: mock ; extra == "test"
+Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
 Project-URL: Bug Tracker, https://github.com/AI-Hypercomputer/ml-goodput-measurement/issues
 Project-URL: Homepage, https://github.com/AI-Hypercomputer/ml-goodput-measurement
+Provides-Extra: test
 
 <!--
  Copyright 2023 Google LLC
@@ -82,7 +87,7 @@ Project-URL: Homepage, https://github.com/AI-Hypercomputer/ml-goodput-measuremen
 
  The `GoodputMonitor` exposes APIs to query and upload goodput and step time
  deviation data to Tensorboard asynchronously. It does this by instantiating a
- `GoodputCaluclator` under the hood.
+ `GoodputCalculator` under the hood.
 
 ## Installation
 
@@ -541,8 +546,12 @@ Create a `GoodputMonitor` object with the following parameters:
  5. `monitoring_enabled`: Whether or not monitoring is enabled.
         If the application is interested in monitoring Goodput, it should set
         this value to True. Only one worker should enable monitoring.
- 6. `include_badput_breakdown`: Whether to query and upload badput breakdown
+  6. `include_badput_breakdown`: Whether to query and upload badput breakdown
         data to Tensorboard.
+  7. `skip_final_flush`: Whether to skip the final goodput metrics flush upon
+        termination. Defaults to `False`. Setting this to `True` is useful to
+        avoid blocking job termination, as the final flush can take longer
+        due to Cloud Logging reads.
 
 > **_NOTE:_** Please ensure that only **one** worker enables monitoring of Goodput.
    In JAX, for example, the check could be `if jax.process_index() == 0`
@@ -610,11 +619,17 @@ goodput_monitor.start_goodput_uploader()
 Call the `stop_goodput_uploader` API to perform a final upload of all metrics
 and safely exit.
 
-> **_NOTE:_** This will stop all cumulative metrics upload processes.
+> _NOTE:_ This will stop all cumulative metrics upload processes.
+
+You can optionally skip the final flush during shutdown to avoid blocking job termination (as the final flush can take several minutes due to Cloud Logging reads). To do this, pass `skip_final_flush=True` to `stop_goodput_uploader`:
 
 ```python
-goodput_monitor.stop_goodput_uploader()
+goodput_monitor.stop_goodput_uploader(skip_final_flush=True)
 ```
+
+Alternatively, you can configure this during initialization of `GoodputMonitor` by passing `skip_final_flush=True` to the constructor.
+
+Similarly, you can also pass `skip_final_flush=True` to `stop_rolling_window_goodput_uploader()`.
 
 ### Monitor Rolling Window Goodput Metrics
 
@@ -690,6 +705,7 @@ gcp_options = goodput_utils.GCPOptions(
       location=None, # If None, the library will automatically identify from GCE internal metadata
       replica_id='0', # Default is '0'
       acc_type=None, # If None, the library will automatically identify from GCE internal metadata
+      cluster_name=None, # Optional GKE cluster name
       enable_gcp_goodput_metrics=True,
       enable_gcp_step_deviation_metrics=True,
     )
@@ -722,6 +738,7 @@ gcp_options = goodput_utils.GCPOptions(
       location=None, # If None, the library will automatically identify from GCE internal metadata
       replica_id='0', # Default is '0'
       acc_type=None, # If None, the library will automatically identify from GCE internal metadata
+      cluster_name=None, # Optional GKE cluster name
       enable_gcp_goodput_metrics=False,
       enable_gcp_step_deviation_metrics=False,
     )
@@ -752,6 +769,7 @@ gcp_options = goodput_utils.GCPOptions(
       location=None, # If None, the library will automatically identify from GCE internal metadata
       replica_id='0', # Default is '0'
       acc_type=None, # If None, the library will automatically identify from GCE internal metadata
+      cluster_name=None, # Optional GKE cluster name
       enable_gcp_goodput_metrics=True,
     )
 
@@ -764,4 +782,54 @@ goodput_monitor = monitoring.GoodputMonitor(
       include_badput_breakdown=True,
       gcp_options=gcp_options
     )
+
+### Elastic Goodput (Experimental)
+
+For elastic training workloads (which support autoscaling and dynamic slice adjustments), the library provides elastic-aware components under `ml_goodput_measurement.goodput_elastic` and `ml_goodput_measurement.monitoring_elastic`.
+
+#### Elastic Components
+*   `ElasticGoodputRecorder`: Inherits from `GoodputRecorder`. Adds APIs to record slice counts and elastic events (wait/reinit).
+*   `ElasticGoodputCalculator`: Inherits from `GoodputCalculator`. Computes additional badput buckets: `ELASTIC_SLICE_DOWN`, `ELASTIC_SCALE_UP`, and `ELASTIC_REINITIALIZATION`, as well as slice efficiency.
+*   `ElasticGoodputMonitor`: Inherits from `GoodputMonitor`. Uses `ElasticGoodputCalculator` and supports uploading slice efficiency metrics.
+
+#### Usage Example
+
+```python
+from ml_goodput_measurement import goodput_elastic
+from ml_goodput_measurement import monitoring_elastic
+
+# 1. Recording Elastic Events (on Lead Host)
+recorder = goodput_elastic.ElasticGoodputRecorder(job_name, logger_name, logging_enabled)
+
+# Record current slice configuration
+recorder.record_elastic_slice_counts(active_slices=4, total_slices=8, available_slices=8)
+
+# Record when waiting for resources (scale up or down)
+recorder.record_elastic_wait_start_time(event_type="scale_up")
+# ... waiting ...
+recorder.record_elastic_wait_end_time(event_type="scale_up")
+
+# Record reinitialization overhead
+recorder.record_elastic_reinit_start_time()
+# ... reinitializing ...
+recorder.record_elastic_reinit_end_time()
+
+
+# 2. Monitoring Elastic Metrics
+gcp_options = monitoring_elastic.GCPOptions(
+    enable_gcp_goodput_metrics=True,
+)
+
+goodput_monitor = monitoring_elastic.ElasticGoodputMonitor(
+    job_name=job_name,
+    logger_name=logger_name,
+    tensorboard_dir=tensorboard_dir,
+    upload_interval=60,
+    monitoring_enabled=True,
+    include_badput_breakdown=True,
+    include_slice_efficiency=True, # Upload stepping/available slice efficiency
+    gcp_options=gcp_options,
+)
+goodput_monitor.start_goodput_uploader()
+```
 ```

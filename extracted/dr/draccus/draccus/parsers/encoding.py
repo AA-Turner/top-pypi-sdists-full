@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2025-2026 The Board of Trustees of the Leland Stanford Junior University
+# Copyright 2019 Fabrice Normandin
+# Copyright 2021 Elad Richardson
+
 """Simple, extendable mechanism for encoding pracitaclly anything to string.
 
 Just register a new encoder for a given type like so:
@@ -137,11 +142,18 @@ def encode_dataclass(obj: Any, declared_type: Optional[Type] = None):
             type_args = typing.get_args(declared_type)
             type_map = dict(zip(type_vars, type_args))
 
+    resolved_type_hints: Dict[str, Any] = {}
+    if any(isinstance(field.type, str) for field in fields(obj)):
+        try:
+            resolved_type_hints = typing.get_type_hints(type(obj), include_extras=True)
+        except Exception:
+            resolved_type_hints = {}
+
     for field in fields(obj):
         value = getattr(obj, field.name)
         try:
             # If we have a type map, use it to resolve the field's type
-            field_type = field.type
+            field_type = resolved_type_hints.get(field.name, field.type)
             if type_map and hasattr(field_type, "__parameters__"):
                 field_type = field_type[tuple(type_map.get(p, p) for p in field_type.__parameters__)]
             d[field.name] = encode(value, field_type)

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: low_index
-Version: 1.2.1
+Version: 1.3
 Summary: Enumerates low index subgroups of a finitely presented group
 Author-email: Marc Culler <culler@marc-culler.info>, "Nathan M. Dunfield" <nathan@dunfield.info>, Matthias Goerner <enischte@gmail.com>
 Project-URL: Homepage, https://github.com/3-manifolds/low_index

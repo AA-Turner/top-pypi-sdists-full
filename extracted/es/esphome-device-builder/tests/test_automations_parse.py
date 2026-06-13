@@ -204,6 +204,18 @@ def test_parse_flat_singleton_ignores_config_keys() -> None:
     assert parse_device_yaml(_load("inline_sun_empty.yaml")) == []
 
 
+def test_parse_hub_trigger_inherited_through_extends() -> None:
+    """``pn532_i2c.on_tag`` (extends-inherited from pn532) is recognised (#1405)."""
+    parsed = parse_device_yaml(_load("inline_pn532_i2c_on_tag.yaml"))
+    assert len(parsed) == 1
+    item = parsed[0]
+    assert item.location.kind == "component_on"
+    assert item.location.component_id == "pn532_i2c"
+    assert item.location.trigger == "on_tag"
+    assert item.automation.trigger_id == "pn532_i2c.on_tag"
+    assert [a.action_id for a in item.automation.actions] == ["logger.log"]
+
+
 # ---------------------------------------------------------------------------
 # Component action-list config fields (``open_action:`` etc.) — ``type: trigger``
 # ---------------------------------------------------------------------------
@@ -424,6 +436,32 @@ def test_parse_api_action_decomposes_nested_if() -> None:
     if_node = actions[0]
     assert if_node.action_id == "if"
     assert set(if_node.children) == {"then", "else"}
+
+
+def test_parse_homeassistant_action_response_handlers() -> None:
+    """``homeassistant.action``'s on_success/on_error decompose as action children."""
+    parsed = parse_device_yaml(_load("homeassistant_action_response_handlers.yaml"))
+    assert len(parsed) == 1
+    actions = parsed[0].automation.actions
+    assert len(actions) == 1
+    action = actions[0]
+    assert action.action_id == "homeassistant.action"
+    assert set(action.children) == {"on_success", "on_error"}
+    assert [a.action_id for a in action.children["on_success"]] == ["logger.log"]
+    assert [a.action_id for a in action.children["on_error"]] == ["logger.log"]
+
+
+def test_parse_http_request_action_response_handlers() -> None:
+    """``http_request.get``'s on_response/on_error decompose as action children."""
+    parsed = parse_device_yaml(_load("http_request_action_response_handlers.yaml"))
+    assert len(parsed) == 1
+    actions = parsed[0].automation.actions
+    assert len(actions) == 1
+    action = actions[0]
+    assert action.action_id == "http_request.get"
+    assert set(action.children) == {"on_response", "on_error"}
+    assert [a.action_id for a in action.children["on_response"]] == ["logger.log"]
+    assert [a.action_id for a in action.children["on_error"]] == ["logger.log"]
 
 
 def test_parse_api_action_accepts_legacy_service_key() -> None:

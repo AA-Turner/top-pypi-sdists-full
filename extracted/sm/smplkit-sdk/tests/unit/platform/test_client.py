@@ -1,4 +1,4 @@
-"""Tests for smplkit.platform._client — all sync and async sub-clients."""
+"""Tests for smplkit.platform.clients — all sync and async sub-clients."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from smplkit._errors import NotFoundError, ValidationError
+from smplkit.errors import NotFoundError, ValidationError
 from smplkit.flags.types import AsyncContext, Context
 from smplkit._buffer import _ContextRegistrationBuffer
-from smplkit.platform._client import (
+from smplkit.platform.clients import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
@@ -218,13 +218,13 @@ class TestCheckStatus:
         _check_status(200, b"")
 
     def test_404_raises_not_found(self):
-        from smplkit._errors import NotFoundError
+        from smplkit.errors import NotFoundError
 
         with pytest.raises(NotFoundError):
             _check_status(404, b'{"errors":[{"status":"404","title":"Not Found"}]}')
 
     def test_500_raises(self):
-        from smplkit._errors import Error
+        from smplkit.errors import Error
 
         with pytest.raises(Error):
             _check_status(500, b'{"errors":[{"status":"500","title":"Server Error"}]}')
@@ -470,7 +470,7 @@ class TestEnvironmentsClient:
         assert env.name == "production"
         assert env.color == Color("#ff0000")
 
-    @patch("smplkit.platform._client._gen_list_environments.sync_detailed")
+    @patch("smplkit.platform.clients._gen_list_environments.sync_detailed")
     def test_list(self, mock_list):
         data = [
             {"id": "env-1", "attributes": {"name": "production", "classification": "STANDARD"}},
@@ -481,7 +481,7 @@ class TestEnvironmentsClient:
         assert len(result) == 1
         assert result[0].name == "production"
 
-    @patch("smplkit.platform._client._gen_get_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_environment.sync_detailed")
     def test_get(self, mock_get):
         parsed = _parsed_env_resp()
         mock_get.return_value = _ok_resp()
@@ -490,7 +490,7 @@ class TestEnvironmentsClient:
         env = client.get("env-1")
         assert env.id == "env-1"
 
-    @patch("smplkit.platform._client._gen_get_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_environment.sync_detailed")
     def test_get_not_found(self, mock_get):
         mock_get.return_value = _ok_resp()
         mock_get.return_value.parsed = None
@@ -498,14 +498,14 @@ class TestEnvironmentsClient:
         with pytest.raises(NotFoundError):
             client.get("nonexistent")
 
-    @patch("smplkit.platform._client._gen_delete_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_delete_environment.sync_detailed")
     def test_delete(self, mock_delete):
         mock_delete.return_value = _ok_resp(204, b"")
         client = _make_env_client()
         client.delete("env-1")
         mock_delete.assert_called_once()
 
-    @patch("smplkit.platform._client._gen_create_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_environment.sync_detailed")
     def test_create(self, mock_create):
         parsed = _parsed_env_resp()
         mock_create.return_value = _ok_resp(201)
@@ -515,7 +515,7 @@ class TestEnvironmentsClient:
         result = client._create(env)
         assert result.id == "env-1"
 
-    @patch("smplkit.platform._client._gen_create_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_environment.sync_detailed")
     def test_create_null_parsed_raises(self, mock_create):
         mock_create.return_value = _ok_resp(201)
         mock_create.return_value.parsed = None
@@ -524,7 +524,7 @@ class TestEnvironmentsClient:
         with pytest.raises(ValidationError):
             client._create(env)
 
-    @patch("smplkit.platform._client._gen_update_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_environment.sync_detailed")
     def test_update(self, mock_update):
         parsed = _parsed_env_resp()
         mock_update.return_value = _ok_resp()
@@ -541,7 +541,7 @@ class TestEnvironmentsClient:
         with pytest.raises(ValueError, match="no id"):
             client._update(env)
 
-    @patch("smplkit.platform._client._gen_update_environment.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_environment.sync_detailed")
     def test_update_null_parsed_raises(self, mock_update):
         mock_update.return_value = _ok_resp()
         mock_update.return_value.parsed = None
@@ -562,7 +562,7 @@ class TestAsyncEnvironmentsClient:
         env = client.new("env-1", name="staging")
         assert isinstance(env, AsyncEnvironment)
 
-    @patch("smplkit.platform._client._gen_list_environments.asyncio_detailed")
+    @patch("smplkit.platform.clients._gen_list_environments.asyncio_detailed")
     def test_list(self, mock_list):
         data = [{"id": "env-1", "attributes": {"name": "staging", "classification": "AD_HOC"}}]
         mock_list.return_value = _ok_json_resp({"data": data})
@@ -570,7 +570,7 @@ class TestAsyncEnvironmentsClient:
         async def _run():
             mock_list.return_value = _ok_json_resp({"data": data})
             mock_coro = AsyncMock(return_value=_ok_json_resp({"data": data}))
-            with patch("smplkit.platform._client._gen_list_environments.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_list_environments.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 result = await client.list()
                 assert len(result) == 1
@@ -578,14 +578,14 @@ class TestAsyncEnvironmentsClient:
 
         asyncio.run(_run())
 
-    @patch("smplkit.platform._client._gen_get_environment.asyncio_detailed")
+    @patch("smplkit.platform.clients._gen_get_environment.asyncio_detailed")
     def test_get(self, mock_get):
         async def _run():
             parsed = _parsed_env_resp()
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = await client.get("env-1")
                 assert env.id == "env-1"
@@ -598,7 +598,7 @@ class TestAsyncEnvironmentsClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 with pytest.raises(NotFoundError):
                     await client.get("nope")
@@ -608,7 +608,7 @@ class TestAsyncEnvironmentsClient:
     def test_delete(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp(204, b""))
-            with patch("smplkit.platform._client._gen_delete_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_delete_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 await client.delete("env-1")
 
@@ -620,7 +620,7 @@ class TestAsyncEnvironmentsClient:
             resp = _ok_resp(201)
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = AsyncEnvironment(name="production")
                 result = await client._create(env)
@@ -633,7 +633,7 @@ class TestAsyncEnvironmentsClient:
             resp = _ok_resp(201)
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = AsyncEnvironment(name="production")
                 with pytest.raises(ValidationError):
@@ -647,7 +647,7 @@ class TestAsyncEnvironmentsClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = AsyncEnvironment(client, id="env-1", name="production", created_at="2026-01-01")
                 result = await client._update(env)
@@ -670,7 +670,7 @@ class TestAsyncEnvironmentsClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_environment.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_environment.asyncio_detailed", mock_coro):
                 client = _make_async_env_client()
                 env = AsyncEnvironment(client, id="env-1", name="production", created_at="2026-01-01")
                 with pytest.raises(ValidationError):
@@ -748,7 +748,7 @@ class TestServicesClient:
         assert svc.name == "User Service"
         assert svc.created_at is None
 
-    @patch("smplkit.platform._client._gen_list_services.sync_detailed")
+    @patch("smplkit.platform.clients._gen_list_services.sync_detailed")
     def test_list(self, mock_list):
         data = [
             {"id": "svc-1", "attributes": {"name": "User Service"}},
@@ -761,7 +761,7 @@ class TestServicesClient:
         assert result[0].name == "User Service"
         assert result[1].id == "svc-2"
 
-    @patch("smplkit.platform._client._gen_list_services.sync_detailed")
+    @patch("smplkit.platform.clients._gen_list_services.sync_detailed")
     def test_list_with_pagination(self, mock_list):
         mock_list.return_value = _ok_json_resp({"data": []})
         client = _make_svc_client()
@@ -770,7 +770,7 @@ class TestServicesClient:
         assert kwargs["pagenumber"] == 2
         assert kwargs["pagesize"] == 50
 
-    @patch("smplkit.platform._client._gen_get_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_service.sync_detailed")
     def test_get(self, mock_get):
         parsed = _parsed_svc_resp()
         mock_get.return_value = _ok_resp()
@@ -779,7 +779,7 @@ class TestServicesClient:
         svc = client.get("svc-1")
         assert svc.id == "svc-1"
 
-    @patch("smplkit.platform._client._gen_get_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_service.sync_detailed")
     def test_get_not_found(self, mock_get):
         mock_get.return_value = _ok_resp()
         mock_get.return_value.parsed = None
@@ -787,14 +787,14 @@ class TestServicesClient:
         with pytest.raises(NotFoundError):
             client.get("nope")
 
-    @patch("smplkit.platform._client._gen_delete_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_delete_service.sync_detailed")
     def test_delete(self, mock_delete):
         mock_delete.return_value = _ok_resp(204, b"")
         client = _make_svc_client()
         client.delete("svc-1")
         mock_delete.assert_called_once()
 
-    @patch("smplkit.platform._client._gen_create_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_service.sync_detailed")
     def test_create(self, mock_create):
         parsed = _parsed_svc_resp()
         mock_create.return_value = _ok_resp(201)
@@ -804,9 +804,9 @@ class TestServicesClient:
         result = client._create(svc)
         assert result.id == "svc-1"
 
-    @patch("smplkit.platform._client._gen_create_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_service.sync_detailed")
     def test_create_conflict_raises(self, mock_create):
-        from smplkit._errors import ConflictError
+        from smplkit.errors import ConflictError
 
         mock_create.return_value = _ok_resp(
             409, b'{"errors":[{"status":"409","title":"Conflict","detail":"service exists"}]}'
@@ -817,7 +817,7 @@ class TestServicesClient:
         with pytest.raises(ConflictError):
             client._create(svc)
 
-    @patch("smplkit.platform._client._gen_create_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_service.sync_detailed")
     def test_create_null_parsed_raises(self, mock_create):
         mock_create.return_value = _ok_resp(201)
         mock_create.return_value.parsed = None
@@ -826,7 +826,7 @@ class TestServicesClient:
         with pytest.raises(ValidationError):
             client._create(svc)
 
-    @patch("smplkit.platform._client._gen_update_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_service.sync_detailed")
     def test_update(self, mock_update):
         parsed = _parsed_svc_resp()
         mock_update.return_value = _ok_resp()
@@ -843,7 +843,7 @@ class TestServicesClient:
         with pytest.raises(ValueError, match="no id"):
             client._update(svc)
 
-    @patch("smplkit.platform._client._gen_update_service.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_service.sync_detailed")
     def test_update_null_parsed_raises(self, mock_update):
         mock_update.return_value = _ok_resp()
         mock_update.return_value.parsed = None
@@ -868,7 +868,7 @@ class TestAsyncServicesClient:
         async def _run():
             data = [{"id": "svc-1", "attributes": {"name": "User Service"}}]
             mock_coro = AsyncMock(return_value=_ok_json_resp({"data": data}))
-            with patch("smplkit.platform._client._gen_list_services.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_list_services.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 result = await client.list()
                 assert len(result) == 1
@@ -882,7 +882,7 @@ class TestAsyncServicesClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 svc = await client.get("svc-1")
                 assert svc.id == "svc-1"
@@ -895,7 +895,7 @@ class TestAsyncServicesClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 with pytest.raises(NotFoundError):
                     await client.get("nope")
@@ -905,7 +905,7 @@ class TestAsyncServicesClient:
     def test_delete(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp(204, b""))
-            with patch("smplkit.platform._client._gen_delete_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_delete_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 await client.delete("svc-1")
 
@@ -917,7 +917,7 @@ class TestAsyncServicesClient:
             resp = _ok_resp(201)
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 svc = AsyncService(id="user_service", name="User Service")
                 result = await client._create(svc)
@@ -926,13 +926,13 @@ class TestAsyncServicesClient:
         asyncio.run(_run())
 
     def test_create_conflict_raises(self):
-        from smplkit._errors import ConflictError
+        from smplkit.errors import ConflictError
 
         async def _run():
             resp = _ok_resp(409, b'{"errors":[{"status":"409","title":"Conflict"}]}')
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 svc = AsyncService(id="user_service", name="User Service")
                 with pytest.raises(ConflictError):
@@ -945,7 +945,7 @@ class TestAsyncServicesClient:
             resp = _ok_resp(201)
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 svc = AsyncService(id="user_service", name="User Service")
                 with pytest.raises(ValidationError):
@@ -959,7 +959,7 @@ class TestAsyncServicesClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 svc = AsyncService(client, id="svc-1", name="Renamed", created_at="2026-01-01")
                 result = await client._update(svc)
@@ -982,7 +982,7 @@ class TestAsyncServicesClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_service.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_service.asyncio_detailed", mock_coro):
                 client = _make_async_svc_client()
                 svc = AsyncService(client, id="svc-1", name="x", created_at="2026-01-01")
                 with pytest.raises(ValidationError):
@@ -1009,7 +1009,7 @@ class TestContextTypesClient:
         ct = client.new("user")
         assert ct.name == "user"
 
-    @patch("smplkit.platform._client._gen_list_context_types.sync_detailed")
+    @patch("smplkit.platform.clients._gen_list_context_types.sync_detailed")
     def test_list(self, mock_list):
         data = [{"id": "ct-1", "attributes": {"name": "user", "attributes": {"plan": {"type": "str"}}}}]
         mock_list.return_value = _ok_json_resp({"data": data})
@@ -1019,7 +1019,7 @@ class TestContextTypesClient:
         assert result[0].name == "user"
         assert result[0].attributes == {"plan": {"type": "str"}}
 
-    @patch("smplkit.platform._client._gen_get_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_context_type.sync_detailed")
     def test_get(self, mock_get):
         parsed = _parsed_ct_resp()
         resp = _ok_resp()
@@ -1029,7 +1029,7 @@ class TestContextTypesClient:
         ct = client.get("ct-1")
         assert ct.id == "ct-1"
 
-    @patch("smplkit.platform._client._gen_get_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_context_type.sync_detailed")
     def test_get_not_found(self, mock_get):
         resp = _ok_resp()
         resp.parsed = None
@@ -1038,14 +1038,14 @@ class TestContextTypesClient:
         with pytest.raises(NotFoundError):
             client.get("nope")
 
-    @patch("smplkit.platform._client._gen_delete_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_delete_context_type.sync_detailed")
     def test_delete(self, mock_delete):
         mock_delete.return_value = _ok_resp(204, b"")
         client = _make_ct_client()
         client.delete("ct-1")
         mock_delete.assert_called_once()
 
-    @patch("smplkit.platform._client._gen_create_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_context_type.sync_detailed")
     def test_create(self, mock_create):
         parsed = _parsed_ct_resp()
         resp = _ok_resp(201)
@@ -1056,7 +1056,7 @@ class TestContextTypesClient:
         result = client._create(ct)
         assert result.id == "ct-1"
 
-    @patch("smplkit.platform._client._gen_create_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_create_context_type.sync_detailed")
     def test_create_null_parsed_raises(self, mock_create):
         resp = _ok_resp(201)
         resp.parsed = None
@@ -1066,7 +1066,7 @@ class TestContextTypesClient:
         with pytest.raises(ValidationError):
             client._create(ct)
 
-    @patch("smplkit.platform._client._gen_update_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_context_type.sync_detailed")
     def test_update(self, mock_update):
         parsed = _parsed_ct_resp()
         resp = _ok_resp()
@@ -1084,7 +1084,7 @@ class TestContextTypesClient:
         with pytest.raises(ValueError, match="no id"):
             client._update(ct)
 
-    @patch("smplkit.platform._client._gen_update_context_type.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_context_type.sync_detailed")
     def test_update_null_parsed_raises(self, mock_update):
         resp = _ok_resp()
         resp.parsed = None
@@ -1110,7 +1110,7 @@ class TestAsyncContextTypesClient:
         async def _run():
             data = [{"id": "ct-1", "attributes": {"name": "user"}}]
             mock_coro = AsyncMock(return_value=_ok_json_resp({"data": data}))
-            with patch("smplkit.platform._client._gen_list_context_types.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_list_context_types.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 result = await client.list()
                 assert len(result) == 1
@@ -1123,7 +1123,7 @@ class TestAsyncContextTypesClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = await client.get("ct-1")
                 assert isinstance(ct, AsyncContextType)
@@ -1135,7 +1135,7 @@ class TestAsyncContextTypesClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 with pytest.raises(NotFoundError):
                     await client.get("nope")
@@ -1145,7 +1145,7 @@ class TestAsyncContextTypesClient:
     def test_delete(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp(204, b""))
-            with patch("smplkit.platform._client._gen_delete_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_delete_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 await client.delete("ct-1")
 
@@ -1157,7 +1157,7 @@ class TestAsyncContextTypesClient:
             resp = _ok_resp(201)
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = AsyncContextType(name="user")
                 result = await client._create(ct)
@@ -1170,7 +1170,7 @@ class TestAsyncContextTypesClient:
             resp = _ok_resp(201)
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_create_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_create_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = AsyncContextType(name="user")
                 with pytest.raises(ValidationError):
@@ -1184,7 +1184,7 @@ class TestAsyncContextTypesClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = AsyncContextType(client, id="ct-1", name="user", created_at="2026-01-01")
                 result = await client._update(ct)
@@ -1207,7 +1207,7 @@ class TestAsyncContextTypesClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_context_type.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_context_type.asyncio_detailed", mock_coro):
                 client = _make_async_ct_client()
                 ct = AsyncContextType(client, id="ct-1", name="user", created_at="2026-01-01")
                 with pytest.raises(ValidationError):
@@ -1232,7 +1232,7 @@ class TestContextsClient:
         client.register([Context("user", "u-1"), Context("account", "acme")])
         assert client._buffer.pending_count == 2
 
-    @patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed")
     def test_register_with_flush(self, mock_bulk):
         mock_bulk.return_value = _ok_resp()
         client = _make_contexts_client()
@@ -1240,13 +1240,13 @@ class TestContextsClient:
         mock_bulk.assert_called_once()
         assert client._buffer.pending_count == 0
 
-    @patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed")
     def test_flush_empty_does_nothing(self, mock_bulk):
         client = _make_contexts_client()
         client.flush()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed")
     def test_flush_sends_batch(self, mock_bulk):
         mock_bulk.return_value = _ok_resp()
         client = _make_contexts_client()
@@ -1256,7 +1256,7 @@ class TestContextsClient:
         _, kwargs = mock_bulk.call_args
         assert kwargs["body"].contexts[0].type_ == "user"
 
-    @patch("smplkit.platform._client._gen_list_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_list_contexts.sync_detailed")
     def test_list(self, mock_list):
         data = [{"id": "user:u-1", "attributes": {"name": "Alice"}}]
         mock_list.return_value = _ok_json_resp({"data": data})
@@ -1266,7 +1266,7 @@ class TestContextsClient:
         assert result[0].type == "user"
         assert result[0].key == "u-1"
 
-    @patch("smplkit.platform._client._gen_get_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_context.sync_detailed")
     def test_get_composite_id(self, mock_get):
         parsed = _parsed_ctx_resp("user:u-1")
         resp = _ok_resp()
@@ -1277,7 +1277,7 @@ class TestContextsClient:
         assert entity.type == "user"
         mock_get.assert_called_once_with("user:u-1", client=client._app_http)
 
-    @patch("smplkit.platform._client._gen_get_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_context.sync_detailed")
     def test_get_two_args(self, mock_get):
         parsed = _parsed_ctx_resp("user:u-1")
         resp = _ok_resp()
@@ -1287,7 +1287,7 @@ class TestContextsClient:
         entity = client.get("user", "u-1")
         assert entity.key == "u-1"
 
-    @patch("smplkit.platform._client._gen_get_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_get_context.sync_detailed")
     def test_get_not_found(self, mock_get):
         resp = _ok_resp()
         resp.parsed = None
@@ -1296,21 +1296,21 @@ class TestContextsClient:
         with pytest.raises(NotFoundError):
             client.get("user:u-999")
 
-    @patch("smplkit.platform._client._gen_delete_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_delete_context.sync_detailed")
     def test_delete_composite(self, mock_delete):
         mock_delete.return_value = _ok_resp(204, b"")
         client = _make_contexts_client()
         client.delete("user:u-1")
         mock_delete.assert_called_once_with("user:u-1", client=client._app_http)
 
-    @patch("smplkit.platform._client._gen_delete_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_delete_context.sync_detailed")
     def test_delete_two_args(self, mock_delete):
         mock_delete.return_value = _ok_resp(204, b"")
         client = _make_contexts_client()
         client.delete("account", "acme")
         mock_delete.assert_called_once_with("account:acme", client=client._app_http)
 
-    @patch("smplkit.platform._client._gen_update_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_context.sync_detailed")
     def test_save_context(self, mock_update):
         parsed = _parsed_ctx_resp("user:u-1", name="Alice")
         resp = _ok_resp()
@@ -1332,7 +1332,7 @@ class TestContextsClient:
         with pytest.raises(RuntimeError, match="cannot save"):
             ctx.save()
 
-    @patch("smplkit.platform._client._gen_update_context.sync_detailed")
+    @patch("smplkit.platform.clients._gen_update_context.sync_detailed")
     def test_save_validation_error_when_parsed_is_none(self, mock_update):
         resp = _ok_resp()
         resp.parsed = None
@@ -1376,7 +1376,7 @@ class TestAsyncContextsClient:
     def test_register_then_flush(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp())
-            with patch("smplkit.platform._client._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 client.register(Context("user", "u-1"))
                 await client.flush()
@@ -1387,7 +1387,7 @@ class TestAsyncContextsClient:
     def test_flush_empty_does_nothing(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp())
-            with patch("smplkit.platform._client._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 await client.flush()
                 mock_coro.assert_not_called()
@@ -1397,7 +1397,7 @@ class TestAsyncContextsClient:
     def test_flush_sends_batch(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp())
-            with patch("smplkit.platform._client._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_bulk_register_contexts.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 client._buffer.observe([Context("user", "u-1")])
                 await client.flush()
@@ -1409,7 +1409,7 @@ class TestAsyncContextsClient:
         async def _run():
             data = [{"id": "account:acme", "attributes": {}}]
             mock_coro = AsyncMock(return_value=_ok_json_resp({"data": data}))
-            with patch("smplkit.platform._client._gen_list_contexts.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_list_contexts.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 result = await client.list("account")
                 assert isinstance(result[0], AsyncContext)
@@ -1423,7 +1423,7 @@ class TestAsyncContextsClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 entity = await client.get("user:u-1")
                 assert isinstance(entity, AsyncContext)
@@ -1437,7 +1437,7 @@ class TestAsyncContextsClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 entity = await client.get("user", "u-1")
                 assert entity.key == "u-1"
@@ -1449,7 +1449,7 @@ class TestAsyncContextsClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_get_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_get_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 with pytest.raises(NotFoundError):
                     await client.get("user:nope")
@@ -1459,7 +1459,7 @@ class TestAsyncContextsClient:
     def test_delete_composite(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp(204, b""))
-            with patch("smplkit.platform._client._gen_delete_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_delete_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 await client.delete("user:u-1")
                 mock_coro.assert_called_once_with("user:u-1", client=client._app_http)
@@ -1469,7 +1469,7 @@ class TestAsyncContextsClient:
     def test_delete_two_args(self):
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp(204, b""))
-            with patch("smplkit.platform._client._gen_delete_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_delete_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 await client.delete("account", "acme")
                 mock_coro.assert_called_once_with("account:acme", client=client._app_http)
@@ -1482,7 +1482,7 @@ class TestAsyncContextsClient:
             resp = _ok_resp()
             resp.parsed = parsed
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 ctx = AsyncContext("user", "u-1", {"plan": "pro"}, name="Alice")
                 ctx._client = client
@@ -1504,7 +1504,7 @@ class TestAsyncContextsClient:
             resp = _ok_resp()
             resp.parsed = None
             mock_coro = AsyncMock(return_value=resp)
-            with patch("smplkit.platform._client._gen_update_context.asyncio_detailed", mock_coro):
+            with patch("smplkit.platform.clients._gen_update_context.asyncio_detailed", mock_coro):
                 client = _make_async_contexts_client()
                 ctx = AsyncContext("user", "u-1")
                 ctx._client = client
@@ -1536,9 +1536,9 @@ class TestAsyncContextsClient:
 class TestMgmtConfigRegisterAndFlush:
     """``ConfigClient`` discovery-buffer methods: register/flush/threshold."""
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_register_config_then_flush(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1548,9 +1548,9 @@ class TestMgmtConfigRegisterAndFlush:
         mock_bulk.assert_called_once()
         assert client.pending_count == 0
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_register_config_item_attaches(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1563,9 +1563,9 @@ class TestMgmtConfigRegisterAndFlush:
         item = body.configs[0]
         assert "max_seats" in item.items.additional_properties
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_register_config_item_without_declare_is_dropped(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1575,17 +1575,17 @@ class TestMgmtConfigRegisterAndFlush:
         client.flush()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_flush_with_empty_buffer_is_noop(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         client = _MgmtConfigClient(transport=MagicMock())
         client.flush()
         mock_bulk.assert_not_called()
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_threshold_triggers_background_flush(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1597,15 +1597,15 @@ class TestMgmtConfigRegisterAndFlush:
             t.start = lambda: None
             return t
 
-        with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-            with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
+        with patch("smplkit.config.clients._CONFIG_BATCH_FLUSH_SIZE", 1):
+            with patch("smplkit.config.clients.threading.Thread", side_effect=fake_thread):
                 # Hit the threshold via register_config.
                 client.register_config("billing", service="svc", environment="prod")
         assert captured  # Thread was started.
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_threshold_via_register_config_item(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.return_value = _ok_resp()
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1618,16 +1618,16 @@ class TestMgmtConfigRegisterAndFlush:
             return t
 
         client.register_config("billing", service="svc", environment="prod")
-        with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-            with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
+        with patch("smplkit.config.clients._CONFIG_BATCH_FLUSH_SIZE", 1):
+            with patch("smplkit.config.clients.threading.Thread", side_effect=fake_thread):
                 client.register_config_item("billing", "max", "NUMBER", 5)
         assert captured
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_threshold_flush_swallows_errors(self, mock_bulk, caplog):
         import logging as _logging
 
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.side_effect = RuntimeError("boom")
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1636,9 +1636,9 @@ class TestMgmtConfigRegisterAndFlush:
             client._threshold_flush()
         assert any("Config registration flush failed" in r.message for r in caplog.records)
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_flush_propagates_unexpected_errors(self, mock_bulk):
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.side_effect = RuntimeError("oops")
         client = _MgmtConfigClient(transport=MagicMock())
@@ -1646,12 +1646,12 @@ class TestMgmtConfigRegisterAndFlush:
         with pytest.raises(RuntimeError):
             client.flush()
 
-    @patch("smplkit.config._client.bulk_register_configs.sync_detailed")
+    @patch("smplkit.config.clients.bulk_register_configs.sync_detailed")
     def test_flush_reraises_network_error(self, mock_bulk):
         import httpx
 
-        from smplkit._errors import ConnectionError as SmplConnectionError
-        from smplkit.config._client import ConfigClient as _MgmtConfigClient
+        from smplkit.errors import ConnectionError as SmplConnectionError
+        from smplkit.config.clients import ConfigClient as _MgmtConfigClient
 
         mock_bulk.side_effect = httpx.ConnectError("nope")
         http = MagicMock()
@@ -1664,11 +1664,11 @@ class TestMgmtConfigRegisterAndFlush:
 
 class TestAsyncMgmtConfigRegisterAndFlush:
     def test_flush_propagates_unexpected_errors(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
             mock_coro = AsyncMock(side_effect=RuntimeError("oops"))
-            with patch("smplkit.config._client.bulk_register_configs.asyncio_detailed", mock_coro):
+            with patch("smplkit.config.clients.bulk_register_configs.asyncio_detailed", mock_coro):
                 client = _AsyncMgmtConfigClient(transport=MagicMock())
                 client.register_config("billing", service="svc", environment="prod")
                 with pytest.raises(RuntimeError):
@@ -1677,10 +1677,10 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         asyncio.run(_run())
 
     def test_async_flush_empty_buffer_is_noop(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
-            with patch("smplkit.config._client.bulk_register_configs.asyncio_detailed") as mock_bulk:
+            with patch("smplkit.config.clients.bulk_register_configs.asyncio_detailed") as mock_bulk:
                 client = _AsyncMgmtConfigClient(transport=MagicMock())
                 await client.flush()
             mock_bulk.assert_not_called()
@@ -1690,12 +1690,12 @@ class TestAsyncMgmtConfigRegisterAndFlush:
     def test_async_flush_reraises_network_error(self):
         import httpx
 
-        from smplkit._errors import ConnectionError as SmplConnectionError
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.errors import ConnectionError as SmplConnectionError
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
             mock_coro = AsyncMock(side_effect=httpx.ConnectError("nope"))
-            with patch("smplkit.config._client.bulk_register_configs.asyncio_detailed", mock_coro):
+            with patch("smplkit.config.clients.bulk_register_configs.asyncio_detailed", mock_coro):
                 http = MagicMock()
                 http._base_url = "http://nope.test"
                 client = _AsyncMgmtConfigClient(transport=http)
@@ -1706,9 +1706,9 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         asyncio.run(_run())
 
     def test_flush_sync_drains_buffer(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.return_value = _ok_resp()
             client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
@@ -1716,9 +1716,9 @@ class TestAsyncMgmtConfigRegisterAndFlush:
             mock_bulk.assert_called_once()
 
     def test_flush_sync_empty_buffer_is_noop(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.flush_sync()
         mock_bulk.assert_not_called()
@@ -1726,10 +1726,10 @@ class TestAsyncMgmtConfigRegisterAndFlush:
     def test_flush_sync_reraises_network_error(self):
         import httpx
 
-        from smplkit._errors import ConnectionError as SmplConnectionError
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.errors import ConnectionError as SmplConnectionError
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = httpx.ConnectError("nope")
             http = MagicMock()
             http._base_url = "http://nope.test"
@@ -1739,9 +1739,9 @@ class TestAsyncMgmtConfigRegisterAndFlush:
                 client.flush_sync()
 
     def test_flush_sync_propagates_unexpected_errors(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("oops")
             client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
@@ -1749,7 +1749,7 @@ class TestAsyncMgmtConfigRegisterAndFlush:
                 client.flush_sync()
 
     def test_async_threshold_triggers_background_flush(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         captured: list = []
 
@@ -1759,16 +1759,16 @@ class TestAsyncMgmtConfigRegisterAndFlush:
             t.start = lambda: None
             return t
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.return_value = _ok_resp()
             client = _AsyncMgmtConfigClient(transport=MagicMock())
-            with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-                with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
+            with patch("smplkit.config.clients._CONFIG_BATCH_FLUSH_SIZE", 1):
+                with patch("smplkit.config.clients.threading.Thread", side_effect=fake_thread):
                     client.register_config("billing", service="svc", environment="prod")
         assert captured
 
     def test_async_threshold_via_register_item(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         captured: list = []
 
@@ -1778,21 +1778,21 @@ class TestAsyncMgmtConfigRegisterAndFlush:
             t.start = lambda: None
             return t
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.return_value = _ok_resp()
             client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
-            with patch("smplkit.config._client._CONFIG_BATCH_FLUSH_SIZE", 1):
-                with patch("smplkit.config._client.threading.Thread", side_effect=fake_thread):
+            with patch("smplkit.config.clients._CONFIG_BATCH_FLUSH_SIZE", 1):
+                with patch("smplkit.config.clients.threading.Thread", side_effect=fake_thread):
                     client.register_config_item("billing", "max", "NUMBER", 5)
         assert captured
 
     def test_async_threshold_flush_swallows_errors(self, caplog):
         import logging as _logging
 
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
-        with patch("smplkit.config._client.bulk_register_configs.sync_detailed") as mock_bulk:
+        with patch("smplkit.config.clients.bulk_register_configs.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("boom")
             client = _AsyncMgmtConfigClient(transport=MagicMock())
             client.register_config("billing", service="svc", environment="prod")
@@ -1801,7 +1801,7 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         assert any("Config registration flush failed" in r.message for r in caplog.records)
 
     def test_async_pending_count(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         client = _AsyncMgmtConfigClient(transport=MagicMock())
         assert client.pending_count == 0
@@ -1809,12 +1809,12 @@ class TestAsyncMgmtConfigRegisterAndFlush:
         assert client.pending_count == 1
 
     def test_async_flush_success_path(self):
-        from smplkit.config._client import AsyncConfigClient as _AsyncMgmtConfigClient
+        from smplkit.config.clients import AsyncConfigClient as _AsyncMgmtConfigClient
 
         async def _run():
             mock_coro = AsyncMock(return_value=_ok_resp())
             with patch(
-                "smplkit.config._client.bulk_register_configs.asyncio_detailed",
+                "smplkit.config.clients.bulk_register_configs.asyncio_detailed",
                 mock_coro,
             ):
                 client = _AsyncMgmtConfigClient(transport=MagicMock())
@@ -1957,7 +1957,7 @@ class TestThresholdFlushTriggers:
         client = _make_contexts_client()
         for i in range(_CONTEXT_BATCH_FLUSH_SIZE - 1):
             client.register([Context("user", f"u-{i}")])
-        with patch("smplkit.platform._client.threading.Thread") as mock_thread:
+        with patch("smplkit.platform.clients.threading.Thread") as mock_thread:
             client.register([Context("user", "trigger")])
             mock_thread.assert_called_once()
             mock_thread.return_value.start.assert_called_once()
@@ -1968,33 +1968,33 @@ class TestThresholdFlushTriggers:
         client = _make_async_contexts_client()
         for i in range(_CONTEXT_BATCH_FLUSH_SIZE - 1):
             client.register([Context("user", f"u-{i}")])
-        with patch("smplkit.platform._client.threading.Thread") as mock_thread:
+        with patch("smplkit.platform.clients.threading.Thread") as mock_thread:
             client.register([Context("user", "trigger")])
             mock_thread.assert_called_once()
 
     def test_loggers_register_spawns_thread_at_threshold(self):
         from smplkit import LogLevel
-        from smplkit.logging._client import LoggersClient
-        from smplkit.logging._sources import LoggerSource
+        from smplkit.logging.clients import LoggersClient
+        from smplkit.logging.sources import LoggerSource
         from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 
         client = LoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
         for i in range(_LOGGER_BATCH_FLUSH_SIZE - 1):
             client.register(LoggerSource(name=f"l-{i}", resolved_level=LogLevel.INFO))
-        with patch("smplkit.logging._client.threading.Thread") as mock_thread:
+        with patch("smplkit.logging.clients.threading.Thread") as mock_thread:
             client.register(LoggerSource(name="trigger", resolved_level=LogLevel.INFO))
             mock_thread.assert_called_once()
 
     def test_async_loggers_register_spawns_thread_at_threshold(self):
         from smplkit import LogLevel
-        from smplkit.logging._client import AsyncLoggersClient
-        from smplkit.logging._sources import LoggerSource
+        from smplkit.logging.clients import AsyncLoggersClient
+        from smplkit.logging.sources import LoggerSource
         from smplkit._buffer import _LOGGER_BATCH_FLUSH_SIZE, _LoggerRegistrationBuffer
 
         client = AsyncLoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
         for i in range(_LOGGER_BATCH_FLUSH_SIZE - 1):
             client.register(LoggerSource(name=f"l-{i}", resolved_level=LogLevel.INFO))
-        with patch("smplkit.logging._client.threading.Thread") as mock_thread:
+        with patch("smplkit.logging.clients.threading.Thread") as mock_thread:
             client.register(LoggerSource(name="trigger", resolved_level=LogLevel.INFO))
             mock_thread.assert_called_once()
 
@@ -2002,7 +2002,7 @@ class TestThresholdFlushTriggers:
 class TestThresholdFlushHandlesErrors:
     """``_threshold_flush`` swallows exceptions so the daemon thread doesn't crash."""
 
-    @patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed")
     def test_contexts_threshold_flush_logs_warning(self, mock_bulk, caplog):
         import logging as stdlib_logging
 
@@ -2016,7 +2016,7 @@ class TestThresholdFlushHandlesErrors:
     def test_async_contexts_threshold_flush_logs_warning(self, caplog):
         import logging as stdlib_logging
 
-        with patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed") as mock_bulk:
+        with patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("network down")
             client = _make_async_contexts_client()
             client._buffer.observe([Context("user", "u-1")])
@@ -2024,13 +2024,13 @@ class TestThresholdFlushHandlesErrors:
                 client._threshold_flush()
             assert any("Context registration flush failed" in r.message for r in caplog.records)
 
-    @patch("smplkit.logging._client.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.clients.bulk_register_loggers.sync_detailed")
     def test_loggers_threshold_flush_logs_warning(self, mock_bulk, caplog):
         import logging as stdlib_logging
 
         from smplkit import LogLevel
-        from smplkit.logging._client import LoggersClient
-        from smplkit.logging._sources import LoggerSource
+        from smplkit.logging.clients import LoggersClient
+        from smplkit.logging.sources import LoggerSource
         from smplkit._buffer import _LoggerRegistrationBuffer
 
         mock_bulk.side_effect = RuntimeError("network down")
@@ -2044,11 +2044,11 @@ class TestThresholdFlushHandlesErrors:
         import logging as stdlib_logging
 
         from smplkit import LogLevel
-        from smplkit.logging._client import AsyncLoggersClient
-        from smplkit.logging._sources import LoggerSource
+        from smplkit.logging.clients import AsyncLoggersClient
+        from smplkit.logging.sources import LoggerSource
         from smplkit._buffer import _LoggerRegistrationBuffer
 
-        with patch("smplkit.logging._client.bulk_register_loggers.sync_detailed") as mock_bulk:
+        with patch("smplkit.logging.clients.bulk_register_loggers.sync_detailed") as mock_bulk:
             mock_bulk.side_effect = RuntimeError("network down")
             client = AsyncLoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
             client.register(LoggerSource(name="l", resolved_level=LogLevel.INFO))
@@ -2074,8 +2074,8 @@ class TestPendingCountProperty:
 
     def test_loggers_pending_count(self):
         from smplkit import LogLevel
-        from smplkit.logging._client import LoggersClient
-        from smplkit.logging._sources import LoggerSource
+        from smplkit.logging.clients import LoggersClient
+        from smplkit.logging.sources import LoggerSource
         from smplkit._buffer import _LoggerRegistrationBuffer
 
         client = LoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
@@ -2085,8 +2085,8 @@ class TestPendingCountProperty:
 
     def test_async_loggers_pending_count(self):
         from smplkit import LogLevel
-        from smplkit.logging._client import AsyncLoggersClient
-        from smplkit.logging._sources import LoggerSource
+        from smplkit.logging.clients import AsyncLoggersClient
+        from smplkit.logging.sources import LoggerSource
         from smplkit._buffer import _LoggerRegistrationBuffer
 
         client = AsyncLoggersClient(MagicMock(), base_url="http://logging:8003", buffer=_LoggerRegistrationBuffer())
@@ -2098,7 +2098,7 @@ class TestPendingCountProperty:
 class TestAsyncContextsFlushSync:
     """``flush_sync`` lets the periodic-flush thread drain the async client's buffer."""
 
-    @patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed")
     def test_flush_sync_drains_buffer(self, mock_bulk):
         mock_bulk.return_value = _ok_resp()
         client = _make_async_contexts_client()
@@ -2106,7 +2106,7 @@ class TestAsyncContextsFlushSync:
         client.flush_sync()
         mock_bulk.assert_called_once()
 
-    @patch("smplkit.platform._client._gen_bulk_register_contexts.sync_detailed")
+    @patch("smplkit.platform.clients._gen_bulk_register_contexts.sync_detailed")
     def test_flush_sync_empty(self, mock_bulk):
         client = _make_async_contexts_client()
         client.flush_sync()

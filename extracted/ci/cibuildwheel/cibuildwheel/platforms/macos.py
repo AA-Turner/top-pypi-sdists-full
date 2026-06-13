@@ -1,5 +1,27 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "cibuildwheel.audit",
+    "cibuildwheel.ci",
+    "cibuildwheel.frontend",
+    "cibuildwheel.logger",
+    "cibuildwheel.util",
+    "cibuildwheel.util.cmd",
+    "cibuildwheel.util.file",
+    "cibuildwheel.util.helpers",
+    "cibuildwheel.util.packaging",
+    "cibuildwheel.venv",
+    "filelock",
+    "inspect",
+    "packaging",
+    "packaging.version",
+    "pathlib",
+    "platform",
+    "re",
+    "shutil",
+    "subprocess",
+}
+
 import dataclasses
 import functools
 import inspect
@@ -566,7 +588,10 @@ def build(options: Options, tmp_path: Path) -> None:
                     case _:
                         assert_never(build_frontend)
 
-                built_wheel = next(built_wheel_dir.glob("*.whl"))
+                try:
+                    built_wheel = next(built_wheel_dir.glob("*.whl"))
+                except StopIteration:
+                    raise errors.BuildProducedNoWheelError() from None
 
                 repaired_wheel_dir.mkdir()
 

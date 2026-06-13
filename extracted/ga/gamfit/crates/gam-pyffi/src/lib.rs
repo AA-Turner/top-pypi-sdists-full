@@ -107,6 +107,9 @@ use gam::terms::interchange_decoder::{
     interchange_swap_forward as core_interchange_swap_forward,
 };
 use gam::terms::latent_coord::{AuxPriorFamily, aux_prior_targets};
+use gam::terms::linear_dictionary::{
+    LinearDictionaryAssignment, LinearDictionaryConfig, fit_linear_dictionary,
+};
 use gam::terms::sae_manifold::{
     AssignmentMode, DuchonCoordinateEvaluator, EuclideanPatchEvaluator, GumbelTemperatureSchedule,
     PeriodicHarmonicEvaluator, SPHERE_CHART_PENALTY_DIAGONAL, SaeAtomBasisKind, SaeBasisEvaluator,
@@ -162,146 +165,6 @@ use survival_surface_io::{
     survival_collect_chunks, survival_cumulative_from_survival, survival_ffi_surface,
     survival_parameters_matrix, write_survival_csv,
 };
-
-#[derive(Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PyFitConfig {
-    family: Option<String>,
-    offset: Option<String>,
-    weights: Option<String>,
-    ridge_lambda: Option<f64>,
-
-    // Transformation-normal routing.
-    transformation_normal: Option<bool>,
-
-    // Survival-specific.
-    survival_likelihood: Option<String>,
-    baseline_target: Option<String>,
-    baseline_scale: Option<f64>,
-    baseline_shape: Option<f64>,
-    baseline_rate: Option<f64>,
-    baseline_makeham: Option<f64>,
-
-    // Marginal-slope.
-    z_column: Option<String>,
-    logslope_formula: Option<String>,
-    /// Calibrated marginal-slope chain (#461): the Stage-1 CTN recipe whose
-    /// presence auto-enables cross-fitted, Neyman-orthogonal score calibration.
-    /// Mirrors `gamfit._calibrated_slope.CtnStage1.to_rust_recipe()` exactly.
-    ctn_stage1: Option<PyCtnStage1>,
-
-    // Link / flexibility.
-    link: Option<String>,
-    flexible_link: Option<bool>,
-    scale_dimensions: Option<bool>,
-    adaptive_regularization: Option<bool>,
-
-    // Location-scale (GAMLSS).
-    noise_formula: Option<String>,
-    noise_offset: Option<String>,
-
-    firth: Option<bool>,
-    outer_max_iter: Option<usize>,
-    gpu: Option<String>,
-
-    // Integration seam for task 04's group abstraction. The proposed group
-    // type can pass either `group_metadata` directly or `groups` entries with
-    // `{name|id|key, metadata}`; fitting ignores it and persistence carries it.
-    group_metadata: Option<GroupMetadata>,
-    groups: Option<serde_json::Value>,
-    precision_hyperpriors: Option<serde_json::Value>,
-    penalty_block_gamma_priors: Option<serde_json::Value>,
-    latents: Option<serde_json::Value>,
-    penalties: Option<serde_json::Value>,
-    /// `gamfit.fit(..., smooths={symbol: Smooth(...)})` registry. Maps
-    /// formula symbols (single column name or comma-joined tuple) to
-    /// JSON-serialized basis descriptors. Threaded through `FitConfig` as
-    /// `smooth_overrides` and applied after term construction so any
-    /// explicit center matrix / knot vector flows into
-    /// `CenterStrategy::UserProvided` (or its kind-specific equivalent).
-    smooths: Option<serde_json::Value>,
-    topology_auto_selector: Option<serde_json::Value>,
-
-    // Frailty (only consumed by survival families today). Mirrors the CLI
-    // names: --frailty-kind, --frailty-sd, --hazard-loading.
-    frailty_kind: Option<String>,
-    frailty_sd: Option<f64>,
-    hazard_loading: Option<String>,
-
-    // Python-only presentation provenance: the container type of the table the
-    // model was fitted on (`"pandas"`, `"polars"`, `"pyarrow"`, `"numpy"`, or
-    // an ambiguous tag like `"unknown"`). The Rust solver ignores it; it is
-    // copied verbatim into `FittedModelPayload.training_table_kind` so that the
-    // predict-time output-container fallback survives `save`/`load`.
-    training_table_kind: Option<String>,
-}
-
-/// Wire form of the Stage-1 CTN recipe for the calibrated marginal-slope chain
-/// (#461). One-to-one with `gamfit._calibrated_slope.CtnStage1.to_rust_recipe()`
-/// and with the core `gam::CtnStage1Recipe` struct; `config` overrides are
-/// applied on top of a `TransformationNormalConfig::default()`.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PyCtnStage1 {
-    response_column: String,
-    covariate_formula_rhs: String,
-    #[serde(default)]
-    config: Option<PyCtnStage1Config>,
-    #[serde(default)]
-    weight_column: Option<String>,
-    #[serde(default)]
-    offset_column: Option<String>,
-}
-
-/// Optional overrides for the Stage-1 CTN response-direction basis / penalty.
-/// Any omitted field keeps the `TransformationNormalConfig::default()` value.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PyCtnStage1Config {
-    #[serde(default)]
-    response_degree: Option<usize>,
-    #[serde(default)]
-    response_num_internal_knots: Option<usize>,
-    #[serde(default)]
-    response_penalty_order: Option<usize>,
-    #[serde(default)]
-    response_extra_penalty_orders: Option<Vec<usize>>,
-    #[serde(default)]
-    double_penalty: Option<bool>,
-}
-
-impl PyCtnStage1 {
-    /// Convert the wire form to the core `gam::CtnStage1Recipe` via its public
-    /// constructor (single source of truth for the non-empty / RHS-only
-    /// validation), folding any config overrides onto the CTN default.
-    fn into_recipe(self) -> Result<gam::CtnStage1Recipe, String> {
-        let mut config = gam::transformation_normal::TransformationNormalConfig::default();
-        if let Some(overrides) = self.config {
-            if let Some(value) = overrides.response_degree {
-                config.response_degree = value;
-            }
-            if let Some(value) = overrides.response_num_internal_knots {
-                config.response_num_internal_knots = value;
-            }
-            if let Some(value) = overrides.response_penalty_order {
-                config.response_penalty_order = value;
-            }
-            if let Some(value) = overrides.response_extra_penalty_orders {
-                config.response_extra_penalty_orders = value;
-            }
-            if let Some(value) = overrides.double_penalty {
-                config.double_penalty = value;
-            }
-        }
-        gam::CtnStage1Recipe::new(
-            &self.response_column,
-            &self.covariate_formula_rhs,
-            config,
-            self.weight_column.as_deref(),
-            self.offset_column.as_deref(),
-        )
-    }
-}
 
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2260,9 +2123,9 @@ fn fit_table(
     // SIGALRM handlers, etc.) can run while the Rust solver is in progress.
     let fisher_values = fisher_rao_w.as_ref().map(|w| w.as_array().to_owned());
     let model_bytes = detach_workflow_result(py, "fit_table", move || {
-        fit_table_impl(
-            headers,
-            rows,
+        let dataset = dataset_with_inferred_schema(headers, rows)?;
+        fit_dataset_impl(
+            dataset,
             formula,
             config_json.as_deref(),
             fisher_values.as_ref().map(|w| w.view()),
@@ -2284,9 +2147,9 @@ fn fit_array(
     let y_values = y.as_array().to_owned();
     let fisher_values = fisher_rao_w.as_ref().map(|w| w.as_array().to_owned());
     let model_bytes = detach_workflow_result(py, "fit_array", move || {
-        fit_array_impl(
-            x_values.view(),
-            y_values.view(),
+        let dataset = dataset_from_xy_arrays(x_values.view(), y_values.view(), &formula)?;
+        fit_dataset_impl(
+            dataset,
             formula,
             config_json.as_deref(),
             fisher_values.as_ref().map(|w| w.view()),
@@ -2583,14 +2446,13 @@ fn competing_risks_cif_impl(
     // bare `PyValueError` rather than forcing it through a typed engine
     // enum it does not belong to.
     let cumulative_hazard =
-        ndarray::stack(Axis(0), &endpoint_views).map_err(|err| py_value_error(err.to_string()))?;
+        ndarray::stack(Axis(0), &endpoint_views).map_err(shape_error_to_pyerr)?;
     // Typed engine path: `assemble_competing_risks_cif` returns
     // `Result<_, SurvivalError>`, dispatch to `gamfit.SurvivalError`.
     let result = gam::survival::assemble_competing_risks_cif(times, cumulative_hazard.view())
         .map_err(survival_error_to_pyerr)?;
     let cif_views = result.cif.iter().map(|m| m.view()).collect::<Vec<_>>();
-    let cif_stacked =
-        ndarray::stack(Axis(0), &cif_views).map_err(|err| py_value_error(err.to_string()))?;
+    let cif_stacked = ndarray::stack(Axis(0), &cif_views).map_err(shape_error_to_pyerr)?;
     Ok((cif_stacked, result.overall_survival))
 }
 
@@ -2808,10 +2670,10 @@ fn periodic_spline_curve_basis<'py>(
     penalty_order: usize,
 ) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray2<f64>>)> {
     let spec = PeriodicBSplineBasisSpec::new(degree, n_knots, 1.0, 0.0, penalty_order);
-    let basis = build_periodic_bspline_basis_1d(t.as_array(), &spec)
-        .map_err(|e| py_value_error(e.to_string()))?;
+    let basis =
+        build_periodic_bspline_basis_1d(t.as_array(), &spec).map_err(basis_error_to_pyerr)?;
     let penalty = create_cyclic_difference_penalty_matrix(n_knots, penalty_order)
-        .map_err(|e| py_value_error(e.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
     Ok((
         basis.into_pyarray(py).unbind(),
         penalty.into_pyarray(py).unbind(),
@@ -2929,13 +2791,13 @@ fn duchon_basis_with_jet<'py>(
     // lockstep on the amplification, the null-space basis, or the polynomial
     // column ordering. This is the model the issue prescribes.
     let (phi, jet) = duchon_sae_atom_basis_with_jet(pts, ctrs, requested_nullspace)
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
 
     // The penalty matrix `S = Zᵀ K_CC Z` is the conditionally-PD penalty of the
     // *same* basis. It comes from the forward builder over the identical spec,
     // which uses the same `Z` and `α` as the helper above, so `S` is the
     // penalty of exactly the `Φ` returned here.
-    let built = build_duchon_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let built = build_duchon_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
     let primary_idx = built
         .penaltyinfo
         .iter()
@@ -3067,7 +2929,7 @@ fn duchon_basis_with_jets<'py>(
         &periodic_flags,
         &periods,
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
 
     Ok((
         phi.into_pyarray(py).unbind(),
@@ -3130,11 +2992,11 @@ fn matern_basis<'py>(
         periodic: None,
         nullspace_shrinkage_survived: None,
     };
-    let built = build_matern_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let built = build_matern_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
     let design = built
         .design
         .try_to_dense_by_chunks("matern_basis")
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(py_value_error)?;
     Ok(design.into_pyarray(py).unbind())
 }
 
@@ -3271,7 +3133,7 @@ fn basis_with_jet<'py>(
                     periodic_knot_domain(knots_array.view()).map_err(py_value_error)?;
                 let jet =
                     periodic_bspline_first_derivative_nd(coords, (left, right), degree, num_basis)
-                        .map_err(|err| py_value_error(err.to_string()))?;
+                        .map_err(basis_error_to_pyerr)?;
                 if jet.shape() != [n_rows, n_cols, 1] {
                     return Err(py_value_error(format!(
                         "basis_with_jet bspline shape mismatch: phi=({n_rows},{n_cols}) jet={:?}",
@@ -3279,7 +3141,7 @@ fn basis_with_jet<'py>(
                     )));
                 }
                 let penalty = create_cyclic_difference_penalty_matrix(num_basis, order)
-                    .map_err(|err| py_value_error(err.to_string()))?;
+                    .map_err(basis_error_to_pyerr)?;
                 (jet, penalty)
             } else {
                 let deriv = bspline_basis_derivative_impl(
@@ -3415,7 +3277,7 @@ fn duchon_basis<'py>(
             boundary: OneDimensionalBoundary::Open,
         };
         let built = build_duchon_basis_mixed_periodicity_auto(pts, &spec, &periodic_flags, None)
-            .map_err(|err| py_value_error(err.to_string()))?;
+            .map_err(basis_error_to_pyerr)?;
         return Ok(built.design.to_dense().into_pyarray(py).unbind());
     }
     let spec = DuchonBasisSpec {
@@ -3429,7 +3291,7 @@ fn duchon_basis<'py>(
         periodic: None,
         boundary: OneDimensionalBoundary::Open,
     };
-    let built = build_duchon_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let built = build_duchon_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
     Ok(built.design.to_dense().into_pyarray(py).unbind())
 }
 
@@ -3444,7 +3306,7 @@ fn auto_knots_1d<'py>(
     // alongside the knot vector so Python callers can observe when the engine
     // had to downgrade their requested basis to fit small-n data.
     let result = auto_knot_vector_1d_quantile(t.as_array(), num_internal_knots, degree)
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
     Ok((
         result.knots.into_pyarray(py).unbind(),
         result.degree,
@@ -3459,8 +3321,8 @@ fn auto_centers_1d<'py>(
     t: PyReadonlyArray1<'py, f64>,
     num_centers: usize,
 ) -> PyResult<Py<PyArray1<f64>>> {
-    let centers = auto_centers_1d_equal_mass(t.as_array(), num_centers)
-        .map_err(|err| py_value_error(err.to_string()))?;
+    let centers =
+        auto_centers_1d_equal_mass(t.as_array(), num_centers).map_err(basis_error_to_pyerr)?;
     Ok(centers.into_pyarray(py).unbind())
 }
 
@@ -3509,7 +3371,7 @@ fn duchon_operator_penalties<'py>(
         None,
         None,
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
     Ok((
         matrices.mass.into_pyarray(py).unbind(),
         matrices.tension.into_pyarray(py).unbind(),
@@ -3608,7 +3470,7 @@ fn duchon_function_norm_penalty<'py>(
             &periodic_flags,
             periods_1d.as_ref().map(|p| p.as_slice()),
         )
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
         // Mixed-periodicity builder emits a single Primary candidate (the
         // function-norm Gram).
         let idx = built
@@ -3634,8 +3496,7 @@ fn duchon_function_norm_penalty<'py>(
         periodic: None,
         boundary: OneDimensionalBoundary::Open,
     };
-    let built = build_duchon_basis(center_matrix.view(), &spec)
-        .map_err(|err| py_value_error(err.to_string()))?;
+    let built = build_duchon_basis(center_matrix.view(), &spec).map_err(basis_error_to_pyerr)?;
     // The redesigned non-periodic Euclidean path emits a single native
     // reproducing-norm Gram as the `Primary` candidate (the function-norm
     // penalty on the scale-free polyharmonic basis) plus a null-space shrinkage
@@ -3711,8 +3572,7 @@ fn sphere_basis<'py>(
         wahba_kernel,
         identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
-    let built =
-        build_spherical_spline_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let built = build_spherical_spline_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
     let primary_idx = built
         .penaltyinfo
         .iter()
@@ -3749,7 +3609,7 @@ fn sphere_select_farthest_point_centers<'py>(
         )));
     }
     let centers = select_spherical_farthest_point_centers(pts, n_centers, radians)
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
     Ok(centers.into_pyarray(py).unbind())
 }
 
@@ -3815,8 +3675,7 @@ fn sphere_basis_with_centers<'py>(
         wahba_kernel,
         identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
-    let built =
-        build_spherical_spline_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let built = build_spherical_spline_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
     let primary_idx = built
         .penaltyinfo
         .iter()
@@ -3895,8 +3754,7 @@ fn sphere_basis_jet<'py>(
         wahba_kernel,
         identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
-    let jet =
-        spherical_spline_design_jet(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let jet = spherical_spline_design_jet(pts, &spec).map_err(basis_error_to_pyerr)?;
     Ok(jet.into_pyarray(py).unbind())
 }
 
@@ -3947,8 +3805,7 @@ fn sphere_basis_jet_with_centers<'py>(
         wahba_kernel,
         identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
-    let jet =
-        spherical_spline_design_jet(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
+    let jet = spherical_spline_design_jet(pts, &spec).map_err(basis_error_to_pyerr)?;
     Ok(jet.into_pyarray(py).unbind())
 }
 
@@ -3967,8 +3824,7 @@ fn sphere_chart_basis_with_jet<'py>(
     // the returned arrays into Python-facing buffers. Keeping the math in one
     // place is what prevents the core and PyFFI derivatives from drifting.
     let coords = t.as_array();
-    let (phi, jet) =
-        sphere_chart_basis_jet(coords).map_err(|err| py_value_error(err.to_string()))?;
+    let (phi, jet) = sphere_chart_basis_jet(coords).map_err(py_value_error)?;
     let penalty = Array2::from_diag(&Array1::from_vec(SPHERE_CHART_PENALTY_DIAGONAL.to_vec()));
     Ok((
         phi.into_pyarray(py).unbind(),
@@ -3990,7 +3846,7 @@ fn thin_plate_penalty<'py>(
         ));
     }
     let matrix = build_thin_plate_penalty_matrix(centers.as_array(), length_scale)
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
     Ok(matrix.penalty.into_pyarray(py).unbind())
 }
 
@@ -4987,7 +4843,7 @@ fn gaussian_weighted_ridge_array<'py>(
         weights.as_array(),
         ridge_lambda,
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(py_value_error)?;
     Ok((
         coefficients.into_pyarray(py).unbind(),
         fitted.into_pyarray(py).unbind(),
@@ -8703,7 +8559,7 @@ fn gaussian_reml_fit_latent<'py>(
     tensor_degrees: Option<Vec<usize>>,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
-        Some(s) => Some(serde_json::from_str(&s).map_err(|e| py_value_error(e.to_string()))?),
+        Some(s) => Some(serde_json::from_str(&s).map_err(serde_json_error_to_pyerr)?),
         None => None,
     };
     let latent_payload = serde_json::json!({"t": {"name": "t", "n": n_obs, "d": latent_dim}});
@@ -8822,7 +8678,7 @@ fn gaussian_reml_fit_latent<'py>(
     // it back rather than having to thread the input through themselves.
     let t_matrix = t_for_echo
         .into_shape_with_order((n_obs, latent_dim))
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(shape_error_to_pyerr)?;
     out.set_item("t", t_matrix.into_pyarray(py))?;
     Ok(out.unbind())
 }
@@ -9284,7 +9140,7 @@ fn sae_manifold_fit_inner<'py>(
     fisher_provenance: Option<&str>,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
-        Some(s) => Some(serde_json::from_str(&s).map_err(|e| py_value_error(e.to_string()))?),
+        Some(s) => Some(serde_json::from_str(&s).map_err(serde_json_error_to_pyerr)?),
         None => None,
     };
     let (n_obs, p_out) = z_view.dim();
@@ -9615,7 +9471,12 @@ fn sae_manifold_fit_inner<'py>(
     // `init_rho` packs `[log_lambda_sparse, log_lambda_smooth, per-atom ARD]`;
     // its `to_flat()` defines the outer ρ vector the engine optimizes, and its
     // length is the objective's declared `n_params`.
-    let init_rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard);
+    let seed_dispersion = base_term
+        .seed_reconstruction_dispersion(z_view)
+        .map_err(py_value_error)?;
+    let init_rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard)
+        .seed_scaled_by_dispersion(seed_dispersion)
+        .map_err(py_value_error)?;
     let init_rho_flat = init_rho.to_flat();
     let n_params = init_rho_flat.len();
     // Whether an isometry gauge penalty is installed on this fit. Read here,
@@ -9658,6 +9519,17 @@ fn sae_manifold_fit_inner<'py>(
         .decoder_shape_uncertainty()
         .map_err(py_value_error)?;
     let (mut term, mut rho, loss) = objective.into_fitted();
+    {
+        let assignments = term.assignment.assignments();
+        let fitted = term.fitted();
+        term.record_fit_data_collapse_if_needed(
+            z_view.view(),
+            fitted.view(),
+            assignments.view(),
+            max_iter,
+        )
+        .map_err(py_value_error)?;
+    }
 
     // #997 — evidence-guarded structure search around the production fit. Harvest
     // death (diverged ARD ∪ terminal collapse) and fusion (co-activation)
@@ -9835,6 +9707,13 @@ fn sae_manifold_fit_inner<'py>(
             }
         }
     }
+    term.record_fit_data_collapse_if_needed(
+        z_view.view(),
+        fitted.view(),
+        assignments.view(),
+        max_iter,
+    )
+    .map_err(py_value_error)?;
     let trust_diagnostics = term
         .trust_diagnostics_report(assignments.view())
         .map_err(py_value_error)?;
@@ -9904,6 +9783,10 @@ fn sae_manifold_fit_inner<'py>(
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
+    out.set_item(
+        "solver_plan",
+        sae_streaming_plan_to_pydict(py, term.streaming_plan())?,
+    )?;
     out.set_item(
         "diagnostics",
         sae_trust_diagnostics_dict(py, &trust_diagnostics)?,
@@ -10323,53 +10206,241 @@ fn sae_periodic_basis_size(n_harmonics: usize) -> Result<usize, String> {
 /// fit will follow for a given `(n_obs, total_basis, k_atoms, d_max)` without
 /// running it. It carries no tunable knobs — the plan is fully derived from the
 /// problem size and the `GpuRuntime` memory budget.
-#[pyfunction]
+#[pyfunction(signature = (n_obs, total_basis, k_atoms, d_max, border_dim = None))]
 fn sae_streaming_plan(
+    py: Python<'_>,
     n_obs: usize,
     total_basis: usize,
     k_atoms: usize,
     d_max: usize,
-) -> (bool, usize) {
-    const BYTES_PER_F64: usize = 8;
-    // Host working-set we are willing to materialize for the dense full-batch
-    // path on a CPU-only host before switching to streaming.
-    const HOST_IN_CORE_BYTES: usize = 2 * 1024 * 1024 * 1024; // 2 GiB
-    // CPU L2-cache estimate used to size a chunk so its hot basis stays
-    // resident; chunks are sized to several multiples of this window.
-    const CPU_L2_CACHE_BYTES: usize = 1024 * 1024; // 1 MiB
-    const CHUNK_CACHE_MULTIPLE: usize = 8;
-    const MIN_CHUNK_ROWS: usize = 256;
+    border_dim: Option<usize>,
+) -> PyResult<Py<PyDict>> {
+    let border_dim = border_dim.unwrap_or(total_basis);
+    let plan = gam::terms::sae_manifold::sae_streaming_plan_for_shape(
+        n_obs,
+        total_basis,
+        k_atoms,
+        d_max,
+        border_dim,
+    );
+    let out = PyDict::new(py);
+    out.set_item("streaming", plan.streaming)?;
+    out.set_item("chunk_size", plan.chunk_size)?;
+    out.set_item(
+        "estimated_full_batch_bytes",
+        plan.estimated_full_batch_bytes,
+    )?;
+    out.set_item(
+        "estimated_dense_schur_bytes",
+        plan.estimated_dense_schur_bytes,
+    )?;
+    out.set_item("estimated_row_cross_bytes", plan.estimated_row_cross_bytes)?;
+    out.set_item(
+        "estimated_direct_peak_bytes",
+        plan.estimated_direct_peak_bytes,
+    )?;
+    out.set_item(
+        "estimated_matrix_free_peak_bytes",
+        plan.estimated_matrix_free_peak_bytes,
+    )?;
+    out.set_item("in_core_budget_bytes", plan.in_core_budget_bytes)?;
+    out.set_item("host_available_bytes", plan.host_available_bytes)?;
+    out.set_item("direct_admitted", plan.direct_admitted)?;
+    out.set_item("matrix_free_admitted", plan.matrix_free_admitted)?;
+    out.set_item(
+        "route",
+        if plan.direct_admitted {
+            "direct"
+        } else if plan.matrix_free_admitted {
+            "matrix_free_streaming"
+        } else {
+            "refuse"
+        },
+    )?;
+    Ok(out.unbind())
+}
 
-    let per_row_words = total_basis
-        .saturating_mul(1 + d_max)
-        .saturating_add(k_atoms)
-        .max(1);
-    let per_row_bytes = per_row_words.saturating_mul(BYTES_PER_F64);
-    let full_batch_bytes = n_obs.saturating_mul(per_row_bytes);
+fn sae_streaming_plan_to_pydict<'py>(
+    py: Python<'py>,
+    plan: gam::terms::sae_manifold::SaeStreamingPlan,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("streaming", plan.streaming)?;
+    out.set_item("chunk_size", plan.chunk_size)?;
+    out.set_item(
+        "estimated_full_batch_bytes",
+        plan.estimated_full_batch_bytes,
+    )?;
+    out.set_item(
+        "estimated_dense_schur_bytes",
+        plan.estimated_dense_schur_bytes,
+    )?;
+    out.set_item("estimated_row_cross_bytes", plan.estimated_row_cross_bytes)?;
+    out.set_item(
+        "estimated_direct_peak_bytes",
+        plan.estimated_direct_peak_bytes,
+    )?;
+    out.set_item(
+        "estimated_matrix_free_peak_bytes",
+        plan.estimated_matrix_free_peak_bytes,
+    )?;
+    out.set_item("in_core_budget_bytes", plan.in_core_budget_bytes)?;
+    out.set_item("host_available_bytes", plan.host_available_bytes)?;
+    out.set_item("direct_admitted", plan.direct_admitted)?;
+    out.set_item("matrix_free_admitted", plan.matrix_free_admitted)?;
+    out.set_item(
+        "route",
+        if plan.direct_admitted {
+            "direct"
+        } else if plan.matrix_free_admitted {
+            "matrix_free_streaming"
+        } else {
+            "refuse"
+        },
+    )?;
+    Ok(out)
+}
 
-    let runtime = gam::gpu::GpuRuntime::global();
-    let (in_core_budget, chunk_window_bytes) = match runtime {
-        Some(rt) => {
-            let budget = rt.memory_budget_bytes;
-            // Allow up to one quarter of the device budget for the dense
-            // full-batch buffers; size chunks to a small fraction so several
-            // chunks (plus the reduced system) coexist on-device.
-            let chunk_window = (budget / 16).max(CPU_L2_CACHE_BYTES * CHUNK_CACHE_MULTIPLE);
-            (budget / 4, chunk_window)
+/// Parse a chart-topology name into the engine enum. `"circle"` charts carry
+/// radian coordinates mod 2π; `"interval"` charts derive their bounds from
+/// the observed coordinate range (magic by default — no extra knobs).
+fn parse_chart_topology(
+    name: &str,
+    coords: ndarray::ArrayView1<'_, f64>,
+) -> PyResult<gam::inference::layer_transport::ChartTopology> {
+    use gam::inference::layer_transport::ChartTopology;
+    match name {
+        "circle" => Ok(ChartTopology::Circle),
+        "interval" => {
+            let lo = coords.iter().copied().fold(f64::INFINITY, f64::min);
+            let hi = coords.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            if !(lo.is_finite() && hi.is_finite()) || hi <= lo {
+                return Err(PyValueError::new_err(format!(
+                    "interval chart needs a non-degenerate finite coordinate range, got [{lo}, {hi}]"
+                )));
+            }
+            Ok(ChartTopology::Interval { lo, hi })
         }
-        None => (
-            HOST_IN_CORE_BYTES,
-            CPU_L2_CACHE_BYTES * CHUNK_CACHE_MULTIPLE,
-        ),
-    };
-
-    if full_batch_bytes <= in_core_budget {
-        return (false, n_obs.max(1));
+        other => Err(PyValueError::new_err(format!(
+            "unknown chart topology {other:?}; expected \"circle\" or \"interval\""
+        ))),
     }
-    // Streaming: rows per chunk so the chunk's per-row working set fits the
-    // window, clamped to a floor for amortization and to `n_obs`.
-    let rows_per_chunk = (chunk_window_bytes / per_row_bytes).max(MIN_CHUNK_ROWS);
-    (true, rows_per_chunk.min(n_obs).max(1))
+}
+
+fn layer_transport_report_to_pydict<'py>(
+    py: Python<'py>,
+    report: &gam::inference::layer_transport::LayerTransportReport,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    out.set_item("layer_from", report.layer_from)?;
+    out.set_item("layer_to", report.layer_to)?;
+    out.set_item("topology_from", report.topology_from.name())?;
+    out.set_item("topology_to", report.topology_to.name())?;
+    out.set_item("topology_preserved", report.topology_preserved)?;
+    out.set_item("degree", report.degree)?;
+    out.set_item("degree_concentration", report.degree_concentration)?;
+    out.set_item("rotation_offset", report.rotation_offset)?;
+    out.set_item("isometry_defect", report.isometry_defect)?;
+    out.set_item("isometry_defect_se", report.isometry_defect_se)?;
+    out.set_item(
+        "min_directional_derivative",
+        report.min_directional_derivative,
+    )?;
+    out.set_item("transport_edf", report.transport_edf)?;
+    out.set_item("smoothing_lambda", report.smoothing_lambda)?;
+    out.set_item("noise_variance", report.noise_variance)?;
+    out.set_item("residual_rms", report.residual_rms)?;
+    out.set_item("n_obs", report.n_obs)?;
+    out.set_item("composition_defect", report.composition_defect)?;
+    out.set_item(
+        "composition_max_studentized",
+        report.composition_max_studentized,
+    )?;
+    out.set_item("composition_p_value", report.composition_p_value)?;
+    out.set_item(
+        "composition_gauge_reflected",
+        report.composition_gauge_reflected,
+    )?;
+    Ok(out)
+}
+
+/// Fit one inter-layer concept transport map `t_to = h(t_from)` with the
+/// engine's REML machinery (issue #1013) and return the evidence payload:
+/// winding degree (circle→circle), topology-preservation verdict, the
+/// data-density-weighted isometry defect with its delta-method SE, EDF, and
+/// the selected smoothing level. See
+/// `gam::inference::layer_transport` for the estimator and gauge discipline.
+#[pyfunction(signature = (coords_from, coords_to, topology_from = "circle", topology_to = "circle", layer_from = 0, layer_to = 1))]
+fn layer_transport_fit(
+    py: Python<'_>,
+    coords_from: PyReadonlyArray1<'_, f64>,
+    coords_to: PyReadonlyArray1<'_, f64>,
+    topology_from: &str,
+    topology_to: &str,
+    layer_from: usize,
+    layer_to: usize,
+) -> PyResult<Py<PyDict>> {
+    let from = coords_from.as_array();
+    let to = coords_to.as_array();
+    let topo_from = parse_chart_topology(topology_from, from)?;
+    let topo_to = parse_chart_topology(topology_to, to)?;
+    let report = gam::inference::layer_transport::fit_layer_transport(
+        layer_from, layer_to, from, to, topo_from, topo_to,
+    )
+    .map_err(PyValueError::new_err)?;
+    Ok(layer_transport_report_to_pydict(py, &report)?.unbind())
+}
+
+/// Fit a whole ladder of layer charts: every adjacent transport map plus
+/// every two-hop map with the composition-law test
+/// `h_{l→l+2} ≟ h_{l+1→l+2} ∘ h_{l→l+1}` attached (issue #1013). `coords` is
+/// a list of equal-length 1-D coordinate arrays (one per layer, same rows);
+/// `topology` applies to every chart; `layers` are optional labels
+/// (defaulting to `0..len`). Returns `{"adjacent": [...], "two_hop": [...]}`.
+#[pyfunction(signature = (coords, topology = "circle", layers = None))]
+fn layer_transport_ladder(
+    py: Python<'_>,
+    coords: &Bound<'_, PyList>,
+    topology: &str,
+    layers: Option<Vec<usize>>,
+) -> PyResult<Py<PyDict>> {
+    use gam::inference::layer_transport::transport_ladder;
+    let mut coord_vecs: Vec<ndarray::Array1<f64>> = Vec::with_capacity(coords.len());
+    for item in coords.iter() {
+        let arr: PyReadonlyArray1<'_, f64> = item.extract()?;
+        coord_vecs.push(arr.as_array().to_owned());
+    }
+    let layer_labels: Vec<usize> = match layers {
+        Some(labels) => {
+            if labels.len() != coord_vecs.len() {
+                return Err(PyValueError::new_err(format!(
+                    "layers has {} entries for {} coordinate arrays",
+                    labels.len(),
+                    coord_vecs.len()
+                )));
+            }
+            labels
+        }
+        None => (0..coord_vecs.len()).collect(),
+    };
+    let mut topologies = Vec::with_capacity(coord_vecs.len());
+    for coord in &coord_vecs {
+        topologies.push(parse_chart_topology(topology, coord.view())?);
+    }
+    let ladder =
+        transport_ladder(&layer_labels, &coord_vecs, &topologies).map_err(PyValueError::new_err)?;
+    let out = PyDict::new(py);
+    let adjacent = PyList::empty(py);
+    for report in &ladder.adjacent {
+        adjacent.append(layer_transport_report_to_pydict(py, report)?)?;
+    }
+    let two_hop = PyList::empty(py);
+    for report in &ladder.two_hop {
+        two_hop.append(layer_transport_report_to_pydict(py, report)?)?;
+    }
+    out.set_item("adjacent", adjacent)?;
+    out.set_item("two_hop", two_hop)?;
+    Ok(out.unbind())
 }
 
 /// PCA seed: returns coords with shape `(k_atoms, n_obs, d_max)`. For periodic
@@ -12522,6 +12593,10 @@ fn sae_manifold_predict_oos<'py>(
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
+    out.set_item(
+        "solver_plan",
+        sae_streaming_plan_to_pydict(py, term.streaming_plan())?,
+    )?;
     out.set_item("chosen_k", k_atoms)?;
     Ok(out.unbind())
 }
@@ -13309,8 +13384,8 @@ fn gaussian_reml_fit_latent_backward<'py>(
         backward.clone()
     };
     let grad_x = &backward_for_t.grad_x;
-    let mut grad_t = contract_input_loc_gradient(grad_x.view(), &jet)
-        .map_err(|err| py_value_error(err.to_string()))?;
+    let mut grad_t =
+        contract_input_loc_gradient(grad_x.view(), &jet).map_err(basis_error_to_pyerr)?;
     if grad_reml_score != 0.0 {
         add_latent_outer_reml_score_gradient(
             &mut grad_t,
@@ -14278,7 +14353,7 @@ fn gaussian_reml_optimize_latent<'py>(
     let t_matrix = best_t
         .clone()
         .into_shape_with_order((n_obs, latent_dim))
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(shape_error_to_pyerr)?;
     out.set_item("t", t_matrix.clone().into_pyarray(py))?;
     out.set_item("latent", t_matrix.into_pyarray(py))?;
     out.set_item("t_flat", best_t.into_pyarray(py))?;
@@ -14591,7 +14666,7 @@ fn glm_reml_fit_latent<'py>(
     analytic_penalties: Option<String>,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
-        Some(s) => Some(serde_json::from_str(&s).map_err(|e| py_value_error(e.to_string()))?),
+        Some(s) => Some(serde_json::from_str(&s).map_err(serde_json_error_to_pyerr)?),
         None => None,
     };
     let latent_payload = serde_json::json!({"t": {"name": "t", "n": n_obs, "d": latent_dim}});
@@ -19706,7 +19781,7 @@ fn matern_input_location_first_jet<'py>(
         nu_parsed,
         aniso_vec.as_deref(),
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
     Ok(out.into_pyarray(py).unbind())
 }
 
@@ -19738,7 +19813,7 @@ fn matern_input_location_hessian<'py>(
         nu_parsed,
         aniso_vec.as_deref(),
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
     Ok(out.into_pyarray(py).unbind())
 }
 
@@ -19801,10 +19876,10 @@ fn matern_basis_gradient_streaming<'py>(
         aniso,
         chunk_size,
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
     let out = evaluator
         .evaluate(data.as_array(), target)
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
     Ok(out.into_pyarray(py).unbind())
 }
 
@@ -19828,7 +19903,7 @@ fn sphere_input_location_first_derivative<'py>(
         penalty_order,
         project_to_tangent,
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
     Ok(jet.into_pyarray(py).unbind())
 }
 
@@ -19849,7 +19924,7 @@ fn periodic_bspline_input_location_first_derivative<'py>(
         degree,
         num_basis,
     )
-    .map_err(|err| py_value_error(err.to_string()))?;
+    .map_err(basis_error_to_pyerr)?;
     Ok(jet.into_pyarray(py).unbind())
 }
 
@@ -19899,7 +19974,7 @@ fn bspline_tensor_input_location_first_derivative<'py>(
         per_axis_views.push(knots_concat_view.slice(s![lo..hi]));
     }
     let jet = bspline_tensor_first_derivative(t.as_array(), &per_axis_views, &degrees)
-        .map_err(|err| py_value_error(err.to_string()))?;
+        .map_err(basis_error_to_pyerr)?;
     Ok(jet.into_pyarray(py).unbind())
 }
 
@@ -24123,6 +24198,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_steer_delta, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruction_r2, module)?)?;
     module.add_function(wrap_pyfunction!(sae_streaming_plan, module)?)?;
+    module.add_function(wrap_pyfunction!(layer_transport_fit, module)?)?;
+    module.add_function(wrap_pyfunction!(layer_transport_ladder, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_assignment_summary, module)?)?;
     module.add_function(wrap_pyfunction!(gated_sae_decode, module)?)?;
     module.add_function(wrap_pyfunction!(interchange_decode_forward, module)?)?;
@@ -24237,6 +24314,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(diagnostics_concat_decoder_blocks, module)?)?;
     module.add_function(wrap_pyfunction!(partial_supervision_solve, module)?)?;
     module.add_function(wrap_pyfunction!(thin_svd_scores, module)?)?;
+    module.add_function(wrap_pyfunction!(linear_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(
         identifiable_factor_select_weights_array,
         module
@@ -24578,6 +24656,55 @@ fn thin_svd_scores<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
+#[pyfunction(signature = (
+    x,
+    k,
+    max_iter = 30,
+    top_k = 1,
+    assignment = "top_k",
+    temperature = 0.25,
+    code_ridge = 1.0e-8,
+    tolerance = 1.0e-7
+))]
+fn linear_dictionary_fit<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f64>,
+    k: usize,
+    max_iter: usize,
+    top_k: usize,
+    assignment: &str,
+    temperature: f64,
+    code_ridge: f64,
+    tolerance: f64,
+) -> PyResult<Py<PyDict>> {
+    let x_values = x.as_array().to_owned();
+    let assignment_kind = LinearDictionaryAssignment::parse(assignment).map_err(py_value_error)?;
+    let config = LinearDictionaryConfig {
+        n_atoms: k,
+        max_iter,
+        top_k,
+        assignment: assignment_kind,
+        temperature,
+        code_ridge,
+        tolerance,
+    };
+    let fit = detach_py_result(py, "linear_dictionary_fit", move || {
+        fit_linear_dictionary(x_values.view(), &config)
+    })?;
+    let out = PyDict::new(py);
+    out.set_item("atoms", fit.atoms.into_pyarray(py))?;
+    out.set_item("assignments", fit.assignments.into_pyarray(py))?;
+    out.set_item("fitted", fit.fitted.into_pyarray(py))?;
+    out.set_item("lambdas", fit.lambdas.into_pyarray(py))?;
+    out.set_item("reml_scores", fit.reml_scores.into_pyarray(py))?;
+    out.set_item("explained_variance", fit.explained_variance)?;
+    out.set_item("iterations", fit.iterations)?;
+    out.set_item("converged", fit.converged)?;
+    out.set_item("assignment", fit.assignment.as_str())?;
+    out.set_item("top_k", fit.top_k)?;
+    Ok(out.unbind())
+}
+
 pub(crate) fn py_value_error(message: String) -> PyErr {
     // Final defensive translation at the Python boundary: convert the
     // cryptic Rust assertion "SurvivalLocationScaleFamily expects N blocks,
@@ -24831,28 +24958,9 @@ error_to_pyerr!(
     gam::families::survival::SurvivalError,
     SurvivalError
 );
-
-fn fit_table_impl(
-    headers: Vec<String>,
-    rows: Vec<Vec<String>>,
-    formula: String,
-    config_json: Option<&str>,
-    fisher_rao_w: Option<ArrayView3<'_, f64>>,
-) -> Result<Vec<u8>, WorkflowError> {
-    let dataset = dataset_with_inferred_schema(headers, rows)?;
-    fit_dataset_impl(dataset, formula, config_json, fisher_rao_w)
-}
-
-fn fit_array_impl(
-    x: ArrayView2<'_, f64>,
-    y: ArrayView2<'_, f64>,
-    formula: String,
-    config_json: Option<&str>,
-    fisher_rao_w: Option<ArrayView3<'_, f64>>,
-) -> Result<Vec<u8>, WorkflowError> {
-    let dataset = dataset_from_xy_arrays(x, y, &formula)?;
-    fit_dataset_impl(dataset, formula, config_json, fisher_rao_w)
-}
+error_to_pyerr!(basis_error_to_pyerr, gam::basis::BasisError, GamError);
+error_to_pyerr!(shape_error_to_pyerr, ndarray::ShapeError, GamError);
+error_to_pyerr!(serde_json_error_to_pyerr, serde_json::Error, GamError);
 
 fn inject_scalar_fisher_rao_weight(
     dataset: &mut EncodedDataset,
@@ -27022,6 +27130,7 @@ fn smooth_basis_kind_label(basis: &gam::smooth::SmoothBasisSpec) -> &'static str
         S::TensorBSpline { .. } => "tensor",
         S::ThinPlate { .. } => "thin_plate",
         S::Sphere { .. } => "sphere",
+        S::ConstantCurvature { .. } => "constant_curvature",
         S::Matern { .. } => "matern",
         S::Duchon { .. } => "duchon",
         S::Pca { .. } => "pca",
@@ -27029,6 +27138,7 @@ fn smooth_basis_kind_label(basis: &gam::smooth::SmoothBasisSpec) -> &'static str
         S::BySmooth { .. } => "by_smooth",
         S::ByVariable { .. } => "by_variable",
         S::FactorSumToZero { .. } => "factor_sum_to_zero",
+        S::MeasureJet { .. } => "measurejet",
     }
 }
 
@@ -28170,6 +28280,10 @@ fn summary_smooth_terms(
         penalty_cursor += k;
         let smooth_test = if term.shape == ShapeConstraint::None {
             cov_forwald.and_then(|cov| {
+                // The summary table is built from representative inputs reconstructed
+                // from saved feature ranges (not the original training rows), so the
+                // Lawley substrate needed for the second-order Bartlett correction
+                // is not honestly available here. Report first-order p-values only.
                 wood_smooth_test(SmoothTestInput {
                     beta: fit.beta.view(),
                     covariance: cov,
@@ -28179,6 +28293,9 @@ fn summary_smooth_terms(
                     nullspace_dim: term.nullspace_dims.iter().copied().sum::<usize>(),
                     residual_df,
                     scale,
+                    // No Lawley cumulant substrate on this FFI summary path;
+                    // the known-scale branch reports first-order p only (#939).
+                    known_scale_lr_mean_shift: None,
                 })
             })
         } else {
@@ -28313,6 +28430,7 @@ fn report_html_impl(model_bytes: &[u8]) -> Result<String, String> {
         edf_blocks,
         continuous_order: Vec::new(),
         anisotropic_scales: Vec::new(),
+        measure_jet_spectra: Vec::new(),
         diagnostics: None,
         smooth_plots: Vec::new(),
         alo: None,
@@ -28399,7 +28517,7 @@ fn register_analytic_penalties(latents_json: &str, penalties_json: &str) -> PyRe
         "rho_count": registry.total_rho_count(),
         "layout": layout,
     }))
-    .map_err(|err| py_value_error(err.to_string()))
+    .map_err(serde_json_error_to_pyerr)
 }
 
 /// JumpReLU activation-gate value and straight-through-estimator gradients.
@@ -29084,364 +29202,8 @@ fn periodic_harmonic_basis_derivative<'py>(
 }
 
 fn parse_fit_config(config_json: Option<&str>) -> Result<(FitConfig, Option<String>), String> {
-    let py_config = match config_json {
-        Some(raw) if !raw.trim().is_empty() => serde_json::from_str::<PyFitConfig>(raw)
-            .map_err(|err| format!("invalid fit config json: {err}"))?,
-        _ => PyFitConfig::default(),
-    };
-    // Python-only presentation provenance: the value never enters the core solver
-    // `FitConfig` (which carries math/solver state only). It flows straight onto
-    // `FittedModelPayload::training_table_kind` so the predict-time output-container
-    // fallback survives `save`/`load`.
-    let training_table_kind = py_config.training_table_kind;
-    let mut fit_config = FitConfig::default();
-    fit_config.group_metadata = parse_group_metadata(py_config.group_metadata, py_config.groups)?;
-    fit_config.penalty_block_gamma_priors = parse_precision_hyperpriors(
-        py_config.precision_hyperpriors,
-        py_config.penalty_block_gamma_priors,
-    )?;
-    let analytic_penalties = py_config.penalties;
-    build_analytic_penalty_registry_from_json(
-        py_config.latents.as_ref(),
-        analytic_penalties.as_ref(),
-    )?;
-    fit_config.latents = py_config.latents;
-    fit_config.analytic_penalties = analytic_penalties;
-    fit_config.smooth_overrides = py_config.smooths;
-    fit_config.topology_auto_selector = py_config
-        .topology_auto_selector
-        .as_ref()
-        .map(gam::solver::topology_selector::TopologyAutoSelector::from_json)
-        .transpose()?;
-    fit_config.family = normalize_optional_family(py_config.family);
-    fit_config.offset_column = py_config.offset;
-    fit_config.weight_column = py_config.weights;
-    if let Some(ridge_lambda) = py_config.ridge_lambda {
-        fit_config.ridge_lambda = ridge_lambda;
-    }
-    if let Some(flag) = py_config.transformation_normal {
-        fit_config.transformation_normal = flag;
-    }
-    if let Some(mode) = py_config.survival_likelihood {
-        let trimmed = mode.trim();
-        if trimmed.is_empty() {
-            return Err("survival_likelihood must be a non-empty string".to_string());
-        }
-        fit_config.survival_likelihood = trimmed.to_string();
-    }
-    if let Some(target) = py_config.baseline_target {
-        let trimmed = target.trim();
-        if trimmed.is_empty() {
-            return Err("baseline_target must be a non-empty string".to_string());
-        }
-        fit_config.baseline_target = trimmed.to_string();
-    }
-    if let Some(value) = py_config.baseline_scale {
-        fit_config.baseline_scale = Some(value);
-    }
-    if let Some(value) = py_config.baseline_shape {
-        fit_config.baseline_shape = Some(value);
-    }
-    if let Some(value) = py_config.baseline_rate {
-        fit_config.baseline_rate = Some(value);
-    }
-    if let Some(value) = py_config.baseline_makeham {
-        fit_config.baseline_makeham = Some(value);
-    }
-    if let Some(z) = py_config.z_column {
-        let trimmed = z.trim();
-        if trimmed.is_empty() {
-            return Err("z_column must be a non-empty string".to_string());
-        }
-        fit_config.z_column = Some(trimmed.to_string());
-    }
-    if let Some(formula) = py_config.logslope_formula {
-        fit_config.logslope_formula = Some(formula);
-    }
-    if let Some(stage1) = py_config.ctn_stage1 {
-        fit_config.ctn_stage1 = Some(stage1.into_recipe()?);
-    }
-    if let Some(link) = py_config.link {
-        let trimmed = link.trim();
-        fit_config.link = if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        };
-    }
-    if let Some(flag) = py_config.flexible_link {
-        fit_config.flexible_link = flag;
-    }
-    if let Some(flag) = py_config.scale_dimensions {
-        fit_config.scale_dimensions = flag;
-    }
-    if let Some(flag) = py_config.adaptive_regularization {
-        fit_config.adaptive_regularization = Some(flag);
-    }
-    if let Some(formula) = py_config.noise_formula {
-        fit_config.noise_formula = Some(formula);
-    }
-    if let Some(column) = py_config.noise_offset {
-        fit_config.noise_offset_column = Some(column);
-    }
-    if let Some(flag) = py_config.firth {
-        fit_config.firth = flag;
-    }
-    if let Some(value) = py_config.outer_max_iter {
-        if value == 0 {
-            return Err("outer_max_iter must be >= 1".to_string());
-        }
-        fit_config.outer_max_iter = Some(value);
-    }
-    if let Some(raw_gpu) = py_config.gpu {
-        fit_config.gpu_policy = gam::gpu::GpuPolicy::parse(&raw_gpu).ok_or_else(|| {
-            format!(
-                "invalid gpu policy '{}'; supported values are auto, off, force",
-                raw_gpu
-            )
-        })?;
-    }
-    if let Some(kind) = py_config.frailty_kind {
-        let trimmed = kind.trim().to_ascii_lowercase();
-        let sigma = py_config.frailty_sd;
-        if let Some(value) = sigma
-            && (!value.is_finite() || value < 0.0)
-        {
-            return Err(format!("frailty_sd must be finite and >= 0, got {value}"));
-        }
-        let hazard_loading = py_config
-            .hazard_loading
-            .as_ref()
-            .map(|raw| raw.trim().to_ascii_lowercase());
-        let frailty = match trimmed.as_str() {
-            "none" | "" => {
-                if sigma.is_some() || hazard_loading.is_some() {
-                    return Err(
-                        "frailty_kind='none' does not accept frailty_sd or hazard_loading"
-                            .to_string(),
-                    );
-                }
-                gam::families::lognormal_kernel::FrailtySpec::None
-            }
-            "hazard-multiplier" => {
-                let loading = match hazard_loading.as_deref() {
-                    Some("full") | None => gam::families::lognormal_kernel::HazardLoading::Full,
-                    Some("loaded-vs-unloaded") => {
-                        gam::families::lognormal_kernel::HazardLoading::LoadedVsUnloaded
-                    }
-                    Some(other) => {
-                        return Err(format!(
-                            "unknown hazard_loading '{other}'; supported: 'full', 'loaded-vs-unloaded'"
-                        ));
-                    }
-                };
-                gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
-                    sigma_fixed: sigma,
-                    loading,
-                }
-            }
-            "gaussian-shift" => {
-                if hazard_loading.is_some() {
-                    return Err(
-                        "hazard_loading is valid only with frailty_kind='hazard-multiplier'"
-                            .to_string(),
-                    );
-                }
-                gam::families::lognormal_kernel::FrailtySpec::GaussianShift { sigma_fixed: sigma }
-            }
-            other => {
-                return Err(format!(
-                    "unknown frailty_kind '{other}'; supported: 'none', 'hazard-multiplier', 'gaussian-shift'"
-                ));
-            }
-        };
-        fit_config.frailty = Some(frailty);
-    } else if py_config.frailty_sd.is_some() || py_config.hazard_loading.is_some() {
-        return Err(
-            "frailty_kind is required when frailty_sd or hazard_loading is provided".to_string(),
-        );
-    }
-    Ok((fit_config, training_table_kind))
-}
-
-fn parse_group_metadata(
-    direct: Option<GroupMetadata>,
-    groups: Option<serde_json::Value>,
-) -> Result<Option<GroupMetadata>, String> {
-    match (direct, groups) {
-        (Some(metadata), None) => Ok(nonempty_group_metadata(metadata)),
-        (None, Some(groups)) => group_metadata_from_groups(groups),
-        (None, None) => Ok(None),
-        (Some(_), Some(_)) => {
-            Err("fit config accepts either group_metadata or groups metadata, not both".to_string())
-        }
-    }
-}
-
-fn parse_gamma_pair_value(
-    label: &str,
-    value: serde_json::Value,
-) -> Result<(String, f64, f64), String> {
-    match value {
-        serde_json::Value::Array(values) => {
-            if values.len() != 2 {
-                return Err(format!(
-                    "precision_hyperpriors['{label}'] must be [shape, rate]"
-                ));
-            }
-            let shape = values[0]
-                .as_f64()
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'][0] must be numeric"))?;
-            let rate = values[1]
-                .as_f64()
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'][1] must be numeric"))?;
-            Ok((label.to_string(), shape, rate))
-        }
-        serde_json::Value::Object(mut map) => {
-            let shape = map
-                .remove("shape")
-                .or_else(|| map.remove("a"))
-                .or_else(|| map.remove("a_p"))
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'] missing shape/a"))?
-                .as_f64()
-                .ok_or_else(|| {
-                    format!("precision_hyperpriors['{label}'] shape/a must be numeric")
-                })?;
-            let rate = map
-                .remove("rate")
-                .or_else(|| map.remove("b"))
-                .or_else(|| map.remove("b_p"))
-                .ok_or_else(|| format!("precision_hyperpriors['{label}'] missing rate/b"))?
-                .as_f64()
-                .ok_or_else(|| {
-                    format!("precision_hyperpriors['{label}'] rate/b must be numeric")
-                })?;
-            Ok((label.to_string(), shape, rate))
-        }
-        _ => Err(format!(
-            "precision_hyperpriors['{label}'] must be [shape, rate] or an object"
-        )),
-    }
-}
-
-fn parse_precision_hyperpriors(
-    precision_hyperpriors: Option<serde_json::Value>,
-    penalty_block_gamma_priors: Option<serde_json::Value>,
-) -> Result<Vec<(String, f64, f64)>, String> {
-    let raw = match (precision_hyperpriors, penalty_block_gamma_priors) {
-        (Some(_), Some(_)) => {
-            return Err(
-                "fit config accepts either precision_hyperpriors or penalty_block_gamma_priors, not both"
-                    .to_string(),
-            );
-        }
-        (Some(raw), None) | (None, Some(raw)) => raw,
-        (None, None) => {
-            return Ok(Vec::new());
-        }
-    };
-    let raw_name = "precision_hyperpriors";
-    let Some(raw) = (match raw {
-        serde_json::Value::Null => None,
-        other => Some(other),
-    }) else {
-        return Ok(Vec::new());
-    };
-    match raw {
-        serde_json::Value::Object(map) => map
-            .into_iter()
-            .map(|(label, value)| parse_gamma_pair_value(&label, value))
-            .collect(),
-        serde_json::Value::Array(items) => items
-            .into_iter()
-            .enumerate()
-            .map(|(idx, item)| {
-                match item {
-                    serde_json::Value::Object(mut obj) => {
-                        let label = obj
-                            .remove("label")
-                            .or_else(|| obj.remove("name"))
-                            .or_else(|| obj.remove("group"))
-                            .ok_or_else(|| {
-                                format!("{raw_name}[{idx}] needs label/name/group")
-                            })?;
-                        let serde_json::Value::String(label) = label else {
-                            return Err(format!("{raw_name}[{idx}] label must be a string"));
-                        };
-                        parse_gamma_pair_value(&label, serde_json::Value::Object(obj))
-                    }
-                    serde_json::Value::Array(mut values) => {
-                        if values.len() != 2 && values.len() != 3 {
-                            return Err(format!(
-                                "{raw_name}[{idx}] must be [label, shape, rate] or [label, [shape, rate]]"
-                            ));
-                        }
-                        let label = values.remove(0);
-                        let serde_json::Value::String(label) = label else {
-                            return Err(format!("{raw_name}[{idx}][0] must be a string label"));
-                        };
-                        let pair = if values.len() == 1 {
-                            values.remove(0)
-                        } else {
-                            serde_json::Value::Array(values)
-                        };
-                        parse_gamma_pair_value(&label, pair)
-                    }
-                    _ => Err(format!("{raw_name}[{idx}] must be an object or array")),
-                }
-            })
-            .collect(),
-        _ => Err(format!("{raw_name} must be a map or array")),
-    }
-}
-
-fn nonempty_group_metadata(metadata: GroupMetadata) -> Option<GroupMetadata> {
-    if metadata.is_empty() {
-        None
-    } else {
-        Some(metadata)
-    }
-}
-
-fn group_metadata_from_groups(groups: serde_json::Value) -> Result<Option<GroupMetadata>, String> {
-    match groups {
-        serde_json::Value::Null => Ok(None),
-        serde_json::Value::Object(map) => {
-            let out = map.into_iter().collect::<BTreeMap<_, _>>();
-            Ok(nonempty_group_metadata(out))
-        }
-        serde_json::Value::Array(items) => {
-            let mut out = BTreeMap::new();
-            for (idx, item) in items.into_iter().enumerate() {
-                let serde_json::Value::Object(mut group) = item else {
-                    return Err(format!("groups[{idx}] must be an object"));
-                };
-                let Some(metadata) = group.remove("metadata") else {
-                    continue;
-                };
-                let name = group
-                    .remove("name")
-                    .or_else(|| group.remove("id"))
-                    .or_else(|| group.remove("key"))
-                    .ok_or_else(|| {
-                        format!(
-                            "groups[{idx}] with metadata must include a string name, id, or key"
-                        )
-                    })?;
-                let serde_json::Value::String(name) = name else {
-                    return Err(format!("groups[{idx}] name/id/key must be a string"));
-                };
-                if name.is_empty() {
-                    return Err(format!("groups[{idx}] name/id/key must be non-empty"));
-                }
-                if out.insert(name.clone(), metadata).is_some() {
-                    return Err(format!("duplicate group metadata key '{name}'"));
-                }
-            }
-            Ok(nonempty_group_metadata(out))
-        }
-        _ => Err("groups must be an object map or an array of group objects".to_string()),
-    }
+    let resolved = gam::config_resolve::parse_fit_config_json(config_json)?;
+    Ok((resolved.fit_config, resolved.training_table_kind))
 }
 
 fn request_metadata(request: &FitRequest<'_>) -> (&'static str, &'static str, bool) {
@@ -29508,13 +29270,6 @@ fn parse_predict_options(options_json: Option<&str>) -> Result<PyPredictOptions,
         }
     }
     Ok(options)
-}
-
-fn normalize_optional_family(family: Option<String>) -> Option<String> {
-    match family {
-        Some(value) if value.eq_ignore_ascii_case("auto") => None,
-        other => other,
-    }
 }
 
 fn dataset_with_inferred_schema(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .exceptions import Forbidden, InsufficientScope, InvalidToken
+from asyncprawcore.exceptions import Forbidden, InsufficientScope, InvalidToken
 
 if TYPE_CHECKING:
     from aiohttp import ClientResponse
@@ -18,6 +18,7 @@ _auth_error_mapping = {
 
 def authorization_error_class(
     response: ClientResponse,
+    /,
 ) -> InvalidToken | (Forbidden | InsufficientScope):
     """Return an exception instance that maps to the OAuth Error.
 

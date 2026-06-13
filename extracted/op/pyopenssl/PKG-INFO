@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyOpenSSL
-Version: 26.2.0
+Version: 26.3.0
 Summary: Python wrapper module around the OpenSSL library
 Home-page: https://pyopenssl.org/
 Author: The pyOpenSSL developers
@@ -14,7 +14,6 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -25,10 +24,10 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
-Requires-Dist: cryptography<49,>=46.0.0
-Requires-Dist: typing-extensions>=4.9; python_version < "3.13" and python_version >= "3.8"
+Requires-Dist: cryptography<50,>=49.0.0
+Requires-Dist: typing-extensions>=4.9; python_version < "3.13"
 Provides-Extra: test
 Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pretend; extra == "test"
@@ -95,6 +94,32 @@ You can also join ``#pyca`` on ``irc.libera.chat`` to ask questions or get invol
 
 Release Information
 ===================
+
+26.3.0 (2026-06-12)
+-------------------
+
+Backward-incompatible changes:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Dropped support for Python 3.8.
+- The minimum ``cryptography`` version is now 49.0.0.
+- Removed deprecated ``OpenSSL.crypto.X509Req``, ``OpenSSL.crypto.dump_certificate_request``, and ``OpenSSL.crypto.load_certificate_request``. ``cryptography.x509`` should be used instead.
+- ``OpenSSL.SSL.Connection.set_session`` now raises ``ValueError`` if the ``Session`` was obtained from a ``Connection`` that was using a different ``Context`` than this one. OpenSSL requires (but does not verify) that sessions only be re-used with a compatible ``SSL_CTX``, so this contract is now enforced.
+
+Deprecations:
+^^^^^^^^^^^^^
+
+- Deprecated ``OpenSSL.crypto.PKey.generate_key`` and ``OpenSSL.crypto.PKey.check``. The key generation and loading APIs in ``cryptography`` should be used instead.
+- Deprecated ``OpenSSL.crypto.dump_privatekey``. The serialization APIs on ``cryptography`` private key types should be used instead.
+- Deprecated all the mutable APIs on ``OpenSSL.crypto.X509``: ``set_version``, ``set_pubkey``, ``sign``, ``set_serial_number``, ``gmtime_adj_notAfter``, ``gmtime_adj_notBefore``, ``set_notBefore``, ``set_notAfter``, ``set_issuer``, and ``set_subject``. ``cryptography.x509.CertificateBuilder`` should be used instead.
+- Deprecated ``OpenSSL.SSL.Context.set_passwd_cb``. Users should decrypt and load their private keys themselves, with ``cryptography``'s key loading APIs, and then call ``OpenSSL.SSL.Context.use_privatekey``.
+- Deprecated ``OpenSSL.crypto.X509Name``, as well as the remaining APIs that consume or return it: ``OpenSSL.crypto.X509.get_issuer``, ``OpenSSL.crypto.X509.get_subject``, and ``OpenSSL.SSL.Context.set_client_ca_list``. The APIs in ``cryptography.x509`` should be used instead.
+
+Changes:
+^^^^^^^^
+
+- ``OpenSSL.SSL.Connection.get_client_ca_list`` now takes an ``as_cryptography`` keyword-argument. When ``True`` is passed then ``cryptography.x509.Name`` are returned, instead of ``OpenSSL.crypto.X509Name``. In the future, passing ``False`` (the default) will be deprecated.
+
 
 26.2.0 (2026-05-04)
 -------------------

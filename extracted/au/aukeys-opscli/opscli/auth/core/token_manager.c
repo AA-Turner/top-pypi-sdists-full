@@ -1715,60 +1715,6 @@ static CYTHON_INLINE int __Pyx_PyUnicode_Equals(PyObject* s1, PyObject* s2, int 
 #define __Pyx_ArgsSlice_FASTCALL(args, start, stop) PyTuple_GetSlice(args, start, stop)
 #endif
 
-/* HasAttr.proto (used by ImportImpl) */
-#if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
-#define __Pyx_HasAttr(o, n)  PyObject_HasAttrWithError(o, n)
-#else
-static CYTHON_INLINE int __Pyx_HasAttr(PyObject *, PyObject *);
-#endif
-
-/* PyObjectCall.proto (used by PyObjectFastCall) */
-#if CYTHON_COMPILING_IN_CPYTHON
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg, PyObject *kw);
-#else
-#define __Pyx_PyObject_Call(func, arg, kw) PyObject_Call(func, arg, kw)
-#endif
-
-/* PyObjectCallMethO.proto (used by PyObjectFastCall) */
-#if CYTHON_COMPILING_IN_CPYTHON
-static CYTHON_INLINE PyObject* __Pyx_PyObject_CallMethO(PyObject *func, PyObject *arg);
-#endif
-
-/* PyObjectFastCall.proto (used by PyObjectCallOneArg) */
-#define __Pyx_PyObject_FastCall(func, args, nargs)  __Pyx_PyObject_FastCallDict(func, args, (size_t)(nargs), NULL)
-static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObject * const*args, size_t nargs, PyObject *kwargs);
-
-/* PyObjectCallOneArg.proto (used by ImportImpl) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
-
-/* ImportImpl.export */
-static PyObject *__Pyx__Import(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, PyObject *moddict, int level);
-
-/* Import.proto */
-static CYTHON_INLINE PyObject *__Pyx_Import(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, int level);
-
-/* ImportFrom.proto */
-static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
-
-/* RaiseUnexpectedTypeError.proto */
-static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
-
-/* GetTopmostException.proto (used by SaveResetException) */
-#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
-static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
-#endif
-
-/* SaveResetException.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_ExceptionSave(type, value, tb)  __Pyx__ExceptionSave(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
-#define __Pyx_ExceptionReset(type, value, tb)  __Pyx__ExceptionReset(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
-#else
-#define __Pyx_ExceptionSave(type, value, tb)   PyErr_GetExcInfo(type, value, tb)
-#define __Pyx_ExceptionReset(type, value, tb)  PyErr_SetExcInfo(type, value, tb)
-#endif
-
 /* PyDictVersioning.proto (used by GetModuleGlobalName) */
 #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
 #define __PYX_DICT_VERSION_INIT  ((PY_UINT64_T) -1)
@@ -1816,10 +1762,42 @@ static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_ve
 static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
 #endif
 
-/* py_dict_items.proto (used by OwnedDictNext) */
-static CYTHON_INLINE PyObject* __Pyx_PyDict_Items(PyObject* d);
+/* HasAttr.proto (used by ImportImpl) */
+#if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
+#define __Pyx_HasAttr(o, n)  PyObject_HasAttrWithError(o, n)
+#else
+static CYTHON_INLINE int __Pyx_HasAttr(PyObject *, PyObject *);
+#endif
 
-/* CallCFunction.proto (used by CallUnboundCMethod0) */
+/* PyObjectCall.proto (used by PyObjectFastCall) */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg, PyObject *kw);
+#else
+#define __Pyx_PyObject_Call(func, arg, kw) PyObject_Call(func, arg, kw)
+#endif
+
+/* PyObjectCallMethO.proto (used by PyObjectFastCall) */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallMethO(PyObject *func, PyObject *arg);
+#endif
+
+/* PyObjectFastCall.proto (used by PyObjectCallOneArg) */
+#define __Pyx_PyObject_FastCall(func, args, nargs)  __Pyx_PyObject_FastCallDict(func, args, (size_t)(nargs), NULL)
+static CYTHON_INLINE PyObject* __Pyx_PyObject_FastCallDict(PyObject *func, PyObject * const*args, size_t nargs, PyObject *kwargs);
+
+/* PyObjectCallOneArg.proto (used by ImportImpl) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg);
+
+/* ImportImpl.export */
+static PyObject *__Pyx__Import(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, PyObject *moddict, int level);
+
+/* Import.proto */
+static CYTHON_INLINE PyObject *__Pyx_Import(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, int level);
+
+/* ImportFrom.proto */
+static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
+
+/* CallCFunction.proto (used by CallUnboundCMethod1) */
 #define __Pyx_CallCFunction(cfunc, self, args)\
     ((PyCFunction)(void(*)(void))(cfunc)->func)(self, args)
 #define __Pyx_CallCFunctionWithKeywords(cfunc, self, args, kwargs)\
@@ -1829,7 +1807,10 @@ static CYTHON_INLINE PyObject* __Pyx_PyDict_Items(PyObject* d);
 #define __Pyx_CallCFunctionFastWithKeywords(cfunc, self, args, nargs, kwnames)\
     ((__Pyx_PyCFunctionFastWithKeywords)(void(*)(void))(PyCFunction)(cfunc)->func)(self, args, nargs, kwnames)
 
-/* UnpackUnboundCMethod.proto (used by CallUnboundCMethod0) */
+/* PyObjectCall2Args.proto (used by CallUnboundCMethod1) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
+
+/* UnpackUnboundCMethod.proto (used by CallUnboundCMethod1) */
 typedef struct {
     PyObject *type;
     PyObject **method_name;
@@ -1861,6 +1842,34 @@ static CYTHON_INLINE void __Pyx_CachedCFunction_SetFinishedInitializing(__Pyx_Ca
 #define __Pyx_CachedCFunction_GetAndSetInitializing(cfunc) 2
 #define __Pyx_CachedCFunction_SetFinishedInitializing(cfunc)
 #endif
+
+/* CallUnboundCMethod1.proto */
+CYTHON_UNUSED
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#else
+#define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
+#endif
+
+/* GetTopmostException.proto (used by SaveResetException) */
+#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
+static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
+#endif
+
+/* SaveResetException.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_ExceptionSave(type, value, tb)  __Pyx__ExceptionSave(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
+#define __Pyx_ExceptionReset(type, value, tb)  __Pyx__ExceptionReset(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
+#else
+#define __Pyx_ExceptionSave(type, value, tb)   PyErr_GetExcInfo(type, value, tb)
+#define __Pyx_ExceptionReset(type, value, tb)  PyErr_SetExcInfo(type, value, tb)
+#endif
+
+/* py_dict_items.proto (used by OwnedDictNext) */
+static CYTHON_INLINE PyObject* __Pyx_PyDict_Items(PyObject* d);
 
 /* CallUnboundCMethod0.proto */
 CYTHON_UNUSED
@@ -2030,6 +2039,9 @@ static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, P
 #else
 static PyObject *__Pyx_Object_VectorcallMethod_CallFromBuilder(PyObject *name, PyObject *const *args, size_t nargsf, PyObject *kwnames);
 #endif
+
+/* RaiseUnexpectedTypeError.proto */
+static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
 /* PyKeyError_Check.proto */
 #define __Pyx_PyExc_KeyError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_KeyError)
@@ -2290,9 +2302,6 @@ static PyObject *__Pyx_CyFunction_New(PyMethodDef *ml,
 /* CalculateMetaclass.proto (used by Py3ClassCreate) */
 static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bases);
 
-/* PyObjectCall2Args.proto (used by Py3ClassCreate) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
-
 /* Py3ClassCreate.proto */
 static PyObject *__Pyx_Py3MetaclassPrepare(PyObject *metaclass, PyObject *bases, PyObject *name, PyObject *qualname,
                                            PyObject *mkw, PyObject *modname, PyObject *doc);
@@ -2475,9 +2484,10 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
+  __Pyx_CachedCFunction __pyx_umethod_PyDict_Type__update;
   PyObject *__pyx_tuple[4];
   PyObject *__pyx_codeobj_tab[13];
-  PyObject *__pyx_string_tab[167];
+  PyObject *__pyx_string_tab[168];
   PyObject *__pyx_number_tab[3];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -2667,25 +2677,26 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_tokens __pyx_string_tab[145]
 #define __pyx_n_u_total_seconds __pyx_string_tab[146]
 #define __pyx_n_u_tzinfo __pyx_string_tab[147]
-#define __pyx_n_u_url __pyx_string_tab[148]
-#define __pyx_n_u_utc __pyx_string_tab[149]
-#define __pyx_n_u_valid __pyx_string_tab[150]
-#define __pyx_n_u_values __pyx_string_tab[151]
-#define __pyx_n_u_version __pyx_string_tab[152]
-#define __pyx_n_u_w __pyx_string_tab[153]
-#define __pyx_kp_b_iso88591_4wa_q_AQ __pyx_string_tab[154]
-#define __pyx_kp_b_iso88591_81_d_D_5_Q_3awas_1_nA_1_4uA_4q __pyx_string_tab[155]
-#define __pyx_kp_b_iso88591_81_d_D_t_A_Cq_1A __pyx_string_tab[156]
-#define __pyx_kp_b_iso88591_A_Ja_M __pyx_string_tab[157]
-#define __pyx_kp_b_iso88591_IQ_t_S __pyx_string_tab[158]
-#define __pyx_kp_b_iso88591_Q_G4z_M_QoS_AQ_q_1L_q_1L_aq_q __pyx_string_tab[159]
-#define __pyx_kp_b_iso88591_d_D_t7_s_Q_T_Qj_4q_1A_4q_IWN_1A __pyx_string_tab[160]
-#define __pyx_kp_b_iso88591_q_a __pyx_string_tab[161]
-#define __pyx_kp_b_iso88591_t7_q_4uCt4t1A_q_hnAT_3hc_XQgXQ __pyx_string_tab[162]
-#define __pyx_kp_b_iso88591_t_1 __pyx_string_tab[163]
-#define __pyx_kp_b_iso88591_xq_d_D_S_aq_4we3c_T_Ct1A_s_d_AQ __pyx_string_tab[164]
-#define __pyx_kp_b_iso88591_y_1A_s_Q_c_Rxt1HF_z_1_q_z_1_q_1 __pyx_string_tab[165]
-#define __pyx_kp_b_iso88591_z_T_5_Q_5_nA_1_4uA_AT_QnG1_t1HA __pyx_string_tab[166]
+#define __pyx_n_u_update __pyx_string_tab[148]
+#define __pyx_n_u_url __pyx_string_tab[149]
+#define __pyx_n_u_utc __pyx_string_tab[150]
+#define __pyx_n_u_valid __pyx_string_tab[151]
+#define __pyx_n_u_values __pyx_string_tab[152]
+#define __pyx_n_u_version __pyx_string_tab[153]
+#define __pyx_n_u_w __pyx_string_tab[154]
+#define __pyx_kp_b_iso88591_1_q_wa_a_1 __pyx_string_tab[155]
+#define __pyx_kp_b_iso88591_4wa_q_AQ __pyx_string_tab[156]
+#define __pyx_kp_b_iso88591_81_d_D_5_Q_3awas_1_nA_1_4uA_4q __pyx_string_tab[157]
+#define __pyx_kp_b_iso88591_81_d_D_t_A_Cq_1A __pyx_string_tab[158]
+#define __pyx_kp_b_iso88591_A_Ja_M __pyx_string_tab[159]
+#define __pyx_kp_b_iso88591_IQ_t_S __pyx_string_tab[160]
+#define __pyx_kp_b_iso88591_Q_G4z_M_QoS_AQ_q_1L_q_1L_aq_q __pyx_string_tab[161]
+#define __pyx_kp_b_iso88591_d_D_t7_s_Q_T_Qj_4q_1A_4q_IWN_1A __pyx_string_tab[162]
+#define __pyx_kp_b_iso88591_t7_q_4uCt4t1A_q_hnAT_3hc_XQgXQ __pyx_string_tab[163]
+#define __pyx_kp_b_iso88591_t_1 __pyx_string_tab[164]
+#define __pyx_kp_b_iso88591_xq_d_D_S_aq_4we3c_T_Ct1A_s_d_AQ __pyx_string_tab[165]
+#define __pyx_kp_b_iso88591_y_1A_s_Q_c_Rxt1HF_z_1_q_z_1_q_1 __pyx_string_tab[166]
+#define __pyx_kp_b_iso88591_z_T_5_Q_5_nA_1_4uA_AT_QnG1_t1HA __pyx_string_tab[167]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_10 __pyx_number_tab[1]
 #define __pyx_int_7200 __pyx_number_tab[2]
@@ -2705,7 +2716,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<13; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<167; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<168; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -2731,7 +2742,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<13; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<167; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<168; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -2772,6 +2783,7 @@ static PyObject *__pyx_pw_6opscli_4auth_4core_13token_manager_1_get_mcp_api_key_
 }
 
 static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager__get_mcp_api_key_header(CYTHON_UNUSED PyObject *__pyx_self) {
+  PyObject *__pyx_v_headers = NULL;
   PyObject *__pyx_v_get_mcp_request_headers = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -2780,8 +2792,8 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager__get_mcp_api_key_h
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
-  Py_ssize_t __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  Py_ssize_t __pyx_t_7;
   PyObject *__pyx_t_8 = NULL;
   size_t __pyx_t_9;
   int __pyx_t_10;
@@ -2793,104 +2805,123 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager__get_mcp_api_key_h
   /* "opscli/auth/core/token_manager.py":35
  *      X-Opscli-Version
  *     """
+ *     headers = {"X-Opscli-Version": __version__}             # <<<<<<<<<<<<<<
+ *     try:
+ *         from opscli.mcp.context import get_mcp_request_headers
+*/
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_version); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_X_Opscli_Version, __pyx_t_2) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_v_headers = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/auth/core/token_manager.py":36
+ *     """
+ *     headers = {"X-Opscli-Version": __version__}
  *     try:             # <<<<<<<<<<<<<<
  *         from opscli.mcp.context import get_mcp_request_headers
- *         return get_mcp_request_headers()
+ *         headers.update(get_mcp_request_headers())
 */
   {
     __Pyx_PyThreadState_declare
     __Pyx_PyThreadState_assign
-    __Pyx_ExceptionSave(&__pyx_t_1, &__pyx_t_2, &__pyx_t_3);
-    __Pyx_XGOTREF(__pyx_t_1);
-    __Pyx_XGOTREF(__pyx_t_2);
+    __Pyx_ExceptionSave(&__pyx_t_3, &__pyx_t_4, &__pyx_t_5);
     __Pyx_XGOTREF(__pyx_t_3);
+    __Pyx_XGOTREF(__pyx_t_4);
+    __Pyx_XGOTREF(__pyx_t_5);
     /*try:*/ {
 
-      /* "opscli/auth/core/token_manager.py":36
- *     """
+      /* "opscli/auth/core/token_manager.py":37
+ *     headers = {"X-Opscli-Version": __version__}
  *     try:
  *         from opscli.mcp.context import get_mcp_request_headers             # <<<<<<<<<<<<<<
- *         return get_mcp_request_headers()
+ *         headers.update(get_mcp_request_headers())
  *     except Exception:
 */
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_get_mcp_request_headers};
-        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_mcp_context, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 36, __pyx_L3_error)
+        __pyx_t_6 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_mcp_context, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 37, __pyx_L3_error)
       }
-      __pyx_t_4 = __pyx_t_5;
-      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_1 = __pyx_t_6;
+      __Pyx_GOTREF(__pyx_t_1);
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_get_mcp_request_headers};
-        __pyx_t_6 = 0; {
-          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_7);
-          switch (__pyx_t_6) {
+        __pyx_t_7 = 0; {
+          __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_1, __pyx_imported_names[__pyx_t_7]); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L3_error)
+          __Pyx_GOTREF(__pyx_t_2);
+          switch (__pyx_t_7) {
             case 0:
-            __Pyx_INCREF(__pyx_t_7);
-            __pyx_v_get_mcp_request_headers = __pyx_t_7;
+            __Pyx_INCREF(__pyx_t_2);
+            __pyx_v_get_mcp_request_headers = __pyx_t_2;
             break;
             default:;
           }
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+          __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         }
       }
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":37
+      /* "opscli/auth/core/token_manager.py":38
  *     try:
  *         from opscli.mcp.context import get_mcp_request_headers
- *         return get_mcp_request_headers()             # <<<<<<<<<<<<<<
+ *         headers.update(get_mcp_request_headers())             # <<<<<<<<<<<<<<
  *     except Exception:
  *         pass
 */
-      __Pyx_XDECREF(__pyx_r);
-      __pyx_t_7 = NULL;
+      __pyx_t_2 = NULL;
       __Pyx_INCREF(__pyx_v_get_mcp_request_headers);
       __pyx_t_8 = __pyx_v_get_mcp_request_headers; 
       __pyx_t_9 = 1;
       #if CYTHON_UNPACK_METHODS
       if (unlikely(PyMethod_Check(__pyx_t_8))) {
-        __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
-        assert(__pyx_t_7);
+        __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_8);
+        assert(__pyx_t_2);
         PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
-        __Pyx_INCREF(__pyx_t_7);
+        __Pyx_INCREF(__pyx_t_2);
         __Pyx_INCREF(__pyx__function);
         __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
         __pyx_t_9 = 0;
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
-        __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+        PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+        __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_4);
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_1);
       }
-      if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 37, __pyx_L3_error)
-      __pyx_r = ((PyObject*)__pyx_t_4);
-      __pyx_t_4 = 0;
-      goto __pyx_L7_try_return;
+      __pyx_t_8 = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyDict_Type__update, __pyx_v_headers, __pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 38, __pyx_L3_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "opscli/auth/core/token_manager.py":35
- *      X-Opscli-Version
+      /* "opscli/auth/core/token_manager.py":36
  *     """
+ *     headers = {"X-Opscli-Version": __version__}
  *     try:             # <<<<<<<<<<<<<<
  *         from opscli.mcp.context import get_mcp_request_headers
- *         return get_mcp_request_headers()
+ *         headers.update(get_mcp_request_headers())
 */
     }
-    __pyx_L3_error:;
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    goto __pyx_L8_try_end;
+    __pyx_L3_error:;
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "opscli/auth/core/token_manager.py":38
+    /* "opscli/auth/core/token_manager.py":39
  *         from opscli.mcp.context import get_mcp_request_headers
- *         return get_mcp_request_headers()
+ *         headers.update(get_mcp_request_headers())
  *     except Exception:             # <<<<<<<<<<<<<<
  *         pass
- *     return {"X-Opscli-Version": __version__}
+ *     return headers
 */
     __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_10) {
@@ -2899,48 +2930,37 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager__get_mcp_api_key_h
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/auth/core/token_manager.py":35
- *      X-Opscli-Version
+    /* "opscli/auth/core/token_manager.py":36
  *     """
+ *     headers = {"X-Opscli-Version": __version__}
  *     try:             # <<<<<<<<<<<<<<
  *         from opscli.mcp.context import get_mcp_request_headers
- *         return get_mcp_request_headers()
+ *         headers.update(get_mcp_request_headers())
 */
     __pyx_L5_except_error:;
-    __Pyx_XGIVEREF(__pyx_t_1);
-    __Pyx_XGIVEREF(__pyx_t_2);
     __Pyx_XGIVEREF(__pyx_t_3);
-    __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
     goto __pyx_L1_error;
-    __pyx_L7_try_return:;
-    __Pyx_XGIVEREF(__pyx_t_1);
-    __Pyx_XGIVEREF(__pyx_t_2);
-    __Pyx_XGIVEREF(__pyx_t_3);
-    __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
-    goto __pyx_L0;
     __pyx_L4_exception_handled:;
-    __Pyx_XGIVEREF(__pyx_t_1);
-    __Pyx_XGIVEREF(__pyx_t_2);
     __Pyx_XGIVEREF(__pyx_t_3);
-    __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
+    __Pyx_XGIVEREF(__pyx_t_4);
+    __Pyx_XGIVEREF(__pyx_t_5);
+    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
+    __pyx_L8_try_end:;
   }
 
-  /* "opscli/auth/core/token_manager.py":40
+  /* "opscli/auth/core/token_manager.py":41
  *     except Exception:
  *         pass
- *     return {"X-Opscli-Version": __version__}             # <<<<<<<<<<<<<<
+ *     return headers             # <<<<<<<<<<<<<<
  * 
  * # key = system_key
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_version); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 40, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_X_Opscli_Version, __pyx_t_8) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_r = ((PyObject*)__pyx_t_4);
-  __pyx_t_4 = 0;
+  __Pyx_INCREF(__pyx_v_headers);
+  __pyx_r = __pyx_v_headers;
   goto __pyx_L0;
 
   /* "opscli/auth/core/token_manager.py":29
@@ -2953,19 +2973,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager__get_mcp_api_key_h
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("opscli.auth.core.token_manager._get_mcp_api_key_header", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_headers);
   __Pyx_XDECREF(__pyx_v_get_mcp_request_headers);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":47
+/* "opscli/auth/core/token_manager.py":48
  * 
  * 
  * def _get_thread_lock(key: str) -> threading.Lock:             # <<<<<<<<<<<<<<
@@ -3012,32 +3033,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_key,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 47, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 48, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 47, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 48, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_thread_lock", 0) < (0)) __PYX_ERR(0, 47, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_thread_lock", 0) < (0)) __PYX_ERR(0, 48, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_thread_lock", 1, 1, 1, i); __PYX_ERR(0, 47, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_thread_lock", 1, 1, 1, i); __PYX_ERR(0, 48, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 47, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 48, __pyx_L3_error)
     }
     __pyx_v_key = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_thread_lock", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 47, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_thread_lock", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 48, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3048,7 +3069,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_key), (&PyUnicode_Type), 0, "key", 2))) __PYX_ERR(0, 47, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_key), (&PyUnicode_Type), 0, "key", 2))) __PYX_ERR(0, 48, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(__pyx_self, __pyx_v_key);
 
   /* function exit code */
@@ -3088,7 +3109,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_thread_lock", 0);
 
-  /* "opscli/auth/core/token_manager.py":48
+  /* "opscli/auth/core/token_manager.py":49
  * 
  * def _get_thread_lock(key: str) -> threading.Lock:
  *     with _thread_locks_mutex:             # <<<<<<<<<<<<<<
@@ -3096,12 +3117,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
  *             _thread_locks[key] = threading.Lock()
 */
   /*with:*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_thread_locks_mutex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_thread_locks_mutex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 48, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_4 = NULL;
-    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 48, __pyx_L3_error)
+    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 49, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -3120,7 +3141,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L3_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -3135,20 +3156,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "opscli/auth/core/token_manager.py":49
+          /* "opscli/auth/core/token_manager.py":50
  * def _get_thread_lock(key: str) -> threading.Lock:
  *     with _thread_locks_mutex:
  *         if key not in _thread_locks:             # <<<<<<<<<<<<<<
  *             _thread_locks[key] = threading.Lock()
  *         return _thread_locks[key]
 */
-          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_thread_locks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L7_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_thread_locks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_10 = (__Pyx_PySequence_ContainsTF(__pyx_v_key, __pyx_t_1, Py_NE)); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 49, __pyx_L7_error)
+          __pyx_t_10 = (__Pyx_PySequence_ContainsTF(__pyx_v_key, __pyx_t_1, Py_NE)); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 50, __pyx_L7_error)
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           if (__pyx_t_10) {
 
-            /* "opscli/auth/core/token_manager.py":50
+            /* "opscli/auth/core/token_manager.py":51
  *     with _thread_locks_mutex:
  *         if key not in _thread_locks:
  *             _thread_locks[key] = threading.Lock()             # <<<<<<<<<<<<<<
@@ -3156,9 +3177,9 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
  * 
 */
             __pyx_t_3 = NULL;
-            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 50, __pyx_L7_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 51, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_5);
-            __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Lock); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L7_error)
+            __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Lock); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 51, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
             __pyx_t_6 = 1;
@@ -3178,16 +3199,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
               __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
               __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
               __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-              if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L7_error)
+              if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_1);
             }
-            __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_thread_locks); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L7_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_thread_locks); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 51, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_4);
-            if (unlikely((PyObject_SetItem(__pyx_t_4, __pyx_v_key, __pyx_t_1) < 0))) __PYX_ERR(0, 50, __pyx_L7_error)
+            if (unlikely((PyObject_SetItem(__pyx_t_4, __pyx_v_key, __pyx_t_1) < 0))) __PYX_ERR(0, 51, __pyx_L7_error)
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-            /* "opscli/auth/core/token_manager.py":49
+            /* "opscli/auth/core/token_manager.py":50
  * def _get_thread_lock(key: str) -> threading.Lock:
  *     with _thread_locks_mutex:
  *         if key not in _thread_locks:             # <<<<<<<<<<<<<<
@@ -3196,7 +3217,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
 */
           }
 
-          /* "opscli/auth/core/token_manager.py":51
+          /* "opscli/auth/core/token_manager.py":52
  *         if key not in _thread_locks:
  *             _thread_locks[key] = threading.Lock()
  *         return _thread_locks[key]             # <<<<<<<<<<<<<<
@@ -3204,16 +3225,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
  * #  TTL
 */
           __Pyx_XDECREF(__pyx_r);
-          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_thread_locks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L7_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_thread_locks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 51, __pyx_L7_error)
+          __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 52, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __pyx_r = __pyx_t_4;
           __pyx_t_4 = 0;
           goto __pyx_L11_try_return;
 
-          /* "opscli/auth/core/token_manager.py":48
+          /* "opscli/auth/core/token_manager.py":49
  * 
  * def _get_thread_lock(key: str) -> threading.Lock:
  *     with _thread_locks_mutex:             # <<<<<<<<<<<<<<
@@ -3228,20 +3249,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("opscli.auth.core.token_manager._get_thread_lock", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_1, &__pyx_t_3) < 0) __PYX_ERR(0, 48, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_1, &__pyx_t_3) < 0) __PYX_ERR(0, 49, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_3);
-          __pyx_t_5 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 48, __pyx_L9_except_error)
+          __pyx_t_5 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_1, __pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 49, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_5);
           __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_5, NULL);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 48, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 49, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (__pyx_t_10 < (0)) __PYX_ERR(0, 48, __pyx_L9_except_error)
+          if (__pyx_t_10 < (0)) __PYX_ERR(0, 49, __pyx_L9_except_error)
           __pyx_t_12 = (!__pyx_t_10);
           if (unlikely(__pyx_t_12)) {
             __Pyx_GIVEREF(__pyx_t_4);
@@ -3249,7 +3270,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
             __Pyx_XGIVEREF(__pyx_t_3);
             __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_1, __pyx_t_3);
             __pyx_t_4 = 0;  __pyx_t_1 = 0;  __pyx_t_3 = 0; 
-            __PYX_ERR(0, 48, __pyx_L9_except_error)
+            __PYX_ERR(0, 49, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -3280,7 +3301,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
         if (__pyx_t_2) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 48, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 49, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -3292,7 +3313,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
         if (__pyx_t_2) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 48, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 49, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -3309,7 +3330,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
     __pyx_L17:;
   }
 
-  /* "opscli/auth/core/token_manager.py":47
+  /* "opscli/auth/core/token_manager.py":48
  * 
  * 
  * def _get_thread_lock(key: str) -> threading.Lock:             # <<<<<<<<<<<<<<
@@ -3333,7 +3354,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_2_get_thread_lock(
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":61
+/* "opscli/auth/core/token_manager.py":62
  *     """JWT Token  Token """
  * 
  *     def __init__(self, store, registry):             # <<<<<<<<<<<<<<
@@ -3383,38 +3404,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_store,&__pyx_mstate_global->__pyx_n_u_registry,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 61, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 62, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 61, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 62, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 61, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 62, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 61, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 62, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 61, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 62, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, i); __PYX_ERR(0, 61, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, i); __PYX_ERR(0, 62, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 61, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 62, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 61, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 62, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 61, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 62, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_store = values[1];
@@ -3422,7 +3443,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 61, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 62, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3451,25 +3472,25 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager___i
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "opscli/auth/core/token_manager.py":67
+  /* "opscli/auth/core/token_manager.py":68
  *             registry: SystemRegistry
  *         """
  *         self._store = store             # <<<<<<<<<<<<<<
  *         self._registry = registry
  * 
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2, __pyx_v_store) < (0)) __PYX_ERR(0, 67, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2, __pyx_v_store) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
 
-  /* "opscli/auth/core/token_manager.py":68
+  /* "opscli/auth/core/token_manager.py":69
  *         """
  *         self._store = store
  *         self._registry = registry             # <<<<<<<<<<<<<<
  * 
  *     def _get_session_id(self) -> str:
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2, __pyx_v_registry) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2, __pyx_v_registry) < (0)) __PYX_ERR(0, 69, __pyx_L1_error)
 
-  /* "opscli/auth/core/token_manager.py":61
+  /* "opscli/auth/core/token_manager.py":62
  *     """JWT Token  Token """
  * 
  *     def __init__(self, store, registry):             # <<<<<<<<<<<<<<
@@ -3489,7 +3510,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager___i
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":70
+/* "opscli/auth/core/token_manager.py":71
  *         self._registry = registry
  * 
  *     def _get_session_id(self) -> str:             # <<<<<<<<<<<<<<
@@ -3536,32 +3557,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 70, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 71, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 71, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_session_id", 0) < (0)) __PYX_ERR(0, 70, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_session_id", 0) < (0)) __PYX_ERR(0, 71, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_session_id", 1, 1, 1, i); __PYX_ERR(0, 70, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_session_id", 1, 1, 1, i); __PYX_ERR(0, 71, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 70, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 71, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_session_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 70, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_session_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 71, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3601,14 +3622,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_session_id", 0);
 
-  /* "opscli/auth/core/token_manager.py":71
+  /* "opscli/auth/core/token_manager.py":72
  * 
  *     def _get_session_id(self) -> str:
  *         data = self._store.load()             # <<<<<<<<<<<<<<
  *         if not data or not data.get("session_id"):
  *             raise NotAuthenticatedError(": opscli auth login")
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -3618,20 +3639,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":72
+  /* "opscli/auth/core/token_manager.py":73
  *     def _get_session_id(self) -> str:
  *         data = self._store.load()
  *         if not data or not data.get("session_id"):             # <<<<<<<<<<<<<<
  *             raise NotAuthenticatedError(": opscli auth login")
  *         exp = datetime.fromisoformat(data["session_expires_at"])
 */
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_data); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_data); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
   __pyx_t_7 = (!__pyx_t_6);
   if (!__pyx_t_7) {
   } else {
@@ -3645,17 +3666,17 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_n_u_session_id};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = (!__pyx_t_7);
   __pyx_t_5 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_5)) {
 
-    /* "opscli/auth/core/token_manager.py":73
+    /* "opscli/auth/core/token_manager.py":74
  *         data = self._store.load()
  *         if not data or not data.get("session_id"):
  *             raise NotAuthenticatedError(": opscli auth login")             # <<<<<<<<<<<<<<
@@ -3663,7 +3684,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
  *         #  UTC
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_NotAuthenticatedError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_NotAuthenticatedError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 74, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -3682,14 +3703,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 73, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 73, __pyx_L1_error)
+    __PYX_ERR(0, 74, __pyx_L1_error)
 
-    /* "opscli/auth/core/token_manager.py":72
+    /* "opscli/auth/core/token_manager.py":73
  *     def _get_session_id(self) -> str:
  *         data = self._store.load()
  *         if not data or not data.get("session_id"):             # <<<<<<<<<<<<<<
@@ -3698,7 +3719,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
 */
   }
 
-  /* "opscli/auth/core/token_manager.py":74
+  /* "opscli/auth/core/token_manager.py":75
  *         if not data or not data.get("session_id"):
  *             raise NotAuthenticatedError(": opscli auth login")
  *         exp = datetime.fromisoformat(data["session_expires_at"])             # <<<<<<<<<<<<<<
@@ -3706,12 +3727,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
  *         if exp.tzinfo is None:
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fromisoformat); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fromisoformat); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_session_expires_at); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_session_expires_at); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3731,26 +3752,26 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_exp = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":76
+  /* "opscli/auth/core/token_manager.py":77
  *         exp = datetime.fromisoformat(data["session_expires_at"])
  *         #  UTC
  *         if exp.tzinfo is None:             # <<<<<<<<<<<<<<
  *             exp = exp.replace(tzinfo=timezone.utc)
  *         if exp < datetime.now(timezone.utc):
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_exp, __pyx_mstate_global->__pyx_n_u_tzinfo); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_exp, __pyx_mstate_global->__pyx_n_u_tzinfo); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_5 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_5) {
 
-    /* "opscli/auth/core/token_manager.py":77
+    /* "opscli/auth/core/token_manager.py":78
  *         #  UTC
  *         if exp.tzinfo is None:
  *             exp = exp.replace(tzinfo=timezone.utc)             # <<<<<<<<<<<<<<
@@ -3759,28 +3780,28 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
 */
     __pyx_t_8 = __pyx_v_exp;
     __Pyx_INCREF(__pyx_t_8);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 77, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 77, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_4 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
-      __pyx_t_3 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 77, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tzinfo, __pyx_t_2, __pyx_t_3, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tzinfo, __pyx_t_2, __pyx_t_3, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
       __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_replace, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_3);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_exp, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/auth/core/token_manager.py":76
+    /* "opscli/auth/core/token_manager.py":77
  *         exp = datetime.fromisoformat(data["session_expires_at"])
  *         #  UTC
  *         if exp.tzinfo is None:             # <<<<<<<<<<<<<<
@@ -3789,7 +3810,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
 */
   }
 
-  /* "opscli/auth/core/token_manager.py":78
+  /* "opscli/auth/core/token_manager.py":79
  *         if exp.tzinfo is None:
  *             exp = exp.replace(tzinfo=timezone.utc)
  *         if exp < datetime.now(timezone.utc):             # <<<<<<<<<<<<<<
@@ -3797,14 +3818,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
  *         return data["session_id"]
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_now); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_now); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_4 = 1;
@@ -3825,16 +3846,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_8 = PyObject_RichCompare(__pyx_v_exp, __pyx_t_1, Py_LT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_8 = PyObject_RichCompare(__pyx_v_exp, __pyx_t_1, Py_LT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   if (unlikely(__pyx_t_5)) {
 
-    /* "opscli/auth/core/token_manager.py":79
+    /* "opscli/auth/core/token_manager.py":80
  *             exp = exp.replace(tzinfo=timezone.utc)
  *         if exp < datetime.now(timezone.utc):
  *             raise NotAuthenticatedError(": opscli auth login")             # <<<<<<<<<<<<<<
@@ -3842,7 +3863,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
  * 
 */
     __pyx_t_1 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_NotAuthenticatedError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 79, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_NotAuthenticatedError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -3861,14 +3882,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
       __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 79, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 80, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
     __Pyx_Raise(__pyx_t_8, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __PYX_ERR(0, 79, __pyx_L1_error)
+    __PYX_ERR(0, 80, __pyx_L1_error)
 
-    /* "opscli/auth/core/token_manager.py":78
+    /* "opscli/auth/core/token_manager.py":79
  *         if exp.tzinfo is None:
  *             exp = exp.replace(tzinfo=timezone.utc)
  *         if exp < datetime.now(timezone.utc):             # <<<<<<<<<<<<<<
@@ -3877,7 +3898,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
 */
   }
 
-  /* "opscli/auth/core/token_manager.py":80
+  /* "opscli/auth/core/token_manager.py":81
  *         if exp < datetime.now(timezone.utc):
  *             raise NotAuthenticatedError(": opscli auth login")
  *         return data["session_id"]             # <<<<<<<<<<<<<<
@@ -3885,14 +3906,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
  *     def get_session_id(self) -> str:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_Dict_GetItem(__pyx_v_data, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_8))||((__pyx_t_8) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_8))) __PYX_ERR(0, 80, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_8))||((__pyx_t_8) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_8))) __PYX_ERR(0, 81, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_8);
   __pyx_t_8 = 0;
   goto __pyx_L0;
 
-  /* "opscli/auth/core/token_manager.py":70
+  /* "opscli/auth/core/token_manager.py":71
  *         self._registry = registry
  * 
  *     def _get_session_id(self) -> str:             # <<<<<<<<<<<<<<
@@ -3917,7 +3938,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_2_g
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":82
+/* "opscli/auth/core/token_manager.py":83
  *         return data["session_id"]
  * 
  *     def get_session_id(self) -> str:             # <<<<<<<<<<<<<<
@@ -3965,32 +3986,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 82, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 83, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 82, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 83, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_session_id", 0) < (0)) __PYX_ERR(0, 82, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_session_id", 0) < (0)) __PYX_ERR(0, 83, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_session_id", 1, 1, 1, i); __PYX_ERR(0, 82, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_session_id", 1, 1, 1, i); __PYX_ERR(0, 83, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 82, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 83, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_session_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 82, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_session_id", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 83, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4022,7 +4043,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_4ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_session_id", 0);
 
-  /* "opscli/auth/core/token_manager.py":87
+  /* "opscli/auth/core/token_manager.py":88
  *          SDK
  *         """
  *         return self._get_session_id()             # <<<<<<<<<<<<<<
@@ -4037,15 +4058,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_4ge
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_session_id, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 88, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/auth/core/token_manager.py":82
+  /* "opscli/auth/core/token_manager.py":83
  *         return data["session_id"]
  * 
  *     def get_session_id(self) -> str:             # <<<<<<<<<<<<<<
@@ -4065,7 +4086,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_4ge
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":89
+/* "opscli/auth/core/token_manager.py":90
  *         return self._get_session_id()
  * 
  *     def token_status(self, token_data: dict) -> str:             # <<<<<<<<<<<<<<
@@ -4114,39 +4135,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_token_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 89, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 90, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 89, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 90, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 89, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 90, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "token_status", 0) < (0)) __PYX_ERR(0, 89, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "token_status", 0) < (0)) __PYX_ERR(0, 90, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("token_status", 1, 2, 2, i); __PYX_ERR(0, 89, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("token_status", 1, 2, 2, i); __PYX_ERR(0, 90, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 89, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 90, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 89, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 90, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_token_data = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("token_status", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 89, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("token_status", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 90, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4157,7 +4178,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_token_data), (&PyDict_Type), 0, "token_data", 2))) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_token_data), (&PyDict_Type), 0, "token_data", 2))) __PYX_ERR(0, 90, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6token_status(__pyx_self, __pyx_v_self, __pyx_v_token_data);
 
   /* function exit code */
@@ -4200,7 +4221,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("token_status", 0);
 
-  /* "opscli/auth/core/token_manager.py":91
+  /* "opscli/auth/core/token_manager.py":92
  *     def token_status(self, token_data: dict) -> str:
  *         """ Token valid / needs_refresh / expired"""
  *         try:             # <<<<<<<<<<<<<<
@@ -4216,7 +4237,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "opscli/auth/core/token_manager.py":92
+      /* "opscli/auth/core/token_manager.py":93
  *         """ Token valid / needs_refresh / expired"""
  *         try:
  *             exp = datetime.fromisoformat(token_data["expires_at"])             # <<<<<<<<<<<<<<
@@ -4224,12 +4245,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
  *                 exp = exp.replace(tzinfo=timezone.utc)
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 92, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_fromisoformat); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 92, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_fromisoformat); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 93, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = __Pyx_PyDict_GetItem(__pyx_v_token_data, __pyx_mstate_global->__pyx_n_u_expires_at); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 92, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyDict_GetItem(__pyx_v_token_data, __pyx_mstate_global->__pyx_n_u_expires_at); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_8 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -4249,26 +4270,26 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 92, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 93, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_exp = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "opscli/auth/core/token_manager.py":93
+      /* "opscli/auth/core/token_manager.py":94
  *         try:
  *             exp = datetime.fromisoformat(token_data["expires_at"])
  *             if exp.tzinfo is None:             # <<<<<<<<<<<<<<
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             remaining = (exp - datetime.now(timezone.utc)).total_seconds()
 */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_exp, __pyx_mstate_global->__pyx_n_u_tzinfo); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 93, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_exp, __pyx_mstate_global->__pyx_n_u_tzinfo); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_9 = (__pyx_t_4 == Py_None);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       if (__pyx_t_9) {
 
-        /* "opscli/auth/core/token_manager.py":94
+        /* "opscli/auth/core/token_manager.py":95
  *             exp = datetime.fromisoformat(token_data["expires_at"])
  *             if exp.tzinfo is None:
  *                 exp = exp.replace(tzinfo=timezone.utc)             # <<<<<<<<<<<<<<
@@ -4277,28 +4298,28 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
 */
         __pyx_t_7 = __pyx_v_exp;
         __Pyx_INCREF(__pyx_t_7);
-        __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 94, __pyx_L3_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 95, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 94, __pyx_L3_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 95, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_t_8 = 0;
         {
           PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, NULL};
-          __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 94, __pyx_L3_error)
+          __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 95, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_6);
-          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tzinfo, __pyx_t_5, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 94, __pyx_L3_error)
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tzinfo, __pyx_t_5, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 95, __pyx_L3_error)
           __pyx_t_4 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_replace, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L3_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_DECREF_SET(__pyx_v_exp, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "opscli/auth/core/token_manager.py":93
+        /* "opscli/auth/core/token_manager.py":94
  *         try:
  *             exp = datetime.fromisoformat(token_data["expires_at"])
  *             if exp.tzinfo is None:             # <<<<<<<<<<<<<<
@@ -4307,7 +4328,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
 */
       }
 
-      /* "opscli/auth/core/token_manager.py":95
+      /* "opscli/auth/core/token_manager.py":96
  *             if exp.tzinfo is None:
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             remaining = (exp - datetime.now(timezone.utc)).total_seconds()             # <<<<<<<<<<<<<<
@@ -4315,14 +4336,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
  *                 return "valid"
 */
       __pyx_t_7 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 95, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 96, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_now); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 95, __pyx_L3_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_now); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 96, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 95, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 96, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 95, __pyx_L3_error)
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 96, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_8 = 1;
@@ -4343,10 +4364,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 95, __pyx_L3_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
-      __pyx_t_11 = PyNumber_Subtract(__pyx_v_exp, __pyx_t_5); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 95, __pyx_L3_error)
+      __pyx_t_11 = PyNumber_Subtract(__pyx_v_exp, __pyx_t_5); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 96, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_6 = __pyx_t_11;
@@ -4357,28 +4378,28 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_total_seconds, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_remaining = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "opscli/auth/core/token_manager.py":96
+      /* "opscli/auth/core/token_manager.py":97
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             remaining = (exp - datetime.now(timezone.utc)).total_seconds()
  *             if remaining > REFRESH_THRESHOLD:             # <<<<<<<<<<<<<<
  *                 return "valid"
  *             if remaining > 0:
 */
-      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_REFRESH_THRESHOLD); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_REFRESH_THRESHOLD); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_11 = PyObject_RichCompare(__pyx_v_remaining, __pyx_t_4, Py_GT); __Pyx_XGOTREF(__pyx_t_11); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 96, __pyx_L3_error)
+      __pyx_t_11 = PyObject_RichCompare(__pyx_v_remaining, __pyx_t_4, Py_GT); __Pyx_XGOTREF(__pyx_t_11); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 97, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 96, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 97, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       if (__pyx_t_9) {
 
-        /* "opscli/auth/core/token_manager.py":97
+        /* "opscli/auth/core/token_manager.py":98
  *             remaining = (exp - datetime.now(timezone.utc)).total_seconds()
  *             if remaining > REFRESH_THRESHOLD:
  *                 return "valid"             # <<<<<<<<<<<<<<
@@ -4390,7 +4411,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
         __pyx_r = __pyx_mstate_global->__pyx_n_u_valid;
         goto __pyx_L7_try_return;
 
-        /* "opscli/auth/core/token_manager.py":96
+        /* "opscli/auth/core/token_manager.py":97
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             remaining = (exp - datetime.now(timezone.utc)).total_seconds()
  *             if remaining > REFRESH_THRESHOLD:             # <<<<<<<<<<<<<<
@@ -4399,19 +4420,19 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
 */
       }
 
-      /* "opscli/auth/core/token_manager.py":98
+      /* "opscli/auth/core/token_manager.py":99
  *             if remaining > REFRESH_THRESHOLD:
  *                 return "valid"
  *             if remaining > 0:             # <<<<<<<<<<<<<<
  *                 return "needs_refresh"
  *             return "expired"
 */
-      __pyx_t_11 = PyObject_RichCompare(__pyx_v_remaining, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_11); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 98, __pyx_L3_error)
-      __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 98, __pyx_L3_error)
+      __pyx_t_11 = PyObject_RichCompare(__pyx_v_remaining, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_11); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 99, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 99, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       if (__pyx_t_9) {
 
-        /* "opscli/auth/core/token_manager.py":99
+        /* "opscli/auth/core/token_manager.py":100
  *                 return "valid"
  *             if remaining > 0:
  *                 return "needs_refresh"             # <<<<<<<<<<<<<<
@@ -4423,7 +4444,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
         __pyx_r = __pyx_mstate_global->__pyx_n_u_needs_refresh;
         goto __pyx_L7_try_return;
 
-        /* "opscli/auth/core/token_manager.py":98
+        /* "opscli/auth/core/token_manager.py":99
  *             if remaining > REFRESH_THRESHOLD:
  *                 return "valid"
  *             if remaining > 0:             # <<<<<<<<<<<<<<
@@ -4432,7 +4453,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
 */
       }
 
-      /* "opscli/auth/core/token_manager.py":100
+      /* "opscli/auth/core/token_manager.py":101
  *             if remaining > 0:
  *                 return "needs_refresh"
  *             return "expired"             # <<<<<<<<<<<<<<
@@ -4444,7 +4465,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
       __pyx_r = __pyx_mstate_global->__pyx_n_u_expired;
       goto __pyx_L7_try_return;
 
-      /* "opscli/auth/core/token_manager.py":91
+      /* "opscli/auth/core/token_manager.py":92
  *     def token_status(self, token_data: dict) -> str:
  *         """ Token valid / needs_refresh / expired"""
  *         try:             # <<<<<<<<<<<<<<
@@ -4461,7 +4482,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/auth/core/token_manager.py":101
+    /* "opscli/auth/core/token_manager.py":102
  *                 return "needs_refresh"
  *             return "expired"
  *         except (KeyError, ValueError):             # <<<<<<<<<<<<<<
@@ -4472,7 +4493,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
     if (__pyx_t_13) {
       __Pyx_ErrRestore(0,0,0);
 
-      /* "opscli/auth/core/token_manager.py":102
+      /* "opscli/auth/core/token_manager.py":103
  *             return "expired"
  *         except (KeyError, ValueError):
  *             return "expired"             # <<<<<<<<<<<<<<
@@ -4486,7 +4507,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/auth/core/token_manager.py":91
+    /* "opscli/auth/core/token_manager.py":92
  *     def token_status(self, token_data: dict) -> str:
  *         """ Token valid / needs_refresh / expired"""
  *         try:             # <<<<<<<<<<<<<<
@@ -4513,7 +4534,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
     goto __pyx_L0;
   }
 
-  /* "opscli/auth/core/token_manager.py":89
+  /* "opscli/auth/core/token_manager.py":90
  *         return self._get_session_id()
  * 
  *     def token_status(self, token_data: dict) -> str:             # <<<<<<<<<<<<<<
@@ -4540,7 +4561,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_6to
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":104
+/* "opscli/auth/core/token_manager.py":105
  *             return "expired"
  * 
  *     def _is_valid(self, token_data: dict) -> bool:             # <<<<<<<<<<<<<<
@@ -4589,39 +4610,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_token_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 104, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 105, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 104, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 105, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 105, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_is_valid", 0) < (0)) __PYX_ERR(0, 104, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_is_valid", 0) < (0)) __PYX_ERR(0, 105, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_is_valid", 1, 2, 2, i); __PYX_ERR(0, 104, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_is_valid", 1, 2, 2, i); __PYX_ERR(0, 105, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 105, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 104, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 105, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_token_data = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_is_valid", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 104, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_is_valid", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 105, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4632,7 +4653,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_token_data), (&PyDict_Type), 0, "token_data", 2))) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_token_data), (&PyDict_Type), 0, "token_data", 2))) __PYX_ERR(0, 105, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_8_is_valid(__pyx_self, __pyx_v_self, __pyx_v_token_data);
 
   /* function exit code */
@@ -4663,7 +4684,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_8_i
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_is_valid", 0);
 
-  /* "opscli/auth/core/token_manager.py":106
+  /* "opscli/auth/core/token_manager.py":107
  *     def _is_valid(self, token_data: dict) -> bool:
  *         """ Token  valid """
  *         return self.token_status(token_data) == "valid"             # <<<<<<<<<<<<<<
@@ -4678,16 +4699,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_8_i
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_token_data};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_token_status, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_valid, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_valid, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "opscli/auth/core/token_manager.py":104
+  /* "opscli/auth/core/token_manager.py":105
  *             return "expired"
  * 
  *     def _is_valid(self, token_data: dict) -> bool:             # <<<<<<<<<<<<<<
@@ -4707,7 +4728,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_8_i
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":108
+/* "opscli/auth/core/token_manager.py":109
  *         return self.token_status(token_data) == "valid"
  * 
  *     def _fetch_token(self, system_key: str, url: str, endpoint: str) -> str:             # <<<<<<<<<<<<<<
@@ -4758,44 +4779,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_system_key,&__pyx_mstate_global->__pyx_n_u_url,&__pyx_mstate_global->__pyx_n_u_endpoint,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 108, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 109, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 108, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 109, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 108, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 109, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 108, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 109, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 108, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 109, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_fetch_token", 0) < (0)) __PYX_ERR(0, 108, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_fetch_token", 0) < (0)) __PYX_ERR(0, 109, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_fetch_token", 1, 4, 4, i); __PYX_ERR(0, 108, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_fetch_token", 1, 4, 4, i); __PYX_ERR(0, 109, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 108, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 109, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 108, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 109, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 108, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 109, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 108, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 109, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_system_key = ((PyObject*)values[1]);
@@ -4804,7 +4825,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_fetch_token", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 108, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_fetch_token", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 109, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4815,9 +4836,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_system_key), (&PyUnicode_Type), 0, "system_key", 2))) __PYX_ERR(0, 108, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 108, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_endpoint), (&PyUnicode_Type), 0, "endpoint", 2))) __PYX_ERR(0, 108, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_system_key), (&PyUnicode_Type), 0, "system_key", 2))) __PYX_ERR(0, 109, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 109, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_endpoint), (&PyUnicode_Type), 0, "endpoint", 2))) __PYX_ERR(0, 109, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_fetch_token(__pyx_self, __pyx_v_self, __pyx_v_system_key, __pyx_v_url, __pyx_v_endpoint);
 
   /* function exit code */
@@ -4875,7 +4896,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_fetch_token", 0);
 
-  /* "opscli/auth/core/token_manager.py":110
+  /* "opscli/auth/core/token_manager.py":111
  *     def _fetch_token(self, system_key: str, url: str, endpoint: str) -> str:
  *         """ JWT """
  *         session_id = self.get_session_id()             # <<<<<<<<<<<<<<
@@ -4889,13 +4910,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_session_id_2, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_session_id = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":111
+  /* "opscli/auth/core/token_manager.py":112
  *         """ JWT """
  *         session_id = self.get_session_id()
  *         headers = _get_mcp_api_key_header()             # <<<<<<<<<<<<<<
@@ -4903,7 +4924,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
  *             resp = httpx.post(
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_mcp_api_key_header); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_mcp_api_key_header); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4922,13 +4943,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_headers = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":112
+  /* "opscli/auth/core/token_manager.py":113
  *         session_id = self.get_session_id()
  *         headers = _get_mcp_api_key_header()
  *         try:             # <<<<<<<<<<<<<<
@@ -4944,7 +4965,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     __Pyx_XGOTREF(__pyx_t_7);
     /*try:*/ {
 
-      /* "opscli/auth/core/token_manager.py":113
+      /* "opscli/auth/core/token_manager.py":114
  *         headers = _get_mcp_api_key_header()
  *         try:
  *             resp = httpx.post(             # <<<<<<<<<<<<<<
@@ -4952,41 +4973,41 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
  *                 json={"session_id": session_id},
 */
       __pyx_t_4 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_post); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 113, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_post); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 114, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "opscli/auth/core/token_manager.py":114
+      /* "opscli/auth/core/token_manager.py":115
  *         try:
  *             resp = httpx.post(
  *                 f"{url}{endpoint}",             # <<<<<<<<<<<<<<
  *                 json={"session_id": session_id},
  *                 headers=headers or None,
 */
-      __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_url, __pyx_v_endpoint); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L3_error)
+      __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_v_url, __pyx_v_endpoint); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 115, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
 
-      /* "opscli/auth/core/token_manager.py":115
+      /* "opscli/auth/core/token_manager.py":116
  *             resp = httpx.post(
  *                 f"{url}{endpoint}",
  *                 json={"session_id": session_id},             # <<<<<<<<<<<<<<
  *                 headers=headers or None,
  *                 timeout=10,
 */
-      __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 115, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 116, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_session_id, __pyx_v_session_id) < (0)) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_session_id, __pyx_v_session_id) < (0)) __PYX_ERR(0, 116, __pyx_L3_error)
 
-      /* "opscli/auth/core/token_manager.py":116
+      /* "opscli/auth/core/token_manager.py":117
  *                 f"{url}{endpoint}",
  *                 json={"session_id": session_id},
  *                 headers=headers or None,             # <<<<<<<<<<<<<<
  *                 timeout=10,
  *             )
 */
-      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_headers); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 116, __pyx_L3_error)
+      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_headers); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 117, __pyx_L3_error)
       if (!__pyx_t_11) {
       } else {
         __Pyx_INCREF(__pyx_v_headers);
@@ -5010,11 +5031,11 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
       #endif
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_4, __pyx_t_2};
-        __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 113, __pyx_L3_error)
+        __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 114, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_12);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_json, __pyx_t_9, __pyx_t_12, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 113, __pyx_L3_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_10, __pyx_t_12, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 113, __pyx_L3_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_10, __pyx_t_12, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 113, __pyx_L3_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_json, __pyx_t_9, __pyx_t_12, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 114, __pyx_L3_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_10, __pyx_t_12, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 114, __pyx_L3_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_10, __pyx_t_12, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 114, __pyx_L3_error)
         __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_12);
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -5022,13 +5043,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 114, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_resp = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":119
+      /* "opscli/auth/core/token_manager.py":120
  *                 timeout=10,
  *             )
  *             resp.raise_for_status()             # <<<<<<<<<<<<<<
@@ -5042,12 +5063,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
         PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_raise_for_status, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 119, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":120
+      /* "opscli/auth/core/token_manager.py":121
  *             )
  *             resp.raise_for_status()
  *             body = resp.json()             # <<<<<<<<<<<<<<
@@ -5061,28 +5082,28 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
         PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_json, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_body = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":122
+      /* "opscli/auth/core/token_manager.py":123
  *             body = resp.json()
  *             #  expires_in  24
  *             expires_in = min(body.get("expires_in", 7200), MAX_JWT_TTL)             # <<<<<<<<<<<<<<
  *             self._store.save_token(system_key, body["jwt"], expires_in)
  *             return body["jwt"]
 */
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MAX_JWT_TTL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MAX_JWT_TTL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 122, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 123, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 122, __pyx_L3_error)
+      __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 123, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __pyx_t_10 = PyObject_RichCompare(__pyx_t_1, __pyx_t_12, Py_LT); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 122, __pyx_L3_error)
-      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 122, __pyx_L3_error)
+      __pyx_t_10 = PyObject_RichCompare(__pyx_t_1, __pyx_t_12, Py_LT); __Pyx_XGOTREF(__pyx_t_10); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 123, __pyx_L3_error)
+      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 123, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       if (__pyx_t_11) {
         __Pyx_INCREF(__pyx_t_1);
@@ -5099,18 +5120,18 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
       __pyx_v_expires_in = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":123
+      /* "opscli/auth/core/token_manager.py":124
  *             #  expires_in  24
  *             expires_in = min(body.get("expires_in", 7200), MAX_JWT_TTL)
  *             self._store.save_token(system_key, body["jwt"], expires_in)             # <<<<<<<<<<<<<<
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:
 */
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 123, __pyx_L3_error)
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 124, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_12);
       __pyx_t_8 = __pyx_t_12;
       __Pyx_INCREF(__pyx_t_8);
-      __pyx_t_10 = __Pyx_PyObject_Dict_GetItem(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 123, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyObject_Dict_GetItem(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 124, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_10);
       __pyx_t_3 = 0;
       {
@@ -5119,12 +5140,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":124
+      /* "opscli/auth/core/token_manager.py":125
  *             expires_in = min(body.get("expires_in", 7200), MAX_JWT_TTL)
  *             self._store.save_token(system_key, body["jwt"], expires_in)
  *             return body["jwt"]             # <<<<<<<<<<<<<<
@@ -5132,14 +5153,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
  *             raise TokenFetchError(f" {system_key} JWT : {e.response.status_code}")
 */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L3_error)
+      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 124, __pyx_L3_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 125, __pyx_L3_error)
       __pyx_r = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
       goto __pyx_L7_try_return;
 
-      /* "opscli/auth/core/token_manager.py":112
+      /* "opscli/auth/core/token_manager.py":113
  *         session_id = self.get_session_id()
  *         headers = _get_mcp_api_key_header()
  *         try:             # <<<<<<<<<<<<<<
@@ -5156,7 +5177,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "opscli/auth/core/token_manager.py":125
+    /* "opscli/auth/core/token_manager.py":126
  *             self._store.save_token(system_key, body["jwt"], expires_in)
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:             # <<<<<<<<<<<<<<
@@ -5164,9 +5185,9 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
  *         except Exception as e:
 */
     __Pyx_ErrFetch(&__pyx_t_1, &__pyx_t_12, &__pyx_t_10);
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 125, __pyx_L5_except_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 126, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_HTTPStatusError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L5_except_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_HTTPStatusError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 126, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_13 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_1, __pyx_t_9);
@@ -5175,7 +5196,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     __pyx_t_1 = 0; __pyx_t_12 = 0; __pyx_t_10 = 0;
     if (__pyx_t_13) {
       __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager._fetch_token", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_10, &__pyx_t_12, &__pyx_t_1) < 0) __PYX_ERR(0, 125, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_10, &__pyx_t_12, &__pyx_t_1) < 0) __PYX_ERR(0, 126, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_10);
       __Pyx_XGOTREF(__pyx_t_12);
       __Pyx_XGOTREF(__pyx_t_1);
@@ -5183,7 +5204,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
       __pyx_v_e = __pyx_t_12;
       /*try:*/ {
 
-        /* "opscli/auth/core/token_manager.py":126
+        /* "opscli/auth/core/token_manager.py":127
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:
  *             raise TokenFetchError(f" {system_key} JWT : {e.response.status_code}")             # <<<<<<<<<<<<<<
@@ -5191,14 +5212,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
  *             raise TokenFetchError(f" {system_key} JWT : {e}")
 */
         __pyx_t_8 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 126, __pyx_L16_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_e, __pyx_mstate_global->__pyx_n_u_response); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L16_error)
+        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_e, __pyx_mstate_global->__pyx_n_u_response); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 126, __pyx_L16_error)
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 127, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_14, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L16_error)
+        __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_14, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         __pyx_t_15[0] = __pyx_mstate_global->__pyx_kp_u__2;
@@ -5206,7 +5227,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
         __pyx_t_15[2] = __pyx_mstate_global->__pyx_kp_u_JWT;
         __pyx_t_15[3] = __pyx_t_4;
         __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_15, 4, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_system_key) + 9 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_system_key) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 126, __pyx_L16_error)
+        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 127, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __pyx_t_3 = 1;
@@ -5227,15 +5248,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 126, __pyx_L16_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 126, __pyx_L16_error)
+        __PYX_ERR(0, 127, __pyx_L16_error)
       }
 
-      /* "opscli/auth/core/token_manager.py":125
+      /* "opscli/auth/core/token_manager.py":126
  *             self._store.save_token(system_key, body["jwt"], expires_in)
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:             # <<<<<<<<<<<<<<
@@ -5280,7 +5301,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
       }
     }
 
-    /* "opscli/auth/core/token_manager.py":127
+    /* "opscli/auth/core/token_manager.py":128
  *         except httpx.HTTPStatusError as e:
  *             raise TokenFetchError(f" {system_key} JWT : {e.response.status_code}")
  *         except Exception as e:             # <<<<<<<<<<<<<<
@@ -5290,7 +5311,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_16) {
       __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager._fetch_token", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_12, &__pyx_t_10) < 0) __PYX_ERR(0, 127, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_12, &__pyx_t_10) < 0) __PYX_ERR(0, 128, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_12);
       __Pyx_XGOTREF(__pyx_t_10);
@@ -5298,7 +5319,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
       __pyx_v_e = __pyx_t_12;
       /*try:*/ {
 
-        /* "opscli/auth/core/token_manager.py":128
+        /* "opscli/auth/core/token_manager.py":129
  *             raise TokenFetchError(f" {system_key} JWT : {e.response.status_code}")
  *         except Exception as e:
  *             raise TokenFetchError(f" {system_key} JWT : {e}")             # <<<<<<<<<<<<<<
@@ -5306,16 +5327,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
  *     def get_token(self, alias: str) -> str:
 */
         __pyx_t_2 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 128, __pyx_L27_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 129, __pyx_L27_error)
         __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_v_e, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 128, __pyx_L27_error)
+        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_v_e, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 129, __pyx_L27_error)
         __Pyx_GOTREF(__pyx_t_8);
         __pyx_t_15[0] = __pyx_mstate_global->__pyx_kp_u__2;
         __pyx_t_15[1] = __pyx_v_system_key;
         __pyx_t_15[2] = __pyx_mstate_global->__pyx_kp_u_JWT_2;
         __pyx_t_15[3] = __pyx_t_8;
         __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_15, 4, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_system_key) + 9 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_system_key) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L27_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L27_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __pyx_t_3 = 1;
@@ -5336,15 +5357,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L27_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 129, __pyx_L27_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
         __Pyx_Raise(__pyx_t_9, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 128, __pyx_L27_error)
+        __PYX_ERR(0, 129, __pyx_L27_error)
       }
 
-      /* "opscli/auth/core/token_manager.py":127
+      /* "opscli/auth/core/token_manager.py":128
  *         except httpx.HTTPStatusError as e:
  *             raise TokenFetchError(f" {system_key} JWT : {e.response.status_code}")
  *         except Exception as e:             # <<<<<<<<<<<<<<
@@ -5390,7 +5411,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/auth/core/token_manager.py":112
+    /* "opscli/auth/core/token_manager.py":113
  *         session_id = self.get_session_id()
  *         headers = _get_mcp_api_key_header()
  *         try:             # <<<<<<<<<<<<<<
@@ -5411,7 +5432,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
     goto __pyx_L0;
   }
 
-  /* "opscli/auth/core/token_manager.py":108
+  /* "opscli/auth/core/token_manager.py":109
  *         return self.token_status(token_data) == "valid"
  * 
  *     def _fetch_token(self, system_key: str, url: str, endpoint: str) -> str:             # <<<<<<<<<<<<<<
@@ -5443,7 +5464,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_10_
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":130
+/* "opscli/auth/core/token_manager.py":131
  *             raise TokenFetchError(f" {system_key} JWT : {e}")
  * 
  *     def get_token(self, alias: str) -> str:             # <<<<<<<<<<<<<<
@@ -5491,39 +5512,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_alias,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 130, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 131, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 131, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 131, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_token", 0) < (0)) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_token", 0) < (0)) __PYX_ERR(0, 131, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_token", 1, 2, 2, i); __PYX_ERR(0, 130, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_token", 1, 2, 2, i); __PYX_ERR(0, 131, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 131, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 131, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_alias = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_token", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 130, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_token", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 131, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5534,7 +5555,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 131, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12get_token(__pyx_self, __pyx_v_self, __pyx_v_alias);
 
   /* function exit code */
@@ -5595,14 +5616,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_token", 0);
 
-  /* "opscli/auth/core/token_manager.py":131
+  /* "opscli/auth/core/token_manager.py":132
  * 
  *     def get_token(self, alias: str) -> str:
  *         sys = self._registry.get(alias)             # <<<<<<<<<<<<<<
  *         system_key = sys["system_key"]
  * 
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -5612,25 +5633,25 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_sys = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":132
+  /* "opscli/auth/core/token_manager.py":133
  *     def get_token(self, alias: str) -> str:
  *         sys = self._registry.get(alias)
  *         system_key = sys["system_key"]             # <<<<<<<<<<<<<<
  * 
  *         # 1
 */
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_system_key = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":135
+  /* "opscli/auth/core/token_manager.py":136
  * 
  *         # 1
  *         thread_lock = _get_thread_lock(system_key)             # <<<<<<<<<<<<<<
@@ -5638,7 +5659,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
  *             #
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_thread_lock); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_thread_lock); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5657,13 +5678,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_thread_lock = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":136
+  /* "opscli/auth/core/token_manager.py":137
  *         # 1
  *         thread_lock = _get_thread_lock(system_key)
  *         with thread_lock:             # <<<<<<<<<<<<<<
@@ -5671,10 +5692,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
  *             data = self._store.load() or {}
 */
   /*with:*/ {
-    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_v_thread_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_v_thread_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_2 = NULL;
-    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_v_thread_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 136, __pyx_L3_error)
+    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_v_thread_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 137, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -5693,7 +5714,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -5707,14 +5728,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "opscli/auth/core/token_manager.py":138
+          /* "opscli/auth/core/token_manager.py":139
  *         with thread_lock:
  *             #
  *             data = self._store.load() or {}             # <<<<<<<<<<<<<<
  *             td = data.get("tokens", {}).get(system_key)
  *             if td and self._is_valid(td):
 */
-          __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 138, __pyx_L7_error)
+          __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 139, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_9);
           __pyx_t_2 = __pyx_t_9;
           __Pyx_INCREF(__pyx_t_2);
@@ -5724,10 +5745,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
             __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L7_error)
+            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_3);
           }
-          __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 138, __pyx_L7_error)
+          __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 139, __pyx_L7_error)
           if (!__pyx_t_10) {
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
           } else {
@@ -5736,7 +5757,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
             goto __pyx_L13_bool_binop_done;
           }
-          __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L7_error)
+          __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_3);
           __Pyx_INCREF(__pyx_t_3);
           __pyx_t_1 = __pyx_t_3;
@@ -5745,7 +5766,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
           __pyx_v_data = __pyx_t_1;
           __pyx_t_1 = 0;
 
-          /* "opscli/auth/core/token_manager.py":139
+          /* "opscli/auth/core/token_manager.py":140
  *             #
  *             data = self._store.load() or {}
  *             td = data.get("tokens", {}).get(system_key)             # <<<<<<<<<<<<<<
@@ -5754,7 +5775,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
 */
           __pyx_t_2 = __pyx_v_data;
           __Pyx_INCREF(__pyx_t_2);
-          __pyx_t_11 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 139, __pyx_L7_error)
+          __pyx_t_11 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 140, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_4 = 0;
           {
@@ -5762,7 +5783,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
             __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 139, __pyx_L7_error)
+            if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 140, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_9);
           }
           __pyx_t_3 = __pyx_t_9;
@@ -5773,20 +5794,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L7_error)
+            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
           }
           __pyx_v_td = __pyx_t_1;
           __pyx_t_1 = 0;
 
-          /* "opscli/auth/core/token_manager.py":140
+          /* "opscli/auth/core/token_manager.py":141
  *             data = self._store.load() or {}
  *             td = data.get("tokens", {}).get(system_key)
  *             if td and self._is_valid(td):             # <<<<<<<<<<<<<<
  *                 return td["jwt"]
  * 
 */
-          __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_v_td); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 140, __pyx_L7_error)
+          __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_v_td); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 141, __pyx_L7_error)
           if (__pyx_t_12) {
           } else {
             __pyx_t_10 = __pyx_t_12;
@@ -5799,16 +5820,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_td};
             __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_is_valid, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L7_error)
+            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
           }
-          __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 140, __pyx_L7_error)
+          __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 141, __pyx_L7_error)
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __pyx_t_10 = __pyx_t_12;
           __pyx_L16_bool_binop_done:;
           if (__pyx_t_10) {
 
-            /* "opscli/auth/core/token_manager.py":141
+            /* "opscli/auth/core/token_manager.py":142
  *             td = data.get("tokens", {}).get(system_key)
  *             if td and self._is_valid(td):
  *                 return td["jwt"]             # <<<<<<<<<<<<<<
@@ -5816,14 +5837,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
  *             # 2 CLI
 */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_td, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L7_error)
+            __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_td, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
-            if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 141, __pyx_L7_error)
+            if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 142, __pyx_L7_error)
             __pyx_r = ((PyObject*)__pyx_t_1);
             __pyx_t_1 = 0;
             goto __pyx_L11_try_return;
 
-            /* "opscli/auth/core/token_manager.py":140
+            /* "opscli/auth/core/token_manager.py":141
  *             data = self._store.load() or {}
  *             td = data.get("tokens", {}).get(system_key)
  *             if td and self._is_valid(td):             # <<<<<<<<<<<<<<
@@ -5832,44 +5853,44 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
 */
           }
 
-          /* "opscli/auth/core/token_manager.py":144
+          /* "opscli/auth/core/token_manager.py":145
  * 
  *             # 2 CLI
  *             if _FCNTL_AVAILABLE:             # <<<<<<<<<<<<<<
  *                 lock_path = self._store.base_dir / f".lock_{system_key}"
  *                 with open(lock_path, "w") as lf:
 */
-          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FCNTL_AVAILABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L7_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FCNTL_AVAILABLE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 144, __pyx_L7_error)
+          __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 145, __pyx_L7_error)
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           if (__pyx_t_10) {
 
-            /* "opscli/auth/core/token_manager.py":145
+            /* "opscli/auth/core/token_manager.py":146
  *             # 2 CLI
  *             if _FCNTL_AVAILABLE:
  *                 lock_path = self._store.base_dir / f".lock_{system_key}"             # <<<<<<<<<<<<<<
  *                 with open(lock_path, "w") as lf:
  *                     try:
 */
-            __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L7_error)
+            __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_base_dir); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 145, __pyx_L7_error)
+            __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_base_dir); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 146, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_9);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_system_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L7_error)
+            __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_system_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_lock, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 145, __pyx_L7_error)
+            __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_lock, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 146, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L7_error)
+            __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
             __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
             __pyx_v_lock_path = __pyx_t_1;
             __pyx_t_1 = 0;
 
-            /* "opscli/auth/core/token_manager.py":146
+            /* "opscli/auth/core/token_manager.py":147
  *             if _FCNTL_AVAILABLE:
  *                 lock_path = self._store.base_dir / f".lock_{system_key}"
  *                 with open(lock_path, "w") as lf:             # <<<<<<<<<<<<<<
@@ -5883,13 +5904,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                 PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_v_lock_path, __pyx_mstate_global->__pyx_n_u_w};
                 __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_open, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-                if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L7_error)
+                if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L7_error)
                 __Pyx_GOTREF(__pyx_t_1);
               }
-              __pyx_t_13 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 146, __pyx_L7_error)
+              __pyx_t_13 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 147, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_13);
               __pyx_t_9 = NULL;
-              __pyx_t_11 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 146, __pyx_L19_error)
+              __pyx_t_11 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 147, __pyx_L19_error)
               __Pyx_GOTREF(__pyx_t_11);
               __pyx_t_4 = 1;
               #if CYTHON_UNPACK_METHODS
@@ -5908,7 +5929,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                 __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
                 __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-                if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 146, __pyx_L19_error)
+                if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L19_error)
                 __Pyx_GOTREF(__pyx_t_3);
               }
               __pyx_t_11 = __pyx_t_3;
@@ -5926,7 +5947,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                     __pyx_v_lf = __pyx_t_11;
                     __pyx_t_11 = 0;
 
-                    /* "opscli/auth/core/token_manager.py":147
+                    /* "opscli/auth/core/token_manager.py":148
  *                 lock_path = self._store.base_dir / f".lock_{system_key}"
  *                 with open(lock_path, "w") as lf:
  *                     try:             # <<<<<<<<<<<<<<
@@ -5935,7 +5956,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
 */
                     /*try:*/ {
 
-                      /* "opscli/auth/core/token_manager.py":148
+                      /* "opscli/auth/core/token_manager.py":149
  *                 with open(lock_path, "w") as lf:
  *                     try:
  *                         fcntl.flock(lf, fcntl.LOCK_EX)             # <<<<<<<<<<<<<<
@@ -5943,14 +5964,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
  *                         data = self._store.load() or {}
 */
                       __pyx_t_1 = NULL;
-                      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L30_error)
+                      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 149, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_3);
-                      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_flock); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L30_error)
+                      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_flock); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 149, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_9);
                       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L30_error)
+                      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 149, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_3);
-                      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_LOCK_EX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L30_error)
+                      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_LOCK_EX); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 149, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_2);
                       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
                       __pyx_t_4 = 1;
@@ -5971,19 +5992,19 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
                         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
                         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 148, __pyx_L30_error)
+                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 149, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_11);
                       }
                       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
 
-                      /* "opscli/auth/core/token_manager.py":150
+                      /* "opscli/auth/core/token_manager.py":151
  *                         fcntl.flock(lf, fcntl.LOCK_EX)
  *                         #
  *                         data = self._store.load() or {}             # <<<<<<<<<<<<<<
  *                         td = data.get("tokens", {}).get(system_key)
  *                         if td and self._is_valid(td):
 */
-                      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L30_error)
+                      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_1);
                       __pyx_t_2 = __pyx_t_1;
                       __Pyx_INCREF(__pyx_t_2);
@@ -5993,10 +6014,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
                         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 150, __pyx_L30_error)
+                        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 151, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_9);
                       }
-                      __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 150, __pyx_L30_error)
+                      __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 151, __pyx_L30_error)
                       if (!__pyx_t_10) {
                         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
                       } else {
@@ -6005,7 +6026,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
                         goto __pyx_L32_bool_binop_done;
                       }
-                      __pyx_t_9 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 150, __pyx_L30_error)
+                      __pyx_t_9 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 151, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_9);
                       __Pyx_INCREF(__pyx_t_9);
                       __pyx_t_11 = __pyx_t_9;
@@ -6014,7 +6035,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                       __Pyx_DECREF_SET(__pyx_v_data, __pyx_t_11);
                       __pyx_t_11 = 0;
 
-                      /* "opscli/auth/core/token_manager.py":151
+                      /* "opscli/auth/core/token_manager.py":152
  *                         #
  *                         data = self._store.load() or {}
  *                         td = data.get("tokens", {}).get(system_key)             # <<<<<<<<<<<<<<
@@ -6023,7 +6044,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
 */
                       __pyx_t_2 = __pyx_v_data;
                       __Pyx_INCREF(__pyx_t_2);
-                      __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L30_error)
+                      __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 152, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_3);
                       __pyx_t_4 = 0;
                       {
@@ -6031,7 +6052,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
                         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L30_error)
+                        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_1);
                       }
                       __pyx_t_9 = __pyx_t_1;
@@ -6042,20 +6063,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __pyx_t_11 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
                         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 151, __pyx_L30_error)
+                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 152, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_11);
                       }
                       __Pyx_DECREF_SET(__pyx_v_td, __pyx_t_11);
                       __pyx_t_11 = 0;
 
-                      /* "opscli/auth/core/token_manager.py":152
+                      /* "opscli/auth/core/token_manager.py":153
  *                         data = self._store.load() or {}
  *                         td = data.get("tokens", {}).get(system_key)
  *                         if td and self._is_valid(td):             # <<<<<<<<<<<<<<
  *                             return td["jwt"]
  *                         return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])
 */
-                      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_v_td); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 152, __pyx_L30_error)
+                      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_v_td); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 153, __pyx_L30_error)
                       if (__pyx_t_12) {
                       } else {
                         __pyx_t_10 = __pyx_t_12;
@@ -6068,16 +6089,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_td};
                         __pyx_t_11 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_is_valid, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 152, __pyx_L30_error)
+                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 153, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_11);
                       }
-                      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 152, __pyx_L30_error)
+                      __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 153, __pyx_L30_error)
                       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
                       __pyx_t_10 = __pyx_t_12;
                       __pyx_L35_bool_binop_done:;
                       if (__pyx_t_10) {
 
-                        /* "opscli/auth/core/token_manager.py":153
+                        /* "opscli/auth/core/token_manager.py":154
  *                         td = data.get("tokens", {}).get(system_key)
  *                         if td and self._is_valid(td):
  *                             return td["jwt"]             # <<<<<<<<<<<<<<
@@ -6085,14 +6106,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
  *                     finally:
 */
                         __Pyx_XDECREF(__pyx_r);
-                        __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_td, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 153, __pyx_L30_error)
+                        __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_td, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 154, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_11);
-                        if (!(likely(PyUnicode_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_11))) __PYX_ERR(0, 153, __pyx_L30_error)
+                        if (!(likely(PyUnicode_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_11))) __PYX_ERR(0, 154, __pyx_L30_error)
                         __pyx_r = ((PyObject*)__pyx_t_11);
                         __pyx_t_11 = 0;
                         goto __pyx_L29_return;
 
-                        /* "opscli/auth/core/token_manager.py":152
+                        /* "opscli/auth/core/token_manager.py":153
  *                         data = self._store.load() or {}
  *                         td = data.get("tokens", {}).get(system_key)
  *                         if td and self._is_valid(td):             # <<<<<<<<<<<<<<
@@ -6101,7 +6122,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
 */
                       }
 
-                      /* "opscli/auth/core/token_manager.py":154
+                      /* "opscli/auth/core/token_manager.py":155
  *                         if td and self._is_valid(td):
  *                             return td["jwt"]
  *                         return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])             # <<<<<<<<<<<<<<
@@ -6111,9 +6132,9 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                       __Pyx_XDECREF(__pyx_r);
                       __pyx_t_1 = __pyx_v_self;
                       __Pyx_INCREF(__pyx_t_1);
-                      __pyx_t_9 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 154, __pyx_L30_error)
+                      __pyx_t_9 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 155, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_9);
-                      __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L30_error)
+                      __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 155, __pyx_L30_error)
                       __Pyx_GOTREF(__pyx_t_3);
                       __pyx_t_4 = 0;
                       {
@@ -6122,16 +6143,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
                         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
                         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 154, __pyx_L30_error)
+                        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 155, __pyx_L30_error)
                         __Pyx_GOTREF(__pyx_t_11);
                       }
-                      if (!(likely(PyUnicode_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_11))) __PYX_ERR(0, 154, __pyx_L30_error)
+                      if (!(likely(PyUnicode_CheckExact(__pyx_t_11))||((__pyx_t_11) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_11))) __PYX_ERR(0, 155, __pyx_L30_error)
                       __pyx_r = ((PyObject*)__pyx_t_11);
                       __pyx_t_11 = 0;
                       goto __pyx_L29_return;
                     }
 
-                    /* "opscli/auth/core/token_manager.py":156
+                    /* "opscli/auth/core/token_manager.py":157
  *                         return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])
  *                     finally:
  *                         fcntl.flock(lf, fcntl.LOCK_UN)             # <<<<<<<<<<<<<<
@@ -6160,14 +6181,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __pyx_t_17 = __pyx_lineno; __pyx_t_18 = __pyx_clineno; __pyx_t_19 = __pyx_filename;
                         {
                           __pyx_t_3 = NULL;
-                          __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 156, __pyx_L38_error)
+                          __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 157, __pyx_L38_error)
                           __Pyx_GOTREF(__pyx_t_9);
-                          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_flock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L38_error)
+                          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_flock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L38_error)
                           __Pyx_GOTREF(__pyx_t_1);
                           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-                          __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 156, __pyx_L38_error)
+                          __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 157, __pyx_L38_error)
                           __Pyx_GOTREF(__pyx_t_9);
-                          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_LOCK_UN); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 156, __pyx_L38_error)
+                          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_LOCK_UN); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L38_error)
                           __Pyx_GOTREF(__pyx_t_2);
                           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
                           __pyx_t_4 = 1;
@@ -6188,7 +6209,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                             __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
                             __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
                             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 156, __pyx_L38_error)
+                            if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 157, __pyx_L38_error)
                             __Pyx_GOTREF(__pyx_t_11);
                           }
                           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
@@ -6219,14 +6240,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                         __pyx_t_26 = __pyx_r;
                         __pyx_r = 0;
                         __pyx_t_1 = NULL;
-                        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 156, __pyx_L23_error)
+                        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L23_error)
                         __Pyx_GOTREF(__pyx_t_2);
-                        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_flock); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 156, __pyx_L23_error)
+                        __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_flock); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 157, __pyx_L23_error)
                         __Pyx_GOTREF(__pyx_t_3);
                         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-                        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 156, __pyx_L23_error)
+                        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fcntl); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 157, __pyx_L23_error)
                         __Pyx_GOTREF(__pyx_t_2);
-                        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_LOCK_UN); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 156, __pyx_L23_error)
+                        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_LOCK_UN); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 157, __pyx_L23_error)
                         __Pyx_GOTREF(__pyx_t_9);
                         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
                         __pyx_t_4 = 1;
@@ -6247,7 +6268,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
                           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
                           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-                          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 156, __pyx_L23_error)
+                          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 157, __pyx_L23_error)
                           __Pyx_GOTREF(__pyx_t_11);
                         }
                         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
@@ -6257,7 +6278,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                       }
                     }
 
-                    /* "opscli/auth/core/token_manager.py":146
+                    /* "opscli/auth/core/token_manager.py":147
  *             if _FCNTL_AVAILABLE:
  *                 lock_path = self._store.base_dir / f".lock_{system_key}"
  *                 with open(lock_path, "w") as lf:             # <<<<<<<<<<<<<<
@@ -6273,20 +6294,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                   __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
                   /*except:*/ {
                     __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager.get_token", __pyx_clineno, __pyx_lineno, __pyx_filename);
-                    if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_3, &__pyx_t_9) < 0) __PYX_ERR(0, 146, __pyx_L25_except_error)
+                    if (__Pyx_GetException(&__pyx_t_11, &__pyx_t_3, &__pyx_t_9) < 0) __PYX_ERR(0, 147, __pyx_L25_except_error)
                     __Pyx_XGOTREF(__pyx_t_11);
                     __Pyx_XGOTREF(__pyx_t_3);
                     __Pyx_XGOTREF(__pyx_t_9);
-                    __pyx_t_1 = PyTuple_Pack(3, __pyx_t_11, __pyx_t_3, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L25_except_error)
+                    __pyx_t_1 = PyTuple_Pack(3, __pyx_t_11, __pyx_t_3, __pyx_t_9); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L25_except_error)
                     __Pyx_GOTREF(__pyx_t_1);
                     __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_13, __pyx_t_1, NULL);
                     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
                     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                    if (unlikely(!__pyx_t_25)) __PYX_ERR(0, 146, __pyx_L25_except_error)
+                    if (unlikely(!__pyx_t_25)) __PYX_ERR(0, 147, __pyx_L25_except_error)
                     __Pyx_GOTREF(__pyx_t_25);
                     __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_25);
                     __Pyx_DECREF(__pyx_t_25); __pyx_t_25 = 0;
-                    if (__pyx_t_10 < (0)) __PYX_ERR(0, 146, __pyx_L25_except_error)
+                    if (__pyx_t_10 < (0)) __PYX_ERR(0, 147, __pyx_L25_except_error)
                     __pyx_t_12 = (!__pyx_t_10);
                     if (unlikely(__pyx_t_12)) {
                       __Pyx_GIVEREF(__pyx_t_11);
@@ -6294,7 +6315,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                       __Pyx_XGIVEREF(__pyx_t_9);
                       __Pyx_ErrRestoreWithState(__pyx_t_11, __pyx_t_3, __pyx_t_9);
                       __pyx_t_11 = 0;  __pyx_t_3 = 0;  __pyx_t_9 = 0; 
-                      __PYX_ERR(0, 146, __pyx_L25_except_error)
+                      __PYX_ERR(0, 147, __pyx_L25_except_error)
                     }
                     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
                     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -6325,7 +6346,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                   if (__pyx_t_13) {
                     __pyx_t_16 = __Pyx_PyObject_Call(__pyx_t_13, __pyx_mstate_global->__pyx_tuple[0], NULL);
                     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-                    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 146, __pyx_L7_error)
+                    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 147, __pyx_L7_error)
                     __Pyx_GOTREF(__pyx_t_16);
                     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
                   }
@@ -6337,7 +6358,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
                   if (__pyx_t_13) {
                     __pyx_t_16 = __Pyx_PyObject_Call(__pyx_t_13, __pyx_mstate_global->__pyx_tuple[0], NULL);
                     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-                    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 146, __pyx_L7_error)
+                    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 147, __pyx_L7_error)
                     __Pyx_GOTREF(__pyx_t_16);
                     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
                   }
@@ -6354,7 +6375,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
               __pyx_L42:;
             }
 
-            /* "opscli/auth/core/token_manager.py":144
+            /* "opscli/auth/core/token_manager.py":145
  * 
  *             # 2 CLI
  *             if _FCNTL_AVAILABLE:             # <<<<<<<<<<<<<<
@@ -6364,7 +6385,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             goto __pyx_L18;
           }
 
-          /* "opscli/auth/core/token_manager.py":158
+          /* "opscli/auth/core/token_manager.py":159
  *                         fcntl.flock(lf, fcntl.LOCK_UN)
  *             else:
  *                 return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])             # <<<<<<<<<<<<<<
@@ -6375,9 +6396,9 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             __Pyx_XDECREF(__pyx_r);
             __pyx_t_3 = __pyx_v_self;
             __Pyx_INCREF(__pyx_t_3);
-            __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 158, __pyx_L7_error)
+            __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 159, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_11);
-            __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 158, __pyx_L7_error)
+            __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
             __pyx_t_4 = 0;
             {
@@ -6386,17 +6407,17 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
               __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
               __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 158, __pyx_L7_error)
+              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 159, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_9);
             }
-            if (!(likely(PyUnicode_CheckExact(__pyx_t_9))||((__pyx_t_9) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_9))) __PYX_ERR(0, 158, __pyx_L7_error)
+            if (!(likely(PyUnicode_CheckExact(__pyx_t_9))||((__pyx_t_9) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_9))) __PYX_ERR(0, 159, __pyx_L7_error)
             __pyx_r = ((PyObject*)__pyx_t_9);
             __pyx_t_9 = 0;
             goto __pyx_L11_try_return;
           }
           __pyx_L18:;
 
-          /* "opscli/auth/core/token_manager.py":136
+          /* "opscli/auth/core/token_manager.py":137
  *         # 1
  *         thread_lock = _get_thread_lock(system_key)
  *         with thread_lock:             # <<<<<<<<<<<<<<
@@ -6416,20 +6437,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager.get_token", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_1, &__pyx_t_11) < 0) __PYX_ERR(0, 136, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_1, &__pyx_t_11) < 0) __PYX_ERR(0, 137, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_9);
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_11);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_9, __pyx_t_1, __pyx_t_11); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 136, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_9, __pyx_t_1, __pyx_t_11); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 137, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_13 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 136, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 137, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_13);
           __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_13);
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (__pyx_t_12 < (0)) __PYX_ERR(0, 136, __pyx_L9_except_error)
+          if (__pyx_t_12 < (0)) __PYX_ERR(0, 137, __pyx_L9_except_error)
           __pyx_t_10 = (!__pyx_t_12);
           if (unlikely(__pyx_t_10)) {
             __Pyx_GIVEREF(__pyx_t_9);
@@ -6437,7 +6458,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
             __Pyx_XGIVEREF(__pyx_t_11);
             __Pyx_ErrRestoreWithState(__pyx_t_9, __pyx_t_1, __pyx_t_11);
             __pyx_t_9 = 0;  __pyx_t_1 = 0;  __pyx_t_11 = 0; 
-            __PYX_ERR(0, 136, __pyx_L9_except_error)
+            __PYX_ERR(0, 137, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -6469,7 +6490,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
         if (__pyx_t_5) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 137, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -6481,7 +6502,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
         if (__pyx_t_5) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 137, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -6498,7 +6519,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
     __pyx_L46:;
   }
 
-  /* "opscli/auth/core/token_manager.py":130
+  /* "opscli/auth/core/token_manager.py":131
  *             raise TokenFetchError(f" {system_key} JWT : {e}")
  * 
  *     def get_token(self, alias: str) -> str:             # <<<<<<<<<<<<<<
@@ -6530,7 +6551,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_12g
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":160
+/* "opscli/auth/core/token_manager.py":161
  *                 return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])
  * 
  *     def check_token(self, alias: str) -> dict:             # <<<<<<<<<<<<<<
@@ -6579,39 +6600,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_alias,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 160, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 161, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 160, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 161, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 160, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 161, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "check_token", 0) < (0)) __PYX_ERR(0, 160, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "check_token", 0) < (0)) __PYX_ERR(0, 161, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("check_token", 1, 2, 2, i); __PYX_ERR(0, 160, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("check_token", 1, 2, 2, i); __PYX_ERR(0, 161, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 160, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 161, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 160, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 161, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_alias = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("check_token", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 160, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("check_token", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 161, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6622,7 +6643,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 161, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14check_token(__pyx_self, __pyx_v_self, __pyx_v_alias);
 
   /* function exit code */
@@ -6671,14 +6692,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("check_token", 0);
 
-  /* "opscli/auth/core/token_manager.py":162
+  /* "opscli/auth/core/token_manager.py":163
  *     def check_token(self, alias: str) -> dict:
  *         """ Token  {valid: bool, expires_in: int}"""
  *         sys = self._registry.get(alias)             # <<<<<<<<<<<<<<
  *         data = self._store.load() or {}
  *         td = data.get("tokens", {}).get(sys["system_key"])
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -6688,20 +6709,20 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_sys = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":163
+  /* "opscli/auth/core/token_manager.py":164
  *         """ Token  {valid: bool, expires_in: int}"""
  *         sys = self._registry.get(alias)
  *         data = self._store.load() or {}             # <<<<<<<<<<<<<<
  *         td = data.get("tokens", {}).get(sys["system_key"])
  *         if not td:
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_store_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_2 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_2);
@@ -6711,10 +6732,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 164, __pyx_L1_error)
   if (!__pyx_t_6) {
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else {
@@ -6723,7 +6744,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = __pyx_t_3;
@@ -6732,7 +6753,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":164
+  /* "opscli/auth/core/token_manager.py":165
  *         sys = self._registry.get(alias)
  *         data = self._store.load() or {}
  *         td = data.get("tokens", {}).get(sys["system_key"])             # <<<<<<<<<<<<<<
@@ -6741,7 +6762,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
 */
   __pyx_t_2 = __pyx_v_data;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_4 = 0;
   {
@@ -6749,12 +6770,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 165, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   __pyx_t_3 = __pyx_t_5;
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_4 = 0;
   {
@@ -6763,24 +6784,24 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 165, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_td = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":165
+  /* "opscli/auth/core/token_manager.py":166
  *         data = self._store.load() or {}
  *         td = data.get("tokens", {}).get(sys["system_key"])
  *         if not td:             # <<<<<<<<<<<<<<
  *             return {"valid": False, "expires_in": 0}
  *         try:
 */
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_td); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_td); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 166, __pyx_L1_error)
   __pyx_t_8 = (!__pyx_t_6);
   if (__pyx_t_8) {
 
-    /* "opscli/auth/core/token_manager.py":166
+    /* "opscli/auth/core/token_manager.py":167
  *         td = data.get("tokens", {}).get(sys["system_key"])
  *         if not td:
  *             return {"valid": False, "expires_in": 0}             # <<<<<<<<<<<<<<
@@ -6788,15 +6809,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
  *             exp = datetime.fromisoformat(td["expires_at"])
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 167, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_valid, Py_False) < (0)) __PYX_ERR(0, 166, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_valid, Py_False) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
     __pyx_r = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "opscli/auth/core/token_manager.py":165
+    /* "opscli/auth/core/token_manager.py":166
  *         data = self._store.load() or {}
  *         td = data.get("tokens", {}).get(sys["system_key"])
  *         if not td:             # <<<<<<<<<<<<<<
@@ -6805,7 +6826,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
 */
   }
 
-  /* "opscli/auth/core/token_manager.py":167
+  /* "opscli/auth/core/token_manager.py":168
  *         if not td:
  *             return {"valid": False, "expires_in": 0}
  *         try:             # <<<<<<<<<<<<<<
@@ -6821,7 +6842,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __Pyx_XGOTREF(__pyx_t_11);
     /*try:*/ {
 
-      /* "opscli/auth/core/token_manager.py":168
+      /* "opscli/auth/core/token_manager.py":169
  *             return {"valid": False, "expires_in": 0}
  *         try:
  *             exp = datetime.fromisoformat(td["expires_at"])             # <<<<<<<<<<<<<<
@@ -6829,12 +6850,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
  *                 exp = exp.replace(tzinfo=timezone.utc)
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 168, __pyx_L6_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 169, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_fromisoformat); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L6_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_fromisoformat); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 169, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_td, __pyx_mstate_global->__pyx_n_u_expires_at); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 168, __pyx_L6_error)
+      __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_td, __pyx_mstate_global->__pyx_n_u_expires_at); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 169, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_4 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -6854,26 +6875,26 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L6_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_exp = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":169
+      /* "opscli/auth/core/token_manager.py":170
  *         try:
  *             exp = datetime.fromisoformat(td["expires_at"])
  *             if exp.tzinfo is None:             # <<<<<<<<<<<<<<
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             rem = int((exp - datetime.now(timezone.utc)).total_seconds())
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_exp, __pyx_mstate_global->__pyx_n_u_tzinfo); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L6_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_exp, __pyx_mstate_global->__pyx_n_u_tzinfo); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_t_8 = (__pyx_t_1 == Py_None);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       if (__pyx_t_8) {
 
-        /* "opscli/auth/core/token_manager.py":170
+        /* "opscli/auth/core/token_manager.py":171
  *             exp = datetime.fromisoformat(td["expires_at"])
  *             if exp.tzinfo is None:
  *                 exp = exp.replace(tzinfo=timezone.utc)             # <<<<<<<<<<<<<<
@@ -6882,28 +6903,28 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
 */
         __pyx_t_3 = __pyx_v_exp;
         __Pyx_INCREF(__pyx_t_3);
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 170, __pyx_L6_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 171, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 170, __pyx_L6_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 171, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_4 = 0;
         {
           PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, NULL};
-          __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 170, __pyx_L6_error)
+          __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 171, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_7);
-          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tzinfo, __pyx_t_5, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 170, __pyx_L6_error)
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tzinfo, __pyx_t_5, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 171, __pyx_L6_error)
           __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_replace, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L6_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __Pyx_DECREF_SET(__pyx_v_exp, __pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "opscli/auth/core/token_manager.py":169
+        /* "opscli/auth/core/token_manager.py":170
  *         try:
  *             exp = datetime.fromisoformat(td["expires_at"])
  *             if exp.tzinfo is None:             # <<<<<<<<<<<<<<
@@ -6912,7 +6933,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
 */
       }
 
-      /* "opscli/auth/core/token_manager.py":171
+      /* "opscli/auth/core/token_manager.py":172
  *             if exp.tzinfo is None:
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             rem = int((exp - datetime.now(timezone.utc)).total_seconds())             # <<<<<<<<<<<<<<
@@ -6920,14 +6941,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
  *         except (KeyError, ValueError):
 */
       __pyx_t_3 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L6_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_now); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 171, __pyx_L6_error)
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_now); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 172, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L6_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 171, __pyx_L6_error)
+      __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 172, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_13);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_4 = 1;
@@ -6948,10 +6969,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 171, __pyx_L6_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
-      __pyx_t_12 = PyNumber_Subtract(__pyx_v_exp, __pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 171, __pyx_L6_error)
+      __pyx_t_12 = PyNumber_Subtract(__pyx_v_exp, __pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 172, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_7 = __pyx_t_12;
@@ -6962,16 +6983,16 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_total_seconds, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L6_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
-      __pyx_t_12 = __Pyx_PyNumber_Int(__pyx_t_1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 171, __pyx_L6_error)
+      __pyx_t_12 = __Pyx_PyNumber_Int(__pyx_t_1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 172, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_rem = ((PyObject*)__pyx_t_12);
       __pyx_t_12 = 0;
 
-      /* "opscli/auth/core/token_manager.py":172
+      /* "opscli/auth/core/token_manager.py":173
  *                 exp = exp.replace(tzinfo=timezone.utc)
  *             rem = int((exp - datetime.now(timezone.utc)).total_seconds())
  *             return {"valid": rem > 0, "expires_in": max(0, rem)}             # <<<<<<<<<<<<<<
@@ -6979,38 +7000,38 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
  *             return {"valid": False, "expires_in": 0}
 */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_12 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 172, __pyx_L6_error)
+      __pyx_t_12 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 173, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_12);
-      __pyx_t_1 = PyObject_RichCompare(__pyx_v_rem, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L6_error)
-      if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_valid, __pyx_t_1) < (0)) __PYX_ERR(0, 172, __pyx_L6_error)
+      __pyx_t_1 = PyObject_RichCompare(__pyx_v_rem, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L6_error)
+      if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_valid, __pyx_t_1) < (0)) __PYX_ERR(0, 173, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_INCREF(__pyx_v_rem);
       __pyx_t_14 = __pyx_v_rem;
       __pyx_t_15 = 0;
-      __pyx_t_7 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 172, __pyx_L6_error)
+      __pyx_t_7 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 173, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_5 = PyObject_RichCompare(__pyx_t_14, __pyx_t_7, Py_GT); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L6_error)
+      __pyx_t_5 = PyObject_RichCompare(__pyx_t_14, __pyx_t_7, Py_GT); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 172, __pyx_L6_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 173, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       if (__pyx_t_8) {
         __Pyx_INCREF(__pyx_t_14);
         __pyx_t_1 = __pyx_t_14;
       } else {
-        __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L6_error)
+        __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_t_15); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_5);
-        if (__Pyx_PyInt_FromNumber(&__pyx_t_5, NULL, 0) < (0)) __PYX_ERR(0, 172, __pyx_L6_error)
+        if (__Pyx_PyInt_FromNumber(&__pyx_t_5, NULL, 0) < (0)) __PYX_ERR(0, 173, __pyx_L6_error)
         __pyx_t_1 = __pyx_t_5;
         __pyx_t_5 = 0;
       }
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_t_1) < (0)) __PYX_ERR(0, 172, __pyx_L6_error)
+      if (PyDict_SetItem(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_t_1) < (0)) __PYX_ERR(0, 173, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_r = ((PyObject*)__pyx_t_12);
       __pyx_t_12 = 0;
       goto __pyx_L10_try_return;
 
-      /* "opscli/auth/core/token_manager.py":167
+      /* "opscli/auth/core/token_manager.py":168
  *         if not td:
  *             return {"valid": False, "expires_in": 0}
  *         try:             # <<<<<<<<<<<<<<
@@ -7028,7 +7049,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/auth/core/token_manager.py":173
+    /* "opscli/auth/core/token_manager.py":174
  *             rem = int((exp - datetime.now(timezone.utc)).total_seconds())
  *             return {"valid": rem > 0, "expires_in": max(0, rem)}
  *         except (KeyError, ValueError):             # <<<<<<<<<<<<<<
@@ -7038,12 +7059,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     __pyx_t_16 = __Pyx_PyErr_ExceptionMatches2(((PyObject *)(((PyTypeObject*)PyExc_KeyError))), ((PyObject *)(((PyTypeObject*)PyExc_ValueError))));
     if (__pyx_t_16) {
       __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager.check_token", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_1, &__pyx_t_5) < 0) __PYX_ERR(0, 173, __pyx_L8_except_error)
+      if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_1, &__pyx_t_5) < 0) __PYX_ERR(0, 174, __pyx_L8_except_error)
       __Pyx_XGOTREF(__pyx_t_12);
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "opscli/auth/core/token_manager.py":174
+      /* "opscli/auth/core/token_manager.py":175
  *             return {"valid": rem > 0, "expires_in": max(0, rem)}
  *         except (KeyError, ValueError):
  *             return {"valid": False, "expires_in": 0}             # <<<<<<<<<<<<<<
@@ -7051,10 +7072,10 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
  *     def refresh_token(self, alias: str) -> str:
 */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 174, __pyx_L8_except_error)
+      __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 175, __pyx_L8_except_error)
       __Pyx_GOTREF(__pyx_t_7);
-      if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_valid, Py_False) < (0)) __PYX_ERR(0, 174, __pyx_L8_except_error)
-      if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 174, __pyx_L8_except_error)
+      if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_valid, Py_False) < (0)) __PYX_ERR(0, 175, __pyx_L8_except_error)
+      if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_mstate_global->__pyx_int_0) < (0)) __PYX_ERR(0, 175, __pyx_L8_except_error)
       __pyx_r = ((PyObject*)__pyx_t_7);
       __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -7064,7 +7085,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     }
     goto __pyx_L8_except_error;
 
-    /* "opscli/auth/core/token_manager.py":167
+    /* "opscli/auth/core/token_manager.py":168
  *         if not td:
  *             return {"valid": False, "expires_in": 0}
  *         try:             # <<<<<<<<<<<<<<
@@ -7091,7 +7112,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
     goto __pyx_L0;
   }
 
-  /* "opscli/auth/core/token_manager.py":160
+  /* "opscli/auth/core/token_manager.py":161
  *                 return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])
  * 
  *     def check_token(self, alias: str) -> dict:             # <<<<<<<<<<<<<<
@@ -7122,7 +7143,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_14c
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":176
+/* "opscli/auth/core/token_manager.py":177
  *             return {"valid": False, "expires_in": 0}
  * 
  *     def refresh_token(self, alias: str) -> str:             # <<<<<<<<<<<<<<
@@ -7171,39 +7192,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_alias,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 176, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 177, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 176, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 177, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 176, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 177, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "refresh_token", 0) < (0)) __PYX_ERR(0, 176, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "refresh_token", 0) < (0)) __PYX_ERR(0, 177, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("refresh_token", 1, 2, 2, i); __PYX_ERR(0, 176, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("refresh_token", 1, 2, 2, i); __PYX_ERR(0, 177, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 176, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 177, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 176, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 177, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_alias = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("refresh_token", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 176, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("refresh_token", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 177, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7214,7 +7235,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 176, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 177, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_16refresh_token(__pyx_self, __pyx_v_self, __pyx_v_alias);
 
   /* function exit code */
@@ -7249,14 +7270,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_16r
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("refresh_token", 0);
 
-  /* "opscli/auth/core/token_manager.py":178
+  /* "opscli/auth/core/token_manager.py":179
  *     def refresh_token(self, alias: str) -> str:
  *         """ JWT"""
  *         sys = self._registry.get(alias)             # <<<<<<<<<<<<<<
  *         return self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  * 
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -7266,13 +7287,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_16r
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_sys = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":179
+  /* "opscli/auth/core/token_manager.py":180
  *         """ JWT"""
  *         sys = self._registry.get(alias)
  *         return self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])             # <<<<<<<<<<<<<<
@@ -7282,11 +7303,11 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_16r
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_3 = __pyx_v_self;
   __Pyx_INCREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_4 = 0;
   {
@@ -7296,15 +7317,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_16r
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 179, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 180, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/auth/core/token_manager.py":176
+  /* "opscli/auth/core/token_manager.py":177
  *             return {"valid": False, "expires_in": 0}
  * 
  *     def refresh_token(self, alias: str) -> str:             # <<<<<<<<<<<<<<
@@ -7328,7 +7349,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_16r
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":181
+/* "opscli/auth/core/token_manager.py":182
  *         return self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  * 
  *     def refresh_all(self) -> dict:             # <<<<<<<<<<<<<<
@@ -7376,32 +7397,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 181, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 182, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 181, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 182, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "refresh_all", 0) < (0)) __PYX_ERR(0, 181, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "refresh_all", 0) < (0)) __PYX_ERR(0, 182, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("refresh_all", 1, 1, 1, i); __PYX_ERR(0, 181, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("refresh_all", 1, 1, 1, i); __PYX_ERR(0, 182, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 181, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 182, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("refresh_all", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 181, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("refresh_all", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 182, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7454,26 +7475,26 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("refresh_all", 0);
 
-  /* "opscli/auth/core/token_manager.py":183
+  /* "opscli/auth/core/token_manager.py":184
  *     def refresh_all(self) -> dict:
  *         """ JWT {alias: "ok"/": "} """
  *         results = {}             # <<<<<<<<<<<<<<
  *         for sys in self._registry.list_all():
  *             try:
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_results = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":184
+  /* "opscli/auth/core/token_manager.py":185
  *         """ JWT {alias: "ok"/": "} """
  *         results = {}
  *         for sys in self._registry.list_all():             # <<<<<<<<<<<<<<
  *             try:
  *                 self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -7483,7 +7504,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_list_all, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
@@ -7491,9 +7512,9 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
     __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 184, __pyx_L1_error)
+    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -7502,7 +7523,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 185, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -7512,7 +7533,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 185, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -7523,13 +7544,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
         #endif
         ++__pyx_t_5;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_6(__pyx_t_3);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 184, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 185, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -7539,7 +7560,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
     __Pyx_XDECREF_SET(__pyx_v_sys, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/auth/core/token_manager.py":185
+    /* "opscli/auth/core/token_manager.py":186
  *         results = {}
  *         for sys in self._registry.list_all():
  *             try:             # <<<<<<<<<<<<<<
@@ -7555,7 +7576,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
       __Pyx_XGOTREF(__pyx_t_9);
       /*try:*/ {
 
-        /* "opscli/auth/core/token_manager.py":186
+        /* "opscli/auth/core/token_manager.py":187
  *         for sys in self._registry.list_all():
  *             try:
  *                 self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])             # <<<<<<<<<<<<<<
@@ -7564,11 +7585,11 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
 */
         __pyx_t_2 = __pyx_v_self;
         __Pyx_INCREF(__pyx_t_2);
-        __pyx_t_10 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 186, __pyx_L5_error)
+        __pyx_t_10 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_system_key); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 187, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_10);
-        __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 186, __pyx_L5_error)
+        __pyx_t_11 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 187, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_11);
-        __pyx_t_12 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 186, __pyx_L5_error)
+        __pyx_t_12 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 187, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_12);
         __pyx_t_4 = 0;
         {
@@ -7578,24 +7599,24 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L5_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "opscli/auth/core/token_manager.py":187
+        /* "opscli/auth/core/token_manager.py":188
  *             try:
  *                 self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  *                 results[sys["alias"]] = "ok"             # <<<<<<<<<<<<<<
  *             except Exception as e:
  *                 results[sys["alias"]] = f": {e}"
 */
-        __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_alias); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L5_error)
+        __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_alias); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 188, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (unlikely((PyDict_SetItem(__pyx_v_results, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_ok) < 0))) __PYX_ERR(0, 187, __pyx_L5_error)
+        if (unlikely((PyDict_SetItem(__pyx_v_results, __pyx_t_1, __pyx_mstate_global->__pyx_n_u_ok) < 0))) __PYX_ERR(0, 188, __pyx_L5_error)
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "opscli/auth/core/token_manager.py":185
+        /* "opscli/auth/core/token_manager.py":186
  *         results = {}
  *         for sys in self._registry.list_all():
  *             try:             # <<<<<<<<<<<<<<
@@ -7614,7 +7635,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
       __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "opscli/auth/core/token_manager.py":188
+      /* "opscli/auth/core/token_manager.py":189
  *                 self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  *                 results[sys["alias"]] = "ok"
  *             except Exception as e:             # <<<<<<<<<<<<<<
@@ -7624,7 +7645,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
       __pyx_t_13 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
       if (__pyx_t_13) {
         __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager.refresh_all", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_12, &__pyx_t_11) < 0) __PYX_ERR(0, 188, __pyx_L7_except_error)
+        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_12, &__pyx_t_11) < 0) __PYX_ERR(0, 189, __pyx_L7_except_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __Pyx_XGOTREF(__pyx_t_12);
         __Pyx_XGOTREF(__pyx_t_11);
@@ -7632,26 +7653,26 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
         __pyx_v_e = __pyx_t_12;
         /*try:*/ {
 
-          /* "opscli/auth/core/token_manager.py":189
+          /* "opscli/auth/core/token_manager.py":190
  *                 results[sys["alias"]] = "ok"
  *             except Exception as e:
  *                 results[sys["alias"]] = f": {e}"             # <<<<<<<<<<<<<<
  *         return results
  * 
 */
-          __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_v_e, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 189, __pyx_L18_error)
+          __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_v_e, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 190, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_10);
-          __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L18_error)
+          __pyx_t_2 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__3, __pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __pyx_t_10 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_alias); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 189, __pyx_L18_error)
+          __pyx_t_10 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_alias); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 190, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_10);
-          if (unlikely((PyDict_SetItem(__pyx_v_results, __pyx_t_10, __pyx_t_2) < 0))) __PYX_ERR(0, 189, __pyx_L18_error)
+          if (unlikely((PyDict_SetItem(__pyx_v_results, __pyx_t_10, __pyx_t_2) < 0))) __PYX_ERR(0, 190, __pyx_L18_error)
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         }
 
-        /* "opscli/auth/core/token_manager.py":188
+        /* "opscli/auth/core/token_manager.py":189
  *                 self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  *                 results[sys["alias"]] = "ok"
  *             except Exception as e:             # <<<<<<<<<<<<<<
@@ -7703,7 +7724,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
       }
       goto __pyx_L7_except_error;
 
-      /* "opscli/auth/core/token_manager.py":185
+      /* "opscli/auth/core/token_manager.py":186
  *         results = {}
  *         for sys in self._registry.list_all():
  *             try:             # <<<<<<<<<<<<<<
@@ -7724,7 +7745,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
       __pyx_L12_try_end:;
     }
 
-    /* "opscli/auth/core/token_manager.py":184
+    /* "opscli/auth/core/token_manager.py":185
  *         """ JWT {alias: "ok"/": "} """
  *         results = {}
  *         for sys in self._registry.list_all():             # <<<<<<<<<<<<<<
@@ -7734,7 +7755,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/auth/core/token_manager.py":190
+  /* "opscli/auth/core/token_manager.py":191
  *             except Exception as e:
  *                 results[sys["alias"]] = f": {e}"
  *         return results             # <<<<<<<<<<<<<<
@@ -7746,7 +7767,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
   __pyx_r = __pyx_v_results;
   goto __pyx_L0;
 
-  /* "opscli/auth/core/token_manager.py":181
+  /* "opscli/auth/core/token_manager.py":182
  *         return self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  * 
  *     def refresh_all(self) -> dict:             # <<<<<<<<<<<<<<
@@ -7773,7 +7794,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_18r
   return __pyx_r;
 }
 
-/* "opscli/auth/core/token_manager.py":192
+/* "opscli/auth/core/token_manager.py":193
  *         return results
  * 
  *     def get_token_by_session(self, session_id: str, alias: str) -> str:             # <<<<<<<<<<<<<<
@@ -7823,38 +7844,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_session_id,&__pyx_mstate_global->__pyx_n_u_alias,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 192, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 193, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 192, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 193, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 192, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 193, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 192, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 193, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_token_by_session", 0) < (0)) __PYX_ERR(0, 192, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_token_by_session", 0) < (0)) __PYX_ERR(0, 193, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_token_by_session", 1, 3, 3, i); __PYX_ERR(0, 192, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_token_by_session", 1, 3, 3, i); __PYX_ERR(0, 193, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 192, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 193, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 192, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 193, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 192, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 193, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_session_id = ((PyObject*)values[1]);
@@ -7862,7 +7883,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_token_by_session", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 192, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_token_by_session", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 193, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7873,8 +7894,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_session_id), (&PyUnicode_Type), 0, "session_id", 2))) __PYX_ERR(0, 192, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 192, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_session_id), (&PyUnicode_Type), 0, "session_id", 2))) __PYX_ERR(0, 193, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_alias), (&PyUnicode_Type), 0, "alias", 2))) __PYX_ERR(0, 193, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20get_token_by_session(__pyx_self, __pyx_v_self, __pyx_v_session_id, __pyx_v_alias);
 
   /* function exit code */
@@ -7931,14 +7952,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_token_by_session", 0);
 
-  /* "opscli/auth/core/token_manager.py":208
+  /* "opscli/auth/core/token_manager.py":209
  *             TokenFetchError:
  *         """
  *         sys = self._registry.get(alias)             # <<<<<<<<<<<<<<
  *         headers = _get_mcp_api_key_header()
  *         try:
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_registry_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -7948,13 +7969,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_sys = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":209
+  /* "opscli/auth/core/token_manager.py":210
  *         """
  *         sys = self._registry.get(alias)
  *         headers = _get_mcp_api_key_header()             # <<<<<<<<<<<<<<
@@ -7962,7 +7983,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
  *             resp = httpx.post(
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_mcp_api_key_header); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_mcp_api_key_header); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -7981,13 +8002,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 210, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_headers = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/auth/core/token_manager.py":210
+  /* "opscli/auth/core/token_manager.py":211
  *         sys = self._registry.get(alias)
  *         headers = _get_mcp_api_key_header()
  *         try:             # <<<<<<<<<<<<<<
@@ -8003,7 +8024,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     __Pyx_XGOTREF(__pyx_t_7);
     /*try:*/ {
 
-      /* "opscli/auth/core/token_manager.py":211
+      /* "opscli/auth/core/token_manager.py":212
  *         headers = _get_mcp_api_key_header()
  *         try:
  *             resp = httpx.post(             # <<<<<<<<<<<<<<
@@ -8011,53 +8032,53 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
  *                 json={"session_id": session_id},
 */
       __pyx_t_2 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 212, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_post); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 211, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_post); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 212, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "opscli/auth/core/token_manager.py":212
+      /* "opscli/auth/core/token_manager.py":213
  *         try:
  *             resp = httpx.post(
  *                 f"{sys['url']}{sys['token_endpoint']}",             # <<<<<<<<<<<<<<
  *                 json={"session_id": session_id},
  *                 headers=headers or None,
 */
-      __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 212, __pyx_L3_error)
+      __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_url); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 212, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 213, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 212, __pyx_L3_error)
+      __pyx_t_3 = __Pyx_PyObject_Dict_GetItem(__pyx_v_sys, __pyx_mstate_global->__pyx_n_u_token_endpoint); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 212, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 213, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __pyx_t_3 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 212, __pyx_L3_error)
+      __pyx_t_3 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-      /* "opscli/auth/core/token_manager.py":213
+      /* "opscli/auth/core/token_manager.py":214
  *             resp = httpx.post(
  *                 f"{sys['url']}{sys['token_endpoint']}",
  *                 json={"session_id": session_id},             # <<<<<<<<<<<<<<
  *                 headers=headers or None,
  *                 timeout=10,
 */
-      __pyx_t_10 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 213, __pyx_L3_error)
+      __pyx_t_10 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 214, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_10);
-      if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_session_id, __pyx_v_session_id) < (0)) __PYX_ERR(0, 213, __pyx_L3_error)
+      if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_session_id, __pyx_v_session_id) < (0)) __PYX_ERR(0, 214, __pyx_L3_error)
 
-      /* "opscli/auth/core/token_manager.py":214
+      /* "opscli/auth/core/token_manager.py":215
  *                 f"{sys['url']}{sys['token_endpoint']}",
  *                 json={"session_id": session_id},
  *                 headers=headers or None,             # <<<<<<<<<<<<<<
  *                 timeout=10,
  *             )
 */
-      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_headers); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 214, __pyx_L3_error)
+      __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_headers); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 215, __pyx_L3_error)
       if (!__pyx_t_11) {
       } else {
         __Pyx_INCREF(__pyx_v_headers);
@@ -8081,11 +8102,11 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
       #endif
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_2, __pyx_t_3};
-        __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 211, __pyx_L3_error)
+        __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 212, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_12);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_json, __pyx_t_10, __pyx_t_12, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 211, __pyx_L3_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_9, __pyx_t_12, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 211, __pyx_L3_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_10, __pyx_t_12, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 211, __pyx_L3_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_json, __pyx_t_10, __pyx_t_12, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 212, __pyx_L3_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_9, __pyx_t_12, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 212, __pyx_L3_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_10, __pyx_t_12, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 212, __pyx_L3_error)
         __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_12);
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -8093,13 +8114,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_resp = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":217
+      /* "opscli/auth/core/token_manager.py":218
  *                 timeout=10,
  *             )
  *             resp.raise_for_status()             # <<<<<<<<<<<<<<
@@ -8113,12 +8134,12 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
         PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_raise_for_status, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":218
+      /* "opscli/auth/core/token_manager.py":219
  *             )
  *             resp.raise_for_status()
  *             body = resp.json()             # <<<<<<<<<<<<<<
@@ -8132,13 +8153,13 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
         PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_json, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_body = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/auth/core/token_manager.py":219
+      /* "opscli/auth/core/token_manager.py":220
  *             resp.raise_for_status()
  *             body = resp.json()
  *             return body["jwt"]             # <<<<<<<<<<<<<<
@@ -8146,14 +8167,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
  *             raise TokenFetchError(f" {alias} JWT : {e.response.status_code}")
 */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L3_error)
+      __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_v_body, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 220, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 219, __pyx_L3_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 220, __pyx_L3_error)
       __pyx_r = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
       goto __pyx_L7_try_return;
 
-      /* "opscli/auth/core/token_manager.py":210
+      /* "opscli/auth/core/token_manager.py":211
  *         sys = self._registry.get(alias)
  *         headers = _get_mcp_api_key_header()
  *         try:             # <<<<<<<<<<<<<<
@@ -8170,7 +8191,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "opscli/auth/core/token_manager.py":220
+    /* "opscli/auth/core/token_manager.py":221
  *             body = resp.json()
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:             # <<<<<<<<<<<<<<
@@ -8178,9 +8199,9 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
  *         except Exception as e:
 */
     __Pyx_ErrFetch(&__pyx_t_1, &__pyx_t_8, &__pyx_t_12);
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 220, __pyx_L5_except_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 221, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_HTTPStatusError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 220, __pyx_L5_except_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_HTTPStatusError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 221, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_13 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_1, __pyx_t_10);
@@ -8189,7 +8210,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     __pyx_t_1 = 0; __pyx_t_8 = 0; __pyx_t_12 = 0;
     if (__pyx_t_13) {
       __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager.get_token_by_session", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_8, &__pyx_t_1) < 0) __PYX_ERR(0, 220, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_8, &__pyx_t_1) < 0) __PYX_ERR(0, 221, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_12);
       __Pyx_XGOTREF(__pyx_t_8);
       __Pyx_XGOTREF(__pyx_t_1);
@@ -8197,7 +8218,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
       __pyx_v_e = __pyx_t_8;
       /*try:*/ {
 
-        /* "opscli/auth/core/token_manager.py":221
+        /* "opscli/auth/core/token_manager.py":222
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:
  *             raise TokenFetchError(f" {alias} JWT : {e.response.status_code}")             # <<<<<<<<<<<<<<
@@ -8205,14 +8226,14 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
  *             raise TokenFetchError(f" {alias} JWT : {e}")
 */
         __pyx_t_9 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L16_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 222, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_3);
-        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_e, __pyx_mstate_global->__pyx_n_u_response); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L16_error)
+        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_e, __pyx_mstate_global->__pyx_n_u_response); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 221, __pyx_L16_error)
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 222, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_14, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L16_error)
+        __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_14, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         __pyx_t_15[0] = __pyx_mstate_global->__pyx_kp_u__2;
@@ -8220,7 +8241,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
         __pyx_t_15[2] = __pyx_mstate_global->__pyx_kp_u_JWT;
         __pyx_t_15[3] = __pyx_t_2;
         __pyx_t_14 = __Pyx_PyUnicode_Join(__pyx_t_15, 4, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_alias) + 9 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_alias) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2));
-        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 221, __pyx_L16_error)
+        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 222, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_t_4 = 1;
@@ -8241,15 +8262,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 221, __pyx_L16_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 222, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __Pyx_Raise(__pyx_t_10, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 221, __pyx_L16_error)
+        __PYX_ERR(0, 222, __pyx_L16_error)
       }
 
-      /* "opscli/auth/core/token_manager.py":220
+      /* "opscli/auth/core/token_manager.py":221
  *             body = resp.json()
  *             return body["jwt"]
  *         except httpx.HTTPStatusError as e:             # <<<<<<<<<<<<<<
@@ -8294,7 +8315,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
       }
     }
 
-    /* "opscli/auth/core/token_manager.py":222
+    /* "opscli/auth/core/token_manager.py":223
  *         except httpx.HTTPStatusError as e:
  *             raise TokenFetchError(f" {alias} JWT : {e.response.status_code}")
  *         except Exception as e:             # <<<<<<<<<<<<<<
@@ -8303,7 +8324,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_16) {
       __Pyx_AddTraceback("opscli.auth.core.token_manager.TokenManager.get_token_by_session", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_8, &__pyx_t_12) < 0) __PYX_ERR(0, 222, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_8, &__pyx_t_12) < 0) __PYX_ERR(0, 223, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_8);
       __Pyx_XGOTREF(__pyx_t_12);
@@ -8311,22 +8332,22 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
       __pyx_v_e = __pyx_t_8;
       /*try:*/ {
 
-        /* "opscli/auth/core/token_manager.py":223
+        /* "opscli/auth/core/token_manager.py":224
  *             raise TokenFetchError(f" {alias} JWT : {e.response.status_code}")
  *         except Exception as e:
  *             raise TokenFetchError(f" {alias} JWT : {e}")             # <<<<<<<<<<<<<<
 */
         __pyx_t_3 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 223, __pyx_L27_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_TokenFetchError); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 224, __pyx_L27_error)
         __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_e, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 223, __pyx_L27_error)
+        __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_e, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 224, __pyx_L27_error)
         __Pyx_GOTREF(__pyx_t_9);
         __pyx_t_15[0] = __pyx_mstate_global->__pyx_kp_u__2;
         __pyx_t_15[1] = __pyx_v_alias;
         __pyx_t_15[2] = __pyx_mstate_global->__pyx_kp_u_JWT_2;
         __pyx_t_15[3] = __pyx_t_9;
         __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_15, 4, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_alias) + 9 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_alias) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9));
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 223, __pyx_L27_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 224, __pyx_L27_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __pyx_t_4 = 1;
@@ -8347,15 +8368,15 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 223, __pyx_L27_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 224, __pyx_L27_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __Pyx_Raise(__pyx_t_10, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 223, __pyx_L27_error)
+        __PYX_ERR(0, 224, __pyx_L27_error)
       }
 
-      /* "opscli/auth/core/token_manager.py":222
+      /* "opscli/auth/core/token_manager.py":223
  *         except httpx.HTTPStatusError as e:
  *             raise TokenFetchError(f" {alias} JWT : {e.response.status_code}")
  *         except Exception as e:             # <<<<<<<<<<<<<<
@@ -8400,7 +8421,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/auth/core/token_manager.py":210
+    /* "opscli/auth/core/token_manager.py":211
  *         sys = self._registry.get(alias)
  *         headers = _get_mcp_api_key_header()
  *         try:             # <<<<<<<<<<<<<<
@@ -8421,7 +8442,7 @@ static PyObject *__pyx_pf_6opscli_4auth_4core_13token_manager_12TokenManager_20g
     goto __pyx_L0;
   }
 
-  /* "opscli/auth/core/token_manager.py":192
+  /* "opscli/auth/core/token_manager.py":193
  *         return results
  * 
  *     def get_token_by_session(self, session_id: str, alias: str) -> str:             # <<<<<<<<<<<<<<
@@ -9083,19 +9104,19 @@ __Pyx_RefNannySetupContext("PyInit_token_manager", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_mcp_api_key_header, __pyx_t_10) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":43
+  /* "opscli/auth/core/token_manager.py":44
  * 
  * # key = system_key
  * _thread_locks: dict[str, threading.Lock] = {}             # <<<<<<<<<<<<<<
  * _thread_locks_mutex = threading.Lock()
  * 
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_locks, __pyx_t_10) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_locks, __pyx_t_10) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":44
+  /* "opscli/auth/core/token_manager.py":45
  * # key = system_key
  * _thread_locks: dict[str, threading.Lock] = {}
  * _thread_locks_mutex = threading.Lock()             # <<<<<<<<<<<<<<
@@ -9103,9 +9124,9 @@ __Pyx_RefNannySetupContext("PyInit_token_manager", 0);
  * 
 */
   __pyx_t_9 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Lock); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Lock); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_11 = 1;
@@ -9114,62 +9135,38 @@ __Pyx_RefNannySetupContext("PyInit_token_manager", 0);
     __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_11, (1-__pyx_t_11) | (__pyx_t_11*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 44, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 45, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_locks_mutex, __pyx_t_10) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_thread_locks_mutex, __pyx_t_10) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":47
+  /* "opscli/auth/core/token_manager.py":48
  * 
  * 
  * def _get_thread_lock(key: str) -> threading.Lock:             # <<<<<<<<<<<<<<
  *     with _thread_locks_mutex:
  *         if key not in _thread_locks:
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_threading_Lock) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_3_get_thread_lock, 0, __pyx_mstate_global->__pyx_n_u_get_thread_lock, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 47, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_threading_Lock) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_3_get_thread_lock, 0, __pyx_mstate_global->__pyx_n_u_get_thread_lock, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_thread_lock, __pyx_t_2) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_thread_lock, __pyx_t_2) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/auth/core/token_manager.py":54
+  /* "opscli/auth/core/token_manager.py":55
  * 
  * #  TTL
  * REFRESH_THRESHOLD = int(os.environ.get("OPSCLI_REFRESH_THRESHOLD", "300"))             # <<<<<<<<<<<<<<
  * MAX_JWT_TTL = int(os.environ.get("OPSCLI_MAX_JWT_TTL", "86400"))
- * 
-*/
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_environ); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_10);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[2], NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_10);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_REFRESH_THRESHOLD, __pyx_t_2) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "opscli/auth/core/token_manager.py":55
- * #  TTL
- * REFRESH_THRESHOLD = int(os.environ.get("OPSCLI_REFRESH_THRESHOLD", "300"))
- * MAX_JWT_TTL = int(os.environ.get("OPSCLI_MAX_JWT_TTL", "86400"))             # <<<<<<<<<<<<<<
- * 
  * 
 */
   __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
@@ -9180,263 +9177,287 @@ __Pyx_RefNannySetupContext("PyInit_token_manager", 0);
   __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[3], NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[2], NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MAX_JWT_TTL, __pyx_t_2) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_REFRESH_THRESHOLD, __pyx_t_2) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/auth/core/token_manager.py":58
+  /* "opscli/auth/core/token_manager.py":56
+ * #  TTL
+ * REFRESH_THRESHOLD = int(os.environ.get("OPSCLI_REFRESH_THRESHOLD", "300"))
+ * MAX_JWT_TTL = int(os.environ.get("OPSCLI_MAX_JWT_TTL", "86400"))             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_environ); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[3], NULL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MAX_JWT_TTL, __pyx_t_2) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/auth/core/token_manager.py":59
  * 
  * 
  * class TokenManager:             # <<<<<<<<<<<<<<
  *     """JWT Token  Token """
  * 
 */
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_TokenManager, __pyx_mstate_global->__pyx_n_u_TokenManager, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_kp_u_JWT_Token_Token); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_TokenManager, __pyx_mstate_global->__pyx_n_u_TokenManager, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_kp_u_JWT_Token_Token); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "opscli/auth/core/token_manager.py":61
+  /* "opscli/auth/core/token_manager.py":62
  *     """JWT Token  Token """
  * 
  *     def __init__(self, store, registry):             # <<<<<<<<<<<<<<
  *         """
  *         Args:
 */
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_1__init__, 0, __pyx_mstate_global->__pyx_n_u_TokenManager___init, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_1__init__, 0, __pyx_mstate_global->__pyx_n_u_TokenManager___init, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_10) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_10) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":70
+  /* "opscli/auth/core/token_manager.py":71
  *         self._registry = registry
  * 
  *     def _get_session_id(self) -> str:             # <<<<<<<<<<<<<<
  *         data = self._store.load()
  *         if not data or not data.get("session_id"):
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_3_get_session_id, 0, __pyx_mstate_global->__pyx_n_u_TokenManager__get_session_id, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_3_get_session_id, 0, __pyx_mstate_global->__pyx_n_u_TokenManager__get_session_id, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_9);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_session_id, __pyx_t_9) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_session_id, __pyx_t_9) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/auth/core/token_manager.py":82
+  /* "opscli/auth/core/token_manager.py":83
  *         return data["session_id"]
  * 
  *     def get_session_id(self) -> str:             # <<<<<<<<<<<<<<
  *         """ session_id
  * 
 */
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_5get_session_id, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_get_session_id, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 82, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_5get_session_id, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_get_session_id, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_session_id_2, __pyx_t_10) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_session_id_2, __pyx_t_10) < (0)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":89
+  /* "opscli/auth/core/token_manager.py":90
  *         return self._get_session_id()
  * 
  *     def token_status(self, token_data: dict) -> str:             # <<<<<<<<<<<<<<
  *         """ Token valid / needs_refresh / expired"""
  *         try:
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_token_data, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_7token_status, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_token_status, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_token_data, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_7token_status, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_token_status, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_9);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_token_status, __pyx_t_9) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_token_status, __pyx_t_9) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/auth/core/token_manager.py":104
+  /* "opscli/auth/core/token_manager.py":105
  *             return "expired"
  * 
  *     def _is_valid(self, token_data: dict) -> bool:             # <<<<<<<<<<<<<<
  *         """ Token  valid """
  *         return self.token_status(token_data) == "valid"
 */
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_token_data, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_9_is_valid, 0, __pyx_mstate_global->__pyx_n_u_TokenManager__is_valid, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_token_data, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_9_is_valid, 0, __pyx_mstate_global->__pyx_n_u_TokenManager__is_valid, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_is_valid, __pyx_t_10) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_is_valid, __pyx_t_10) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":108
+  /* "opscli/auth/core/token_manager.py":109
  *         return self.token_status(token_data) == "valid"
  * 
  *     def _fetch_token(self, system_key: str, url: str, endpoint: str) -> str:             # <<<<<<<<<<<<<<
  *         """ JWT """
  *         session_id = self.get_session_id()
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_system_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 108, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 108, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 108, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 108, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_11_fetch_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager__fetch_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 108, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_system_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_11_fetch_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager__fetch_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_9);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fetch_token, __pyx_t_9) < (0)) __PYX_ERR(0, 108, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fetch_token, __pyx_t_9) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/auth/core/token_manager.py":130
+  /* "opscli/auth/core/token_manager.py":131
  *             raise TokenFetchError(f" {system_key} JWT : {e}")
  * 
  *     def get_token(self, alias: str) -> str:             # <<<<<<<<<<<<<<
  *         sys = self._registry.get(alias)
  *         system_key = sys["system_key"]
 */
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_13get_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_get_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_13get_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_get_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_token, __pyx_t_10) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_token, __pyx_t_10) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":160
+  /* "opscli/auth/core/token_manager.py":161
  *                 return self._fetch_token(system_key, sys["url"], sys["token_endpoint"])
  * 
  *     def check_token(self, alias: str) -> dict:             # <<<<<<<<<<<<<<
  *         """ Token  {valid: bool, expires_in: int}"""
  *         sys = self._registry.get(alias)
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_15check_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_check_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_15check_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_check_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_9);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_check_token, __pyx_t_9) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_check_token, __pyx_t_9) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/auth/core/token_manager.py":176
+  /* "opscli/auth/core/token_manager.py":177
  *             return {"valid": False, "expires_in": 0}
  * 
  *     def refresh_token(self, alias: str) -> str:             # <<<<<<<<<<<<<<
  *         """ JWT"""
  *         sys = self._registry.get(alias)
 */
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 176, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 176, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 176, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_17refresh_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_refresh_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 176, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_17refresh_token, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_refresh_token, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_refresh_token, __pyx_t_10) < (0)) __PYX_ERR(0, 176, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_refresh_token, __pyx_t_10) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":181
+  /* "opscli/auth/core/token_manager.py":182
  *         return self._fetch_token(sys["system_key"], sys["url"], sys["token_endpoint"])
  * 
  *     def refresh_all(self) -> dict:             # <<<<<<<<<<<<<<
  *         """ JWT {alias: "ok"/": "} """
  *         results = {}
 */
-  __pyx_t_10 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 181, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_19refresh_all, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_refresh_all, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 181, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_19refresh_all, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_refresh_all, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_9);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_9, __pyx_t_10);
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_refresh_all, __pyx_t_9) < (0)) __PYX_ERR(0, 181, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_refresh_all, __pyx_t_9) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/auth/core/token_manager.py":192
+  /* "opscli/auth/core/token_manager.py":193
  *         return results
  * 
  *     def get_token_by_session(self, session_id: str, alias: str) -> str:             # <<<<<<<<<<<<<<
  *         """ session_id  JWT
  * 
 */
-  __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_session_id, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 192, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 192, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 192, __pyx_L1_error)
-  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_21get_token_by_session, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_get_token_by_sessio, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 192, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_session_id, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 193, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_alias, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 193, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_4auth_4core_13token_manager_12TokenManager_21get_token_by_session, 0, __pyx_mstate_global->__pyx_n_u_TokenManager_get_token_by_sessio, NULL, __pyx_mstate_global->__pyx_n_u_opscli_auth_core_token_manager, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_10, __pyx_t_9);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_token_by_session, __pyx_t_10) < (0)) __PYX_ERR(0, 192, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_token_by_session, __pyx_t_10) < (0)) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/auth/core/token_manager.py":58
+  /* "opscli/auth/core/token_manager.py":59
  * 
  * 
  * class TokenManager:             # <<<<<<<<<<<<<<
  *     """JWT Token  Token """
  * 
 */
-  __pyx_t_10 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_TokenManager, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_TokenManager, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_10);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TokenManager, __pyx_t_10) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TokenManager, __pyx_t_10) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
@@ -9489,7 +9510,7 @@ __Pyx_RefNannySetupContext("PyInit_token_manager", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_open); if (!__pyx_builtin_open) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_builtin_open = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_open); if (!__pyx_builtin_open) __PYX_ERR(0, 147, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -9498,6 +9519,8 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate->__pyx_umethod_PyDict_Type_pop.method_name = &__pyx_mstate->__pyx_n_u_pop;
   __pyx_mstate->__pyx_umethod_PyDict_Type_values.type = (PyObject*)&PyDict_Type;
   __pyx_mstate->__pyx_umethod_PyDict_Type_values.method_name = &__pyx_mstate->__pyx_n_u_values;
+  __pyx_mstate->__pyx_umethod_PyDict_Type__update.type = (PyObject*)(&PyDict_Type);
+  __pyx_mstate->__pyx_umethod_PyDict_Type__update.method_name = &__pyx_mstate->__pyx_n_u_update;
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -9509,47 +9532,47 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/auth/core/token_manager.py":48
+  /* "opscli/auth/core/token_manager.py":49
  * 
  * def _get_thread_lock(key: str) -> threading.Lock:
  *     with _thread_locks_mutex:             # <<<<<<<<<<<<<<
  *         if key not in _thread_locks:
  *             _thread_locks[key] = threading.Lock()
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/auth/core/token_manager.py":122
+  /* "opscli/auth/core/token_manager.py":123
  *             body = resp.json()
  *             #  expires_in  24
  *             expires_in = min(body.get("expires_in", 7200), MAX_JWT_TTL)             # <<<<<<<<<<<<<<
  *             self._store.save_token(system_key, body["jwt"], expires_in)
  *             return body["jwt"]
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_mstate_global->__pyx_int_7200); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_expires_in, __pyx_mstate_global->__pyx_int_7200); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "opscli/auth/core/token_manager.py":54
+  /* "opscli/auth/core/token_manager.py":55
  * 
  * #  TTL
  * REFRESH_THRESHOLD = int(os.environ.get("OPSCLI_REFRESH_THRESHOLD", "300"))             # <<<<<<<<<<<<<<
  * MAX_JWT_TTL = int(os.environ.get("OPSCLI_MAX_JWT_TTL", "86400"))
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_OPSCLI_REFRESH_THRESHOLD, __pyx_mstate_global->__pyx_kp_u_300); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_OPSCLI_REFRESH_THRESHOLD, __pyx_mstate_global->__pyx_kp_u_300); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "opscli/auth/core/token_manager.py":55
+  /* "opscli/auth/core/token_manager.py":56
  * #  TTL
  * REFRESH_THRESHOLD = int(os.environ.get("OPSCLI_REFRESH_THRESHOLD", "300"))
  * MAX_JWT_TTL = int(os.environ.get("OPSCLI_MAX_JWT_TTL", "86400"))             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_OPSCLI_MAX_JWT_TTL, __pyx_mstate_global->__pyx_kp_u_86400); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_OPSCLI_MAX_JWT_TTL, __pyx_mstate_global->__pyx_kp_u_86400); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -9582,31 +9605,31 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{1},{3},{5},{13},{13},{92},{179},{16},{7},{8},{1},{8},{14},{6},{33},{40},{52},{17},{14},{16},{15},{7},{7},{4},{11},{21},{18},{24},{20},{17},{15},{12},{21},{25},{28},{22},{24},{27},{22},{33},{24},{26},{25},{5},{18},{8},{4},{4},{11},{18},{4},{8},{4},{7},{1},{8},{9},{7},{8},{3},{7},{10},{10},{5},{12},{5},{13},{8},{3},{9},{23},{23},{15},{14},{16},{9},{20},{7},{5},{8},{13},{9},{5},{4},{3},{3},{2},{8},{4},{9},{7},{7},{8},{13},{10},{8},{13},{3},{2},{4},{30},{22},{13},{18},{2},{3},{4},{11},{12},{16},{11},{13},{8},{9},{3},{9},{7},{4},{8},{7},{6},{10},{4},{18},{10},{12},{10},{11},{5},{6},{3},{3},{10},{2},{8},{11},{13},{19},{9},{9},{7},{8},{10},{14},{12},{6},{13},{6},{3},{3},{5},{6},{11},{1},{41},{161},{47},{18},{22},{93},{179},{37},{122},{17},{270},{115},{183}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2089 bytes) */
-const char* const cstring = "BZh91AY&SY\201\207\234\276\000\000\376\177\377\357\377\377\376\357\377\377\326\277\377\377\312\277\377\377\376y\307\367d\346S\374\316\300@@@K\340\300\000`\007\035\200_`\000\000\000p\001\332\204\251\242D\214\322d\321\246G\251\203SM=L\301\244@z\203&\3056\220\001\352hd\036\240\033P\323L\217SM\r41=M\017S#L@\323\021\265\002P\200@M\000M1\t\212j\037\246\246\223CO&)\243@\000\032\000\000\320z\233Q\3456\211\246\2326\240\000\000\000\000\004\001\246\232i\246\230C&C \302hh\300\020\320\300\23220\203&\2324\000`\215\014C\023L\232b0\214\t\243F\023@5\023\t&M\0324\000h\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000@\032i\246\232i\2042d2\014&\206\214\001\r\014\t\243#\0102i\243@\006\010\320\30414\311\246#\010\300\2324a4\004Q\003A\031\0324\014\231\001\220h\000i\241\246\200\006&\206A\241\2204\323@h2ba\031\006M\000\323\010dd\014\\\031.X=\005`\033{\340\234d\350\035\304\363P\3468@/\241H\241\316\204\034\034\240\244A\320\237j\010]2G\376\027'\336\257\373\321EP\024TEQ\025QdW[\352\r\001^\227\271\007\014\2111P\005P\026\327\2325Bp\234L\352\025\357B\017\202*\"\212\230\0130J\325\022$\245 \270/D\240\3122\013\215\316\030s\235 \331\\\200\201\010\311\344\t2$\225#\201\226\310\220H\344+&F\207\014\344!l\013\325U\301J\024\270\304]o\022\300|\314r\344\256P\2241\346\222\013c\263\370\276:\367{}gv8{y\376'\253\362\016\317w\257.\321\345>\302\356\324}g\324\211\345\345\312\346\224\255\331\253\037\344X\031_\264\340m\306\371\016\203\2707\n\257\024\360\272\363\2118\271\321$tz\236\024\t\251\334\342\237T\351\326D\250\260#\316[1\340\364\337\361\374\216]\2773\026\351\004\021W\313\357\271\025\351\364`\311\025}\207N\016\205\301\227\233\233\3353\350hF\320\034\203;\261\322e\022\n\014d\241\010\205\334T\347\025\365\325I\001 \211J\343\021R\2034/R\231%\340\200\275\200G,\n\010X}C\026X\033\201m<L\t\2110\003\302\374\265\000\223C\000\302\2148\005\034\363[|\031\003\034u\322\254gZ\264\036v\307\364\2302\363u\371]\331-\352\333\304\270\036\031\0264?5\3452&\014\226\025\374\343\265\240\354\270\277\237\3221\333\346\341""\326y\226\350\004\273\017\245l2}\274\243\035\303\006\357\365\350\316e\250\343\273\031`;\225\333\357`s;}^\274\253\353i\201\312j\262|\206\000\256\245e\335\324\254\304lV-y\220\356h\206\377 \252\247\232\257\333y\2154\023\343\326\363\272\202\234Z M\3634\327Pm\362\272\034g,\274\371;I\250t\3244I\2037\241\352\217<\325\276\014;5\263\361'\025\326\252\325S\244\345\361\036<Qc1\224\026\255\217}\257\215O\351\327D'\030$\235\330\363\250\026\306e\n+\241\240a\365\335sH\026\004\356[\\Bt\255\\\31232\302$\010\232\247W\325\244\301|\306C\305\250D\304N5\375t\261<n\223\246\227\365\000\251Az>\356\231\264cl\211uT\320k\306\325O\0322\241\323\270\336O&\316^]}71\340\263o\307Y\237\r\326\3426k\217\235\304\271S&\364d\205\304X\027Yz\0043\331*&w6\362\\\020-\312\231jy\000\202\332\032\270kq\014\222r`\323Q\304`\367:\204\0260^p\263{e|\031u\032\027\"8\260t\024$\212mb\016\372\327\325G\263:\206.\266i\001F&8Z\263\002%&\307\002\243+\332\271\026\254\371\020E]\367\331c\3051v\036[\301R`\250\217\002\267\315\343\350\212\250\026rn\036\371\322[q\026V\321\360T\310\226\351\327\315\240\266\202\357+A\236\204\341\007\246\324\023\020\265\277\022\342\275\206%GV\224R\263lK\253\023NA\231\225Y(A\343\207\252\"\355#\211\003*\220\277\320.\025\301AL\372d\206XA\303w\252\246LM8\217\310.\030\001R\252\310\240k\341\242U\252\352\313N:\254\364\272n\217C\214\300\014b\001}\025\303\224\265\367\343zC/-\257@\213*6v(\242\354\302\310(i\316FT\337\260t^ITj\230zE<e\271\244B\017t\024@ef\030\024E\006g\010\220\244it\342\244\246W&r\253\330\025FTX9\331!\306\373VB\305YLNl\251\225\320\3125\371<\001\221)\275\311\206\230\3044\235\372\"V\210\035\353p\307{(\027nV\262\246r\335\320}\346z,\367hzl\254\3043\rNF\243.\270\310\336~\252#\255\257%87\331\202:\314\014R\233\230\360\324H\341\301\300\355\301\211:\201\313\312\356s\235\242A\226U(%b\2530\315s\266<\312\273\204q~\013\305=K\247\217V\215\260\2516 \373\356[W\022\362=c'\355H\036\231\034\022L\271\344\367\324\305L\310\317\243\270v\253\310h\313\033\3203>8D\254l\024\265S2\225!tUQ\02759\352\216U\276\273A\300g\203MabBOt""\374\373\207\314\310\341\325\335~d\330l\204q/\017\021`\2674j\010\240\215,\352\336\246\001\004\307\221\243\025XN\252\262@\243\246\302;\000j\242\021\265w\347<\327\320v\253;\352ZX%R\3607\026A\014\034\245\352\365\036\241\\\256.\263\202\310!m)\241\r\311\2458MO\323\336\221{tv>\336\031e\022|0\023\251\004\256\361LF{6\315\371\347\305:\020\335\267H\206\203\027]\334Y\314N\317\275\234\213\206\255uN\335P8\245)\\\010\355\212\251\322\317\215\247\242\375z\262z\377\222\324J\273D\360\235$\272E\311\224\213\001kX\210\243\373\366)?_\\\246\024\231s\327\364u\027\017kU\331\013\005 \364\020+\345\236\244Q9\024\300Ov\372Z\214o\032\321uw\221m\257\214{\3460\332\030\252:;\245\260\266C\026y\000\256R\347\231\326\\\216!;\314,X\262\277\037l\235~65\341@\341\241\316@\372\374\371\013c\345\215\036\321\371e5\014\314D\037\023\201\220\013\3702&\220\217{]\345\270AfSvh\3319\372?\234\246\364`@\037+\357?@\301\014\322\355\023,\3535\nXA-\341\202*\n\320\\<&\243gA\204\306\326*\007\224{E\014_R\315\216Zp\270]\313\206\3261d|A\373e\010\331g\340\315fAs\016\321\322\325T7~\273K\2262Br\325tZ\032\206\000\334\203z\364\303cb\351\310\006qp\334-h\204\210\t!o\254\237\246M\210X\026\361\210\371\257#\031\3615&\312\320\321\215a\325K\222\305Q\236\311\230\312\342\266:'\254\216\372Mk\307\225\330Sb\262\325\346\035\351\022%Nf\231>MS\202\257JaXDSi\274\254VKW\256\377y0\215\233\273\221\337\016\233^\374m\237\345!\n\245[\016\204W\345G\002\236\242\233\230k\214\037e\303\252'.e]Q\320\264\272\324\267\330\270I\223\037`\020\302\317\264_I\261)h\303\005\354=\321:y\3441)V\020\241D\224\030\3052J\260\207C\024\223\334\035\000\245UUL\022\022#\030\305\240\3242)I2\260\312PR\016s\333\311\234\363B\247RC\323~\216O\247\367;\337\347\266?3\355\n\341\217\243}\324\037\030-\324ME:\352\240\262\207\360\346fZ\215\240l\262\215/\321\375\272\334\0301^\311\331\223l\335\377\305\334\221N\024$ a\347/\200";
-    PyObject *data = __Pyx_DecompressString(cstring, 2089, 2);
+    const struct { const unsigned int length: 9; } index[] = {{1},{3},{5},{13},{13},{92},{179},{16},{7},{8},{1},{8},{14},{6},{33},{40},{52},{17},{14},{16},{15},{7},{7},{4},{11},{21},{18},{24},{20},{17},{15},{12},{21},{25},{28},{22},{24},{27},{22},{33},{24},{26},{25},{5},{18},{8},{4},{4},{11},{18},{4},{8},{4},{7},{1},{8},{9},{7},{8},{3},{7},{10},{10},{5},{12},{5},{13},{8},{3},{9},{23},{23},{15},{14},{16},{9},{20},{7},{5},{8},{13},{9},{5},{4},{3},{3},{2},{8},{4},{9},{7},{7},{8},{13},{10},{8},{13},{3},{2},{4},{30},{22},{13},{18},{2},{3},{4},{11},{12},{16},{11},{13},{8},{9},{3},{9},{7},{4},{8},{7},{6},{10},{4},{18},{10},{12},{10},{11},{5},{6},{3},{3},{10},{2},{8},{11},{13},{19},{9},{9},{7},{8},{10},{14},{12},{6},{13},{6},{6},{3},{3},{5},{6},{11},{1},{46},{41},{161},{47},{18},{22},{93},{179},{122},{17},{270},{115},{183}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2095 bytes) */
+const char* const cstring = "BZh91AY&SY\027$\326a\000\000\376\177\377\357\377\377\376\357\377\377\326\277\377\377\312\277\377\377\376y\307\367d\346S\374\316\300@@@K\340\300\000`\007\035\367\005\333*\273h\000\024\007\000\035\250jdD\2435\033SF\3216\247\242l\215M3\304i\0201\014\236\236\224\331@\032z\232\r\014CF\231\036\223#\324\323#@\304\3654=L\2151\003LF\324\tB\001\000F\247\242d\304\3224\240i\264M4\032b\000\000\000\000\014A\243\324z'\250\3104z\200\000\000\000\000\020\006\232i\246\232a\014\231\014\203\t\241\243\000CC\002h\310\302\014\232h\320\001\20241\014M2i\210\3020&\215\030M\000\324\324\302\230\220\000\r\000\000 \300\023\000\000\000\000M\000\0322i\2100\000\000\000\0004h\001\000i\246\232i\246\020\311\220\3100\232\0320\00440&\214\214 \311\246\215\000\030#C\020\304\323&\230\214#\002h\321\204\320\tSD\247\261\020M\252mO\024i\246\206z\2406\2404=\004\006\200\000\000\000\003@z\200\000\000\000\000\000\000\032\2106\253\206\342\324\r\035Pm\223o\016Ct\254\261\302A7#,\244%(\010 FJ\022\256\256\270\205\023\3368\223\374/\2771\357A\020\004\021JD\024\210\244i\034pD\024\202*o\261\350<r%\005@\025@W\034\256\225\323\201\310\241^\310A\360E\001EL\t\202T\250\221%)r\252^\030\"Pe\031\005\320\347\0149\316\230n\262@@\204d\362\004\231\022J\221\320elH$r+&F\207\031\310\025D\272\006\n\252\340\245\n\\b]oB\300|\3152\351\256P\2244j\222\013c\265z\177\021{]\236\375\336\017\036\316\177\013\324|\303\305\355x\022\354\037A\366\027v#\352~\224O\243\226NiJ\335x\376Ey\245\373\216v\336m!\324w\013A\022\001\014\265\315\353\332=\254cG\030\272\320\rC\221\206m\321\221\210\204y\030CT\230\341@)\017\273xU\217\373\217*\035\000\262\010\246B\253%\"Z\306\205\311N\305\253k\251z )\030b\344\325@kL\303ig?\334\204\225\353!G:Q\204:\362\223\336{\317w\355\342\021\0221\255\311%\035:j\365\020\316\365\t\336,5c\325\033-\357\353\337p\313\234\013\207*`\303;\0355X\264j5b/\263\273\343\025\313\371#|R\027\221\250\200\256AUaeq{+8D\333\271\270t\240^\020\254\245\005\031\343\360\t\213%\205\177(\354j<W\027\365\373\326;=\307\035\247\223n\240K\261\361\355\206\237\267\220\307""\214b\335}\272\263,\242-\247HL\006J\3138\026\014[,\322\004\2253\357\240JT\230\353r\200#\037\031;\226\252\314\r\312\305\2574\2366\250st\212\252}5~\373\315\t\250\237Wk\316\322\ntj\2017\314\247\034Ai\314\304[\022\267\254\326S*\014r\005&\254(\343.\210\016\212O\260X\3123]\233t(\330\211fX\364\034\250P\020\010\022\227\013\020\004\314\022\020\346\2052\217[V\014\027RL\320\363\331,\001lfP\242\272\032\206\037]\3274\201`N\345\265\304'J\325\314\2433,\"@\211Q\321t\236\340Nz\324_D)V#\241\217\252\251\212\326\3341\312\237X\010\220\023\025\256}\032R/J]U5\033t1T\364#*\035\325\306\304\371\366u\272\333{\247\n\335\343\233\232;L\361\341n\006\355\261\372\275\013\222i\331\031!q\026\005\332^\201\014\354\225\02376\304\270 [\222eS\310\004\026\320\345\343[\266,r\233\223CQG\022\203\334\352\210,`\275\310[\267u|\374\233\rk\2228\260t\024$\212ob\016\362\257\252\217fu\014;\374\344\005\030\230\341j\314\021)63Te{W\"\325\237J\010\253\314\373,x\246\036\013\313y\352LU\021\340V\371\274}\021U\002\316\236\003\337:I\267\340Y[?\274SJ[\257oq\250\266\202\354V\203=\t\302\017M\350&\002\326\374\027\013\330bTuiE+7\304\272\2615\351\031\231U\222\204\0368z\242.\3628 d\244/\363\013\215pPS=rC(A\303v\352\246\234\032q\037\244\\q\002\245U\221@\333\306\211W-\325\226\235Z\254\357u\335\036\247T\304\r\002\001}\025\303\224\265\367\350zC.\265\257@\213*6lQE\335\215\220P\327\231\031S\232\301\321y%Q\252a\351\024\367+sH\204\036\350(\200\312\3140(\212\014\316\021!H\322\351\305IL\256L\345W\260*\214\250\260s\264\303\252\373VB\305YL\034\331&N\206C_\247\273\031\022\233:q\327\030\206\263\256\210\225\242\007n\334t^\312\005\334\025\254\251\234\267u\037y\235\026|5=7V`3\rN\226\243.\330\310\330\376Z#\255\257\233*\271\360\213X6\314\220\240\327\261e\332\n\206K[VZ\205\005V\teeTJ\260\226\020#b@J\305Va\232\347oy\222\363\210\342\374W\251=\213\313\323\313\253\204*M\350>\373\226\325\301y\236\261\223\367\244\017<\216\t&Y\311\357\251\212\231\221\237Gq\336\257!\253(\336\201\310\370\343\022\261\261R\325NE*B\350\252\242/%;\232\243\222\337]\240\3403\203MabBO""t\376\275\303\346ip\352\356\277\2217\033\241\034\027\217A`\2674j\010\240\215,\325\275,\002\t\243KF*\260\235Ui\202Q\323a\035\2105Q\010\332\274\323\237%\364\035\313g\226\245\245\202U.\357\201d\020\305\312^\257Q\352\025\312\342\3539\354\202\026\322\232\220\340\232\323\211\312\375}\271\027\267\227\334\373x\312\374\204\247\030\211\350b\226`)\211\235\273\346\374\347\3212\2048o\300CQ\207\200\230\017C\304\275\247z\027HU\256\311\363\267K<\017\026\004\371(\246\326\323s_U\223\331\211\347\374\302\010\277\273\"\304\027\205tG*\370\214\000fh\"@\376\375\205\027\353\353\234\221E\237<\376\216\355\362+\037\337\201\t\004+@ *\360G\250\220'\022\022\001{\2550P2\246\031\035Dk\262\266\2262\345\245\"\010\360 u8\006\221lC\323<4*\220s\306\225\1773\220'd\003\006\014U\345\357\013\263\312\312\273\016\226P_01\206>@\322\301\205\017hdW\315!\241\222A\2018\004\2640\341\310\232\"\017z\260\215b\0063\233\260&\304\346I\231\310oU\246\203\010\373\317\324\030\240h\243\253\236/\225\023\274\0041\032(\004\210f@\342\343)\315(q\022\331\2045\345\025\242\206(>\305\202WR\307\023\273p\331\204\230\217\222\031lP\006\305\204\275\024\346I\213b\354\320\3747\206v2R\231\005\317E\320\261\033\003\0207 YV\214t\266\016\22044\205\303q6\300\204\206\212A\261^\311f\327\001\010FpG\321\247\200\340\323\263\330\233{\251\252\344+\302\222+\220\346\366T\304\300\025Q\310\275b;2\252\240\301\201\2156\3356\260q\360\005\235\2356\206\270\237)\372\302\243Z`\251\026\210\212VU(\315V\003\357\336lA\272}$>\343\321\356\031\r\247\374\202\021)\220\367\246\343\"\227\213IKGr6\343\027\331h\356\205u\335^\2734\335n\325\033r\271x\374(l\t?\250\375Q\332G\006]\034\203\253\233\253\204\260\212t\273\221.b\013\005\021\316GQ.d%\205\031\300BEYJN\"D\214c\026\203P\320\245$\312\303)AH9\317o\036s\362aS\250\320 \315\2309\2614\263{x\346?\335\351i~;\217\337b\217\330g)V6\rl\302\365^\010;\014\247@\037\372C#\376\237\373\356\346a\246\335\3747\266\356\037\374]\311\024\341B@\\\223Y\204";
+    PyObject *data = __Pyx_DecompressString(cstring, 2095, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1916 bytes) */
-const char* const cstring = "x\332\215U\337o\033\307\021\026!\331\221\022\312\242(\331\241]\005>B\216\245\2465eFj#\0301\nV\226\"\245\264\254\037\254#\240(\026\253\273\245x\322\361\216\274[J\242\332\002\251\013\304|P\232K\320\006\033 \200\327@\013\034\n$\2716\005L\300\t\302G=\336#\037\005\024\224\324\247\372O\350\354\035\245\220\262j\2248\362vggfg\276\357\333eb\374\346\315\311\237N\334\274)\275\373^Fj\374\345\357G\377\374\353-)\230|\363\240Q\255\336\362\307\031c\203\350\322\341\227\217\017\355\017\032\2379\377\371f\267\361\341GG\356\037\032\017\2778\372\352\367\215/X\343\201\323\370d\367\360\353\247\207O\037\035|\3554>\330=z\3544\276\334=\250\330\307\301\177z\324\370\370\333\306\307\316\301\347\217\202D\377z\377\301\274A\211Ds\230JSe\2323tI\265$\205h\352*11%ZY\262\250\251\312\224\230\302I\227\026\246\027nLLNHXW$\223\254\023\231Z\222UZ\2255lY\304\222\214\254\264ZR5\252\352\022-\027\210\225\220\346\262R\331(I:!\212D\r\251\000~\255\0014\007\205Y\204\212\2014\202u\335\240\230\252\206\216 \\\325\327F$E5a\023u\223\210\350\031\254Y$\261r\343^\301\2225\365\306}bZ\340{\364\307'\215\217>=\201\356gXQ\020\344!\n\324\375+(\377\307\242\207_'4C\336@\206\0379\206K47&\033&\031\243\002\032\224\307:^#f\242P>\370\374o\207\237=m|\373g@\370\350\253'G\337\331G\217woIA\234$\342$\315XS\365\300\251\361\344\037G\337=\004<\003\357\177?\374\360\340S\367\177\306\004\206\2040$\374}i\316$X\201>\023iQ\334\314\324|&\215R\367Ss\351\324\317\323\323\263\231\314\3022\300Q\262\246M\3230\323\367\246~\201\246W\374\327/\347E\300\335\324\n\002m\240L&\r4\246J\002L\252\312\300\233\342G\334[X\236J\317\241\026\267\246eizfizy\026ef\305\353^\372\016B\013\345m\370\336\001\310\320<\331\246K$\373\234\223\257\242\031B\345\234\237\335\237\336\r\200k\035'\020Ru\225\"\324n\314\212@\344\267\335\276\260F(\002)\010&\221\252\264\257\251\026\332\304\332)\253\234#\000\326\363\231^\220H,\235\035\020\360\277Z>\216ls0I\326$V\016aM;\323\376|\312 \235\345\263\006\205c\013[e]V\215\004\210\315(\301\271 \326*\266\010\002Y\257\032Jy\3250\264\226v@\035:\001\364\0205""\261LV\261\274\241`\212\341K\250\232\367\365\214\220b\310\010\021\242+\005C\325a\016\224\023S\2746U\023\032Gd[`O\266\013\360\300\331Q\202\227\205 Is\244\352YY\247Z+#Yq8\262\246\221W-#k\230y\014)\262%\035v\002\214\340I\033k\320\235OU^. \\P\321\006)\243\034\250\227\230\307V\223\024K\304\242M\253u\212\330\366\231\277\030\310\037\211\275O\2508\213\223f\302\034\245\205\355cq\ti\234`z\242\023\225\222\274\265n\031\372\372\026\205\002\265\254\246BA@\237f`\305\277\000\n\230\346`G\321\216\370\205\263\207\340\364\003\344\360\311\023\212\375\213\311\237\030JI#b\244\343<\274\305\rf\241&\363\272\261el\030\005\322v\244\305}\222h\273OZW\311\266L\n\342j\263\232V\331\320\263\352Zs\002\370\t\003pD\r\253`\024\n\006\324\215\n&)`\323/\242X\302ZP\210\211U\020\020\260\324\224Y\213H\333ti\2225h\336,\243\343\201I\362\360@\257\3204$\326@b\340]\020_\250J\214K\032\205t\264d\352\026\336$A\032\213h\331c\336\276\327R\013\223\300\022mb\004#\205d\261H\343\227\006\014)\240\010\300\005\371\277P\205U\266\340\001\232\204\200(DS!\231V)\264\216\255\366I\276$\000:\2764\3753A4\361\207\221' \004\361\3321t\022P NN0:>+\255g3h\215\302\277\215\006U\003\362\212Ew\340`\030%S+Q\331\027\023\374\200\236\021\332\014\376f\020\332\362:\256\260Q\036\257\367\274\\\357~\2452Q\331\262q=|\231\365\263\021~\331y\335)\326\273\373*\277c)\266\350u\2159\277\255N\326\222\317\244\216\236\276\212b\277\301\356\360\020\357\257wG\275\350\017\035x\367\324\303\003\366O\3309\266X\217D\355\270=nc{\213af\3618O\326#\227l\235\247\352\221\030\353\346\235b\036c\241\375p\304\213\304!\007\004N\330%\226\n\006E\026\022\333\226\274\301Q'T\017G\3551\336\317\257;}n\261\032\252^\256\305\2335\235Z\361\272\206\371\244\223\334\357\276\320Z\\_\205\332\267a8\300S\034\271S\340\330]\353\254%k\251\367S\317\302\035=\275\225w\241\341\356p\345.\353\367\272\256\3619gq\377$f\310Yv!\355k\014l\320\220p{\007\312\333\001d\342\365po=2h\337\205\375\207\371\"7\334e\250-V\033\250\245j\320\376\253\320C'K\262\264\250\177@$k\265\235wp\000l\321\353\212\363\230\323\177F\315o""\261\327\0018H]\357\356\255d\354A{\321^\007\334&x\321\351t\222N*`\253X\017\017\332s\354=>\357\306}\002\242\366(K8!'\352\373\204\373*\026\030\206\005#\227l\231\305\240\332\021'\346\366\013\307a{\311\246\354M\266\3023N\2773\352^\257^\250\341 _\206G\371\270w}\262\332Y\005\242\256\260x\3136^\007\020\006\320\235;\017\225y\275#\\t\342\365]\347\270\376Jx\277+\354\205%\036\022}\2654R\014\252-\331S\260\343\004\243<\311\005{^\024\242\001!\350>'\304\341\027\022\337\007\337q0\310\254Y\346\n[dk|\305Y\014\262\230v\214\r\202)\007;\266\344\020{%\355\224\327\005\333?{\271\243'R\241\336\3000Oz]W\331\266(\262\r\342\213\3662\013\261\376g\347;z^\365.A\361\340\321{a\337\227\337\026#|\234\313 \351p?\000\237\201\303\360\006\237\342\364{H\257\331\n\230R\334g\332\204\3658$\352\215\000\035\221!\330\341%\276\343F\335\311j\262\232\252_\024g\351G~\365\203\027\353\261\327\330}h\376\216s\016t\026\273\nH\274\005\207\314r\207\335E\261\226\341\203\240\245u\267\323\235\020\212\256\307~\300\306\231\302\257\201)\004\244\r\r\3637a\035\327\375\310\333`\033\252.\327B\265\330\336\300^j\017\022\266f\207\312(\273\rR\030j\225\246\3275\302\313nh\277U+W\334\244\373B\255\\\006\274\227\000D\201\300\254;SM\354\205\204\373\016\213\262\244\257\353\323\263\001\373X60\022[\356\270Wk\335{\260\355E\200\363\252\240\353\254KC\014B\377\337E\261\037\036\202K)\300Kw\337\001\231\206#\366K\366o\340\252y\333\241\320\320l\365\205\227\2117\372v5U]\254\252\265\342\351\333\244\271\364_LB0\352";
-    PyObject *data = __Pyx_DecompressString(cstring, 1916, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1926 bytes) */
+const char* const cstring = "x\332\215U\337o\033\307\021\026!9\221b\312\")\331\246]\005>B\216\245\2465eFj#\0301\nV\226\"%\264\254\037\254#\240(\026\253\273\245x\322\361\216\272[J\242\332\002\251\013\304|p\232K\320\006\033 \200\327@\013\034\002$\2716\005L\300\t\302G=\336#\037\005\024\224\324\247\372O\350\354\035\245\220\262j\2248\362vggfg\276\357\333er\354\306\215\211\237\217\337\270!\275\363^Vj\374\365\357\207\377\374\333M)\230|{\277Q\255\336\364\307Yc\235\350\322\301W\217\017\354\017\032\2379\377\371\366a\343\303\217\016\335?6\036|y\370\365\037\032_\262\306}\247\361\311\303\203o\236\036<}\264\377\215\323\370\340\341\341c\247\361\325\303\375\212}\024\374\347G\215\217\277k|\354\354\177\376(H\364\257\367\357\317\031\224H4\217\2514Y\246yC\227TKR\210\246\256\020\023S\242\225%\213\232\252L\211)\234ti~j\376\372\370\304\270\204uE2\311\032\221\251%Y\245\025Y\303\226E,\311\310I+%U\243\252.\321r\221XIi6'\225\215\222\244\023\242H\324\220\212\340\327\032@\363P\230E\250\030H\303X\327\r\212\251j\350\010\302U}uXRT\0236Q7\211\210\236\306\232E\222\313\327\357\026-YS\257\337#\246\005\276\207\177z\322\370\350\323c\350~\201\025\005A\036\242@\335\277\206\362\177*z\370MR3\344ud\370\221\243\270D\363\243\262a\222Q*\240A\005\254\343Ub&\213\345\375\317\2778\370\354i\343\273\277\000\302\207_?9\374\336>|\374\360\246\024\304I\"N\322\214UU\017\234\032O\376q\370\375\003\3003\360\376\367\203\017\367?u\377gL`H\nC\322\337\227\346M\202\025\3503\231\021\305MO\316e3(}/=\233I\377235\223\315\316/\001\034%k\3124\r3sw\362]4\265\354\277~5'\002\356\244\227\021h\003e\263\031\2401]\022`RU\006\336\024?\342\356\374\322df\026\265\2705-\213S\323\213SK3(;#^w3\267\021\232/o\303\3676@\206\346\3106]$\271\347\234|\025M\023*\347\375\354\376\364N\000\\\3538\211\220\252\253\024\241vcN\004\"\277\355\366\205UB\021HA0\211T\245}M\265\320&\326NX\345<\001\260\236\317\364\202Db\351\364\200\200\377\225\362Qd\233\203Ir&\261\362\010k\332\251\366\347S\006\351,\2375(\034[\330*\353\262j$AlF\t\316\005\261V\260E\020\310z\305P\312+\206\241\265\264\003\352\320\t\240""\207\250\211e\262\202\345u\005S\014_B\325\202\257g\204\024CF\210\020])\032\252\016s\240\234\230\342\265\251\232\3208\"\333\002{\262]\204\007\316\216\022\274,\004I\232#U\317\311:\325Z\031\311\211\303\2213\215\202j\0319\303,`H\221+\351\260\023`\004O\306X\205\356|\252\nr\021\341\242\212\326I\031\345A\275\304<\262\232d\243D,\332\264Z'\210m\237\371\213\201\374\221\330\373\230\212\3238i&\314SZ\334>\022\227\220\3061\246\307:Q))Xk\226\241\257mQ(P\313i*\024\004\364i\006V\374\013\240\210i\036v\024\355\210_8{\010N?@\016\237\002\241\330\277\230\374\211\241\2244\"F:.\300[\334`\026j2\257\033[\306\272Q$mGZ\334'\311\266\373\244u\225l\313\244(\2566\253i\225\r=\247\2566'\200\2370\000G\324\260\212F\261h@\335\250h\222\"6\375\"6JX\013\n1\261\n\002\002\226\2322k\021i\233.M\262\n\315\233et40I\001\036\350\025\232\206\304\032H\014\274\213\342\013U\211qI\243\220\216\226L\335\302\233$Hc\021-w\304\333\017Zja\022X\242M\214`\244\220\034\026i\374\322\200!\005\024\001\270 \377\027\252\260\312\026<@\223\020\020\205h*$\323*\205\326\261\325>)\224\004@G\227\246\177&\210&\3760\n\004\204 ^;\206N\002\n\304\311\tFGg\245\365l\006\255Q\370\267\321\240j@^\261\350\016\034\014\243T\024\307\255dj%*\373\222\202\037P5B\233\301\237\rB[^G\202G\237\205;\316D\274\276!\236\252w\235\251w\367z\275\303|\243\336\335W\331\262\261w1\351\340\372\331\360^\327\331J\312\353\270\314Fx\242\336\363J\275\373le\\\254\327\303\227X\224\r\363K\316k\216\037\363{\226f\013^\327\250\363\273\352D-\365L\352\350\351\253(\366\353\3546\017\361h\275;\346\305~\354\300\273\247\036\356\267\177\306\316\260\205z$f'\3541\033\333[\0143\213'\240\214\310\005[\347\351z$\316\272y\247\230\307Yh/\034\361\"P\255\010\034\267K,\035\0146XHl[\362\006F\234P=\034\263Gy\224_s\372\334\215j\250z\251\226h\326tb\305\353\032\342\023Nj\257\373\\kq}\025j\337\202a?Os\344N\202cw\255\263\226\252\245\337O\003F=\275\225w\240\341\356p\345\016\213z]W\371\254\263\260w\0343\350,\271\220\366U\0066hH\270\275\r\345\355\0002\211z\270\267\036\031\260\357\300\376C|\201\033\356\022\324""\026\257\365\327\3225h\377\"\364\320\311R,#\352\357\027\311Zm/98\000v\303\353J\360\270\023=\245\3467\331k\000\034\244\006\362*Y{\300^\260\327\000\267q\276\341t:)'\035\260\265Q\017\017\330\263\354=>\347&|\002b\366\010K:!'\346\373\204\373*\026\030\206\004#\027l\231\305\241\332a'\356F\205\343\220\275hS\366\006[\346Y'\352\214\270\327\252\347j8\310\227\3451>\346]\233\250vV\201\250\313,\321\262\215(\271\245\306\215\240\220\222=\t\311\306\031\345).\210\361b\2407h\036\032\313\013\336\375=\022{\340;\006\006\2315+Xf\013l\225/;\013A\026\323\216\263\0010\3459n\315!\366J\331i\257K\342\241g\257t\364D*\324\353\007i{]W\330\266\220u\033z\347\355%\026b\321g/u\364\\\364.\\\343\030<z\317\355\371\312\332b\204\217q\031\324\032\216\002\246Y\320\371\353|\222\323\037\320\272j+`Js\237D\023\326\023\220\2507\002HG\006a\207\227\371\216\033s'\252\251j\272~^\034\223\237\370\325\017\234\257\307_e\367\240\371\333\316\031\220P\374\n \361&\234\037\313\035r\027\304Z\226\017\200L\326\334Nw\\\210\265\036\377\021\033c\n\277\n\246\020\36018\304\337\200u\\\367#o\201m\260\272T\013\325\342\273\375\273\351]H\330\232\035*\243\354\026\260<\330\252:\257k\230\227\335\320^\253\014.\273)\367\2052\270\004x/\002\210\002\201\031w\272\232\334\r\t\367\035\026c)_\262'g\375\366\221\"`$\266\334q\257\324\272wa\333\363\000\347\025A\327i\367\201\030\204\376\277;`/<\010\367M\200\227\356\276\r\n\014G\354\227\355\337\302-\362\226C\241\241\231\352\013\357\to\344\255j\272\272PUk\033'/\212\346\322\177\001XG7N";
+    PyObject *data = __Pyx_DecompressString(cstring, 1926, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3269 bytes) */
-const char* const bytes = ".30086400 JWT \345\244\261\350\264\245:  JWT \345\274\202\345\270\270: JWT Token \347\256\241\347\220\206\345\231\250\357\274\214\345\215\217\350\260\203\345\207\255\350\257\201\345\255\230\345\202\250\345\222\214\347\263\273\347\273\237\346\263\250\345\206\214\350\241\250\345\256\214\346\210\220 Token \347\224\237\345\221\275\345\221\250\346\234\237\347\256\241\347\220\206\343\200\202Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.X-Opscli-Version\350\216\267\345\217\226 \345\244\261\350\264\245: ?add_notedict[str, str].lock_opscli/auth/core/token_manager.py\346\234\252\347\231\273\345\275\225\357\274\214\350\257\267\350\277\220\350\241\214: opscli auth login\347\231\273\345\275\225\345\267\262\350\277\207\346\234\237\357\274\214\350\257\267\351\207\215\346\226\260\350\277\220\350\241\214: opscli auth loginopscli.auth.tokenthreading.Lock_FCNTL_AVAILABLEHTTPStatusErrorLOCK_EXLOCK_UNLockMAX_JWT_TTLNotAuthenticatedErrorOPSCLI_MAX_JWT_TTLOPSCLI_REFRESH_THRESHOLD__Pyx_PyDict_NextRefREFRESH_THRESHOLDTokenFetchErrorTokenManagerTokenManager.__init__TokenManager._fetch_tokenTokenManager._get_session_idTokenManager._is_validTokenManager.check_tokenTokenManager.get_session_idTokenManager.get_tokenTokenManager.get_token_by_sessionTokenManager.refresh_allTokenManager.refresh_tokenTokenManager.token_statusaliasasyncio.coroutinesbase_dirbodyboolcheck_tokencline_in_tracebackdatadatetimedict__doc__eendpoint__enter__environ__exit__expexpiredexpires_atexpires_infcntl_fetch_tokenflockfromisoformat__func__getgetLogger_get_mcp_api_key_headerget_mcp_request_headers_get_session_idget_session_id_get_thread_lockget_tokenget_token_by_sessionheadershttpx__init___is_coroutine_is_validitemsjsonjwtkeylflist_allloadlock_path_loggerlogging__main____metaclass____module____name__needs_refreshnowokopenopscli.auth.core.token_manageropscli.auth.exceptionsopscli.configopscli"".mcp.contextospoppost__prepare____qualname__raise_for_statusrefresh_allrefresh_tokenregistry_registryremremainingreplacerespresponseresultsreturnsave_tokenselfsession_expires_atsession_id__set_name__setdefaultstatus_codestore_storestrsyssystem_keytd__test__thread_lock_thread_locks_thread_locks_mutexthreadingtimedeltatimeouttimezonetoken_datatoken_endpointtoken_statustokenstotal_secondstzinfourlutcvalidvalues__version__w\320\000\032\230(\240!\330\t\n\330\010\013\2104\210w\220a\330\014\031\230\021\230'\240\031\250%\250q\330\010\017\210}\230A\230Q\320\004/\250|\2708\3001\360 \000\t\017\210d\220*\230D\240\001\240\021\330\010\022\320\022)\250\021\330\010\t\330\014\023\2205\230\005\230Q\330\020\022\220!\2203\220a\220w\230a\230s\240!\2401\330\020\026\220n\240A\330\020\030\230\010\240\003\2401\330\020\030\230\001\340\014\020\320\020!\240\021\330\014\023\2204\220u\230A\330\014\023\2204\220q\230\001\330\010\017\210u\320\024(\250\001\330\014\022\220/\240\021\240&\250\017\260q\270\001\270\031\300!\330\010\017\210}\230A\330\014\022\220/\240\021\240&\250\017\260q\270\001\320\004#\2408\2501\340\010\016\210d\220*\230D\240\001\240\021\330\010\017\210t\220=\240\001\240\023\240A\240_\260C\260q\270\010\300\003\3001\300A\200A\360\014\000\t\r\210J\220a\330\010\014\210M\230\021\320\004$\240I\250Q\340\010\017\210t\220=\240\001\240\034\250S\260\001\320\004\035\230Q\340\010\022\220!\330\010\014\210G\2204\220z\240\031\250!\330\014\r\330\020\024\220M\240\021\240#\240Q\240o\260S\270\001\270\030\300\023\300A\300Q\330\020\027\220q\230\003\2301\230L\250\001\330\014\023\220=\240\001\330\020\027\220q\230\003\2301\230L\250\006\250a\250q\330\010\017\210q\320\004!\240\030\250\021\340\010\016\210d\220*\230D\240\001\240\021\330\010\017\210t\2207\230%\230s\240#\240Q\330\010\r\210T\220\024\220Q\220j\240\003\2404\240q\250\003\2501\250A\330\010\013\2104\210q\330\014\024\220I\230W\240N\260!\330\010\t\330\014\022\220(\230.\250\001\250\022\2501\250A\330\014\017\210s\220(\230#\230Q\330\020\026\220c\230\030\240""\021\240'\250\030\260\021\330\014\022\220#\220R\220t\2302\230X\240T\250\021\250(\260&\270\016\300a\330\014\024\220I\230T\240\022\2403\320&8\270\003\2701\330\020\032\230!\330\014\024\220I\230W\240N\260!\320\000!\240\021\360\014\000\005\006\330\010\r\320\r'\240q\330\010\017\320\017&\240a\330\013\014\340\004\014\320\014 \240\001\320\004!\240\021\330\010\017\210t\2207\230%\230q\330\010\013\2104\210u\220C\220t\2304\230t\2401\240A\330\014\022\320\022'\240q\250\001\330\010\016\210h\220n\240A\240T\250\021\250!\340\010\013\2103\210h\220c\230\021\330\014\022\220#\220X\230Q\230g\240X\250Q\330\010\013\2104\210r\220\030\230\024\230Q\230h\240a\330\014\022\320\022'\240q\250\001\330\010\017\210t\2201\220A\320\004 \240\001\360\n\000\t\020\210t\320\023#\2401\320\004\037\230x\240q\330\010\016\210d\220*\230D\240\001\240\021\330\010\025\220S\230\001\230\021\360\006\000\t\027\320\026&\240a\240q\330\r\016\340\014\023\2204\220w\230e\2403\240c\250\021\330\014\021\220\024\220T\230\021\230*\240C\240t\2501\250A\330\014\017\210s\220$\220d\230*\240A\240Q\330\020\027\220r\230\021\230!\360\006\000\r\020\210q\330\020\034\230D\240\007\240z\260\022\2608\2701\270A\330\025\031\230\021\230+\240X\250Q\330\024\025\330\030\035\230V\2401\240D\250\005\250Q\340\030\037\230t\2407\250%\250s\260#\260Q\330\030\035\230T\240\024\240Q\240j\260\003\2604\260q\270\001\330\030\033\2303\230d\240$\240j\260\001\260\021\330\034#\2402\240Q\240a\330\030\037\230t\240=\260\001\260\034\270S\300\001\300\030\310\023\310A\310Q\340\030\035\230V\2401\240D\250\005\250Q\340\020\027\220t\230=\250\001\250\034\260S\270\001\270\030\300\023\300A\300Q\320\004'\240y\260\001\340\010\t\330\014\022\220(\230.\250\001\250\032\2601\260A\330\014\017\210s\220(\230#\230Q\330\020\026\220c\230\030\240\021\240'\250\030\260\021\330\014\031\230\024\230R\230x\240t\2501\250H\260F\270.\310\001\330\014\017\210z\230\022\2301\330\020\027\220q\330\014\017\210z\230\022\2301\330\020\027\220q\330\014\023\2201\330\020\032\230!\330\014\023\2201\320\004'\240z\260\037""\300\010\310\001\340\010\025\220T\230\037\250\001\330\010\022\320\022)\250\021\330\010\t\330\014\023\2205\230\005\230Q\330\020\023\2205\230\001\330\020\026\220n\240A\330\020\030\230\010\240\003\2401\330\020\030\230\001\340\014\020\320\020!\240\021\330\014\023\2204\220u\230A\340\014\034\230A\230T\240\024\240Q\240n\260G\2701\330\014\020\220\007\220{\240!\240<\250t\2601\260H\270A\330\014\023\2204\220q\230\001\330\010\017\210u\320\024(\250\001\330\014\022\220/\240\021\240&\320(<\270A\270Q\270i\300q\330\010\017\210}\230A\330\014\022\220/\240\021\240&\320(<\270A\270Q";
+    #else /* compression: none (3284 bytes) */
+const char* const bytes = ".30086400 JWT \345\244\261\350\264\245:  JWT \345\274\202\345\270\270: JWT Token \347\256\241\347\220\206\345\231\250\357\274\214\345\215\217\350\260\203\345\207\255\350\257\201\345\255\230\345\202\250\345\222\214\347\263\273\347\273\237\346\263\250\345\206\214\350\241\250\345\256\214\346\210\220 Token \347\224\237\345\221\275\345\221\250\346\234\237\347\256\241\347\220\206\343\200\202Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.X-Opscli-Version\350\216\267\345\217\226 \345\244\261\350\264\245: ?add_notedict[str, str].lock_opscli/auth/core/token_manager.py\346\234\252\347\231\273\345\275\225\357\274\214\350\257\267\350\277\220\350\241\214: opscli auth login\347\231\273\345\275\225\345\267\262\350\277\207\346\234\237\357\274\214\350\257\267\351\207\215\346\226\260\350\277\220\350\241\214: opscli auth loginopscli.auth.tokenthreading.Lock_FCNTL_AVAILABLEHTTPStatusErrorLOCK_EXLOCK_UNLockMAX_JWT_TTLNotAuthenticatedErrorOPSCLI_MAX_JWT_TTLOPSCLI_REFRESH_THRESHOLD__Pyx_PyDict_NextRefREFRESH_THRESHOLDTokenFetchErrorTokenManagerTokenManager.__init__TokenManager._fetch_tokenTokenManager._get_session_idTokenManager._is_validTokenManager.check_tokenTokenManager.get_session_idTokenManager.get_tokenTokenManager.get_token_by_sessionTokenManager.refresh_allTokenManager.refresh_tokenTokenManager.token_statusaliasasyncio.coroutinesbase_dirbodyboolcheck_tokencline_in_tracebackdatadatetimedict__doc__eendpoint__enter__environ__exit__expexpiredexpires_atexpires_infcntl_fetch_tokenflockfromisoformat__func__getgetLogger_get_mcp_api_key_headerget_mcp_request_headers_get_session_idget_session_id_get_thread_lockget_tokenget_token_by_sessionheadershttpx__init___is_coroutine_is_validitemsjsonjwtkeylflist_allloadlock_path_loggerlogging__main____metaclass____module____name__needs_refreshnowokopenopscli.auth.core.token_manageropscli.auth.exceptionsopscli.configopscli"".mcp.contextospoppost__prepare____qualname__raise_for_statusrefresh_allrefresh_tokenregistry_registryremremainingreplacerespresponseresultsreturnsave_tokenselfsession_expires_atsession_id__set_name__setdefaultstatus_codestore_storestrsyssystem_keytd__test__thread_lock_thread_locks_thread_locks_mutexthreadingtimedeltatimeouttimezonetoken_datatoken_endpointtoken_statustokenstotal_secondstzinfoupdateurlutcvalidvalues__version__w\320\000!\240\021\360\014\000\005\020\320\017#\2401\330\004\005\330\010\r\320\r'\240q\330\010\017\210w\220a\320\027.\250a\330\013\014\340\004\013\2101\320\000\032\230(\240!\330\t\n\330\010\013\2104\210w\220a\330\014\031\230\021\230'\240\031\250%\250q\330\010\017\210}\230A\230Q\320\004/\250|\2708\3001\360 \000\t\017\210d\220*\230D\240\001\240\021\330\010\022\320\022)\250\021\330\010\t\330\014\023\2205\230\005\230Q\330\020\022\220!\2203\220a\220w\230a\230s\240!\2401\330\020\026\220n\240A\330\020\030\230\010\240\003\2401\330\020\030\230\001\340\014\020\320\020!\240\021\330\014\023\2204\220u\230A\330\014\023\2204\220q\230\001\330\010\017\210u\320\024(\250\001\330\014\022\220/\240\021\240&\250\017\260q\270\001\270\031\300!\330\010\017\210}\230A\330\014\022\220/\240\021\240&\250\017\260q\270\001\320\004#\2408\2501\340\010\016\210d\220*\230D\240\001\240\021\330\010\017\210t\220=\240\001\240\023\240A\240_\260C\260q\270\010\300\003\3001\300A\200A\360\014\000\t\r\210J\220a\330\010\014\210M\230\021\320\004$\240I\250Q\340\010\017\210t\220=\240\001\240\034\250S\260\001\320\004\035\230Q\340\010\022\220!\330\010\014\210G\2204\220z\240\031\250!\330\014\r\330\020\024\220M\240\021\240#\240Q\240o\260S\270\001\270\030\300\023\300A\300Q\330\020\027\220q\230\003\2301\230L\250\001\330\014\023\220=\240\001\330\020\027\220q\230\003\2301\230L\250\006\250a\250q\330\010\017\210q\320\004!\240\030\250\021\340\010\016\210d\220*\230D\240\001\240\021\330\010\017\210t\2207\230%\230s\240#\240Q\330\010\r\210T\220\024\220Q\220j\240\003\2404\240q\250\003\2501\250A\330\010\013\2104""\210q\330\014\024\220I\230W\240N\260!\330\010\t\330\014\022\220(\230.\250\001\250\022\2501\250A\330\014\017\210s\220(\230#\230Q\330\020\026\220c\230\030\240\021\240'\250\030\260\021\330\014\022\220#\220R\220t\2302\230X\240T\250\021\250(\260&\270\016\300a\330\014\024\220I\230T\240\022\2403\320&8\270\003\2701\330\020\032\230!\330\014\024\220I\230W\240N\260!\320\004!\240\021\330\010\017\210t\2207\230%\230q\330\010\013\2104\210u\220C\220t\2304\230t\2401\240A\330\014\022\320\022'\240q\250\001\330\010\016\210h\220n\240A\240T\250\021\250!\340\010\013\2103\210h\220c\230\021\330\014\022\220#\220X\230Q\230g\240X\250Q\330\010\013\2104\210r\220\030\230\024\230Q\230h\240a\330\014\022\320\022'\240q\250\001\330\010\017\210t\2201\220A\320\004 \240\001\360\n\000\t\020\210t\320\023#\2401\320\004\037\230x\240q\330\010\016\210d\220*\230D\240\001\240\021\330\010\025\220S\230\001\230\021\360\006\000\t\027\320\026&\240a\240q\330\r\016\340\014\023\2204\220w\230e\2403\240c\250\021\330\014\021\220\024\220T\230\021\230*\240C\240t\2501\250A\330\014\017\210s\220$\220d\230*\240A\240Q\330\020\027\220r\230\021\230!\360\006\000\r\020\210q\330\020\034\230D\240\007\240z\260\022\2608\2701\270A\330\025\031\230\021\230+\240X\250Q\330\024\025\330\030\035\230V\2401\240D\250\005\250Q\340\030\037\230t\2407\250%\250s\260#\260Q\330\030\035\230T\240\024\240Q\240j\260\003\2604\260q\270\001\330\030\033\2303\230d\240$\240j\260\001\260\021\330\034#\2402\240Q\240a\330\030\037\230t\240=\260\001\260\034\270S\300\001\300\030\310\023\310A\310Q\340\030\035\230V\2401\240D\250\005\250Q\340\020\027\220t\230=\250\001\250\034\260S\270\001\270\030\300\023\300A\300Q\320\004'\240y\260\001\340\010\t\330\014\022\220(\230.\250\001\250\032\2601\260A\330\014\017\210s\220(\230#\230Q\330\020\026\220c\230\030\240\021\240'\250\030\260\021\330\014\031\230\024\230R\230x\240t\2501\250H\260F\270.\310\001\330\014\017\210z\230\022\2301\330\020\027\220q\330\014\017\210z\230\022\2301\330\020\027\220q\330\014\023\2201\330\020\032\230!\330\014""\023\2201\320\004'\240z\260\037\300\010\310\001\340\010\025\220T\230\037\250\001\330\010\022\320\022)\250\021\330\010\t\330\014\023\2205\230\005\230Q\330\020\023\2205\230\001\330\020\026\220n\240A\330\020\030\230\010\240\003\2401\330\020\030\230\001\340\014\020\320\020!\240\021\330\014\023\2204\220u\230A\340\014\034\230A\230T\240\024\240Q\240n\260G\2701\330\014\020\220\007\220{\240!\240<\250t\2601\260H\270A\330\014\023\2204\220q\230\001\330\010\017\210u\320\024(\250\001\330\014\022\220/\240\021\240&\320(<\270A\270Q\270i\300q\330\010\017\210}\230A\330\014\022\220/\240\021\240&\320(<\270A\270Q";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 154; i++) {
+    for (int i = 0; i < 155; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 19) PyUnicode_InternInPlace(&string);
@@ -9617,7 +9640,7 @@ const char* const bytes = ".30086400 JWT \345\244\261\350\264\245:  JWT \345\274
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 154; i < 167; i++) {
+    for (int i = 155; i < 168; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -9628,14 +9651,14 @@ const char* const bytes = ".30086400 JWT \345\244\261\350\264\245:  JWT \345\274
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 167; i++) {
+    for (Py_ssize_t i = 0; i < 168; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 154;
+      PyObject **table = stringtab + 155;
       for (Py_ssize_t i=0; i<13; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -9709,67 +9732,67 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 29};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_get_mcp_request_headers};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_mcp_api_key_header, __pyx_mstate->__pyx_kp_b_iso88591_q_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 29};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_get_mcp_request_headers};
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_mcp_api_key_header, __pyx_mstate->__pyx_kp_b_iso88591_1_q_wa_a_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 47};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 48};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_thread_lock, __pyx_mstate->__pyx_kp_b_iso88591_4wa_q_AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 61};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 62};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_store, __pyx_mstate->__pyx_n_u_registry};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_init, __pyx_mstate->__pyx_kp_b_iso88591_A_Ja_M, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 71};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_exp};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_session_id, __pyx_mstate->__pyx_kp_b_iso88591_t7_q_4uCt4t1A_q_hnAT_3hc_XQgXQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 82};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 83};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_session_id_2, __pyx_mstate->__pyx_kp_b_iso88591_t_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 89};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 90};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_token_data, __pyx_mstate->__pyx_n_u_exp, __pyx_mstate->__pyx_n_u_remaining};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_token_status, __pyx_mstate->__pyx_kp_b_iso88591_y_1A_s_Q_c_Rxt1HF_z_1_q_z_1_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 104};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 105};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_token_data};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_is_valid, __pyx_mstate->__pyx_kp_b_iso88591_IQ_t_S, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 108};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 10, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 109};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_system_key, __pyx_mstate->__pyx_n_u_url, __pyx_mstate->__pyx_n_u_endpoint, __pyx_mstate->__pyx_n_u_session_id, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_resp, __pyx_mstate->__pyx_n_u_body, __pyx_mstate->__pyx_n_u_expires_in, __pyx_mstate->__pyx_n_u_e};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_fetch_token, __pyx_mstate->__pyx_kp_b_iso88591_z_T_5_Q_5_nA_1_4uA_AT_QnG1_t1HA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 130};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 131};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_sys, __pyx_mstate->__pyx_n_u_system_key, __pyx_mstate->__pyx_n_u_thread_lock, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_td, __pyx_mstate->__pyx_n_u_lock_path, __pyx_mstate->__pyx_n_u_lf};
     __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_token, __pyx_mstate->__pyx_kp_b_iso88591_xq_d_D_S_aq_4we3c_T_Ct1A_s_d_AQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 160};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 161};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_sys, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_td, __pyx_mstate->__pyx_n_u_exp, __pyx_mstate->__pyx_n_u_rem};
     __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_check_token, __pyx_mstate->__pyx_kp_b_iso88591_d_D_t7_s_Q_T_Qj_4q_1A_4q_IWN_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 176};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 177};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_sys};
     __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_refresh_token, __pyx_mstate->__pyx_kp_b_iso88591_81_d_D_t_A_Cq_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 181};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 182};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_results, __pyx_mstate->__pyx_n_u_sys, __pyx_mstate->__pyx_n_u_e};
     __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_refresh_all, __pyx_mstate->__pyx_kp_b_iso88591_Q_G4z_M_QoS_AQ_q_1L_q_1L_aq_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 192};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 193};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_session_id, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_sys, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_resp, __pyx_mstate->__pyx_n_u_body, __pyx_mstate->__pyx_n_u_e};
     __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_auth_core_token_manager_p, __pyx_mstate->__pyx_n_u_get_token_by_session, __pyx_mstate->__pyx_kp_b_iso88591_81_d_D_5_Q_3awas_1_nA_1_4uA_4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
@@ -10238,6 +10261,68 @@ bad:
 #endif
 #endif
 
+/* PyDictVersioning (used by GetModuleGlobalName) */
+#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
+}
+static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
+    PyObject **dictptr = NULL;
+    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
+    if (offset) {
+#if CYTHON_COMPILING_IN_CPYTHON
+        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
+#else
+        dictptr = _PyObject_GetDictPtr(obj);
+#endif
+    }
+    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
+}
+static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
+    PyObject *dict = Py_TYPE(obj)->tp_dict;
+    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
+        return 0;
+    return obj_dict_version == __Pyx_get_object_dict_version(obj);
+}
+#endif
+
+/* GetModuleGlobalName */
+#if CYTHON_USE_DICT_VERSIONS
+static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
+#else
+static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
+#endif
+{
+    PyObject *result;
+#if CYTHON_COMPILING_IN_LIMITED_API
+    if (unlikely(!__pyx_m)) {
+        if (!PyErr_Occurred())
+            PyErr_SetNone(PyExc_NameError);
+        return NULL;
+    }
+    result = PyObject_GetAttr(__pyx_m, name);
+    if (likely(result)) {
+        return result;
+    }
+    PyErr_Clear();
+#elif CYTHON_AVOID_BORROWED_REFS || CYTHON_AVOID_THREAD_UNSAFE_BORROWED_REFS
+    if (unlikely(__Pyx_PyDict_GetItemRef(__pyx_mstate_global->__pyx_d, name, &result) == -1)) PyErr_Clear();
+    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return result;
+    }
+#else
+    result = _PyDict_GetItem_KnownHash(__pyx_mstate_global->__pyx_d, name, ((PyASCIIObject *) name)->hash);
+    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
+    if (likely(result)) {
+        return __Pyx_NewRef(result);
+    }
+    PyErr_Clear();
+#endif
+    return __Pyx_GetBuiltinName(name);
+}
+
 /* HasAttr (used by ImportImpl) */
 #if __PYX_LIMITED_VERSION_HEX < 0x030d0000
 static CYTHON_INLINE int __Pyx_HasAttr(PyObject *o, PyObject *n) {
@@ -10538,162 +10623,13 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
     return value;
 }
 
-/* RaiseUnexpectedTypeError */
-static int
-__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
-{
-    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
-    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
-                 expected, obj_type_name);
-    __Pyx_DECREF_TypeName(obj_type_name);
-    return 0;
+/* PyObjectCall2Args (used by CallUnboundCMethod1) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
+    PyObject *args[3] = {NULL, arg1, arg2};
+    return __Pyx_PyObject_FastCall(function, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
 
-/* GetTopmostException (used by SaveResetException) */
-#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
-static _PyErr_StackItem *
-__Pyx_PyErr_GetTopmostException(PyThreadState *tstate)
-{
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
-           exc_info->previous_item != NULL)
-    {
-        exc_info = exc_info->previous_item;
-    }
-    return exc_info;
-}
-#endif
-
-/* SaveResetException */
-#if CYTHON_FAST_THREAD_STATE
-static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
-  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
-    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
-    PyObject *exc_value = exc_info->exc_value;
-    if (exc_value == NULL || exc_value == Py_None) {
-        *value = NULL;
-        *type = NULL;
-        *tb = NULL;
-    } else {
-        *value = exc_value;
-        Py_INCREF(*value);
-        *type = (PyObject*) Py_TYPE(exc_value);
-        Py_INCREF(*type);
-        *tb = PyException_GetTraceback(exc_value);
-    }
-  #elif CYTHON_USE_EXC_INFO_STACK
-    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
-    *type = exc_info->exc_type;
-    *value = exc_info->exc_value;
-    *tb = exc_info->exc_traceback;
-    Py_XINCREF(*type);
-    Py_XINCREF(*value);
-    Py_XINCREF(*tb);
-  #else
-    *type = tstate->exc_type;
-    *value = tstate->exc_value;
-    *tb = tstate->exc_traceback;
-    Py_XINCREF(*type);
-    Py_XINCREF(*value);
-    Py_XINCREF(*tb);
-  #endif
-}
-static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
-  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    PyObject *tmp_value = exc_info->exc_value;
-    exc_info->exc_value = value;
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(type);
-    Py_XDECREF(tb);
-  #else
-    PyObject *tmp_type, *tmp_value, *tmp_tb;
-    #if CYTHON_USE_EXC_INFO_STACK
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    tmp_type = exc_info->exc_type;
-    tmp_value = exc_info->exc_value;
-    tmp_tb = exc_info->exc_traceback;
-    exc_info->exc_type = type;
-    exc_info->exc_value = value;
-    exc_info->exc_traceback = tb;
-    #else
-    tmp_type = tstate->exc_type;
-    tmp_value = tstate->exc_value;
-    tmp_tb = tstate->exc_traceback;
-    tstate->exc_type = type;
-    tstate->exc_value = value;
-    tstate->exc_traceback = tb;
-    #endif
-    Py_XDECREF(tmp_type);
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(tmp_tb);
-  #endif
-}
-#endif
-
-/* PyDictVersioning (used by GetModuleGlobalName) */
-#if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_TYPE_SLOTS
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_tp_dict_version(PyObject *obj) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    return likely(dict) ? __PYX_GET_DICT_VERSION(dict) : 0;
-}
-static CYTHON_INLINE PY_UINT64_T __Pyx_get_object_dict_version(PyObject *obj) {
-    PyObject **dictptr = NULL;
-    Py_ssize_t offset = Py_TYPE(obj)->tp_dictoffset;
-    if (offset) {
-#if CYTHON_COMPILING_IN_CPYTHON
-        dictptr = (likely(offset > 0)) ? (PyObject **) ((char *)obj + offset) : _PyObject_GetDictPtr(obj);
-#else
-        dictptr = _PyObject_GetDictPtr(obj);
-#endif
-    }
-    return (dictptr && *dictptr) ? __PYX_GET_DICT_VERSION(*dictptr) : 0;
-}
-static CYTHON_INLINE int __Pyx_object_dict_version_matches(PyObject* obj, PY_UINT64_T tp_dict_version, PY_UINT64_T obj_dict_version) {
-    PyObject *dict = Py_TYPE(obj)->tp_dict;
-    if (unlikely(!dict) || unlikely(tp_dict_version != __PYX_GET_DICT_VERSION(dict)))
-        return 0;
-    return obj_dict_version == __Pyx_get_object_dict_version(obj);
-}
-#endif
-
-/* GetModuleGlobalName */
-#if CYTHON_USE_DICT_VERSIONS
-static PyObject *__Pyx__GetModuleGlobalName(PyObject *name, PY_UINT64_T *dict_version, PyObject **dict_cached_value)
-#else
-static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name)
-#endif
-{
-    PyObject *result;
-#if CYTHON_COMPILING_IN_LIMITED_API
-    if (unlikely(!__pyx_m)) {
-        if (!PyErr_Occurred())
-            PyErr_SetNone(PyExc_NameError);
-        return NULL;
-    }
-    result = PyObject_GetAttr(__pyx_m, name);
-    if (likely(result)) {
-        return result;
-    }
-    PyErr_Clear();
-#elif CYTHON_AVOID_BORROWED_REFS || CYTHON_AVOID_THREAD_UNSAFE_BORROWED_REFS
-    if (unlikely(__Pyx_PyDict_GetItemRef(__pyx_mstate_global->__pyx_d, name, &result) == -1)) PyErr_Clear();
-    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return result;
-    }
-#else
-    result = _PyDict_GetItem_KnownHash(__pyx_mstate_global->__pyx_d, name, ((PyASCIIObject *) name)->hash);
-    __PYX_UPDATE_DICT_CACHE(__pyx_mstate_global->__pyx_d, result, *dict_cached_value, *dict_version)
-    if (likely(result)) {
-        return __Pyx_NewRef(result);
-    }
-    PyErr_Clear();
-#endif
-    return __Pyx_GetBuiltinName(name);
-}
-
-/* UnpackUnboundCMethod (used by CallUnboundCMethod0) */
+/* UnpackUnboundCMethod (used by CallUnboundCMethod1) */
 #if CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX < 0x030C0000
 static PyObject *__Pyx_SelflessCall(PyObject *method, PyObject *args, PyObject *kwargs) {
     PyObject *result;
@@ -10777,6 +10713,141 @@ static int __Pyx_TryUnpackUnboundCMethod(__Pyx_CachedCFunction* target) {
     target->method = result;
     return 0;
 }
+
+/* CallUnboundCMethod1 */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg) {
+    int was_initialized =  __Pyx_CachedCFunction_GetAndSetInitializing(cfunc);
+    if (likely(was_initialized == 2 && cfunc->func)) {
+        int flag = cfunc->flag;
+        if (flag == METH_O) {
+            return __Pyx_CallCFunction(cfunc, self, arg);
+        } else if (flag == METH_FASTCALL) {
+            return __Pyx_CallCFunctionFast(cfunc, self, &arg, 1);
+        } else if (flag == (METH_FASTCALL | METH_KEYWORDS)) {
+            return __Pyx_CallCFunctionFastWithKeywords(cfunc, self, &arg, 1, NULL);
+        }
+    }
+#if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
+    else if (unlikely(was_initialized == 1)) {
+        __Pyx_CachedCFunction tmp_cfunc = {
+#ifndef __cplusplus
+            0
+#endif
+        };
+        tmp_cfunc.type = cfunc->type;
+        tmp_cfunc.method_name = cfunc->method_name;
+        return __Pyx__CallUnboundCMethod1(&tmp_cfunc, self, arg);
+    }
+#endif
+    PyObject* result = __Pyx__CallUnboundCMethod1(cfunc, self, arg);
+    __Pyx_CachedCFunction_SetFinishedInitializing(cfunc);
+    return result;
+}
+#endif
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg){
+    PyObject *result = NULL;
+    if (unlikely(!cfunc->func && !cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_COMPILING_IN_CPYTHON
+    if (cfunc->func && (cfunc->flag & METH_VARARGS)) {
+        PyObject *args = PyTuple_New(1);
+        if (unlikely(!args)) return NULL;
+        Py_INCREF(arg);
+        PyTuple_SET_ITEM(args, 0, arg);
+        if (cfunc->flag & METH_KEYWORDS)
+            result = __Pyx_CallCFunctionWithKeywords(cfunc, self, args, NULL);
+        else
+            result = __Pyx_CallCFunction(cfunc, self, args);
+        Py_DECREF(args);
+    } else
+#endif
+    {
+        result = __Pyx_PyObject_Call2Args(cfunc->method, self, arg);
+    }
+    return result;
+}
+
+/* GetTopmostException (used by SaveResetException) */
+#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
+static _PyErr_StackItem *
+__Pyx_PyErr_GetTopmostException(PyThreadState *tstate)
+{
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
+           exc_info->previous_item != NULL)
+    {
+        exc_info = exc_info->previous_item;
+    }
+    return exc_info;
+}
+#endif
+
+/* SaveResetException */
+#if CYTHON_FAST_THREAD_STATE
+static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
+  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
+    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
+    PyObject *exc_value = exc_info->exc_value;
+    if (exc_value == NULL || exc_value == Py_None) {
+        *value = NULL;
+        *type = NULL;
+        *tb = NULL;
+    } else {
+        *value = exc_value;
+        Py_INCREF(*value);
+        *type = (PyObject*) Py_TYPE(exc_value);
+        Py_INCREF(*type);
+        *tb = PyException_GetTraceback(exc_value);
+    }
+  #elif CYTHON_USE_EXC_INFO_STACK
+    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
+    *type = exc_info->exc_type;
+    *value = exc_info->exc_value;
+    *tb = exc_info->exc_traceback;
+    Py_XINCREF(*type);
+    Py_XINCREF(*value);
+    Py_XINCREF(*tb);
+  #else
+    *type = tstate->exc_type;
+    *value = tstate->exc_value;
+    *tb = tstate->exc_traceback;
+    Py_XINCREF(*type);
+    Py_XINCREF(*value);
+    Py_XINCREF(*tb);
+  #endif
+}
+static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
+  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    PyObject *tmp_value = exc_info->exc_value;
+    exc_info->exc_value = value;
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+  #else
+    PyObject *tmp_type, *tmp_value, *tmp_tb;
+    #if CYTHON_USE_EXC_INFO_STACK
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    tmp_type = exc_info->exc_type;
+    tmp_value = exc_info->exc_value;
+    tmp_tb = exc_info->exc_traceback;
+    exc_info->exc_type = type;
+    exc_info->exc_value = value;
+    exc_info->exc_traceback = tb;
+    #else
+    tmp_type = tstate->exc_type;
+    tmp_value = tstate->exc_value;
+    tmp_tb = tstate->exc_traceback;
+    tstate->exc_type = type;
+    tstate->exc_value = value;
+    tstate->exc_traceback = tb;
+    #endif
+    Py_XDECREF(tmp_type);
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(tmp_tb);
+  #endif
+}
+#endif
 
 /* CallUnboundCMethod0 */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -11725,6 +11796,17 @@ static PyObject *__Pyx_Object_VectorcallMethod_CallFromBuilder(PyObject *name, P
     return result;
 }
 #endif
+
+/* RaiseUnexpectedTypeError */
+static int
+__Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
+{
+    __Pyx_TypeName obj_type_name = __Pyx_PyType_GetFullyQualifiedName(Py_TYPE(obj));
+    PyErr_Format(PyExc_TypeError, "Expected %s, got " __Pyx_FMT_TYPENAME,
+                 expected, obj_type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+    return 0;
+}
 
 /* FastTypeChecks */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -13628,12 +13710,6 @@ static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bas
     }
     Py_INCREF((PyObject*) metaclass);
     return (PyObject*) metaclass;
-}
-
-/* PyObjectCall2Args (used by Py3ClassCreate) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
-    PyObject *args[3] = {NULL, arg1, arg2};
-    return __Pyx_PyObject_FastCall(function, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
 
 /* Py3ClassCreate */

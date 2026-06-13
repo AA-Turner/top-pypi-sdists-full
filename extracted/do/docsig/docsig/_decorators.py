@@ -4,6 +4,8 @@ docsig._decorators
 """
 
 import functools as _functools
+import json as _json
+import os as _os
 import sys as _sys
 import typing as _t
 from pathlib import Path as _Path
@@ -35,6 +37,7 @@ def parse_msgs(func: _WrappedFuncType) -> _WrappedFuncType:
     return _wrapper
 
 
+# TODO: make report json by default and wrap with a reporter for cli
 def validate_args(func: _FuncType) -> _WrappedFuncType:
     """Validate arguments before calling the wrapped function.
 
@@ -51,29 +54,31 @@ def validate_args(func: _FuncType) -> _WrappedFuncType:
 
     @_functools.wraps(func)
     def _wrapper(*args: str | _Path, **kwargs: _t.Any) -> int:
-        stderr = []
+        format_json = _os.getenv("_DOCSIG_FORMAT_JSON") is not None
+        retcode = 2
+        errors = []
         if not kwargs.get("list_checks", False):
             if not args and not kwargs.get("string"):
-                stderr.append(
+                errors.append(
                     "the following arguments are required: path(s) or string",
                 )
 
             for message in kwargs.get("disable") or []:
                 if not message.isknown:
-                    stderr.append(
+                    errors.append(
                         f"unknown option to disable '{message.description}'",
                     )
 
             for message in kwargs.get("target") or []:
                 if not message.isknown:
-                    stderr.append(
+                    errors.append(
                         f"unknown option to target '{message.description}'",
                     )
 
             if kwargs.get("check_class") and kwargs.get(
                 "check_class_constructor",
             ):
-                stderr.append(
+                errors.append(
                     "argument to check class constructor not allowed with"
                     " argument to check class",
                 )
@@ -84,13 +89,22 @@ def validate_args(func: _FuncType) -> _WrappedFuncType:
                     # passing both commandline args as argparse won't
                     # allow it, therefore, this must be an issue with
                     # the pyproject.toml configuration
-                    stderr.append(
+                    errors.append(
                         "please check your pyproject.toml configuration",
                     )
+        if errors:
+            message = "\n".join(errors)
+            if format_json:
+                obj = [  # pragma: no cover
+                    {"line": None, "message": message, "exit": retcode},
+                ]
+                if format_json:  # pragma: no cover
+                    print(_json.dumps(obj).strip())  # pragma: no cover
 
-        if stderr:
-            print("\n".join(stderr), file=_sys.stderr)
-            return 2
+            else:
+                print(message, file=_sys.stderr)
+
+            return retcode
 
         return func(*args, **kwargs)
 

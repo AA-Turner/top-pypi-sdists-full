@@ -23,6 +23,7 @@ the agent.
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -34,7 +35,7 @@ from efterlev.agents.base import (
     parse_evidence_fence_ids,
 )
 from efterlev.agents.gap import KsiClassification
-from efterlev.errors import AgentError
+from efterlev.errors import AgentValidatorRejectionError
 from efterlev.llm import LLMClient
 from efterlev.models import AttestationDraft, Claim, Evidence, Indicator, ScanSummary
 from efterlev.primitives.generate import GenerateFrmrSkeletonInput, generate_frmr_skeleton
@@ -159,6 +160,9 @@ class DocumentationAgent(Agent):
         callback = progress_callback if progress_callback is not None else NoopProgressCallback()
 
         attestations: list[KsiAttestation] = []
+        # KSIs whose LLM narrative was rejected twice by the citation guard
+        # and fell back to the deterministic template (v0.1.226).
+        guard_fallback_ksi_ids: list[str] = []
         store = get_active_store()
         total = len(eligible)
 
@@ -269,6 +273,19 @@ class DocumentationAgent(Agent):
             # Fresh nonce per KSI-draft LLM call — each invocation is its
             # own fence set. See DECISIONS 2026-04-22 Phase 2 post-review
             # fixup F.
+            #
+            # v0.1.226: retry-once-then-fallback on validator rejection.
+            # Pre-v0.1.226 a single rejected narrative ABORTED the whole
+            # stage (and, in `report run`, every downstream stage) — the
+            # 2026-06-11 onboarding run died at KSI 29/60 because Haiku
+            # deterministically fabricated an evidence ID on KSI-IAM-ELP,
+            # twice, across two full pipeline attempts. The guard is right
+            # to refuse; the stage is wrong to die. One retry with explicit
+            # feedback handles the transient case; a deterministic-template
+            # fallback (clearly marked, no LLM prose) handles the
+            # deterministic case so the other 59 KSIs and the downstream
+            # artifacts still ship. Mirrors the Gap Agent's v0.1.139
+            # graceful-repair philosophy at per-KSI granularity.
             nonce = new_fence_nonce()
             user_message = _build_user_message(
                 indicator,
@@ -277,17 +294,96 @@ class DocumentationAgent(Agent):
                 nonce=nonce,
                 scan_summary=input.scan_summary,
             )
-            narrative_output, response, system_prompt = self._invoke_llm(
-                user_message=user_message, max_tokens=max_tokens
-            )
-            assert isinstance(narrative_output, NarrativeOutput)
+            guard_rejections: list[str] = []
+            narrative_output = None
+            response = None
+            for attempt_message in (
+                user_message,
+                user_message + "\n\n## RETRY FEEDBACK\n\n"
+                "Your previous narrative was REJECTED by the citation-integrity "
+                "guard. Cite ONLY evidence IDs that appear verbatim inside the "
+                "fenced evidence blocks above — do not construct, abbreviate, or "
+                "guess IDs. If the Gap classification cited evidence, your "
+                "narrative must cite at least one of those exact IDs.",
+            ):
+                try:
+                    candidate_output, candidate_response, system_prompt = self._invoke_llm(
+                        user_message=attempt_message, max_tokens=max_tokens
+                    )
+                    assert isinstance(candidate_output, NarrativeOutput)
+                    _validate_cited_ids(
+                        candidate_output,
+                        fenced_prompt=system_prompt + "\n" + attempt_message,
+                        nonce=nonce,
+                        classification_evidence_ids=clf.evidence_ids,
+                    )
+                    narrative_output = candidate_output
+                    response = candidate_response
+                    break
+                except AgentValidatorRejectionError as exc:
+                    guard_rejections.append(str(exc))
 
-            _validate_cited_ids(
-                narrative_output,
-                fenced_prompt=system_prompt + "\n" + user_message,
-                nonce=nonce,
-                classification_evidence_ids=clf.evidence_ids,
-            )
+            if narrative_output is None or response is None:
+                # Deterministic guard failure (both attempts rejected): emit a
+                # clearly-marked deterministic-template fallback so the stage
+                # — and the pipeline — completes. No LLM prose, no fabricated
+                # reference reaches the artifact; the skeleton citations are
+                # deterministic and real.
+                print(
+                    f"warning: {clf.ksi_id}: LLM narrative rejected by the "
+                    f"citation-integrity guard on both attempts; emitting a "
+                    f"deterministic fallback narrative instead. Re-draft with "
+                    f"`efterlev agent document --ksi {clf.ksi_id}` (consider a "
+                    f"stronger model). Guard said: {guard_rejections[-1][:160]}",
+                    file=sys.stderr,
+                )
+                guard_fallback_ksi_ids.append(clf.ksi_id)
+                final_draft = AttestationDraft(
+                    ksi_id=clf.ksi_id,
+                    baseline_id=input.baseline_id,
+                    frmr_version=input.frmr_version,
+                    mode="deterministic_template",
+                    citations=skeleton_result.draft.citations,
+                    controls_evidenced=list(skeleton_result.draft.controls_evidenced),
+                    controls_mapped=_normalize_controls_mapped(indicator),
+                    boundary_state=aggregate_boundary_state(ksi_evidence),  # type: ignore[arg-type]
+                    status=clf.status if clf.status != "not_applicable" else None,
+                    narrative=_guard_fallback_narrative(indicator, clf),
+                )
+                fallback_record_id: str | None = None
+                if store is not None:
+                    claim = Claim.create(
+                        claim_type="narrative",
+                        content={
+                            "ksi_id": clf.ksi_id,
+                            "narrative": final_draft.narrative,
+                            "status": clf.status,
+                            "mode": "deterministic_guard_fallback",
+                        },
+                        confidence="low",
+                        derived_from=list(clf.evidence_ids),
+                        model="(deterministic — LLM narrative rejected by citation guard)",
+                        prompt_hash="",
+                    )
+                    record = store.write_record(
+                        payload=claim.model_dump(mode="json"),
+                        record_type="claim",
+                        derived_from=list(clf.evidence_ids),
+                        agent=self.name,
+                        model="(deterministic)",
+                        prompt_hash="",
+                        metadata={
+                            "kind": "ksi_attestation",
+                            "ksi_id": clf.ksi_id,
+                            "narrative_mode": "deterministic_guard_fallback",
+                        },
+                    )
+                    fallback_record_id = record.record_id
+                attestations.append(
+                    KsiAttestation(draft=final_draft, claim_record_id=fallback_record_id)
+                )
+                callback.on_unit_complete(clf.ksi_id, idx, total, success=True)  # type: ignore[attr-defined]
+                continue
 
             final_draft = AttestationDraft(
                 ksi_id=clf.ksi_id,
@@ -353,6 +449,15 @@ class DocumentationAgent(Agent):
             attestations.append(KsiAttestation(draft=final_draft, claim_record_id=claim_record_id))
             callback.on_unit_complete(clf.ksi_id, idx, total, success=True)  # type: ignore[attr-defined]
 
+        if guard_fallback_ksi_ids:
+            print(
+                f"warning: {len(guard_fallback_ksi_ids)} narrative(s) fell back to the "
+                f"deterministic template after citation-guard rejection: "
+                f"{', '.join(guard_fallback_ksi_ids)}. The attestation is complete and "
+                f"no fabricated citation was emitted; re-draft those KSIs with "
+                f"`efterlev agent document --ksi <ID>` (consider a stronger model).",
+                file=sys.stderr,
+            )
         return DocumentationReport(attestations=attestations, skipped_ksi_ids=skipped)
 
 
@@ -382,6 +487,30 @@ def _ensure_draft_marker(narrative: str) -> str:
         if head.startswith(f"draft {sep}"):
             return narrative
     return f"{_DRAFT_MARKER} {narrative.lstrip()}" if narrative else _DRAFT_MARKER
+
+
+def _guard_fallback_narrative(indicator: Indicator, clf: KsiClassification) -> str:
+    """Deterministic narrative for a KSI whose LLM draft was guard-rejected twice.
+
+    No LLM prose — built from the Gap Agent's already-validated classification.
+    States plainly what happened (the citation-integrity guard refused a
+    fabricated evidence reference, so no LLM narrative was emitted), carries
+    the gap rationale so the reviewer still has substance, and names the exact
+    re-draft command. The DRAFT marker leads, same as every non-scanner
+    narrative (v0.1.226)."""
+    rationale = (clf.rationale or "").strip()
+    rationale_block = f" Gap Agent rationale: {rationale}" if rationale else ""
+    return (
+        f"{_DRAFT_MARKER} The LLM-drafted narrative for {indicator.id} was rejected "
+        f"by the citation-integrity guard on both the initial attempt and one retry "
+        f"(the model cited evidence IDs not present in its prompt). No LLM narrative "
+        f"was emitted for this KSI — no fabricated reference reaches this artifact. "
+        f"This deterministic narrative is generated from the Gap Agent's validated "
+        f"classification instead. Classification status: {clf.status}.{rationale_block} "
+        f"Reviewer action: re-draft this narrative with "
+        f"`efterlev agent document --ksi {indicator.id}` (consider a stronger model), "
+        f"or author it manually from the citations attached to this attestation."
+    )
 
 
 def _normalize_controls_mapped(indicator: Indicator) -> list[str]:
@@ -608,12 +737,17 @@ def _validate_cited_ids(
     cited = set(output.cited_evidence_ids)
     fabricated = cited - fenced_ids
     if fabricated:
-        raise AgentError(
+        # AgentValidatorRejectionError (a subclass of AgentError, so existing
+        # `except AgentError` callers still catch) lets the run loop retry
+        # once with feedback and then fall back deterministically instead of
+        # killing the whole stage (v0.1.226; KSI-IAM-ELP deterministic
+        # fabrication on Haiku, 2026-06-11 onboarding run).
+        raise AgentValidatorRejectionError(
             "documentation agent narrative cites evidence IDs not present in the prompt: "
             f"{sorted(fabricated)[:5]}. Prompt-injection guard refuses fabricated citations."
         )
     if classification_evidence_ids and not cited:
-        raise AgentError(
+        raise AgentValidatorRejectionError(
             "documentation agent narrative has empty cited_evidence_ids despite the Gap "
             f"classification citing {len(classification_evidence_ids)} evidence id(s). "
             "Every narrative grounded in classified evidence must cite at least one "

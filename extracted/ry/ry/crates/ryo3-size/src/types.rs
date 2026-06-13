@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyInt, PyString};
-use ryo3_core::{py_type_err, py_value_err};
+use ryo3_core::macros::{py_type_err, py_value_err};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum PyBase {
@@ -77,7 +77,13 @@ impl<'py> IntoPyObject<'py> for &PyBase {
 }
 
 #[derive(Clone, Copy)]
-pub struct PyStyle(pub size::fmt::Style);
+pub struct PyStyle(size::fmt::Style);
+
+impl From<PyStyle> for size::fmt::Style {
+    fn from(style: PyStyle) -> Self {
+        style.0
+    }
+}
 
 impl PyStyle {
     const DEFAULT: Self = Self(size::fmt::Style::Default);

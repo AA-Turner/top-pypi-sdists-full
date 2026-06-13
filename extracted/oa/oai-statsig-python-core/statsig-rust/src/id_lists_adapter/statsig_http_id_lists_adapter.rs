@@ -73,6 +73,8 @@ impl StatsigHttpIdListsAdapter {
             Some(options),
         );
 
+        let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
+
         Self {
             id_lists_manifest_url,
             download_id_list_file_api: options.download_id_list_file_api.clone(),
@@ -80,7 +82,7 @@ impl StatsigHttpIdListsAdapter {
             listener: RwLock::new(None),
             network,
             sync_interval_duration,
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             shutdown_notify: Arc::new(Notify::new()),
         }
     }

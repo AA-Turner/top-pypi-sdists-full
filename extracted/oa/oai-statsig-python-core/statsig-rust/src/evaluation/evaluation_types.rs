@@ -67,6 +67,7 @@ pub struct BaseEvaluation {
     pub name: InternedString,
     pub rule_id: InternedString,
     pub secondary_exposures: Vec<SecondaryExposure>,
+    pub version: Option<u32>,
 
     #[serde(skip_serializing)]
     pub(crate) exposure_info: Option<ExtraExposureInfo>,
@@ -133,12 +134,13 @@ pub struct GateEvaluation {
 
 impl GCIRHashable for GateEvaluation {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let mut hash_array = vec![
             name.hash,
             self.value as u64,
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         hashing::hash_one(hash_array)
     }
 }
@@ -159,13 +161,14 @@ pub struct DynamicConfigEvaluation {
 
 impl GCIRHashable for DynamicConfigEvaluation {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let mut hash_array = vec![
             name.hash,
             self.value.get_hash(),
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.passed as u64,
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         hashing::hash_one(hash_array)
     }
 }
@@ -208,6 +211,7 @@ impl GCIRHashable for ExperimentEvaluation {
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.is_in_layer as u64,
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         let mut explicit_params_hashes = Vec::new();
         if let Some(explicit_parameters) = &self.explicit_parameters {
             for value in explicit_parameters.to_vec_interned() {
@@ -284,6 +288,7 @@ impl GCIRHashable for LayerEvaluation {
                 .as_ref()
                 .map_or(0, |n| n.hash),
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         let mut explicit_params_hashes = Vec::new();
         for value in self.explicit_parameters.to_vec_interned() {
             explicit_params_hashes.push(value.hash);
@@ -315,4 +320,30 @@ fn hash_secondary_exposures(exposures: &Vec<SecondaryExposure>) -> u64 {
         secondary_exposure_hashes.push(exposure.create_hash(&exposure.gate));
     }
     hashing::hash_one(secondary_exposure_hashes)
+}
+
+pub(crate) fn push_optional_version_hash_values(hash_array: &mut Vec<u64>, version: &Option<u32>) {
+    hash_array.push(version.is_some() as u64);
+    hash_array.push(version.map_or(0, u64::from));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::push_optional_version_hash_values;
+
+    #[test]
+    fn optional_version_hash_values_distinguish_missing_from_zero() {
+        let mut missing = Vec::new();
+        push_optional_version_hash_values(&mut missing, &None);
+
+        let mut zero = Vec::new();
+        push_optional_version_hash_values(&mut zero, &Some(0));
+
+        let mut one = Vec::new();
+        push_optional_version_hash_values(&mut one, &Some(1));
+
+        assert_eq!(missing, vec![0, 0]);
+        assert_eq!(zero, vec![1, 0]);
+        assert_eq!(one, vec![1, 1]);
+    }
 }

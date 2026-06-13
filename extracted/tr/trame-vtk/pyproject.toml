@@ -1,6 +1,6 @@
 [project]
 name = "trame-vtk"
-version = "2.11.11"
+version = "2.11.12"
 description = "VTK widgets for trame"
 authors = [{ name = "Kitware Inc." }]
 dependencies = ["trame-client>=3.4,<4"]
@@ -24,8 +24,15 @@ dev = [
     "pre-commit",
     "ruff",
     "pytest >=6",
+    "pytest-asyncio",
     "pytest-cov >=3",
     "nox",
+    "coverage",
+    "pytest-playwright",
+    "trame",
+    "trame-client[test]",
+    "trame-vuetify",
+    "vtk"
 ]
 
 [build-system]

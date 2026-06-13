@@ -398,6 +398,14 @@ def parse_table_structure(schema: str) -> List[Dict[str, Any]]:
     >>> parse_table_structure('c Nullable(Float32) DEFAULT NULL')
     [{'name': 'c', 'type': 'Float32', 'codec': None, 'default_value': None, 'jsonpath': None, 'nullable': True, 'normalized_name': 'c'}]
 
+    >>> parse_table_structure('c LowCardinality(Nullable(String))')
+    [{'name': 'c', 'type': 'LowCardinality(Nullable(String))', 'codec': None, 'default_value': None, 'jsonpath': None, 'nullable': False, 'normalized_name': 'c'}]
+
+    >>> parse_table_structure('c Nullable(LowCardinality(Nullable(String)))')
+    Traceback (most recent call last):
+    ...
+    ValueError: Nested type LowCardinality(Nullable(String)) cannot be inside Nullable type
+
     >>> parse_table_structure("c String DEFAULT 'bla'")
     [{'name': 'c', 'type': 'String', 'codec': None, 'default_value': "DEFAULT 'bla'", 'jsonpath': None, 'nullable': False, 'normalized_name': 'c'}]
 

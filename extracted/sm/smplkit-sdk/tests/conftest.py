@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 import smplkit._metrics as _metrics_module
+from smplkit._ws import SharedWebSocket
 
 
 class _NoOpMetricsReporter:
@@ -53,6 +54,30 @@ def _disable_telemetry_in_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr(_metrics_module, "_MetricsReporter", _NoOpMetricsReporter)
     monkeypatch.setattr(_metrics_module, "_AsyncMetricsReporter", _NoOpAsyncMetricsReporter)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stop unit tests from opening a real WebSocket to the app service.
+
+    Any client that reaches its live surface (``config.subscribe``,
+    ``flag.on_change``, ``wait_until_ready``, …) lazily constructs a
+    :class:`SharedWebSocket` and calls ``.start()``, which spawns a daemon
+    thread that dials ``wss://app.smplkit.com/api/ws/v1/events``. With the
+    fake API keys unit tests use, the dial is rejected by CloudFront with an
+    HTTP 403 and the background reconnect loop logs warnings on a backoff
+    schedule — forever, since the thread is a daemon that outlives the test
+    that spawned it. Those stray ``smplkit.ws`` warnings leak across tests
+    and once flaked a ``caplog`` assertion in the logging suite.
+
+    Patching ``start`` to a no-op keeps the ``SharedWebSocket`` object (so
+    listener registration and ``connection_status`` still behave) while never
+    spawning the dialing thread. The real ``start`` / ``_connect`` /
+    ``_reconnect`` machinery is exercised directly — with the network mocked
+    — in ``test_shared_ws.py``, which overrides this fixture with a no-op so
+    it keeps the genuine method.
+    """
+    monkeypatch.setattr(SharedWebSocket, "start", lambda self: None)
 
 
 @pytest.fixture(autouse=True)

@@ -688,19 +688,6 @@ class LeanData(System.Object):
         ...
 
     @staticmethod
-    def get_intraday_calendar(exchange_time_zone_date: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, extended_market_hours: bool) -> QuantConnect.Data.Consolidators.CalendarInfo:
-        """
-        Helper method to return the intraday bar start time and period, anchored to the market open, without extending past the close
-        
-        :param exchange_time_zone_date: The point in time we want to get the bar information about
-        :param period: The intraday consolidation period
-        :param exchange_hours: The associated exchange hours
-        :param extended_market_hours: True if extended market hours should be taken into consideration
-        :returns: The calendar information that holds a start time and a period.
-        """
-        ...
-
-    @staticmethod
     def get_next_daily_end_time(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_time_zone_date: typing.Union[datetime.datetime, datetime.date], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> datetime.datetime:
         """Helper method to get the next daily end time, taking into account strict end times if appropriate"""
         ...

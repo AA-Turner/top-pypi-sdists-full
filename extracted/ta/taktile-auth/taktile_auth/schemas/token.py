@@ -93,6 +93,7 @@ class TaktileIdToken(BaseModel):
         role_def: RoleDefinition,
         role_args: t.Dict[str, str],
         filters: t.Dict[str, str],
+        target_roles: t.Optional[t.FrozenSet[str]] = None,
     ) -> t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]]:
         """Filter one role against (org_id, ws_id) constraints.
 
@@ -103,10 +104,21 @@ class TaktileIdToken(BaseModel):
           recurse. A role with non-scope args and no sub-roles is
           dropped — fail-closed default for future roles that don't
           opt into scope-awareness.
+
+        With ``target_roles`` set, the stop condition changes: walk
+        every non-matching role's sub-role tree (even through scoped
+        roles) until a requested role is found, then narrow it as
+        above. A non-matching leaf is dropped, so the token can never
+        reach a role that is not in (or below) what it already holds.
         """
         declared_scope = set(role_def.args) & set(cls._SCOPE_DIMS)
 
-        if declared_scope:
+        if target_roles is None:
+            stop_and_narrow = bool(declared_scope)
+        else:
+            stop_and_narrow = role_def.name in target_roles
+
+        if stop_and_narrow:
             narrowed = dict(role_args)
             for dim in declared_scope:
                 target = filters.get(dim)
@@ -123,7 +135,9 @@ class TaktileIdToken(BaseModel):
             for arg in sub_def.args:
                 if arg not in sub_args:
                     sub_args[arg] = "*"
-            results.extend(cls._filter_one_role(sub_def, sub_args, filters))
+            results.extend(
+                cls._filter_one_role(sub_def, sub_args, filters, target_roles)
+            )
         return results
 
     def filter_roles(
@@ -131,15 +145,31 @@ class TaktileIdToken(BaseModel):
         *,
         org_id: t.Optional[str] = None,
         ws_id: t.Optional[str] = None,
+        role_names: t.Optional[t.Sequence[str]] = None,
     ) -> t.List[Role]:
-        """Filter token roles by org_id and/or ws_id in a single pass."""
+        """Filter token roles by org_id, ws_id and/or role names in a
+        single pass.
+
+        ``role_names`` subsets to the named roles: each token role is
+        expanded down its sub-role inheritance tree until a requested
+        role is found, which is then narrowed against ``org_id`` /
+        ``ws_id``. Roles whose subtree contains none of the requested
+        names are dropped (fail-closed), so this can only ever narrow
+        — never escalate — the token's authority. An empty sequence
+        matches nothing; unknown names raise ``ValueError``.
+        """
+        if role_names is not None:
+            unknown = [name for name in role_names if name not in ROLES]
+            if unknown:
+                raise ValueError(f"Unknown role names: {sorted(unknown)}")
+
         filters: t.Dict[str, str] = {}
         if org_id is not None:
             filters["org_id"] = org_id
         if ws_id is not None:
             filters["ws_id"] = ws_id
 
-        if not filters:
+        if not filters and role_names is None:
             return self.auth_roles
 
         candidates: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []
@@ -154,10 +184,15 @@ class TaktileIdToken(BaseModel):
                 (role_def, dict(zip(role_def.args, role_args_list)))
             )
 
+        target_roles = (
+            frozenset(role_names) if role_names is not None else None
+        )
         expanded: t.List[t.Tuple[RoleDefinition, t.Dict[str, str]]] = []
         for role_def, role_kwargs in candidates:
             expanded.extend(
-                self._filter_one_role(role_def, role_kwargs, filters)
+                self._filter_one_role(
+                    role_def, role_kwargs, filters, target_roles
+                )
             )
         candidates = expanded
 

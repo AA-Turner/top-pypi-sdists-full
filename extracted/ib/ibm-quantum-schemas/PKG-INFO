@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-quantum-schemas
-Version: 0.8.20260605
+Version: 0.9.20260612
 Summary: IBM Quantum Pydantic models.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0

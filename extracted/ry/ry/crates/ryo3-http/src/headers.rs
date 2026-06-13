@@ -5,8 +5,8 @@ use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use http::header::HeaderMap;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
+use ryo3_core::macros::{py_runtime_error, py_value_error};
 use ryo3_core::sync::RyRwLock;
-use ryo3_core::{py_runtime_error, py_value_error};
 
 use crate::http_types::{
     PyHttpHeaderMapRef, PyHttpHeaderName, PyHttpHeaderNameRef, PyHttpHeaderValue,
@@ -42,6 +42,22 @@ impl PyHeaders {
     #[inline]
     fn write(&self) -> RwLockWriteGuard<'_, HeaderMap> {
         self.0.py_write()
+    }
+
+    #[must_use]
+    pub fn clone_header_map(&self) -> HeaderMap {
+        self.read().clone()
+    }
+
+    #[must_use]
+    pub fn into_header_map(self) -> HeaderMap {
+        match Arc::try_unwrap(self.0) {
+            Ok(lock) => lock
+                .0
+                .into_inner()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            Err(shared) => shared.py_read().clone(),
+        }
     }
 
     fn py_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
@@ -92,6 +108,12 @@ impl From<PyHttpHeaderMap> for PyHeaders {
     }
 }
 
+impl From<PyHeaders> for HeaderMap {
+    fn from(h: PyHeaders) -> Self {
+        h.into_header_map()
+    }
+}
+
 impl From<Arc<RyRwLock<HeaderMap, false>>> for PyHeaders {
     fn from(hm: Arc<RyRwLock<HeaderMap, false>>) -> Self {
         Self(hm)
@@ -105,16 +127,16 @@ impl PyHeaders {
     fn py_new(headers: Option<PyHeadersLike>, kwargs: Option<PyHeadersLike>) -> Self {
         match (headers, kwargs) {
             (Some(headers), Some(kwargs)) => {
-                let mut headers_map = HeaderMap::from(headers);
-                headers_map.extend(HeaderMap::from(kwargs));
+                let mut headers_map = headers.into_header_map();
+                headers_map.extend(kwargs.into_header_map());
                 Self::from(headers_map)
             }
             (Some(headers), None) => {
-                let headers_map = HeaderMap::from(headers);
+                let headers_map = headers.into_header_map();
                 Self::from(headers_map)
             }
             (None, Some(kwargs)) => {
-                let kw_headers = HeaderMap::from(kwargs);
+                let kw_headers = kwargs.into_header_map();
                 Self::from(kw_headers)
             }
             (None, None) => Self::from(HeaderMap::new()),
@@ -302,7 +324,7 @@ impl PyHeaders {
                 }
             }
             PyHeadersLike::Map(other) => {
-                let hm = HeaderMap::from(other);
+                let hm = other.into();
                 let mut inner = self.write();
                 if append {
                     update_headers_append(&hm, &mut inner)
@@ -322,7 +344,7 @@ impl PyHeaders {
                 update_headers_insert(&other_inner, &mut new_map)
             }
             PyHeadersLike::Map(other) => {
-                let hm = HeaderMap::from(other);
+                let hm = other.into();
                 update_headers_insert(&hm, &mut new_map)
             }
         }
@@ -341,7 +363,7 @@ impl PyHeaders {
     #[cfg(feature = "json")]
     #[pyo3(signature = (*, fmt = false))]
     fn stringify(&self, fmt: bool) -> PyResult<String> {
-        use ryo3_core::py_value_error;
+        use ryo3_core::macros::py_value_error;
         let inner = self.read();
         if fmt {
             serde_json::to_string_pretty(&crate::http_serde::HttpHeaderMapRef(&inner))
@@ -369,7 +391,7 @@ impl PyHeaders {
     #[cfg(feature = "json")]
     #[staticmethod]
     fn from_json(data: &str) -> PyResult<Self> {
-        use ryo3_core::py_value_error;
+        use ryo3_core::macros::py_value_error;
 
         serde_json::from_str::<crate::PyHttpHeaderMap>(data)
             .map(|e| Self::from(e.0))
@@ -391,7 +413,7 @@ impl PyHeaders {
     #[cfg(feature = "pydantic")]
     #[staticmethod]
     fn _pydantic_validate<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
-        use ryo3_core::py_value_error;
+        use ryo3_core::macros::py_value_error;
         Self::from_any(value).map_err(|e| py_value_error!("Headers validation error: {e}"))
     }
 

@@ -51,37 +51,61 @@ const REDUCED_INFO_RELATIVE_FLOOR: f64 = 1e-10;
 /// (near) zero, so `λ_max ≈ 0` cannot scale the relative floor.
 const REDUCED_INFO_ABSOLUTE_FLOOR: f64 = 1e-12;
 
-/// Slope `d(λ) = g'(λ)` of the Jeffreys eigenvalue antiderivative `g`:
+/// Upper saturation scale `Λ` of the Jeffreys antiderivative: once a
+/// direction is identified at the conditioning gate's own "clearly
+/// identified" curvature (`CONDITIONING_GATE_ABSOLUTE_CLEAR` observation-
+/// equivalents), additional information carries no additional prior reward.
+/// `max(·, floor)` keeps the branch order well-defined in the (extreme-scale)
+/// regime where the relative floor exceeds the gate scale; the joins remain
+/// C¹ automatically there because the log window simply collapses to empty.
+#[inline]
+fn jeffreys_cap(floor: f64) -> f64 {
+    CONDITIONING_GATE_ABSOLUTE_CLEAR.max(floor)
+}
+
+/// Slope `d(λ) = g'(λ)` of the Jeffreys eigenvalue antiderivative `g`, a
+/// BOUNDED, MONOTONE, C¹ function of the reduced eigenvalue (gam#979), with
+/// `Λ = jeffreys_cap(floor)`:
 ///
-///   * `λ ≥ floor`:      `g = ln λ`,                          `d = 1/λ`
-///     (the exact Jeffreys log-volume on identified curvature);
-///   * `0 ≤ λ < floor`:  `g = λ/floor + ln(floor) − 1`,       `d = 1/floor`
+///   * `λ ≥ Λ`:           `g = ln Λ + 1 − Λ/λ`,                `d = Λ/λ²`
+///     (TOP saturation: a direction already identified at the gate's
+///     clearly-identified scale earns no further prior reward; `g → ln Λ + 1`,
+///     `d → 0` as `λ → ∞`);
+///   * `floor ≤ λ < Λ`:   `g = ln λ`,                          `d = 1/λ`
+///     (the exact Jeffreys log-volume on the under-identified window — the
+///     only region where the prior is meant to act);
+///   * `0 ≤ λ < floor`:   `g = λ/floor + ln(floor) − 1`,       `d = 1/floor`
 ///     (the #787 linear continuation — C¹ at `+floor`, preserves the
 ///     1/floor separation bound);
-///   * `λ < 0`:          `g = ln(floor) − 1 + λ/(floor − λ)`, `d = floor/(floor − λ)²`
-///     (SATURATING continuation, gam#979 — see below). C¹ at `0`
-///     (`g(0) = ln(floor) − 1`, `d(0) = 1/floor` from both sides), monotone
-///     increasing everywhere, and `g → ln(floor) − 2`, `d → 0` as `λ → −∞`.
+///   * `λ < 0`:           `g = ln(floor) − 1 + λ/(floor − λ)`, `d = floor/(floor − λ)²`
+///     (BOTTOM saturation). C¹ at `0` (`g(0) = ln(floor) − 1`,
+///     `d(0) = 1/floor` from both sides), `g → ln(floor) − 2`, `d → 0` as
+///     `λ → −∞`.
 ///
-/// WHY THE NEGATIVE BRANCH SATURATES (gam#979; supersedes the gam#814
-/// `ln|λ|` magnitude branch). `ln|λ|` on `λ < 0` made `Φ` REWARD increasingly
-/// indefinite curvature: `∂Φ/∂λ = 1/(2λ) < 0`, so the Φ-augmented inner
-/// objective `−ℓ + ½βᵀSβ − Φ` could be descended indefinitely by driving a
-/// reduced eigenvalue more negative. The old `K²` vec-Gram phantom curvature
-/// froze the step and masked this; with the exact divided-difference `H_Φ`
-/// the joint Newton followed the reward into likelihood saturation (measured
-/// on the constrained binomial-LS wiggle fixture: bare `−ℓ + pen` climbing
-/// 5.2 → 9.9 over 500 cycles while the augmented Δobj stayed negative every
-/// cycle, residual → 3e2, budget exhausted). The Jeffreys prior is the
-/// log-volume of POSITIVE information; an indefinite direction carries no
-/// prior signal, so the principled continuation is FLAT in the limit: the
-/// rational saturation keeps `g` monotone (no reward), bounded below
-/// (no sink), with `d` bounded by `1/floor` (no gam#814 phantom score on
-/// moderate negatives: `d(−0.3) ≈ floor/0.09 ≈ 0`) and no kink anywhere
-/// (the gam#814 `±floor` jump is gone).
+/// WHY BOTH ENDS SATURATE (gam#979; supersedes the gam#814 `ln|λ|` magnitude
+/// branch and the unbounded top). An unbounded `g` lets the Φ-augmented inner
+/// objective `−ℓ + ½βᵀSβ − Φ` be descended by harvesting `Φ` growth instead
+/// of fitting data, and the exact divided-difference `H_Φ` (unlike the old
+/// frozen `K²` vec-Gram phantom) lets the joint Newton actually follow that
+/// reward. Both directions were measured on the constrained binomial-LS
+/// wiggle fixture: the `ln|λ|` bottom rewards driving a reduced eigenvalue
+/// negative; the unbounded top rewards driving OBSERVED information up —
+/// for probit, observed information grows like `η²` on misclassified
+/// saturated observations, so the iterate walked into likelihood saturation
+/// (bare `−ℓ + pen` climbing 5.2 → 9.9 over 500 cycles with the augmented
+/// Δobj negative every cycle, residual → 3e2, budget exhausted). The Jeffreys
+/// term's mandate is BOUNDING under-identified directions; the bounded `g`
+/// is the per-eigenvalue, smooth realisation of the same self-limitation the
+/// binary conditioning gate states globally: exact `ln λ` inside the
+/// under-identified window `[floor, Λ)`, flat outside it. `g` spans the
+/// bounded range `(ln floor − 2, ln Λ + 1]`, so `Φ` can never out-pay a
+/// data-likelihood term.
 #[inline]
 fn floored_inverse(lam: f64, floor: f64) -> f64 {
-    if lam >= floor {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        cap / (lam * lam)
+    } else if lam >= floor {
         1.0 / lam
     } else if lam >= 0.0 {
         1.0 / floor
@@ -91,12 +115,15 @@ fn floored_inverse(lam: f64, floor: f64) -> f64 {
     }
 }
 
-/// `d'(λ)` with the floor held fixed: `−1/λ²` above the floor, `0` inside the
-/// band (the linear continuation has no curvature in `λ`),
-/// `2·floor/(floor − λ)³` on the saturating negative branch.
+/// `d'(λ)` with the floor held fixed: `−2Λ/λ³` on the top saturation,
+/// `−1/λ²` in the log window, `0` inside the band (the linear continuation
+/// has no curvature in `λ`), `2·floor/(floor − λ)³` on the bottom saturation.
 #[inline]
 fn floored_inverse_prime(lam: f64, floor: f64) -> f64 {
-    if lam >= floor {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        -2.0 * cap / (lam * lam * lam)
+    } else if lam >= floor {
         -1.0 / (lam * lam)
     } else if lam >= 0.0 {
         0.0
@@ -106,13 +133,16 @@ fn floored_inverse_prime(lam: f64, floor: f64) -> f64 {
     }
 }
 
-/// `d''(λ)` with the floor held fixed: `2/λ³` above the floor, `0` inside the
-/// band, `6·floor/(floor − λ)⁴` on the saturating negative branch. Needed by
-/// the drift path for the confluent-pair limit of the divided-difference
-/// kernel motion (`δΨ_ii = d''(λ_i)·λ̇_i`).
+/// `d''(λ)` with the floor held fixed: `6Λ/λ⁴` on the top saturation, `2/λ³`
+/// in the log window, `0` inside the band, `6·floor/(floor − λ)⁴` on the
+/// bottom saturation. Needed by the drift path for the confluent-pair limit
+/// of the divided-difference kernel motion (`δΨ_ii = d''(λ_i)·λ̇_i`).
 #[inline]
 fn floored_inverse_second(lam: f64, floor: f64) -> f64 {
-    if lam >= floor {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        6.0 * cap / (lam * lam * lam * lam)
+    } else if lam >= floor {
         2.0 / (lam * lam * lam)
     } else if lam >= 0.0 {
         0.0
@@ -122,19 +152,50 @@ fn floored_inverse_second(lam: f64, floor: f64) -> f64 {
     }
 }
 
-/// `∂d/∂floor` with `λ` held fixed: `0` above the floor, `−1/floor²` inside
-/// the band, `−(floor + λ)/(floor − λ)³` on the saturating negative branch.
-/// Feeds the floor-motion term of the kernel drift when the floor is in its
-/// active relative regime (`floor = REL·λ_max(β)`).
+/// `∂d/∂floor` with `λ` held fixed: `1/λ²` on the top saturation when the cap
+/// is floor-bound (`Λ = floor`, the extreme-scale regime; `0` otherwise — the
+/// gate-bound cap does not move with the floor), `0` in the log window,
+/// `−1/floor²` inside the band, `−(floor + λ)/(floor − λ)³` on the bottom
+/// saturation. Feeds the floor-motion term of the kernel drift when the floor
+/// is in its active relative regime (`floor = REL·λ_max(β)`).
 #[inline]
 fn floored_inverse_floor_sensitivity(lam: f64, floor: f64) -> f64 {
-    if lam >= floor {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        if cap > CONDITIONING_GATE_ABSOLUTE_CLEAR {
+            // Floor-bound cap: d = floor/λ².
+            1.0 / (lam * lam)
+        } else {
+            0.0
+        }
+    } else if lam >= floor {
         0.0
     } else if lam >= 0.0 {
         -1.0 / (floor * floor)
     } else {
         let denom = floor - lam;
         -(floor + lam) / (denom * denom * denom)
+    }
+}
+
+/// `∂d'/∂floor` with `λ` held fixed: nonzero only where `d'` carries the
+/// floor — `−2/λ³` on a floor-bound top saturation (`Λ = floor`),
+/// `−2(2·floor + λ)/(floor − λ)⁴` on the bottom saturation, `0` elsewhere.
+/// Feeds the confluent-pair floor-motion of the kernel drift.
+#[inline]
+fn floored_inverse_prime_floor_sensitivity(lam: f64, floor: f64) -> f64 {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        if cap > CONDITIONING_GATE_ABSOLUTE_CLEAR {
+            -2.0 / (lam * lam * lam)
+        } else {
+            0.0
+        }
+    } else if lam >= 0.0 {
+        0.0
+    } else {
+        let denom = floor - lam;
+        -2.0 * (2.0 * floor + lam) / (denom * denom * denom * denom)
     }
 }
 
@@ -848,7 +909,16 @@ where
         // saturation; the saturating branch is monotone, bounded below, and
         // keeps the gam#814 guarantee that moderate negatives carry no phantom
         // score: `d(−0.3) = floor/(floor+0.3)² ≈ 0`).
-        if lam >= floor {
+        let cap = jeffreys_cap(floor);
+        if lam >= cap {
+            phi += 0.5 * (cap.ln() + 1.0 - cap / lam);
+            inv_diag[i] = floored_inverse(lam, floor);
+            if cap > CONDITIONING_GATE_ABSOLUTE_CLEAR {
+                // Floor-bound cap (extreme-scale regime): g = ln(floor) + 1 − floor/λ,
+                // so ∂g/∂floor = 1/floor − 1/λ.
+                floor_value_sensitivity += 1.0 / floor - 1.0 / lam;
+            }
+        } else if lam >= floor {
             phi += 0.5 * lam.ln();
             inv_diag[i] = floored_inverse(lam, floor);
         } else if lam >= 0.0 {
@@ -977,6 +1047,111 @@ where
     // identity there (byte-identical to the binary-gate term); it only tapers the
     // term to 0 across the transition band, making Φ/∇Φ/H_Φ continuous in ρ.
     Ok((gate_weight * phi, grad * gate_weight, hphi * gate_weight))
+}
+
+/// Exact second-directional-Hessian completion for the Tier-B joint Jeffreys
+/// curvature. [`joint_jeffreys_term`] builds the Daleckii-Krein
+/// divided-difference part of `-∇²Φ`; this adds the omitted
+/// `-1/2 tr(K · D_ab)` term, where `K` is the same floored reduced inverse and
+/// `D_ab = Z_J^T H''[e_a,e_b] Z_J`.
+pub fn joint_jeffreys_second_order_completion<Dir2Fn>(
+    h_joint: ArrayView2<'_, f64>,
+    z_j: ArrayView2<'_, f64>,
+    mut hessian_second_dir: Dir2Fn,
+) -> Result<Option<Array2<f64>>, String>
+where
+    Dir2Fn: FnMut(&Array1<f64>, &Array1<f64>) -> Result<Option<Array2<f64>>, String>,
+{
+    let p = h_joint.nrows();
+    if h_joint.ncols() != p {
+        return Err(format!(
+            "joint_jeffreys_second_order_completion: H must be square, got {}x{}",
+            h_joint.nrows(),
+            h_joint.ncols()
+        ));
+    }
+    if z_j.nrows() != p {
+        return Err(format!(
+            "joint_jeffreys_second_order_completion: Z_J has {} rows, expected {p}",
+            z_j.nrows()
+        ));
+    }
+    let m = z_j.ncols();
+    if m == 0 {
+        return Ok(Some(Array2::zeros((p, p))));
+    }
+
+    let hz = h_joint.dot(&z_j);
+    let h_id = z_j.t().dot(&hz);
+    let mut h_id_sym = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        for j in 0..m {
+            h_id_sym[[i, j]] = 0.5 * (h_id[[i, j]] + h_id[[j, i]]);
+        }
+    }
+    let (evals, evecs) = h_id_sym.eigh(Side::Lower).map_err(|e| {
+        format!("joint_jeffreys_second_order_completion: reduced-information eigendecomposition failed: {e}")
+    })?;
+    let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max);
+    let gate_weight = {
+        let lambda_min = evals.iter().cloned().fold(f64::INFINITY, f64::min);
+        conditioning_gate_weight(lambda_min, lambda_max)
+    };
+    if gate_weight == 0.0 {
+        return Ok(Some(Array2::zeros((p, p))));
+    }
+    let floor = (REDUCED_INFO_RELATIVE_FLOOR * lambda_max).max(REDUCED_INFO_ABSOLUTE_FLOOR);
+    let mut inv_diag = Array1::<f64>::zeros(m);
+    for (i, &lam) in evals.iter().enumerate() {
+        inv_diag[i] = floored_inverse(lam, floor);
+    }
+    let mut k_reduced = Array2::<f64>::zeros((m, m));
+    for eig in 0..m {
+        let weight = inv_diag[eig];
+        if weight == 0.0 {
+            continue;
+        }
+        for row in 0..m {
+            let wr = weight * evecs[[row, eig]];
+            for col in 0..m {
+                k_reduced[[row, col]] += wr * evecs[[col, eig]];
+            }
+        }
+    }
+
+    let mut out = Array2::<f64>::zeros((p, p));
+    let mut axis_a = Array1::<f64>::zeros(p);
+    let mut axis_b = Array1::<f64>::zeros(p);
+    for a in 0..p {
+        axis_a.fill(0.0);
+        axis_a[a] = 1.0;
+        for b in a..p {
+            axis_b.fill(0.0);
+            axis_b[b] = 1.0;
+            let h2 = match hessian_second_dir(&axis_a, &axis_b)? {
+                Some(h2) => h2,
+                None => return Ok(None),
+            };
+            if h2.dim() != (p, p) {
+                return Err(format!(
+                    "joint_jeffreys_second_order_completion: H''[{a},{b}] shape {:?} != ({p}, {p})",
+                    h2.dim()
+                ));
+            }
+            let h2z = h2.dot(&z_j);
+            let d_ab = z_j.t().dot(&h2z);
+            let mut trace = 0.0_f64;
+            for i in 0..m {
+                for j in 0..m {
+                    trace += k_reduced[[i, j]] * d_ab[[j, i]];
+                }
+            }
+            let value = -0.5 * gate_weight * trace;
+            out[[a, b]] = value;
+            out[[b, a]] = value;
+        }
+    }
+    Ok(Some(out))
 }
 
 /// Exact directional derivative `D_β H_Φ[δ]` of the Tier-B Gauss-Newton Jeffreys
@@ -1172,7 +1347,13 @@ where
     }
     let floor = (REDUCED_INFO_RELATIVE_FLOOR * lambda_max).max(REDUCED_INFO_ABSOLUTE_FLOOR);
     // Ḋ = Z_Jᵀ (∂H_joint) Z_J, the reduced perturbation of the reduced information.
-    let dbar = z_j.t().dot(&pert_h.dot(&z_j)); // m x m
+    let dbar_raw = z_j.t().dot(&pert_h.dot(&z_j)); // m x m
+    let mut dbar = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        for j in 0..m {
+            dbar[[i, j]] = 0.5 * (dbar_raw[[i, j]] + dbar_raw[[j, i]]);
+        }
+    }
 
     // EXACT DERIVATIVE OF THE DIVIDED-DIFFERENCE CURVATURE (value↔drift
     // consistency, gam#979). The value path builds
@@ -1241,15 +1422,13 @@ where
             } else {
                 // Confluent/diagonal: Ψ = d'(λ), so δΨ = d''(λ)·λ̇ with the
                 // averaged eigenvalue motion of the (near-)tied pair, plus the
-                // floor motion of d' (nonzero only on the saturating negative
-                // branch, where `∂d'/∂floor = −2(2·floor + λ)/(floor − λ)⁴`).
+                // floor motion of d' (nonzero only on the saturating branches).
                 dpsi[[i, j]] = floored_inverse_second(evals[i], floor)
                     * 0.5
                     * (dbar_red[[i, i]] + dbar_red[[j, j]]);
-                if dfloor != 0.0 && evals[i] < 0.0 {
-                    let denom = floor - evals[i];
+                if dfloor != 0.0 {
                     dpsi[[i, j]] +=
-                        -2.0 * (2.0 * floor + evals[i]) / (denom * denom * denom * denom) * dfloor;
+                        floored_inverse_prime_floor_sensitivity(evals[i], floor) * dfloor;
                 }
             }
         }
@@ -1277,7 +1456,13 @@ where
                 hdot_a.ncols()
             ));
         }
-        let d_a = z_j.t().dot(&hdot_a.dot(&z_j)); // Z_Jᵀ ∂_a H Z_J
+        let d_a_raw = z_j.t().dot(&hdot_a.dot(&z_j)); // Z_Jᵀ ∂_a H Z_J
+        let mut d_a = Array2::<f64>::zeros((m, m));
+        for i in 0..m {
+            for j in 0..m {
+                d_a[[i, j]] = 0.5 * (d_a_raw[[i, j]] + d_a_raw[[j, i]]);
+            }
+        }
         let a_a = evecs.t().dot(&d_a).dot(&evecs); // Ṽ_a
 
         let pert_hdot_a = match pert_hessian_dir(&axis)? {
@@ -1291,7 +1476,13 @@ where
                 pert_hdot_a.ncols()
             ));
         }
-        let d_a_pert = z_j.t().dot(&pert_hdot_a.dot(&z_j)); // Z_Jᵀ (∂Hdot[e_a]) Z_J
+        let d_a_pert_raw = z_j.t().dot(&pert_hdot_a.dot(&z_j)); // Z_Jᵀ (∂Hdot[e_a]) Z_J
+        let mut d_a_pert = Array2::<f64>::zeros((m, m));
+        for i in 0..m {
+            for j in 0..m {
+                d_a_pert[[i, j]] = 0.5 * (d_a_pert_raw[[i, j]] + d_a_pert_raw[[j, i]]);
+            }
+        }
 
         // δṼ_a = Vᵀ (∂D_a) V + Ṽ_a C − C Ṽ_a.
         let da_a = evecs.t().dot(&d_a_pert).dot(&evecs) + &a_a.dot(&rotation) - &rotation.dot(&a_a);
@@ -1751,23 +1942,52 @@ mod tests {
         };
         let h = h_at(&beta);
         let (phi, grad, hphi) = joint_jeffreys_term(h.view(), z.view(), hdir).unwrap();
-        // Sanity: the negative direction must NOT have been pinned to the floor.
-        // With the buggy signed floor, |grad| would be ~1/floor ≈ 1.7e9 here.
+        // Sanity (the gam#814 guarantee, preserved by the gam#979 saturating
+        // branch): the moderate negative direction must NOT carry a phantom
+        // 1/floor-scale Firth score. With the original signed floor, |grad|
+        // would be ~1/floor ≈ 1.7e9 here; with the saturating branch the
+        // negative direction's slope is `floor/(floor − λ)² ≈ 0`.
         assert!(
             grad.iter().all(|g| g.abs() < 1e3),
-            "indefinite direction must use the signed 1/λ inverse, not 1/floor; grad={grad:?}"
+            "indefinite direction must carry no phantom Firth score; grad={grad:?}"
         );
-        // Φ = ½(ln|λ0| + ln|λ1|) = ½ ln(exp(b0) · (1 + b1^2)), both |λ| ≫ floor.
-        let expected_phi = 0.5 * (beta[0].exp() * (1.0 + beta[1] * beta[1])).ln();
+        // The saturating branch must also not REWARD deeper indefiniteness
+        // (the gam#979 runaway): the gradient along the negative-curvature
+        // coordinate is essentially zero, not the gam#814 signed `1/λ` that
+        // pulled λ further negative.
+        assert!(
+            grad[1].abs() < 1e-6,
+            "saturating branch must be flat on a moderate negative eigenvalue; grad[1]={}",
+            grad[1]
+        );
+        // Φ = ½(ln λ0 + g_sat(λ1)) with the saturating continuation on λ1 < 0:
+        // g_sat(λ) = ln(floor) − 1 + λ/(floor − λ). λ_max = e^{b0}, so
+        // floor = REL · λ_max here (relative regime).
+        let lam0 = beta[0].exp();
+        let lam1 = -(1.0 + beta[1] * beta[1]);
+        let floor = 1e-10_f64 * lam0;
+        let g_sat = |lam: f64, floor: f64| -> f64 {
+            if lam >= floor {
+                lam.ln()
+            } else if lam >= 0.0 {
+                lam / floor + floor.ln() - 1.0
+            } else {
+                floor.ln() - 1.0 + lam / (floor - lam)
+            }
+        };
+        let expected_phi = 0.5 * (lam0.ln() + g_sat(lam1, floor));
         assert!(
             (phi - expected_phi).abs() < 1e-9,
             "phi {phi} vs {expected_phi}"
         );
-        // Finite-difference the value the term accumulates (½ Σ ln|λ_i| since both
-        // magnitudes are above the floor) and compare to the analytic gradient.
+        // Finite-difference the value the term accumulates (the same three-branch
+        // antiderivative, floor moving with λ_max) and compare to the analytic
+        // gradient — value/gradient consistency on the mixed-sign spectrum.
         let value_at = |b: &Array1<f64>| -> f64 {
             let hh = h_at(b);
-            0.5 * (hh[[0, 0]].abs().ln() + hh[[1, 1]].abs().ln())
+            let lam_max = hh[[0, 0]].max(0.0);
+            let fl = (1e-10 * lam_max).max(1e-12);
+            0.5 * (g_sat(hh[[0, 0]], fl) + g_sat(hh[[1, 1]], fl))
         };
         let eps = 1e-7;
         for k in 0..p {
@@ -1778,20 +1998,17 @@ mod tests {
             let fd = (value_at(&bp) - value_at(&bm)) / (2.0 * eps);
             assert!(
                 (grad[k] - fd).abs() <= 1e-5 * (1.0 + fd.abs()),
-                "indefinite grad[{k}] {} vs fd {fd}; value must be ½Σln|λ| (signed 1/λ inverse)",
+                "indefinite grad[{k}] {} vs fd {fd}; value/gradient must share the saturating g",
                 grad[k]
             );
         }
-        // H_Phi is a Gram (½ S Sᵀ) so it stays symmetric PSD even with a negative
-        // eigenvalue in H_id.
+        // The exact divided-difference H_Φ is symmetric; on a mixed-sign
+        // spectrum it may be indefinite (that is the honest curvature of Φ —
+        // the Moré–Sorensen step owns it), so only symmetry is asserted here.
         for a in 0..p {
             for b in 0..p {
                 assert!((hphi[[a, b]] - hphi[[b, a]]).abs() < 1e-12);
             }
-        }
-        let (evals, _) = hphi.eigh(Side::Lower).unwrap();
-        for e in evals.iter() {
-            assert!(*e >= -1e-10, "H_Phi must be PSD, got eigenvalue {e}");
         }
     }
 

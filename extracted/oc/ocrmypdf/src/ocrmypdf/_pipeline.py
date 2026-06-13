@@ -29,6 +29,7 @@ from ocrmypdf._exec import unpaper
 from ocrmypdf._jobcontext import PageContext, PdfContext
 from ocrmypdf._metadata import repair_docinfo_nuls
 from ocrmypdf._options import OcrOptions, ProcessingMode, TaggedPdfMode
+from ocrmypdf._pageboxes import log_box_repairs, repair_page_boxes
 from ocrmypdf.exceptions import (
     DigitalSignatureError,
     DpiError,
@@ -44,7 +45,7 @@ from ocrmypdf.pdfa import (
     generate_pdfa_ps,
     speculative_pdfa_conversion,
 )
-from ocrmypdf.pdfinfo import Colorspace, Encoding, FloatRect, PageInfo, PdfInfo
+from ocrmypdf.pdfinfo import Colorspace, Encoding, FloatRect, Ink, PageInfo, PdfInfo
 from ocrmypdf.pluginspec import GhostscriptRasterDevice, OrientationConfidence
 
 try:
@@ -116,8 +117,7 @@ def triage_image_file(input_file: Path, output_file: Path, options: OcrOptions) 
 
         if im.mode in ('RGBA', 'LA'):
             raise UnsupportedImageFormatError(
-                "The input image has an alpha channel. Remove the alpha "
-                "channel first."
+                "The input image has an alpha channel. Remove the alpha channel first."
             )
 
         if 'iccprofile' not in im.info:
@@ -175,6 +175,12 @@ def triage(
                 )
             try:
                 with pikepdf.open(input_file) as pdf:
+                    repairs_by_page = {
+                        n: repairs
+                        for n, page in enumerate(pdf.pages)
+                        if (repairs := repair_page_boxes(page))
+                    }
+                    log_box_repairs(repairs_by_page)
                     pdf.save(output_file)
             except pikepdf.PdfError as e:
                 raise InputFileError() from e
@@ -250,12 +256,15 @@ def validate_pdfinfo_options(context: PdfContext) -> None:
                     "image of the form and all filled form fields. The output PDF "
                     "will be 'flattened' and will no longer be fillable."
                 )
-    if pdfinfo.is_tagged:
+    if pdfinfo.is_tagged or pdfinfo.has_structure_tree:
         log.warning(
-            "This PDF is marked as a Tagged PDF. This often indicates "
-            "that the PDF was generated from an office document and does "
-            "not need OCR. PDF pages processed by OCRmyPDF may not be "
-            "tagged correctly."
+            "This PDF contains structural markup (it is a Tagged PDF or "
+            "carries a logical structure tree). This often indicates that the "
+            "PDF was generated from an office document or is otherwise born "
+            "digital, and does not need OCR. OCRmyPDF cannot rebuild this "
+            "structure to match new text, so any page it re-OCRs with "
+            "--force-ocr or --redo-ocr will have its structural markup "
+            "discarded."
         )
         if (
             options.tagged_pdf_mode == TaggedPdfMode.default
@@ -324,6 +333,11 @@ def is_ocr_required(page_context: PageContext) -> bool:
     """Check if the page needs to be OCR'd."""
     pageinfo = page_context.pageinfo
     options = page_context.options
+
+    if options.mode == ProcessingMode.strip_text:
+        # Strip mode removes the OCR text layer in place; it never rasterizes
+        # or runs OCR. The stripping happens in OcrGrafter.graft_page.
+        return False
 
     ocr_required = True
 
@@ -508,6 +522,49 @@ def calculate_raster_dpi(page_context: PageContext):
     return canvas_dpi, page_dpi
 
 
+def _select_raster_device(pageinfo: PageInfo) -> GhostscriptRasterDevice:
+    """Choose the minimum raster device that preserves the page's color depth.
+
+    The device escalates from 1-bit mono through grayscale, indexed, and full
+    color as required by the page's images, image masks, and vector content.
+    Image masks are painted with the current fill color, so a mask painted in
+    gray or color escalates the device even though the mask itself is 1-bit.
+    """
+    colorspaces = [
+        GhostscriptRasterDevice.PNGMONOD,
+        GhostscriptRasterDevice.PNGGRAY,
+        GhostscriptRasterDevice.PNG256,
+        GhostscriptRasterDevice.PNG16M,
+    ]
+    device_idx = 0
+
+    def at_least(colorspace):
+        return max(device_idx, colorspaces.index(colorspace))
+
+    for image in pageinfo.images:
+        if image.type_ == 'stencil':
+            # The fill color used to paint the mask, not the 1-bit mask data,
+            # determines the color depth OCR needs.
+            if image.ink == Ink.color:
+                device_idx = at_least(GhostscriptRasterDevice.PNG16M)
+            elif image.ink == Ink.gray:
+                device_idx = at_least(GhostscriptRasterDevice.PNGGRAY)
+            continue
+        if image.bpc > 1:
+            if image.color == Colorspace.index:
+                device_idx = at_least(GhostscriptRasterDevice.PNG256)
+            elif image.color == Colorspace.gray:
+                device_idx = at_least(GhostscriptRasterDevice.PNGGRAY)
+            else:
+                device_idx = at_least(GhostscriptRasterDevice.PNG16M)
+
+    if pageinfo.has_vector:
+        log.debug(f"Page has vector content, using {GhostscriptRasterDevice.PNG16M}")
+        device_idx = at_least(GhostscriptRasterDevice.PNG16M)
+
+    return colorspaces[device_idx]
+
+
 def rasterize(
     input_file: Path,
     page_context: PageContext,
@@ -529,39 +586,13 @@ def rasterize(
     Returns:
         Path: The output PNG file path.
     """
-    colorspaces = [
-        GhostscriptRasterDevice.PNGMONO,
-        GhostscriptRasterDevice.PNGGRAY,
-        GhostscriptRasterDevice.PNG256,
-        GhostscriptRasterDevice.PNG16M,
-    ]
-    device_idx = 0
-
     if remove_vectors is None:
         remove_vectors = page_context.options.remove_vectors
 
     output_file = page_context.get_path(f'rasterize{output_tag}.png')
     pageinfo = page_context.pageinfo
 
-    def at_least(colorspace):
-        return max(device_idx, colorspaces.index(colorspace))
-
-    for image in pageinfo.images:
-        if image.type_ != 'image':
-            continue  # ignore masks
-        if image.bpc > 1:
-            if image.color == Colorspace.index:
-                device_idx = at_least(GhostscriptRasterDevice.PNG256)
-            elif image.color == Colorspace.gray:
-                device_idx = at_least(GhostscriptRasterDevice.PNGGRAY)
-            else:
-                device_idx = at_least(GhostscriptRasterDevice.PNG16M)
-
-    if pageinfo.has_vector:
-        log.debug(f"Page has vector content, using {GhostscriptRasterDevice.PNG16M}")
-        device_idx = at_least(GhostscriptRasterDevice.PNG16M)
-
-    device = colorspaces[device_idx]
+    device = _select_raster_device(pageinfo)
 
     log.debug(
         f"Rasterize with {device}, rotation {correction}, mediabox {pageinfo.mediabox}"

@@ -6,6 +6,7 @@ initialization (jieba, chromadb, fastembed) is deferred until first use.
 from __future__ import annotations
 
 import struct
+import logging
 from datetime import datetime, timezone
 
 # ── Module-level state (lazy singletons) ──────────────────────────────────
@@ -34,6 +35,9 @@ def _get_jieba():
     if _jieba is None:
         try:
             import jieba as _j
+            # Suppress jieba's stdout-loading messages — they pollute --json
+            # output and break JSON parsing for CLI consumers (#644).
+            _j.setLogLevel(logging.ERROR)
             _jieba = _j
         except ImportError:
             _jieba = False

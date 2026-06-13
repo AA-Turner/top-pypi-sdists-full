@@ -11,7 +11,7 @@ description = "Multi-backend voice-conversion crate for Blazen (RVC and related 
 [dependencies]
 async-trait.workspace = true
 bincode = { version = "1", optional = true }
-blazen-audio = { version = "0.6.72", path = "../blazen-audio" }
+blazen-audio = { version = "0.6.74", path = "../blazen-audio" }
 candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 futures-core.workspace = true

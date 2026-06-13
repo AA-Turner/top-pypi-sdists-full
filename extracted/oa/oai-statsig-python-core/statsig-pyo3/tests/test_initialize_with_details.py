@@ -40,6 +40,24 @@ def test_initialize_with_details_success(statsig_setup):
     assert init_details.failure_details is None
 
 
+def test_is_config_spec_ready_reports_current_specs_state(statsig_setup):
+    mock_server = statsig_setup
+    options = StatsigOptions(
+        specs_url=mock_server.url_for("/v2/download_config_specs"),
+        log_event_url=mock_server.url_for("/v1/log_event"),
+    )
+    statsig = Statsig("secret-key", options)
+
+    try:
+        assert not statsig.is_config_spec_ready()
+
+        statsig.initialize().wait()
+
+        assert statsig.is_config_spec_ready()
+    finally:
+        statsig.shutdown().wait()
+
+
 def test_initialize_with_details_failure(statsig_setup):
     mock_server = statsig_setup
     options = StatsigOptions(

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from smplkit.audit._forwarders import ForwardersClient
+    from smplkit.audit.forwarders import ForwardersClient
 
 
 class ForwarderType(str, enum.Enum):
@@ -171,9 +171,9 @@ class HttpHeader:
 
     Attributes:
         name (str): Header name (e.g. ``"Authorization"``, ``"DD-API-KEY"``).
-        value (str): Header value. Supply it plaintext on writes; reads
-            return it as ``"<redacted>"``, so re-supply the real value
-            before saving.
+        value (str): Header value. Returned in plaintext on reads, so a
+            get-mutate-put round-trip preserves it without re-entering
+            secrets.
     """
 
     name: str
@@ -191,8 +191,9 @@ class HttpConfiguration:
         method (HttpMethod): HTTP verb used for delivery. Defaults to ``HttpMethod.POST``.
         url (str): Destination URL the audit service POSTs each event to.
         headers (list[HttpHeader]): Headers attached to every outbound request.
-            Values carry credentials: supply them plaintext on writes; reads
-            return them redacted, so re-supply real values before saving.
+            Values often carry credentials and are returned in plaintext on
+            reads, so a get-mutate-put round-trip preserves them without
+            re-entering secrets.
         success_status (str): Status the destination must return for delivery
             to count as success — either an exact code (``"200"``, ``"204"``)
             or a class (``"2xx"``, ``"4xx"``). Defaults to ``"2xx"``.
@@ -256,9 +257,9 @@ class ForwarderEnvironment:
             destination configuration that fully replaces the forwarder's
             base :attr:`Forwarder.configuration` for this environment.
             ``None`` (the default) inherits the base configuration. As with
-            the base configuration, header values are plaintext on writes
-            and returned redacted on reads — re-supply real values before
-            :meth:`Forwarder.save`.
+            the base configuration, header values are returned in plaintext
+            on reads, so a get-mutate-put round-trip preserves them without
+            re-entering secrets.
     """
 
     enabled: bool = False
@@ -278,10 +279,9 @@ class Forwarder:
 
     Active-record style: mutate fields directly and call :meth:`save` to
     persist, or :meth:`delete` to remove. Header values in
-    ``configuration.headers`` are always returned redacted on reads — the
-    GET path on the audit API replaces every header value with
-    ``"<redacted>"``. Re-supply the real values before calling
-    :meth:`save` (the SDK does not cache them client-side).
+    ``configuration.headers`` are returned in plaintext on reads, so
+    fetching a forwarder, mutating it, and calling :meth:`save` preserves
+    its header values without re-entering secrets.
 
     Attributes:
         id (str | None): Caller-supplied unique identifier (key) for this

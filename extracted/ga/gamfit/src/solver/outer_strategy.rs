@@ -1262,11 +1262,12 @@ pub enum HessianSource {
 
 /// Requested derivative order for an outer objective evaluation.
 ///
-/// Cost-only paths continue to use [`OuterObjective::eval_cost`]. This enum is
-/// for the shared `eval` bridge where the runner needs either first-order or
-/// second-order information depending on the active plan.
+/// This enum is for the shared `eval` bridge where the runner needs value-only,
+/// first-order, or second-order information depending on the active plan.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OuterEvalOrder {
+    /// Compute only the objective value.
+    Value,
     /// Compute value and gradient only.
     ValueAndGradient,
     /// Compute value, gradient, and analytic Hessian when available.
@@ -1946,7 +1947,8 @@ pub trait OuterObjective {
 
     /// Evaluate the outer objective at the order requested by the active plan.
     ///
-    /// The default preserves legacy behavior by delegating to
+    /// The default preserves legacy behavior by delegating value-only requests
+    /// to [`OuterObjective::eval_cost`] and derivative requests to
     /// [`OuterObjective::eval`].
     fn eval_with_order(
         &mut self,
@@ -1954,6 +1956,15 @@ pub trait OuterObjective {
         order: OuterEvalOrder,
     ) -> Result<OuterEval, EstimationError> {
         match order {
+            OuterEvalOrder::Value => {
+                let cost = self.eval_cost(rho)?;
+                Ok(OuterEval {
+                    cost,
+                    gradient: Array1::zeros(rho.len()),
+                    hessian: HessianResult::Unavailable,
+                    inner_beta_hint: None,
+                })
+            }
             OuterEvalOrder::ValueAndGradient | OuterEvalOrder::ValueGradientHessian => {
                 self.eval(rho)
             }
@@ -2066,8 +2077,46 @@ pub trait OuterObjective {
     ///     bifurcation; fall back to the multi-seed cascade (the report is
     ///     recorded on the objective for the fit payload).
     ///   * `Some(Err(_))` — a hard failure constructing the anchor.
-    fn curvature_homotopy_entry(&mut self) -> Option<Result<bool, EstimationError>> {
+    fn curvature_homotopy_entry(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Option<Result<bool, EstimationError>> {
+        if let Some(idx) = rho.iter().position(|value| !value.is_finite()) {
+            return Some(Err(EstimationError::InvalidInput(format!(
+                "curvature-homotopy entry received non-finite rho[{idx}]"
+            ))));
+        }
         None
+    }
+
+    /// Let an objective declare that a seed is already a terminal outer result.
+    /// Used for objectives with a certified high-quality construction seed where
+    /// the generic rho optimizer can only degrade the fitted state.
+    fn accept_seed_without_outer_iterations(
+        &mut self,
+        rho: &Array1<f64>,
+    ) -> Result<Option<f64>, EstimationError> {
+        if rho.is_empty() {
+            return Ok(None);
+        }
+        Ok(None)
+    }
+
+    /// Re-install the selected outer result into the mutable objective before
+    /// callers consume objective-owned fitted state. Optimizers may evaluate
+    /// rejected trial points after the best point was found; without this final
+    /// synchronization, stateful objectives can report the last trial fit rather
+    /// than the returned `OuterResult::rho`.
+    fn finalize_outer_result(
+        &mut self,
+        rho: &Array1<f64>,
+        plan: &OuterPlan,
+    ) -> Result<(), EstimationError> {
+        log::debug!(
+            "[OUTER] finalize: re-installing best rho into the objective (solver {:?})",
+            plan.solver
+        );
+        self.eval_cost(rho).map(|_| ())
     }
 }
 
@@ -2672,6 +2721,117 @@ struct OuterFirstOrderBridge<'a> {
     /// cap conservatively LARGER than the truly-needed value, never
     /// smaller.
     last_g_norm: Option<f64>,
+    /// Most recent derivative-evaluation point. Value-only line-search probes
+    /// log their distance from this reference so hidden backtracking work is
+    /// visible in STAGE traces.
+    last_value_grad_rho: Option<Array1<f64>>,
+    /// Exact memo for recent line-search value probes. BFGS can re-query the
+    /// same rejected trial when switching Wolfe strategies; the SAE inner solve
+    /// behind a Value probe is deterministic, so serving an identical rho from
+    /// this memo preserves the objective while avoiding duplicate refinement
+    /// work.
+    value_probe_cache: Vec<ValueProbeCacheEntry>,
+}
+
+const VALUE_PROBE_CACHE_CAPACITY: usize = 256;
+const VALUE_PROBE_REJECT_COST_FLOOR: f64 = 1.0e11;
+
+#[derive(Clone)]
+struct ValueProbeCacheEntry {
+    rho: Array1<f64>,
+    outcome: CachedValueProbeOutcome,
+}
+
+#[derive(Clone)]
+enum CachedValueProbeOutcome {
+    Cost(f64),
+    Recoverable(String),
+    Fatal(String),
+}
+
+fn trial_rho_distance(reference: Option<&Array1<f64>>, trial: &Array1<f64>) -> f64 {
+    let Some(reference) = reference else {
+        return f64::NAN;
+    };
+    if reference.len() != trial.len() {
+        return f64::NAN;
+    }
+    reference
+        .iter()
+        .zip(trial.iter())
+        .map(|(a, b)| {
+            let d = b - a;
+            d * d
+        })
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn same_outer_point(a: &Array1<f64>, b: &Array1<f64>) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .zip(b.iter())
+            .all(|(left, right)| left.to_bits() == right.to_bits())
+}
+
+fn cached_value_probe_result(outcome: &CachedValueProbeOutcome) -> Result<f64, ObjectiveEvalError> {
+    match outcome {
+        CachedValueProbeOutcome::Cost(cost) => Ok(*cost),
+        CachedValueProbeOutcome::Recoverable(message) => {
+            Err(ObjectiveEvalError::recoverable(message.clone()))
+        }
+        CachedValueProbeOutcome::Fatal(message) => Err(ObjectiveEvalError::Fatal {
+            message: message.clone(),
+        }),
+    }
+}
+
+fn cache_value_probe_result(result: &Result<f64, ObjectiveEvalError>) -> CachedValueProbeOutcome {
+    match result {
+        Ok(cost) => CachedValueProbeOutcome::Cost(*cost),
+        Err(ObjectiveEvalError::Recoverable { message }) => {
+            CachedValueProbeOutcome::Recoverable(message.clone())
+        }
+        Err(ObjectiveEvalError::Fatal { message }) => {
+            CachedValueProbeOutcome::Fatal(message.clone())
+        }
+    }
+}
+
+fn value_probe_outcome_label(outcome: &CachedValueProbeOutcome) -> &'static str {
+    match outcome {
+        CachedValueProbeOutcome::Cost(_) => "cost",
+        CachedValueProbeOutcome::Recoverable(_) => "recoverable",
+        CachedValueProbeOutcome::Fatal(_) => "fatal",
+    }
+}
+
+fn value_probe_reject_outcome(outcome: &CachedValueProbeOutcome) -> bool {
+    match outcome {
+        CachedValueProbeOutcome::Cost(cost) => *cost >= VALUE_PROBE_REJECT_COST_FLOOR,
+        CachedValueProbeOutcome::Recoverable(_) | CachedValueProbeOutcome::Fatal(_) => true,
+    }
+}
+
+fn remember_value_probe(
+    cache: &mut Vec<ValueProbeCacheEntry>,
+    rho: &Array1<f64>,
+    outcome: CachedValueProbeOutcome,
+) {
+    if let Some(entry) = cache
+        .iter_mut()
+        .find(|entry| same_outer_point(&entry.rho, rho))
+    {
+        entry.outcome = outcome;
+        return;
+    }
+    if cache.len() == VALUE_PROBE_CACHE_CAPACITY {
+        cache.remove(0);
+    }
+    cache.push(ValueProbeCacheEntry {
+        rho: rho.clone(),
+        outcome,
+    });
 }
 
 impl ZerothOrderObjective for OuterFirstOrderBridge<'_> {
@@ -2696,11 +2856,75 @@ impl ZerothOrderObjective for OuterFirstOrderBridge<'_> {
         }
         self.layout
             .validate_point_len(x, "outer eval_cost failed")?;
-        let cost = self
+        let trial_rho_distance = trial_rho_distance(self.last_value_grad_rho.as_ref(), x);
+        let stage_start = std::time::Instant::now();
+        if let Some(entry) = self
+            .value_probe_cache
+            .iter()
+            .find(|entry| same_outer_point(&entry.rho, x))
+        {
+            let outcome_label = value_probe_outcome_label(&entry.outcome);
+            log::info!(
+                "[STAGE] outer eval start order=Value dim={} trial_rho_distance={:.3e} (first-order bridge, iter={}, cached=true)",
+                x.len(),
+                trial_rho_distance,
+                self.iter_count
+            );
+            match &entry.outcome {
+                CachedValueProbeOutcome::Cost(cost) => log::info!(
+                    "[STAGE] outer eval end order=Value elapsed={:.3}s cost={:.6e} trial_rho_distance={:.3e} (first-order bridge, iter={}, cached=true)",
+                    stage_start.elapsed().as_secs_f64(),
+                    cost,
+                    trial_rho_distance,
+                    self.iter_count
+                ),
+                CachedValueProbeOutcome::Recoverable(_) | CachedValueProbeOutcome::Fatal(_) => {
+                    log::info!(
+                        "[STAGE] outer eval end order=Value elapsed={:.3}s outcome={} trial_rho_distance={:.3e} (first-order bridge, iter={}, cached=true)",
+                        stage_start.elapsed().as_secs_f64(),
+                        outcome_label,
+                        trial_rho_distance,
+                        self.iter_count
+                    );
+                }
+            }
+            return cached_value_probe_result(&entry.outcome);
+        }
+        log::info!(
+            "[STAGE] outer eval start order=Value dim={} trial_rho_distance={:.3e} (first-order bridge, iter={})",
+            x.len(),
+            trial_rho_distance,
+            self.iter_count
+        );
+        let result = self
             .obj
-            .eval_cost(x)
-            .map_err(|err| into_objective_error("outer eval_cost failed", err))?;
-        finite_cost_or_error("outer eval_cost failed", cost)
+            .eval_with_order(x, OuterEvalOrder::Value)
+            .map_err(|err| into_objective_error("outer eval_cost failed", err))
+            .and_then(|eval| finite_cost_or_error("outer eval_cost failed", eval.cost));
+        let cached_outcome = cache_value_probe_result(&result);
+        remember_value_probe(&mut self.value_probe_cache, x, cached_outcome);
+        match &result {
+            Ok(cost) => log::info!(
+                "[STAGE] outer eval end order=Value elapsed={:.3}s cost={:.6e} trial_rho_distance={:.3e} (first-order bridge, iter={})",
+                stage_start.elapsed().as_secs_f64(),
+                cost,
+                trial_rho_distance,
+                self.iter_count
+            ),
+            Err(ObjectiveEvalError::Recoverable { .. }) => log::info!(
+                "[STAGE] outer eval end order=Value elapsed={:.3}s outcome=recoverable trial_rho_distance={:.3e} (first-order bridge, iter={})",
+                stage_start.elapsed().as_secs_f64(),
+                trial_rho_distance,
+                self.iter_count
+            ),
+            Err(ObjectiveEvalError::Fatal { .. }) => log::info!(
+                "[STAGE] outer eval end order=Value elapsed={:.3}s outcome=fatal trial_rho_distance={:.3e} (first-order bridge, iter={})",
+                stage_start.elapsed().as_secs_f64(),
+                trial_rho_distance,
+                self.iter_count
+            ),
+        }
+        result
     }
 }
 
@@ -2773,6 +2997,9 @@ impl FirstOrderObjective for OuterFirstOrderBridge<'_> {
         if g_norm.is_finite() {
             self.last_g_norm = Some(g_norm);
         }
+        self.last_value_grad_rho = Some(x.clone());
+        self.value_probe_cache
+            .retain(|entry| value_probe_reject_outcome(&entry.outcome));
         log::info!(
             "[STAGE] outer eval end order=ValueAndGradient elapsed={:.3}s cost={:.6e} |g|={:.3e} (first-order bridge, iter={})",
             stage_start.elapsed().as_secs_f64(),
@@ -3303,6 +3530,9 @@ struct OuterSecondOrderBridge<'a> {
     /// the staleness rationale: monotone-decreasing g_norm means the cap
     /// is conservatively LARGER than truly needed, never smaller.
     last_g_norm: Option<f64>,
+    /// Most recent derivative-evaluation point, used to log value-probe
+    /// displacement in line-search / trial-acceptance STAGE traces.
+    last_value_grad_rho: Option<Array1<f64>>,
 }
 
 impl ZerothOrderObjective for OuterSecondOrderBridge<'_> {
@@ -3322,11 +3552,25 @@ impl ZerothOrderObjective for OuterSecondOrderBridge<'_> {
         }
         self.layout
             .validate_point_len(x, "outer eval_cost failed")?;
-        let cost = self
+        let trial_rho_distance = trial_rho_distance(self.last_value_grad_rho.as_ref(), x);
+        let stage_start = std::time::Instant::now();
+        log::info!(
+            "[STAGE] outer eval start order=Value dim={} trial_rho_distance={:.3e}",
+            x.len(),
+            trial_rho_distance
+        );
+        let eval = self
             .obj
-            .eval_cost(x)
+            .eval_with_order(x, OuterEvalOrder::Value)
             .map_err(|err| into_objective_error("outer eval_cost failed", err))?;
-        finite_cost_or_error("outer eval_cost failed", cost)
+        let cost = finite_cost_or_error("outer eval_cost failed", eval.cost)?;
+        log::info!(
+            "[STAGE] outer eval end order=Value elapsed={:.3}s cost={:.6e} trial_rho_distance={:.3e}",
+            stage_start.elapsed().as_secs_f64(),
+            cost,
+            trial_rho_distance
+        );
+        Ok(cost)
     }
 }
 
@@ -3401,6 +3645,7 @@ impl FirstOrderObjective for OuterSecondOrderBridge<'_> {
         if g_norm.is_finite() {
             self.last_g_norm = Some(g_norm);
         }
+        self.last_value_grad_rho = Some(x.clone());
         log::info!(
             "[STAGE] outer eval end order=ValueAndGradient elapsed={:.3}s cost={:.6e} |g|={:.3e}",
             stage_start.elapsed().as_secs_f64(),
@@ -3496,6 +3741,7 @@ impl SecondOrderObjective for OuterSecondOrderBridge<'_> {
         if g_norm.is_finite() {
             self.last_g_norm = Some(g_norm);
         }
+        self.last_value_grad_rho = Some(x.clone());
         log::info!(
             "[STAGE] outer eval end order=ValueGradientHessian elapsed={:.3}s cost={:.6e} |g|={:.3e}",
             stage_start.elapsed().as_secs_f64(),
@@ -3653,6 +3899,9 @@ struct OuterOperatorBridge<'a> {
     g_norm_initial: Option<f64>,
     /// `‖g‖` from the most recent eval.
     last_g_norm: Option<f64>,
+    /// Most recent derivative-evaluation point, used to log value-probe
+    /// displacement in line-search STAGE traces.
+    last_value_grad_rho: Option<Array1<f64>>,
 }
 
 impl ZerothOrderObjective for OuterOperatorBridge<'_> {
@@ -3672,11 +3921,25 @@ impl ZerothOrderObjective for OuterOperatorBridge<'_> {
         }
         self.layout
             .validate_point_len(x, "outer eval_cost failed")?;
-        let cost = self
+        let trial_rho_distance = trial_rho_distance(self.last_value_grad_rho.as_ref(), x);
+        let stage_start = std::time::Instant::now();
+        log::info!(
+            "[STAGE] outer eval start order=Value dim={} trial_rho_distance={:.3e} (operator bridge)",
+            x.len(),
+            trial_rho_distance
+        );
+        let eval = self
             .obj
-            .eval_cost(x)
+            .eval_with_order(x, OuterEvalOrder::Value)
             .map_err(|err| into_objective_error("outer eval_cost failed", err))?;
-        finite_cost_or_error("outer eval_cost failed", cost)
+        let cost = finite_cost_or_error("outer eval_cost failed", eval.cost)?;
+        log::info!(
+            "[STAGE] outer eval end order=Value elapsed={:.3}s cost={:.6e} trial_rho_distance={:.3e} (operator bridge)",
+            stage_start.elapsed().as_secs_f64(),
+            cost,
+            trial_rho_distance
+        );
+        Ok(cost)
     }
 }
 
@@ -3695,6 +3958,7 @@ impl FirstOrderObjective for OuterOperatorBridge<'_> {
         if g_norm.is_finite() {
             self.last_g_norm = Some(g_norm);
         }
+        self.last_value_grad_rho = Some(x.clone());
         Ok(FirstOrderSample {
             value: eval.cost,
             gradient: eval.gradient,
@@ -3744,6 +4008,7 @@ impl OperatorObjective for OuterOperatorBridge<'_> {
         if g_norm.is_finite() {
             self.last_g_norm = Some(g_norm);
         }
+        self.last_value_grad_rho = Some(x.clone());
         log::info!(
             "[STAGE] outer eval end elapsed={:.3}s cost={:.6e} |g|={:.3e} (operator bridge)",
             stage_start.elapsed().as_secs_f64(),
@@ -4447,19 +4712,51 @@ fn solution_into_outer_result(
     converged: bool,
     plan_used: OuterPlan,
 ) -> OuterResult {
-    OuterResult {
-        rho: solution.final_point,
-        final_value: solution.final_value,
-        iterations: solution.iterations,
-        final_grad_norm: solution.final_gradient_norm,
-        final_gradient: solution.final_gradient,
-        final_hessian: solution.final_hessian,
+    let mut result = OuterResult::new(
+        solution.final_point,
+        solution.final_value,
+        solution.iterations,
         converged,
         plan_used,
-        operator_trust_radius: None,
-        operator_stop_reason: None,
-        criterion_certificate: None,
-    }
+    );
+    result.final_grad_norm = solution.final_gradient_norm;
+    result.final_gradient = solution.final_gradient;
+    result.final_hessian = solution.final_hessian;
+    result
+}
+
+fn outer_result_with_gradient_norm(
+    rho: Array1<f64>,
+    final_value: f64,
+    iterations: usize,
+    final_grad_norm: Option<f64>,
+    converged: bool,
+    plan_used: OuterPlan,
+) -> OuterResult {
+    let mut result = OuterResult::new(rho, final_value, iterations, converged, plan_used);
+    result.final_grad_norm = final_grad_norm;
+    result
+}
+
+fn outer_result_with_gradient(
+    rho: Array1<f64>,
+    final_value: f64,
+    iterations: usize,
+    final_grad_norm: Option<f64>,
+    final_gradient: Option<Array1<f64>>,
+    converged: bool,
+    plan_used: OuterPlan,
+) -> OuterResult {
+    let mut result = outer_result_with_gradient_norm(
+        rho,
+        final_value,
+        iterations,
+        final_grad_norm,
+        converged,
+        plan_used,
+    );
+    result.final_gradient = final_gradient;
+    result
 }
 
 use crate::inference::diagnostics::format_top_abs as format_top_abs_components;
@@ -4555,6 +4852,7 @@ struct OuterConfig {
     /// seed-prefix key so the next fit with related structure can warm-start
     /// from this one, even after an interrupted run.
     cache_mirror_sessions: Vec<Arc<CacheSession>>,
+    rho_uncertainty_problem_size: crate::inference::rho_uncertainty::RhoUncertaintyProblemSize,
 }
 
 impl Default for OuterConfig {
@@ -4579,6 +4877,8 @@ impl Default for OuterConfig {
             bfgs_step_cap_psi: None,
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
+            rho_uncertainty_problem_size:
+                crate::inference::rho_uncertainty::RhoUncertaintyProblemSize::default(),
         }
     }
 }
@@ -4621,6 +4921,7 @@ pub struct OuterProblem {
     bfgs_step_cap_psi: Option<f64>,
     cache_session: Option<Arc<CacheSession>>,
     cache_mirror_sessions: Vec<Arc<CacheSession>>,
+    rho_uncertainty_problem_size: crate::inference::rho_uncertainty::RhoUncertaintyProblemSize,
 }
 
 impl OuterProblem {
@@ -4652,6 +4953,8 @@ impl OuterProblem {
             bfgs_step_cap_psi: None,
             cache_session: None,
             cache_mirror_sessions: Vec::new(),
+            rho_uncertainty_problem_size:
+                crate::inference::rho_uncertainty::RhoUncertaintyProblemSize::default(),
         }
     }
 
@@ -4679,6 +4982,26 @@ impl OuterProblem {
         self.disable_fixed_point = disable;
         self
     }
+    // MEASURE-JET ψ REGISTRATION: the engine below is already complete for a
+    // 3-coordinate measure-jet ψ group (s, α, ln τ) — `psi_dim` is generic,
+    // `with_bounds` carries the s ∈ (0, 2) box (the same convention matern κ
+    // uses for its log-κ window; no logistic reparameterization exists or is
+    // needed in-house), `with_bfgs_step_cap_psi` caps per-iteration ψ moves,
+    // and `DirectionalHyperParam::new_compact` (solver/reml/mod.rs) carries
+    // penalty-only first/second/cross jets with `is_penalty_like`
+    // auto-derived from the identically-zero design drift (∂X/∂ψ ≡ 0).
+    // Every remaining registration arm is formula-layer dispatch in
+    // src/terms/smooth.rs (eligibility in
+    // `spatial_term_supports_hyper_optimization`, dims in
+    // `spatial_dims_per_term`, seed/bounds/write-back on
+    // `SpatialLogKappaCoords`, the per-trial rebuild in
+    // `apply_log_kappa_to_term`, and the derivative bundle in
+    // `try_build_spatial_term_log_kappa_derivative`, which currently returns
+    // `Ok(None)` for `SmoothBasisSpec::MeasureJet`) plus the
+    // `build_measure_jet_basis_psi_derivatives` producer in
+    // src/terms/basis/measure_jet_smooth.rs; both are owned by the
+    // measure-jet terms actor. Registration stays gated on those arms — do
+    // NOT add measure-jet-specific branches to this engine.
     pub fn with_psi_dim(mut self, dim: usize) -> Self {
         self.psi_dim = dim;
         self
@@ -4829,6 +5152,15 @@ impl OuterProblem {
         self
     }
 
+    pub fn with_problem_size(mut self, n_obs: usize, p_coefficients: usize) -> Self {
+        self.rho_uncertainty_problem_size =
+            crate::inference::rho_uncertainty::RhoUncertaintyProblemSize {
+                n_obs: Some(n_obs),
+                p_coefficients: Some(p_coefficients),
+            };
+        self
+    }
+
     /// Override the fallback policy. Default is [`FallbackPolicy::Automatic`].
     ///
     /// Set [`FallbackPolicy::Disabled`] when the caller requires the primary
@@ -4878,6 +5210,7 @@ impl OuterProblem {
             bfgs_step_cap_psi: self.bfgs_step_cap_psi,
             cache_session: self.cache_session.clone(),
             cache_mirror_sessions: self.cache_mirror_sessions.clone(),
+            rho_uncertainty_problem_size: self.rho_uncertainty_problem_size,
         }
     }
 
@@ -5024,19 +5357,12 @@ impl OuterProblem {
                         prior_obj_display,
                         iterations,
                     );
-                    return Ok(OuterResult {
-                        rho,
-                        final_value,
-                        iterations,
-                        final_grad_norm: None,
-                        final_gradient: None,
-                        final_hessian: None,
-                        converged: true,
-                        plan_used,
-                        operator_trust_radius: None,
-                        operator_stop_reason: None,
-                        criterion_certificate: None,
-                    });
+                    let mut result =
+                        OuterResult::new(rho, final_value, iterations, true, plan_used);
+                    result.rho_uncertainty_certificate = Some(compute_rho_uncertainty_certificate(
+                        obj, &config, context, &result,
+                    ));
+                    return Ok(result);
                 }
                 CacheSeedDecision::Seed {
                     rho,
@@ -5242,9 +5568,37 @@ pub struct OuterResult {
     /// when an audit probe failed to evaluate. Populated once by
     /// [`run_outer`] after the solver ladder returns, outside all hot loops.
     pub criterion_certificate: Option<CriterionCertificate>,
+    /// Post-fit PSIS certificate for whether smoothing-parameter uncertainty
+    /// makes plug-in REML/LAML intervals unreliable. Populated once by
+    /// [`run_outer`] when the exact rho Hessian is cheap enough to use.
+    pub rho_uncertainty_certificate:
+        Option<crate::inference::rho_uncertainty::RhoUncertaintyCertificate>,
 }
 
 impl OuterResult {
+    pub fn new(
+        rho: Array1<f64>,
+        final_value: f64,
+        iterations: usize,
+        converged: bool,
+        plan_used: OuterPlan,
+    ) -> Self {
+        Self {
+            rho,
+            final_value,
+            iterations,
+            final_grad_norm: None,
+            final_gradient: None,
+            final_hessian: None,
+            converged,
+            plan_used,
+            operator_trust_radius: None,
+            operator_stop_reason: None,
+            criterion_certificate: None,
+            rho_uncertainty_certificate: None,
+        }
+    }
+
     /// Human-readable rendering of `final_grad_norm` for diagnostics. Returns
     /// `"n/a"` when no gradient was measured (gradient-free / cache-hit paths).
     pub fn final_grad_norm_report(&self) -> String {
@@ -5574,6 +5928,139 @@ fn audit_first_order_optimality(
     Some(certificate)
 }
 
+fn compute_rho_uncertainty_certificate(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+    result: &OuterResult,
+) -> crate::inference::rho_uncertainty::RhoUncertaintyCertificate {
+    let cap = obj.capability();
+    let layout = cap.theta_layout();
+    let rho_dim = layout.rho_dim();
+    let gate = crate::inference::rho_uncertainty::RhoUncertaintyCostGate {
+        sample_count: 32,
+        problem_size: config.rho_uncertainty_problem_size,
+    };
+    if let Err(reason) = crate::inference::rho_uncertainty::cost_gate_allows(rho_dim, gate) {
+        return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(reason, 0);
+    }
+    if result.rho.len() != layout.n_params {
+        return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+            format!(
+                "final outer point length {} does not match objective dimension {}",
+                result.rho.len(),
+                layout.n_params
+            ),
+            0,
+        );
+    }
+
+    let final_eval = match obj.eval_with_order(&result.rho, OuterEvalOrder::ValueGradientHessian) {
+        Ok(eval) => eval,
+        Err(err) => {
+            return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+                format!("final exact Hessian evaluation failed: {err}"),
+                1,
+            );
+        }
+    };
+    let hessian = match final_eval.hessian.materialize_dense() {
+        Ok(Some(hessian)) => hessian,
+        Ok(None) => {
+            return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+                "exact outer Hessian unavailable at fitted rho",
+                1,
+            );
+        }
+        Err(message) => {
+            return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+                format!("exact outer Hessian materialization failed: {message}"),
+                1,
+            );
+        }
+    };
+    if hessian.nrows() != layout.n_params || hessian.ncols() != layout.n_params {
+        return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+            format!(
+                "exact outer Hessian shape {}x{} does not match objective dimension {}",
+                hessian.nrows(),
+                hessian.ncols(),
+                layout.n_params
+            ),
+            1,
+        );
+    }
+    let mut hessian_rho = Array2::<f64>::zeros((rho_dim, rho_dim));
+    for row in 0..rho_dim {
+        for col in 0..rho_dim {
+            hessian_rho[[row, col]] = hessian[[row, col]];
+        }
+    }
+    let rho_hat = result.rho.slice(ndarray::s![..rho_dim]).to_owned();
+    let theta_hat = result.rho.clone();
+    let cost_hat = final_eval.cost;
+    let final_beta_hint = final_eval.inner_beta_hint.clone();
+    let certificate = {
+        let mut served_hat_cost = false;
+        let mut criterion = |rho: &Array1<f64>| -> Option<f64> {
+            let is_hat = rho.len() == rho_hat.len()
+                && rho
+                    .iter()
+                    .zip(rho_hat.iter())
+                    .all(|(&left, &right)| left.to_bits() == right.to_bits());
+            if is_hat && !served_hat_cost {
+                served_hat_cost = true;
+                return Some(cost_hat);
+            }
+            let mut theta = theta_hat.clone();
+            for idx in 0..rho_dim {
+                theta[idx] = rho[idx];
+            }
+            if let Some(beta) = final_beta_hint.as_ref()
+                && obj.seed_inner_state(beta).is_err()
+            {
+                return None;
+            }
+            obj.eval_cost(&theta).ok()
+        };
+        crate::inference::rho_uncertainty::rho_uncertainty_certificate(
+            &rho_hat,
+            &hessian_rho,
+            gate,
+            &mut criterion,
+        )
+    };
+    if let Some(beta) = final_beta_hint.as_ref()
+        && let Err(err) = obj.seed_inner_state(beta)
+    {
+        log::debug!(
+            "[RHO uncertainty] {context}: final inner-state restore skipped after certificate ({err})"
+        );
+    }
+    match &certificate.verdict {
+        crate::inference::rho_uncertainty::RhoUncertaintyVerdict::CertifiedAdequate => {
+            log::info!(
+                "[RHO uncertainty] {context}: certified adequate k_hat={:.3} evals={}",
+                certificate.k_hat.unwrap_or(f64::NAN),
+                certificate.n_evaluations,
+            );
+        }
+        crate::inference::rho_uncertainty::RhoUncertaintyVerdict::RhoUncertaintyMatters {
+            k_hat,
+        } => {
+            log::warn!(
+                "[RHO uncertainty] {context}: rho uncertainty matters k_hat={:.3} evals={}",
+                k_hat,
+                certificate.n_evaluations,
+            );
+        }
+        crate::inference::rho_uncertainty::RhoUncertaintyVerdict::Skipped { reason } => {
+            log::info!("[RHO uncertainty] {context}: skipped ({reason})");
+        }
+    }
+    certificate
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OperatorTrustRegionStopReason {
     Converged,
@@ -5616,6 +6103,9 @@ fn run_outer(
     // is warm-start residue O(h) from the optimum — every caller recovers
     // its fitted state from `result.rho`, not from last-eval residue.
     result.criterion_certificate = audit_first_order_optimality(obj, config, context, &result);
+    result.rho_uncertainty_certificate = Some(compute_rho_uncertainty_certificate(
+        obj, config, context, &result,
+    ));
     Ok(result)
 }
 
@@ -5650,19 +6140,14 @@ fn run_outer_uncertified(
     if cap.n_params == 0 {
         let cost = obj.eval_cost(&Array1::zeros(0))?;
         let the_plan = plan_with_class(&cap, config.solver_class);
-        return Ok(OuterResult {
-            rho: Array1::zeros(0),
-            final_value: cost,
-            iterations: 0,
-            final_grad_norm: Some(0.0),
-            final_gradient: None,
-            final_hessian: None,
-            converged: true,
-            plan_used: the_plan,
-            operator_trust_radius: None,
-            operator_stop_reason: None,
-            criterion_certificate: None,
-        });
+        return Ok(outer_result_with_gradient_norm(
+            Array1::zeros(0),
+            cost,
+            0,
+            Some(0.0),
+            true,
+            the_plan,
+        ));
     }
 
     // Build the ordered list of capabilities to attempt: primary first, then
@@ -5904,12 +6389,7 @@ fn run_per_atom_efs_if_frontier(
     let the_plan = plan_with_class(&cap, config.solver_class);
     let rho_dim = cap.theta_layout().rho_dim();
 
-    let (lower, upper) = config.bounds.clone().unwrap_or_else(|| {
-        (
-            Array1::<f64>::from_elem(cap.n_params, -config.rho_bound),
-            Array1::<f64>::from_elem(cap.n_params, config.rho_bound),
-        )
-    });
+    let (lower, upper) = outer_bounds_template(config, cap.n_params);
 
     // Seed: cache/explicit initial ρ if present, otherwise the first generated
     // candidate. The per-atom multiplicative fixed point is locally
@@ -5953,6 +6433,15 @@ fn run_per_atom_efs_if_frontier(
 fn outer_bounds(lo: &Array1<f64>, hi: &Array1<f64>) -> Result<Bounds, EstimationError> {
     Bounds::new(lo.clone(), hi.clone(), 1e-6).map_err(|err| {
         EstimationError::InvalidInput(format!("outer rho bounds are invalid: {err}"))
+    })
+}
+
+fn outer_bounds_template(config: &OuterConfig, n: usize) -> (Array1<f64>, Array1<f64>) {
+    config.bounds.clone().unwrap_or_else(|| {
+        (
+            Array1::<f64>::from_elem(n, -config.rho_bound),
+            Array1::<f64>::from_elem(n, config.rho_bound),
+        )
     })
 }
 
@@ -6003,6 +6492,71 @@ fn bfgs_axis_step_caps(config: &OuterConfig, layout: OuterThetaLayout) -> Option
     Some(caps)
 }
 
+enum FixedPointOuterRunError {
+    SeedRejected(EstimationError),
+    ImmediateFallback(EstimationError),
+    Failed(EstimationError),
+}
+
+fn run_fixed_point_outer_solver(
+    obj: &mut dyn OuterObjective,
+    layout: OuterThetaLayout,
+    barrier_config: Option<BarrierConfig>,
+    config: &OuterConfig,
+    context: &str,
+    seed: &Array1<f64>,
+    the_plan: OuterPlan,
+    label: &str,
+    failure_prefix: &str,
+) -> Result<OuterResult, FixedPointOuterRunError> {
+    let mut objective = OuterFixedPointBridge {
+        obj,
+        layout,
+        barrier_config,
+        fixed_point_tolerance: config.tolerance,
+        consecutive_psi_zero_iters: 0,
+    };
+    match objective.eval_step(seed) {
+        Ok(_) => {}
+        Err(err) => {
+            let err = match err {
+                ObjectiveEvalError::Recoverable { message }
+                | ObjectiveEvalError::Fatal { message } => {
+                    EstimationError::RemlOptimizationFailed(message)
+                }
+            };
+            if requests_immediate_first_order_fallback(&err.to_string()) {
+                return Err(FixedPointOuterRunError::ImmediateFallback(err));
+            }
+            return Err(FixedPointOuterRunError::SeedRejected(err));
+        }
+    };
+    let (lo, hi) = outer_bounds_template(config, layout.n_params);
+    let bounds = outer_bounds(&lo, &hi).map_err(FixedPointOuterRunError::Failed)?;
+    let tol = outer_tolerance(config.tolerance).map_err(FixedPointOuterRunError::Failed)?;
+    let max_iter =
+        outer_max_iterations(config.max_iter).map_err(FixedPointOuterRunError::Failed)?;
+    let mut optimizer = FixedPoint::new(seed.clone(), objective)
+        .with_bounds(bounds)
+        .with_tolerance(tol)
+        .with_max_iterations(max_iter);
+    match optimizer.run() {
+        Ok(sol) => Ok(solution_into_outer_result(sol, true, the_plan)),
+        Err(FixedPointError::MaxIterationsReached { last_solution }) => {
+            log::warn!(
+                "[OUTER warning] {context}: {label} hit max_iter={} at final_value={:.6e} step_norm={:.3e}",
+                config.max_iter,
+                last_solution.final_value,
+                last_solution.final_gradient_norm.unwrap_or(f64::NAN),
+            );
+            Ok(solution_into_outer_result(*last_solution, false, the_plan))
+        }
+        Err(e) => Err(FixedPointOuterRunError::Failed(
+            EstimationError::RemlOptimizationFailed(format!("{failure_prefix}: {e:?}")),
+        )),
+    }
+}
+
 /// Execute a single plan attempt (seed generation → solver loop → best result).
 fn run_outer_with_plan(
     obj: &mut dyn OuterObjective,
@@ -6034,12 +6588,7 @@ fn run_outer_with_plan(
         )));
     }
 
-    let (lower, upper) = config.bounds.clone().unwrap_or_else(|| {
-        (
-            Array1::<f64>::from_elem(cap.n_params, -config.rho_bound),
-            Array1::<f64>::from_elem(cap.n_params, config.rho_bound),
-        )
-    });
+    let (lower, upper) = outer_bounds_template(config, cap.n_params);
     crate::solver::estimate::reml::runtime::record_current_outer_rho_upper_bounds_for_ift(&upper);
     let bounds_template = (lower, upper);
     let mut projected_seeds = Vec::with_capacity(seeds.len());
@@ -6234,11 +6783,12 @@ fn run_outer_with_plan(
         // per accepted seed entry right after `reset`, so cross-seed state
         // hygiene is unchanged (#1003): `reset` restores the pristine `η = 1`
         // baseline before each walk.
-        match obj.curvature_homotopy_entry() {
+        let curvature_entry_refused = match obj.curvature_homotopy_entry(seed) {
             Some(Ok(arrived)) => {
                 log::info!(
                     "[OUTER] {context}: curvature-homotopy entry seed {seed_idx} arrived={arrived}"
                 );
+                !arrived
             }
             Some(Err(err)) => {
                 // A hard anchor-construction failure is not a feasibility gate:
@@ -6248,8 +6798,24 @@ fn run_outer_with_plan(
                      deferring to seed cascade"
                 );
                 obj.reset();
+                false
             }
-            None => {}
+            None => false,
+        };
+        if curvature_entry_refused && continuation_path.is_none() {
+            let msg = "curvature-homotopy entry refused seed; deferring to remaining seed cascade"
+                .to_string();
+            log::warn!("[OUTER] {context}: rejecting seed {seed_idx} (curvature): {msg}");
+            rejection_reasons.push((seed_idx, "validation", msg));
+            continue 'seed_attempts;
+        }
+        if let Some(seed_cost) = obj.accept_seed_without_outer_iterations(seed)? {
+            started_seeds += 1;
+            let candidate = OuterResult::new(seed.clone(), seed_cost, 0, true, *the_plan);
+            if candidate_improves_best(&candidate, best.as_ref()) {
+                best = Some(candidate);
+            }
+            break;
         }
         // Magic-by-default continuation pre-warm. On hard fits this
         // walks ρ from an oversmoothing ρ₀ down to `seed`, leaving the
@@ -6633,6 +7199,7 @@ fn run_outer_with_plan(
                         eval_count: 0,
                         g_norm_initial: None,
                         last_g_norm: None,
+                        last_value_grad_rho: None,
                     };
 
                     let mut solver = MatrixFreeTrustRegion::new(seed.clone(), bridge_obj)
@@ -6764,6 +7331,7 @@ fn run_outer_with_plan(
                         outer_inner_cap: config.outer_inner_cap.clone(),
                         g_norm_initial: None,
                         last_g_norm: None,
+                        last_value_grad_rho: None,
                     };
 
                     // Build the opt seed sample from the precomputed
@@ -6955,19 +7523,15 @@ fn run_outer_with_plan(
                                 outcome.final_grad_norm.unwrap_or(f64::NAN),
                                 outcome.converged,
                             );
-                            let result = OuterResult {
-                                rho: outcome.rho,
-                                final_value: outcome.objective,
-                                iterations: outcome.iterations,
-                                final_grad_norm: outcome.final_grad_norm,
-                                final_gradient: outcome.final_gradient,
-                                final_hessian: None,
-                                converged: outcome.converged,
-                                plan_used: *the_plan,
-                                operator_trust_radius: None,
-                                operator_stop_reason: None,
-                                criterion_certificate: None,
-                            };
+                            let result = outer_result_with_gradient(
+                                outcome.rho,
+                                outcome.objective,
+                                outcome.iterations,
+                                outcome.final_grad_norm,
+                                outcome.final_gradient,
+                                outcome.converged,
+                                *the_plan,
+                            );
                             Ok::<OuterResult, EstimationError>(result)
                         }
                         Err(err) => {
@@ -7058,6 +7622,8 @@ fn run_outer_with_plan(
                         iter_count: 0,
                         g_norm_initial: None,
                         last_g_norm: None,
+                        last_value_grad_rho: None,
+                        value_probe_cache: Vec::new(),
                     };
                     // Hand the precomputed (cost, gradient) seed eval to
                     // `opt::Bfgs` so its first internal `eval_grad` call is
@@ -7175,109 +7741,73 @@ fn run_outer_with_plan(
                 }
             }
             Solver::Efs => {
-                let mut objective = OuterFixedPointBridge {
+                match run_fixed_point_outer_solver(
                     obj,
                     layout,
-                    barrier_config: cap.barrier_config.clone(),
-                    fixed_point_tolerance: config.tolerance,
-                    consecutive_psi_zero_iters: 0,
-                };
-                match objective.eval_step(seed) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        let err = match err {
-                            ObjectiveEvalError::Recoverable { message }
-                            | ObjectiveEvalError::Fatal { message } => {
-                                EstimationError::RemlOptimizationFailed(message)
-                            }
-                        };
-                        if requests_immediate_first_order_fallback(&err.to_string()) {
-                            return Err(err);
-                        }
+                    cap.barrier_config.clone(),
+                    config,
+                    context,
+                    seed,
+                    *the_plan,
+                    "EFS",
+                    "fixed-point solver failed",
+                ) {
+                    Ok(result) => {
+                        started_seeds += 1;
+                        seed_slot = started_seeds;
+                        Ok(result)
+                    }
+                    Err(FixedPointOuterRunError::SeedRejected(err)) => {
                         log::warn!(
                             "[OUTER] {context}: rejecting seed {seed_idx} before solver start: {err}"
                         );
                         rejection_reasons.push((seed_idx, "validation", err.to_string()));
                         continue 'seed_attempts;
                     }
-                };
-                started_seeds += 1;
-                seed_slot = started_seeds;
-                let (lo, hi) = &bounds_template;
-                let bounds = outer_bounds(lo, hi)?;
-                let tol = outer_tolerance(config.tolerance)?;
-                let max_iter = outer_max_iterations(config.max_iter)?;
-                let mut optimizer = FixedPoint::new(seed.clone(), objective)
-                    .with_bounds(bounds)
-                    .with_tolerance(tol)
-                    .with_max_iterations(max_iter);
-                match optimizer.run() {
-                    Ok(sol) => Ok(solution_into_outer_result(sol, true, *the_plan)),
-                    Err(FixedPointError::MaxIterationsReached { last_solution }) => {
-                        log::warn!(
-                            "[OUTER warning] {context}: EFS hit max_iter={} at final_value={:.6e} step_norm={:.3e}",
-                            config.max_iter,
-                            last_solution.final_value,
-                            last_solution.final_gradient_norm.unwrap_or(f64::NAN),
-                        );
-                        Ok(solution_into_outer_result(*last_solution, false, *the_plan))
+                    Err(FixedPointOuterRunError::ImmediateFallback(err)) => {
+                        seed_slot = started_seeds + 1;
+                        Err(err)
                     }
-                    Err(e) => Err(EstimationError::RemlOptimizationFailed(format!(
-                        "fixed-point solver failed: {e:?}"
-                    ))),
+                    Err(FixedPointOuterRunError::Failed(err)) => {
+                        started_seeds += 1;
+                        seed_slot = started_seeds;
+                        Err(err)
+                    }
                 }
             }
             Solver::HybridEfs => {
-                let mut objective = OuterFixedPointBridge {
+                match run_fixed_point_outer_solver(
                     obj,
                     layout,
-                    barrier_config: cap.barrier_config.clone(),
-                    fixed_point_tolerance: config.tolerance,
-                    consecutive_psi_zero_iters: 0,
-                };
-                match objective.eval_step(seed) {
-                    Ok(_) => {}
-                    Err(err) => {
-                        let err = match err {
-                            ObjectiveEvalError::Recoverable { message }
-                            | ObjectiveEvalError::Fatal { message } => {
-                                EstimationError::RemlOptimizationFailed(message)
-                            }
-                        };
-                        if requests_immediate_first_order_fallback(&err.to_string()) {
-                            return Err(err);
-                        }
+                    cap.barrier_config.clone(),
+                    config,
+                    context,
+                    seed,
+                    *the_plan,
+                    "HybridEFS",
+                    "hybrid EFS solver failed",
+                ) {
+                    Ok(result) => {
+                        started_seeds += 1;
+                        seed_slot = started_seeds;
+                        Ok(result)
+                    }
+                    Err(FixedPointOuterRunError::SeedRejected(err)) => {
                         log::warn!(
                             "[OUTER] {context}: rejecting seed {seed_idx} before solver start: {err}"
                         );
                         rejection_reasons.push((seed_idx, "validation", err.to_string()));
                         continue 'seed_attempts;
                     }
-                };
-                started_seeds += 1;
-                seed_slot = started_seeds;
-                let (lo, hi) = &bounds_template;
-                let bounds = outer_bounds(lo, hi)?;
-                let tol = outer_tolerance(config.tolerance)?;
-                let max_iter = outer_max_iterations(config.max_iter)?;
-                let mut optimizer = FixedPoint::new(seed.clone(), objective)
-                    .with_bounds(bounds)
-                    .with_tolerance(tol)
-                    .with_max_iterations(max_iter);
-                match optimizer.run() {
-                    Ok(sol) => Ok(solution_into_outer_result(sol, true, *the_plan)),
-                    Err(FixedPointError::MaxIterationsReached { last_solution }) => {
-                        log::warn!(
-                            "[OUTER warning] {context}: HybridEFS hit max_iter={} at final_value={:.6e} step_norm={:.3e}",
-                            config.max_iter,
-                            last_solution.final_value,
-                            last_solution.final_gradient_norm.unwrap_or(f64::NAN),
-                        );
-                        Ok(solution_into_outer_result(*last_solution, false, *the_plan))
+                    Err(FixedPointOuterRunError::ImmediateFallback(err)) => {
+                        seed_slot = started_seeds + 1;
+                        Err(err)
                     }
-                    Err(e) => Err(EstimationError::RemlOptimizationFailed(format!(
-                        "hybrid EFS solver failed: {e:?}"
-                    ))),
+                    Err(FixedPointOuterRunError::Failed(err)) => {
+                        started_seeds += 1;
+                        seed_slot = started_seeds;
+                        Err(err)
+                    }
                 }
             }
             Solver::CompassSearch => {
@@ -7353,38 +7883,16 @@ fn run_outer_with_plan(
                     max_polls,
                 );
                 match outcome {
-                    CompassSearchOutcome::Converged { point, cost, polls } => Ok(OuterResult {
-                        rho: point,
-                        final_value: cost,
-                        iterations: polls,
-                        final_grad_norm: None,
-                        final_gradient: None,
-                        final_hessian: None,
-                        converged: true,
-                        plan_used: *the_plan,
-                        operator_trust_radius: None,
-                        operator_stop_reason: None,
-                        criterion_certificate: None,
-                    }),
+                    CompassSearchOutcome::Converged { point, cost, polls } => {
+                        Ok(OuterResult::new(point, cost, polls, true, *the_plan))
+                    }
                     CompassSearchOutcome::BudgetExhausted { point, cost, polls } => {
                         log::warn!(
                             "[OUTER warning] {context}: compass search exhausted max_polls={} at best_cost={:.6e}",
                             max_polls,
                             cost,
                         );
-                        Ok(OuterResult {
-                            rho: point,
-                            final_value: cost,
-                            iterations: polls,
-                            final_grad_norm: None,
-                            final_gradient: None,
-                            final_hessian: None,
-                            converged: false,
-                            plan_used: *the_plan,
-                            operator_trust_radius: None,
-                            operator_stop_reason: None,
-                            criterion_certificate: None,
-                        })
+                        Ok(OuterResult::new(point, cost, polls, false, *the_plan))
                     }
                 }
             }
@@ -7461,7 +7969,12 @@ fn run_outer_with_plan(
         }
     }
 
-    best.ok_or_else(|| {
+    if let Some(result) = best {
+        obj.finalize_outer_result(&result.rho, the_plan)?;
+        return Ok(result);
+    }
+
+    Err({
         // Drain any remaining unclassified entries in `rejection_reasons`
         // into the structured mirror so the final accounting reflects
         // every observed failure regardless of which loop branch pushed
@@ -7624,6 +8137,90 @@ mod tests {
             cert.summary(),
         );
         assert!(cert.fd_step > 0.0 && cert.fd_error > 0.0);
+    }
+
+    #[test]
+    fn rho_uncertainty_certificate_does_not_change_outer_solution() {
+        let center = array![0.25];
+        let seed_config = crate::seeding::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        };
+        let problem = OuterProblem::new(1)
+            .with_gradient(Derivative::Analytic)
+            .with_hessian(DeclaredHessianForm::Either)
+            .with_initial_rho(array![1.5])
+            .with_seed_config(seed_config)
+            .with_problem_size(8, 3);
+        let config = problem.config();
+
+        let mut without_certificate = problem.build_objective(
+            (),
+            {
+                let center = center.clone();
+                move |_: &mut (), rho: &Array1<f64>| {
+                    let d = rho - &center;
+                    Ok(0.5 * d.dot(&d))
+                }
+            },
+            {
+                let center = center.clone();
+                move |_: &mut (), rho: &Array1<f64>| {
+                    let d = rho - &center;
+                    Ok(OuterEval {
+                        cost: 0.5 * d.dot(&d),
+                        gradient: d,
+                        hessian: HessianResult::Analytic(array![[1.0]]),
+                        inner_beta_hint: None,
+                    })
+                }
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+        let mut with_certificate = problem.build_objective(
+            (),
+            {
+                let center = center.clone();
+                move |_: &mut (), rho: &Array1<f64>| {
+                    let d = rho - &center;
+                    Ok(0.5 * d.dot(&d))
+                }
+            },
+            {
+                let center = center.clone();
+                move |_: &mut (), rho: &Array1<f64>| {
+                    let d = rho - &center;
+                    Ok(OuterEval {
+                        cost: 0.5 * d.dot(&d),
+                        gradient: d,
+                        hessian: HessianResult::Analytic(array![[1.0]]),
+                        inner_beta_hint: None,
+                    })
+                }
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+
+        let baseline = run_outer_uncertified(
+            &mut without_certificate,
+            &config,
+            "rho-certificate-baseline",
+        )
+        .expect("baseline outer run");
+        let certified = run_outer(&mut with_certificate, &config, "rho-certificate-certified")
+            .expect("certified outer run");
+
+        assert_eq!(baseline.rho, certified.rho);
+        assert_eq!(
+            baseline.final_value.to_bits(),
+            certified.final_value.to_bits()
+        );
+        assert_eq!(baseline.iterations, certified.iterations);
+        assert_eq!(baseline.final_grad_norm, certified.final_grad_norm);
+        assert!(certified.rho_uncertainty_certificate.is_some());
     }
 
     /// The desync bug genus (#748/#752/#901): the gradient path optimizes a
@@ -8457,8 +9054,12 @@ mod tests {
         assert!(
             seen_orders
                 .iter()
-                .all(|order| *order == OuterEvalOrder::ValueAndGradient),
-            "BFGS should request only value+gradient, saw {seen_orders:?}"
+                .all(|order| *order != OuterEvalOrder::ValueGradientHessian),
+            "BFGS must not request Hessian work, saw {seen_orders:?}"
+        );
+        assert!(
+            seen_orders.contains(&OuterEvalOrder::ValueAndGradient),
+            "BFGS should request value+gradient at accepted points, saw {seen_orders:?}"
         );
     }
 
@@ -8506,6 +9107,8 @@ mod tests {
             iter_count: 0,
             g_norm_initial: None,
             last_g_norm: None,
+            last_value_grad_rho: None,
+            value_probe_cache: Vec::new(),
         };
 
         let first = FirstOrderObjective::eval_grad(&mut bridge, &array![0.0])
@@ -8547,6 +9150,7 @@ mod tests {
                         cost: theta[0] * theta[0],
                         gradient: array![2.0 * theta[0]],
                         hessian: match order {
+                            OuterEvalOrder::Value => HessianResult::Unavailable,
                             OuterEvalOrder::ValueAndGradient => HessianResult::Unavailable,
                             OuterEvalOrder::ValueGradientHessian => {
                                 HessianResult::Analytic(array![[2.0]])
@@ -8568,6 +9172,7 @@ mod tests {
             outer_inner_cap: None,
             g_norm_initial: None,
             last_g_norm: None,
+            last_value_grad_rho: None,
         };
         let grad_sample =
             FirstOrderObjective::eval_grad(&mut bridge, &array![1.0]).expect("grad eval");
@@ -8629,6 +9234,7 @@ mod tests {
             outer_inner_cap: None,
             g_norm_initial: None,
             last_g_norm: None,
+            last_value_grad_rho: None,
         };
         let err = SecondOrderObjective::eval_hessian(&mut bridge, &array![1.0])
             .expect_err("Analytic route must reject Unavailable Hessian, not pass None to opt");
@@ -9546,54 +10152,34 @@ mod tests {
 
     #[test]
     fn candidate_selection_prefers_lower_cost_within_same_convergence_class() {
-        let nonconverged_hi = OuterResult {
-            rho: array![0.0],
-            final_value: 9.0,
-            iterations: 1,
-            final_grad_norm: Some(1.0),
-            final_gradient: None,
-            final_hessian: None,
-            converged: false,
-            plan_used: OuterPlan {
+        let plan = OuterPlan {
+            solver: Solver::Bfgs,
+            hessian_source: HessianSource::BfgsApprox,
+        };
+        let mut nonconverged_hi = OuterResult::new(array![0.0], 9.0, 1, false, plan);
+        nonconverged_hi.final_grad_norm = Some(1.0);
+        let mut nonconverged_lo = OuterResult::new(
+            array![1.0],
+            1.0,
+            1,
+            false,
+            OuterPlan {
                 solver: Solver::Bfgs,
                 hessian_source: HessianSource::BfgsApprox,
             },
-            operator_trust_radius: None,
-            operator_stop_reason: None,
-            criterion_certificate: None,
-        };
-        let nonconverged_lo = OuterResult {
-            rho: array![1.0],
-            final_value: 1.0,
-            iterations: 1,
-            final_grad_norm: Some(1.0),
-            final_gradient: None,
-            final_hessian: None,
-            converged: false,
-            plan_used: OuterPlan {
+        );
+        nonconverged_lo.final_grad_norm = Some(1.0);
+        let mut converged = OuterResult::new(
+            array![2.0],
+            5.0,
+            1,
+            true,
+            OuterPlan {
                 solver: Solver::Bfgs,
                 hessian_source: HessianSource::BfgsApprox,
             },
-            operator_trust_radius: None,
-            operator_stop_reason: None,
-            criterion_certificate: None,
-        };
-        let converged = OuterResult {
-            rho: array![2.0],
-            final_value: 5.0,
-            iterations: 1,
-            final_grad_norm: Some(0.0),
-            final_gradient: None,
-            final_hessian: None,
-            converged: true,
-            plan_used: OuterPlan {
-                solver: Solver::Bfgs,
-                hessian_source: HessianSource::BfgsApprox,
-            },
-            operator_trust_radius: None,
-            operator_stop_reason: None,
-            criterion_certificate: None,
-        };
+        );
+        converged.final_grad_norm = Some(0.0);
 
         assert!(candidate_improves_best(&nonconverged_hi, None));
         assert!(candidate_improves_best(

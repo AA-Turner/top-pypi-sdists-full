@@ -5,7 +5,7 @@ from http import HTTPStatus
 import httpx
 import pytest
 
-from smplkit._errors import (
+from smplkit.errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
@@ -22,7 +22,7 @@ from smplkit._generated.config.models.config_item_definition import (
     ConfigItemDefinition,
 )
 from smplkit._generated.config.models.config_items_type_0 import ConfigItemsType0
-from smplkit.config._client import (
+from smplkit.config.clients import (
     _check_response_status,
     _maybe_reraise_network_error,
 )

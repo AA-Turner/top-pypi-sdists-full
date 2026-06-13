@@ -265,6 +265,53 @@ fn transformed_penalty_matvec(
     out
 }
 
+impl EvalShared {
+    /// Canonical penalty scores `S_k β̂` at this bundle's inner mode
+    /// `β̂ = pirls_result.beta_transformed`, computed once per inner solution
+    /// and shared by every assemble call on the same bundle (exact hoist —
+    /// see the field doc on `penalty_scores_at_mode`).
+    ///
+    /// `canonical_penalties` must be the owning `RemlState`'s fixed
+    /// `canonical_penalties` slice; on a cache hit the stored length is
+    /// checked against it so a frame mismatch fails loudly instead of
+    /// silently feeding stale scores.
+    fn canonical_penalty_scores_at_mode(
+        &self,
+        canonical_penalties: &[crate::construction::CanonicalPenalty],
+    ) -> Result<Arc<Vec<Array1<f64>>>, EstimationError> {
+        if let Some(scores) = self.penalty_scores_at_mode.get() {
+            if scores.len() != canonical_penalties.len() {
+                return Err(EstimationError::LayoutError(format!(
+                    "shared penalty-score cache mismatch: cached {} score vectors, \
+                     requested {} canonical penalties",
+                    scores.len(),
+                    canonical_penalties.len()
+                )));
+            }
+            return Ok(Arc::clone(scores));
+        }
+        let beta_hat = self.pirls_result.beta_transformed.as_ref();
+        let scores = Arc::new(
+            canonical_penalties
+                .iter()
+                .map(|pen| transformed_penalty_matvec(pen, beta_hat))
+                .collect::<Vec<_>>(),
+        );
+        match self.penalty_scores_at_mode.set(Arc::clone(&scores)) {
+            Ok(()) => Ok(scores),
+            // A concurrent caller initialized the cell first; both vectors
+            // were built from identical inputs (same β̂, same penalties) —
+            // return the canonical winner so every consumer holds literally
+            // the same allocation.
+            Err(_) => Ok(Arc::clone(
+                self.penalty_scores_at_mode
+                    .get()
+                    .expect("OnceLock set raced, so it is initialized"),
+            )),
+        }
+    }
+}
+
 static OUTER_IFT_RESIDUAL_ENERGY: OnceLock<Mutex<HashMap<Vec<u64>, (f64, u64)>>> = OnceLock::new();
 static OUTER_IFT_RESIDUAL_ENERGY_ITER: AtomicU64 = AtomicU64::new(0);
 
@@ -304,7 +351,6 @@ fn store_ift_residual_energy_for_outer_theta(theta: &Array1<f64>, energy: Option
 
 pub(super) struct PenaltySubspace {
     evals: Array1<f64>,
-    evecs: Array2<f64>,
     rank: usize,
 }
 
@@ -1752,7 +1798,9 @@ struct Gam784BlockTarget<'t> {
     /// Dispersion φ used to scale the deviance into a log-likelihood.
     phi: f64,
     /// Penalty scores `S_k β̂` per canonical penalty (unscaled by λ_k).
-    penalty_scores: Vec<Array1<f64>>,
+    /// Shared from the eval bundle's once-per-inner-solution cache
+    /// (`EvalShared::canonical_penalty_scores_at_mode`).
+    penalty_scores: Arc<Vec<Array1<f64>>>,
     /// `λ_k = e^{ρ_k}` per canonical penalty, aligned with `penalty_scores`.
     lambdas: Vec<f64>,
     /// Deviance at the base mode.
@@ -4053,12 +4101,13 @@ impl<'a> RemlState<'a> {
         }
 
         // Penalty scores S_k β̂ (canonical basis) and λ_k = e^{ρ_k}.
-        let beta_hat = pirls_result.beta_transformed.as_ref().clone();
-        let penalty_scores: Vec<Array1<f64>> = self
-            .canonical_penalties
-            .iter()
-            .map(|pen| transformed_penalty_matvec(pen, &beta_hat))
-            .collect();
+        // Computed once per inner solution on the eval bundle and reused
+        // across every assemble call sharing this bundle: β̂ =
+        // `pirls_result.beta_transformed` is fixed inside the bundle's
+        // `Arc<PirlsResult>` and `self.canonical_penalties` is fixed for the
+        // `RemlState`, so the vectors are ρ- and mode-invariant (exact hoist,
+        // identical values for every consumer).
+        let penalty_scores = bundle.canonical_penalty_scores_at_mode(&self.canonical_penalties)?;
         let lambdas: Vec<f64> = rho.iter().map(|&r| r.exp()).collect();
 
         // Dispersion φ used to turn deviance into log-likelihood.
@@ -5883,7 +5932,6 @@ impl<'a> RemlState<'a> {
         if e_transformed.nrows() == 0 || p == 0 {
             return Ok(PenaltySubspace {
                 evals: Array1::zeros(p),
-                evecs: Array2::zeros((p, p)),
                 rank: 0,
             });
         }
@@ -5897,7 +5945,7 @@ impl<'a> RemlState<'a> {
                             s_lambda[[i, i]] += ridge;
                         }
                     }
-                    let (evals, evecs) = s_lambda
+                    let (evals, _) = s_lambda
                         .eigh(Side::Lower)
                         .map_err(EstimationError::EigendecompositionFailed)?;
                     let rank = if self.canonical_penalties.is_empty() {
@@ -5909,11 +5957,10 @@ impl<'a> RemlState<'a> {
                             .sum::<usize>()
                             .min(p)
                     };
-                    Ok(PenaltySubspace { evals, evecs, rank })
+                    Ok(PenaltySubspace { evals, rank })
                 })?;
         Ok(PenaltySubspace {
             evals: cached.evals.clone(),
-            evecs: cached.evecs.clone(),
             rank: cached.rank,
         })
     }
@@ -6057,38 +6104,6 @@ impl<'a> RemlState<'a> {
                 h_proj_inverse,
             }),
         ))
-    }
-
-    pub(super) fn fixed_subspace_penalty_trace_from_subspace(
-        &self,
-        penalty_subspace: &PenaltySubspace,
-        s_direction: &Array2<f64>,
-    ) -> Result<f64, EstimationError> {
-        let p_dim = penalty_subspace.evals.len();
-        if penalty_subspace.rank == 0 || p_dim == 0 {
-            return Ok(0.0);
-        }
-        if s_direction.nrows() != p_dim || s_direction.ncols() != p_dim {
-            crate::bail_invalid_estim!(
-                "fixed_subspace_penalty_trace_from_subspace: S_direction must be {}x{}, got {}x{}",
-                p_dim,
-                p_dim,
-                s_direction.nrows(),
-                s_direction.ncols()
-            );
-        }
-
-        // Exact pseudoinverse trace: tr(S⁺ S_direction) on the positive eigenspace.
-        // Use structural rank instead of thresholding evals so ridge-lifted
-        // null directions do not contaminate the log|S|+ derivative kernel.
-        let mut trace = 0.0;
-        for idx in p_dim - penalty_subspace.rank..p_dim {
-            let ev = penalty_subspace.evals[idx];
-            let u = penalty_subspace.evecs.column(idx).to_owned();
-            let spsi_u = s_direction.dot(&u);
-            trace += u.dot(&spsi_u) / ev;
-        }
-        Ok(trace)
     }
 
     pub(super) fn updatewarm_start_from(&self, pr: &PirlsResult) {
@@ -7205,6 +7220,7 @@ impl<'a> RemlState<'a> {
             firth_dense_operator,
             firth_dense_operator_original: None,
             penalty_pseudologdet: std::sync::OnceLock::new(),
+            penalty_scores_at_mode: std::sync::OnceLock::new(),
         })
     }
 
@@ -7337,6 +7353,7 @@ impl<'a> RemlState<'a> {
             firth_dense_operator: None,
             firth_dense_operator_original,
             penalty_pseudologdet: std::sync::OnceLock::new(),
+            penalty_scores_at_mode: std::sync::OnceLock::new(),
         })
     }
 
@@ -11174,7 +11191,12 @@ impl<'a> RemlState<'a> {
         };
 
         let decision = match order {
-            crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient => None,
+            // Value-only requests ride the gradient path: this evaluator's
+            // assembly contract requires a gradient (see the `result.gradient`
+            // demand below), so the cheapest honest fulfilment of a value-only
+            // order here is value+gradient with the Hessian skipped.
+            crate::solver::outer_strategy::OuterEvalOrder::Value
+            | crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient => None,
             crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian => {
                 if allow_second_order {
                     Some(self.selecthessian_strategy_policy(&bundle))

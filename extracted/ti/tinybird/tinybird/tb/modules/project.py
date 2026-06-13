@@ -15,6 +15,7 @@ _PATTERN_TYPE_SINK = re.compile(r"TYPE sink", re.IGNORECASE)
 _PATTERN_TYPE_KAFKA = re.compile(r"TYPE kafka", re.IGNORECASE)
 _PATTERN_TYPE_S3 = re.compile(r"TYPE s3", re.IGNORECASE)
 _PATTERN_TYPE_GCS = re.compile(r"TYPE gcs", re.IGNORECASE)
+_PATTERN_TYPE_DYNAMODB = re.compile(r"TYPE dynamodb", re.IGNORECASE)
 _PATTERN_KAFKA_CONNECTION = re.compile(r"KAFKA_CONNECTION_NAME", re.IGNORECASE)
 _PATTERN_IMPORT_CONNECTION = re.compile(r"IMPORT_CONNECTION_NAME", re.IGNORECASE)
 
@@ -159,6 +160,8 @@ class Project:
             return self.get_s3_connection_files()
         if connection_type == "gcs":
             return self.get_gcs_connection_files()
+        if connection_type == "dynamodb":
+            return self.get_dynamodb_connection_files()
         return self._get_connection_files()
 
     def get_kafka_connection_files(self) -> List[str]:
@@ -169,6 +172,9 @@ class Project:
 
     def get_gcs_connection_files(self) -> List[str]:
         return [f for f in self._get_connection_files() if self.is_gcs_connection(Path(f).read_text())]
+
+    def get_dynamodb_connection_files(self) -> List[str]:
+        return [f for f in self._get_connection_files() if self.is_dynamodb_connection(Path(f).read_text())]
 
     def get_pipe_datafile(self, filename: str) -> Optional[Datafile]:
         try:
@@ -224,6 +230,10 @@ class Project:
     @staticmethod
     def is_gcs_connection(content: str) -> bool:
         return _PATTERN_TYPE_GCS.search(content) is not None
+
+    @staticmethod
+    def is_dynamodb_connection(content: str) -> bool:
+        return _PATTERN_TYPE_DYNAMODB.search(content) is not None
 
     @staticmethod
     def is_kafka_datasource(content: str) -> bool:

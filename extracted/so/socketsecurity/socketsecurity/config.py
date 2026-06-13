@@ -139,6 +139,9 @@ class CliConfig:
     ignore_commit_files: bool = False
     disable_blocking: bool = False
     disable_ignore: bool = False
+    # Tri-state log-upload preference: True = --upload-logs, False = --no-upload-logs,
+    # None = neither (server-side override decides).
+    upload_logs: Optional[bool] = None
     strict_blocking: bool = False
     integration_type: IntegrationType = "api"
     integration_org_slug: Optional[str] = None
@@ -151,6 +154,7 @@ class CliConfig:
     repo_is_public: bool = False
     excluded_ecosystems: list[str] = field(default_factory=lambda: [])
     exclude_paths: Optional[List[str]] = None
+    included_dirs: List[str] = field(default_factory=lambda: [])
     version: str = __version__
     jira_plugin: PluginConfig = field(default_factory=PluginConfig)
     slack_plugin: PluginConfig = field(default_factory=PluginConfig)
@@ -282,6 +286,7 @@ class CliConfig:
             'ignore_commit_files': args.ignore_commit_files,
             'disable_blocking': args.disable_blocking,
             'disable_ignore': args.disable_ignore,
+            'upload_logs': args.upload_logs,
             'strict_blocking': args.strict_blocking,
             'integration_type': args.integration,
             'pending_head': args.pending_head,
@@ -310,6 +315,7 @@ class CliConfig:
             'reach_ecosystems': args.reach_ecosystems.split(',') if args.reach_ecosystems else None,
             'reach_exclude_paths': args.reach_exclude_paths.split(',') if args.reach_exclude_paths else None,
             'exclude_paths': normalize_exclude_paths(args.exclude_paths),
+            'included_dirs': normalize_exclude_paths(args.include_dirs) or [],
             'reach_skip_cache': args.reach_skip_cache,
             'reach_min_severity': args.reach_min_severity,
             'reach_output_file': args.reach_output_file,
@@ -635,6 +641,17 @@ def create_argument_parser() -> argparse.ArgumentParser:
              "Supersedes --reach-exclude-paths."
     )
 
+    path_group.add_argument(
+        "--include-dirs",
+        dest="include_dirs",
+        metavar="<list>",
+        help="Comma-separated directory names that are excluded from manifest discovery by "
+             "default but should be scanned (e.g. 'build,dist'). Names are matched against any "
+             "path segment, mirroring the default exclude list. Defaults excluded: "
+             "node_modules, bower_components, jspm_packages, __pycache__, .venv, venv, build, "
+             "dist, .tox, .mypy_cache, .pytest_cache, *.egg-info, vendor."
+    )
+
     # Branch and Scan Configuration
     config_group = parser.add_argument_group('Branch and Scan Configuration')
     config_group.add_argument(
@@ -865,6 +882,26 @@ def create_argument_parser() -> argparse.ArgumentParser:
         dest="disable_ignore",
         action="store_true",
         help=argparse.SUPPRESS
+    )
+    log_upload_group = advanced_group.add_mutually_exclusive_group()
+    log_upload_group.add_argument(
+        "--upload-logs",
+        dest="upload_logs",
+        action="store_const",
+        const=True,
+        help="Upload the CLI's log output to the Socket backend for this run. "
+             "When set, the CLI registers the run with share_logs=true and streams "
+             "its log records in 5s batches. Default off. Mutually exclusive with "
+             "--no-upload-logs."
+    )
+    log_upload_group.add_argument(
+        "--no-upload-logs",
+        dest="upload_logs",
+        action="store_const",
+        const=False,
+        help="Explicitly opt out of uploading CLI logs to the Socket backend, even "
+             "when an org-level override would otherwise enable it. Mutually "
+             "exclusive with --upload-logs."
     )
     advanced_group.add_argument(
         "--strict-blocking",

@@ -1,4 +1,4 @@
-"""Quick mode — 3 LLM calls + KB + superpowers plan + human review."""
+"""Quick mode — KB + superpowers plan + human review."""
 from __future__ import annotations
 from kanban_framework.domain.steps_types import StepDef
 

@@ -1,6 +1,6 @@
 mod utils;
 
-use std::sync::Arc;
+use std::{fs, path::PathBuf, sync::Arc};
 
 use crate::utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
@@ -55,6 +55,70 @@ async fn setup(hash_algorithm: HashAlgorithm) -> Value {
     serde_json::from_str(&json).unwrap()
 }
 
+async fn setup_with_specs_data(specs_data: String, hash_algorithm: HashAlgorithm) -> Value {
+    let mut options = StatsigOptions::new();
+    options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(specs_data)));
+    options.event_logging_adapter = Some(Arc::new(MockEventLoggingAdapter::new()));
+
+    let statsig = Statsig::new("secret-key", Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+
+    let response = statsig.get_client_init_response_with_options(
+        &USER,
+        &ClientInitResponseOptions {
+            hash_algorithm: Some(hash_algorithm),
+            client_sdk_key: None,
+            include_local_overrides: Some(false),
+            feature_gate_filter: None,
+            experiment_filter: None,
+            dynamic_config_filter: None,
+            layer_filter: None,
+            param_store_filter: None,
+            response_format: None,
+            remove_id_type: Some(false),
+            remove_default_value_gates: Some(false),
+            previous_response_hash: None,
+            remove_experiments_in_layers: Some(false),
+        },
+    );
+    let json = serde_json::to_string(&response).unwrap();
+    serde_json::from_str(&json).unwrap()
+}
+
+fn eval_proj_dcs_with_nullable_versions() -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+
+    json.get_mut("feature_gates")
+        .unwrap()
+        .get_mut("test_public")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove("version");
+
+    json.get_mut("dynamic_configs")
+        .unwrap()
+        .get_mut("test_custom_config")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert("version".to_string(), Value::Null);
+
+    json.get_mut("layer_configs")
+        .unwrap()
+        .get_mut("layer_with_many_params")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove("version");
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
+}
+
 #[tokio::test]
 async fn test_feature_gate_filter() {
     let response_options = ClientInitResponseOptions {
@@ -82,6 +146,32 @@ async fn test_feature_gate_filter() {
 }
 
 #[tokio::test]
+async fn test_nullable_config_versions() {
+    let json_obj =
+        setup_with_specs_data(eval_proj_dcs_with_nullable_versions(), HashAlgorithm::None).await;
+
+    let gate = json_obj
+        .get("feature_gates")
+        .unwrap()
+        .get("test_public")
+        .unwrap();
+    let config = json_obj
+        .get("dynamic_configs")
+        .unwrap()
+        .get("test_custom_config")
+        .unwrap();
+    let layer = json_obj
+        .get("layer_configs")
+        .unwrap()
+        .get("layer_with_many_params")
+        .unwrap();
+
+    assert!(gate.get("version").unwrap().is_null());
+    assert!(config.get("version").unwrap().is_null());
+    assert!(layer.get("version").unwrap().is_null());
+}
+
+#[tokio::test]
 async fn test_public_gate() {
     let json_obj = setup(HashAlgorithm::None).await;
 
@@ -95,6 +185,7 @@ async fn test_public_gate() {
         gate,
         json!({
             "name": "test_public",
+            "version": 70,
             "value": true,
             "rule_id": "6X3qJgyfwA81IJ2dxI7lYp",
             "id_type": "userID",
@@ -117,6 +208,7 @@ async fn test_public_gate_djb2() {
         gate,
         json!({
             "name": test_public_djb2,
+            "version": 70,
             "value": true,
             "rule_id": "6X3qJgyfwA81IJ2dxI7lYp",
             "id_type": "userID",
@@ -139,6 +231,7 @@ async fn test_nested_gate_condition() {
         gate,
         json!({
             "name": "test_nested_gate_condition",
+            "version": 3,
             "value": true,
             "rule_id": "6MlXHRavmo1ujM1NkZNjhQ",
             "id_type": "userID",
@@ -172,6 +265,7 @@ async fn test_targeted_exp_in_layer_with_holdout() {
         experiment,
         json!({
             "name": "targeted_exp_in_layer_with_holdout",
+            "version": 17,
             "value": {
                 "exp_val": "shipped_test",
                 "layer_val": "layer_default"
@@ -219,6 +313,7 @@ async fn test_targeted_exp_in_unlayered_with_holdout() {
           "is_experiment_active": true,
           "is_user_in_experiment": false,
           "name": "targeted_exp_in_unlayered_with_holdout",
+          "version": 12,
           "rule_id": "targetingGate",
           "secondary_exposures": [
             {
@@ -256,6 +351,7 @@ async fn test_exp_5050_targeting() {
         experiment,
         json!({
             "name": "test_exp_5050_targeting",
+            "version": 10,
             "value": {},
             "rule_id": "targetingGate",
             "is_device_based": false,
@@ -292,6 +388,7 @@ async fn test_targetting_with_capital_letter_gate() {
         experiment,
         json!({
             "name": "test_targetting_with_capital_letter_gate",
+            "version": 9,
             "value": {
                 "Result": "This is right"
             },
@@ -331,6 +428,7 @@ async fn test_layer_with_many_params() {
         layer,
         json!({
             "name": "layer_with_many_params",
+            "version": 19,
             "value": {
                 "a_string": "layer",
                 "another_string": "layer_default",
@@ -369,6 +467,7 @@ async fn test_layer_with_no_exp() {
         layer,
         json!({
             "name": "test_layer_with_no_exp",
+            "version": 2,
             "value": {
                 "a_param": "foo"
             },
@@ -396,6 +495,7 @@ async fn test_autotune() {
         experiment,
         json!({
             "name": "test_autotune",
+            "version": 5,
             "value": {},
             "rule_id": "5380HnrABE4p869fZhtUV9",
             "group_name": "black",

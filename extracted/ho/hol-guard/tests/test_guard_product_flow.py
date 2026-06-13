@@ -338,7 +338,7 @@ args = ["workspace-skill.js", "--changed"]
         assert output["connect_url"] == "https://hol.org/guard/connect"
         assert output["dashboard_url"] == "https://hol.org/guard"
         assert output["inbox_url"] == "https://hol.org/guard/inbox"
-        assert output["fleet_url"] == "https://hol.org/guard/fleet"
+        assert output["fleet_url"] == "https://hol.org/guard/protect"
         assert output["connect_command"] == "hol-guard connect"
         assert output["connect_status_command"] == "hol-guard connect status"
         assert output["connect_recovery_command"] == "hol-guard connect"
@@ -391,7 +391,7 @@ args = ["workspace-skill.js", "--changed"]
         assert output["connect_url"] == "https://hol.org/guard/connect"
         assert output["dashboard_url"] == "https://hol.org/guard"
         assert output["inbox_url"] == "https://hol.org/guard/inbox"
-        assert output["fleet_url"] == "https://hol.org/guard/fleet"
+        assert output["fleet_url"] == "https://hol.org/guard/protect"
         assert "retry automatically" in output["cloud_state_detail"]
         assert "finish the pairing loop" not in output["cloud_state_detail"]
 
@@ -468,6 +468,19 @@ args = ["workspace-skill.js", "--changed"]
         assert "connect      Pair this machine to Guard Cloud" in output
         assert "doctor       Run local diagnostics" in output
         assert "Use status for Home posture" in output
+
+    def test_hol_guard_top_level_doctor_help_shows_guard_doctor(self, capsys, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["hol-guard"])
+
+        with pytest.raises(SystemExit) as excinfo:
+            main(["doctor", "--help"])
+
+        output = capsys.readouterr().out
+
+        assert excinfo.value.code == 0
+        assert "--repair, --fix" in output
+        assert "Repair common local Guard issues" in output
+        assert "--component" not in output
 
     def test_guard_status_softens_refresh_race_copy_when_local_protection_stays_active(self, tmp_path, capsys):
         home_dir = tmp_path / "home"

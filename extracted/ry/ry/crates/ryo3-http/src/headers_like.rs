@@ -1,6 +1,6 @@
 use http::HeaderMap;
 use pyo3::prelude::*;
-use ryo3_core::py_type_err;
+use ryo3_core::macros::py_type_err;
 
 use crate::{PyHeaders, PyHttpHeaderMap, PyHttpHeaderValue};
 #[derive(Debug, FromPyObject)]
@@ -15,11 +15,12 @@ pub enum PyHeadersLike {
     Map(PyHttpHeaderMap),
 }
 
-impl From<PyHeadersLike> for HeaderMap {
-    fn from(h: PyHeadersLike) -> Self {
-        match h {
-            PyHeadersLike::Headers(h) => h.read().clone(),
-            PyHeadersLike::Map(d) => d.into(),
+impl PyHeadersLike {
+    #[must_use]
+    pub fn into_header_map(self) -> HeaderMap {
+        match self {
+            Self::Headers(headers) => headers.into_header_map(),
+            Self::Map(map) => map.into(),
         }
     }
 }

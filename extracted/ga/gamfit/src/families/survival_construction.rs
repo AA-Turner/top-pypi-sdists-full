@@ -2657,6 +2657,20 @@ pub fn evaluate_survival_marginal_slope_baseline(
     age: f64,
     cfg: &SurvivalBaselineConfig,
 ) -> Result<(f64, f64), String> {
+    // Survival-curve origin. Every cumulative-hazard baseline satisfies
+    // `H0(0) = 0` (`S0(0) = exp(-H0(0)) = 1`), so the probit index
+    // `q(0) = -Phi^{-1}(S0(0)) = -Phi^{-1}(1) = -inf`: there is no *finite*
+    // probit-survival offset at the origin. The survival surface anchors
+    // `S(0) = 1` directly (see the `t <= 0` origin handling in the survival
+    // predict paths), so the baseline contributes nothing here — report the
+    // zero offset rather than aborting in the `age <= 0` hazard guard. This
+    // mirrors `evaluate_survival_baseline`'s explicit `age == 0` branch on the
+    // log-cumulative-hazard channel; without it the probit/marginal-slope
+    // baseline path (location-scale + marginal-slope likelihoods) could not be
+    // evaluated on a prediction grid whose first node is the origin (#1024).
+    if age == 0.0 {
+        return Ok((0.0, 0.0));
+    }
     let Some(point) = evaluate_marginal_slope_baseline_point(age, cfg)? else {
         return Ok((0.0, 0.0));
     };
@@ -3777,6 +3791,78 @@ mod tests {
         let fd = (q_plus - q_minus) / (2.0 * h);
         assert!((q_derivative - fd).abs() <= 1e-7);
         assert!(instant_hazard > 0.0);
+    }
+
+    #[test]
+    fn marginal_slope_baseline_is_evaluable_at_the_survival_curve_origin() {
+        // Regression for #1024: the probit/marginal-slope baseline evaluator must
+        // be defined at the survival-curve origin t = 0 (where S0(0) = 1, so the
+        // probit index q(0) = -Phi^{-1}(1) = -inf and there is no finite offset),
+        // exactly like its log-cumulative-hazard sibling `evaluate_survival_baseline`.
+        // Before the fix the shared `age <= 0` hazard guard aborted, so a survival
+        // prediction grid whose first node is the origin (the `Surv(time, event)`
+        // right-censored shorthand) could not be evaluated for the location-scale /
+        // marginal-slope likelihoods.
+        let configs = [
+            SurvivalBaselineConfig {
+                target: SurvivalBaselineTarget::Linear,
+                scale: None,
+                shape: None,
+                rate: None,
+                makeham: None,
+            },
+            SurvivalBaselineConfig {
+                target: SurvivalBaselineTarget::Weibull,
+                scale: Some(2.5),
+                shape: Some(1.3),
+                rate: None,
+                makeham: None,
+            },
+            SurvivalBaselineConfig {
+                target: SurvivalBaselineTarget::Gompertz,
+                scale: None,
+                shape: Some(0.05),
+                rate: Some(0.01),
+                makeham: None,
+            },
+            SurvivalBaselineConfig {
+                target: SurvivalBaselineTarget::GompertzMakeham,
+                scale: None,
+                shape: Some(0.07),
+                rate: Some(0.012),
+                makeham: Some(0.003),
+            },
+        ];
+        for cfg in &configs {
+            // The probit baseline returns a finite zero offset at the origin for
+            // every target (the survival surface anchors S(0) = 1 directly).
+            let (q0, q0_derivative) = evaluate_survival_marginal_slope_baseline(0.0, cfg)
+                .expect("marginal-slope baseline must be evaluable at the origin");
+            assert_eq!(q0, 0.0);
+            assert_eq!(q0_derivative, 0.0);
+
+            // The log-cumulative-hazard sibling is likewise finite at the origin —
+            // this parity is the whole point (the transformation likelihood already
+            // worked because it rides this evaluator).
+            let (eta0, eta0_derivative) =
+                evaluate_survival_baseline(0.0, cfg).expect("log-cum-hazard baseline at origin");
+            assert!(eta0_derivative.is_finite());
+            assert!(eta0.is_finite() || eta0 == f64::NEG_INFINITY);
+
+            // The batched offset builder must not abort when a query exit age is the
+            // origin (this is the exact call the location-scale predict path makes on
+            // the default surface grid). Entry stays at the origin, exit spans 0 -> t.
+            let age_entry = array![0.0, 0.0];
+            let age_exit = array![0.0, 1.5];
+            let (entry, exit, derivative) =
+                build_survival_marginal_slope_baseline_offsets(&age_entry, &age_exit, cfg)
+                    .expect("probit baseline offsets must build through the origin");
+            assert!(entry.iter().all(|v| v.is_finite()));
+            assert!(exit.iter().all(|v| v.is_finite()));
+            assert!(derivative.iter().all(|v| v.is_finite()));
+            // The origin exit column carries no probit offset.
+            assert_eq!(exit[0], 0.0);
+        }
     }
 
     #[test]

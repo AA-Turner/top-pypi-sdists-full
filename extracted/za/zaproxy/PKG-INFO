@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zaproxy
-Version: 0.5.0
+Version: 0.6.0
 Summary: ZAP API Client
 Home-page: https://www.zaproxy.org/
 License: Apache-2.0

@@ -334,3 +334,37 @@ class TestAiSDKController(unittest.TestCase):
         )
 
         self.assertEqual(result, "Mocked AI response")
+
+    def _sent_texts(self) -> list[str]:
+        body = self.mock_ai_client.prompt.call_args.kwargs["prompt_request_body"]
+        texts: list[str] = []
+        for message in body.messages:
+            content = message.content
+            items = content if isinstance(content, list) else [content]
+            for item in items:
+                if getattr(item, "type", None) == "text":
+                    texts.append(item.text)
+        return texts
+
+    def _png_io(self) -> BytesIO:
+        image_io = BytesIO()
+        Image.new("RGB", (10, 10)).save(image_io, format="PNG")
+        image_io.seek(0)
+        return image_io
+
+    def test_image_only_prompt_is_left_untouched(self):
+        # Kimi accepts image-only prompts; we must NOT inject filler text.
+        self.mock_ai_client.prompt.return_value = {"content": "ok"}
+
+        self.controller.prompt([self._png_io()], [], None, 1.0)
+
+        self.assertEqual(self._sent_texts(), [])
+        body = self.mock_ai_client.prompt.call_args.kwargs["prompt_request_body"]
+        self.assertEqual(len(body.messages), 1)
+
+    def test_real_text_is_preserved(self):
+        self.mock_ai_client.prompt.return_value = {"content": "ok"}
+
+        self.controller.prompt(["hello there"], ["system note"], None, 1.0)
+
+        self.assertEqual(self._sent_texts(), ["system note", "hello there"])

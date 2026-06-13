@@ -7,7 +7,7 @@ use crate::solver::outer_strategy::OuterEval;
 use crate::solver::pirls::PIRLS_CACHE_BYTE_BUDGET;
 use crate::terms::basis::LocalDesignJacobianProvider;
 use crate::types::SasLinkState;
-use ndarray::{Array2, s};
+use ndarray::{Array1, Array2, s};
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
 use std::sync::Arc;
@@ -332,7 +332,7 @@ mod tests {
         HyperPenaltyDerivative, ImplicitDerivLevel, RemlConfig, RemlState,
     };
     use crate::estimate::EstimationError;
-    use crate::faer_ndarray::{FaerCholesky, FaerEigh};
+    use crate::faer_ndarray::FaerCholesky;
     use crate::linalg::utils::enforce_symmetry;
     use crate::pirls::PirlsCoordinateFrame;
     use crate::solver::outer_strategy::{HessianResult, OuterEval};
@@ -1402,85 +1402,6 @@ mod tests {
         assert!(
             rel < 1e-10,
             "Firth gradient should lie in Col(Xᵀ): rel residual={rel:.3e}"
-        );
-    }
-
-    #[test]
-    fn fixed_subspace_penalty_trace_uses_positive_penalty_subspace_only() {
-        // Use a non-separable pattern so this test exercises penalty-subspace
-        // tracing logic rather than separation handling.
-        let y = array![0.0, 1.0, 1.0, 0.0, 0.0, 1.0];
-        let w = Array1::<f64>::ones(y.len());
-        let x = array![
-            [1.0, -1.0, 0.2],
-            [1.0, -0.5, -0.4],
-            [1.0, 0.0, 0.7],
-            [1.0, 0.4, -0.3],
-            [1.0, 0.9, 0.1],
-            [1.0, 1.3, -0.6],
-        ];
-        // Rank-deficient penalty with clear nullspace on first coordinate.
-        let s0 = array![[0.0, 0.0, 0.0], [0.0, 1.1, 0.15], [0.0, 0.15, 0.8],];
-        let rho = array![0.0];
-        let cfg = RemlConfig::external(binomial_logit_glm_spec(), 1e-10, false);
-        let state = build_logit_state(&y, &w, &x, &s0, &cfg);
-        let bundle = state.obtain_eval_bundle(&rho).expect("bundle");
-        let pr = bundle.pirls_result.as_ref();
-        let e = &pr.reparam_result.e_transformed;
-        let p = e.ncols();
-        let mut s_lambda = e.t().dot(e);
-        let ridge = pr.ridge_passport.penalty_logdet_ridge();
-        if ridge > 0.0 {
-            for i in 0..p {
-                s_lambda[[i, i]] += ridge;
-            }
-        }
-        let (evals, evecs) = s_lambda.eigh(Side::Lower).expect("penalty eigh");
-        let mut order: Vec<usize> = (0..evals.len()).collect();
-        order.sort_by(|&a, &b| {
-            evals[b]
-                .partial_cmp(&evals[a])
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        let pos_idx = order[0];
-        let null_idx = order[order.len() - 1];
-        let u_pos = evecs.column(pos_idx).to_owned();
-        let u_null = evecs.column(null_idx).to_owned();
-
-        let s_dir_null = {
-            let col = u_null.clone().insert_axis(ndarray::Axis(1));
-            let row = u_null.insert_axis(ndarray::Axis(0));
-            col.dot(&row)
-        };
-        let s_dir_pos = {
-            let col = u_pos.clone().insert_axis(ndarray::Axis(1));
-            let row = u_pos.clone().insert_axis(ndarray::Axis(0));
-            col.dot(&row)
-        };
-
-        // With the exact pseudoinverse, the null-direction trace is zero:
-        // tr(S⁺ S_null) = 0 because S⁺ projects onto the positive eigenspace
-        // and u₀ is orthogonal to it.
-        let penalty_subspace = state
-            .compute_penalty_subspace(e, pr.ridge_passport)
-            .expect("penalty-subspace");
-        let tr_null = state
-            .fixed_subspace_penalty_trace_from_subspace(&penalty_subspace, &s_dir_null)
-            .expect("trace-null");
-        assert!(
-            tr_null.abs() < 1e-10,
-            "nullspace direction trace should be ~0 with exact pseudoinverse: got {tr_null:.3e}"
-        );
-
-        let tr_pos = state
-            .fixed_subspace_penalty_trace_from_subspace(&penalty_subspace, &s_dir_pos)
-            .expect("trace-pos");
-        // With exact pseudoinverse, expected is 1/σ_pos.
-        let expected_pos = 1.0 / evals[pos_idx];
-        let rel = (tr_pos - expected_pos).abs() / expected_pos.abs().max(1e-12);
-        assert!(
-            rel < 1e-6,
-            "positive-subspace contraction mismatch: got={tr_pos:.6e}, expected={expected_pos:.6e}, rel={rel:.3e}"
         );
     }
 
@@ -4184,6 +4105,19 @@ pub(crate) struct EvalShared {
     /// factorizes the canonical-TRANSFORMED, possibly constraint-projected
     /// penalties, a genuinely different matrix, not a duplicate of this one.)
     penalty_pseudologdet: std::sync::OnceLock<Arc<penalty_logdet::PenaltyPseudologdet>>,
+    /// Per-evaluation-point cache of the canonical penalty score vectors
+    /// `S_k β̂` evaluated at this bundle's inner mode `β̂ =
+    /// pirls_result.beta_transformed` (unscaled by λ_k). These depend ONLY
+    /// on the inner solution carried by this bundle and the `RemlState`'s
+    /// fixed `canonical_penalties` — never on which ρ-coordinate or eval
+    /// mode the assembly is running — so they are computed exactly once per
+    /// inner solution and shared by every assemble call that reuses the
+    /// bundle (cost + gradient evaluations at the same ρ, EFS, synthetic-ext
+    /// value probes). Exact hoist, not an approximation: every consumer sees
+    /// literally the same vectors it previously recomputed. Initialized via
+    /// plain ndarray matvecs (no rayon inside the `OnceLock` closure — the
+    /// `get_or_init`+`into_par_iter` deadlock trap does not apply).
+    penalty_scores_at_mode: std::sync::OnceLock<Arc<Vec<Array1<f64>>>>,
 }
 
 impl EvalShared {

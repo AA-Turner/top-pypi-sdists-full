@@ -4,7 +4,9 @@ isort:skip_file
 """
 
 import builtins
+import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.internal.containers
 import google.protobuf.message
 import typing
 
@@ -48,6 +50,40 @@ class PaymentMethodDetails(google.protobuf.message.Message):
 global___PaymentMethodDetails = PaymentMethodDetails
 
 @typing.final
+class StripeRefund(google.protobuf.message.Message):
+    """A snapshot of a single Stripe refund attached to a charge. Conveys
+    per-refund metadata so handlers can record refunds individually and
+    dedupe by ``id``; the aggregate ``amount_refunded`` on ``StripeCharge``
+    alone is not enough for idempotent ingestion.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ID_FIELD_NUMBER: builtins.int
+    AMOUNT_FIELD_NUMBER: builtins.int
+    REASON_FIELD_NUMBER: builtins.int
+    id: builtins.str
+    """Stripe id of the refund (e.g. "re_xxx")."""
+    amount: builtins.int
+    """Refund amount in the charge's smallest currency unit (cents for USD)."""
+    reason: builtins.str
+    """Stripe-supplied reason (e.g. "requested_by_customer", "duplicate",
+    "fraudulent"). Unset when Stripe did not provide one.
+    """
+    def __init__(
+        self,
+        *,
+        id: builtins.str = ...,
+        amount: builtins.int = ...,
+        reason: builtins.str | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_reason", b"_reason", "reason", b"reason"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_reason", b"_reason", "amount", b"amount", "id", b"id", "reason", b"reason"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_reason", b"_reason"]) -> typing.Literal["reason"] | None: ...
+
+global___StripeRefund = StripeRefund
+
+@typing.final
 class StripeCharge(google.protobuf.message.Message):
     """A snapshot of a Stripe charge object. Used as the payload when reacting
     to Stripe webhook events.
@@ -63,6 +99,7 @@ class StripeCharge(google.protobuf.message.Message):
     CREATED_ST_FIELD_NUMBER: builtins.int
     FAILURE_CODE_FIELD_NUMBER: builtins.int
     PAYMENT_METHOD_DETAILS_FIELD_NUMBER: builtins.int
+    REFUNDS_FIELD_NUMBER: builtins.int
     id: builtins.str
     amount: builtins.int
     refunded: builtins.bool
@@ -73,6 +110,13 @@ class StripeCharge(google.protobuf.message.Message):
     failure_code: builtins.str
     @property
     def payment_method_details(self) -> global___PaymentMethodDetails: ...
+    @property
+    def refunds(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___StripeRefund]:
+        """Per-refund records attached to this charge. Empty when the charge has
+        no refunds. The list reflects the state of refunds at the time the
+        webhook was emitted.
+        """
+
     def __init__(
         self,
         *,
@@ -84,9 +128,10 @@ class StripeCharge(google.protobuf.message.Message):
         created_st: builtins.int = ...,
         failure_code: builtins.str | None = ...,
         payment_method_details: global___PaymentMethodDetails | None = ...,
+        refunds: collections.abc.Iterable[global___StripeRefund] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "failure_code", b"failure_code", "payment_method_details", b"payment_method_details"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "amount", b"amount", "amount_refunded", b"amount_refunded", "created_st", b"created_st", "failure_code", b"failure_code", "id", b"id", "paid", b"paid", "payment_method_details", b"payment_method_details", "refunded", b"refunded"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "amount", b"amount", "amount_refunded", b"amount_refunded", "created_st", b"created_st", "failure_code", b"failure_code", "id", b"id", "paid", b"paid", "payment_method_details", b"payment_method_details", "refunded", b"refunded", "refunds", b"refunds"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_failure_code", b"_failure_code"]) -> typing.Literal["failure_code"] | None: ...
 
 global___StripeCharge = StripeCharge

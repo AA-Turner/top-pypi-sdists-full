@@ -256,6 +256,68 @@ npm test
 ```
 """
 
+_NEXTJS_PACKAGE_JSON = """\
+{
+  "name": "nextjs-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "typescript": "^5.0.0"
+  }
+}
+"""
+
+_NEXTJS_LAYOUT = """\
+import React from 'react';
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+"""
+
+_NEXTJS_PAGE = """\
+import React from 'react';
+export default function Page() {
+  return (
+    <main>
+      <h1>App</h1>
+    </main>
+  );
+}
+"""
+
+_NEXTJS_TEST = """\
+import { test } from 'vitest';
+test('page renders', () => {});
+"""
+
+_NEXTJS_README = """\
+# Next.js App
+
+## Run
+```
+npm install
+npm run dev
+npm run build
+npm test
+```
+"""
+
 
 # ── Skeleton registry ──────────────────────────────────────────────────
 
@@ -312,6 +374,18 @@ SKELETONS: tuple[Skeleton, ...] = (
             "frontend/src/App.jsx": _REACT_VITE_APP,
         },
     ),
+    Skeleton(
+        name="nextjs",
+        description="Next.js App Router project",
+        keywords=("nextjs", "next.js", "next js", "next"),
+        files={
+            "frontend/package.json": _NEXTJS_PACKAGE_JSON,
+            "frontend/src/app/layout.tsx": _NEXTJS_LAYOUT,
+            "frontend/src/app/page.tsx": _NEXTJS_PAGE,
+            "frontend/src/app/page.test.tsx": _NEXTJS_TEST,
+            "README.md": _NEXTJS_README,
+        },
+    ),
 )
 
 
@@ -331,12 +405,15 @@ def match_skeleton(prompt: str) -> Skeleton | None:
     """
     if not prompt or not prompt.strip():
         return None
+    p_lower = prompt.lower()
+    if any(kw in p_lower for kw in ["react-native", "react native", "expo", "flutter", "swift", "kotlin"]):
+        return None
     scored = [(sk, _score(prompt, sk)) for sk in SKELETONS]
     scored.sort(key=lambda t: (t[1], len(t[0].keywords)), reverse=True)
     best, score = scored[0]
     if score >= 2:
         return best
-    if score == 1 and re.search(r"\b(?:react|node|express|fastapi|vite)\b",
+    if score == 1 and re.search(r"\b(?:react|node|express|fastapi|vite|next|nextjs)\b",
                                 prompt, re.IGNORECASE):
         return best
     return None

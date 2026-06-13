@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 
 from soniox.client import SonioxClient
-from soniox.errors import SonioxRealtimeError
+from soniox.errors import SonioxRealtimeError, SonioxValidationError
 from soniox.realtime._constants import MAX_TTS_STREAMS_PER_CONNECTION
 from soniox.types.realtime import RealtimeTTSConfig
 
@@ -72,6 +72,73 @@ def test_connect_raises_realtime_error_on_ws_failure(client: SonioxClient) -> No
         with pytest.raises(SonioxRealtimeError, match="Failed to start"):
             with client.realtime.tts.connect(config=_config()):
                 pass
+
+
+def test_connect_default_uses_default_open_timeout(client: SonioxClient) -> None:
+    ws = MockWebSocket()
+    ws.close_after_recv()
+
+    with patch("soniox.realtime.tts.sync_ws_connect", return_value=ws) as mock_connect:
+        with client.realtime.tts.connect(config=_config()):
+            pass
+
+    mock_connect.assert_called_once_with(client.tts_websocket_base_url, open_timeout=10.0)
+
+
+def test_connect_passes_connect_timeout(client: SonioxClient) -> None:
+    ws = MockWebSocket()
+    ws.close_after_recv()
+
+    with patch("soniox.realtime.tts.sync_ws_connect", return_value=ws) as mock_connect:
+        with client.realtime.tts.connect(config=_config(), connect_timeout_sec=5.0):
+            pass
+
+    mock_connect.assert_called_once_with(client.tts_websocket_base_url, open_timeout=5.0)
+
+
+def test_multiplexed_connect_passes_connect_timeout(client: SonioxClient) -> None:
+    ws = MockWebSocket()
+    ws.close_after_recv()
+
+    with patch("soniox.realtime.tts.sync_ws_connect", return_value=ws) as mock_connect:
+        with client.realtime.tts.connect_multi_stream(connect_timeout_sec=4.0):
+            pass
+
+    mock_connect.assert_called_once_with(client.tts_websocket_base_url, open_timeout=4.0)
+
+
+def test_connect_timeout_maps_to_realtime_error() -> None:
+    client = SonioxClient(api_key="test_key")
+
+    with patch(
+        "soniox.realtime.tts.sync_ws_connect",
+        side_effect=TimeoutError("timed out"),
+    ):
+        with pytest.raises(SonioxRealtimeError, match="Connection timed out"):
+            with client.realtime.tts.connect(config=_config()):
+                pass
+
+
+def test_multiplexed_connect_timeout_maps_to_realtime_error() -> None:
+    client = SonioxClient(api_key="test_key")
+
+    with patch(
+        "soniox.realtime.tts.sync_ws_connect",
+        side_effect=TimeoutError("timed out"),
+    ):
+        with pytest.raises(SonioxRealtimeError, match="Connection timed out"):
+            with client.realtime.tts.connect_multi_stream():
+                pass
+
+
+def test_invalid_connect_timeout_raises(client: SonioxClient) -> None:
+    with pytest.raises(SonioxValidationError, match="connect_timeout_sec"):
+        client.realtime.tts.connect(config=_config(), connect_timeout_sec=0.0)
+
+
+def test_multiplexed_invalid_connect_timeout_raises(client: SonioxClient) -> None:
+    with pytest.raises(SonioxValidationError, match="connect_timeout_sec"):
+        client.realtime.tts.connect_multi_stream(connect_timeout_sec=-1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -686,3 +753,39 @@ def test_multiplexed_last_message_tracks_most_recent(client: SonioxClient) -> No
             assert stream.last_message.terminated is True
             assert stream.config.stream_id == "a"
             assert stream.stream_id == "a"
+
+
+# ---------------------------------------------------------------------------
+# Coverage backfill: config getter, api_key validation, recv str→bytes.
+# ---------------------------------------------------------------------------
+
+
+def test_tts_connection_exposes_config(client: SonioxClient) -> None:
+    conn = client.realtime.tts.connect(config=_config("c1"))
+    assert conn.config.stream_id == "c1"
+
+
+def test_tts_connect_requires_api_key(client: SonioxClient) -> None:
+    from soniox.errors import SonioxValidationError
+
+    client.api_key = ""
+    with pytest.raises(SonioxValidationError, match="API key"):
+        client.realtime.tts.connect(config=_config())
+
+
+def test_tts_connect_multi_stream_requires_api_key(client: SonioxClient) -> None:
+    from soniox.errors import SonioxValidationError
+
+    client.api_key = ""
+    with pytest.raises(SonioxValidationError, match="API key"):
+        client.realtime.tts.connect_multi_stream()
+
+
+def test_tts_recv_bytes_encodes_string_messages(client: SonioxClient) -> None:
+    ws = MockWebSocket()
+    ws.push_recv_raw("string-frame")
+    ws.close_after_recv()
+
+    with _patch_sync_tts_ws(ws):
+        with client.realtime.tts.connect(config=_config()) as conn:
+            assert conn.recv_bytes() == b"string-frame"

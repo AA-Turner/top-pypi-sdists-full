@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: scrapy-playwright
-Version: 0.0.46
+Version: 0.0.47
 Summary: Playwright integration for Scrapy
-Home-page: https://github.com/scrapy-plugins/scrapy-playwright
-Author: Eugenio Lacuesta
-Author-email: eugenio.lacuesta@gmail.com
-License: BSD
+Author-email: Eugenio Lacuesta <eugenio.lacuesta@gmail.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/scrapy-plugins/scrapy-playwright
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Scrapy
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -21,19 +20,10 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: scrapy>=2.7
+Requires-Dist: scrapy>=2.7; python_version < "3.14"
+Requires-Dist: scrapy>=2.16; python_version >= "3.14"
 Requires-Dist: playwright>=1.40
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # scrapy-playwright: Playwright integration for Scrapy
 [![version](https://img.shields.io/pypi/v/scrapy-playwright.svg)](https://pypi.python.org/pypi/scrapy-playwright)
@@ -95,16 +85,20 @@ See the [changelog](docs/changelog.md) document.
 
 ### Download handler
 
-Replace the default `http` and/or `https` Download Handlers through
+Replace the default `https` and/or `http` Download Handlers through
 [`DOWNLOAD_HANDLERS`](https://docs.scrapy.org/en/latest/topics/settings.html):
 
 ```python
 # settings.py
 DOWNLOAD_HANDLERS = {
-    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
     "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+    # "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
 }
 ```
+
+Registering the handler for `https` is usually enough, since most modern sites
+use HTTPS. Enable the `http` handler only if you need to process plain HTTP
+URLs with Playwright.
 
 Note that the `ScrapyPlaywrightDownloadHandler` class inherits from the default
 `http/https` handler. Unless explicitly marked (see [Basic usage](#basic-usage)),
@@ -315,6 +309,17 @@ See the docs for [BrowserContext.set_default_navigation_timeout](https://playwri
 PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 10 * 1000  # 10 seconds
 ```
 
+### `PLAYWRIGHT_DOWNLOAD_TIMEOUT`
+Type `int`, default `30000` (30 seconds)
+
+Timeout in milliseconds to wait for a file download to start and to finish. If the
+timeout is exceeded, the original navigation error is re-raised instead of
+hanging indefinitely.
+
+```python
+PLAYWRIGHT_DOWNLOAD_TIMEOUT = 60000  # 1 minute
+```
+
 ### `PLAYWRIGHT_PROCESS_REQUEST_HEADERS`
 Type `Optional[Union[Callable, str]]`, default `scrapy_playwright.headers.use_scrapy_headers`
 
@@ -366,34 +371,6 @@ async def custom_headers(
 PLAYWRIGHT_PROCESS_REQUEST_HEADERS = custom_headers
 ```
 
-#### Deprecated argument handling
-
-In version 0.0.40 and earlier, arguments were passed to the function positionally,
-and only the Scrapy headers were passed instead of a dictionary with data about the
-Scrapy request.
-This is deprecated since version 0.0.41, and support for this way of handling arguments
-will eventually be removed in accordance with the [Deprecation policy](#deprecation-policy).
-
-Passed arguments:
-```python
-- browser_type: str
-- playwright_request: playwright.async_api.Request
-- scrapy_headers: scrapy.http.headers.Headers
-```
-
-Example:
-```python
-def custom_headers(
-    browser_type: str,
-    playwright_request: playwright.async_api.Request,
-    scrapy_headers: scrapy.http.headers.Headers,
-) -> dict:
-    if browser_type == "firefox":
-        return {"User-Agent": "foo"}
-    return {"User-Agent": "bar"}
-
-PLAYWRIGHT_PROCESS_REQUEST_HEADERS = custom_headers
-```
 
 ### `PLAYWRIGHT_RESTART_DISCONNECTED_BROWSER`
 Type `bool`, default `True`
@@ -733,6 +710,34 @@ Note that persistent contexts are launched independently from the main browser
 instance, hence keyword arguments passed in the
 [`PLAYWRIGHT_LAUNCH_OPTIONS`](#playwright_launch_options)
 setting do not apply.
+
+**Important:** when `ScrapyPlaywrightDownloadHandler` is registered for both
+`http` and `https` schemes, Scrapy creates one independent
+handler instance per scheme. Both instances read the same `PLAYWRIGHT_CONTEXTS`
+setting and will each try to open the same `user_data_dir`, which causes an
+error because the browser only allows one process per profile directory.
+
+To avoid this, make every `user_data_dir` value unique across handler
+instances — for example by including a random suffix:
+
+```python
+import uuid
+
+PLAYWRIGHT_CONTEXTS = {
+    "persistent": {
+        "user_data_dir": f"/path/to/dir-{uuid.uuid4()}",
+        "context_arg1": "value",
+    },
+}
+```
+
+Alternatively, register the handler for only one scheme (typically `https`):
+
+```python
+DOWNLOAD_HANDLERS = {
+    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+}
+```
 
 ### Creating contexts while crawling
 

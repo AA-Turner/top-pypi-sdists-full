@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblocks-contrib
-Version: 0.16.1
+Version: 0.17.0
 Summary: core xblocks
 Home-page: https://github.com/openedx/xblocks-contrib
 Author: Open edX Project
@@ -40,7 +40,6 @@ Requires-Dist: random2
 Requires-Dist: requests
 Requires-Dist: shapely
 Requires-Dist: simplejson
-Requires-Dist: web-fragments
 Requires-Dist: webob
 Requires-Dist: wrapt
 Requires-Dist: xblock
@@ -366,11 +365,20 @@ Change Log
 Unreleased
 **********
 
+0.17.0 - 2026-06-11
+
+Changed
+=======
+
+* Upgrade XBlock dependency and remove web-fragments dependency in favor of
+  XBlock's packaging of this module.
+
 0.16.0 - 2026-04-21
 **********************************************
 
 Fixed
 =====
+
 * Fix video block editor issues while editing in the Content Library
 
 0.16.0 - 2026-04-21

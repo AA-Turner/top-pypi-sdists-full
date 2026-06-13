@@ -247,6 +247,8 @@ def build_project(
             if load_fixtures:
                 append_project_fixtures(project, tb_client, project_files)
             echo_build_feedback(build.get("feedback", []))
+            if with_connections:
+                echo_dynamodb_local_backfill_feedback(build)
             return True
         elif build_result == "failed":
             error = format_build_errors(result.get("errors", []))
@@ -458,6 +460,29 @@ def echo_build_feedback(feedback: list[dict[str, Any]]) -> None:
     for item in feedback:
         click.echo(
             FeedbackManager.warning(message=f"△ {item.get('level')}: {item.get('resource')}: {item.get('message')}")
+        )
+
+
+def echo_dynamodb_local_backfill_feedback(build: dict[str, Any]) -> None:
+    datasources_by_id = {datasource.get("id"): datasource.get("name") for datasource in build.get("datasources", [])}
+    for data_linker in build.get("data_linkers", []):
+        if data_linker.get("service") != "dynamodb":
+            continue
+
+        settings = data_linker.get("settings") or {}
+        export_arn = settings.get("initial_export_arn")
+        if not export_arn:
+            continue
+
+        datasource_name = datasources_by_id.get(data_linker.get("datasource_id")) or "unknown"
+        click.echo(
+            FeedbackManager.warning(
+                message=(
+                    f"△ DynamoDB initial export backfill started for datasource '{datasource_name}'. "
+                    "AWS exports can stay in progress for several minutes; Tinybird Local will keep retrying "
+                    f"the import until AWS marks the export as completed. Export ARN: {export_arn}."
+                )
+            )
         )
 
 

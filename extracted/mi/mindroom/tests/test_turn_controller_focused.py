@@ -39,6 +39,7 @@ from mindroom.logging_config import get_logger
 from mindroom.matrix.cache.thread_history_result import thread_history_result
 from mindroom.response_payload_preparation import DispatchPayloadInputs, ResponsePayloadPreparation
 from mindroom.response_runner import ResponseRequest
+from mindroom.sync_restart_retry import SyncRestartRetryQueue
 from mindroom.tool_system.runtime_context import ToolRuntimeSupport
 from mindroom.turn_controller import TurnController, TurnControllerDeps
 from mindroom.turn_policy import IngressHookRunner, TurnPolicy, TurnPolicyDeps
@@ -325,7 +326,6 @@ def _build_harness(
     gate = CoalescingGate(
         dispatch_batch=_dispatch_batch,
         debounce_seconds=lambda: 0.0,
-        upload_grace_seconds=lambda: 0.0,
         is_shutting_down=lambda: False,
     )
     ingress_validator = IngressValidator(
@@ -356,6 +356,7 @@ def _build_harness(
             coalescing_gate=gate,
             edit_regenerator=_UnusedEditRegenerator(),
             ingress=ingress_validator,
+            restart_retry=SyncRestartRetryQueue(),
         ),
     )
     controller_ref.append(controller)

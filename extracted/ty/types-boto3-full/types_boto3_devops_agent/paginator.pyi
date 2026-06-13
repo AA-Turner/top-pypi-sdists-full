@@ -23,6 +23,7 @@ Usage::
         ListGoalsPaginator,
         ListJournalRecordsPaginator,
         ListServicesPaginator,
+        ListTriggersPaginator,
     )
 
     session = Session()
@@ -39,6 +40,7 @@ Usage::
     list_goals_paginator: ListGoalsPaginator = client.get_paginator("list_goals")
     list_journal_records_paginator: ListJournalRecordsPaginator = client.get_paginator("list_journal_records")
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
+    list_triggers_paginator: ListTriggersPaginator = client.get_paginator("list_triggers")
     ```
 """
 
@@ -72,6 +74,8 @@ from .type_defs import (
     ListJournalRecordsResponseTypeDef,
     ListServicesInputPaginateTypeDef,
     ListServicesOutputTypeDef,
+    ListTriggersRequestPaginateTypeDef,
+    ListTriggersResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -91,6 +95,7 @@ __all__ = (
     "ListGoalsPaginator",
     "ListJournalRecordsPaginator",
     "ListServicesPaginator",
+    "ListTriggersPaginator",
 )
 
 if TYPE_CHECKING:
@@ -289,4 +294,22 @@ class ListServicesPaginator(_ListServicesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListServices.html#DevOpsAgentService.Paginator.ListServices.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/paginators/#listservicespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTriggersPaginatorBase = Paginator[ListTriggersResponseTypeDef]
+else:
+    _ListTriggersPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTriggersPaginator(_ListTriggersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListTriggers.html#DevOpsAgentService.Paginator.ListTriggers)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/paginators/#listtriggerspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTriggersRequestPaginateTypeDef]
+    ) -> PageIterator[ListTriggersResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListTriggers.html#DevOpsAgentService.Paginator.ListTriggers.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/paginators/#listtriggerspaginator)
         """

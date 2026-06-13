@@ -330,6 +330,21 @@ impl<const K: usize> Tower4<K> {
         self.compose_unary([f0, f1, f2, f3, f4])
     }
 
+    /// ln Γ(self). Caller guarantees positivity.
+    pub fn ln_gamma(&self) -> Self {
+        self.compose_unary(ln_gamma_derivative_stack(self.v))
+    }
+
+    /// ψ(self), the digamma function. Caller guarantees positivity.
+    pub fn digamma(&self) -> Self {
+        self.compose_unary(digamma_derivative_stack(self.v))
+    }
+
+    /// ψ′(self), the trigamma function. Caller guarantees positivity.
+    pub fn trigamma(&self) -> Self {
+        self.compose_unary(trigamma_derivative_stack(self.v))
+    }
+
     /// Contract `t3` with one primary-space direction:
     /// `out[a][b] = Σ_c t3[a][b][c] · dir[c]` — exactly the
     /// `row_third_contracted` shape.
@@ -365,6 +380,115 @@ impl<const K: usize> Tower4<K> {
         }
         out
     }
+}
+
+pub fn ln_gamma_derivative_stack(x: f64) -> [f64; 5] {
+    [
+        statrs::function::gamma::ln_gamma(x),
+        digamma_positive(x),
+        polygamma_positive(1, x),
+        polygamma_positive(2, x),
+        polygamma_positive(3, x),
+    ]
+}
+
+pub fn digamma_derivative_stack(x: f64) -> [f64; 5] {
+    [
+        digamma_positive(x),
+        polygamma_positive(1, x),
+        polygamma_positive(2, x),
+        polygamma_positive(3, x),
+        polygamma_positive(4, x),
+    ]
+}
+
+pub fn trigamma_derivative_stack(x: f64) -> [f64; 5] {
+    [
+        polygamma_positive(1, x),
+        polygamma_positive(2, x),
+        polygamma_positive(3, x),
+        polygamma_positive(4, x),
+        polygamma_positive(5, x),
+    ]
+}
+
+fn digamma_positive(mut x: f64) -> f64 {
+    if !(x.is_finite() && x > 0.0) {
+        return f64::NAN;
+    }
+    let mut acc = 0.0;
+    while x < POLYGAMMA_ASYMPTOTIC_MIN_X {
+        acc -= 1.0 / x;
+        x += 1.0;
+    }
+    acc + digamma_asymptotic(x)
+}
+
+fn polygamma_positive(order: usize, mut x: f64) -> f64 {
+    if !(x.is_finite() && x > 0.0) {
+        return f64::NAN;
+    }
+    let mut acc = 0.0;
+    while x < POLYGAMMA_ASYMPTOTIC_MIN_X {
+        acc += polygamma_recurrence_term(order, x);
+        x += 1.0;
+    }
+    acc + polygamma_asymptotic(order, x)
+}
+
+const POLYGAMMA_ASYMPTOTIC_MIN_X: f64 = 20.0;
+const BERNOULLI_EVEN: [(usize, f64); 10] = [
+    (2, 1.0 / 6.0),
+    (4, -1.0 / 30.0),
+    (6, 1.0 / 42.0),
+    (8, -1.0 / 30.0),
+    (10, 5.0 / 66.0),
+    (12, -691.0 / 2730.0),
+    (14, 7.0 / 6.0),
+    (16, -3617.0 / 510.0),
+    (18, 43867.0 / 798.0),
+    (20, -174611.0 / 330.0),
+];
+
+fn polygamma_recurrence_term(order: usize, x: f64) -> f64 {
+    let sign = if order % 2 == 1 { 1.0 } else { -1.0 };
+    sign * factorial(order) / x.powi((order + 1) as i32)
+}
+
+fn digamma_asymptotic(x: f64) -> f64 {
+    let mut out = x.ln() - 0.5 / x;
+    for (bernoulli_order, bernoulli) in BERNOULLI_EVEN {
+        out -= bernoulli / (bernoulli_order as f64 * x.powi(bernoulli_order as i32));
+    }
+    out
+}
+
+fn polygamma_asymptotic(order: usize, x: f64) -> f64 {
+    if !(1..=5).contains(&order) {
+        return f64::NAN;
+    }
+
+    let order_factorial = factorial(order);
+    let leading_sign = if order % 2 == 1 { 1.0 } else { -1.0 };
+    let mut out = leading_sign * factorial(order - 1) / x.powi(order as i32)
+        + leading_sign * order_factorial / (2.0 * x.powi((order + 1) as i32));
+
+    let bernoulli_sign = if order % 2 == 1 { 1.0 } else { -1.0 };
+    for (bernoulli_order, bernoulli) in BERNOULLI_EVEN {
+        let rising = rising_factorial(bernoulli_order, order);
+        out += bernoulli_sign * bernoulli * rising
+            / bernoulli_order as f64
+            / x.powi((bernoulli_order + order) as i32);
+    }
+    out
+}
+
+fn factorial(n: usize) -> f64 {
+    (1..=n).fold(1.0, |acc, k| acc * k as f64)
+}
+
+fn rising_factorial(start: usize, len: usize) -> f64 {
+    (start..start + len).fold(1.0, |acc, k| acc * k as f64)
 }
 
 impl<const K: usize> std::ops::Add for Tower4<K> {
@@ -665,6 +789,105 @@ mod tests {
                     "row {row} {label}: got {got:+.15e} want {want:+.15e}"
                 );
             }
+        }
+    }
+
+    fn assert_close(label: &str, got: f64, want: f64, rel_tol: f64) {
+        let diff = (got - want).abs();
+        assert!(
+            diff <= rel_tol * want.abs().max(1.0),
+            "{label}: got {got:+.17e} want {want:+.17e} diff {diff:.3e}"
+        );
+    }
+
+    #[test]
+    fn gamma_special_function_stacks_match_reference_values() {
+        const EULER_GAMMA: f64 = 0.577_215_664_901_532_9;
+        let pi_sq = std::f64::consts::PI * std::f64::consts::PI;
+        let cases = [
+            (
+                "x=0.1",
+                0.1,
+                -10.423_754_940_411_076,
+                101.433_299_150_792_75,
+            ),
+            (
+                "x=0.5",
+                0.5,
+                -EULER_GAMMA - 2.0 * std::f64::consts::LN_2,
+                pi_sq / 2.0,
+            ),
+            ("x=1", 1.0, -EULER_GAMMA, pi_sq / 6.0),
+            (
+                "x=2.5",
+                2.5,
+                -EULER_GAMMA - 2.0 * std::f64::consts::LN_2 + 2.0 + 2.0 / 3.0,
+                pi_sq / 2.0 - 4.0 - 4.0 / 9.0,
+            ),
+            (
+                "x=50",
+                50.0,
+                3.901_989_673_427_892,
+                0.020_201_333_226_697_128,
+            ),
+        ];
+
+        for (label, x, digamma_ref, trigamma_ref) in cases {
+            let ln_gamma_stack = ln_gamma_derivative_stack(x);
+            let digamma_stack = digamma_derivative_stack(x);
+            let trigamma_stack = trigamma_derivative_stack(x);
+            assert_close(
+                &format!("{label} ln_gamma_stack digamma"),
+                ln_gamma_stack[1],
+                digamma_ref,
+                1e-13,
+            );
+            assert_close(
+                &format!("{label} digamma value"),
+                digamma_stack[0],
+                digamma_ref,
+                1e-13,
+            );
+            assert_close(
+                &format!("{label} ln_gamma_stack trigamma"),
+                ln_gamma_stack[2],
+                trigamma_ref,
+                1e-13,
+            );
+            assert_close(
+                &format!("{label} digamma_stack trigamma"),
+                digamma_stack[1],
+                trigamma_ref,
+                1e-13,
+            );
+            assert_close(
+                &format!("{label} trigamma value"),
+                trigamma_stack[0],
+                trigamma_ref,
+                1e-13,
+            );
+        }
+    }
+
+    #[test]
+    fn gamma_special_function_stacks_obey_recurrences() {
+        for x in [0.1, 0.5, 1.0, 2.5, 50.0] {
+            let digamma_x = digamma_derivative_stack(x)[0];
+            let digamma_next = digamma_derivative_stack(x + 1.0)[0];
+            let trigamma_x = trigamma_derivative_stack(x)[0];
+            let trigamma_next = trigamma_derivative_stack(x + 1.0)[0];
+            assert_close(
+                &format!("digamma recurrence x={x}"),
+                digamma_next,
+                digamma_x + 1.0 / x,
+                1e-13,
+            );
+            assert_close(
+                &format!("trigamma recurrence x={x}"),
+                trigamma_next,
+                trigamma_x - 1.0 / (x * x),
+                1e-13,
+            );
         }
     }
 
@@ -1030,4 +1253,37 @@ mod tests {
             }
         }
     }
+}
+
+/// Stable derivative stack for `log Φ(x)` through fourth order.
+///
+/// The value and Mills ratio come from the shared probit primitive, so the
+/// deep left tail uses the same erfcx path as production log-CDF code.
+#[inline]
+pub(crate) fn unary_derivatives_normal_logcdf(x: f64) -> [f64; 5] {
+    let (log_cdf, lambda) = crate::probability::signed_probit_logcdf_and_mills_ratio(x);
+    let lambda2 = lambda * lambda;
+    let lambda3 = lambda2 * lambda;
+    let x2 = x * x;
+    [
+        log_cdf,
+        lambda,
+        -lambda * (x + lambda),
+        lambda * (x2 - 1.0 + 3.0 * x * lambda + 2.0 * lambda2),
+        -lambda
+            * ((x * x2 - 3.0 * x) + (7.0 * x2 - 4.0) * lambda + 12.0 * x * lambda2 + 6.0 * lambda3),
+    ]
+}
+
+/// Stable derivative stack for `log(1 - exp(-x))`, `x > 0`, through fourth order.
+#[inline]
+pub(crate) fn unary_derivatives_log1mexp_positive(x: f64) -> [f64; 5] {
+    let r = 1.0 / x.exp_m1();
+    [
+        crate::probability::log1mexp_positive(x),
+        r,
+        -r * (1.0 + r),
+        r * (1.0 + r) * (1.0 + 2.0 * r),
+        -r * (1.0 + r) * (1.0 + 6.0 * r + 6.0 * r * r),
+    ]
 }

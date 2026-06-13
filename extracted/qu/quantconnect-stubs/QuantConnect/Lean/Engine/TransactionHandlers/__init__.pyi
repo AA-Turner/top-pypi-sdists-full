@@ -105,6 +105,9 @@ class CancelPendingOrders(System.Object):
 class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler):
     """Transaction handler for all brokerages"""
 
+    LIQUIDATE_FROM_DELISTING_TAG: str = "Liquidate from delisting"
+    """The tag used for order events of liquidations triggered by a delisting"""
+
     @property
     def _order_request_queues(self) -> typing.List[QuantConnect.Interfaces.IBusyCollection[QuantConnect.Orders.OrderRequest]]:
         """

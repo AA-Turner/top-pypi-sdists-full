@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "cibuildwheel.architecture",
+    "cibuildwheel.audit",
+    "cibuildwheel.frontend",
+    "cibuildwheel.logger",
+    "cibuildwheel.util",
+    "cibuildwheel.util.cmd",
+    "cibuildwheel.util.file",
+    "cibuildwheel.util.helpers",
+    "cibuildwheel.util.packaging",
+    "cibuildwheel.venv",
+    "filelock",
+    "pathlib",
+    "platform",
+    "shutil",
+    "subprocess",
+    "textwrap",
+    "typing",
+}
+
 import dataclasses
 import os
 import platform as platform_module
@@ -328,7 +348,7 @@ def setup_python(
         assert (venv_path / "Scripts" / "pip.exe").exists()
         where_pip = call("where", "pip", env=env, capture_stdout=True).splitlines()[0].strip()
         print(where_pip)
-        if where_pip.strip() != str(venv_path / "Scripts" / "pip.exe"):
+        if where_pip != str(venv_path / "Scripts" / "pip.exe"):
             msg = "pip available on PATH doesn't match our installed instance. If you have modified PATH, ensure that you don't overwrite cibuildwheel's entry or insert pip above it."
             raise errors.FatalError(msg)
         call("pip", "--version", env=env)
@@ -522,7 +542,10 @@ def build(options: Options, tmp_path: Path) -> None:
                     case _:
                         assert_never(build_frontend)
 
-                built_wheel = next(built_wheel_dir.glob("*.whl"))
+                try:
+                    built_wheel = next(built_wheel_dir.glob("*.whl"))
+                except StopIteration:
+                    raise errors.BuildProducedNoWheelError() from None
 
                 # repair the wheel
                 repaired_wheel_dir.mkdir()

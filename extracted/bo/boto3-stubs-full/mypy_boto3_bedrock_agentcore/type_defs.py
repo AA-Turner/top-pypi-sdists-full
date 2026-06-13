@@ -46,6 +46,7 @@ from .literals import (
     HarnessToolTypeType,
     HarnessToolUseStatusType,
     HarnessToolUseTypeType,
+    InsightsFailureCategoryType,
     LanguageRuntimeType,
     MemoryRecordOperatorTypeType,
     MemoryRecordStatusType,
@@ -83,6 +84,7 @@ __all__ = (
     "ABTestSummaryTypeDef",
     "AccessDeniedExceptionTypeDef",
     "ActorSummaryTypeDef",
+    "AffectedSessionTypeDef",
     "AgentCardDefinitionTypeDef",
     "AgentSkillsDescriptorTypeDef",
     "AgentTracesConfigOutputTypeDef",
@@ -97,6 +99,7 @@ __all__ = (
     "BatchDeleteMemoryRecordsInputTypeDef",
     "BatchDeleteMemoryRecordsOutputTypeDef",
     "BatchEvaluationSummaryTypeDef",
+    "BatchEvaluationTraceConfigTypeDef",
     "BatchUpdateMemoryRecordsInputTypeDef",
     "BatchUpdateMemoryRecordsOutputTypeDef",
     "BlobTypeDef",
@@ -185,12 +188,19 @@ __all__ = (
     "EvaluatorTypeDef",
     "EventMetadataFilterExpressionTypeDef",
     "EventTypeDef",
+    "ExecutionSummaryAffectedSessionTypeDef",
+    "ExecutionSummaryClusterTypeDef",
+    "ExecutionSummaryClusteringResultContentTypeDef",
     "ExternalProxyOutputTypeDef",
     "ExternalProxyTypeDef",
     "ExtractionJobFilterInputTypeDef",
     "ExtractionJobMessagesTypeDef",
     "ExtractionJobMetadataTypeDef",
     "ExtractionJobTypeDef",
+    "FailureAnalysisResultContentTypeDef",
+    "FailureCategoryClusterTypeDef",
+    "FailureSpanDetailTypeDef",
+    "FailureSubCategoryClusterTypeDef",
     "FilterInputTypeDef",
     "FilterValueTypeDef",
     "GatewayFilterOutputTypeDef",
@@ -275,6 +285,8 @@ __all__ = (
     "HarnessToolUseBlockTypeDef",
     "InlineGroundTruthTypeDef",
     "InputContentBlockTypeDef",
+    "InsightTypeDef",
+    "InsightsFailureSignalTypeDef",
     "InternalServerExceptionTypeDef",
     "InvokeAgentRuntimeCommandRequestBodyTypeDef",
     "InvokeAgentRuntimeCommandRequestTypeDef",
@@ -362,6 +374,8 @@ __all__ = (
     "MouseScrollResultTypeDef",
     "OAuth2AuthenticationTypeDef",
     "OAuthCredentialProviderTypeDef",
+    "OnlineEvaluationConfigSourceOutputTypeDef",
+    "OnlineEvaluationConfigSourceTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
@@ -408,6 +422,7 @@ __all__ = (
     "RetrieveMemoryRecordsInputTypeDef",
     "RetrieveMemoryRecordsOutputTypeDef",
     "RightExpressionTypeDef",
+    "RootCauseClusterTypeDef",
     "RuntimeClientErrorTypeDef",
     "S3LocationTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
@@ -480,6 +495,9 @@ __all__ = (
     "UpdateBrowserStreamRequestTypeDef",
     "UpdateBrowserStreamResponseTypeDef",
     "UserIdentifierTypeDef",
+    "UserIntentAffectedSessionTypeDef",
+    "UserIntentClusterTypeDef",
+    "UserIntentClusteringResultContentTypeDef",
     "ValidationExceptionFieldTypeDef",
     "ValidationExceptionTypeDef",
     "VariantConfigurationTypeDef",
@@ -528,6 +546,10 @@ class SkillMdDefinitionTypeDef(TypedDict):
     inlineContent: NotRequired[str]
 
 
+class BatchEvaluationTraceConfigTypeDef(TypedDict):
+    batchEvaluationArn: str
+
+
 class AmountTypeDef(TypedDict):
     value: str
     currency: Literal["USD"]
@@ -568,6 +590,10 @@ class MemoryRecordDeleteInputTypeDef(TypedDict):
 
 class EvaluatorTypeDef(TypedDict):
     evaluatorId: str
+
+
+class InsightTypeDef(TypedDict):
+    insightId: str
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
@@ -907,6 +933,12 @@ class LeftExpressionTypeDef(TypedDict):
     metadataKey: NotRequired[str]
 
 
+class ExecutionSummaryAffectedSessionTypeDef(TypedDict):
+    sessionId: str
+    approachTaken: str
+    finalOutcome: str
+
+
 class ExtractionJobFilterInputTypeDef(TypedDict):
     strategyId: NotRequired[str]
     sessionId: NotRequired[str]
@@ -921,6 +953,12 @@ class MessageMetadataTypeDef(TypedDict):
 
 class ExtractionJobTypeDef(TypedDict):
     jobId: str
+
+
+class InsightsFailureSignalTypeDef(TypedDict):
+    category: InsightsFailureCategoryType
+    evidence: str
+    confidence: float
 
 
 class GatewayFilterOutputTypeDef(TypedDict):
@@ -1459,6 +1497,12 @@ class ToolDescriptionConfigTypeDef(TypedDict):
 class ToolDescriptionOutputTypeDef(TypedDict):
     toolName: str
     recommendedToolDescription: NotRequired[str]
+    explanation: NotRequired[str]
+
+
+class UserIntentAffectedSessionTypeDef(TypedDict):
+    sessionId: str
+    userMessages: list[str]
 
 
 class ValidationExceptionFieldTypeDef(TypedDict):
@@ -1758,6 +1802,11 @@ class CloudWatchFilterConfigOutputTypeDef(TypedDict):
     timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
 
 
+class OnlineEvaluationConfigSourceOutputTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    sessionFilterConfig: NotRequired[SessionFilterConfigOutputTypeDef]
+
+
 CloudWatchLogsFilterTypeDef = TypedDict(
     "CloudWatchLogsFilterTypeDef",
     {
@@ -1868,6 +1917,14 @@ class EvaluatorSummaryTypeDef(TypedDict):
     totalFailed: NotRequired[int]
 
 
+class ExecutionSummaryClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    affectedSessions: list[ExecutionSummaryAffectedSessionTypeDef]
+
+
 ListMemoryExtractionJobsInputTypeDef = TypedDict(
     "ListMemoryExtractionJobsInputTypeDef",
     {
@@ -1887,6 +1944,12 @@ class StartMemoryExtractionJobInputTypeDef(TypedDict):
     memoryId: str
     extractionJob: ExtractionJobTypeDef
     clientToken: NotRequired[str]
+
+
+class FailureSpanDetailTypeDef(TypedDict):
+    spanId: str
+    traceId: str
+    signals: list[InsightsFailureSignalTypeDef]
 
 
 GatewayFilterUnionTypeDef = Union[GatewayFilterTypeDef, GatewayFilterOutputTypeDef]
@@ -2114,6 +2177,7 @@ class RecommendationEvaluationConfigTypeDef(TypedDict):
 class SystemPromptRecommendationResultTypeDef(TypedDict):
     recommendedSystemPrompt: NotRequired[str]
     configurationBundle: NotRequired[RecommendationResultConfigurationBundleTypeDef]
+    explanation: NotRequired[str]
     errorCode: NotRequired[str]
     errorMessage: NotRequired[str]
 
@@ -2142,6 +2206,14 @@ class ToolDescriptionRecommendationResultTypeDef(TypedDict):
     configurationBundle: NotRequired[RecommendationResultConfigurationBundleTypeDef]
     errorCode: NotRequired[str]
     errorMessage: NotRequired[str]
+
+
+class UserIntentClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    affectedSessions: list[UserIntentAffectedSessionTypeDef]
 
 
 class ValidationExceptionTypeDef(TypedDict):
@@ -2265,14 +2337,22 @@ class CloudWatchFilterConfigTypeDef(TypedDict):
     timeRange: NotRequired[SessionFilterConfigTypeDef]
 
 
+class OnlineEvaluationConfigSourceTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    sessionFilterConfig: NotRequired[SessionFilterConfigTypeDef]
+
+
 class StartBatchEvaluationResponseTypeDef(TypedDict):
     batchEvaluationId: str
     batchEvaluationArn: str
     batchEvaluationName: str
     evaluators: list[EvaluatorTypeDef]
+    insights: list[InsightTypeDef]
     status: BatchEvaluationStatusType
     createdAt: datetime
     outputConfig: OutputConfigTypeDef
+    tags: dict[str, str]
+    kmsKeyArn: str
     description: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2363,6 +2443,10 @@ class EvaluationJobResultsTypeDef(TypedDict):
     evaluatorSummaries: NotRequired[list[EvaluatorSummaryTypeDef]]
 
 
+class ExecutionSummaryClusteringResultContentTypeDef(TypedDict):
+    executionSummaries: list[ExecutionSummaryClusterTypeDef]
+
+
 class ExtractionJobMetadataTypeDef(TypedDict):
     jobID: str
     messages: ExtractionJobMessagesTypeDef
@@ -2371,6 +2455,14 @@ class ExtractionJobMetadataTypeDef(TypedDict):
     strategyId: NotRequired[str]
     sessionId: NotRequired[str]
     actorId: NotRequired[str]
+
+
+class AffectedSessionTypeDef(TypedDict):
+    sessionId: str
+    explanation: str
+    fixType: str
+    recommendation: str
+    failureSpans: list[FailureSpanDetailTypeDef]
 
 
 class InlineGroundTruthTypeDef(TypedDict):
@@ -2481,6 +2573,10 @@ class RecommendationResultTypeDef(TypedDict):
     toolDescriptionRecommendationResult: NotRequired[ToolDescriptionRecommendationResultTypeDef]
 
 
+class UserIntentClusteringResultContentTypeDef(TypedDict):
+    userIntents: list[UserIntentClusterTypeDef]
+
+
 class InvokeAgentRuntimeCommandStreamOutputTypeDef(TypedDict):
     chunk: NotRequired[ResponseChunkTypeDef]
     accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
@@ -2542,6 +2638,7 @@ class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
 
 class DataSourceConfigOutputTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceOutputTypeDef]
+    onlineEvaluationConfigSource: NotRequired[OnlineEvaluationConfigSourceOutputTypeDef]
 
 
 class CloudWatchLogsTraceConfigOutputTypeDef(TypedDict):
@@ -2643,8 +2740,10 @@ class BatchEvaluationSummaryTypeDef(TypedDict):
     createdAt: datetime
     description: NotRequired[str]
     evaluators: NotRequired[list[EvaluatorTypeDef]]
+    insights: NotRequired[list[InsightTypeDef]]
     evaluationResults: NotRequired[EvaluationJobResultsTypeDef]
     errorDetails: NotRequired[list[str]]
+    kmsKeyArn: NotRequired[str]
     updatedAt: NotRequired[datetime]
 
 
@@ -2652,6 +2751,15 @@ class ListMemoryExtractionJobsOutputTypeDef(TypedDict):
     jobs: list[ExtractionJobMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class RootCauseClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    rootCause: str
+    recommendation: str
+    affectedSessionCount: int
+    affectedSessions: list[AffectedSessionTypeDef]
 
 
 class GroundTruthSourceTypeDef(TypedDict):
@@ -2721,6 +2829,7 @@ class CreateABTestRequestTypeDef(TypedDict):
     gatewayFilter: NotRequired[GatewayFilterUnionTypeDef]
     enableOnCreate: NotRequired[bool]
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class UpdateABTestRequestTypeDef(TypedDict):
@@ -2767,30 +2876,16 @@ class ProxyConfigurationTypeDef(TypedDict):
     bypass: NotRequired[ProxyBypassTypeDef]
 
 
-class GetBatchEvaluationResponseTypeDef(TypedDict):
-    batchEvaluationId: str
-    batchEvaluationArn: str
-    batchEvaluationName: str
-    status: BatchEvaluationStatusType
-    createdAt: datetime
-    evaluators: list[EvaluatorTypeDef]
-    dataSourceConfig: DataSourceConfigOutputTypeDef
-    outputConfig: OutputConfigTypeDef
-    evaluationResults: EvaluationJobResultsTypeDef
-    errorDetails: list[str]
-    description: str
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class AgentTracesConfigOutputTypeDef(TypedDict):
     sessionSpans: NotRequired[list[dict[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigOutputTypeDef]
+    batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
 
 
 class AgentTracesConfigTypeDef(TypedDict):
     sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigTypeDef]
+    batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
 
 
 class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
@@ -2816,6 +2911,7 @@ class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
 
 class DataSourceConfigTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceTypeDef]
+    onlineEvaluationConfigSource: NotRequired[OnlineEvaluationConfigSourceTypeDef]
 
 
 class GetABTestResponseTypeDef(TypedDict):
@@ -2905,6 +3001,14 @@ class ListBatchEvaluationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class FailureSubCategoryClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    rootCauses: list[RootCauseClusterTypeDef]
+
+
 class SessionMetadataShapeTypeDef(TypedDict):
     sessionId: str
     testScenarioId: NotRequired[str]
@@ -2965,7 +3069,7 @@ ProxyConfigurationUnionTypeDef = Union[ProxyConfigurationTypeDef, ProxyConfigura
 class SystemPromptRecommendationConfigOutputTypeDef(TypedDict):
     systemPrompt: SystemPromptConfigTypeDef
     agentTraces: AgentTracesConfigOutputTypeDef
-    evaluationConfig: RecommendationEvaluationConfigOutputTypeDef
+    evaluationConfig: NotRequired[RecommendationEvaluationConfigOutputTypeDef]
 
 
 class ToolDescriptionRecommendationConfigOutputTypeDef(TypedDict):
@@ -2976,7 +3080,7 @@ class ToolDescriptionRecommendationConfigOutputTypeDef(TypedDict):
 class SystemPromptRecommendationConfigTypeDef(TypedDict):
     systemPrompt: SystemPromptConfigTypeDef
     agentTraces: AgentTracesConfigTypeDef
-    evaluationConfig: RecommendationEvaluationConfigTypeDef
+    evaluationConfig: NotRequired[RecommendationEvaluationConfigTypeDef]
 
 
 class ToolDescriptionRecommendationConfigTypeDef(TypedDict):
@@ -3011,6 +3115,14 @@ class SearchCriteriaTypeDef(TypedDict):
 
 
 DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
+
+
+class FailureCategoryClusterTypeDef(TypedDict):
+    clusterId: int
+    name: str
+    description: str
+    affectedSessionCount: int
+    subCategories: list[FailureSubCategoryClusterTypeDef]
 
 
 class EvaluationMetadataTypeDef(TypedDict):
@@ -3094,12 +3206,19 @@ class RetrieveMemoryRecordsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class FailureAnalysisResultContentTypeDef(TypedDict):
+    failures: list[FailureCategoryClusterTypeDef]
+
+
 class StartBatchEvaluationRequestTypeDef(TypedDict):
     batchEvaluationName: str
     dataSourceConfig: DataSourceConfigUnionTypeDef
     evaluators: NotRequired[Sequence[EvaluatorTypeDef]]
+    insights: NotRequired[Sequence[InsightTypeDef]]
     clientToken: NotRequired[str]
     evaluationMetadata: NotRequired[EvaluationMetadataTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    kmsKeyArn: NotRequired[str]
     description: NotRequired[str]
 
 
@@ -3136,6 +3255,7 @@ GetRecommendationResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "updatedAt": datetime,
         "recommendationResult": RecommendationResultTypeDef,
+        "kmsKeyArn": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -3157,6 +3277,29 @@ StartRecommendationResponseTypeDef = TypedDict(
 RecommendationConfigUnionTypeDef = Union[
     RecommendationConfigTypeDef, RecommendationConfigOutputTypeDef
 ]
+
+
+class GetBatchEvaluationResponseTypeDef(TypedDict):
+    batchEvaluationId: str
+    batchEvaluationArn: str
+    batchEvaluationName: str
+    status: BatchEvaluationStatusType
+    createdAt: datetime
+    evaluators: list[EvaluatorTypeDef]
+    insights: list[InsightTypeDef]
+    dataSourceConfig: DataSourceConfigOutputTypeDef
+    outputConfig: OutputConfigTypeDef
+    evaluationResults: EvaluationJobResultsTypeDef
+    failureAnalysisResult: FailureAnalysisResultContentTypeDef
+    userIntentResult: UserIntentClusteringResultContentTypeDef
+    executionSummaryResult: ExecutionSummaryClusteringResultContentTypeDef
+    errorDetails: list[str]
+    description: str
+    updatedAt: datetime
+    kmsKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 StartRecommendationRequestTypeDef = TypedDict(
     "StartRecommendationRequestTypeDef",
     {
@@ -3164,6 +3307,8 @@ StartRecommendationRequestTypeDef = TypedDict(
         "type": RecommendationTypeType,
         "recommendationConfig": RecommendationConfigUnionTypeDef,
         "description": NotRequired[str],
+        "kmsKeyArn": NotRequired[str],
         "clientToken": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
     },
 )

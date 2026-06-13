@@ -20,7 +20,7 @@ from tinybird.tb.modules.create import generate_aws_iamrole_connection_file_with
 from tinybird.tb.modules.exceptions import CLIConnectionException
 from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.project import Project
-from tinybird.tb.modules.secret import save_secret_to_env_file
+from tinybird.tb.modules.secret import save_secret_to_local_environment
 
 
 def select_bucket_uri(bucket_uri: Optional[str]) -> str:
@@ -375,7 +375,7 @@ def connection_create_s3(
     # Create secrets only in selected environments
     if local_client:
         try:
-            save_secret_to_env_file(project=project, name=secret_name, value=role_arn)
+            save_secret_to_local_environment(project=project, name=secret_name, value=role_arn, client=local_client)
             secret_created_local = True
         except Exception as e:
             errors.append(f"Failed to create secret in local: {e}")

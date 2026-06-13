@@ -69,25 +69,28 @@ def cmd_run(args: list[str]) -> dict:
                                       mode=getattr(task, 'mode', None), workflow=cfg.workflow,
                                       kanban_dir=fs.kanban_dir)
         if next_p is None:
-            # user_decision is a decision point, not a terminal phase
-            if task.phase_id == Phase.USER_DECISION.value:
-                return {
-                    "task_id": task_id,
-                    "phase": task.phase_id,
-                    "message": (
-                        "已到达 user_decision 阶段，请使用以下命令之一决策：\n"
-                        "  kanban decide <TID> --action approve_and_archive  # 归档\n"
-                        "  kanban decide <TID> --action feedback_and_restart # 反馈后重跑\n"
-                        "  kanban decide <TID> --action abort                  # 终止"
-                    ),
-                    "valid_actions": ["approve_and_archive", "feedback_and_restart", "abort"],
-                }
             return {
                 "task_id": task_id,
                 "phase": task.phase_id,
                 "message": "already at terminal phase",
             }
         target = next_p
+
+    # user_decision is a decision point — kanban run must NOT auto-advance
+    # past it. Only kanban decide can transition out (#630).
+    target_str = target.value if isinstance(target, Phase) else str(target)
+    if task.phase_id == Phase.USER_DECISION.value:
+        return {
+            "task_id": task_id,
+            "phase": task.phase_id,
+            "message": (
+                "已到达 user_decision 阶段，请使用以下命令之一决策：\n"
+                "  kanban decide <TID> --action approve_and_archive  # 归档\n"
+                "  kanban decide <TID> --action feedback_and_restart # 反馈后重跑\n"
+                "  kanban decide <TID> --action abort                  # 终止"
+            ),
+            "valid_actions": ["approve_and_archive", "feedback_and_restart", "abort"],
+        }
 
     # IR-16: brainstorming gate before plan → plan_review
     # Only check after plan steps have actually run (progress.json records completions).

@@ -33,10 +33,12 @@ class WebhookClient(object):
         self.smtp_tls_url = smtp_tls_url
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers = {
-            "User-Agent": USER_AGENT,
-            "Content-Type": "application/json",
-        }
+        self.session.headers.update(
+            {
+                "User-Agent": USER_AGENT,
+                "Content-Type": "application/json",
+            }
+        )
 
     def save_failure_report_to_webhook(self, report: str):
         self._send_to_webhook(self.failure_url, report)
@@ -64,8 +66,5 @@ class WebhookClient(object):
         """Close the underlying HTTP session."""
         self.session.close()
 
-
-# Backward-compatible aliases
-WebhookClient.save_forensic_report_to_webhook = (
-    WebhookClient.save_failure_report_to_webhook
-)
+    # Backward-compatible alias
+    save_forensic_report_to_webhook = save_failure_report_to_webhook

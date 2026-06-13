@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-glue-deb"
-version = "0.4.4"
+version = "0.5.0"
 description = "Version agnostic glue library to talk to pulpcore's REST API. (deb plugin)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {text = "GPLv2+"}
 authors = [
   {name = "Pulp Team", email = "pulp-list@redhat.com"},
@@ -23,7 +23,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "pulp-glue<0.40,>=0.23.2",
+  "pulp-glue<0.41,>=0.23.2",
 ]
 
 [project.urls]
@@ -31,29 +31,38 @@ repository = "https://github.com/pulp/pulp-cli-deb"
 changelog = "https://github.com/pulp/pulp-cli-deb/blob/main/CHANGES.md"
 
 [tool.setuptools.packages.find]
-where = ["."]
+# This section is managed by the cookiecutter templates.
+where = ["src"]
 include = ["pulp_glue.*"]
 namespaces = true
 
 [tool.setuptools.package-data]
+# This section is managed by the cookiecutter templates.
 "*" = ["py.typed", "locale/*/LC_MESSAGES/*.mo"]
 
-[tool.black]
-line-length = 100
-
-[tool.isort]
-profile = "black"
-line_length = 100
 
 [tool.mypy]
+# This section is managed by the cookiecutter templates.
 strict = true
+warn_unused_ignores = false
 show_error_codes = true
-files = "pulp_glue/**/*.py"
+files = "src/**/*.py, tests/**/*.py"
+mypy_path = ["src"]
 namespace_packages = true
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
+# This section is managed by the cookiecutter templates.
 module = [
   "schema.*",
 ]
 ignore_missing_imports = true
+
+[tool.ruff]
+# This section is managed by the cookiecutter templates.
+line-length = 100
+
+[tool.ruff.lint]
+# This section is managed by the cookiecutter templates.
+extend-select = ["I", "INT"]
+

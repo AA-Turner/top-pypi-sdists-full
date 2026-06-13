@@ -26,7 +26,7 @@ pub struct SpecStoreData {
     pub source: SpecsSource,
     pub source_api: Option<String>,
     pub time_received_at: Option<u64>,
-    pub values: SpecsResponseFull,
+    pub values: Arc<SpecsResponseFull>,
     pub id_lists: HashMap<String, IdList>,
 }
 
@@ -58,10 +58,14 @@ impl SpecStore {
             data_store = options.data_store.clone();
         }
 
+        let sdk_instance_id = options
+            .map(|opts| opts.get_sdk_instance_id(sdk_key))
+            .unwrap_or(sdk_key);
+
         SpecStore {
             data_store_keys: DataStoreCacheKeys::from_selected_key(&data_store_key),
             data: Arc::new(RwLock::new(SpecStoreData {
-                values: SpecsResponseFull::default(),
+                values: Arc::new(SpecsResponseFull::default()),
                 time_received_at: None,
                 source: SpecsSource::Uninitialized,
                 source_api: None,
@@ -70,8 +74,8 @@ impl SpecStore {
             event_emitter,
             data_store,
             statsig_runtime,
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
-            global_configs: GlobalConfigs::get_instance(sdk_key),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            global_configs: GlobalConfigs::get_instance(sdk_instance_id),
             loggable_sdk_key: get_loggable_sdk_key(sdk_key),
         }
     }
@@ -92,7 +96,7 @@ impl SpecStore {
             return None;
         });
 
-        let json = serde_json::to_string(&data.values).ok()?;
+        let json = serde_json::to_string(data.values.as_ref()).ok()?;
         serde_json::from_str::<SpecsResponseFull>(&json).ok()
     }
 
@@ -184,7 +188,7 @@ impl SpecStore {
         // Updating the spec store is a three step process that interacts with the SpecStoreData lock:
         // 1. Prep (Read Lock). Deserialize the new data and compare it to the current values.
         // 2. Apply (Write Lock). Update the spec store with the new values.
-        // 3. Notify (Read Lock). Emit the SDK event and update the data store.
+        // 3. Notify (No Lock). Emit SDK events from the owned apply snapshot and update the data store.
 
         // --- Prep ---
 
@@ -237,6 +241,14 @@ struct ApplyResult {
     prev_source: SpecsSource,
     prev_lcut: u64,
     time_received_at: u64,
+    notification: SpecUpdateNotification,
+}
+
+struct SpecUpdateNotification {
+    source: SpecsSource,
+    source_api: Option<String>,
+    values: Arc<SpecsResponseFull>,
+    lcut: u64,
     checksum: Option<String>,
 }
 
@@ -320,20 +332,28 @@ impl SpecStore {
         let prev_source = std::mem::replace(&mut data.source, specs_update.source.clone());
         let prev_lcut = data.values.time;
         let time_received_at = Utc::now().timestamp_millis() as u64;
-        let checksum = next_values
-            .checksum
-            .as_ref()
-            .map(|value| value.as_str().to_string());
+        let values: Arc<SpecsResponseFull> = Arc::from(next_values);
+        let notification = SpecUpdateNotification {
+            source: specs_update.source.clone(),
+            source_api: specs_update.source_api.clone(),
+            lcut: values.time,
+            checksum: values
+                .checksum
+                .as_ref()
+                .map(|value| value.as_str().to_string()),
+            values: values.clone(),
+        };
 
-        data.values = *next_values;
+        data.values = values;
         data.time_received_at = Some(time_received_at);
         data.source_api = specs_update.source_api.clone();
+        drop(data);
 
         Ok(ApplyResult {
             prev_source,
             prev_lcut,
             time_received_at,
-            checksum,
+            notification,
         })
     }
 
@@ -343,46 +363,40 @@ impl SpecStore {
         specs_update: SpecsUpdate,
         apply_result: ApplyResult,
     ) -> Result<(), StatsigErr> {
-        let SpecsUpdate {
-            data,
+        let SpecsUpdate { data, .. } = specs_update;
+        let ApplyResult {
+            prev_source,
+            prev_lcut,
+            time_received_at,
+            notification,
+        } = apply_result;
+        let SpecUpdateNotification {
             source,
             source_api,
-            ..
-        } = specs_update;
+            values,
+            lcut,
+            checksum,
+        } = notification;
 
-        let current_lcut = {
-            let read_lock = read_lock_or_else!(self.data, {
-                let msg = "Failed to acquire read lock for set_values";
-                log_e!(TAG, "{}", msg);
-                return Err(StatsigErr::LockFailure(msg.to_string()));
-            });
-
-            self.emit_specs_updated_sdk_event(
-                &read_lock.source,
-                &read_lock.source_api,
-                &read_lock.values,
-            );
-            if let Some(sdk_configs) = &read_lock.values.sdk_configs {
-                self.emit_internal_sdk_configs_updated_sdk_event(sdk_configs);
-            }
-
-            read_lock.values.time
-        };
+        self.emit_specs_updated_sdk_event(&source, &source_api, values.as_ref());
+        if let Some(sdk_configs) = &values.sdk_configs {
+            self.emit_internal_sdk_configs_updated_sdk_event(sdk_configs);
+        }
 
         // Data store writes now support both legacy JSON payloads and statsig-br protobuf bytes.
         self.try_update_data_store(
             &source,
             data,
-            apply_result.time_received_at,
-            apply_result.checksum,
+            time_received_at,
+            checksum,
             matches!(response_format, SpecsFormat::Protobuf),
         );
 
         self.ops_stats_log_config_propagation_diff(
-            current_lcut,
-            apply_result.prev_lcut,
+            lcut,
+            prev_lcut,
             &source,
-            &apply_result.prev_source,
+            &prev_source,
             source_api,
             response_format,
         );

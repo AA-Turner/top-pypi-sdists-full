@@ -15,6 +15,7 @@
 import json
 import logging
 from unittest import mock
+from typing import Any
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -53,6 +54,40 @@ class ProfilingTest(parameterized.TestCase):
     self.mock_original_stop_trace = self.enter_context(
         mock.patch.object(profiling, "_original_stop_trace", autospec=True)
     )
+    self.mock_datetime = self.enter_context(
+        mock.patch.object(profiling.datetime, "datetime", autospec=True)
+    )
+    self.mock_datetime.now.return_value.strftime.return_value = (
+        "2026_06_04_05_29_33"
+    )
+
+  def _get_expected_profile_request(
+      self,
+      trace_location: str,
+      max_num_hosts: int = 1,
+      session_id: str = "2026_06_04_05_29_33",
+  ) -> dict[str, Any]:
+    if jax.version.__version_info__ >= (0, 9, 2):
+      return {
+          "profileRequest": {
+              "traceLocation": trace_location,
+              "maxNumHosts": max_num_hosts,
+              "xprofTraceOptions": {
+                  "traceDirectory": trace_location,
+                  "pwTraceOptions": {
+                      "enablePythonTracer": True,
+                  },
+                  "traceSessionName": session_id,
+              },
+          }
+      }
+    else:
+      return {
+          "profileRequest": {
+              "traceLocation": trace_location,
+              "maxNumHosts": max_num_hosts,
+          }
+      }
 
   @parameterized.parameters(8000, 1234)
   def test_collect_profile_port(self, port):
@@ -228,40 +263,67 @@ class ProfilingTest(parameterized.TestCase):
     profiling.start_trace("gs://test_bucket/test_dir")
 
     self.mock_toy_computation.assert_called_once()
+    expected_request = self._get_expected_profile_request(
+        "gs://test_bucket/test_dir", max_num_hosts=1
+    )
     self.mock_plugin_executable_cls.assert_called_once_with(
-        json.dumps({
-            "profileRequest": {
-                "traceLocation": "gs://test_bucket/test_dir",
-                "maxNumHosts": 1,
-            }
-        })
+        json.dumps(expected_request)
     )
     self.mock_plugin_executable_cls.return_value.call.assert_called_once()
-    self.mock_original_start_trace.assert_called_once_with(
-        log_dir="gs://test_bucket/test_dir",
-        create_perfetto_link=False,
-        create_perfetto_trace=False,
-    )
+    self.mock_original_start_trace.assert_called_once()
+    call_args = self.mock_original_start_trace.call_args[1]
+    self.assertEqual(call_args["log_dir"], "gs://test_bucket/test_dir")
+    self.assertFalse(call_args["create_perfetto_link"])
+    self.assertFalse(call_args["create_perfetto_trace"])
+    if jax.version.__version_info__ >= (0, 9, 2):
+      self.assertEqual(
+          call_args["profiler_options"].session_id, "2026_06_04_05_29_33"
+      )
     self.assertIsNotNone(profiling._profile_state.executable)
 
   def test_start_trace_with_max_num_hosts(self):
     profiling.start_trace("gs://test_bucket/test_dir", max_num_hosts=10)
 
     self.mock_toy_computation.assert_called_once()
+    expected_request = self._get_expected_profile_request(
+        "gs://test_bucket/test_dir", max_num_hosts=10
+    )
     self.mock_plugin_executable_cls.assert_called_once_with(
-        json.dumps({
-            "profileRequest": {
-                "traceLocation": "gs://test_bucket/test_dir",
-                "maxNumHosts": 10,
-            }
-        })
+        json.dumps(expected_request)
     )
     self.mock_plugin_executable_cls.return_value.call.assert_called_once()
-    self.mock_original_start_trace.assert_called_once_with(
-        log_dir="gs://test_bucket/test_dir",
-        create_perfetto_link=False,
-        create_perfetto_trace=False,
+    self.mock_original_start_trace.assert_called_once()
+    call_args = self.mock_original_start_trace.call_args[1]
+    self.assertEqual(call_args["log_dir"], "gs://test_bucket/test_dir")
+    self.assertFalse(call_args["create_perfetto_link"])
+    self.assertFalse(call_args["create_perfetto_trace"])
+    if jax.version.__version_info__ >= (0, 9, 2):
+      self.assertEqual(
+          call_args["profiler_options"].session_id, "2026_06_04_05_29_33"
+      )
+
+  @absltest.skipIf(
+      jax.version.__version_info__ < (0, 9, 2),
+      "ProfileOptions requires JAX 0.9.2 or newer",
+  )
+  def test_start_trace_with_session_id_in_options(self):
+    options = jax.profiler.ProfileOptions()
+    options.session_id = "options_session"
+    profiling.start_trace("gs://test_bucket/test_dir", profiler_options=options)
+
+    expected_request = self._get_expected_profile_request(
+        "gs://test_bucket/test_dir", max_num_hosts=1, session_id="options_session"
     )
+    self.mock_plugin_executable_cls.assert_called_once_with(
+        json.dumps(expected_request)
+    )
+    self.assertEqual(options.session_id, "options_session")
+    self.mock_original_start_trace.assert_called_once()
+    call_args = self.mock_original_start_trace.call_args[1]
+    self.assertEqual(call_args["log_dir"], "gs://test_bucket/test_dir")
+    self.assertFalse(call_args["create_perfetto_link"])
+    self.assertFalse(call_args["create_perfetto_trace"])
+    self.assertEqual(call_args["profiler_options"].session_id, "options_session")
 
   def test_start_trace_no_toy_computation_second_time(self):
     profiling.start_trace("gs://test_bucket/test_dir")
@@ -280,7 +342,7 @@ class ProfilingTest(parameterized.TestCase):
 
   def test_start_trace_while_running_error(self):
     profiling.start_trace("gs://test_bucket/test_dir")
-    with self.assertRaisesRegex(ValueError, "trace is already being taken"):
+    with self.assertRaisesRegex(RuntimeError, "trace is already being taken"):
       profiling.start_trace("gs://test_bucket/test_dir2")
 
   def test_stop_trace_success(self):
@@ -308,22 +370,16 @@ class ProfilingTest(parameterized.TestCase):
     options = jax.profiler.ProfileOptions()
     options.duration_ms = 2000
 
-    with mock.patch.object(
-        profiling, "_profile_state", autospec=True
-    ) as mock_profile_state:
-      request = profiling._create_profile_request(
-          "gs://test_bucket/test_dir", options
-      )
-      mock_profile_state.profile_request = request
-      mock_profile_state.executable = (
-          self.mock_plugin_executable_cls.return_value
-      )
-      mock_profile_state.lock = mock.MagicMock()
-      mock_profile_state.lock.locked.return_value = True
-      mock_profile_state.lock.__enter__.return_value = None
-      mock_profile_state.lock.__exit__.return_value = None
+    request = profiling._create_profile_request(
+        "gs://test_bucket/test_dir", options
+    )
+    profiling._profile_state.profile_request = request
+    profiling._profile_state.executable = (
+        self.mock_plugin_executable_cls.return_value
+    )
+    self.addCleanup(profiling._profile_state.reset)
 
-      profiling.stop_trace()
+    profiling.stop_trace()
 
     with self.subTest("plugin_executable_called"):
       self.mock_plugin_executable_cls.return_value.call.assert_called_once()
@@ -340,7 +396,7 @@ class ProfilingTest(parameterized.TestCase):
 
   def test_stop_trace_before_start_error(self):
     with self.assertRaisesRegex(
-        ValueError, "stop_trace called before a trace is being taken!"
+        RuntimeError, "stop_trace called before a trace is being taken!"
     ):
       profiling.stop_trace()
 
@@ -359,12 +415,12 @@ class ProfilingTest(parameterized.TestCase):
     )
     profiling.start_server(9000)
     with self.assertRaisesRegex(
-        ValueError, "Only one profiler server can be active"
+        RuntimeError, "Only one profiler server can be active"
     ):
       profiling.start_server(9001)
 
   def test_stop_server_no_server_raises_error(self):
-    with self.assertRaisesRegex(ValueError, "No active profiler server"):
+    with self.assertRaisesRegex(RuntimeError, "No active profiler server"):
       profiling.stop_server()
 
   def test_stop_server_does_nothing_if_server_exists(self):
@@ -508,6 +564,7 @@ class ProfilingTest(parameterized.TestCase):
     options.python_tracer_level = 1
     options.duration_ms = 2000
     options.start_timestamp_ns = 123456789
+    options.session_id = "test_session"
     options.advanced_configuration = {
         "tpu_num_chips_to_profile_per_task": 3,
         "tpu_num_sparse_core_tiles_to_trace": 5,
@@ -525,6 +582,7 @@ class ProfilingTest(parameterized.TestCase):
             "maxNumHosts": 1,
             "xprofTraceOptions": {
                 "traceDirectory": "gs://bucket/dir",
+                "traceSessionName": "test_session",
                 "pwTraceOptions": {
                     "enablePythonTracer": True,
                     "advancedConfiguration": {
@@ -608,6 +666,36 @@ class ProfilingTest(parameterized.TestCase):
 
     mocks["start_trace"].assert_called_once()
     mocks["stop_trace"].assert_called_once()
+
+  @absltest.skipIf(
+      jax.version.__version_info__ < (0, 9, 2),
+      "ProfileOptions requires JAX 0.9.2 or newer",
+  )
+  def test_is_default_profile_options_with_session_id(self):
+    options = jax.profiler.ProfileOptions()
+    options.session_id = "test_session"
+    self.assertFalse(profiling._is_default_profile_options(options))
+
+  @absltest.skipIf(
+      jax.version.__version_info__ < (0, 9, 2),
+      "ProfileOptions requires JAX 0.9.2 or newer",
+  )
+  def test_start_trace_compatibility_error(self):
+    self.mock_plugin_executable_cls.side_effect = RuntimeError(
+        "Bad PluginProgram"
+    )
+
+    options = jax.profiler.ProfileOptions()
+    options.session_id = "test_session"
+
+    with self.assertRaisesRegex(
+        RuntimeError,
+        "likely because the running Pathways server images do not support the"
+        " trace session ID option",
+    ):
+      profiling.start_trace(
+          "gs://test_bucket/test_dir", profiler_options=options
+      )
 
 
 if __name__ == "__main__":

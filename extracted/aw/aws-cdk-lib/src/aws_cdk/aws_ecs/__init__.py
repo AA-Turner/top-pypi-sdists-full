@@ -2576,6 +2576,29 @@ service.force_new_deployment()
 service.force_new_deployment("my-custom-nonce-v2")
 ```
 
+Alternatively, you can configure `forceNewDeployment` declaratively as a constructor option.
+This approach also allows you to explicitly disable the feature with `enabled: false`.
+
+```python
+# cluster: ecs.Cluster
+# task_definition: ecs.TaskDefinition
+
+
+# Force a new deployment on every `cdk deploy` by using a time-based nonce
+service = ecs.FargateService(self, "Service",
+    cluster=cluster,
+    task_definition=task_definition,
+    force_new_deployment=ecs.ForceNewDeployment(
+        enabled=True,
+        nonce=Date.now().to_string()
+    )
+)
+```
+
+Calling the `forceNewDeployment()` method takes precedence over the constructor option. The nonce passed
+to the method (or the auto-generated one when none is provided) overrides any value configured through the
+`forceNewDeployment` property.
+
 ## Mixins
 
 ECS provides [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-readme.html#mixins) that can be applied to L1 and L2 constructs.
@@ -5796,6 +5819,7 @@ class BaseMountPoint:
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
+        "force_new_deployment": "forceNewDeployment",
         "health_check_grace_period": "healthCheckGracePeriod",
         "lifecycle_hooks": "lifecycleHooks",
         "linear_configuration": "linearConfiguration",
@@ -5824,6 +5848,7 @@ class BaseServiceOptions:
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5849,6 +5874,7 @@ class BaseServiceOptions:
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -5924,6 +5950,12 @@ class BaseServiceOptions:
                 desired_count=123,
                 enable_ecs_managed_tags=False,
                 enable_execute_command=False,
+                force_new_deployment=ecs.ForceNewDeployment(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    nonce="nonce"
+                ),
                 health_check_grace_period=cdk.Duration.minutes(30),
                 lifecycle_hooks=[deployment_lifecycle_hook_target],
                 linear_configuration=ecs.TrafficShiftConfig(
@@ -5974,6 +6006,8 @@ class BaseServiceOptions:
             deployment_alarms = DeploymentAlarmConfig(**deployment_alarms)
         if isinstance(deployment_controller, dict):
             deployment_controller = DeploymentController(**deployment_controller)
+        if isinstance(force_new_deployment, dict):
+            force_new_deployment = ForceNewDeployment(**force_new_deployment)
         if isinstance(linear_configuration, dict):
             linear_configuration = TrafficShiftConfig(**linear_configuration)
         if isinstance(service_connect_configuration, dict):
@@ -5992,6 +6026,7 @@ class BaseServiceOptions:
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
             check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument linear_configuration", value=linear_configuration, expected_type=type_hints["linear_configuration"])
@@ -6027,6 +6062,8 @@ class BaseServiceOptions:
             self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
         if enable_execute_command is not None:
             self._values["enable_execute_command"] = enable_execute_command
+        if force_new_deployment is not None:
+            self._values["force_new_deployment"] = force_new_deployment
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
         if lifecycle_hooks is not None:
@@ -6169,6 +6206,27 @@ class BaseServiceOptions:
         '''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def force_new_deployment(self) -> typing.Optional["ForceNewDeployment"]:
+        '''Configuration for forcing a new deployment of the service.
+
+        By default, deployments aren't forced. You can use this option to start
+        a new deployment with no service definition changes. For example, you can
+        update a service's tasks to use a newer Docker image with the same
+        image/tag combination (``my_image:latest``) or to roll Fargate tasks onto
+        a newer platform version.
+
+        This is equivalent to calling the ``forceNewDeployment()`` method, but allows
+        you to configure it declaratively at construction time, including the ability
+        to explicitly disable it with ``enabled: false``.
+
+        :default: - no forced deployment
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html
+        '''
+        result = self._values.get("force_new_deployment")
+        return typing.cast(typing.Optional["ForceNewDeployment"], result)
 
     @builtins.property
     def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -6302,6 +6360,7 @@ class BaseServiceOptions:
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
+        "force_new_deployment": "forceNewDeployment",
         "health_check_grace_period": "healthCheckGracePeriod",
         "lifecycle_hooks": "lifecycleHooks",
         "linear_configuration": "linearConfiguration",
@@ -6331,6 +6390,7 @@ class BaseServiceProps(BaseServiceOptions):
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6357,6 +6417,7 @@ class BaseServiceProps(BaseServiceOptions):
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -6434,6 +6495,12 @@ class BaseServiceProps(BaseServiceOptions):
                 desired_count=123,
                 enable_ecs_managed_tags=False,
                 enable_execute_command=False,
+                force_new_deployment=ecs.ForceNewDeployment(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    nonce="nonce"
+                ),
                 health_check_grace_period=cdk.Duration.minutes(30),
                 lifecycle_hooks=[deployment_lifecycle_hook_target],
                 linear_configuration=ecs.TrafficShiftConfig(
@@ -6484,6 +6551,8 @@ class BaseServiceProps(BaseServiceOptions):
             deployment_alarms = DeploymentAlarmConfig(**deployment_alarms)
         if isinstance(deployment_controller, dict):
             deployment_controller = DeploymentController(**deployment_controller)
+        if isinstance(force_new_deployment, dict):
+            force_new_deployment = ForceNewDeployment(**force_new_deployment)
         if isinstance(linear_configuration, dict):
             linear_configuration = TrafficShiftConfig(**linear_configuration)
         if isinstance(service_connect_configuration, dict):
@@ -6502,6 +6571,7 @@ class BaseServiceProps(BaseServiceOptions):
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
             check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument linear_configuration", value=linear_configuration, expected_type=type_hints["linear_configuration"])
@@ -6539,6 +6609,8 @@ class BaseServiceProps(BaseServiceOptions):
             self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
         if enable_execute_command is not None:
             self._values["enable_execute_command"] = enable_execute_command
+        if force_new_deployment is not None:
+            self._values["force_new_deployment"] = force_new_deployment
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
         if lifecycle_hooks is not None:
@@ -6681,6 +6753,27 @@ class BaseServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def force_new_deployment(self) -> typing.Optional["ForceNewDeployment"]:
+        '''Configuration for forcing a new deployment of the service.
+
+        By default, deployments aren't forced. You can use this option to start
+        a new deployment with no service definition changes. For example, you can
+        update a service's tasks to use a newer Docker image with the same
+        image/tag combination (``my_image:latest``) or to roll Fargate tasks onto
+        a newer platform version.
+
+        This is equivalent to calling the ``forceNewDeployment()`` method, but allows
+        you to configure it declaratively at construction time, including the ability
+        to explicitly disable it with ``enabled: false``.
+
+        :default: - no forced deployment
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html
+        '''
+        result = self._values.get("force_new_deployment")
+        return typing.cast(typing.Optional["ForceNewDeployment"], result)
 
     @builtins.property
     def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -35908,6 +36001,7 @@ class Ec2ServiceAttributes:
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
+        "force_new_deployment": "forceNewDeployment",
         "health_check_grace_period": "healthCheckGracePeriod",
         "lifecycle_hooks": "lifecycleHooks",
         "linear_configuration": "linearConfiguration",
@@ -35944,6 +36038,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -35977,6 +36072,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -36038,6 +36134,8 @@ class Ec2ServiceProps(BaseServiceOptions):
             deployment_alarms = DeploymentAlarmConfig(**deployment_alarms)
         if isinstance(deployment_controller, dict):
             deployment_controller = DeploymentController(**deployment_controller)
+        if isinstance(force_new_deployment, dict):
+            force_new_deployment = ForceNewDeployment(**force_new_deployment)
         if isinstance(linear_configuration, dict):
             linear_configuration = TrafficShiftConfig(**linear_configuration)
         if isinstance(service_connect_configuration, dict):
@@ -36058,6 +36156,7 @@ class Ec2ServiceProps(BaseServiceOptions):
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
             check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument linear_configuration", value=linear_configuration, expected_type=type_hints["linear_configuration"])
@@ -36102,6 +36201,8 @@ class Ec2ServiceProps(BaseServiceOptions):
             self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
         if enable_execute_command is not None:
             self._values["enable_execute_command"] = enable_execute_command
+        if force_new_deployment is not None:
+            self._values["force_new_deployment"] = force_new_deployment
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
         if lifecycle_hooks is not None:
@@ -36258,6 +36359,27 @@ class Ec2ServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def force_new_deployment(self) -> typing.Optional["ForceNewDeployment"]:
+        '''Configuration for forcing a new deployment of the service.
+
+        By default, deployments aren't forced. You can use this option to start
+        a new deployment with no service definition changes. For example, you can
+        update a service's tasks to use a newer Docker image with the same
+        image/tag combination (``my_image:latest``) or to roll Fargate tasks onto
+        a newer platform version.
+
+        This is equivalent to calling the ``forceNewDeployment()`` method, but allows
+        you to configure it declaratively at construction time, including the ability
+        to explicitly disable it with ``enabled: false``.
+
+        :default: - no forced deployment
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html
+        '''
+        result = self._values.get("force_new_deployment")
+        return typing.cast(typing.Optional["ForceNewDeployment"], result)
 
     @builtins.property
     def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -38018,6 +38140,7 @@ class ExternalServiceAttributes:
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
+        "force_new_deployment": "forceNewDeployment",
         "health_check_grace_period": "healthCheckGracePeriod",
         "lifecycle_hooks": "lifecycleHooks",
         "linear_configuration": "linearConfiguration",
@@ -38049,6 +38172,7 @@ class ExternalServiceProps(BaseServiceOptions):
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -38077,6 +38201,7 @@ class ExternalServiceProps(BaseServiceOptions):
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -38121,6 +38246,8 @@ class ExternalServiceProps(BaseServiceOptions):
             deployment_alarms = DeploymentAlarmConfig(**deployment_alarms)
         if isinstance(deployment_controller, dict):
             deployment_controller = DeploymentController(**deployment_controller)
+        if isinstance(force_new_deployment, dict):
+            force_new_deployment = ForceNewDeployment(**force_new_deployment)
         if isinstance(linear_configuration, dict):
             linear_configuration = TrafficShiftConfig(**linear_configuration)
         if isinstance(service_connect_configuration, dict):
@@ -38139,6 +38266,7 @@ class ExternalServiceProps(BaseServiceOptions):
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
             check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument linear_configuration", value=linear_configuration, expected_type=type_hints["linear_configuration"])
@@ -38178,6 +38306,8 @@ class ExternalServiceProps(BaseServiceOptions):
             self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
         if enable_execute_command is not None:
             self._values["enable_execute_command"] = enable_execute_command
+        if force_new_deployment is not None:
+            self._values["force_new_deployment"] = force_new_deployment
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
         if lifecycle_hooks is not None:
@@ -38324,6 +38454,27 @@ class ExternalServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def force_new_deployment(self) -> typing.Optional["ForceNewDeployment"]:
+        '''Configuration for forcing a new deployment of the service.
+
+        By default, deployments aren't forced. You can use this option to start
+        a new deployment with no service definition changes. For example, you can
+        update a service's tasks to use a newer Docker image with the same
+        image/tag combination (``my_image:latest``) or to roll Fargate tasks onto
+        a newer platform version.
+
+        This is equivalent to calling the ``forceNewDeployment()`` method, but allows
+        you to configure it declaratively at construction time, including the ability
+        to explicitly disable it with ``enabled: false``.
+
+        :default: - no forced deployment
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html
+        '''
+        result = self._values.get("force_new_deployment")
+        return typing.cast(typing.Optional["ForceNewDeployment"], result)
 
     @builtins.property
     def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -38950,6 +39101,7 @@ class FargateServiceAttributes:
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
+        "force_new_deployment": "forceNewDeployment",
         "health_check_grace_period": "healthCheckGracePeriod",
         "lifecycle_hooks": "lifecycleHooks",
         "linear_configuration": "linearConfiguration",
@@ -38984,6 +39136,7 @@ class FargateServiceProps(BaseServiceOptions):
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -39015,6 +39168,7 @@ class FargateServiceProps(BaseServiceOptions):
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -39040,34 +39194,28 @@ class FargateServiceProps(BaseServiceOptions):
             
             # cluster: ecs.Cluster
             # task_definition: ecs.TaskDefinition
+            # elb_alarm: cw.Alarm
             
-            service_name = "MyFargateService"
+            
             service = ecs.FargateService(self, "Service",
-                service_name=service_name,
                 cluster=cluster,
                 task_definition=task_definition,
-                min_healthy_percent=100
+                min_healthy_percent=100,
+                deployment_alarms=ecs.DeploymentAlarmConfig(
+                    alarm_names=[elb_alarm.alarm_name],
+                    behavior=ecs.AlarmBehavior.ROLLBACK_ON_ALARM
+                )
             )
             
-            cpu_metric = cw.Metric(
-                metric_name="CPUUtilization",
-                namespace="AWS/ECS",
-                period=Duration.minutes(5),
-                statistic="Average",
-                dimensions_map={
-                    "ClusterName": cluster.cluster_name,
-                    # Using `service.serviceName` here will cause a circular dependency
-                    "ServiceName": service_name
-                }
-            )
-            my_alarm = cw.Alarm(self, "CPUAlarm",
-                alarm_name="cpuAlarmName",
-                metric=cpu_metric,
+            # Defining a deployment alarm after the service has been created
+            cpu_alarm_name = "MyCpuMetricAlarm"
+            cw.Alarm(self, "CPUAlarm",
+                alarm_name=cpu_alarm_name,
+                metric=service.metric_cpu_utilization(),
                 evaluation_periods=2,
                 threshold=80
             )
-            
-            service.enable_deployment_alarms([my_alarm.alarm_name],
+            service.enable_deployment_alarms([cpu_alarm_name],
                 behavior=ecs.AlarmBehavior.FAIL_ON_ALARM
             )
         '''
@@ -39081,6 +39229,8 @@ class FargateServiceProps(BaseServiceOptions):
             deployment_alarms = DeploymentAlarmConfig(**deployment_alarms)
         if isinstance(deployment_controller, dict):
             deployment_controller = DeploymentController(**deployment_controller)
+        if isinstance(force_new_deployment, dict):
+            force_new_deployment = ForceNewDeployment(**force_new_deployment)
         if isinstance(linear_configuration, dict):
             linear_configuration = TrafficShiftConfig(**linear_configuration)
         if isinstance(service_connect_configuration, dict):
@@ -39101,6 +39251,7 @@ class FargateServiceProps(BaseServiceOptions):
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument force_new_deployment", value=force_new_deployment, expected_type=type_hints["force_new_deployment"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
             check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument linear_configuration", value=linear_configuration, expected_type=type_hints["linear_configuration"])
@@ -39143,6 +39294,8 @@ class FargateServiceProps(BaseServiceOptions):
             self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
         if enable_execute_command is not None:
             self._values["enable_execute_command"] = enable_execute_command
+        if force_new_deployment is not None:
+            self._values["force_new_deployment"] = force_new_deployment
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
         if lifecycle_hooks is not None:
@@ -39295,6 +39448,27 @@ class FargateServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def force_new_deployment(self) -> typing.Optional["ForceNewDeployment"]:
+        '''Configuration for forcing a new deployment of the service.
+
+        By default, deployments aren't forced. You can use this option to start
+        a new deployment with no service definition changes. For example, you can
+        update a service's tasks to use a newer Docker image with the same
+        image/tag combination (``my_image:latest``) or to roll Fargate tasks onto
+        a newer platform version.
+
+        This is equivalent to calling the ``forceNewDeployment()`` method, but allows
+        you to configure it declaratively at construction time, including the ability
+        to explicitly disable it with ``enabled: false``.
+
+        :default: - no forced deployment
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-forcenewdeployment.html
+        '''
+        result = self._values.get("force_new_deployment")
+        return typing.cast(typing.Optional["ForceNewDeployment"], result)
 
     @builtins.property
     def health_check_grace_period(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -42460,6 +42634,103 @@ class FluentdLogDriverProps(BaseLogDriverProps):
 
     def __repr__(self) -> str:
         return "FluentdLogDriverProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.ForceNewDeployment",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled", "nonce": "nonce"},
+)
+class ForceNewDeployment:
+    def __init__(
+        self,
+        *,
+        enabled: builtins.bool,
+        nonce: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Configuration for forcing a new deployment of the service.
+
+        :param enabled: Whether to enable the force-new-deployment mechanism for the service. Setting this to ``true`` enables the mechanism, but on its own it does not force a new deployment on every ``cdk deploy``: CloudFormation only starts a new deployment when it detects a change in the template, and the signal for that is the ``nonce`` value changing between deployments. If ``nonce`` is not provided or its value stays the same across deployments, no new deployment is forced. When set to ``false``, the ``ForceNewDeployment`` property is rendered with ``EnableForceNewDeployment: false``. To force a new deployment on every ``cdk deploy``, provide a ``nonce`` with a unique, time-varying value such as a timestamp, random string, or sequence number (e.g. ``Date.now().toString()``).
+        :param nonce: A unique nonce value that signals Amazon ECS to start a new deployment. When you change this value, it triggers a new deployment even though no other service parameters have changed. Use a stable, time-varying value like a commit hash, image digest, or version string. If not provided and ``enabled`` is ``true``, only ``EnableForceNewDeployment`` is set without a nonce. Must be between 1 and 255 characters. Default: - no nonce
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # cluster: ecs.Cluster
+            # task_definition: ecs.TaskDefinition
+            
+            
+            # Force a new deployment on every `cdk deploy` by using a time-based nonce
+            service = ecs.FargateService(self, "Service",
+                cluster=cluster,
+                task_definition=task_definition,
+                force_new_deployment=ecs.ForceNewDeployment(
+                    enabled=True,
+                    nonce=Date.now().to_string()
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3662c94b53fef115700288ad1dbf95427e4f1672886cadfb9d31f9a5917c5ad1)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument nonce", value=nonce, expected_type=type_hints["nonce"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "enabled": enabled,
+        }
+        if nonce is not None:
+            self._values["nonce"] = nonce
+
+    @builtins.property
+    def enabled(self) -> builtins.bool:
+        '''Whether to enable the force-new-deployment mechanism for the service.
+
+        Setting this to ``true`` enables the mechanism, but on its own it does not
+        force a new deployment on every ``cdk deploy``: CloudFormation only starts a
+        new deployment when it detects a change in the template, and the signal for
+        that is the ``nonce`` value changing between deployments. If ``nonce`` is not
+        provided or its value stays the same across deployments, no new deployment
+        is forced. When set to ``false``, the ``ForceNewDeployment`` property is rendered
+        with ``EnableForceNewDeployment: false``.
+
+        To force a new deployment on every ``cdk deploy``, provide a ``nonce`` with a
+        unique, time-varying value such as a timestamp, random string, or sequence
+        number (e.g. ``Date.now().toString()``).
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-ecs-service-forcenewdeployment.html
+        '''
+        result = self._values.get("enabled")
+        assert result is not None, "Required property 'enabled' is missing"
+        return typing.cast(builtins.bool, result)
+
+    @builtins.property
+    def nonce(self) -> typing.Optional[builtins.str]:
+        '''A unique nonce value that signals Amazon ECS to start a new deployment.
+
+        When you change this value, it triggers a new deployment even though no
+        other service parameters have changed. Use a stable, time-varying value
+        like a commit hash, image digest, or version string.
+
+        If not provided and ``enabled`` is ``true``, only ``EnableForceNewDeployment``
+        is set without a nonce.
+
+        Must be between 1 and 255 characters.
+
+        :default: - no nonce
+        '''
+        result = self._values.get("nonce")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ForceNewDeployment(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -55080,6 +55351,7 @@ class Ec2Service(
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -55115,6 +55387,7 @@ class Ec2Service(
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -55151,6 +55424,7 @@ class Ec2Service(
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
+            force_new_deployment=force_new_deployment,
             health_check_grace_period=health_check_grace_period,
             lifecycle_hooks=lifecycle_hooks,
             linear_configuration=linear_configuration,
@@ -55593,6 +55867,7 @@ class ExternalService(
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -55623,6 +55898,7 @@ class ExternalService(
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -55654,6 +55930,7 @@ class ExternalService(
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
+            force_new_deployment=force_new_deployment,
             health_check_grace_period=health_check_grace_period,
             lifecycle_hooks=lifecycle_hooks,
             linear_configuration=linear_configuration,
@@ -56033,34 +56310,28 @@ class FargateService(
         
         # cluster: ecs.Cluster
         # task_definition: ecs.TaskDefinition
+        # elb_alarm: cw.Alarm
         
-        service_name = "MyFargateService"
+        
         service = ecs.FargateService(self, "Service",
-            service_name=service_name,
             cluster=cluster,
             task_definition=task_definition,
-            min_healthy_percent=100
+            min_healthy_percent=100,
+            deployment_alarms=ecs.DeploymentAlarmConfig(
+                alarm_names=[elb_alarm.alarm_name],
+                behavior=ecs.AlarmBehavior.ROLLBACK_ON_ALARM
+            )
         )
         
-        cpu_metric = cw.Metric(
-            metric_name="CPUUtilization",
-            namespace="AWS/ECS",
-            period=Duration.minutes(5),
-            statistic="Average",
-            dimensions_map={
-                "ClusterName": cluster.cluster_name,
-                # Using `service.serviceName` here will cause a circular dependency
-                "ServiceName": service_name
-            }
-        )
-        my_alarm = cw.Alarm(self, "CPUAlarm",
-            alarm_name="cpuAlarmName",
-            metric=cpu_metric,
+        # Defining a deployment alarm after the service has been created
+        cpu_alarm_name = "MyCpuMetricAlarm"
+        cw.Alarm(self, "CPUAlarm",
+            alarm_name=cpu_alarm_name,
+            metric=service.metric_cpu_utilization(),
             evaluation_periods=2,
             threshold=80
         )
-        
-        service.enable_deployment_alarms([my_alarm.alarm_name],
+        service.enable_deployment_alarms([cpu_alarm_name],
             behavior=ecs.AlarmBehavior.FAIL_ON_ALARM
         )
     '''
@@ -56088,6 +56359,7 @@ class FargateService(
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
+        force_new_deployment: typing.Optional[typing.Union["ForceNewDeployment", typing.Dict[builtins.str, typing.Any]]] = None,
         health_check_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
         lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         linear_configuration: typing.Optional[typing.Union["TrafficShiftConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -56121,6 +56393,7 @@ class FargateService(
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
+        :param force_new_deployment: Configuration for forcing a new deployment of the service. By default, deployments aren't forced. You can use this option to start a new deployment with no service definition changes. For example, you can update a service's tasks to use a newer Docker image with the same image/tag combination (``my_image:latest``) or to roll Fargate tasks onto a newer platform version. This is equivalent to calling the ``forceNewDeployment()`` method, but allows you to configure it declaratively at construction time, including the ability to explicitly disable it with ``enabled: false``. Default: - no forced deployment
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
         :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param linear_configuration: Configuration for linear deployment strategy. Only valid when deploymentStrategy is set to LINEAR. Default: - no linear configuration
@@ -56155,6 +56428,7 @@ class FargateService(
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
+            force_new_deployment=force_new_deployment,
             health_check_grace_period=health_check_grace_period,
             lifecycle_hooks=lifecycle_hooks,
             linear_configuration=linear_configuration,
@@ -56563,6 +56837,7 @@ __all__ = [
     "FirelensOptions",
     "FluentdLogDriver",
     "FluentdLogDriverProps",
+    "ForceNewDeployment",
     "GelfCompressionType",
     "GelfLogDriver",
     "GelfLogDriverProps",
@@ -56936,6 +57211,7 @@ def _typecheckingstub__c2e0ba28c74987301a54b0d197b791a6a94084b5f40d15304ffabf113
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -56964,6 +57240,7 @@ def _typecheckingstub__3ecfd95265b873c2042a9d5cb8465a48f9e325e2271c18461e2b26633
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -60073,6 +60350,7 @@ def _typecheckingstub__95634258086aa3448fbdfd9896017a2cbeb858f382deb61186bb9e22b
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -60281,6 +60559,7 @@ def _typecheckingstub__3cc413964caae89bfcfbcabff8356ffe5c054f46824be99731a77b64e
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -60344,6 +60623,7 @@ def _typecheckingstub__8290283f61f3e2d289b7e7f81cad1a5d1e9ed9dbc07ccce2b57604682
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -60581,6 +60861,14 @@ def _typecheckingstub__8e972440032bde8e8099eb1b3a14e366177bcc168b1c9493f91d85b75
     max_retries: typing.Optional[jsii.Number] = None,
     retry_wait: typing.Optional[_Duration_4839e8c3] = None,
     sub_second_precision: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3662c94b53fef115700288ad1dbf95427e4f1672886cadfb9d31f9a5917c5ad1(
+    *,
+    enabled: builtins.bool,
+    nonce: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -62045,6 +62333,7 @@ def _typecheckingstub__1e578461670bd6cdf856f914534e1feff8905e31d33cd7aea2b9f5151
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -62200,6 +62489,7 @@ def _typecheckingstub__6ceef4de126cbb6bd6f379ba0b53be2fb61c35761f50685b5d228c682
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -62311,6 +62601,7 @@ def _typecheckingstub__0ddac6b19472d00f74c1777e699ce5b239dc49e62ff4ab4674c917bbe
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
+    force_new_deployment: typing.Optional[typing.Union[ForceNewDeployment, typing.Dict[builtins.str, typing.Any]]] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
     lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     linear_configuration: typing.Optional[typing.Union[TrafficShiftConfig, typing.Dict[builtins.str, typing.Any]]] = None,

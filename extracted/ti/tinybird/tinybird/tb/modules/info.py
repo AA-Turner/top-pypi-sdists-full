@@ -22,6 +22,7 @@ def info(ctx: click.Context, skip_local: bool) -> None:
     ctx_config = ctx.ensure_object(dict)["config"]
     project: Project = ctx.ensure_object(dict)["project"]
     output = ctx.ensure_object(dict)["output"]
+    selected_branch = ctx.ensure_object(dict).get("branch")
 
     if output not in {"human", "json"}:
         force_echo(FeedbackManager.error_invalid_output_format(formats=", ".join(["human", "json"])))
@@ -43,7 +44,7 @@ def info(ctx: click.Context, skip_local: bool) -> None:
     click.echo(FeedbackManager.highlight(message="\n» Project:"))
     project_table, project_columns = get_project_info(project.folder)
 
-    branches_summary = get_branches_summary(ctx_config)
+    branches_summary = get_branches_summary(ctx_config, selected_branch=selected_branch)
 
     if output == "human":
         click.echo(FeedbackManager.highlight(message="\n» Branches:"))
@@ -75,11 +76,14 @@ def info(ctx: click.Context, skip_local: bool) -> None:
             project_data = {column: project_table[0][i] for i, column in enumerate(project_columns)}
         response["project"] = project_data
 
-        response["branches"] = {
+        branches_data: dict[str, Any] = {
             "current": branches_summary["current"],
             "count": branches_summary["count"],
             "items": branches_summary["items"],
         }
+        if branches_summary.get("error"):
+            branches_data["error"] = branches_summary["error"]
+        response["branches"] = branches_data
 
         echo_json(response)
 
@@ -216,7 +220,7 @@ def get_project_info(project_path: Optional[str] = None) -> Tuple[Iterable[Any],
     return table, columns
 
 
-def get_branches_summary(ctx_config: Dict[str, Any]) -> Dict[str, Any]:
+def get_branches_summary(ctx_config: Dict[str, Any], selected_branch: Optional[str] = None) -> Dict[str, Any]:
     columns = ["name", "current", "token", "ui"]
 
     try:
@@ -235,30 +239,39 @@ def get_branches_summary(ctx_config: Dict[str, Any]) -> Dict[str, Any]:
             current_workspace = client.workspace_info(version="v1")
 
         main_workspace_name = current_workspace.get("name", "No workspace")
+        main_workspace_id = current_workspace.get("id")
+        main_workspace_token = current_workspace.get("token")
         if current_workspace.get("is_branch"):
             main_workspace_id = current_workspace.get("main")
             main_workspace = next((ws for ws in workspaces if ws.get("id") == main_workspace_id), None)
             if main_workspace and main_workspace.get("name"):
                 main_workspace_name = main_workspace["name"]
+                main_workspace_token = main_workspace.get("token") or main_workspace_token
 
         branches = client.branches().get("environments", [])
+        if not branches and api_host and main_workspace_token:
+            fallback_client = TinyB(main_workspace_token, host=api_host)
+            branches = fallback_client.branches().get("environments", [])
 
-        current_branch = "main"
-        if current_workspace.get("is_branch"):
-            current_branch = current_workspace.get("name", "main")
+        if main_workspace_id:
+            scoped_branches = [branch for branch in branches if branch.get("main") == main_workspace_id]
+            if scoped_branches:
+                branches = scoped_branches
 
-        items = []
+        all_items = []
         for branch in branches:
             branch_name = branch.get("name") or "No branch name"
             branch_token = branch.get("token") or "No token found"
-            branch_current = current_workspace.get("id") == branch.get("id")
+            branch_current = (
+                branch_name == selected_branch if selected_branch else current_workspace.get("id") == branch.get("id")
+            )
             branch_ui = (
                 f"{ui_host}/{main_workspace_name}~{branch_name}"
                 if ui_host and main_workspace_name and branch_name != "No branch name"
                 else "No UI URL found"
             )
 
-            items.append(
+            all_items.append(
                 {
                     "name": branch_name,
                     "current": branch_current,
@@ -267,16 +280,27 @@ def get_branches_summary(ctx_config: Dict[str, Any]) -> Dict[str, Any]:
                 }
             )
 
+        items = all_items
+        error: Optional[str] = None
+        if selected_branch:
+            items = [branch for branch in all_items if branch["name"] == selected_branch]
+            if not items:
+                error = f"Branch '{selected_branch}' not found."
+
+        current_branch = selected_branch or "main"
+        if not selected_branch and current_workspace.get("is_branch"):
+            current_branch = current_workspace.get("name", "main")
+
         items.sort(key=lambda branch: (not branch["current"], branch["name"]))
         table = [(branch["name"], branch["current"], branch["token"], branch["ui"]) for branch in items]
 
         return {
             "current": current_branch,
-            "count": len(items),
+            "count": len(all_items),
             "items": items,
             "table": table,
             "columns": columns,
-            "error": None,
+            "error": error,
         }
     except Exception:
         return {

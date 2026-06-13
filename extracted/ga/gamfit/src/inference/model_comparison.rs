@@ -93,73 +93,60 @@ pub struct ModelComparison {
 ///
 /// `edf_conditional = tr(F)` with `F = H⁻¹X'WX` (the engine's `edf_total`).
 /// The correction term is `tr(X'WX · Σ_ρ)` where `Σ_ρ` is the H⁻¹-scale
-/// smoothing-parameter uncertainty covariance. We never form `X'WX`
-/// explicitly: with `F = H⁻¹X'WX` retained as `coefficient_influence` and `H`
-/// as `penalized_hessian`, `X'WX = H·F`, so
+/// smoothing-parameter uncertainty covariance. The engine stores the genuine
+/// symmetric-PSD weighted Gram `X'WX = H − S(λ)` directly on the fit
+/// ([`UnifiedFitResult::weighted_gram`], issue #1027) — pairing it with
+/// `Σ_ρ = smoothing_correction / φ` makes the correction the nonnegative
+/// `tr(A½ B A½)` it is defined to be, instead of the indefinite `H·F`
+/// reconstruction (where the stored `H` need not satisfy `H·F = X'WX`) that
+/// drove the corrected EDF below the conditional EDF.
 ///
-/// ```text
-/// tr(X'WX · Σ_ρ) = tr(H · F · Σ_ρ).
-/// ```
-///
-/// `smoothing_correction` is stored on the `Vb = φ·H⁻¹` scale, so `Σ_ρ` is
-/// recovered by dividing it by `φ`. Returns `edf_conditional` unchanged when
-/// any exact input is absent — the conditional value is the honest fallback,
-/// never an approximation of the correction.
+/// Returns `edf_conditional` unchanged when any exact input is absent —
+/// the conditional value is the honest fallback, never an approximation of
+/// the correction.
 pub fn corrected_edf(
     edf_conditional: f64,
-    penalized_hessian: Option<ArrayView2<'_, f64>>,
-    coefficient_influence: Option<ArrayView2<'_, f64>>,
+    weighted_gram: Option<ArrayView2<'_, f64>>,
     smoothing_correction: Option<ArrayView2<'_, f64>>,
     phi: f64,
 ) -> CorrectedEdf {
-    let correction = wps_correction_term(
-        penalized_hessian,
-        coefficient_influence,
-        smoothing_correction,
-        phi,
-    );
+    let correction = wps_correction_term(weighted_gram, smoothing_correction, phi);
     CorrectedEdf {
         conditional: edf_conditional,
         corrected: edf_conditional + correction,
     }
 }
 
-/// `tr(H · F · Σ_ρ)` with `Σ_ρ = smoothing_correction / φ`. Returns `0.0` when
-/// any input is missing, non-square, dimension-mismatched, or non-finite.
+/// `tr(X'WX · Σ_ρ)` with `Σ_ρ = smoothing_correction / φ` and `X'WX` the
+/// stored PSD weighted Gram. Returns `0.0` when any input is missing,
+/// non-square, dimension-mismatched, or non-finite. Nonnegative by
+/// construction (both factors are symmetric PSD).
 fn wps_correction_term(
-    penalized_hessian: Option<ArrayView2<'_, f64>>,
-    coefficient_influence: Option<ArrayView2<'_, f64>>,
+    weighted_gram: Option<ArrayView2<'_, f64>>,
     smoothing_correction: Option<ArrayView2<'_, f64>>,
     phi: f64,
 ) -> f64 {
-    let (Some(h), Some(f), Some(corr)) = (
-        penalized_hessian,
-        coefficient_influence,
-        smoothing_correction,
-    ) else {
+    let (Some(xwx), Some(corr)) = (weighted_gram, smoothing_correction) else {
         return 0.0;
     };
-    let k = h.nrows();
+    let k = xwx.nrows();
     if k == 0
-        || h.ncols() != k
-        || f.nrows() != k
-        || f.ncols() != k
+        || xwx.ncols() != k
         || corr.nrows() != k
         || corr.ncols() != k
         || !(phi.is_finite() && phi > 0.0)
     {
         return 0.0;
     }
-    // Σ_ρ = corr / φ (recover the H⁻¹-scale ρ-covariance from the Vb-scale
-    // correction). Form M = F · Σ_ρ, then tr(H · M) = Σ_{ij} H_{ij} M_{ji}.
-    let sigma_rho = &corr.to_owned() / phi;
-    let m = f.dot(&sigma_rho);
+    // tr(X'WX · corr/φ) = (1/φ) Σ_{ij} X'WX_{ij} corr_{ji}; both symmetric, so
+    // this is the nonnegative tr(A^½ B A^½).
     let mut trace = 0.0;
     for i in 0..k {
         for j in 0..k {
-            trace += h[[i, j]] * m[[j, i]];
+            trace += xwx[[i, j]] * corr[[j, i]];
         }
     }
+    trace /= phi;
     if trace.is_finite() { trace } else { 0.0 }
 }
 
@@ -325,8 +312,7 @@ pub fn model_comparison_from_unified(
     let edf_conditional = fit.edf_total().unwrap_or(f64::NAN);
     let edf = corrected_edf(
         edf_conditional,
-        fit.penalized_hessian().map(|h| h.view()),
-        fit.coefficient_influence().map(|f| f.view()),
+        fit.weighted_gram().map(|g| g.view()),
         fit.smoothing_correction().map(|c| c.view()),
         phi,
     );
@@ -391,12 +377,10 @@ mod tests {
 
     #[test]
     fn wps_correction_is_trace_of_h_f_sigma_over_phi() {
-        // H = I, F = I → X'WX = H·F = I, so the correction is tr(Σ_ρ) = tr(corr)/φ.
-        let h = Array2::<f64>::eye(3);
-        let f = Array2::<f64>::eye(3);
+        // X'WX = I, φ = 2 → correction is tr(X'WX·corr)/φ = tr(corr)/φ.
+        let xwx = Array2::<f64>::eye(3);
         let corr = array![[2.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 6.0]];
-        let phi = 2.0;
-        let edf = corrected_edf(3.0, Some(h.view()), Some(f.view()), Some(corr.view()), phi);
+        let edf = corrected_edf(3.0, Some(xwx.view()), Some(corr.view()), 2.0);
         // tr(corr)/φ = (2+4+6)/2 = 6, so corrected = 3 + 6 = 9, ρ-df = 6.
         assert!((edf.corrected - 9.0).abs() < 1e-12);
         assert!((edf.rho_uncertainty_df() - 6.0).abs() < 1e-12);
@@ -405,7 +389,7 @@ mod tests {
 
     #[test]
     fn corrected_edf_falls_back_to_conditional_without_inputs() {
-        let edf = corrected_edf(5.5, None, None, None, 1.0);
+        let edf = corrected_edf(5.5, None, None, 1.0);
         assert_eq!(edf.conditional, 5.5);
         assert_eq!(edf.corrected, 5.5);
         assert_eq!(edf.rho_uncertainty_df(), 0.0);

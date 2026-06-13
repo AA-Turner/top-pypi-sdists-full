@@ -4,12 +4,12 @@ requires = [ "maturin>=1,<2" ]
 
 [project]
 name = "html-to-markdown"
-version = "3.5.7"
+version = "3.6.1"
 description = "High-performance HTML to Markdown converter"
 keywords = [ "converter", "html", "markdown" ]
 license = "MIT"
 license-files = [ "LICENSE" ]
-authors = [ { name = "Kreuzberg Team" } ]
+authors = [ { name = "Na'aman Hirschfeld <naaman@kreuzberg.dev>" } ]
 requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
@@ -25,11 +25,13 @@ urls.repository = "https://github.com/kreuzberg-dev/html-to-markdown"
 dev = [ "mypy>=1.19", "ruff>=0.14.8" ]
 
 [tool.maturin]
+profile = "release"
 module-name = "html_to_markdown._html_to_markdown"
 # abi3-py310 produces a single wheel per platform that loads on Python 3.10+,
 # avoiding a per-Python-version build matrix.
 features = [ "pyo3/extension-module", "pyo3/abi3-py310" ]
 python-packages = [ "html_to_markdown" ]
+sdist-include = [ "crates/html-to-markdown" ]
 manifest-path = "crates/html-to-markdown-py/Cargo.toml"
 
 [tool.ruff]

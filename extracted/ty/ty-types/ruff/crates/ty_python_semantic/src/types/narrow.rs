@@ -1,9 +1,10 @@
 use crate::Db;
-use crate::reachability::{ReachabilityConstraintsExtension, sequence_pattern_type};
+use crate::reachability::narrow_type_by_constraint;
 use crate::subscript::PyIndex;
 use crate::types::function::KnownFunction;
 use crate::types::infer::{ExpressionInference, infer_same_file_expression_type};
 use crate::types::special_form::TypeQualifier;
+use crate::types::tuple::{TupleLength, TupleType};
 use crate::types::typed_dict::{
     TypedDictField, TypedDictFieldBuilder, TypedDictSchema, TypedDictType,
 };
@@ -11,13 +12,15 @@ use crate::types::{
     CallableType, ClassLiteral, ClassType, IntersectionBuilder, IntersectionType, KnownClass,
     KnownInstanceType, LiteralValueTypeKind, Parameter, Parameters, Signature, SpecialFormType,
     SubclassOfInner, SubclassOfType, Truthiness, Type, TypeContext, TypeVarBoundOrConstraints,
-    UnionBuilder, infer_expression_types,
+    UnionBuilder, callable_pattern_type, definite_sequence_pattern_type,
+    exact_sequence_pattern_type, infer_expression_types, mapping_pattern_type,
+    sequence_pattern_type_builder, singleton_pattern_type, starred_sequence_pattern_type,
 };
 use ty_python_core::expression::Expression;
 use ty_python_core::place::{PlaceExpr, PlaceTable, ScopedPlaceId};
 use ty_python_core::predicate::{
     CallableAndCallExpr, ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate,
-    PredicateNode,
+    PredicateNode, SequencePatternPredicateKind,
 };
 use ty_python_core::scope::ScopeId;
 use ty_python_core::{NarrowingEvaluator, place_table, semantic_index};
@@ -622,6 +625,10 @@ fn merge_constraints_and<'db>(
     into: &mut NarrowingConstraints<'db>,
     from: NarrowingConstraints<'db>,
 ) {
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "constraints for distinct places are merged independently"
+    )]
     for (key, from_constraint) in from {
         match into.entry(key) {
             Entry::Occupied(mut entry) => {
@@ -650,6 +657,10 @@ fn merge_constraints_or<'db>(
     // For places that appear in `into` but not in `from`, widen to object
     into.retain(|key, _| from.contains_key(key));
 
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "constraints for distinct places are merged independently"
+    )]
     for (key, from_constraint) in from {
         match into.entry(key) {
             Entry::Occupied(mut entry) => {
@@ -903,7 +914,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                 self.evaluate_match_pattern_mapping(subject, *kind, is_positive)
             }
             PatternPredicateKind::Sequence(kind) => {
-                self.evaluate_match_pattern_sequence(subject, *kind, is_positive)
+                self.evaluate_match_pattern_sequence(subject, kind, is_positive)
             }
             PatternPredicateKind::Value(expr) => {
                 self.evaluate_match_pattern_value(subject, *expr, is_positive)
@@ -914,7 +925,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
             PatternPredicateKind::As(pattern, _) => pattern
                 .as_deref()
                 .and_then(|p| self.evaluate_pattern_predicate_kind(p, subject, is_positive)),
-            PatternPredicateKind::Unsupported => None,
+            PatternPredicateKind::MatchStar => None,
         }
     }
 
@@ -1046,6 +1057,75 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
             }
             _ => None,
         }
+    }
+
+    /// Filter a type based on an equality or inequality comparison against an exact length.
+    ///
+    /// Exact tuple types are specialized to the observed length. Other types that encode their
+    /// possible lengths are filtered. Unknown-length types are left unchanged because persisting
+    /// an observed length would become stale after mutation.
+    fn narrow_type_by_exact_len(
+        db: &'db dyn Db,
+        ty: Type<'db>,
+        length: usize,
+        is_equality: bool,
+    ) -> Type<'db> {
+        let resolved = ty.resolve_type_alias(db);
+
+        let narrowed = match resolved {
+            Type::Union(union) => union.map(db, |element| {
+                Self::narrow_type_by_exact_len(db, *element, length, is_equality)
+            }),
+            Type::Intersection(intersection) => intersection.map_positive(db, |element| {
+                Self::narrow_type_by_exact_len(db, *element, length, is_equality)
+            }),
+            _ => {
+                if is_equality && let Some(tuple) = resolved.exact_tuple_instance_spec(db) {
+                    match tuple.resize(db, TupleLength::Fixed(length)) {
+                        Ok(tuple) => Type::tuple(TupleType::new(db, &tuple)),
+                        Err(_) => Type::Never,
+                    }
+                } else {
+                    let tuple_length = resolved
+                        .as_nominal_instance()
+                        .and_then(|instance| instance.tuple_spec(db))
+                        .map(|spec| spec.len());
+                    let satisfies_comparison = |length_type: Type<'db>| {
+                        length_type
+                            .as_int_literal()
+                            .and_then(|actual| usize::try_from(actual).ok())
+                            .is_some_and(|actual| (actual == length) == is_equality)
+                    };
+                    let comparison_possible = resolved
+                        .len(db)
+                        .map(|length_type| match length_type {
+                            Type::Union(union) => union
+                                .elements(db)
+                                .iter()
+                                .any(|element| satisfies_comparison(*element)),
+                            _ => satisfies_comparison(length_type),
+                        })
+                        .or_else(|| {
+                            tuple_length
+                                .and_then(TupleLength::into_fixed_length)
+                                .map(|actual| (actual == length) == is_equality)
+                        });
+
+                    match comparison_possible {
+                        Some(false) => Type::Never,
+                        None if is_equality
+                            && tuple_length
+                                .is_some_and(|tuple_length| length < tuple_length.minimum()) =>
+                        {
+                            Type::Never
+                        }
+                        _ => resolved,
+                    }
+                }
+            }
+        };
+
+        if narrowed == resolved { ty } else { narrowed }
     }
 
     fn evaluate_simple_expr(
@@ -1485,7 +1565,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         if matches!(&**ops, [ast::CmpOp::Eq | ast::CmpOp::NotEq]) {
             // For `==`, we use equality semantics on the `if` branch (is_positive=true).
             // For `!=`, we use equality semantics on the `else` branch (is_positive=false).
-            let constrain_with_equality = is_positive == (ops[0] == ast::CmpOp::Eq);
+            let is_equality = is_positive == (ops[0] == ast::CmpOp::Eq);
 
             let mut narrow_len_call = |call: &ast::ExprCall, length_type: Type<'db>| {
                 let Type::FunctionLiteral(function_type) = inference.expression_type(&*call.func)
@@ -1506,38 +1586,23 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                 else {
                     return;
                 };
-                if length_literal < 0 {
+                let Ok(length) = usize::try_from(length_literal) else {
                     return;
-                }
+                };
                 let Some(target) = PlaceExpr::try_from_expr(arg) else {
                     return;
                 };
 
-                // `False == 0` and `True == 1`, so the protocol must accept both literals.
-                let protocol_length = match length_literal {
-                    0 => UnionType::from_two_elements(
-                        self.db,
-                        Type::int_literal(0),
-                        Type::bool_literal(false),
-                    ),
-                    1 => UnionType::from_two_elements(
-                        self.db,
-                        Type::int_literal(1),
-                        Type::bool_literal(true),
-                    ),
-                    _ => Type::int_literal(length_literal),
-                };
-                let exactly_sized =
-                    KnownClass::ExactlySized.to_specialized_instance(self.db, &[protocol_length]);
-                let constraint = NarrowingConstraint::intersection(
-                    exactly_sized.negate_if(self.db, !constrain_with_equality),
-                );
-                constraints
-                    .entry(self.expect_place(&target))
-                    .and_modify(|existing| {
-                        *existing = existing.merge_constraint_and(constraint.clone());
-                    })
-                    .or_insert(constraint);
+                let arg_type = inference.expression_type(arg);
+                let narrowed =
+                    Self::narrow_type_by_exact_len(self.db, arg_type, length, is_equality);
+                if narrowed != arg_type {
+                    insert_narrowing_constraint(
+                        &mut constraints,
+                        self.expect_place(&target),
+                        NarrowingConstraint::replacement(narrowed),
+                    );
+                }
             };
 
             // E.g., `len(items) == 2`
@@ -1559,7 +1624,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                     &subscript.value,
                     slice_type,
                     other_type,
-                    constrain_with_equality,
+                    is_equality,
                 ) {
                     insert_narrowing_constraint(&mut constraints, place, constraint);
                 } else if let Some((place, constraint)) = self.narrow_tuple_subscript(
@@ -1567,7 +1632,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                     &subscript.value,
                     slice_type,
                     other_type,
-                    constrain_with_equality,
+                    is_equality,
                 ) {
                     insert_narrowing_constraint(&mut constraints, place, constraint);
                 }
@@ -1589,7 +1654,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                     &attribute.value,
                     attribute.attr.id(),
                     other_type,
-                    constrain_with_equality,
+                    is_equality,
                 ) {
                     insert_narrowing_constraint(&mut constraints, place, constraint);
                 }
@@ -1955,11 +2020,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         let subject = PlaceExpr::try_from_expr(subject.node_ref(self.db).node(self.module))?;
         let place = self.expect_place(&subject);
 
-        let ty = match singleton {
-            ast::Singleton::None => Type::none(self.db),
-            ast::Singleton::True => Type::bool_literal(true),
-            ast::Singleton::False => Type::bool_literal(false),
-        };
+        let ty = singleton_pattern_type(self.db, singleton);
         let ty = ty.negate_if(self.db, !is_positive);
         Some(NarrowingConstraints::from_iter([(
             place,
@@ -1990,6 +2051,9 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
             Type::ClassLiteral(class) => {
                 Type::instance(self.db, class.top_materialization(self.db))
                     .negate_if(self.db, !is_positive)
+            }
+            Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
+                callable_pattern_type(self.db).negate_if(self.db, !is_positive)
             }
             dynamic @ Type::Dynamic(_) => dynamic,
             _ => return None,
@@ -2028,25 +2092,102 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         )]))
     }
 
+    /// Return a type that contains every value that can match `pattern`.
+    ///
+    /// For example, given:
+    ///
+    /// ```python
+    /// def f(x: list[object]):
+    ///     match x:
+    ///         case [int(real=0)]:
+    ///             reveal_type(x)
+    /// ```
+    ///
+    /// Every `x` that matches `[int(real=0)]` must be a one-element sequence
+    /// containing an `int`. We can represent this information in the returned
+    /// type; however, that type omits the `real=0` constraint, and so includes
+    /// values like as `[1]`, which do not match the pattern. In other words,
+    /// the returned type may include values that do not match, but it must include
+    /// every value that does.
+    fn necessary_match_pattern_type(&self, pattern: &PatternPredicateKind<'db>) -> Type<'db> {
+        match pattern {
+            PatternPredicateKind::Singleton(singleton) => {
+                singleton_pattern_type(self.db, *singleton)
+            }
+            PatternPredicateKind::Class(cls, _) => {
+                match infer_same_file_expression_type(self.db, *cls, TypeContext::default()) {
+                    Type::ClassLiteral(class) => {
+                        Type::instance(self.db, class.top_materialization(self.db))
+                    }
+                    Type::SpecialForm(SpecialFormType::CollectionsAbcCallable) => {
+                        callable_pattern_type(self.db)
+                    }
+                    _ => Type::object(),
+                }
+            }
+            PatternPredicateKind::Mapping(_) => mapping_pattern_type(self.db),
+            PatternPredicateKind::Sequence(kind) => self.necessary_sequence_pattern_type(kind),
+            PatternPredicateKind::Or(predicates) => UnionType::from_elements(
+                self.db,
+                predicates
+                    .iter()
+                    .map(|predicate| self.necessary_match_pattern_type(predicate)),
+            ),
+            PatternPredicateKind::As(pattern, _) => pattern
+                .as_deref()
+                .map(|pattern| self.necessary_match_pattern_type(pattern))
+                .unwrap_or_else(Type::object),
+            PatternPredicateKind::Value(_) | PatternPredicateKind::MatchStar => Type::object(),
+        }
+    }
+
+    /// Preserve the element constraints that can be addressed at fixed indices.
+    fn necessary_sequence_pattern_type(
+        &self,
+        kind: &SequencePatternPredicateKind<'db>,
+    ) -> Type<'db> {
+        if kind.is_exact_length() {
+            let element_types = kind
+                .patterns
+                .iter()
+                .map(|pattern| self.necessary_match_pattern_type(pattern));
+            exact_sequence_pattern_type(self.db, element_types)
+        } else {
+            let Some((prefix_patterns, suffix_patterns)) = kind.split_around_star() else {
+                return sequence_pattern_type_builder(self.db).build();
+            };
+
+            let prefix_element_types = prefix_patterns
+                .iter()
+                .map(|pattern| self.necessary_match_pattern_type(pattern));
+            let suffix_element_types = suffix_patterns
+                .iter()
+                .map(|pattern| self.necessary_match_pattern_type(pattern));
+
+            starred_sequence_pattern_type(self.db, prefix_element_types, suffix_element_types)
+        }
+    }
+
     fn evaluate_match_pattern_sequence(
         &mut self,
         subject: Expression<'db>,
-        kind: ClassPatternKind,
+        kind: &SequencePatternPredicateKind<'db>,
         is_positive: bool,
     ) -> Option<NarrowingConstraints<'db>> {
-        if !kind.is_irrefutable() && !is_positive {
-            return None;
-        }
+        let constraint = if is_positive {
+            NarrowingConstraint::intersection(self.necessary_sequence_pattern_type(kind))
+        } else {
+            let sequence_type = definite_sequence_pattern_type(self.db, kind);
+            if sequence_type.is_never() {
+                return None;
+            }
+            NarrowingConstraint::intersection(sequence_type.negate(self.db))
+        };
 
         let subject = PlaceExpr::try_from_expr(subject.node_ref(self.db).node(self.module))?;
         let place = self.expect_place(&subject);
 
-        let sequence_type = sequence_pattern_type(self.db).negate_if(self.db, !is_positive);
-
-        Some(NarrowingConstraints::from_iter([(
-            place,
-            NarrowingConstraint::intersection(sequence_type),
-        )]))
+        Some(NarrowingConstraints::from_iter([(place, constraint)]))
     }
 
     fn evaluate_match_pattern_value(
@@ -2210,7 +2351,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         subscript_value_expr: &ast::Expr,
         subscript_key_type: Type<'db>,
         rhs_type: Type<'db>,
-        constrain_with_equality: bool,
+        is_equality: bool,
     ) -> Option<(ScopedPlaceId, NarrowingConstraint<'db>)> {
         // Check preconditions: we need a TypedDict, a string key, and a supported tag literal.
         if !is_or_contains_typeddict(self.db, subscript_value_type) {
@@ -2229,7 +2370,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         // implement `__eq__` in any perverse way they like. On the other hand, if this is an
         // *inequality* constraint, then we can go ahead and assert "you can't be this exact
         // literal type" without worrying about what other types might be present.
-        if constrain_with_equality
+        if is_equality
             && !all_matching_typeddict_fields_have_literal_types(
                 self.db,
                 subscript_value_type,
@@ -2242,10 +2383,10 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         let field_name = Name::from(key_literal.value(self.db));
         // To avoid excluding non-`TypedDict` types, our constraints are always expressed
         // as a negative intersection (i.e. "you're *not* this kind of `TypedDict`"). If
-        // `constrain_with_equality` is true, the whole constraint is going to be a double
+        // `is_equality` is true, the whole constraint is going to be a double
         // negative, i.e. "you're *not* a `TypedDict` *without* this literal field". As the
         // first step of building that, we negate the right hand side.
-        let field_type = rhs_type.negate_if(self.db, constrain_with_equality);
+        let field_type = rhs_type.negate_if(self.db, is_equality);
         // Create the synthesized `TypedDict` with that (possibly negated) field. We don't
         // want to constrain the mutability or required-ness of the field, so the most
         // compatible form is not-required and read-only.
@@ -2305,7 +2446,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         subscript_value_expr: &ast::Expr,
         subscript_index_type: Type<'db>,
         rhs_type: Type<'db>,
-        constrain_with_equality: bool,
+        is_equality: bool,
     ) -> Option<(ScopedPlaceId, NarrowingConstraint<'db>)> {
         // We need a union type for narrowing to be useful.
         let Type::Union(union) = subscript_value_type.resolve_type_alias(self.db) else {
@@ -2331,9 +2472,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
 
         // For equality constraints, all matching elements must have literal types to safely narrow.
         // For inequality constraints, we can narrow even with non-literal element types.
-        if constrain_with_equality
-            && !all_matching_tuple_elements_have_literal_types(self.db, union, index)
-        {
+        if is_equality && !all_matching_tuple_elements_have_literal_types(self.db, union, index) {
             return None;
         }
 
@@ -2343,7 +2482,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
                 .and_then(|inst| inst.tuple_spec(self.db))
                 .and_then(|spec| spec.py_index(self.db, index).ok())
                 .is_none_or(|el_ty| {
-                    if constrain_with_equality {
+                    if is_equality {
                         // Keep tuples where element could be equal to rhs.
                         !el_ty.is_disjoint_from(self.db, rhs_type)
                     } else {
@@ -2368,7 +2507,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
         attribute_value_expr: &ast::Expr,
         attribute_name: &str,
         rhs_type: Type<'db>,
-        constrain_with_equality: bool,
+        is_equality: bool,
     ) -> Option<(ScopedPlaceId, NarrowingConstraint<'db>)> {
         let Type::Union(union) = attribute_value_type.resolve_type_alias(self.db) else {
             return None;
@@ -2379,7 +2518,7 @@ impl<'db, 'ast> NarrowingConstraintsBuilder<'db, 'ast> {
 
         let narrowed = union.filter(self.db, |element| {
             nominal_attribute_type(self.db, *element, attribute_name).is_none_or(|attribute_type| {
-                if constrain_with_equality {
+                if is_equality {
                     !is_supported_tag_literal(attribute_type)
                         || !attribute_type.is_disjoint_from(self.db, rhs_type)
                 } else {
@@ -2678,8 +2817,9 @@ pub trait NarrowingEvaluatorExtension<'db> {
 
 impl<'db> NarrowingEvaluatorExtension<'db> for NarrowingEvaluator<'_, 'db> {
     fn narrow(&self, db: &'db dyn Db, base_type: Type<'db>, place: ScopedPlaceId) -> Type<'db> {
-        self.reachability_constraints().narrow_by_constraint(
+        narrow_type_by_constraint(
             db,
+            self.narrowing_constraints(),
             self.predicates(),
             self.constraint(),
             base_type,

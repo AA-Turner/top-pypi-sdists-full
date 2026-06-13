@@ -1072,9 +1072,38 @@ pub struct DenestedPartitionCell {
     pub cell: DenestedCubicCell,
     pub score_span: LocalSpanCubic,
     pub link_span: LocalSpanCubic,
+    /// Provenance of the cell's boundaries: a fixed z location (score break
+    /// or ±∞ tail) or a link-knot crossing `z = (τ - a)/b`. Together with
+    /// `(score_span, link_span)` this identifies the cell's two-parameter
+    /// family in `(a, b)` across rows (see
+    /// [`crate::families::cell_moment_family`]).
+    pub left_edge: PartitionEdge,
+    pub right_edge: PartitionEdge,
 }
 
 impl DenestedPartitionCell {}
+
+/// Provenance of one boundary of a denested partition cell.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PartitionEdge {
+    /// A z location independent of the row scalars: a score-spline break,
+    /// or ±∞ for tail cells.
+    Fixed(f64),
+    /// A link-knot crossing: the boundary sits at `z = (τ - a)/b` for the
+    /// row's `(a, b)`.
+    Crossing { tau: f64 },
+}
+
+impl PartitionEdge {
+    /// The boundary's z location at the row scalars `(a, b)`.
+    #[inline]
+    pub fn z_at(self, a: f64, b: f64) -> f64 {
+        match self {
+            Self::Fixed(z) => z,
+            Self::Crossing { tau } => (tau - a) / b,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 struct TailCellMomentCacheKey {
@@ -1583,16 +1612,31 @@ pub(crate) const GL20_WEIGHTS: [f64; 20] = [
     0.017_614_007_139_152_12,
 ];
 
-fn dedup_sorted_breakpoints(points: &mut Vec<f64>) {
-    points.sort_by(|lhs, rhs| lhs.partial_cmp(rhs).unwrap_or(std::cmp::Ordering::Equal));
+/// Provenance-tagged breakpoint dedup: sorts ascending and merges entries
+/// coinciding within 1e-12, but when a fixed score break and a link-knot
+/// crossing coincide (the kink configuration), the surviving entry keeps
+/// the `Fixed` tag — a deterministic choice; the z location is identical
+/// either way.
+fn dedup_sorted_tagged_breakpoints(points: &mut Vec<(f64, PartitionEdge)>) {
+    points.sort_by(|lhs, rhs| {
+        lhs.0
+            .partial_cmp(&rhs.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     points.dedup_by(|lhs, rhs| {
-        if *lhs == *rhs {
+        let coincide = if lhs.0 == rhs.0 {
             true
-        } else if lhs.is_finite() && rhs.is_finite() {
-            (*lhs - *rhs).abs() <= 1e-12
+        } else if lhs.0.is_finite() && rhs.0.is_finite() {
+            (lhs.0 - rhs.0).abs() <= 1e-12
         } else {
             false
+        };
+        if coincide && matches!(lhs.1, PartitionEdge::Fixed(_)) {
+            // `dedup_by` keeps `rhs` (the earlier element) — propagate the
+            // Fixed tag onto the survivor.
+            rhs.1 = lhs.1;
         }
+        coincide
     });
 }
 
@@ -2695,17 +2739,23 @@ where
     FS: FnMut(f64) -> Result<LocalSpanCubic, String>,
     FL: FnMut(f64) -> Result<LocalSpanCubic, String>,
 {
-    // Collect all INTERNAL split points (finite).
-    let mut split_points = score_breaks.to_vec();
+    // Collect all INTERNAL split points (finite), each tagged with its
+    // provenance: a fixed score break or a link-knot crossing. Provenance
+    // identifies the cell's `(a, b)` family for the Chebyshev moment-family
+    // layer; the z coordinates alone cannot distinguish the two kinds.
+    let mut split_points: Vec<(f64, PartitionEdge)> = score_breaks
+        .iter()
+        .map(|&sigma| (sigma, PartitionEdge::Fixed(sigma)))
+        .collect();
     if b.abs() > 1e-12 {
         for &tau in link_breaks {
             let z = (tau - a) / b;
             if z.is_finite() {
-                split_points.push(z);
+                split_points.push((z, PartitionEdge::Crossing { tau }));
             }
         }
     }
-    dedup_sorted_breakpoints(&mut split_points);
+    dedup_sorted_tagged_breakpoints(&mut split_points);
 
     let mut out = Vec::new();
 
@@ -2724,11 +2774,13 @@ where
             },
             score_span,
             link_span,
+            left_edge: PartitionEdge::Fixed(f64::NEG_INFINITY),
+            right_edge: PartitionEdge::Fixed(f64::INFINITY),
         }]);
     }
 
     // ── Left tail cell: (-∞, leftmost_split] ──
-    let leftmost = split_points[0];
+    let (leftmost, leftmost_edge) = split_points[0];
     // Evaluate spans at a point just left of the leftmost split.  The
     // closures return constant tail cubics for this region.
     let left_probe = interval_probe_point(f64::NEG_INFINITY, leftmost)?;
@@ -2756,12 +2808,14 @@ where
         },
         score_span: left_score_span,
         link_span: left_link_span,
+        left_edge: PartitionEdge::Fixed(f64::NEG_INFINITY),
+        right_edge: leftmost_edge,
     });
 
     // ── Interior cells (all finite) ──
     for window in split_points.windows(2) {
-        let left = window[0];
-        let right = window[1];
+        let (left, left_edge) = window[0];
+        let (right, right_edge) = window[1];
         if !left.is_finite() || !right.is_finite() || right - left <= 1e-12 {
             continue;
         }
@@ -2780,11 +2834,13 @@ where
             },
             score_span,
             link_span,
+            left_edge,
+            right_edge,
         });
     }
 
     // ── Right tail cell: [rightmost_split, +∞) ──
-    let rightmost = *split_points.last().unwrap();
+    let (rightmost, rightmost_edge) = *split_points.last().unwrap();
     let right_probe = interval_probe_point(rightmost, f64::INFINITY)?;
     let right_score_span = score_span_at(right_probe)?;
     let right_link_span = link_span_at(a + b * right_probe)?;
@@ -2810,6 +2866,8 @@ where
         },
         score_span: right_score_span,
         link_span: right_link_span,
+        left_edge: rightmost_edge,
+        right_edge: PartitionEdge::Fixed(f64::INFINITY),
     });
 
     Ok(out)
@@ -3332,23 +3390,39 @@ fn accumulate_moments_unrolled4(moments: &mut [f64], mw: f64, z: f64) {
 // where a tweak to the quadrature order or the FMA pattern would silently
 // re-introduce divergence between the value- and derivative-only callers.
 //
-// Direct 384-point Gauss-Legendre on [left, right] is exact to machine
-// precision for any quartic/sextic q on a bounded interval; the prior
+// Gauss-Legendre on [left, right] converges geometrically for the analytic
+// integrand exp(-q(z)) with quartic/sextic q on a bounded cell; the prior
 // adaptive transport path expanded basis_moments via the forward 3-/5-step
 // recurrences in reduce_quartic/sextic_moments, which amplify roundoff by
 // (1/lead)^n with lead = 2c2²/3c3² and overflow to NaN for small c2/c3 cells
 // that arise naturally in production.
 //
+// The fixed 384-node rule that replaced the transport path is accurate but
+// pays ~384 exp evaluations per cell unconditionally. Production cells are
+// narrow spline-knot subdivisions where a 12- or 24-node rule is already
+// converged to machine precision, and the flex marginal-slope row calculus
+// evaluates O(100) such cells per row across n=10⁵–10⁶ rows per criterion
+// evaluation — the fixed rule was the dominant cost of the whole fit (#979).
+// `evaluate_non_affine_cell_simd` therefore walks a progressive ladder of
+// rules (12, 24, 48, 96, 192, 384 nodes) and returns as soon as two
+// consecutive rules agree to `NON_AFFINE_LADDER_RTOL` relative to the moment
+// vector's own scale. Unlike the old fixed rule — whose error was real but
+// uncertified — every accepted ladder result carries an embedded two-rule
+// agreement certificate; a cell that never certifies falls through to the
+// same 384-node answer the fixed rule produced.
+//
 // SIMD path: process 4 GL nodes per outer iteration, batching the two scalar
-// `exp` calls into single 4-wide `wide::f64x4::exp` invocations. 384 is
-// divisible by 4, so no scalar tail is needed for the GL sweep. The inner
-// moment accumulation is then run scalar per-lane but with a 4-way unrolled
-// slab over the moment slots to break the `z_pow *= z` serial dependency
-// chain.
+// `exp` calls into single 4-wide `wide::f64x4::exp` invocations. All ladder
+// rule sizes are divisible by 4, so no scalar tail is needed for the GL
+// sweep. The inner moment accumulation is then run scalar per-lane but with
+// a 4-way unrolled slab over the moment slots to break the `z_pow *= z`
+// serial dependency chain.
 #[inline(always)]
-fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
+fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
     cell: DenestedCubicCell,
     max_degree: usize,
+    gl_nodes: &[f64],
+    gl_weights: &[f64],
 ) -> (CellMomentVec, f64) {
     let mut moments: CellMomentVec = smallvec![0.0_f64; max_degree + 1];
     let mut value_integral = 0.0_f64;
@@ -3359,7 +3433,7 @@ fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
     let c2 = cell.c2;
     let c3 = cell.c3;
     let moments_slice: &mut [f64] = &mut moments;
-    assert_eq!(GL_NODES.len(), GL_WEIGHTS.len());
+    assert_eq!(gl_nodes.len(), gl_weights.len());
     use wide::f64x4;
     let center_v = f64x4::splat(center);
     let half_width_v = f64x4::splat(half_width);
@@ -3368,21 +3442,21 @@ fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
     let c2_v = f64x4::splat(c2);
     let c3_v = f64x4::splat(c3);
     let neg_half_v = f64x4::splat(-0.5);
-    let n_total = GL_NODES.len();
+    let n_total = gl_nodes.len();
     let n_simd = n_total - (n_total % 4);
     let mut i = 0;
     while i < n_simd {
         let node_v = f64x4::from([
-            GL_NODES[i],
-            GL_NODES[i + 1],
-            GL_NODES[i + 2],
-            GL_NODES[i + 3],
+            gl_nodes[i],
+            gl_nodes[i + 1],
+            gl_nodes[i + 2],
+            gl_nodes[i + 3],
         ]);
         let weight_v = f64x4::from([
-            GL_WEIGHTS[i],
-            GL_WEIGHTS[i + 1],
-            GL_WEIGHTS[i + 2],
-            GL_WEIGHTS[i + 3],
+            gl_weights[i],
+            gl_weights[i + 1],
+            gl_weights[i + 2],
+            gl_weights[i + 3],
         ]);
         let z_v = half_width_v.mul_add(node_v, center_v);
         // Horner: ((c3*z + c2)*z + c1)*z + c0
@@ -3419,8 +3493,8 @@ fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
         i += 4;
     }
     while i < n_total {
-        let node = GL_NODES[i];
-        let weight = GL_WEIGHTS[i];
+        let node = gl_nodes[i];
+        let weight = gl_weights[i];
         let z = center + half_width * node;
         let eta = c3.mul_add(z, c2).mul_add(z, c1).mul_add(z, c0);
         let q = 0.5 * (z * z + eta * eta);
@@ -3434,6 +3508,155 @@ fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
         i += 1;
     }
     (moments, value_integral)
+}
+
+/// Relative agreement threshold for the progressive non-affine quadrature
+/// ladder: two consecutive Gauss-Legendre rules must agree on every moment
+/// slot (and the value integral, when computed) to this tolerance relative
+/// to the moment vector's own max magnitude before the finer rule's result
+/// is accepted. Gauss-Legendre error decays geometrically in the node count
+/// for the analytic integrand `exp(-q(z))`, so agreement between an n-node
+/// and a 2n-node rule certifies that both are converged: the coarse rule's
+/// true error is bounded by the observed difference plus the (much smaller)
+/// fine-rule error.
+const NON_AFFINE_LADDER_RTOL: f64 = 3e-15;
+
+/// Node counts of the progressive ladder below the 384-node terminal rung.
+/// All divisible by 4 so the SIMD sweep needs no scalar tail.
+const NON_AFFINE_LADDER_RUNGS: [usize; 5] = [12, 24, 48, 96, 192];
+
+/// Runtime-generated Gauss-Legendre rules for the ladder rungs, computed
+/// once per process by Newton iteration on the Legendre polynomial roots
+/// (standard `gauleg`: cosine initial guess, 3-4 Newton steps to machine
+/// precision). The terminal 384-node rung reuses the compile-time
+/// `GL_NODES`/`GL_WEIGHTS` tables, which also remain the single source for
+/// the GPU kernel.
+fn non_affine_ladder_rules() -> &'static [(Vec<f64>, Vec<f64>)] {
+    static RULES: std::sync::OnceLock<Vec<(Vec<f64>, Vec<f64>)>> = std::sync::OnceLock::new();
+    RULES.get_or_init(|| {
+        NON_AFFINE_LADDER_RUNGS
+            .iter()
+            .map(|&n| gauss_legendre_rule(n))
+            .collect()
+    })
+}
+
+/// Nodes and weights of the `n`-point Gauss-Legendre rule on `[-1, 1]`.
+///
+/// Newton iteration on `P_n` from the cosine initial guess
+/// `cos(π(i + 0.75)/(n + 0.5))` converges to every root in a handful of
+/// steps; weights follow from `w_i = 2 / ((1 - x_i²) P_n'(x_i)²)`. Roots are
+/// filled symmetrically so the rule is exactly antisymmetric about 0.
+fn gauss_legendre_rule(n: usize) -> (Vec<f64>, Vec<f64>) {
+    let mut nodes = vec![0.0_f64; n];
+    let mut weights = vec![0.0_f64; n];
+    for i in 0..n.div_ceil(2) {
+        let mut z = (std::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
+        let mut pp = 0.0_f64;
+        for _ in 0..100 {
+            // Legendre recurrence: p1 = P_n(z), p2 = P_{n-1}(z).
+            let mut p1 = 1.0_f64;
+            let mut p2 = 0.0_f64;
+            for j in 1..=n {
+                let p3 = p2;
+                p2 = p1;
+                p1 = ((2 * j - 1) as f64 * z * p2 - (j - 1) as f64 * p3) / j as f64;
+            }
+            pp = n as f64 * (z * p1 - p2) / (z * z - 1.0);
+            let z_prev = z;
+            z = z_prev - p1 / pp;
+            if (z - z_prev).abs() <= f64::EPSILON {
+                break;
+            }
+        }
+        nodes[i] = -z;
+        nodes[n - 1 - i] = z;
+        let w = 2.0 / ((1.0 - z * z) * pp * pp);
+        weights[i] = w;
+        weights[n - 1 - i] = w;
+    }
+    (nodes, weights)
+}
+
+/// Two-rule agreement certificate for the progressive ladder. `true` when
+/// every MOMENT slot agrees to `NON_AFFINE_LADDER_RTOL` relative to the fine
+/// result's max magnitude. Non-finite results never certify, so they fall
+/// through to the terminal 384-node rung and reproduce the fixed rule's
+/// behavior exactly.
+///
+/// The decision is deliberately moment-only and independent of whether the
+/// caller also computed the cell value: the value- and derivative-only
+/// evaluators MUST select the same ladder rung so they accumulate the moment
+/// vector over the same nodes and return bit-identical moments (the
+/// `derivative_moment_evaluator_matches_value_evaluator_moments` invariant).
+/// The value integral converges at the same geometric Gauss-Legendre rate as
+/// the moments on the shared analytic integrand `exp(-q(z))`, so the
+/// moment-certified rung resolves the value to the same tolerance.
+fn non_affine_ladder_converged(coarse: &CellMomentVec, fine: &CellMomentVec) -> bool {
+    let mut scale = 0.0_f64;
+    let mut err = 0.0_f64;
+    for (&c, &f) in coarse.iter().zip(fine.iter()) {
+        scale = scale.max(f.abs());
+        err = err.max((c - f).abs());
+    }
+    if !(scale.is_finite() && err.is_finite()) {
+        return false;
+    }
+    err <= NON_AFFINE_LADDER_RTOL * scale
+}
+
+/// Per-rung certification histogram for the non-affine ladder, indexed by the
+/// rung that certified (`NON_AFFINE_LADDER_RUNGS[i]` at index `i`), with the
+/// final slot counting cells that fell through to the terminal 384-node rule.
+/// Incremented once per non-affine cell evaluation; the BMS exact-cache build
+/// logs the distribution so the ladder's real cost (early-certify win vs.
+/// terminal-fallthrough cost) is observable on every large-scale fit rather
+/// than assumed. `+1` length for the terminal bucket.
+pub(crate) static NON_AFFINE_LADDER_CERT_COUNTS: [AtomicU64; NON_AFFINE_LADDER_RUNGS.len() + 1] = [
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+    AtomicU64::new(0),
+];
+
+/// Snapshot the ladder certification histogram as `(rung_node_count, count)`
+/// pairs plus the terminal-fallthrough count, for logging/inspection.
+pub fn non_affine_ladder_cert_histogram() -> (Vec<(usize, u64)>, u64) {
+    let per_rung = NON_AFFINE_LADDER_RUNGS
+        .iter()
+        .enumerate()
+        .map(|(i, &n)| (n, NON_AFFINE_LADDER_CERT_COUNTS[i].load(Ordering::Relaxed)))
+        .collect();
+    let terminal =
+        NON_AFFINE_LADDER_CERT_COUNTS[NON_AFFINE_LADDER_RUNGS.len()].load(Ordering::Relaxed);
+    (per_rung, terminal)
+}
+
+/// Progressive-ladder evaluation of a non-affine cell: walk the rule ladder
+/// from 12 nodes upward and return the first result certified by two-rule
+/// agreement; a cell that never certifies returns the terminal 384-node
+/// result, byte-identical to the previous fixed-rule implementation.
+#[inline]
+fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
+    cell: DenestedCubicCell,
+    max_degree: usize,
+) -> (CellMomentVec, f64) {
+    let mut prev: Option<(CellMomentVec, f64)> = None;
+    for (i, (nodes, weights)) in non_affine_ladder_rules().iter().enumerate() {
+        let cur =
+            evaluate_non_affine_cell_with_rule::<COMPUTE_VALUE>(cell, max_degree, nodes, weights);
+        if let Some(prev) = prev.as_ref()
+            && non_affine_ladder_converged(&prev.0, &cur.0)
+        {
+            NON_AFFINE_LADDER_CERT_COUNTS[i].fetch_add(1, Ordering::Relaxed);
+            return cur;
+        }
+        prev = Some(cur);
+    }
+    NON_AFFINE_LADDER_CERT_COUNTS[NON_AFFINE_LADDER_RUNGS.len()].fetch_add(1, Ordering::Relaxed);
+    evaluate_non_affine_cell_with_rule::<COMPUTE_VALUE>(cell, max_degree, &GL_NODES, &GL_WEIGHTS)
 }
 
 fn evaluate_non_affine_cell_state(
@@ -3594,6 +3817,20 @@ pub fn evaluate_cell_moments_cached(
     cache: &CellMomentLruCache,
     stats: Option<&CellMomentCacheStats>,
 ) -> Result<CellMomentState, String> {
+    // Affine cells (every rigid-path cell and every tail cell) evaluate
+    // through the closed-form anchor — cheaper than a single LRU probe. The
+    // LRU exists only to amortize the EXPENSIVE non-affine transport across
+    // recurring cells; at large n the row scalars `(a, b)` are unique per
+    // row, so affine cells never recur and routing them through the sharded
+    // mutex was pure cost (320k lock+insert+evict ops per gradient eval, ~0%
+    // hit — the dominant cost of the rigid n=320k fit, #979). Bypass the
+    // cache entirely for them.
+    if matches!(branch_cell(cell), Ok(ExactCellBranch::Affine)) {
+        if let Some(stats) = stats {
+            stats.misses.fetch_add(1, Ordering::Relaxed);
+        }
+        return evaluate_cell_moments_uncached(cell, max_degree);
+    }
     let key = CellFingerprint::new(cell);
     let existing_derivative = match cache.get(&key) {
         Some(cached) => {
@@ -3638,6 +3875,15 @@ pub fn evaluate_cell_derivative_moments_cached(
     cache: &CellMomentLruCache,
     stats: Option<&CellMomentCacheStats>,
 ) -> Result<CellDerivativeMomentState, String> {
+    // Affine cells bypass the LRU — see `evaluate_cell_moments_cached` for
+    // why the sharded-mutex memo is pure overhead on the closed-form affine
+    // path at large n (#979).
+    if matches!(branch_cell(cell), Ok(ExactCellBranch::Affine)) {
+        if let Some(stats) = stats {
+            stats.misses.fetch_add(1, Ordering::Relaxed);
+        }
+        return evaluate_cell_derivative_moments_uncached(cell, max_degree);
+    }
     let key = CellFingerprint::new(cell);
     let existing_value = match cache.get(&key) {
         Some(cached) => {

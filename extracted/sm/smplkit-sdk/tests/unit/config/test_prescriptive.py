@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smplkit._errors import NotFoundError
-from smplkit._client import AsyncSmplClient, SmplClient
-from smplkit.config._client import ConfigChangeEvent, LiveConfigProxy
+from smplkit.errors import NotFoundError
+from smplkit.clients import AsyncSmplClient, SmplClient
+from smplkit.config.clients import ConfigChangeEvent, LiveConfigProxy
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +242,7 @@ class TestGetProxyBehaviorAsync:
 
 
 class TestRefreshSync:
-    @patch("smplkit.config._client.list_configs.sync_detailed")
+    @patch("smplkit.config.clients.list_configs.sync_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = _make_connected_client({"db": {"host": "old"}})
 
@@ -276,7 +276,7 @@ class TestRefreshSync:
 
         assert client.config._config_cache["db"]["host"] == "new-host"
 
-    @patch("smplkit.config._client.list_configs.sync_detailed")
+    @patch("smplkit.config.clients.list_configs.sync_detailed")
     def test_refresh_fires_listeners(self, mock_list):
         client = _make_connected_client({"db": {"host": "old"}})
 
@@ -325,7 +325,7 @@ class TestRefreshSync:
 
 
 class TestRefreshAsync:
-    @patch("smplkit.config._client.list_configs.asyncio_detailed")
+    @patch("smplkit.config.clients.list_configs.asyncio_detailed")
     def test_refresh_updates_cache(self, mock_list):
         client = _make_connected_async_client({"db": {"host": "old"}})
 
@@ -365,7 +365,7 @@ class TestRefreshAsync:
         asyncio.run(run())
         assert client.config._config_cache["db"]["host"] == "new-host"
 
-    @patch("smplkit.config._client.list_configs.asyncio_detailed")
+    @patch("smplkit.config.clients.list_configs.asyncio_detailed")
     def test_refresh_fires_listeners(self, mock_list):
         client = _make_connected_async_client({"db": {"host": "old"}})
 

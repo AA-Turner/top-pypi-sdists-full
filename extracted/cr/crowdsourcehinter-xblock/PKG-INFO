@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crowdsourcehinter-xblock
-Version: 1.0.0
+Version: 1.0.1
 Summary: crowdsourcehinter XBlock
 Home-page: https://github.com/openedx/crowdsourcehinter
 Author: edX
@@ -16,7 +16,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: XBlock
 Requires-Dist: six
-Requires-Dist: web-fragments
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

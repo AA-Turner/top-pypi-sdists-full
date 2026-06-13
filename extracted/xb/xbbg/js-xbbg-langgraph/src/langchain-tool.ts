@@ -3,9 +3,18 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type * as z from "zod/v3";
 
 import type { BloombergToolName } from "./options";
-import type { ToolContentAndArtifact } from "./result-limits";
+import { throwWithToolContext, type ToolContentAndArtifact } from "./result-limits";
 
 type ZodOutput<T> = z.ZodType<T, z.ZodTypeDef, unknown>;
+
+/**
+ * Subset of the LangChain runnable config forwarded to tool functions.
+ * `signal` aborts the call: the LangChain wrapper rejects immediately, and
+ * Bloomberg tool functions use it to stop waiting and release subscriptions.
+ */
+export interface ToolInvocationConfig {
+  readonly signal?: AbortSignal;
+}
 
 interface BloombergStructuredToolFields<Input> {
   readonly description: string;
@@ -25,8 +34,25 @@ function inputJsonSchema(schema: ZodOutput<unknown>): Record<string, unknown> {
   return jsonSchema;
 }
 
+/**
+ * Provider-ready JSON Schema for a Bloomberg tool's input parameters, using
+ * the same conversion settings as the embedded provider tool definition
+ * ($ref-free, input-side of transforms). Exposed so consumers do not each
+ * reinvent zod -> JSON Schema conversion and sanitization.
+ */
+export function toolParameterJsonSchema(
+  toolInstance: StructuredToolInterface,
+): Record<string, unknown> {
+  const schema: unknown = toolInstance.schema;
+  if (schema !== null && typeof schema === "object" && !("safeParse" in schema)) {
+    // Already a JSON Schema object.
+    return schema as Record<string, unknown>;
+  }
+  return inputJsonSchema(schema as ZodOutput<unknown>);
+}
+
 export function createBloombergStructuredTool<Input>(
-  func: (input: Input) => Promise<ToolContentAndArtifact>,
+  func: (input: Input, config?: ToolInvocationConfig) => Promise<ToolContentAndArtifact>,
   fields: BloombergStructuredToolFields<Input>,
 ): StructuredToolInterface {
   const providerToolDefinition = {
@@ -38,8 +64,21 @@ export function createBloombergStructuredTool<Input>(
     },
   };
 
+  const guarded = async (
+    input: Input,
+    config?: ToolInvocationConfig,
+  ): Promise<ToolContentAndArtifact> => {
+    try {
+      // Refuse to start Bloomberg work for calls that are already cancelled.
+      config?.signal?.throwIfAborted();
+    } catch (error) {
+      throwWithToolContext(fields.name, error);
+    }
+    return await func(input, config);
+  };
+
   return tool(
-    func as never,
+    guarded as never,
     {
       ...fields,
       extras: { providerToolDefinition },

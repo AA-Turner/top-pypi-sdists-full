@@ -97,10 +97,24 @@ def secret_rm(ctx: click.Context, name: str):
         click.echo(FeedbackManager.error(message=f"✗ Error: {e}"))
 
 
-def save_secret_to_env_file(project: Project, name: str, value: str):
+def save_secret_to_env_file(project: Project, name: str, value: str) -> None:
     env_path = project.path / ".env.local"
 
     if not env_path.exists():
         env_path.touch()
 
     set_key(env_path, key_to_set=name, value_to_set=value)
+
+
+def save_secret_to_local_environment(project: Project, name: str, value: str, client: TinyB) -> None:
+    save_secret_to_env_file(project=project, name=name, value=value)
+    existing_secret = None
+    try:
+        existing_secret = client.get_secret(name)
+    except Exception:
+        pass
+
+    if existing_secret:
+        client.update_secret(name, value)
+    else:
+        client.create_secret(name, value)

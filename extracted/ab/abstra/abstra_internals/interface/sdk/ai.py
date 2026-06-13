@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar, Union, overload
 
@@ -25,23 +26,96 @@ def to_list(value: Union[T, List[T], None]) -> List[T]:
     return [value]
 
 
+_JSON_SCHEMA_TYPES = {
+    "string",
+    "number",
+    "integer",
+    "boolean",
+    "array",
+    "object",
+    "null",
+}
+_TYPE_ALIASES = {
+    "str": "string",
+    "text": "string",
+    "int": "integer",
+    "float": "number",
+    "double": "number",
+    "decimal": "number",
+    "bool": "boolean",
+    "list": "array",
+    "dict": "object",
+    "obj": "object",
+}
+
+
+def _map_type_token(token: str) -> Optional[str]:
+    token = token.lower()
+    if token in _JSON_SCHEMA_TYPES:
+        return token
+    return _TYPE_ALIASES.get(token)
+
+
+def _coerce_type_spec(spec: str) -> Dict[str, object]:
+    """
+    Turn a free-form type hint into a valid JSON Schema fragment.
+    """
+    raw = spec.strip()
+    low = raw.lower()
+
+    # "array of X" / "list of X"
+    array_of = re.match(r"^(?:array|list)\s+of\s+([a-z]+)", low)
+    if array_of:
+        item = array_of.group(1)
+        if item.endswith("s") and len(item) > 1:
+            item = item[:-1]  # "strings" -> "string"
+        return {"type": "array", "items": {"type": _map_type_token(item) or "string"}}
+
+    head = re.match(r"^[a-z]+", low)
+    mapped = _map_type_token(head.group(0)) if head else None
+    if mapped is None or head is None:
+        # Unrecognized — default to string but preserve the author's text.
+        return {"type": "string", "description": raw}
+
+    result: Dict[str, object] = {"type": mapped}
+    remainder = raw[head.end() :].strip().strip("()").strip()
+    if remainder:
+        result["description"] = remainder
+    if mapped == "array":
+        result.setdefault("items", {"type": "string"})
+    return result
+
+
+def _normalize_schema_dict(schema: Dict[str, object]) -> Dict[str, object]:
+    """Coerce a pre-built property dict whose `type` is an invalid free-form string."""
+    declared = schema.get("type")
+    if isinstance(declared, str) and declared not in _JSON_SCHEMA_TYPES:
+        coerced = _coerce_type_spec(declared)
+        # Author-provided keys (e.g. an explicit description) win over coerced ones.
+        return {**coerced, **{k: v for k, v in schema.items() if k != "type"}}
+    return schema
+
+
 def normalize_format(format: Dict[str, object]) -> Dict[str, object]:
+    normalized: Dict[str, object] = {}
     for key, value in format.items():
         if isinstance(value, str):
-            format[key] = {"type": value}
+            normalized[key] = _coerce_type_spec(value)
         elif isinstance(value, list):
-            format[key] = {"enum": value}
+            normalized[key] = {"enum": value}
         elif value is bool:
-            format[key] = {"type": "boolean"}
+            normalized[key] = {"type": "boolean"}
         elif value is int:
-            format[key] = {"type": "integer"}
+            normalized[key] = {"type": "integer"}
         elif value is float:
-            format[key] = {"type": "number"}
+            normalized[key] = {"type": "number"}
         elif value is str:
-            format[key] = {"type": "string"}
+            normalized[key] = {"type": "string"}
+        elif isinstance(value, dict):
+            normalized[key] = _normalize_schema_dict(value)
         else:
-            format[key] = value
-    return format
+            normalized[key] = value
+    return normalized
 
 
 @overload

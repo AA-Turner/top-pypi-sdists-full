@@ -4,11 +4,16 @@ const REQUIRED_TOOL_INSTRUCTIONS = [
   "- Use these tools only for server-side Bloomberg data access through @xbbg/core. Never imply Bloomberg data was retrieved unless a tool call actually returned it.",
   "- Ask a clarifying question before calling a tool when any security identity, field mnemonic, date range, currency, periodicity, intraday interval, timezone, override, or universe is ambiguous.",
   "- Do not invent Bloomberg tickers, field mnemonics, overrides, or BQL functions. If the user gives a field description rather than a confident mnemonic, call xbbg_bflds first.",
+  "- Issue one tool call per dataset and read any error before retrying; never probe parameter variants in parallel. Omit optional output-shape parameters such as format unless the user asked for a specific shape.",
   "",
   "## Security identifiers",
-  "- Prefer fully qualified Bloomberg securities supplied by the user, such as <TICKER> <MARKET_SECTOR>, <INDEX_TICKER> <MARKET_SECTOR>, or <CREDIT_INDEX_TICKER> <MARKET_SECTOR>.",
-  "- For raw security identifiers, request or pass Bloomberg identifier syntax directly: /isin/<ISIN> for ISINs or /cusip/<CUSIP> for CUSIPs.",
-  "- Do not pass raw ISIN or CUSIP strings when the request is meant to identify a security. Do not use xbbg_bsrch as a replacement for a known ticker, ISIN, or CUSIP.",
+  "- Pass each security in the form the user supplied it; never translate between identifier kinds on your own.",
+  "- User supplied a Bloomberg ticker: pass it through fully qualified as <TICKER> <MARKET_SECTOR>, for example <TICKER> <EXCHANGE> Equity, <INDEX_TICKER> Index, or <CCY_PAIR> Curncy.",
+  "- The market sector ending (Bloomberg yellow key) is part of the security string. The sectors are: Equity, Index, Curncy, Comdty, Corp, Govt, Muni, Mtge, M-Mkt, and Pfd. Equity securities carry an exchange or composite code before the sector (<TICKER> <EXCHANGE> Equity); preferred securities use the Pfd sector; corporate and government bonds use Corp and Govt. Request tools pass the security through to Bloomberg without validating the sector, so copy it exactly as the user supplied it.",
+  "- User supplied a raw ISIN or CUSIP: pass Bloomberg identifier syntax directly: /isin/<ISIN> or /cusip/<CUSIP>. Never pass the bare identifier without its prefix, except to xbbg_resolve_isins and xbbg_issuer_isins, which take raw ISIN strings.",
+  "- <TICKER> <MARKET_SECTOR> is a format template, not authorization to construct a ticker. Never invent, recall from memory, or guess the Bloomberg ticker behind an identifier the user gave; identifier syntax is already a complete, valid security input. Use xbbg_resolve_isins only when the user wants the resolved Bloomberg security itself.",
+  "- Recipe tools that take tickers (xbbg_preferreds, xbbg_corporate_bonds, xbbg_index_members, xbbg_etf_holdings) do not accept identifier syntax. When the user supplied an ISIN or CUSIP for those workflows, resolve it with xbbg_resolve_isins first and use the returned Bloomberg security; never guess the ticker.",
+  "- Do not use xbbg_bsrch as a replacement for a known ticker, ISIN, or CUSIP.",
   "- For dealer quote / BQR workflows, use xbbg_bqr with a fixed-income identifier plus a dealer quote source such as /isin/<ISIN>@<QUOTE_SOURCE> <MARKET_SECTOR>. For raw intraday ticks, use xbbg_bdtick.",
   "",
   "## Core request tools",
@@ -23,7 +28,7 @@ const REQUIRED_TOOL_INSTRUCTIONS = [
   "- xbbg_bflds: Bloomberg field metadata/search. Provide exactly one of fields or searchSpec; use searchSpec for natural-language field names and fields for known mnemonics.",
   "- xbbg_beqs: Bloomberg equity screening by named BEQS screen. Prefer this over hand-written BQL when the user names an existing Bloomberg screen.",
   "- xbbg_yas: fixed-income YAS recipe fields. Prefer this over manual YAS-style BDP requests when the user asks for yield, duration, spread, or price analytics.",
-  "- xbbg_preferreds: preferred stock discovery from an equity ticker. Prefer this over xbbg_ext_bql_builder plus xbbg_bql when the user wants the actual preferreds result.",
+  "- xbbg_preferreds: preferred stock discovery from the issuer's common equity ticker, never a guessed preferred ('Pfd') ticker. Resolve a supplied ISIN/CUSIP with xbbg_resolve_isins first. Prefer this over xbbg_ext_bql_builder plus xbbg_bql when the user wants the actual preferreds result.",
   "- xbbg_corporate_bonds: bounded corporate bond universe query for a company ticker. Prefer this over generic BQL for company debt discovery.",
   "- xbbg_index_members: index constituents through the core index recipe. Prefer this over generic BDS/BQL members when the user asks for constituents.",
   "- xbbg_resolve_isins: resolves supplied ISIN strings to Bloomberg securities. Pass raw ISIN strings only for this recipe; otherwise use /isin/<ISIN> syntax with data tools.",
@@ -48,7 +53,7 @@ const REQUIRED_TOOL_INSTRUCTIONS = [
 const OPTIONAL_EXTENSION_INSTRUCTIONS = [
   "",
   "## Extension helper tools",
-  "- xbbg_ext_ticker: ticker hygiene before live calls. parse_ticker splits a Bloomberg ticker, normalize_tickers trims/canonicalizes lists, filter_equity_tickers keeps equity-like tickers, is_specific_contract checks futures specificity, and validate_generic_ticker rejects malformed generic futures tickers.",
+  "- xbbg_ext_ticker: ticker hygiene before live calls. parse_ticker splits generic futures-style tickers only — asset endings Index, Curncy, Comdty, or Corp as <ROOT><N> <ASSET>, or <ROOT><N> <EXCHANGE> Equity — and rejects other market sectors (Pfd, Govt, Muni, Mtge, M-Mkt) and non-futures securities. normalize_tickers trims/canonicalizes lists, filter_equity_tickers keeps equity-like tickers, is_specific_contract checks futures specificity, and validate_generic_ticker rejects malformed generic futures tickers.",
   "- xbbg_ext_futures: futures contract construction and selection. Use build_futures_ticker for root/month/year/asset assembly, get_futures_months for month-code lookup, generate_candidates for generic-to-specific candidates, contract_index for generic contract rank, filter_candidates_by_cycle for HMUZ/quarterly cycles, and filter_valid_contracts to keep contracts valid for a date.",
   "- xbbg_ext_cdx: CDX ticker workflow support. Use parse_cdx_ticker to understand a CDX ticker, previous_cdx_series to roll back a series, cdx_gen_to_specific to resolve a generic CDX to a target series, and cdx_info/cdx_pricing/cdx_risk for predefined BDP field bundles. cdx_pricing and cdx_risk accept recoveryRate, which becomes the CDS_RR override.",
   "- xbbg_ext_currency: currency-planning helpers. build_fx_pair constructs the Bloomberg FX pair and conversion factor, same_currency avoids unnecessary conversion, and currencies_needing_conversion identifies which currencies differ from a target before requesting converted values.",
@@ -125,16 +130,16 @@ export const BEQS_DESCRIPTION =
   "Bloomberg equity screening by named BEQS screen. Use when the user names an existing Bloomberg screen and wants its bounded result set. Prefer this over hand-written BQL for saved Bloomberg screens.";
 
 export const YAS_DESCRIPTION =
-  "Bloomberg fixed-income YAS recipe fields for one or more bonds. Use for yield, duration, spread, benchmark, or price analytics; provide explicit fields and optional settlement/yield/price inputs.";
+  "Bloomberg fixed-income YAS recipe fields for one or more bonds. Use for yield, duration, spread, benchmark, or price analytics; provide explicit fields and optional settlement/yield/price inputs. Pass securities as supplied: '<TICKER> <MARKET_SECTOR>' or identifier syntax such as '/isin/<ISIN> <MARKET_SECTOR>'.";
 
 export const PREFERREDS_DESCRIPTION =
-  "Preferred stock discovery for one equity ticker. Use when the user asks for preferred shares or preferred stock securities related to an issuer.";
+  "Preferred stock discovery for one issuer. Takes the issuer's common equity ticker such as '<TICKER> US Equity', never a preferred ('Pfd') ticker and never a guessed one. If the user supplied an ISIN or CUSIP, resolve it with xbbg_resolve_isins first.";
 
 export const CORPORATE_BONDS_DESCRIPTION =
-  "Corporate bond universe query for one issuer/company ticker, with optional currency, active-only filter, and result fields. Prefer this over generic BQL for company debt discovery.";
+  "Corporate bond universe query for one issuer/company equity ticker, with optional currency, active-only filter, and result fields. Prefer this over generic BQL for company debt discovery. If the user supplied an ISIN or CUSIP, resolve it with xbbg_resolve_isins first; never guess the ticker.";
 
 export const INDEX_MEMBERS_DESCRIPTION =
-  "Index constituent recipe for one Bloomberg index. Use for bounded member lists and optional historical/as-of constituent membership.";
+  "Index constituent recipe for one Bloomberg index ticker such as '<INDEX_TICKER> Index'. Use for bounded member lists and optional historical/as-of constituent membership; never guess index tickers.";
 
 export const RESOLVE_ISINS_DESCRIPTION =
   "Resolve raw ISIN strings to Bloomberg securities through the core ISIN recipe. Do not add /isin/ prefixes in this tool; pass the exact ISIN strings supplied by the user.";
@@ -143,7 +148,7 @@ export const ISSUER_ISINS_DESCRIPTION =
   "Issuer/bond ISIN workflow for supplied bond ISIN strings. Use for issuer-level ISIN discovery starting from known bond ISINs.";
 
 export const ETF_HOLDINGS_DESCRIPTION =
-  "ETF holdings recipe for one ETF ticker. Use when the user asks for ETF constituents or holdings and wants the bounded holdings result.";
+  "ETF holdings recipe for one ETF ticker such as '<ETF_TICKER> <MARKET_SECTOR>'. Use when the user asks for ETF constituents or holdings and wants the bounded holdings result. Resolve a supplied ISIN/CUSIP with xbbg_resolve_isins first; never guess the ticker.";
 
 export const STREAM_SNAPSHOT_DESCRIPTION =
   "Bounded live market-data snapshot from //blp/mktdata. Collects at most maxUpdates updates until timeout/done, then always unsubscribes; use for finite observations, not open subscriptions.";
@@ -155,7 +160,7 @@ export const DEPTH_SNAPSHOT_DESCRIPTION =
   "Bounded live market-depth snapshot from //blp/mktdepthdata for one ticker. Collects at most maxUpdates updates until timeout/done, then always unsubscribes.";
 
 export const EXT_TICKER_DESCRIPTION =
-  "Ticker hygiene helpers: parse_ticker, normalize_tickers, filter_equity_tickers, is_specific_contract, and validate_generic_ticker.";
+  "Ticker hygiene helpers: parse_ticker (generic futures-style tickers ending in Index, Curncy, Comdty, or Corp, or <ROOT><N> <EXCHANGE> Equity; other market sectors are rejected), normalize_tickers, filter_equity_tickers, is_specific_contract, and validate_generic_ticker.";
 
 export const EXT_FUTURES_DESCRIPTION =
   "Futures helpers for contract construction and selection: build_futures_ticker, generate_candidates, contract_index, filter_candidates_by_cycle, filter_valid_contracts, and get_futures_months.";

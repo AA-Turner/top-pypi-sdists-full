@@ -134,14 +134,14 @@ def new_pipe(
                     scopes.append(sc)
                 try:
                     r = tb_client.alter_tokens(token_name, scopes)
-                    token = r["token"]  # type: ignore
+                    token = r["token"]  # type: ignore[index, unused-ignore]
                 except Exception as e:
                     raise click.ClickException(FeedbackManager.error_creating_pipe(error=e))
             else:
                 token_name = tk["token_name"]
                 try:
                     r = tb_client.create_token(token_name, [f"PIPES:{tk['permissions']}:{p['name']}"], "P", p["name"])
-                    token = r["token"]  # type: ignore
+                    token = r["token"]  # type: ignore[index, unused-ignore]
                 except Exception as e:
                     raise click.ClickException(FeedbackManager.error_creating_pipe(error=e))
 

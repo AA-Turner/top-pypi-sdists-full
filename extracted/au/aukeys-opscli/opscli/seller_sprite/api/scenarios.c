@@ -2467,7 +2467,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_tuple[4];
   PyObject *__pyx_codeobj_tab[8];
-  PyObject *__pyx_string_tab[131];
+  PyObject *__pyx_string_tab[138];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2509,136 +2509,143 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #endif
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_ __pyx_string_tab[0]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[1]
-#define __pyx_kp_u__14 __pyx_string_tab[2]
-#define __pyx_kp_u__2 __pyx_string_tab[3]
-#define __pyx_kp_u__3 __pyx_string_tab[4]
-#define __pyx_kp_u__4 __pyx_string_tab[5]
-#define __pyx_kp_u__6 __pyx_string_tab[6]
-#define __pyx_kp_u__7 __pyx_string_tab[7]
-#define __pyx_kp_u_add_note __pyx_string_tab[8]
-#define __pyx_kp_u_competitor_lookup __pyx_string_tab[9]
-#define __pyx_kp_u_dict_str_Any __pyx_string_tab[10]
-#define __pyx_kp_u_keyword_miner __pyx_string_tab[11]
-#define __pyx_kp_u_keyword_reverse __pyx_string_tab[12]
-#define __pyx_kp_u_list_dict_str_Any __pyx_string_tab[13]
-#define __pyx_kp_u_market_2 __pyx_string_tab[14]
-#define __pyx_kp_u_market_research __pyx_string_tab[15]
-#define __pyx_kp_u_opscli_seller_sprite_api_scenari_2 __pyx_string_tab[16]
-#define __pyx_kp_u_product_research __pyx_string_tab[17]
-#define __pyx_kp_u_str_None __pyx_string_tab[18]
-#define __pyx_kp_u_traffic_source __pyx_string_tab[19]
-#define __pyx_kp_u_tuple_str __pyx_string_tab[20]
-#define __pyx_kp_u_v2_market_research __pyx_string_tab[21]
-#define __pyx_kp_u_v3_api_competing_lookup __pyx_string_tab[22]
-#define __pyx_kp_u_v3_api_keyword_miner __pyx_string_tab[23]
-#define __pyx_kp_u_v3_api_keyword_miner_high_frequ __pyx_string_tab[24]
-#define __pyx_kp_u_v3_api_product_research __pyx_string_tab[25]
-#define __pyx_kp_u_v3_api_relation_reversing __pyx_string_tab[26]
-#define __pyx_kp_u_v3_api_relation_ta_source __pyx_string_tab[27]
-#define __pyx_n_u_Any __pyx_string_tab[28]
-#define __pyx_n_u_Callable __pyx_string_tab[29]
-#define __pyx_n_u_FORM __pyx_string_tab[30]
-#define __pyx_n_u_GET __pyx_string_tab[31]
-#define __pyx_n_u_JP __pyx_string_tab[32]
-#define __pyx_n_u_None __pyx_string_tab[33]
-#define __pyx_n_u_POST __pyx_string_tab[34]
-#define __pyx_n_u_PayloadBuilder __pyx_string_tab[35]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[36]
-#define __pyx_n_u_SCENARIOS __pyx_string_tab[37]
-#define __pyx_n_u_SellerSpriteConfigError __pyx_string_tab[38]
-#define __pyx_n_u_SellerSpriteScenario __pyx_string_tab[39]
-#define __pyx_n_u_SellerSpriteScenario__validate_r __pyx_string_tab[40]
-#define __pyx_n_u_SellerSpriteScenario_build_paylo __pyx_string_tab[41]
-#define __pyx_n_u_SellerSpriteScenario_build_refer __pyx_string_tab[42]
-#define __pyx_n_u_SellerSpriteScenario_endpoint_fo __pyx_string_tab[43]
-#define __pyx_n_u_SellerSpriteScenario_high_freque __pyx_string_tab[44]
-#define __pyx_n_u_SellerSpriteScenario_to_public_d __pyx_string_tab[45]
-#define __pyx_n_u__10 __pyx_string_tab[46]
-#define __pyx_n_u__11 __pyx_string_tab[47]
-#define __pyx_n_u__12 __pyx_string_tab[48]
-#define __pyx_n_u__13 __pyx_string_tab[49]
-#define __pyx_n_u__8 __pyx_string_tab[50]
-#define __pyx_n_u__9 __pyx_string_tab[51]
-#define __pyx_n_u_annotations __pyx_string_tab[52]
-#define __pyx_n_u_asdict __pyx_string_tab[53]
-#define __pyx_n_u_asin __pyx_string_tab[54]
-#define __pyx_n_u_asins __pyx_string_tab[55]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[56]
-#define __pyx_n_u_build_payload __pyx_string_tab[57]
-#define __pyx_n_u_build_referer __pyx_string_tab[58]
-#define __pyx_n_u_class_getitem __pyx_string_tab[59]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[60]
-#define __pyx_n_u_dataclass __pyx_string_tab[61]
-#define __pyx_n_u_dataclasses __pyx_string_tab[62]
-#define __pyx_n_u_doc __pyx_string_tab[63]
-#define __pyx_n_u_endpoint __pyx_string_tab[64]
-#define __pyx_n_u_endpoint_for __pyx_string_tab[65]
-#define __pyx_n_u_frozen __pyx_string_tab[66]
-#define __pyx_n_u_func __pyx_string_tab[67]
-#define __pyx_n_u_get __pyx_string_tab[68]
-#define __pyx_n_u_get_scenario __pyx_string_tab[69]
-#define __pyx_n_u_high_frequency_endpoint __pyx_string_tab[70]
-#define __pyx_n_u_high_frequency_endpoint_for __pyx_string_tab[71]
-#define __pyx_n_u_int __pyx_string_tab[72]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[73]
-#define __pyx_n_u_items __pyx_string_tab[74]
-#define __pyx_n_u_key __pyx_string_tab[75]
-#define __pyx_n_u_keyword __pyx_string_tab[76]
-#define __pyx_n_u_keywordOrAsin __pyx_string_tab[77]
-#define __pyx_n_u_list_scenarios __pyx_string_tab[78]
-#define __pyx_n_u_main __pyx_string_tab[79]
-#define __pyx_n_u_make_competitor_payload __pyx_string_tab[80]
-#define __pyx_n_u_make_keyword_miner_payload __pyx_string_tab[81]
-#define __pyx_n_u_make_keyword_reverse_payload __pyx_string_tab[82]
-#define __pyx_n_u_make_market_research_payload __pyx_string_tab[83]
-#define __pyx_n_u_make_product_research_payload __pyx_string_tab[84]
-#define __pyx_n_u_make_traffic_source_payload __pyx_string_tab[85]
-#define __pyx_n_u_market __pyx_string_tab[86]
-#define __pyx_n_u_merged __pyx_string_tab[87]
-#define __pyx_n_u_metaclass __pyx_string_tab[88]
-#define __pyx_n_u_method __pyx_string_tab[89]
-#define __pyx_n_u_missing __pyx_string_tab[90]
-#define __pyx_n_u_module __pyx_string_tab[91]
-#define __pyx_n_u_month __pyx_string_tab[92]
-#define __pyx_n_u_name __pyx_string_tab[93]
-#define __pyx_n_u_opscli_seller_sprite_api_payload __pyx_string_tab[94]
-#define __pyx_n_u_opscli_seller_sprite_api_scenari __pyx_string_tab[95]
-#define __pyx_n_u_opscli_seller_sprite_domain_exce __pyx_string_tab[96]
-#define __pyx_n_u_pageSize __pyx_string_tab[97]
-#define __pyx_n_u_page_size __pyx_string_tab[98]
-#define __pyx_n_u_params __pyx_string_tab[99]
-#define __pyx_n_u_payload __pyx_string_tab[100]
-#define __pyx_n_u_payload_builder __pyx_string_tab[101]
-#define __pyx_n_u_period __pyx_string_tab[102]
-#define __pyx_n_u_pop __pyx_string_tab[103]
-#define __pyx_n_u_prepare __pyx_string_tab[104]
-#define __pyx_n_u_q __pyx_string_tab[105]
-#define __pyx_n_u_qualname __pyx_string_tab[106]
-#define __pyx_n_u_required_params __pyx_string_tab[107]
-#define __pyx_n_u_return __pyx_string_tab[108]
-#define __pyx_n_u_scenario __pyx_string_tab[109]
-#define __pyx_n_u_scenario_id __pyx_string_tab[110]
-#define __pyx_n_u_self __pyx_string_tab[111]
-#define __pyx_n_u_set_name __pyx_string_tab[112]
-#define __pyx_n_u_setdefault __pyx_string_tab[113]
-#define __pyx_n_u_site __pyx_string_tab[114]
-#define __pyx_n_u_size __pyx_string_tab[115]
-#define __pyx_n_u_str __pyx_string_tab[116]
-#define __pyx_n_u_test __pyx_string_tab[117]
-#define __pyx_n_u_title __pyx_string_tab[118]
-#define __pyx_n_u_to_public_dict __pyx_string_tab[119]
-#define __pyx_n_u_typing __pyx_string_tab[120]
-#define __pyx_n_u_validate_required __pyx_string_tab[121]
-#define __pyx_n_u_values __pyx_string_tab[122]
-#define __pyx_kp_b_iso88591_1HO3d_iwa __pyx_string_tab[123]
-#define __pyx_kp_b_iso88591_33Fa_4t1_1_t1 __pyx_string_tab[124]
-#define __pyx_kp_b_iso88591_7q_4_Cq_2Qd_AWD_3a_t1 __pyx_string_tab[125]
-#define __pyx_kp_b_iso88591_8_AYd __pyx_string_tab[126]
-#define __pyx_kp_b_iso88591_JZZbbc_A_fD_3a_a_V4q_A_F_axs_d __pyx_string_tab[127]
-#define __pyx_kp_b_iso88591_Q_4t7_7s_gT_1_q_4Gq_EQRRS __pyx_string_tab[128]
-#define __pyx_kp_b_iso88591_ha_y_AQ_t1_Ql_1 __pyx_string_tab[129]
-#define __pyx_kp_b_iso88591_t1_q_q __pyx_string_tab[130]
+#define __pyx_kp_u_Listing_Analysis __pyx_string_tab[1]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[2]
+#define __pyx_kp_u__14 __pyx_string_tab[3]
+#define __pyx_kp_u__2 __pyx_string_tab[4]
+#define __pyx_kp_u__3 __pyx_string_tab[5]
+#define __pyx_kp_u__4 __pyx_string_tab[6]
+#define __pyx_kp_u__6 __pyx_string_tab[7]
+#define __pyx_kp_u__7 __pyx_string_tab[8]
+#define __pyx_kp_u_add_note __pyx_string_tab[9]
+#define __pyx_kp_u_competitor_lookup __pyx_string_tab[10]
+#define __pyx_kp_u_dict_str_Any __pyx_string_tab[11]
+#define __pyx_kp_u_keyword_miner __pyx_string_tab[12]
+#define __pyx_kp_u_keyword_reverse __pyx_string_tab[13]
+#define __pyx_kp_u_list_dict_str_Any __pyx_string_tab[14]
+#define __pyx_kp_u_listing_analysis __pyx_string_tab[15]
+#define __pyx_kp_u_market_2 __pyx_string_tab[16]
+#define __pyx_kp_u_market_research __pyx_string_tab[17]
+#define __pyx_kp_u_opscli_seller_sprite_api_scenari_2 __pyx_string_tab[18]
+#define __pyx_kp_u_product_research __pyx_string_tab[19]
+#define __pyx_kp_u_str_None __pyx_string_tab[20]
+#define __pyx_kp_u_traffic_source __pyx_string_tab[21]
+#define __pyx_kp_u_tuple_str __pyx_string_tab[22]
+#define __pyx_kp_u_v2_market_research __pyx_string_tab[23]
+#define __pyx_kp_u_v3_api_ai_analysis_task_task_id __pyx_string_tab[24]
+#define __pyx_kp_u_v3_api_ai_workflow_listing_anal __pyx_string_tab[25]
+#define __pyx_kp_u_v3_api_competing_lookup __pyx_string_tab[26]
+#define __pyx_kp_u_v3_api_keyword_miner __pyx_string_tab[27]
+#define __pyx_kp_u_v3_api_keyword_miner_high_frequ __pyx_string_tab[28]
+#define __pyx_kp_u_v3_api_product_research __pyx_string_tab[29]
+#define __pyx_kp_u_v3_api_relation_reversing __pyx_string_tab[30]
+#define __pyx_kp_u_v3_api_relation_ta_source __pyx_string_tab[31]
+#define __pyx_n_u_Any __pyx_string_tab[32]
+#define __pyx_n_u_Callable __pyx_string_tab[33]
+#define __pyx_n_u_FORM __pyx_string_tab[34]
+#define __pyx_n_u_GET __pyx_string_tab[35]
+#define __pyx_n_u_JP __pyx_string_tab[36]
+#define __pyx_n_u_None __pyx_string_tab[37]
+#define __pyx_n_u_POST __pyx_string_tab[38]
+#define __pyx_n_u_POST_QUERY __pyx_string_tab[39]
+#define __pyx_n_u_PayloadBuilder __pyx_string_tab[40]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[41]
+#define __pyx_n_u_SCENARIOS __pyx_string_tab[42]
+#define __pyx_n_u_SellerSpriteConfigError __pyx_string_tab[43]
+#define __pyx_n_u_SellerSpriteScenario __pyx_string_tab[44]
+#define __pyx_n_u_SellerSpriteScenario__validate_r __pyx_string_tab[45]
+#define __pyx_n_u_SellerSpriteScenario_build_paylo __pyx_string_tab[46]
+#define __pyx_n_u_SellerSpriteScenario_build_refer __pyx_string_tab[47]
+#define __pyx_n_u_SellerSpriteScenario_endpoint_fo __pyx_string_tab[48]
+#define __pyx_n_u_SellerSpriteScenario_high_freque __pyx_string_tab[49]
+#define __pyx_n_u_SellerSpriteScenario_to_public_d __pyx_string_tab[50]
+#define __pyx_n_u__10 __pyx_string_tab[51]
+#define __pyx_n_u__11 __pyx_string_tab[52]
+#define __pyx_n_u__12 __pyx_string_tab[53]
+#define __pyx_n_u__13 __pyx_string_tab[54]
+#define __pyx_n_u__8 __pyx_string_tab[55]
+#define __pyx_n_u__9 __pyx_string_tab[56]
+#define __pyx_n_u_annotations __pyx_string_tab[57]
+#define __pyx_n_u_asdict __pyx_string_tab[58]
+#define __pyx_n_u_asin __pyx_string_tab[59]
+#define __pyx_n_u_asins __pyx_string_tab[60]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[61]
+#define __pyx_n_u_build_payload __pyx_string_tab[62]
+#define __pyx_n_u_build_referer __pyx_string_tab[63]
+#define __pyx_n_u_class_getitem __pyx_string_tab[64]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[65]
+#define __pyx_n_u_dataclass __pyx_string_tab[66]
+#define __pyx_n_u_dataclasses __pyx_string_tab[67]
+#define __pyx_n_u_doc __pyx_string_tab[68]
+#define __pyx_n_u_endpoint __pyx_string_tab[69]
+#define __pyx_n_u_endpoint_for __pyx_string_tab[70]
+#define __pyx_n_u_frozen __pyx_string_tab[71]
+#define __pyx_n_u_func __pyx_string_tab[72]
+#define __pyx_n_u_get __pyx_string_tab[73]
+#define __pyx_n_u_get_scenario __pyx_string_tab[74]
+#define __pyx_n_u_high_frequency_endpoint __pyx_string_tab[75]
+#define __pyx_n_u_high_frequency_endpoint_for __pyx_string_tab[76]
+#define __pyx_n_u_int __pyx_string_tab[77]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[78]
+#define __pyx_n_u_items __pyx_string_tab[79]
+#define __pyx_n_u_key __pyx_string_tab[80]
+#define __pyx_n_u_keyword __pyx_string_tab[81]
+#define __pyx_n_u_keywordOrAsin __pyx_string_tab[82]
+#define __pyx_n_u_list_scenarios __pyx_string_tab[83]
+#define __pyx_n_u_main __pyx_string_tab[84]
+#define __pyx_n_u_make_competitor_payload __pyx_string_tab[85]
+#define __pyx_n_u_make_keyword_miner_payload __pyx_string_tab[86]
+#define __pyx_n_u_make_keyword_reverse_payload __pyx_string_tab[87]
+#define __pyx_n_u_make_listing_analysis_payload __pyx_string_tab[88]
+#define __pyx_n_u_make_market_research_payload __pyx_string_tab[89]
+#define __pyx_n_u_make_product_research_payload __pyx_string_tab[90]
+#define __pyx_n_u_make_traffic_source_payload __pyx_string_tab[91]
+#define __pyx_n_u_market __pyx_string_tab[92]
+#define __pyx_n_u_merged __pyx_string_tab[93]
+#define __pyx_n_u_metaclass __pyx_string_tab[94]
+#define __pyx_n_u_method __pyx_string_tab[95]
+#define __pyx_n_u_missing __pyx_string_tab[96]
+#define __pyx_n_u_module __pyx_string_tab[97]
+#define __pyx_n_u_month __pyx_string_tab[98]
+#define __pyx_n_u_name __pyx_string_tab[99]
+#define __pyx_n_u_opscli_seller_sprite_api_payload __pyx_string_tab[100]
+#define __pyx_n_u_opscli_seller_sprite_api_scenari __pyx_string_tab[101]
+#define __pyx_n_u_opscli_seller_sprite_domain_exce __pyx_string_tab[102]
+#define __pyx_n_u_pageSize __pyx_string_tab[103]
+#define __pyx_n_u_page_size __pyx_string_tab[104]
+#define __pyx_n_u_params __pyx_string_tab[105]
+#define __pyx_n_u_payload __pyx_string_tab[106]
+#define __pyx_n_u_payload_builder __pyx_string_tab[107]
+#define __pyx_n_u_period __pyx_string_tab[108]
+#define __pyx_n_u_pop __pyx_string_tab[109]
+#define __pyx_n_u_prepare __pyx_string_tab[110]
+#define __pyx_n_u_q __pyx_string_tab[111]
+#define __pyx_n_u_qualname __pyx_string_tab[112]
+#define __pyx_n_u_required_params __pyx_string_tab[113]
+#define __pyx_n_u_return __pyx_string_tab[114]
+#define __pyx_n_u_scenario __pyx_string_tab[115]
+#define __pyx_n_u_scenario_id __pyx_string_tab[116]
+#define __pyx_n_u_self __pyx_string_tab[117]
+#define __pyx_n_u_set_name __pyx_string_tab[118]
+#define __pyx_n_u_setdefault __pyx_string_tab[119]
+#define __pyx_n_u_site __pyx_string_tab[120]
+#define __pyx_n_u_size __pyx_string_tab[121]
+#define __pyx_n_u_str __pyx_string_tab[122]
+#define __pyx_n_u_task_result_endpoint __pyx_string_tab[123]
+#define __pyx_n_u_test __pyx_string_tab[124]
+#define __pyx_n_u_title __pyx_string_tab[125]
+#define __pyx_n_u_to_public_dict __pyx_string_tab[126]
+#define __pyx_n_u_typing __pyx_string_tab[127]
+#define __pyx_n_u_validate_required __pyx_string_tab[128]
+#define __pyx_n_u_values __pyx_string_tab[129]
+#define __pyx_kp_b_iso88591_1HO3d_iwa __pyx_string_tab[130]
+#define __pyx_kp_b_iso88591_33Fa_4t1_1_t1 __pyx_string_tab[131]
+#define __pyx_kp_b_iso88591_7q_4_Cq_2Qd_AWD_3a_t1 __pyx_string_tab[132]
+#define __pyx_kp_b_iso88591_8_AYd __pyx_string_tab[133]
+#define __pyx_kp_b_iso88591_JZZbbc_A_fD_3a_a_V4q_A_F_axs_d __pyx_string_tab[134]
+#define __pyx_kp_b_iso88591_Q_4t7_7s_gT_1_q_4Gq_EQRRS __pyx_string_tab[135]
+#define __pyx_kp_b_iso88591_ha_y_AQ_t1_Ql_1 __pyx_string_tab[136]
+#define __pyx_kp_b_iso88591_t1_q_q __pyx_string_tab[137]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2655,7 +2662,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<8; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<131; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<138; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -2680,7 +2687,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<8; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<131; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<138; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -2694,8 +2701,8 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "opscli/seller_sprite/api/scenarios.py":35
- *     high_frequency_endpoint: str | None = None
+/* "opscli/seller_sprite/api/scenarios.py":37
+ *     task_result_endpoint: str | None = None
  * 
  *     def to_public_dict(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ MCP """
@@ -2742,32 +2749,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 35, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 37, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 35, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 37, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "to_public_dict", 0) < (0)) __PYX_ERR(0, 35, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "to_public_dict", 0) < (0)) __PYX_ERR(0, 37, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, i); __PYX_ERR(0, 35, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, i); __PYX_ERR(0, 37, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 35, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 37, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 35, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 37, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2801,7 +2808,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_public_dict", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":37
+  /* "opscli/seller_sprite/api/scenarios.py":39
  *     def to_public_dict(self) -> dict[str, Any]:
  *         """ MCP """
  *         payload = asdict(self)             # <<<<<<<<<<<<<<
@@ -2809,7 +2816,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
  *         return payload
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asdict); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asdict); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -2828,27 +2835,27 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 37, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_payload = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":38
+  /* "opscli/seller_sprite/api/scenarios.py":40
  *         """ MCP """
  *         payload = asdict(self)
  *         payload.pop("payload_builder", None)             # <<<<<<<<<<<<<<
  *         return payload
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":39
+  /* "opscli/seller_sprite/api/scenarios.py":41
  *         payload = asdict(self)
  *         payload.pop("payload_builder", None)
  *         return payload             # <<<<<<<<<<<<<<
@@ -2858,13 +2865,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_3 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_3);
-  if (!(likely(PyDict_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_3))) __PYX_ERR(0, 39, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_3))) __PYX_ERR(0, 41, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":35
- *     high_frequency_endpoint: str | None = None
+  /* "opscli/seller_sprite/api/scenarios.py":37
+ *     task_result_endpoint: str | None = None
  * 
  *     def to_public_dict(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ MCP """
@@ -2885,7 +2892,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":41
+/* "opscli/seller_sprite/api/scenarios.py":43
  *         return payload
  * 
  *     def build_payload(self, *, params: dict[str, Any], site: str, period: str, page_size: int) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -2937,39 +2944,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_params,&__pyx_mstate_global->__pyx_n_u_site,&__pyx_mstate_global->__pyx_n_u_period,&__pyx_mstate_global->__pyx_n_u_page_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 41, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 43, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 41, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 43, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_payload", 0) < (0)) __PYX_ERR(0, 41, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_payload", 0) < (0)) __PYX_ERR(0, 43, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_payload", 1, 1, 1, i); __PYX_ERR(0, 41, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_payload", 1, 1, 1, i); __PYX_ERR(0, 43, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 5; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("build_payload", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 41, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("build_payload", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 43, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("build_payload", __pyx_mstate_global->__pyx_n_u_params); __PYX_ERR(0, 41, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("build_payload", __pyx_mstate_global->__pyx_n_u_params); __PYX_ERR(0, 43, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_params = ((PyObject*)values[1]);
     __pyx_v_site = ((PyObject*)values[2]);
     __pyx_v_period = ((PyObject*)values[3]);
-    if (__Pyx_PyInt_FromNumber(&values[4], "page_size", 0) < (0)) __PYX_ERR(0, 41, __pyx_L3_error)
+    if (__Pyx_PyInt_FromNumber(&values[4], "page_size", 0) < (0)) __PYX_ERR(0, 43, __pyx_L3_error)
     __pyx_v_page_size = ((PyObject*)values[4]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("build_payload", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 41, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("build_payload", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 43, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2980,10 +2987,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 0, "params", 2))) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_page_size), (&PyLong_Type), 0, "page_size", 2))) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 0, "params", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_page_size), (&PyLong_Type), 0, "page_size", 2))) __PYX_ERR(0, 43, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_2build_payload(__pyx_self, __pyx_v_self, __pyx_v_params, __pyx_v_site, __pyx_v_period, __pyx_v_page_size);
 
   /* function exit code */
@@ -3017,35 +3024,35 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("build_payload", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":44
+  /* "opscli/seller_sprite/api/scenarios.py":46
  *         """ payload"""
  *         merged = {
  *             **params,             # <<<<<<<<<<<<<<
  *             "site": site,
  *             "market": params.get("market") or site,
 */
-  __pyx_t_1 = PyDict_Copy(__pyx_v_params); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_params); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
 
-  /* "opscli/seller_sprite/api/scenarios.py":45
+  /* "opscli/seller_sprite/api/scenarios.py":47
  *         merged = {
  *             **params,
  *             "site": site,             # <<<<<<<<<<<<<<
  *             "market": params.get("market") or site,
  *             "period": period,
 */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_site, __pyx_v_site) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_site, __pyx_v_site) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/scenarios.py":46
+  /* "opscli/seller_sprite/api/scenarios.py":48
  *             **params,
  *             "site": site,
  *             "market": params.get("market") or site,             # <<<<<<<<<<<<<<
  *             "period": period,
  *             "month": params.get("month") or period,
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_market, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_market, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
   if (!__pyx_t_4) {
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else {
@@ -3057,28 +3064,28 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   __Pyx_INCREF(__pyx_v_site);
   __pyx_t_2 = __pyx_v_site;
   __pyx_L3_bool_binop_done:;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_market, __pyx_t_2) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_market, __pyx_t_2) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":47
+  /* "opscli/seller_sprite/api/scenarios.py":49
  *             "site": site,
  *             "market": params.get("market") or site,
  *             "period": period,             # <<<<<<<<<<<<<<
  *             "month": params.get("month") or period,
  *             "size": params.get("size") or page_size,
 */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_period, __pyx_v_period) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_period, __pyx_v_period) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/scenarios.py":48
+  /* "opscli/seller_sprite/api/scenarios.py":50
  *             "market": params.get("market") or site,
  *             "period": period,
  *             "month": params.get("month") or period,             # <<<<<<<<<<<<<<
  *             "size": params.get("size") or page_size,
  *             "pageSize": params.get("pageSize") or page_size,
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_month, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_month, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
   if (!__pyx_t_4) {
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else {
@@ -3090,19 +3097,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   __Pyx_INCREF(__pyx_v_period);
   __pyx_t_2 = __pyx_v_period;
   __pyx_L5_bool_binop_done:;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_month, __pyx_t_2) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_month, __pyx_t_2) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":49
+  /* "opscli/seller_sprite/api/scenarios.py":51
  *             "period": period,
  *             "month": params.get("month") or period,
  *             "size": params.get("size") or page_size,             # <<<<<<<<<<<<<<
  *             "pageSize": params.get("pageSize") or page_size,
  *             "keywordOrAsin": (
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_size, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_size, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 51, __pyx_L1_error)
   if (!__pyx_t_4) {
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else {
@@ -3114,19 +3121,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   __Pyx_INCREF(__pyx_v_page_size);
   __pyx_t_2 = __pyx_v_page_size;
   __pyx_L7_bool_binop_done:;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_size, __pyx_t_2) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_size, __pyx_t_2) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":50
+  /* "opscli/seller_sprite/api/scenarios.py":52
  *             "month": params.get("month") or period,
  *             "size": params.get("size") or page_size,
  *             "pageSize": params.get("pageSize") or page_size,             # <<<<<<<<<<<<<<
  *             "keywordOrAsin": (
  *                 params.get("keywordOrAsin")
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_pageSize, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_pageSize, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 52, __pyx_L1_error)
   if (!__pyx_t_4) {
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   } else {
@@ -3138,55 +3145,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   __Pyx_INCREF(__pyx_v_page_size);
   __pyx_t_2 = __pyx_v_page_size;
   __pyx_L9_bool_binop_done:;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_pageSize, __pyx_t_2) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_pageSize, __pyx_t_2) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":52
+  /* "opscli/seller_sprite/api/scenarios.py":54
  *             "pageSize": params.get("pageSize") or page_size,
  *             "keywordOrAsin": (
  *                 params.get("keywordOrAsin")             # <<<<<<<<<<<<<<
  *                 or params.get("keyword")
  *                 or params.get("asin")
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_keywordOrAsin, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 52, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 52, __pyx_L1_error)
-  if (!__pyx_t_4) {
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  } else {
-    __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_2 = __pyx_t_3;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    goto __pyx_L11_bool_binop_done;
-  }
-
-  /* "opscli/seller_sprite/api/scenarios.py":53
- *             "keywordOrAsin": (
- *                 params.get("keywordOrAsin")
- *                 or params.get("keyword")             # <<<<<<<<<<<<<<
- *                 or params.get("asin")
- *                 or params.get("asins")
-*/
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_keyword, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
-  if (!__pyx_t_4) {
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  } else {
-    __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_2 = __pyx_t_3;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    goto __pyx_L11_bool_binop_done;
-  }
-
-  /* "opscli/seller_sprite/api/scenarios.py":54
- *                 params.get("keywordOrAsin")
- *                 or params.get("keyword")
- *                 or params.get("asin")             # <<<<<<<<<<<<<<
- *                 or params.get("asins")
- *                 or params.get("q")
-*/
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_asin, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_keywordOrAsin, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 54, __pyx_L1_error)
   if (!__pyx_t_4) {
@@ -3199,13 +3168,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   }
 
   /* "opscli/seller_sprite/api/scenarios.py":55
- *                 or params.get("keyword")
+ *             "keywordOrAsin": (
+ *                 params.get("keywordOrAsin")
+ *                 or params.get("keyword")             # <<<<<<<<<<<<<<
  *                 or params.get("asin")
- *                 or params.get("asins")             # <<<<<<<<<<<<<<
- *                 or params.get("q")
- *             ),
+ *                 or params.get("asins")
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_asins, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_keyword, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
   if (!__pyx_t_4) {
@@ -3218,24 +3187,62 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   }
 
   /* "opscli/seller_sprite/api/scenarios.py":56
+ *                 params.get("keywordOrAsin")
+ *                 or params.get("keyword")
+ *                 or params.get("asin")             # <<<<<<<<<<<<<<
+ *                 or params.get("asins")
+ *                 or params.get("q")
+*/
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_asin, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 56, __pyx_L1_error)
+  if (!__pyx_t_4) {
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  } else {
+    __Pyx_INCREF(__pyx_t_3);
+    __pyx_t_2 = __pyx_t_3;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    goto __pyx_L11_bool_binop_done;
+  }
+
+  /* "opscli/seller_sprite/api/scenarios.py":57
+ *                 or params.get("keyword")
+ *                 or params.get("asin")
+ *                 or params.get("asins")             # <<<<<<<<<<<<<<
+ *                 or params.get("q")
+ *             ),
+*/
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_asins, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
+  if (!__pyx_t_4) {
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  } else {
+    __Pyx_INCREF(__pyx_t_3);
+    __pyx_t_2 = __pyx_t_3;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    goto __pyx_L11_bool_binop_done;
+  }
+
+  /* "opscli/seller_sprite/api/scenarios.py":58
  *                 or params.get("asin")
  *                 or params.get("asins")
  *                 or params.get("q")             # <<<<<<<<<<<<<<
  *             ),
  *         }
 */
-  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_q, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_q, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_L11_bool_binop_done:;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_keywordOrAsin, __pyx_t_2) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_keywordOrAsin, __pyx_t_2) < (0)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_merged = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":59
+  /* "opscli/seller_sprite/api/scenarios.py":61
  *             ),
  *         }
  *         self._validate_required(merged)             # <<<<<<<<<<<<<<
@@ -3249,12 +3256,12 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_merged};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_validate_required, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":60
+  /* "opscli/seller_sprite/api/scenarios.py":62
  *         }
  *         self._validate_required(merged)
  *         return self.payload_builder(merged)             # <<<<<<<<<<<<<<
@@ -3269,15 +3276,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_merged};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 60, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 62, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":41
+  /* "opscli/seller_sprite/api/scenarios.py":43
  *         return payload
  * 
  *     def build_payload(self, *, params: dict[str, Any], site: str, period: str, page_size: int) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -3299,7 +3306,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":62
+/* "opscli/seller_sprite/api/scenarios.py":64
  *         return self.payload_builder(merged)
  * 
  *     def build_referer(self, payload: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -3348,39 +3355,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_payload,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 62, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 64, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 62, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 64, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 62, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 64, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_referer", 0) < (0)) __PYX_ERR(0, 62, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_referer", 0) < (0)) __PYX_ERR(0, 64, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_referer", 1, 2, 2, i); __PYX_ERR(0, 62, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_referer", 1, 2, 2, i); __PYX_ERR(0, 64, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 62, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 64, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 62, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 64, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_payload = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("build_referer", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 62, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("build_referer", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 64, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3391,7 +3398,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 64, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_4build_referer(__pyx_self, __pyx_v_self, __pyx_v_payload);
 
   /* function exit code */
@@ -3424,7 +3431,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("build_referer", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":64
+  /* "opscli/seller_sprite/api/scenarios.py":66
  *     def build_referer(self, payload: dict[str, Any]) -> str:
  *         """ referer"""
  *         return build_referer(payload, self.scenario_id)             # <<<<<<<<<<<<<<
@@ -3433,9 +3440,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_build_referer); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_build_referer); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_scenario_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_scenario_id); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3455,15 +3462,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 64, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 66, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":62
+  /* "opscli/seller_sprite/api/scenarios.py":64
  *         return self.payload_builder(merged)
  * 
  *     def build_referer(self, payload: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -3485,7 +3492,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":66
+/* "opscli/seller_sprite/api/scenarios.py":68
  *         return build_referer(payload, self.scenario_id)
  * 
  *     def endpoint_for(self, payload: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -3534,39 +3541,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_payload,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 66, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 68, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 66, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 68, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 66, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 68, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "endpoint_for", 0) < (0)) __PYX_ERR(0, 66, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "endpoint_for", 0) < (0)) __PYX_ERR(0, 68, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("endpoint_for", 1, 2, 2, i); __PYX_ERR(0, 66, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("endpoint_for", 1, 2, 2, i); __PYX_ERR(0, 68, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 66, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 68, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 66, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 68, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_payload = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("endpoint_for", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 66, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("endpoint_for", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 68, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3577,7 +3584,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 66, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 68, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_6endpoint_for(__pyx_self, __pyx_v_self, __pyx_v_payload);
 
   /* function exit code */
@@ -3610,20 +3617,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("endpoint_for", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":68
+  /* "opscli/seller_sprite/api/scenarios.py":70
  *     def endpoint_for(self, payload: dict[str, Any]) -> str:
  *         """ market query"""
  *         if self.scenario_id == "keyword-reverse":             # <<<<<<<<<<<<<<
  *             return f"{self.endpoint}?market={payload.get('market') or 'JP'}"
  *         return self.endpoint
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_scenario_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_scenario_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/api/scenarios.py":69
+    /* "opscli/seller_sprite/api/scenarios.py":71
  *         """ market query"""
  *         if self.scenario_id == "keyword-reverse":
  *             return f"{self.endpoint}?market={payload.get('market') or 'JP'}"             # <<<<<<<<<<<<<<
@@ -3631,14 +3638,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
  * 
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_4 = __Pyx_PyDict_GetItemDefault(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_market, Py_None); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_GetItemDefault(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_market, Py_None); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 71, __pyx_L1_error)
     if (!__pyx_t_2) {
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     } else {
@@ -3650,14 +3657,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_JP);
     __pyx_t_1 = __pyx_mstate_global->__pyx_n_u_JP;
     __pyx_L4_bool_binop_done:;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_5[0] = __pyx_t_3;
     __pyx_t_5[1] = __pyx_mstate_global->__pyx_kp_u_market_2;
     __pyx_t_5[2] = __pyx_t_4;
     __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_5, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -3665,7 +3672,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/api/scenarios.py":68
+    /* "opscli/seller_sprite/api/scenarios.py":70
  *     def endpoint_for(self, payload: dict[str, Any]) -> str:
  *         """ market query"""
  *         if self.scenario_id == "keyword-reverse":             # <<<<<<<<<<<<<<
@@ -3674,7 +3681,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
 */
   }
 
-  /* "opscli/seller_sprite/api/scenarios.py":70
+  /* "opscli/seller_sprite/api/scenarios.py":72
  *         if self.scenario_id == "keyword-reverse":
  *             return f"{self.endpoint}?market={payload.get('market') or 'JP'}"
  *         return self.endpoint             # <<<<<<<<<<<<<<
@@ -3682,14 +3689,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
  *     def high_frequency_endpoint_for(self, payload: dict[str, Any]) -> str | None:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 72, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":66
+  /* "opscli/seller_sprite/api/scenarios.py":68
  *         return build_referer(payload, self.scenario_id)
  * 
  *     def endpoint_for(self, payload: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -3710,7 +3717,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":72
+/* "opscli/seller_sprite/api/scenarios.py":74
  *         return self.endpoint
  * 
  *     def high_frequency_endpoint_for(self, payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
@@ -3759,39 +3766,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_payload,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 72, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 74, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 72, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 74, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 72, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 74, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "high_frequency_endpoint_for", 0) < (0)) __PYX_ERR(0, 72, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "high_frequency_endpoint_for", 0) < (0)) __PYX_ERR(0, 74, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("high_frequency_endpoint_for", 1, 2, 2, i); __PYX_ERR(0, 72, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("high_frequency_endpoint_for", 1, 2, 2, i); __PYX_ERR(0, 74, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 72, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 74, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 72, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 74, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_payload = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("high_frequency_endpoint_for", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 72, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("high_frequency_endpoint_for", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 74, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3802,7 +3809,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 72, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 74, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_8high_frequency_endpoint_for(__pyx_self, __pyx_v_self, __pyx_v_payload);
 
   /* function exit code */
@@ -3833,21 +3840,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("high_frequency_endpoint_for", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":74
+  /* "opscli/seller_sprite/api/scenarios.py":76
  *     def high_frequency_endpoint_for(self, payload: dict[str, Any]) -> str | None:
  *         """"""
  *         if not self.high_frequency_endpoint:             # <<<<<<<<<<<<<<
  *             return None
  *         return self.high_frequency_endpoint
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = (!__pyx_t_2);
   if (__pyx_t_3) {
 
-    /* "opscli/seller_sprite/api/scenarios.py":75
+    /* "opscli/seller_sprite/api/scenarios.py":77
  *         """"""
  *         if not self.high_frequency_endpoint:
  *             return None             # <<<<<<<<<<<<<<
@@ -3858,7 +3865,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
     __pyx_r = ((PyObject*)Py_None); __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/api/scenarios.py":74
+    /* "opscli/seller_sprite/api/scenarios.py":76
  *     def high_frequency_endpoint_for(self, payload: dict[str, Any]) -> str | None:
  *         """"""
  *         if not self.high_frequency_endpoint:             # <<<<<<<<<<<<<<
@@ -3867,7 +3874,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
 */
   }
 
-  /* "opscli/seller_sprite/api/scenarios.py":76
+  /* "opscli/seller_sprite/api/scenarios.py":78
  *         if not self.high_frequency_endpoint:
  *             return None
  *         return self.high_frequency_endpoint             # <<<<<<<<<<<<<<
@@ -3875,14 +3882,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
  *     def _validate_required(self, payload: dict[str, Any]) -> None:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 76, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 78, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":72
+  /* "opscli/seller_sprite/api/scenarios.py":74
  *         return self.endpoint
  * 
  *     def high_frequency_endpoint_for(self, payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
@@ -3901,7 +3908,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":78
+/* "opscli/seller_sprite/api/scenarios.py":80
  *         return self.high_frequency_endpoint
  * 
  *     def _validate_required(self, payload: dict[str, Any]) -> None:             # <<<<<<<<<<<<<<
@@ -3949,39 +3956,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_payload,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 78, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 80, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 78, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 80, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 78, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 80, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_validate_required", 0) < (0)) __PYX_ERR(0, 78, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_validate_required", 0) < (0)) __PYX_ERR(0, 80, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_validate_required", 1, 2, 2, i); __PYX_ERR(0, 78, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_validate_required", 1, 2, 2, i); __PYX_ERR(0, 80, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 78, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 80, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 78, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 80, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_payload = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_validate_required", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 78, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_validate_required", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 80, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3992,7 +3999,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 78, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 80, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_10_validate_required(__pyx_self, __pyx_v_self, __pyx_v_payload);
 
   /* function exit code */
@@ -4034,7 +4041,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_validate_required", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":79
+  /* "opscli/seller_sprite/api/scenarios.py":81
  * 
  *     def _validate_required(self, payload: dict[str, Any]) -> None:
  *         missing = [key for key in self.required_params if not payload.get(key)]             # <<<<<<<<<<<<<<
@@ -4042,18 +4049,18 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
  *             raise SellerSpriteConfigError(f" {self.scenario_id} {', '.join(missing)}")
 */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_required_params); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L5_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_required_params); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
       __pyx_t_3 = __pyx_t_2; __Pyx_INCREF(__pyx_t_3);
       __pyx_t_4 = 0;
       __pyx_t_5 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 79, __pyx_L5_error)
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 79, __pyx_L5_error)
+      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     for (;;) {
@@ -4062,7 +4069,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 79, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L5_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -4072,7 +4079,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 79, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L5_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -4083,13 +4090,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
           #endif
           ++__pyx_t_4;
         }
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L5_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L5_error)
       } else {
         __pyx_t_2 = __pyx_t_5(__pyx_t_3);
         if (unlikely(!__pyx_t_2)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 79, __pyx_L5_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 81, __pyx_L5_error)
             PyErr_Clear();
           }
           break;
@@ -4098,13 +4105,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_key, __pyx_t_2);
       __pyx_t_2 = 0;
-      __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_payload, __pyx_7genexpr__pyx_v_key, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L5_error)
+      __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_payload, __pyx_7genexpr__pyx_v_key, Py_None); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 79, __pyx_L5_error)
+      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 81, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_7 = (!__pyx_t_6);
       if (__pyx_t_7) {
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_7genexpr__pyx_v_key))) __PYX_ERR(0, 79, __pyx_L5_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_7genexpr__pyx_v_key))) __PYX_ERR(0, 81, __pyx_L5_error)
       }
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -4118,7 +4125,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   __pyx_v_missing = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":80
+  /* "opscli/seller_sprite/api/scenarios.py":82
  *     def _validate_required(self, payload: dict[str, Any]) -> None:
  *         missing = [key for key in self.required_params if not payload.get(key)]
  *         if missing:             # <<<<<<<<<<<<<<
@@ -4127,13 +4134,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
 */
   {
     Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_v_missing);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 80, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
     __pyx_t_7 = (__pyx_temp != 0);
   }
 
   if (unlikely(__pyx_t_7)) {
 
-    /* "opscli/seller_sprite/api/scenarios.py":81
+    /* "opscli/seller_sprite/api/scenarios.py":83
  *         missing = [key for key in self.required_params if not payload.get(key)]
  *         if missing:
  *             raise SellerSpriteConfigError(f" {self.scenario_id} {', '.join(missing)}")             # <<<<<<<<<<<<<<
@@ -4141,21 +4148,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
  * 
 */
     __pyx_t_3 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_scenario_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_scenario_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_8, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_8, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_8 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_v_missing); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_8 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__3, __pyx_v_missing); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_10[0] = __pyx_mstate_global->__pyx_kp_u_;
     __pyx_t_10[1] = __pyx_t_9;
     __pyx_t_10[2] = __pyx_mstate_global->__pyx_kp_u__2;
     __pyx_t_10[3] = __pyx_t_8;
     __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_10, 4, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -4177,14 +4184,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 81, __pyx_L1_error)
+    __PYX_ERR(0, 83, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/api/scenarios.py":80
+    /* "opscli/seller_sprite/api/scenarios.py":82
  *     def _validate_required(self, payload: dict[str, Any]) -> None:
  *         missing = [key for key in self.required_params if not payload.get(key)]
  *         if missing:             # <<<<<<<<<<<<<<
@@ -4193,7 +4200,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
 */
   }
 
-  /* "opscli/seller_sprite/api/scenarios.py":78
+  /* "opscli/seller_sprite/api/scenarios.py":80
  *         return self.high_frequency_endpoint
  * 
  *     def _validate_required(self, payload: dict[str, Any]) -> None:             # <<<<<<<<<<<<<<
@@ -4221,7 +4228,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_20SellerSprite
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":133
+/* "opscli/seller_sprite/api/scenarios.py":144
  * 
  * 
  * def list_scenarios() -> list[dict[str, Any]]:             # <<<<<<<<<<<<<<
@@ -4264,7 +4271,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_list_scenarios
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("list_scenarios", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":135
+  /* "opscli/seller_sprite/api/scenarios.py":146
  * def list_scenarios() -> list[dict[str, Any]]:
  *     """"""
  *     return [scenario.to_public_dict() for scenario in SCENARIOS.values()]             # <<<<<<<<<<<<<<
@@ -4273,16 +4280,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_list_scenarios
 */
   __Pyx_XDECREF(__pyx_r);
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_SCENARIOS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L5_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_SCENARIOS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 146, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_6);
     if (unlikely(__pyx_t_6 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "values");
-      __PYX_ERR(0, 135, __pyx_L5_error)
+      __PYX_ERR(0, 146, __pyx_L5_error)
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_values, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 135, __pyx_L5_error)
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_values, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 146, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_2);
@@ -4291,7 +4298,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_list_scenarios
     while (1) {
       __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_4, &__pyx_t_3, NULL, &__pyx_t_7, NULL, __pyx_t_5);
       if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 135, __pyx_L5_error)
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 146, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_scenario, __pyx_t_7);
       __pyx_t_7 = 0;
@@ -4302,10 +4309,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_list_scenarios
         PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
         __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_to_public_dict, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 135, __pyx_L5_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 146, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 135, __pyx_L5_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 146, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -4320,7 +4327,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_list_scenarios
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":133
+  /* "opscli/seller_sprite/api/scenarios.py":144
  * 
  * 
  * def list_scenarios() -> list[dict[str, Any]]:             # <<<<<<<<<<<<<<
@@ -4343,7 +4350,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_list_scenarios
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/scenarios.py":138
+/* "opscli/seller_sprite/api/scenarios.py":149
  * 
  * 
  * def get_scenario(scenario_id: str) -> SellerSpriteScenario:             # <<<<<<<<<<<<<<
@@ -4391,32 +4398,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_scenario_id,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 138, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 149, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 138, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 149, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_scenario", 0) < (0)) __PYX_ERR(0, 138, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_scenario", 0) < (0)) __PYX_ERR(0, 149, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_scenario", 1, 1, 1, i); __PYX_ERR(0, 138, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_scenario", 1, 1, 1, i); __PYX_ERR(0, 149, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 138, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 149, __pyx_L3_error)
     }
     __pyx_v_scenario_id = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_scenario", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 138, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_scenario", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 149, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4427,7 +4434,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario_id), (&PyUnicode_Type), 0, "scenario_id", 2))) __PYX_ERR(0, 138, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario_id), (&PyUnicode_Type), 0, "scenario_id", 2))) __PYX_ERR(0, 149, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(__pyx_self, __pyx_v_scenario_id);
 
   /* function exit code */
@@ -4463,7 +4470,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_scenario", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":140
+  /* "opscli/seller_sprite/api/scenarios.py":151
  * def get_scenario(scenario_id: str) -> SellerSpriteScenario:
  *     """"""
  *     scenario = SCENARIOS.get(scenario_id)             # <<<<<<<<<<<<<<
@@ -4471,9 +4478,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(
  *         raise SellerSpriteConfigError(f"{scenario_id}")
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_SCENARIOS); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_SCENARIOS); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 151, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -4493,33 +4500,33 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_scenario = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":141
+  /* "opscli/seller_sprite/api/scenarios.py":152
  *     """"""
  *     scenario = SCENARIOS.get(scenario_id)
  *     if not scenario:             # <<<<<<<<<<<<<<
  *         raise SellerSpriteConfigError(f"{scenario_id}")
  *     return scenario
 */
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_scenario); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_scenario); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 152, __pyx_L1_error)
   __pyx_t_7 = (!__pyx_t_6);
   if (unlikely(__pyx_t_7)) {
 
-    /* "opscli/seller_sprite/api/scenarios.py":142
+    /* "opscli/seller_sprite/api/scenarios.py":153
  *     scenario = SCENARIOS.get(scenario_id)
  *     if not scenario:
  *         raise SellerSpriteConfigError(f"{scenario_id}")             # <<<<<<<<<<<<<<
  *     return scenario
 */
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 142, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 153, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__4, __pyx_v_scenario_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 142, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__4, __pyx_v_scenario_id); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 153, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -4539,14 +4546,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 142, __pyx_L1_error)
+    __PYX_ERR(0, 153, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/api/scenarios.py":141
+    /* "opscli/seller_sprite/api/scenarios.py":152
  *     """"""
  *     scenario = SCENARIOS.get(scenario_id)
  *     if not scenario:             # <<<<<<<<<<<<<<
@@ -4555,7 +4562,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(
 */
   }
 
-  /* "opscli/seller_sprite/api/scenarios.py":143
+  /* "opscli/seller_sprite/api/scenarios.py":154
  *     if not scenario:
  *         raise SellerSpriteConfigError(f"{scenario_id}")
  *     return scenario             # <<<<<<<<<<<<<<
@@ -4565,7 +4572,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_9scenarios_2get_scenario(
   __pyx_r = __pyx_v_scenario;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":138
+  /* "opscli/seller_sprite/api/scenarios.py":149
  * 
  * 
  * def get_scenario(scenario_id: str) -> SellerSpriteScenario:             # <<<<<<<<<<<<<<
@@ -5000,14 +5007,14 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
  *     make_competitor_payload,
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_build_referer,__pyx_mstate_global->__pyx_n_u_make_competitor_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_miner_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_reverse_payload,__pyx_mstate_global->__pyx_n_u_make_market_research_payload,__pyx_mstate_global->__pyx_n_u_make_product_research_payload,__pyx_mstate_global->__pyx_n_u_make_traffic_source_payload};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_payload, __pyx_imported_names, 7, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 8, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_build_referer,__pyx_mstate_global->__pyx_n_u_make_competitor_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_miner_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_reverse_payload,__pyx_mstate_global->__pyx_n_u_make_listing_analysis_payload,__pyx_mstate_global->__pyx_n_u_make_market_research_payload,__pyx_mstate_global->__pyx_n_u_make_product_research_payload,__pyx_mstate_global->__pyx_n_u_make_traffic_source_payload};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_payload, __pyx_imported_names, 8, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 8, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_build_referer,__pyx_mstate_global->__pyx_n_u_make_competitor_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_miner_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_reverse_payload,__pyx_mstate_global->__pyx_n_u_make_market_research_payload,__pyx_mstate_global->__pyx_n_u_make_product_research_payload,__pyx_mstate_global->__pyx_n_u_make_traffic_source_payload};
-    for (__pyx_t_3=0; __pyx_t_3 < 7; __pyx_t_3++) {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_build_referer,__pyx_mstate_global->__pyx_n_u_make_competitor_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_miner_payload,__pyx_mstate_global->__pyx_n_u_make_keyword_reverse_payload,__pyx_mstate_global->__pyx_n_u_make_listing_analysis_payload,__pyx_mstate_global->__pyx_n_u_make_market_research_payload,__pyx_mstate_global->__pyx_n_u_make_product_research_payload,__pyx_mstate_global->__pyx_n_u_make_traffic_source_payload};
+    for (__pyx_t_3=0; __pyx_t_3 < 8; __pyx_t_3++) {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 8, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
@@ -5016,7 +5023,7 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":17
+  /* "opscli/seller_sprite/api/scenarios.py":18
  *     make_traffic_source_payload,
  * )
  * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError             # <<<<<<<<<<<<<<
@@ -5025,228 +5032,238 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_exce, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_exce, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":20
+  /* "opscli/seller_sprite/api/scenarios.py":21
  * 
  * 
  * PayloadBuilder = Callable[[dict[str, Any]], dict[str, Any]]             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Callable); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_Callable); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Any); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Any); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyTuple_Pack(2, ((PyObject *)(&PyUnicode_Type)), __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_Pack(2, ((PyObject *)(&PyUnicode_Type)), __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetItem(((PyObject *)(&PyDict_Type)), __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetItem(((PyObject *)(&PyDict_Type)), __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyList_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyList_Pack(1, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Any); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Any); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_6 = PyTuple_Pack(2, ((PyObject *)(&PyUnicode_Type)), __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_Pack(2, ((PyObject *)(&PyUnicode_Type)), __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetItem(((PyObject *)(&PyDict_Type)), __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetItem(((PyObject *)(&PyDict_Type)), __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = PyTuple_Pack(2, __pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_Pack(2, __pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 20, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_PayloadBuilder, __pyx_t_4) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_PayloadBuilder, __pyx_t_4) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":24
+  /* "opscli/seller_sprite/api/scenarios.py":25
  * 
  * @dataclass(frozen=True)
  * class SellerSpriteScenario:             # <<<<<<<<<<<<<<
  *     """"""
  * 
 */
-  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_kp_u__7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_kp_u__7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_kp_u_tuple_str) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_mstate_global->__pyx_n_u_PayloadBuilder) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_6) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_kp_u_tuple_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_mstate_global->__pyx_n_u_PayloadBuilder) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_task_result_endpoint, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_6) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":32
+  /* "opscli/seller_sprite/api/scenarios.py":33
  *     required_params: tuple[str, ...]
  *     payload_builder: PayloadBuilder
  *     method: str = "POST"             # <<<<<<<<<<<<<<
  *     high_frequency_endpoint: str | None = None
- * 
+ *     task_result_endpoint: str | None = None
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_POST) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_POST) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/scenarios.py":33
+  /* "opscli/seller_sprite/api/scenarios.py":34
  *     payload_builder: PayloadBuilder
  *     method: str = "POST"
  *     high_frequency_endpoint: str | None = None             # <<<<<<<<<<<<<<
+ *     task_result_endpoint: str | None = None
+ * 
+*/
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint, Py_None) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/scenarios.py":35
+ *     method: str = "POST"
+ *     high_frequency_endpoint: str | None = None
+ *     task_result_endpoint: str | None = None             # <<<<<<<<<<<<<<
  * 
  *     def to_public_dict(self) -> dict[str, Any]:
 */
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint, Py_None) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_task_result_endpoint, Py_None) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/scenarios.py":35
- *     high_frequency_endpoint: str | None = None
+  /* "opscli/seller_sprite/api/scenarios.py":37
+ *     task_result_endpoint: str | None = None
  * 
  *     def to_public_dict(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ MCP """
  *         payload = asdict(self)
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_1to_public_dict, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_to_public_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_1to_public_dict, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_to_public_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_to_public_dict, __pyx_t_2) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_to_public_dict, __pyx_t_2) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":41
+  /* "opscli/seller_sprite/api/scenarios.py":43
  *         return payload
  * 
  *     def build_payload(self, *, params: dict[str, Any], site: str, period: str, page_size: int) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ payload"""
  *         merged = {
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_page_size, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_3build_payload, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_build_paylo, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_page_size, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_3build_payload, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_build_paylo, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_build_payload, __pyx_t_6) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_build_payload, __pyx_t_6) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":62
+  /* "opscli/seller_sprite/api/scenarios.py":64
  *         return self.payload_builder(merged)
  * 
  *     def build_referer(self, payload: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
  *         """ referer"""
  *         return build_referer(payload, self.scenario_id)
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_5build_referer, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_build_refer, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 64, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_5build_referer, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_build_refer, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_build_referer, __pyx_t_2) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_build_referer, __pyx_t_2) < (0)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":66
+  /* "opscli/seller_sprite/api/scenarios.py":68
  *         return build_referer(payload, self.scenario_id)
  * 
  *     def endpoint_for(self, payload: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
  *         """ market query"""
  *         if self.scenario_id == "keyword-reverse":
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 66, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 66, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_7endpoint_for, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_endpoint_fo, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 66, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_7endpoint_for, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_endpoint_fo, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_endpoint_for, __pyx_t_6) < (0)) __PYX_ERR(0, 66, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_endpoint_for, __pyx_t_6) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":72
+  /* "opscli/seller_sprite/api/scenarios.py":74
  *         return self.endpoint
  * 
  *     def high_frequency_endpoint_for(self, payload: dict[str, Any]) -> str | None:             # <<<<<<<<<<<<<<
  *         """"""
  *         if not self.high_frequency_endpoint:
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 72, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_9high_frequency_endpoint_for, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_high_freque, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_9high_frequency_endpoint_for, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario_high_freque, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint_for, __pyx_t_2) < (0)) __PYX_ERR(0, 72, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_high_frequency_endpoint_for, __pyx_t_2) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":78
+  /* "opscli/seller_sprite/api/scenarios.py":80
  *         return self.high_frequency_endpoint
  * 
  *     def _validate_required(self, payload: dict[str, Any]) -> None:             # <<<<<<<<<<<<<<
  *         missing = [key for key in self.required_params if not payload.get(key)]
  *         if missing:
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_11_validate_required, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario__validate_r, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 78, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_20SellerSpriteScenario_11_validate_required, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario__validate_r, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_validate_required, __pyx_t_6) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_validate_required, __pyx_t_6) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":23
+  /* "opscli/seller_sprite/api/scenarios.py":24
  * 
  * 
  * @dataclass(frozen=True)             # <<<<<<<<<<<<<<
@@ -5255,30 +5272,30 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
 */
   __pyx_t_2 = NULL;
   __pyx_t_7 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, NULL};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 23, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_frozen, Py_True, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_frozen, Py_True, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
     __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
 
-  /* "opscli/seller_sprite/api/scenarios.py":24
+  /* "opscli/seller_sprite/api/scenarios.py":25
  * 
  * @dataclass(frozen=True)
  * class SellerSpriteScenario:             # <<<<<<<<<<<<<<
  *     """"""
  * 
 */
-  __pyx_t_8 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_4, NULL, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_8);
@@ -5290,57 +5307,57 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 23, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, __pyx_t_6) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario, __pyx_t_6) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":85
+  /* "opscli/seller_sprite/api/scenarios.py":87
  * 
  * SCENARIOS: dict[str, SellerSpriteScenario] = {
  *     "competitor-lookup": SellerSpriteScenario(             # <<<<<<<<<<<<<<
  *         scenario_id="competitor-lookup",
  *         title="",
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
 
-  /* "opscli/seller_sprite/api/scenarios.py":90
+  /* "opscli/seller_sprite/api/scenarios.py":92
  *         endpoint="/v3/api/competing-lookup",
  *         required_params=(),
  *         payload_builder=make_competitor_payload,             # <<<<<<<<<<<<<<
  *     ),
  *     "product-research": SellerSpriteScenario(
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_competitor_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_competitor_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_5, NULL};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__8, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_competing_lookup, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_10, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_10, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__8, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_competing_lookup, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_10, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_10, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 85, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, __pyx_t_6) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":92
+  /* "opscli/seller_sprite/api/scenarios.py":94
  *         payload_builder=make_competitor_payload,
  *     ),
  *     "product-research": SellerSpriteScenario(             # <<<<<<<<<<<<<<
@@ -5348,40 +5365,40 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
  *         title="",
 */
   __pyx_t_8 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
 
-  /* "opscli/seller_sprite/api/scenarios.py":97
+  /* "opscli/seller_sprite/api/scenarios.py":99
  *         endpoint="/v3/api/product-research",
  *         required_params=(),
  *         payload_builder=make_product_research_payload,             # <<<<<<<<<<<<<<
  *     ),
  *     "keyword-miner": SellerSpriteScenario(
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_product_research_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_product_research_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_8, NULL};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 92, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_product_research, __pyx_t_5, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__9, __pyx_t_5, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_product_research, __pyx_t_5, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_5, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_5, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_product_research, __pyx_t_5, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__9, __pyx_t_5, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_product_research, __pyx_t_5, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_5, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_5, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 92, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_product_research, __pyx_t_6) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_product_research, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":99
+  /* "opscli/seller_sprite/api/scenarios.py":101
  *         payload_builder=make_product_research_payload,
  *     ),
  *     "keyword-miner": SellerSpriteScenario(             # <<<<<<<<<<<<<<
@@ -5389,41 +5406,41 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
  *         title="",
 */
   __pyx_t_10 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "opscli/seller_sprite/api/scenarios.py":105
+  /* "opscli/seller_sprite/api/scenarios.py":107
  *         high_frequency_endpoint="/v3/api/keyword-miner/high/frequency-new",
  *         required_params=("keyword",),
  *         payload_builder=make_keyword_miner_payload,             # <<<<<<<<<<<<<<
  *     ),
  *     "keyword-reverse": SellerSpriteScenario(
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_keyword_miner_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_keyword_miner_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 6 : 0)] = {__pyx_t_10, NULL};
-    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_keyword_miner, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__10, __pyx_t_8, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_keyword_miner, __pyx_t_8, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_high_frequency_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_keyword_miner_high_frequ, __pyx_t_8, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[1], __pyx_t_8, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_8, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_keyword_miner, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__10, __pyx_t_8, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_keyword_miner, __pyx_t_8, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_high_frequency_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_keyword_miner_high_frequ, __pyx_t_8, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[1], __pyx_t_8, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_8, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_keyword_miner, __pyx_t_6) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_keyword_miner, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":107
+  /* "opscli/seller_sprite/api/scenarios.py":109
  *         payload_builder=make_keyword_miner_payload,
  *     ),
  *     "keyword-reverse": SellerSpriteScenario(             # <<<<<<<<<<<<<<
@@ -5431,40 +5448,40 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
  *         title="",
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
 
-  /* "opscli/seller_sprite/api/scenarios.py":112
+  /* "opscli/seller_sprite/api/scenarios.py":114
  *         endpoint="/v3/api/relation/reversing",
  *         required_params=("asin",),
  *         payload_builder=make_keyword_reverse_payload,             # <<<<<<<<<<<<<<
  *     ),
  *     "traffic-source": SellerSpriteScenario(
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_keyword_reverse_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 112, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_keyword_reverse_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_5, NULL};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__11, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_relation_reversing, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[2], __pyx_t_10, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_10, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__11, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_relation_reversing, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[2], __pyx_t_10, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_10, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, __pyx_t_6) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":114
+  /* "opscli/seller_sprite/api/scenarios.py":116
  *         payload_builder=make_keyword_reverse_payload,
  *     ),
  *     "traffic-source": SellerSpriteScenario(             # <<<<<<<<<<<<<<
@@ -5472,41 +5489,41 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
  *         title="",
 */
   __pyx_t_8 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
 
-  /* "opscli/seller_sprite/api/scenarios.py":120
+  /* "opscli/seller_sprite/api/scenarios.py":122
  *         method="GET",
  *         required_params=("keywordOrAsin",),
  *         payload_builder=make_traffic_source_payload,             # <<<<<<<<<<<<<<
  *     ),
  *     "market-research": SellerSpriteScenario(
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_traffic_source_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_traffic_source_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 6 : 0)] = {__pyx_t_8, NULL};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_traffic_source, __pyx_t_5, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__12, __pyx_t_5, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_relation_ta_source, __pyx_t_5, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_GET, __pyx_t_5, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[3], __pyx_t_5, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_5, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_traffic_source, __pyx_t_5, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__12, __pyx_t_5, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_relation_ta_source, __pyx_t_5, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_GET, __pyx_t_5, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[3], __pyx_t_5, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_5, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 114, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_traffic_source, __pyx_t_6) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_traffic_source, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":122
+  /* "opscli/seller_sprite/api/scenarios.py":124
  *         payload_builder=make_traffic_source_payload,
  *     ),
  *     "market-research": SellerSpriteScenario(             # <<<<<<<<<<<<<<
@@ -5514,81 +5531,124 @@ __Pyx_RefNannySetupContext("PyInit_scenarios", 0);
  *         title="",
 */
   __pyx_t_10 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "opscli/seller_sprite/api/scenarios.py":128
+  /* "opscli/seller_sprite/api/scenarios.py":130
  *         method="FORM",
  *         required_params=(),
  *         payload_builder=make_market_research_payload,             # <<<<<<<<<<<<<<
  *     ),
- * }
+ *     "listing-analysis": SellerSpriteScenario(
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_market_research_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_market_research_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 6 : 0)] = {__pyx_t_10, NULL};
-    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 122, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_market_research, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__13, __pyx_t_8, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v2_market_research, __pyx_t_8, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_FORM, __pyx_t_8, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_8, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_8, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_market_research, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u__13, __pyx_t_8, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v2_market_research, __pyx_t_8, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_FORM, __pyx_t_8, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_8, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_8, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 122, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_market_research, __pyx_t_6) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_market_research, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SCENARIOS, __pyx_t_4) < (0)) __PYX_ERR(0, 84, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/scenarios.py":132
+ *         payload_builder=make_market_research_payload,
+ *     ),
+ *     "listing-analysis": SellerSpriteScenario(             # <<<<<<<<<<<<<<
+ *         scenario_id="listing-analysis",
+ *         title="Listing Analysis",
+*/
+  __pyx_t_5 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+
+  /* "opscli/seller_sprite/api/scenarios.py":139
+ *         task_result_endpoint="/v3/api/ai-analysis/task/{task_id}",
+ *         required_params=("asin",),
+ *         payload_builder=make_listing_analysis_payload,             # <<<<<<<<<<<<<<
+ *     ),
+ * }
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_make_listing_analysis_payload); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_9 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 7 : 0)] = {__pyx_t_5, NULL};
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 132, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_kp_u_listing_analysis, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_kp_u_Listing_Analysis, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_ai_workflow_listing_anal, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_POST_QUERY, __pyx_t_10, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_task_result_endpoint, __pyx_mstate_global->__pyx_kp_u_v3_api_ai_analysis_task_task_id, __pyx_t_10, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_required_params, __pyx_mstate_global->__pyx_tuple[2], __pyx_t_10, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_payload_builder, __pyx_t_2, __pyx_t_10, __pyx_callargs+1, 6) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 132, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+  }
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_listing_analysis, __pyx_t_6) < (0)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SCENARIOS, __pyx_t_4) < (0)) __PYX_ERR(0, 86, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":133
+  /* "opscli/seller_sprite/api/scenarios.py":144
  * 
  * 
  * def list_scenarios() -> list[dict[str, Any]]:             # <<<<<<<<<<<<<<
  *     """"""
  *     return [scenario.to_public_dict() for scenario in SCENARIOS.values()]
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 133, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_1list_scenarios, 0, __pyx_mstate_global->__pyx_n_u_list_scenarios, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 133, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_1list_scenarios, 0, __pyx_mstate_global->__pyx_n_u_list_scenarios, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_list_scenarios, __pyx_t_6) < (0)) __PYX_ERR(0, 133, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_list_scenarios, __pyx_t_6) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/scenarios.py":138
+  /* "opscli/seller_sprite/api/scenarios.py":149
  * 
  * 
  * def get_scenario(scenario_id: str) -> SellerSpriteScenario:             # <<<<<<<<<<<<<<
  *     """"""
  *     scenario = SCENARIOS.get(scenario_id)
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_3get_scenario, 0, __pyx_mstate_global->__pyx_n_u_get_scenario, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 138, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_scenario_id, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_SellerSpriteScenario) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_9scenarios_3get_scenario, 0, __pyx_mstate_global->__pyx_n_u_get_scenario, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_scenari, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_scenario, __pyx_t_4) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_scenario, __pyx_t_4) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "opscli/seller_sprite/api/scenarios.py":1
@@ -5662,47 +5722,47 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/seller_sprite/api/scenarios.py":38
+  /* "opscli/seller_sprite/api/scenarios.py":40
  *         """ MCP """
  *         payload = asdict(self)
  *         payload.pop("payload_builder", None)             # <<<<<<<<<<<<<<
  *         return payload
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_payload_builder, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_payload_builder, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/seller_sprite/api/scenarios.py":104
+  /* "opscli/seller_sprite/api/scenarios.py":106
  *         endpoint="/v3/api/keyword-miner",
  *         high_frequency_endpoint="/v3/api/keyword-miner/high/frequency-new",
  *         required_params=("keyword",),             # <<<<<<<<<<<<<<
  *         payload_builder=make_keyword_miner_payload,
  *     ),
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_n_u_keyword); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_n_u_keyword); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "opscli/seller_sprite/api/scenarios.py":111
+  /* "opscli/seller_sprite/api/scenarios.py":113
  *         title="",
  *         endpoint="/v3/api/relation/reversing",
  *         required_params=("asin",),             # <<<<<<<<<<<<<<
  *         payload_builder=make_keyword_reverse_payload,
  *     ),
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_n_u_asin); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_n_u_asin); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "opscli/seller_sprite/api/scenarios.py":119
+  /* "opscli/seller_sprite/api/scenarios.py":121
  *         endpoint="/v3/api/relation/ta/source",
  *         method="GET",
  *         required_params=("keywordOrAsin",),             # <<<<<<<<<<<<<<
  *         payload_builder=make_traffic_source_payload,
  *     ),
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_n_u_keywordOrAsin); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 119, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_n_u_keywordOrAsin); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -5735,34 +5795,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{7},{179},{1},{16},{2},{27},{1},{39},{8},{17},{14},{13},{15},{20},{8},{15},{37},{16},{10},{14},{15},{19},{24},{21},{40},{24},{26},{26},{3},{8},{4},{3},{2},{4},{4},{14},{20},{9},{23},{20},{39},{34},{34},{33},{48},{35},{15},{15},{15},{9},{9},{9},{15},{6},{4},{5},{18},{13},{13},{17},{18},{9},{11},{7},{8},{12},{6},{8},{3},{12},{23},{27},{3},{13},{5},{3},{7},{13},{14},{8},{23},{26},{28},{28},{29},{27},{6},{6},{13},{6},{7},{10},{5},{8},{33},{34},{38},{8},{9},{6},{7},{15},{6},{3},{11},{1},{12},{15},{6},{8},{11},{4},{12},{10},{4},{4},{3},{8},{5},{14},{6},{18},{6},{26},{29},{52},{21},{175},{70},{42},{31}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1512 bytes) */
-const char* const cstring = "BZh91AY&SY5\000\0248\000\004\202\377\377\345\357\377Q\357\267\275\306\277\363\375\272\277\377\377\366r\347\357w\312\331\333u@@@@O\340\300\000P\004\371\rlT\024QKz\000\324\322\032\246\3051\244d\3324i4\t\247\251\246\231\246\246jz\231\001\3524\323M\000\304\030O)\241\265\036\243jh\310a\036\232\020\032=\021\352f\246\324\022\222e6\202=&MG\244&#\365FCL\206\200\006\215\000\320\000\000\003@\003@\000\000\000\000\000\tM&\220\002\t\252~\206MQ\344\215\0004\365\000d\320\000\000\000\000\000\000\320h\032\000\006\200h\000@\006F\232i\211\204bdbh\323L\214\214\010\300\230\0024i\221\211\240`\215\014\214\020\310\304\300\214\000\023\001\021S\020d\000\032\032\014\2154\304\321\220\320h\014\232h4\0320\232\030\021\2102d\310\302dd\304\304\310\323\023\021\240\227\350{\234N*w\177\327\214\224\306\237\033\356\377\245u4\210d%mp`\323\030\263\026IJ\006\232\326\206\037\353\302\357z\251\225\2725\302\231H\240\021\n\365\027\344\210\357\271\226\363|\236s\324\342\371}\036W\232\371<\364\225\314Nzbs\267I\035\010Y\020\330\226\324\007\360m!\221\370\320\221\tw\t\331\327&\222\323\017\"\355K\264\316\360\324o\226\356\254\243\3634\320\007\233\t\335\2542l\340\214D\331g \200;\022\301\220\236s\243\216\221\031R\0363\315B'OI\356\224Bl\304DQ}' f\324\205\374\211\330\305B\301U\210\002\303\304\274\304si\213\036+9m\332\206\235\013%\311\213y\234EUp\221r2#x\"GUZ\373\234\310\020\246\"lD\262\263\335\240fx\222~\346\277\306\257V\"\253mB\335Z\036\036+\371.>\033\n\250\227y\371\212A\212\002\211\337\313\313\221\226KJ\361\220\270\270\267\017\223\320e\347\262Q\364\017\203$\216w\347\271w~RJ\2016K\273t\026 \232\325\341'\200\211\001kH\236\252f\210\022*M't\325\221H\241P92N\250$\211\022\205\240\261\314T\3627\246\334e\244a\327P\014&,\001\2430q/\326\344ib\373;bc\025\022\2618\212\205\004r\017\312\266X\022\212\264\003\2304\266\300\201\020\246\360\274\274Z_\261\351l\227\270xk(\260\251\255-\261\240\272\262\362PG|\211\030\2316\"?P\211T\212|\027s+\304\225\313\231\"\004V\025\251X\026't\237\034\264\204\270W\326RmkR{\032i\306N\312\204\235\222\256A\031Uo""\003\256,\333\217]K\220\221\340\275U\212\317\"^\254\246e\026\257\251 \201\350\n\236\006\210\247\205\211\351E[\355\231\022M\\\227\036\002\n\333\027\263s\r\25066hM2\312\0234Z>P.yH5oL\332\247Nv\306B\212\306\260\273\024\363\262Y\255\223\275n\210\302\314V\203\344\340\320\301\247\241\330\2556\2431^p\334Mr\332\206\344\021I<\364\023\r\366\266Rn\3168Y\225\361\242\r\274\306FL\310\306\205\240\365\226$A\212z\203C5\271I\350\2464\002\271@\350\304\027!6$\3156\020_ko-\262\322\200F\331\215\340\273x\322\262\254\2025\n\226\206irV32\216\210H\313q)\236w\301&}\240\2501\222\226\324\234\031Z\r\325\217m\217>M_\201\211\214\276\257o\021Sc\221p\2249SWC;\3348\356<dP\303E\370H)CS=\2243\330\234i\230\312\3423;\214\226\375\260\035\201\027\203a\246)m7\313\\k\ns\265Sm\351\3179]\244.\270 u\321#\330\200,\254F\023\016U\254I\nQ2\350\034\251\336\235H\214\245\260C:k\2609\0253UPm\201\265D^\027\271r\035\233xn\356\355\313\221\340\321\240,s\200\235\220\304\235\330v\312>Vq\240\005\260\027\231\362\032\264\2045f\340\3423\273\321d\356{@\222b\260d\303\335&\331\231l\370\t\260U\336\345\032]\3455\021\030VS(\252\rv=\321\tp\363R&\244\321\220\276\312W%H\256c\222:\223\327}`\250Q%![\233\255,m=:\264\316\021\270\222\347sI\226\014A%,oA\031\t,\001\240t\3453|tE\340\237och\225a\241\352E\226=\202\321#\006(\204\364X\240\246{\036\335\330`)\262\350\243\034c\221aZ\370:J\026\214\232\234\022H\321J,\242J6y\302\200\027\204qp\305\214\031$\016e\030\000\317\2400k+\244\000\025f\305\2038Hf\324\3417\313\374\013z\315\375\032\241Y\320\026\303\027wX\002q\210t\211\213\362\270L\200\241\000 (\216X\005\200\231\214}\343\000f\020Y;x\034C\260\337\345;\014\207\233&\331\233\247zZZ\240H\360\331|Y\235\2600`\201\325\023\240\001\357\324\325k\002V\324\023p\n\207l\002\251 \343/\016QC\205Kc\274\335\376\216>\335\006\275\030\362w`\020\247\037n\225\2166\t\3655\260\243<{\363\351\323\264\2666\340\247\302\010Z\344\330~\030\266\n\323\\~DmQ\307\027T\256\234\350\214\014\227<!r\276d\n\301\212\242/\273J,\275\250t\256e\276\323\3004\230\330[\277\\\214J\353\326\357\nW\321""\363\032\337\n4\275|\367\241\324\002z\317\025\010P\"c.\001(\341\t\231\225N\034\036yoG\373\036\203Z{\365jf\245W\201\325_V\344\372\243\031\205\322B\0246Om\016MX0\265a]\321\022\350\256z\302{\306\377\342\356H\247\n\022\006\240\002\207\000";
-    PyObject *data = __Pyx_DecompressString(cstring, 1512, 2);
+    const struct { const unsigned int length: 8; } index[] = {{7},{16},{179},{1},{16},{2},{27},{1},{39},{8},{17},{14},{13},{15},{20},{16},{8},{15},{37},{16},{10},{14},{15},{19},{34},{36},{24},{21},{40},{24},{26},{26},{3},{8},{4},{3},{2},{4},{4},{10},{14},{20},{9},{23},{20},{39},{34},{34},{33},{48},{35},{15},{15},{15},{9},{9},{9},{15},{6},{4},{5},{18},{13},{13},{17},{18},{9},{11},{7},{8},{12},{6},{8},{3},{12},{23},{27},{3},{13},{5},{3},{7},{13},{14},{8},{23},{26},{28},{29},{28},{29},{27},{6},{6},{13},{6},{7},{10},{5},{8},{33},{34},{38},{8},{9},{6},{7},{15},{6},{3},{11},{1},{12},{15},{6},{8},{11},{4},{12},{10},{4},{4},{3},{20},{8},{5},{14},{6},{18},{6},{26},{29},{52},{21},{175},{70},{42},{31}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1592 bytes) */
+const char* const cstring = "BZh91AY&SY\215*\206.\000\004\323\177\377\345\357\377Q\357\267\275\306\277\367\377\272\277\377\377\376r\347\357w\312\331\333u@@@@O\340\300\000P\0059\006\317fV30\264\333\200\032\232D\3650\251\372OI1?@\324i\224i\223\324\321\215FM<\240=M\032i\240\032=A\247\251\206\325\014\3054\310\301\032h\332\233P\r\017Dz\215\243Pd\205=&\"{D&h\247\250\323&\236\247\244\036S\324\000h\r\000\000\000\000\000\003\324\000\000\000\000\000\001\246\204\215\001\t\224\304y \000\023&&&\023\010\300\000\000&\000\002i\246\236\246\t\200 \323\t\246LF\001\006\230\2150\203&\004\321\202bi\211\200L&\214\0020\t\211\204\321\240\003F\020`\010d\r4\310di\243C\004\242M&\002jm\002=S\311='\250\000h\365\000\014\200\000\000\000\000\000\000h\000\000\000\000\001\277\321\327\356\371\212\252\372\275d\300$=~_\223S,\240\204 \232&qZ@ \236\305\246g\t\003m\320/\365]=\230\300L\244`\001+0\220\002\034\324^\253N\373\354\317\000\216g#9\346\374\246\362&y\243\247\224\222\270\311\320Le\262\361#\241\013!\266z\020_\265\002#dx\320\221\tu\023\206\3554\226\202x\367.\256S;\323Q\274[\021\305\314\206\215\006\010\007\232\210L\305l\254\316\010\304Vd\204\020\007d\342P\001\007q\341\305\014\003\231b\016\035y\252f\244\254\365\235X\345\350\303+C\021\021D\3149\000-\0357\374\207\330\303B\301U\210\002\301\302\273\302b.\034x\217\274{\373R\020^\013%\311\233l\233uUQ\"\272\227\031\314X|e\226b6;\370SP\345\241\322\2319\224\340cd&\037W(\357%\353\031[\300\360\224|\004\"\223\217\344v\307\003\313)\321\236\030\326\262(\014\020\030\200\t`h\267\004x\366\307\025\353\247 \310X\031\252L\273R\255\016\265\362\256\253E\237E*UYv\210\351\016\031\306\233\"K\002b\036j\003Il)P(F\020\306i#!H\002D\305\031T\245\220\362\304,\014B\211\003)\224E\3248y\346\001\205\2077\365K\207/\346\311H\030J\200\322\231\307*\240`\231\215u\373\222\200\371W\001)\344\363\254\250H\201D\252\"\302\202DCdZ\026Q\006Y\365\000\211\201\242\265\271\240\034\034!f\312\315\246*9E\234LE\212t\022JR\335\233\214\250\243LCh\230A\302a-\230 L\000\215\001u\343P\211\302qD\014\010\037\002b\323\2019U%l\265\320\033'T\302Qz""\334\243\016\354\266D'\212%\307\264\326\021\036\226P+k\2708\240\270\273X\373\n\006P\333\251Q2\2141\367\304_\310@\214V\"*\341\035\345\3529O \233nU\205\241}i\213\000 \017\230\272\263\2105\300\226Tj\031\202\006\241,\204-\360\002\225f\003\013$.aB[\364\262\034\274\301'\024\255\210_\2417(eY\224\207\256\031`\006R\320\320@\261\233\273\201R\364\250@\365`\276T\215l:&\035Q\361\332\324\007C+Na\326#\006\00432\222\215-DT&E@R\222\2139\322[\245\032]\016\331\t\321#\204vw\2338)\032\243Ec\tP\215EIU\021\324\024$\2111\017\004I\004#\246\206h\005\372\255P\027\312\032F(\317q/\020\273\321\230[\257\005\305\310/ \006\021X\034\nT\232\001\221\257\000\215\016\013]w:&\314\000\244D\033BU\317\211\024\324\"\302\243\230[\tOOr\357\024\276aP%\324E&\221\025i\n\025B\262iL.\031\020$\225\331`$(\221\205\342\021h*\020@[\023;\340*\242\023JV\025\000\"\244\t]\226\274\226dr\361\022\021\353\264}\324\305\231v\020DAF\300\375\031\311Y\254\001\301d\"\t\212+Z\024\200\221k\314\332\344\253Q\225\024\006\333y\370j%tA\203_\001\367\302\320\026(6@\221\204j1\022\331r\345\247-\340\320\303\004,0\025\210\242\n\2508\223\014\231\030#@[\300\220\255H\275\262\rH\013\341\202\213YYB\027cd@8\250@\010\250\025\251t\304\260\242\032b\221\255V\245\0228\027\231\235\311wz\352/\201H\021\256\365s\203YO\030\0362B\037k/\327X\2076\026\032\363\2359\264\243j\300G\211\220>\204cn\030\330A\205\354]\347r1\304\234\366!\222\265\301T\020\016^\322\312\035\272\2707\004\206\320\t(R\242h\255\271\036\310\005p*\302\025\243\231\300\272\323\021E\013@7XD\t\034\250\222r\343\316\317\205h/\325\352Y\370\212%\3528\022dC\252\243\210\332\023[\270K\022*\223\240R\037\243D\314J`\013\373\212X\261%\032\331\324\n3# \311V3M\3622o\000 \225\321\2320P\2302jn\233[p\026\3247\324j\207s\205\221\033G\316\007T\214U\0266\342\246p.\220H\332\331\331\001\2038E\244@85f\347\350\016\371W\377\244W\006\203\332F\244\347\256\360\264\375\300[b\331Qj}\001%\370\035A=\360\036\317n\254\013\351\037\027\346\333\025\016\330\005R9\304\316\225\371B\203K_\274\337\037>^fl\t\362\357\266_\020\247w\362\327\336""\365\244\037SVM\303\333\017\236\005;X\246\374\n{\240\204LJ\375\206b\205i\256?\"\343Pp\304mx\314g\013\331ln\205\312\361\240+\006j\210zY\360\345R\205G\203*\307B\364\327\327\022v~\275\314\027wM\361J\377\351b\316\246\236\267\3037\233`\036>+\006\255\320\207A\030\315(\t\322\210L\315*p\241\347\226\325\337\330\376\210\032\037\352\265&%Wm\345Z\033\023\252\2146WI\010tn\357e\014\032\260ej\301\337<J\367\256z\302s\326\377\342\356H\247\n\022\021\245P\305\300";
+    PyObject *data = __Pyx_DecompressString(cstring, 1592, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1325 bytes) */
-const char* const cstring = "x\332\205U\335k\024W\0247\260\330\210\361#\306\212\370\320Nhb\250$\273\304\204\352CE\2661\261\n5\037+-U\302\345\356\314\331\335ifgf\357\275\023\263RA\205\322\010\215\231\322*S\261u\240\204.\026ti\261l\203\224<\346q\036\3671PwS\237\332?\241\347\356\316n\262\272*\314\314=\347\236\357\337\275\347L\345\376j\365\207\307\312\005K\200\"2T(cy\221\261LE\347\212\006\206\236\004F\005\030y\205\013\246\253\002\230T2\225\251\361\251\241\321\223\243\n55\205\301\027\240\n\256p'\251\032\224s\340\212\225R\222\216n\010\335TD\336\006\036U\316\245\224\274\345(&\200\246\010K\261Qo\273\201\310\200\251p\020\222P\006\250iZ\202\n\3352\t\232\353fz@\321t\206A\364y\220\326\023\324\340\020=\255l>]\255\024\277\255,\337\254\336)\376\373\364\336\240R\275\377p\363\301Je\351n\345\321\037\233\277\375\265y\343I\245V\036\n\243\225\245;\317J\017\267\313\252\267W*\313?\3275*\217\356=\373\363\326\337\327oRM#\030\035T+k\203\320\205\305\206\014\313\232sl\r\313\277\214(\014*q3?;\007\371+\026\323\206\262\272\t\254\3010\230\007\306\0215..\267\252\317\236\316RT\023\247\352\013jr\240L\315X6W\r=\2066\0060\302m\246\013\210Q\033wT0)\323-\036\265\3636\2634G\3352B\257\312\227xb&\010FS)]\035\342\226\303T\020\216m@=f4\032\235\215\315\037\217\275\020.6?R\363\036\026g\246\303\332\032\373-U\265\337\314\350\351L,\305 \347\200\251\346\207L\270\322\320{1\315\306>\003\243v\226\261:<\030\365%\211\240\261z\t\210\325\0305\014\2324`br\346\223\263\343\027\317O\311B\247&\023\027\247h\336\260\250\366\021^,\r\301\"S\371\005|\317 \316\344\002,\210\031H%\306\306/\304g\316M&\0225<\02358\307,3\245\247\307\031\263\330\366\355D\010p\273\275(\231\247\206\256\341\305'\262P\274zZ[5y\3075b\327\363z\215\006\203\0240h\033>\n\246f[\272)H\252}~Q\t8i\002N\336\250/,b;ICW\211\274\202\225\257~\177\376\375\243\177\036/U\277\271[\275\3555\331\312\362R\365\301\212|\236\334x\376\365r\365\307\225\352\252\373\374\372\255J\351&6\004\022\233\277\376T\371\356\006\022\317V\177A\202\220\255\246\344\310p\351\234\342a\312\227S\2367U\214\255Z\314r\360^\001o\201\246""\005\005BjMO\322\262\273 +Y4 :\366:\243*$\251:\207\310\323\232R\223\000\214\251Y*i\226\277\035\206\024\263\256\202IH\3121Q\003\375\342C\032\r\364\n\370^\203\252\\tN\232\265\310,96A\330\007\3412\311\342X\271l\365f(\3141K\261\016\374\316\001\331\032 \r\030j\333\2419\251uS[I8EZd\365>&\215\326j\221\205}\327^\030N\010Ro\257-\221t\227\005\226\006\r\323\205\020\345\032\231\261\264\254\316e\233\"\213\236\r\220+\"F\210I\263\310\324gV\264efE\261\235\243\241s\376J\205&Pm54K\242\027\205\005\025\354\3325\263i\032\022\372U\220+\3415\202\321,\017\303\204\013I\326\347\201\r\350\030\017\321&\010\210\324\304Ls\3708\324\250\247\335\350dR\367\302p\\2\263\231Q\270\022]\303\244R\204\340\277(,\027)\rR\3241\004\307,e\0328a\tAR\340W\027\006\264v\\\375\217\365\362\004\301\r\007x\260\343\260\327\261\021\331\2758\274\370\261;\351\217\370Za\260\250\227\256\254\321 2\022\214L\254\321\215\316\335\213\243\213\302\035.w\365\340\247s\237\244\203H_\320w\242\230\253\013\257yc^N\212\217\273\323\256\026\034\031,\304\013\237\025\317\224:JG\326F\326h\323\246?\350?Y\352\330@\366\232\027\367>\307X\275Ad \0308U\232\r\316_\n.%\203\244\272\321\331\355v\227\367\356+w\035t\343\345\256Cn\312;\343w\370G\n#\005*Y\374\274\355~\352\215z9\177W\241\247\020\227z\023^\237G\275\005\237\027z\313]\207\275\235\236\346\367\372\037\026x\021\331=\345\375\207\\\315\353\365\206\313\373{\334\017\274\203\336\264G\337H\376\267s\307\256=A\327\273\030\245\243\226~\320\363\236?\354\307\203\310\261\340\330\251\322t\271\363\200\333\353\216\272\302;\341\367\005GO\024y\251\257\224^\273\270\336\275\336[FL\020\254\003\301\201\367\013\335\205\376B\256\030\tF\317\256\345\326#\353\343\301\364L0\223\010v\274\343e|\272\021\331\267\230\367\"\010\305t9\362\326u\201V\235{\203\275\375\376\264o`\352\362P\202\210\342#`\007\334\243^\207\327\335\000\362\340\200\237\223t\356\177\363\236\325\270";
-    PyObject *data = __Pyx_DecompressString(cstring, 1325, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1398 bytes) */
+const char* const cstring = "x\332\205U\377k\024G\0247p\330\210\361K\022+\342\017\355\206&\206JrGL\250\376P\221kL\254\322\346\333\245-*a\230\333\235\315m\263\267\26373\227\344l\005\025J#4fK\253l\305\326\205\022zX\320\243\305r\rR\362c~\334\037\357\307@\275K\375\251\375\023\372\346v\357\222\323Saw\347\315\274\367\346\275\367\231\371\274-\337[\253\374\360H\371\310\340\302\260f\225\270\205\315\0347\370\030\025D\021),\224\341\234HQK1\270\242\021\323H\022\206\0051s\n\027\314P\005a\322\310R&F&\372\207N\r)\330\322\024F>'\252\340\n\317&U\023sN\270Bu%\2315L\210\240\210\234MxT9\257+9\232U,B4EP\305\006\273\235\016\"E,\205\023!\005\245\027[\026\025X\030\324B\340\016i\366*\232\301 \2101O\244\367(69\211\236Q\266\236\254\225\013\337\226WnTn\027\376}r\267O\251\334{\260u\177\265\274|\247\374\360\217\255\337\376\332\272\376\270\\-\027\224\321\362\362\355\247\305\007;u\225[\253\345\225\237\003\213\362\303\273O\377\274\371\367\265\033X\323\020D'*M\333D\030\202\262~\223\322\271\254\255A\371\227\001\205>\300,73Gr\013\224i\375i\303\"\2546ad\2360\016\250qq\271\321|\306\014\360\356\307!\336g\322\030\334\304\351`\000ON0SS\324\346\252i\304`\017\2230\304mf\010\022\3036\254\250\304\302\314\240<j\347lF\265\254\272\355\004Q\224/\2251j\021\301\260\256\033j?\247Y\246\022\221\265M\022\344\020\215Fgb\363'b\317\205\213\315\017Vw\307F=\261\230\300|.\366\205\374\"C\273\272\303\002J\234\323M\272\020{\276\226\232M\010\031h\002\304j\353\rX5_L\031\263\251\230\316H&K,5\327o\221\205\232\335\363\305\326\326\0311\2537$\026\200\016Q_\320\010\034\013\200\200\023\030\306\246\211\223&\031\035\237\372\370\334\310\364\205\t\t\327\304xbZ\276h\362\223\221\251\213\0238gR\254}\000\027W\003\360\321Dn\021\336\263p\216h\214,\212)\242'\206G\306\342S\347\307\023\211\352\371$\252\3073L-\335\230\035a\214\262\235\313\211\360\300\232\255E\321<6\r\r\210\205d\311p\265\265\246f\222C\032\262\203\274^a\301\210N\030i\032>J,\315\246\206%\220\336<\277\250\204\036\325\241G\257\265\027\024\331\331\244i\250H^\361\362W\277?\373\376\341?\217\226+\337\334\251\334r\353\323""\362\312r\345\376\252|\036_\177\366\365J\345\307\325\312\232\363\354\332\315r\361\006\020\016\204\255_\177*\177w\035\204\247k\277\200\200\3206\3519L\270\334\034\303\261\312\227c\236\263T\210\255RF\263p\303\010o\200\246\001\005\204\252M\005\315J\366\222\264\234\202\0032\240\2270\254\222$V\347\000y\\5\252\013\004bjTE\365\362w\302\2403z\205X\010\351Y\013,`_xP\215\220/\201\357\025\250\312\301\340\250^\213\314\222\003\035BF\204\3038\213C\345\222j\365P\220c\032C\035\360\235#h\273A\325`\250.\207\356\250\312\253\246\232\260K5\350BJ\243\032\245\033\224A\323@5\0066\350Bz6W\206\355\010\005,\334V\311\355\322\204\315\022\rj!\341\021T\305\024\325\322\006\227l\206)\354l\0229\002\234\010Y8\r\223\240AF\033\032d\024X\037\r7\347/5\250\243\330\324B\243\022\332(YT\211]\275\2036\236%\t\343\n\221#\342U\201\3414\017\303\204\003J\006\315\302&\2601\234\260\215\000\020i\t\231f\340\311b3H\273Fs\024\354\302\24073\253\236Q8B\277\205\244t\204\340G\030\226\013\222Ft\2345\005\207,e\032\320\316\253\275\031\000\207\325\355\213\205@-\277\2060I#E\203_\350\213-\007\026\262\204\373\273\216\270-\233\221\275K\003K\037:\343\336\240\247\345\373\nFqa\035\373\221A\177pt\035o\266\356]\032Z\022\316@\251\255\023>\255\007\244\354G\272\375\356\223\205L\240\274\352\016\273\031\251>\341L:\232\177\264/\037\317\177V8[l)\036]\037\\\307u\237\036\277\347T\261e\023\246W\335\270{\021bu\371\221^\277\367tq\306\277p\311\277\224\364\223\352fk\273\323^\332\177\240\324v\310\211\227\332\016;\272{\326k\361\216\346\007\363XN\341\363\246\363\251;\344f\274=\371\316|\\\332\215\272\335.v\027=\236\357*\265\035qw\273\232\327\345\275\237\347\005\230\356+\035<\354hn\227;P:\330\351\274\347\036r']\374Z\361\277\335\273\366\354\363\333\336\206(-\325\364\375\316w\274\001/\356G\216\373\307O\027'K\255\035N\2273\344\010\367\244\327\355\037;Y\340\305\356\342\354\372\364F\373FW\t0\001\260:\374\216w\363\355\371\236|\246\020\361\207\316\255g6\"\033#\376\344\224?\225\360w\275\345\246<\274\0319\260\224s#\000\305d)\362\3065\001^\255\373\375\375=\336\244gB""\352\362P\374\210\342\001`\035\3161\267\305m\257\001y\250\327\313H9\363?\2045\024\216";
+    PyObject *data = __Pyx_DecompressString(cstring, 1398, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (2349 bytes) */
-const char* const bytes = "\345\234\272\346\231\257 Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.? \347\274\272\345\260\221\345\217\202\346\225\260\357\274\232, \346\234\252\347\237\245\345\215\226\345\256\266\347\262\276\347\201\265\345\234\272\346\231\257\357\274\232.\345\215\225\344\270\252\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\345\234\272\346\231\257\345\256\232\344\271\211\343\200\202add_notecompetitor-lookupdict[str, Any]keyword-minerkeyword-reverselist[dict[str, Any]]?market=market-researchopscli/seller_sprite/api/scenarios.pyproduct-researchstr | Nonetraffic-sourcetuple[str, ...]/v2/market-research/v3/api/competing-lookup/v3/api/keyword-miner/v3/api/keyword-miner/high/frequency-new/v3/api/product-research/v3/api/relation/reversing/v3/api/relation/ta/sourceAnyCallableFORMGETJPNonePOSTPayloadBuilder__Pyx_PyDict_NextRefSCENARIOSSellerSpriteConfigErrorSellerSpriteScenarioSellerSpriteScenario._validate_requiredSellerSpriteScenario.build_payloadSellerSpriteScenario.build_refererSellerSpriteScenario.endpoint_forSellerSpriteScenario.high_frequency_endpoint_forSellerSpriteScenario.to_public_dict\345\205\263\351\224\256\350\257\215\346\214\226\346\216\230\345\205\263\351\224\256\350\257\215\345\217\215\346\237\245\346\237\245\346\265\201\351\207\217\346\235\245\346\272\220\351\200\211\345\270\202\345\234\272\351\200\211\347\253\236\345\223\201\351\200\211\344\272\247\345\223\201__annotations__asdictasinasinsasyncio.coroutinesbuild_payloadbuild_referer__class_getitem__cline_in_tracebackdataclassdataclasses__doc__endpointendpoint_forfrozen__func__getget_scenariohigh_frequency_endpointhigh_frequency_endpoint_forint_is_coroutineitemskeykeywordkeywordOrAsinlist_scenarios__main__make_competitor_payloadmake_keyword_miner_payloadmake_keyword_reverse_payloadmake_market_research_payloadmake_product_research_payloadmake_traffic_source_paylo""admarketmerged__metaclass__methodmissing__module__month__name__opscli.seller_sprite.api.payloadsopscli.seller_sprite.api.scenariosopscli.seller_sprite.domain.exceptionspageSizepage_sizeparamspayloadpayload_builderperiodpop__prepare__q__qualname__required_paramsreturnscenarioscenario_idself__set_name__setdefaultsitesizestr__test__titleto_public_dicttyping_validate_requiredvalues\320\000\030\230\001\340\004\013\2101\210H\220O\2403\240d\250,\260i\270w\300a\320\0043\3203F\300a\340\010\013\2104\210t\2201\330\014\023\2201\330\010\017\210t\2201\320\004$\320$7\260q\340\010\013\2104\210}\230C\230q\330\014\023\2202\220Q\220d\320\032,\250A\250W\260D\270\001\270\032\3003\300a\330\010\017\210t\2201\320\004%\320%8\270\001\340\010\017\210}\230A\230Y\240d\250!\320\004'\320'=\270]\320JZ\320Zb\320bc\340\010\021\220\021\330\016\017\330\014\024\220A\330\014\026\220f\230D\240\001\240\032\2503\250a\330\014\026\220a\330\014\025\220V\2304\230q\240\t\250\023\250A\330\014\024\220F\230$\230a\230x\240s\250!\330\014\030\230\006\230d\240!\240<\250s\260!\330\014\r\330\020\026\220d\230!\2301\330\020\023\2206\230\024\230Q\230a\330\020\023\2206\230\024\230Q\230a\330\020\023\2206\230\024\230Q\230a\330\020\023\2206\230\024\230Q\230a\360\006\000\t\r\320\014\037\230q\240\001\330\010\017\210t\320\023#\2401\240A\320\004*\320*=\270Q\330\010\022\220!\2204\220t\2307\240$\320&7\260s\270$\270g\300T\310\021\310!\330\010\013\2101\330\014\022\320\022)\250\021\250%\250q\260\004\3204G\300q\310\004\310E\320QR\320RS\320\000\036\230h\240a\340\004\017\210y\230\004\230A\230Q\330\004\007\200t\2101\330\010\016\320\016%\240Q\240l\260!\330\004\013\2101\320\004 \240\001\340\010\022\220&\230\001\230\021\330\010\017\210t\2201\320\024'\240q\330\010\017\210q";
+    #else /* compression: none (2510 bytes) */
+const char* const bytes = "\345\234\272\346\231\257 Listing AnalysisNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.? \347\274\272\345\260\221\345\217\202\346\225\260\357\274\232, \346\234\252\347\237\245\345\215\226\345\256\266\347\262\276\347\201\265\345\234\272\346\231\257\357\274\232.\345\215\225\344\270\252\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\345\234\272\346\231\257\345\256\232\344\271\211\343\200\202add_notecompetitor-lookupdict[str, Any]keyword-minerkeyword-reverselist[dict[str, Any]]listing-analysis?market=market-researchopscli/seller_sprite/api/scenarios.pyproduct-researchstr | Nonetraffic-sourcetuple[str, ...]/v2/market-research/v3/api/ai-analysis/task/{task_id}/v3/api/ai-workflow/listing-analysis/v3/api/competing-lookup/v3/api/keyword-miner/v3/api/keyword-miner/high/frequency-new/v3/api/product-research/v3/api/relation/reversing/v3/api/relation/ta/sourceAnyCallableFORMGETJPNonePOSTPOST_QUERYPayloadBuilder__Pyx_PyDict_NextRefSCENARIOSSellerSpriteConfigErrorSellerSpriteScenarioSellerSpriteScenario._validate_requiredSellerSpriteScenario.build_payloadSellerSpriteScenario.build_refererSellerSpriteScenario.endpoint_forSellerSpriteScenario.high_frequency_endpoint_forSellerSpriteScenario.to_public_dict\345\205\263\351\224\256\350\257\215\346\214\226\346\216\230\345\205\263\351\224\256\350\257\215\345\217\215\346\237\245\346\237\245\346\265\201\351\207\217\346\235\245\346\272\220\351\200\211\345\270\202\345\234\272\351\200\211\347\253\236\345\223\201\351\200\211\344\272\247\345\223\201__annotations__asdictasinasinsasyncio.coroutinesbuild_payloadbuild_referer__class_getitem__cline_in_tracebackdataclassdataclasses__doc__endpointendpoint_forfrozen__func__getget_scenariohigh_frequency_endpointhigh_frequency_endpoint_forint_is_coroutineitemskeykeywordkeywordOrAsinlist_scenarios__main__make_competitor_payloadmake_keyword_miner_paylo""admake_keyword_reverse_payloadmake_listing_analysis_payloadmake_market_research_payloadmake_product_research_payloadmake_traffic_source_payloadmarketmerged__metaclass__methodmissing__module__month__name__opscli.seller_sprite.api.payloadsopscli.seller_sprite.api.scenariosopscli.seller_sprite.domain.exceptionspageSizepage_sizeparamspayloadpayload_builderperiodpop__prepare__q__qualname__required_paramsreturnscenarioscenario_idself__set_name__setdefaultsitesizestrtask_result_endpoint__test__titleto_public_dicttyping_validate_requiredvalues\320\000\030\230\001\340\004\013\2101\210H\220O\2403\240d\250,\260i\270w\300a\320\0043\3203F\300a\340\010\013\2104\210t\2201\330\014\023\2201\330\010\017\210t\2201\320\004$\320$7\260q\340\010\013\2104\210}\230C\230q\330\014\023\2202\220Q\220d\320\032,\250A\250W\260D\270\001\270\032\3003\300a\330\010\017\210t\2201\320\004%\320%8\270\001\340\010\017\210}\230A\230Y\240d\250!\320\004'\320'=\270]\320JZ\320Zb\320bc\340\010\021\220\021\330\016\017\330\014\024\220A\330\014\026\220f\230D\240\001\240\032\2503\250a\330\014\026\220a\330\014\025\220V\2304\230q\240\t\250\023\250A\330\014\024\220F\230$\230a\230x\240s\250!\330\014\030\230\006\230d\240!\240<\250s\260!\330\014\r\330\020\026\220d\230!\2301\330\020\023\2206\230\024\230Q\230a\330\020\023\2206\230\024\230Q\230a\330\020\023\2206\230\024\230Q\230a\330\020\023\2206\230\024\230Q\230a\360\006\000\t\r\320\014\037\230q\240\001\330\010\017\210t\320\023#\2401\240A\320\004*\320*=\270Q\330\010\022\220!\2204\220t\2307\240$\320&7\260s\270$\270g\300T\310\021\310!\330\010\013\2101\330\014\022\320\022)\250\021\250%\250q\260\004\3204G\300q\310\004\310E\320QR\320RS\320\000\036\230h\240a\340\004\017\210y\230\004\230A\230Q\330\004\007\200t\2101\330\010\016\320\016%\240Q\240l\260!\330\004\013\2101\320\004 \240\001\340\010\022\220&\230\001\230\021\330\010\017\210t\2201\320\024'\240q\330\010\017\210q";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 123; i++) {
+    for (int i = 0; i < 130; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 28) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 32) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -5770,7 +5830,7 @@ const char* const bytes = "\345\234\272\346\231\257 Note that Cython is delibera
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 123; i < 131; i++) {
+    for (int i = 130; i < 138; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -5781,14 +5841,14 @@ const char* const bytes = "\345\234\272\346\231\257 Note that Cython is delibera
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 131; i++) {
+    for (Py_ssize_t i = 0; i < 138; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 123;
+      PyObject **table = stringtab + 130;
       for (Py_ssize_t i=0; i<8; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -5834,42 +5894,42 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 35};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 37};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_payload};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_to_public_dict, __pyx_mstate->__pyx_kp_b_iso88591_t1_q_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 4, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 41};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 4, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 43};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_params, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_period, __pyx_mstate->__pyx_n_u_page_size, __pyx_mstate->__pyx_n_u_merged};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_build_payload, __pyx_mstate->__pyx_kp_b_iso88591_JZZbbc_A_fD_3a_a_V4q_A_F_axs_d, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 62};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 64};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_payload};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_build_referer, __pyx_mstate->__pyx_kp_b_iso88591_8_AYd, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 66};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 68};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_payload};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_endpoint_for, __pyx_mstate->__pyx_kp_b_iso88591_7q_4_Cq_2Qd_AWD_3a_t1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 72};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 74};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_payload};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_high_frequency_endpoint_for, __pyx_mstate->__pyx_kp_b_iso88591_33Fa_4t1_1_t1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 78};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 80};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_missing, __pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_validate_required, __pyx_mstate->__pyx_kp_b_iso88591_Q_4t7_7s_gT_1_q_4Gq_EQRRS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 133};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 144};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_scenario};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_list_scenarios, __pyx_mstate->__pyx_kp_b_iso88591_1HO3d_iwa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 138};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 149};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_scenario_id, __pyx_mstate->__pyx_n_u_scenario};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_scenari_2, __pyx_mstate->__pyx_n_u_get_scenario, __pyx_mstate->__pyx_kp_b_iso88591_ha_y_AQ_t1_Ql_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }

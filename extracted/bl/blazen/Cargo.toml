@@ -18,7 +18,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.6.72"
+version = "0.6.74"
 edition = "2024"
 license = "MPL-2.0"
 authors = ["Zach Handley <zachhandley@gmail.com>"]
@@ -98,45 +98,45 @@ redb = "4"
 redis = { version = "1", features = ["aio", "tokio-comp", "connection-manager"] }
 
 # Internal crates
-blazen-events = { version = "0.6.72", path = "crates/blazen-events" }
-blazen-macros = { version = "0.6.72", path = "crates/blazen-macros" }
-blazen-core = { version = "0.6.72", path = "crates/blazen-core" }
-blazen-llm = { version = "0.6.72", path = "crates/blazen-llm" }
-blazen-memory = { version = "0.6.72", path = "crates/blazen-memory" }
-blazen-memory-valkey = { version = "0.6.72", path = "crates/blazen-memory-valkey" }
-blazen-persist = { version = "0.6.72", path = "crates/blazen-persist" }
-blazen-pipeline = { version = "0.6.72", path = "crates/blazen-pipeline" }
-blazen-prompts = { version = "0.6.72", path = "crates/blazen-prompts" }
-blazen-telemetry = { version = "0.6.72", path = "crates/blazen-telemetry" }
-blazen-model-cache = { version = "0.6.72", path = "crates/blazen-model-cache" }
-blazen-local-llm = { version = "0.6.72", path = "crates/blazen-local-llm" }
-blazen-embed = { version = "0.6.72", path = "crates/blazen-embed" }
-blazen-embed-fastembed = { version = "0.6.72", path = "crates/blazen-embed-fastembed" }
-blazen-embed-tract = { version = "0.6.72", path = "crates/blazen-embed-tract" }
-blazen-llm-mistralrs = { version = "0.6.72", path = "crates/blazen-llm-mistralrs" }
-blazen-audio = { version = "0.6.72", path = "crates/blazen-audio" }
-blazen-embed-candle = { version = "0.6.72", path = "crates/blazen-embed-candle" }
-blazen-image-diffusion = { version = "0.6.72", path = "crates/blazen-image-diffusion" }
-blazen-llm-candle = { version = "0.6.72", path = "crates/blazen-llm-candle" }
-blazen-llm-llamacpp = { version = "0.6.72", path = "crates/blazen-llm-llamacpp" }
-blazen-llm-vllm = { version = "0.6.72", path = "crates/blazen-llm-vllm" }
-blazen-llm-ollama = { version = "0.6.72", path = "crates/blazen-llm-ollama" }
-blazen-llm-llamacpp-server = { version = "0.6.72", path = "crates/blazen-llm-llamacpp-server" }
-blazen-llm-tgi = { version = "0.6.72", path = "crates/blazen-llm-tgi" }
-blazen-llm-lmstudio = { version = "0.6.72", path = "crates/blazen-llm-lmstudio" }
-blazen-audio-tts = { version = "0.6.72", path = "crates/blazen-audio-tts" }
-blazen-audio-piper-vendored = { version = "0.6.72", path = "crates/blazen-audio-piper-vendored" }
-blazen-audio-dac-vendored = { version = "0.6.72", path = "crates/blazen-audio-dac-vendored" }
-blazen-audio-stt = { version = "0.6.72", path = "crates/blazen-audio-stt" }
-blazen-audio-music = { version = "0.6.72", path = "crates/blazen-audio-music" }
-blazen-audio-codec = { version = "0.6.72", path = "crates/blazen-audio-codec" }
-blazen-audio-core = { version = "0.6.72", path = "crates/blazen-audio-core" }
-blazen-audio-vc = { version = "0.6.72", path = "crates/blazen-audio-vc" }
-blazen-peer = { version = "0.6.72", path = "crates/blazen-peer" }
-blazen-controlplane = { version = "0.6.72", path = "crates/blazen-controlplane", default-features = false }
-blazen-manager = { version = "0.6.72", path = "crates/blazen-manager" }
-blazen-train = { version = "0.6.72", path = "crates/blazen-train" }
-blazen-resource-probe = { version = "0.6.72", path = "crates/blazen-resource-probe" }
+blazen-events = { version = "0.6.74", path = "crates/blazen-events" }
+blazen-macros = { version = "0.6.74", path = "crates/blazen-macros" }
+blazen-core = { version = "0.6.74", path = "crates/blazen-core" }
+blazen-llm = { version = "0.6.74", path = "crates/blazen-llm" }
+blazen-memory = { version = "0.6.74", path = "crates/blazen-memory" }
+blazen-memory-valkey = { version = "0.6.74", path = "crates/blazen-memory-valkey" }
+blazen-persist = { version = "0.6.74", path = "crates/blazen-persist" }
+blazen-pipeline = { version = "0.6.74", path = "crates/blazen-pipeline" }
+blazen-prompts = { version = "0.6.74", path = "crates/blazen-prompts" }
+blazen-telemetry = { version = "0.6.74", path = "crates/blazen-telemetry" }
+blazen-model-cache = { version = "0.6.74", path = "crates/blazen-model-cache" }
+blazen-local-llm = { version = "0.6.74", path = "crates/blazen-local-llm" }
+blazen-embed = { version = "0.6.74", path = "crates/blazen-embed" }
+blazen-embed-fastembed = { version = "0.6.74", path = "crates/blazen-embed-fastembed" }
+blazen-embed-tract = { version = "0.6.74", path = "crates/blazen-embed-tract" }
+blazen-llm-mistralrs = { version = "0.6.74", path = "crates/blazen-llm-mistralrs" }
+blazen-audio = { version = "0.6.74", path = "crates/blazen-audio" }
+blazen-embed-candle = { version = "0.6.74", path = "crates/blazen-embed-candle" }
+blazen-image-diffusion = { version = "0.6.74", path = "crates/blazen-image-diffusion" }
+blazen-llm-candle = { version = "0.6.74", path = "crates/blazen-llm-candle" }
+blazen-llm-llamacpp = { version = "0.6.74", path = "crates/blazen-llm-llamacpp" }
+blazen-llm-vllm = { version = "0.6.74", path = "crates/blazen-llm-vllm" }
+blazen-llm-ollama = { version = "0.6.74", path = "crates/blazen-llm-ollama" }
+blazen-llm-llamacpp-server = { version = "0.6.74", path = "crates/blazen-llm-llamacpp-server" }
+blazen-llm-tgi = { version = "0.6.74", path = "crates/blazen-llm-tgi" }
+blazen-llm-lmstudio = { version = "0.6.74", path = "crates/blazen-llm-lmstudio" }
+blazen-audio-tts = { version = "0.6.74", path = "crates/blazen-audio-tts" }
+blazen-audio-piper-vendored = { version = "0.6.74", path = "crates/blazen-audio-piper-vendored" }
+blazen-audio-dac-vendored = { version = "0.6.74", path = "crates/blazen-audio-dac-vendored" }
+blazen-audio-stt = { version = "0.6.74", path = "crates/blazen-audio-stt" }
+blazen-audio-music = { version = "0.6.74", path = "crates/blazen-audio-music" }
+blazen-audio-codec = { version = "0.6.74", path = "crates/blazen-audio-codec" }
+blazen-audio-core = { version = "0.6.74", path = "crates/blazen-audio-core" }
+blazen-audio-vc = { version = "0.6.74", path = "crates/blazen-audio-vc" }
+blazen-peer = { version = "0.6.74", path = "crates/blazen-peer" }
+blazen-controlplane = { version = "0.6.74", path = "crates/blazen-controlplane", default-features = false }
+blazen-manager = { version = "0.6.74", path = "crates/blazen-manager" }
+blazen-train = { version = "0.6.74", path = "crates/blazen-train" }
+blazen-resource-probe = { version = "0.6.74", path = "crates/blazen-resource-probe" }
 
 # Distributed peer transport
 tonic = "0.14"
@@ -182,6 +182,14 @@ dirs = "6"
 # Pure-Rust ONNX inference (for musl and other targets ORT doesn't ship)
 tract-onnx = "0.22"
 ndarray = "0.17"
+# wasm-bindgen family — caret FLOORS, never `=` exact pins. Exact pins in
+# published crates block every consumer from unifying the tightly-coupled
+# 0.2.x/0.3.x family (cargo must pick ONE version) and caused recurring
+# downstream resolution failures. Bump here, then `cargo update -p` the four.
+wasm-bindgen = "0.2.125"
+wasm-bindgen-futures = "0.4.75"
+js-sys = "0.3.102"
+web-sys = "0.3.102"
 
 # Testing
 tempfile = "3"

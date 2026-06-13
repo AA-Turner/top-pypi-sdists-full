@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.account._client import (
+    from smplkit.account.clients import (
         AsyncSettingsClient,
         SettingsClient,
     )

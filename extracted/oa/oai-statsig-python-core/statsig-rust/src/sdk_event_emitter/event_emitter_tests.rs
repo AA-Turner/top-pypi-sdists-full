@@ -6,8 +6,9 @@ use crate::{
 };
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc,
+    mpsc, Arc,
 };
+use std::time::Duration;
 
 fn sub(
     event_emitter: &mut SdkEventEmitter,
@@ -195,4 +196,76 @@ fn test_dead_internal_listeners_are_pruned() {
 
     emit(&mut event_emitter, SdkEvent::GATE_EVALUATED);
     assert_eq!(counter.load(Ordering::SeqCst), 2);
+}
+
+#[test]
+fn test_public_listener_can_unsubscribe_during_callback() {
+    let event_emitter = Arc::new(SdkEventEmitter::default());
+    let callback_emitter = event_emitter.clone();
+
+    event_emitter.subscribe(SdkEvent::GATE_EVALUATED, move |_| {
+        callback_emitter.unsubscribe(SdkEvent::GATE_EVALUATED);
+    });
+
+    let (completed_tx, completed_rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        emit_gate(&event_emitter);
+        completed_tx.send(()).unwrap();
+    });
+
+    assert!(
+        completed_rx
+            .recv_timeout(Duration::from_millis(500))
+            .is_ok(),
+        "event callback deadlocked while unsubscribing from its own event"
+    );
+}
+
+#[test]
+fn test_internal_listener_can_subscribe_during_callback_with_snapshot_semantics() {
+    let event_emitter = Arc::new(SdkEventEmitter::default());
+    let callback_emitter = event_emitter.clone();
+    let first_counter = Arc::new(AtomicUsize::new(0));
+    let first_counter_clone = first_counter.clone();
+    let second_counter = Arc::new(AtomicUsize::new(0));
+    let second_counter_clone = second_counter.clone();
+
+    event_emitter.subscribe_internal(SdkEvent::GATE_EVALUATED, move |_| {
+        first_counter_clone.fetch_add(1, Ordering::SeqCst);
+        let second_counter = second_counter_clone.clone();
+        callback_emitter.subscribe_internal(SdkEvent::GATE_EVALUATED, move |_| {
+            second_counter.fetch_add(1, Ordering::SeqCst);
+            true
+        });
+        true
+    });
+
+    let (completed_tx, completed_rx) = mpsc::channel();
+    let emitter = event_emitter.clone();
+    std::thread::spawn(move || {
+        emit_gate(&emitter);
+        completed_tx.send(()).unwrap();
+    });
+
+    assert!(
+        completed_rx
+            .recv_timeout(Duration::from_millis(500))
+            .is_ok(),
+        "internal event callback deadlocked while subscribing to its own event"
+    );
+    assert_eq!(first_counter.load(Ordering::SeqCst), 1);
+    assert_eq!(second_counter.load(Ordering::SeqCst), 0);
+
+    emit_gate(&event_emitter);
+    assert_eq!(first_counter.load(Ordering::SeqCst), 2);
+    assert_eq!(second_counter.load(Ordering::SeqCst), 1);
+}
+
+fn emit_gate(event_emitter: &SdkEventEmitter) {
+    event_emitter.emit(SdkEvent::GateEvaluated {
+        gate_name: "test_gate",
+        rule_id: "test_rule_id",
+        value: true,
+        reason: "test_reason",
+    });
 }

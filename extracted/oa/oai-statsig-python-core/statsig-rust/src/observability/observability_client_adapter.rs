@@ -2,11 +2,12 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
-use crate::observability::ops_stats::OpsStatsEventObserver;
+use crate::{observability::ops_stats::OpsStatsEventObserver, statsig_metadata::StatsigMetadata};
 
 use super::ops_stats::OpsStatsEvent;
 
 static HIGH_CARDINALITY_TAGS: &[&str] = &["lcut", "prev_lcut"];
+static SDK_EXCEPTION_COUNT_EXTRA_TAGS: &[&str] = &["request_path", "status_code"];
 
 #[derive(Clone)]
 pub enum MetricType {
@@ -39,6 +40,13 @@ impl ObservabilityEvent {
     }
 }
 
+fn add_default_metric_tags(mut tags: HashMap<String, String>) -> HashMap<String, String> {
+    let metadata = StatsigMetadata::get_metadata();
+    tags.insert("sdk_type".to_string(), metadata.sdk_type);
+    tags.insert("sdk_version".to_string(), metadata.sdk_version);
+    tags
+}
+
 pub trait ObservabilityClient: Send + Sync + 'static + OpsStatsEventObserver {
     fn init(&self);
     fn increment(&self, metric_name: String, value: f64, tags: Option<HashMap<String, String>>);
@@ -57,19 +65,20 @@ impl<T: ObservabilityClient> OpsStatsEventObserver for T {
     async fn handle_event(&self, event: OpsStatsEvent) {
         match event {
             OpsStatsEvent::Observability(data) => {
-                let tags: Option<HashMap<String, String>> = data.tags.map(|tags_unwrapped| {
-                    tags_unwrapped
-                        .into_iter()
-                        .filter(|(key, _)| {
-                            if HIGH_CARDINALITY_TAGS.contains(&key.as_str()) {
-                                self.should_enable_high_cardinality_for_this_tag(key.to_string())
-                                    .unwrap_or_default()
-                            } else {
-                                true
-                            }
-                        })
-                        .collect()
-                });
+                let tags = data
+                    .tags
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|(key, _)| {
+                        if HIGH_CARDINALITY_TAGS.contains(&key.as_str()) {
+                            self.should_enable_high_cardinality_for_this_tag(key.to_string())
+                                .unwrap_or_default()
+                        } else {
+                            true
+                        }
+                    })
+                    .collect();
+                let tags = Some(add_default_metric_tags(tags));
                 let metric_name = format!("statsig.sdk.{}", data.metric_name.clone());
                 match data.metric_type {
                     MetricType::Increment => self.increment(metric_name, data.value, tags),
@@ -79,17 +88,53 @@ impl<T: ObservabilityClient> OpsStatsEventObserver for T {
             }
             OpsStatsEvent::SDKError(error) => {
                 self.error(error.tag.clone(), error.info.to_string());
-                let tags = HashMap::from([
+                let mut tags = HashMap::from([
                     ("tag".to_string(), error.tag),
                     ("exception".to_string(), error.exception),
                 ]);
+
+                if let Some(extra) = error.extra {
+                    for (key, value) in extra {
+                        if SDK_EXCEPTION_COUNT_EXTRA_TAGS.contains(&key.as_str()) {
+                            tags.insert(key, value);
+                        }
+                    }
+                }
+
                 self.increment(
                     "statsig.sdk.sdk_exceptions_count".to_string(),
                     1.0,
-                    Some(tags),
+                    Some(add_default_metric_tags(tags)),
                 );
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_default_metric_tags_attaches_sdk_metadata() {
+        let metadata = StatsigMetadata::get_metadata();
+
+        let tags = add_default_metric_tags(HashMap::new());
+
+        assert_eq!(tags.get("sdk_type"), Some(&metadata.sdk_type));
+        assert_eq!(tags.get("sdk_version"), Some(&metadata.sdk_version));
+    }
+
+    #[test]
+    fn add_default_metric_tags_overwrites_call_site_sdk_metadata() {
+        let metadata = StatsigMetadata::get_metadata();
+        let tags = add_default_metric_tags(HashMap::from([
+            ("sdk_type".to_string(), "wrong".to_string()),
+            ("sdk_version".to_string(), "wrong".to_string()),
+        ]));
+
+        assert_eq!(tags.get("sdk_type"), Some(&metadata.sdk_type));
+        assert_eq!(tags.get("sdk_version"), Some(&metadata.sdk_version));
     }
 }

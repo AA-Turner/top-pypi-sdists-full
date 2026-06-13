@@ -14,6 +14,8 @@ class CaseVerdict:
     dimensions: dict
     acceptance_results: list[dict]
     evidence: str
+    task_id: str = ""
+    task_dir: str = ""
 
 
 def judge_case(case_id: str, acceptance: list[str], report_dir: Path) -> CaseVerdict:

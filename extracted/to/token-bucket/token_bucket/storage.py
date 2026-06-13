@@ -29,10 +29,12 @@ class MemoryStorage(StorageBase):
     increasing the bucket capacity by a few tokens.
     """
 
-    def __init__(self):
-        self._buckets = {}
+    def __init__(self) -> None:
+        # NOTE(vytas): Each bucket is a list of two items: the current
+        #   token count and the timestamp of the last replenishment.
+        self._buckets: dict[str | bytes, list[float]] = {}
 
-    def get_token_count(self, key):
+    def get_token_count(self, key: str | bytes) -> float:
         """Query the current token count for the given bucket.
 
         Note that the bucket is not replenished first, so the count
@@ -52,7 +54,7 @@ class MemoryStorage(StorageBase):
 
         return 0
 
-    def replenish(self, key, rate, capacity):
+    def replenish(self, key: str | bytes, rate: float, capacity: int) -> None:
         """Add tokens to a bucket per the given rate.
 
         This method is exposed for use by the token_bucket.Limiter
@@ -109,23 +111,21 @@ class MemoryStorage(StorageBase):
                 # Limit to capacity
                 min(
                     capacity,
-
                     # NOTE(kgriffs): The new value is the current number
                     #   of tokens in the bucket plus the number of
                     #   tokens generated since last time. Fractional
                     #   tokens are permitted in order to improve
                     #   accuracy (now is a float, and rate may be also).
-                    tokens_in_bucket + (rate * (now - last_replenished_at))
+                    tokens_in_bucket + (rate * (now - last_replenished_at)),
                 ),
-
                 # Update the timestamp for use next time
-                now
+                now,
             ]
 
         except KeyError:
             self._buckets[key] = [capacity, time.monotonic()]
 
-    def consume(self, key, num_tokens):
+    def consume(self, key: str | bytes, num_tokens: int) -> bool:
         """Attempt to take one or more tokens from a bucket.
 
         This method is exposed for use by the token_bucket.Limiter

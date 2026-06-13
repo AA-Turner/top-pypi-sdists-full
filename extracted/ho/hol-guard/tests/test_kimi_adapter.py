@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 
 try:
@@ -262,9 +263,113 @@ class TestKimiHookQuoting:
         assert "workspace & tools" in windows_cmd
 
 
+class TestKimiHookChatUx:
+    def test_kimi_block_emits_reason_to_stderr(self, tmp_path: Path) -> None:
+        import io
+        from contextlib import redirect_stderr
+
+        from codex_plugin_scanner.guard.cli.commands_hook_generic import (
+            _run_hook_generic_payload,
+        )
+        from codex_plugin_scanner.guard.config import GuardConfig
+        from codex_plugin_scanner.guard.store import GuardStore
+
+        guard_home = tmp_path / ".hol-guard"
+        store = GuardStore(guard_home)
+        config = GuardConfig(guard_home=guard_home, workspace=tmp_path)
+        args = argparse.Namespace(
+            harness="kimi",
+            json=False,
+            policy_action="block",
+            artifact_id=None,
+            artifact_name=None,
+        )
+        payload = {"hookEventName": "UserPromptSubmit", "prompt": "delete all files"}
+        stderr_capture = io.StringIO()
+        stdout_capture = io.StringIO()
+        with redirect_stderr(stderr_capture):
+            rc = _run_hook_generic_payload(
+                args,
+                action_envelope=None,
+                config=config,
+                output_stream=stdout_capture,
+                payload=payload,
+                runtime_workspace=tmp_path,
+                store=store,
+            )
+        assert rc == 2
+        assert "HOL Guard flagged" in stderr_capture.getvalue()
+        assert '"decision":"block"' in stdout_capture.getvalue()
+
+
 class TestKimiLaunchCommand:
     def test_launch_command_passes_workspace(self, tmp_path: Path) -> None:
         ctx = _ctx(tmp_path, workspace=True)
         command = KimiHarnessAdapter().launch_command(ctx, ["--version"])
         assert "kimi" in command[0]
         assert "--version" in command
+
+
+class TestKimiNativeHookBlocking:
+    def test_kimi_emits_native_hook_response(self) -> None:
+        from codex_plugin_scanner.guard.cli.commands_support_interaction import (
+            _should_emit_native_hook_response,
+        )
+
+        args = argparse.Namespace(harness="kimi", json=False)
+        assert _should_emit_native_hook_response(args) is True
+
+    def test_kimi_exit_block_on_blocking_actions(self) -> None:
+        from codex_plugin_scanner.guard.cli.commands_support_interaction import (
+            _should_emit_native_hook_exit_block,
+        )
+
+        args = argparse.Namespace(harness="kimi", json=False)
+        assert _should_emit_native_hook_exit_block(args, event_name="PreToolUse", policy_action="block") is True
+        assert (
+            _should_emit_native_hook_exit_block(args, event_name="UserPromptSubmit", policy_action="sandbox-required")
+            is True
+        )
+        assert _should_emit_native_hook_exit_block(args, event_name="PreToolUse", policy_action="allow") is False
+        assert _should_emit_native_hook_exit_block(args, event_name="SessionStart", policy_action="block") is False
+
+    def test_kimi_permission_decision_is_deny_for_blocking(self) -> None:
+        from codex_plugin_scanner.guard.cli.commands_support_hook_payload import (
+            _native_hook_permission_decision,
+        )
+
+        assert _native_hook_permission_decision("block", harness="kimi") == "deny"
+        assert _native_hook_permission_decision("sandbox-required", harness="kimi") == "deny"
+        assert _native_hook_permission_decision("require-reapproval", harness="kimi") == "deny"
+        assert _native_hook_permission_decision("allow", harness="kimi") == "allow"
+
+    def test_normalize_hook_payload_flattens_kimi_content_parts(self) -> None:
+        from codex_plugin_scanner.guard.cli.commands_support_hook_payload import (
+            _normalize_hook_payload,
+        )
+
+        payload = {
+            "prompt": [
+                {"role": "user", "text": "Hello"},
+                {"role": "user", "text": "World"},
+            ],
+        }
+        normalized = _normalize_hook_payload(payload, harness="kimi")
+        assert normalized["prompt"] == "Hello\nWorld"
+
+    def test_normalize_hook_payload_leaves_other_harnesses_untouched(self) -> None:
+        from codex_plugin_scanner.guard.cli.commands_support_hook_payload import (
+            _normalize_hook_payload,
+        )
+
+        payload = {"prompt": [{"text": "Hello"}]}
+        normalized = _normalize_hook_payload(payload, harness="codex")
+        assert normalized["prompt"] == [{"text": "Hello"}]
+
+    def test_normalize_kimi_prompt_preserves_non_text_payloads(self) -> None:
+        from codex_plugin_scanner.guard.adapters.kimi_hooks import normalize_kimi_prompt
+
+        image_only = [{"image_url": "https://example.com/img.png"}]
+        assert normalize_kimi_prompt(image_only) is image_only
+        assert normalize_kimi_prompt("plain text") == "plain text"
+        assert normalize_kimi_prompt(None) is None

@@ -343,6 +343,7 @@ class ManifoldSAE:
     random_state: int = 0
     top_k: int | None = None
     jumprelu_threshold: float = 0.0
+    solver_plan: dict[str, Any] | None = None
     # Gaussian reconstruction scale phi-hat that scales every per-atom decoder
     # covariance (Cov(beta_k) = phi * S_beta^{-1}[block]).
     dispersion: float = 1.0
@@ -418,18 +419,88 @@ class ManifoldSAE:
             value = atom.get(key)
             return None if value is None else np.asarray(value, dtype=float)
 
-        atoms = [SaeManifoldAtomFit(
-            basis=str(atom["basis_kind"]),
-            decoder_coefficients=np.asarray(atom["decoder_B"], dtype=float),
-            assignments=np.asarray(atom["assignments_z"], dtype=float),
-            coords=np.asarray(atom["on_atom_coords_t"], dtype=float),
-            evidence=float(payload["reml_score"]),
-            active_dim=int(atom["active_dim"]),
-            decoder_covariance=_opt_arr(atom, "decoder_covariance"),
-            shape_band_coords=_opt_arr(atom, "shape_band_coords"),
-            shape_band_mean=_opt_arr(atom, "shape_band_mean"),
-            shape_band_sd=_opt_arr(atom, "shape_band_sd"),
-        ) for atom in payload["atoms"]]
+        def _periodic_shape_band(
+            atom: Mapping[str, Any],
+            plan: Mapping[str, Any],
+        ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+            coords = _opt_arr(atom, "shape_band_coords")
+            if coords is None:
+                return None, None, None
+            if coords.ndim != 2 or coords.shape[1] != 1:
+                raise ValueError(
+                    "periodic shape_band_coords must be a 2D array with one "
+                    f"coordinate column; got shape {coords.shape}"
+                )
+            order = np.argsort(coords[:, 0], kind="mergesort")
+            coords = np.ascontiguousarray(coords[order])
+            decoder = np.asarray(atom["decoder_B"], dtype=float)
+            n_harmonics = int(plan["n_harmonics"])
+            if n_harmonics <= 0:
+                raise ValueError(
+                    f"periodic atom requires positive n_harmonics; got {n_harmonics}"
+                )
+            phi, _jet, _penalty = rust_module().basis_with_jet(
+                "periodic",
+                coords,
+                {"n_harmonics": n_harmonics},
+            )
+            phi = np.asarray(phi, dtype=float)
+            if phi.shape[1] != decoder.shape[0]:
+                raise ValueError(
+                    "periodic shape band basis width does not match decoder: "
+                    f"Phi has {phi.shape[1]} columns, decoder has {decoder.shape[0]} rows"
+                )
+            mean = phi @ decoder
+            sd = _opt_arr(atom, "shape_band_sd")
+            cov = _opt_arr(atom, "decoder_covariance")
+            if cov is not None:
+                p = int(decoder.shape[1])
+                m = int(decoder.shape[0])
+                if cov.shape != (m * p, m * p):
+                    raise ValueError(
+                        "periodic decoder_covariance shape mismatch: "
+                        f"expected {(m * p, m * p)}, got {cov.shape}"
+                    )
+                sd = np.zeros((coords.shape[0], p), dtype=float)
+                for channel in range(p):
+                    idx = np.arange(channel, m * p, p)
+                    sub = cov[np.ix_(idx, idx)]
+                    var = np.einsum("gm,mn,gn->g", phi, sub, phi, optimize=True)
+                    sd[:, channel] = np.sqrt(np.maximum(var, 0.0))
+            elif sd is not None:
+                sd = np.asarray(sd, dtype=float)[order]
+            return coords, mean, sd
+
+        def _shape_band_arrays(
+            atom: Mapping[str, Any],
+            plan: Mapping[str, Any],
+        ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+            if str(plan["kind"]) == "periodic":
+                return _periodic_shape_band(atom, plan)
+            return (
+                _opt_arr(atom, "shape_band_coords"),
+                _opt_arr(atom, "shape_band_mean"),
+                _opt_arr(atom, "shape_band_sd"),
+            )
+
+        atoms: list[SaeManifoldAtomFit] = []
+        for atom_idx, atom in enumerate(payload["atoms"]):
+            shape_band_coords, shape_band_mean, shape_band_sd = _shape_band_arrays(
+                atom,
+                plans[atom_idx],
+            )
+            atoms.append(SaeManifoldAtomFit(
+                basis=str(atom["basis_kind"]),
+                decoder_coefficients=np.asarray(atom["decoder_B"], dtype=float),
+                assignments=np.asarray(atom["assignments_z"], dtype=float),
+                coords=np.asarray(atom["on_atom_coords_t"], dtype=float),
+                evidence=float(payload["reml_score"]),
+                active_dim=int(atom["active_dim"]),
+                decoder_covariance=_opt_arr(atom, "decoder_covariance"),
+                shape_band_coords=shape_band_coords,
+                shape_band_mean=shape_band_mean,
+                shape_band_sd=shape_band_sd,
+            ))
         fitted = np.asarray(payload["fitted"], dtype=float)
         assigns = np.asarray(payload["assignments_z"], dtype=float)
         logits = np.asarray(payload["logits"], dtype=float)
@@ -469,6 +540,7 @@ class ManifoldSAE:
             max_iter=int(max_iter), random_state=int(random_state),
             top_k=None if top_k is None else int(top_k),
             jumprelu_threshold=float(jumprelu_threshold),
+            solver_plan=None if payload.get("solver_plan") is None else dict(payload["solver_plan"]),
             dispersion=float(payload["dispersion"]),
             # WP-D → fit wiring (#980): surface the metric provenance and the
             # per-row truncation diagnostic the Rust fit reports. Absent ⇒ the
@@ -745,18 +817,66 @@ class ManifoldSAE:
     def predict(self, X: Any) -> np.ndarray:
         return self.reconstruct(X)
 
-    def encode(self, X: Any, *, t_init: Any = None, a_init: Any = None) -> np.ndarray:
+    def distill_encoder(self, X: Any, **kwargs: Any) -> Any:
+        """Train a post-hoc torch MLP encoder from exact OOS latent solves."""
+        from .distill import distill_encoder
+
+        return distill_encoder(self, X, **kwargs)
+
+    def encode(
+        self,
+        X: Any,
+        *,
+        t_init: Any = None,
+        a_init: Any = None,
+        encoder: Any = None,
+        return_stats: bool = False,
+    ) -> np.ndarray | tuple[np.ndarray, dict[str, Any]]:
         """Out-of-sample per-token assignments ``a*`` of shape ``(N, K)``.
 
         Runs the frozen-decoder OOS solve on ``X`` and returns the converged
         assignment matrix. On training ``X`` (matched bit-exactly) the cached
         fit assignments are returned without re-solving. ``t_init`` / ``a_init``
-        warm-start the refinement (#357)."""
+        warm-start the refinement (#357).
+
+        Passing ``encoder=fit.distill_encoder(...)`` runs the distilled encoder
+        first, accepts only rows matching the exact warm-started solve within the
+        encoder's calibrated gate, and reports rowwise fallback accounting when
+        ``return_stats=True``. The exact solve remains the teacher and fallback;
+        the encoder never defines the feature map.
+        """
         x = _as_2d_float(X, "X")
+        if encoder is not None:
+            if t_init is not None or a_init is not None:
+                raise ValueError("encode(..., encoder=...) cannot also take t_init or a_init")
+            from .distill import encode_with_fallback
+
+            encoded, stats = encode_with_fallback(self, x, encoder)
+            if return_stats:
+                return encoded, stats.to_dict()
+            return encoded
         if t_init is None and a_init is None and x.shape == self.training_data.shape and np.allclose(x, self.training_data):
-            return self.assignments.copy()
+            encoded = self.assignments.copy()
+            if return_stats:
+                return encoded, {
+                    "rows": int(encoded.shape[0]),
+                    "accepted_rows": 0,
+                    "fallback_rows": 0,
+                    "fallback_rate": 0.0,
+                    "exact_probe_rows": 0,
+                }
+            return encoded
         payload = self._oos_payload(x, t_init=t_init, a_init=a_init)
-        return np.asarray(payload["assignments_z"], dtype=float)
+        encoded = np.asarray(payload["assignments_z"], dtype=float)
+        if return_stats:
+            return encoded, {
+                "rows": int(encoded.shape[0]),
+                "accepted_rows": 0,
+                "fallback_rows": int(encoded.shape[0]),
+                "fallback_rate": 1.0,
+                "exact_probe_rows": int(encoded.shape[0]),
+            }
+        return encoded
 
     def converged_latents(self, X: Any | None = None, *, t_init: Any = None, a_init: Any = None) -> dict[str, Any]:
         """Converged supervision targets for an amortized encoder (#357).
@@ -993,6 +1113,7 @@ class ManifoldSAE:
             "jumprelu_threshold": float(self.jumprelu_threshold),
             "oos_projection_top1": bool(self._oos_projection_top1),
             "dispersion": float(self.dispersion),
+            "solver_plan": None if self.solver_plan is None else _jsonable(self.solver_plan),
             "primitive_names": list(self.primitive_names),
             "basis_specs": list(self.basis_specs),
             "reml_score": float(self.reml_score),
@@ -1116,6 +1237,7 @@ class ManifoldSAE:
             random_state=int(payload["random_state"]),
             top_k=None if payload["top_k"] is None else int(payload["top_k"]),
             jumprelu_threshold=float(payload["jumprelu_threshold"]),
+            solver_plan=None if payload.get("solver_plan") is None else dict(payload["solver_plan"]),
             _oos_projection_top1=bool(payload["oos_projection_top1"]),
             dispersion=float(payload["dispersion"]),
             atom_two_lens=(

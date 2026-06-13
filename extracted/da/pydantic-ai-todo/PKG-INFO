@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-todo
-Version: 0.2.4
+Version: 0.2.5
 Summary: Todo/task planning toolset for pydantic-ai agents
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-ai-todo
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-ai-todo#readme

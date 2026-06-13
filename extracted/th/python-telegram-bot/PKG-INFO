@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-telegram-bot
-Version: 22.7
+Version: 22.8
 Summary: We have made you a wrapper you can't refuse
 Project-URL: Homepage, https://python-telegram-bot.org
 Project-URL: Documentation, https://docs.python-telegram-bot.org
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -76,7 +77,7 @@ Description-Content-Type: text/x-rst
    :target: https://pypi.org/project/python-telegram-bot/
    :alt: Supported Python versions
 
-.. image:: https://img.shields.io/badge/Bot%20API-9.5-blue?logo=telegram
+.. image:: https://img.shields.io/badge/Bot%20API-10.0-blue?logo=telegram
    :target: https://core.telegram.org/bots/api-changelog
    :alt: Supported Bot API version
 
@@ -142,7 +143,7 @@ After installing_ the library, be sure to check out the section on `working with
 Telegram API support
 ~~~~~~~~~~~~~~~~~~~~
 
-All types and methods of the Telegram Bot API **9.5** are natively supported by this library.
+All types and methods of the Telegram Bot API **10.0** are natively supported by this library.
 In addition, Bot API functionality not yet natively included can still be used as described `in our wiki <https://github.com/python-telegram-bot/python-telegram-bot/wiki/Bot-API-Forward-Compatibility>`_.
 
 Notable Features

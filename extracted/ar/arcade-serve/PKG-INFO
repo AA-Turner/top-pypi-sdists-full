@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arcade-serve
-Version: 3.2.5
+Version: 3.3.0
 Summary: Arcade Serve - Serving infrastructure for Arcade tools and workers
 Author-email: Arcade <dev@arcade.dev>
 License: MIT
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: aiohttp<4.0.0,>=3.0.0
-Requires-Dist: arcade-core<5.0.0,>=4.7.1
+Requires-Dist: arcade-core<5.0.0,>=4.9.0
 Requires-Dist: fastapi>=0.115.3
 Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.28.2
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.28.2

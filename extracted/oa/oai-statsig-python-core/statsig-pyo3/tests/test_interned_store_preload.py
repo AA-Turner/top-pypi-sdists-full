@@ -48,3 +48,30 @@ def test_interned_store_preload(server_setup):
 
     assert gate.details.reason == "Network:Recognized"
     assert log_provider.error_count == 0
+
+
+def test_interned_store_mmap_preload(server_setup):
+    specs_url, log_event_url = server_setup
+    sdk_key = "secret-key"
+
+    fetch_complete = InternedStore.fetch_and_write_mmap(sdk_key, specs_url)
+    assert fetch_complete.wait(5)
+    InternedStore.preload_mmap(sdk_key)
+
+    log_provider = MockOutputLoggerProvider()
+    log_provider.logs = []
+
+    statsig = Statsig(
+        sdk_key,
+        StatsigOptions(
+            specs_url=specs_url,
+            log_event_url=log_event_url,
+            output_logger_provider=log_provider,
+        ),
+    )
+    statsig.initialize().wait()
+    gate = statsig.get_feature_gate(StatsigUser("a-user"), "test_public")
+    statsig.shutdown().wait()
+
+    assert gate.details.reason == "Network:Recognized"
+    assert log_provider.error_count == 0

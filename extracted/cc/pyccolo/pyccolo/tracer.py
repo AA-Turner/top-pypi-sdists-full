@@ -59,6 +59,7 @@ from pyccolo.import_hooks import patch_meta_path_non_context
 from pyccolo.predicate import Predicate
 from pyccolo.syntax_augmentation import (
     AugmentationSpec,
+    replace_paired_delimiters_and_get_augmented_positions,
     replace_tokens_and_get_augmented_positions,
 )
 from pyccolo.trace_events import (
@@ -309,8 +310,13 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
 
     @classmethod
     def make_sandbox_fname(cls) -> str:
-        cls.sandbox_fname_counter += 1
-        return f"{SANDBOX_FNAME_PREFIX}-{cls.sandbox_fname_counter}>"
+        # Increment on the shared base, NOT ``cls``: ``cls.x += 1`` would bind a
+        # fresh per-subclass counter, so different tracer subclasses (e.g.
+        # pipescript's Macro/Pipeline tracers) would each mint ``<sandbox-1>``,
+        # ``<sandbox-2>``, ... and collide on filenames -- and a colliding path
+        # makes one module's rewrite evict another's still-live ast bookkeeping.
+        _InternalBaseTracer.sandbox_fname_counter += 1
+        return f"{SANDBOX_FNAME_PREFIX}-{_InternalBaseTracer.sandbox_fname_counter}>"
 
     @property
     def is_tracing_enabled(self) -> bool:
@@ -578,14 +584,40 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         return _file_passes_filter_impl(self, evt, filename, is_reentrant=is_reentrant)
 
     def make_ast_rewriter(
-        self, path: str, module_id: Optional[int] = None
+        self,
+        path: str,
+        module_id: Optional[int] = None,
+        tracers: Optional[List["BaseTracer"]] = None,
     ) -> AstRewriter:
-        return self.ast_rewriter_cls(_TRACER_STACK, path, module_id=module_id)
+        # Only instrument for tracers that aren't hard-disabled right now. A
+        # hard-disabled tracer is skipped at event-emit time (see _emit_event), so
+        # weaving its events -- and, crucially, its guards -- into the code is pure
+        # overhead. This keeps code rewritten while some tracer is disabled lean:
+        # e.g. a cooperating tracer that builds lambdas via pyc.eval while *we* are
+        # disabled gets a sandbox free of our (unused) guard machinery. When
+        # nothing is disabled, pass the live _TRACER_STACK through unchanged so the
+        # common path is byte-for-byte identical (no extra list allocation, which
+        # some id()-order-sensitive bookkeeping is fragile to).
+        #
+        # ``tracers`` lets a caller scope the rewrite to a subset of the active
+        # stack -- e.g. compiling a sub-fragment that should be instrumented by
+        # only some cooperating tracers, not every tracer that happens to be
+        # active (a foreign tracer may not recognize the fragment's nodes).
+        stack: List[BaseTracer] = _TRACER_STACK if tracers is None else tracers
+        rewrite_tracers: List[BaseTracer] = stack
+        if any(tracer._is_tracing_hard_disabled for tracer in stack):
+            rewrite_tracers = [
+                tracer for tracer in stack if not tracer._is_tracing_hard_disabled
+            ] or stack
+        return self.ast_rewriter_cls(rewrite_tracers, path, module_id=module_id)
 
     def make_syntax_augmenter(
         self, ast_rewriter: Optional[AstRewriter]
     ) -> "Callable[[CodeLines], CodeLines]":
         aug_specs = self.syntax_augmentation_specs()
+
+        single_specs = [spec for spec in aug_specs if not spec.is_paired]
+        paired_specs = [spec for spec in aug_specs if spec.is_paired]
 
         def _input_transformer(lines: "CodeLines") -> "CodeLines":
             if len(aug_specs) == 0:
@@ -594,11 +626,17 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
                 code = "".join(lines)
             else:
                 code = lines
-            code, specs_applied = replace_tokens_and_get_augmented_positions(
-                code, aug_specs, rewriter=ast_rewriter
+            code, single_applied = replace_tokens_and_get_augmented_positions(
+                code, single_specs, rewriter=ast_rewriter
+            )
+            (
+                code,
+                paired_applied,
+            ) = replace_paired_delimiters_and_get_augmented_positions(
+                code, paired_specs, rewriter=ast_rewriter
             )
             if ast_rewriter is not None:
-                self.last_applied_specs = specs_applied
+                self.last_applied_specs = single_applied + paired_applied
             if isinstance(lines, list):
                 return code.splitlines(keepends=True)
             else:
@@ -786,12 +824,16 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         return self.make_syntax_augmenter(ast_rewriter=rewriter)(code)
 
     def parse(
-        self, code: str, mode="exec", filename: Optional[str] = None
+        self,
+        code: str,
+        mode="exec",
+        filename: Optional[str] = None,
+        tracers: Optional[List["BaseTracer"]] = None,
     ) -> Union[ast.Module, ast.Expression]:
         if filename is None:
             filename = self.make_sandbox_fname()
-        rewriter = self.make_ast_rewriter(filename)
-        for tracer in _TRACER_STACK:
+        rewriter = self.make_ast_rewriter(filename, tracers=tracers)
+        for tracer in _TRACER_STACK if tracers is None else tracers:
             code = tracer.preprocess(code, rewriter)
         return rewriter.visit(ast.parse(code, mode=mode))
 
@@ -799,6 +841,71 @@ class _InternalBaseTracer(_InternalBaseTracerSuper, metaclass=MetaTracerStateMac
         for tracer in _TRACER_STACK if tracers is None else tracers:
             code = tracer.preprocess(code, rewriter=None)
         return code
+
+    @contextmanager
+    def _preserve_transient_rewrite_state(self) -> Generator[None, None, None]:
+        # `parse` overwrites a little transient, non-additive state (the
+        # current module and each tracer's last-applied augmentation specs).
+        # Save/restore it so a nested parse doesn't clobber an in-flight one.
+        saved_module = self.current_module[0]
+        saved_specs = [(tracer, tracer.last_applied_specs) for tracer in _TRACER_STACK]
+        try:
+            yield
+        finally:
+            self.current_module[0] = saved_module
+            for tracer, specs in saved_specs:
+                tracer.last_applied_specs = specs
+
+    def parse_fragment(
+        self,
+        code: str,
+        filename: Optional[str] = None,
+        tracers: Optional[List["BaseTracer"]] = None,
+    ) -> Union[ast.Module, ast.Expression]:
+        """Parse + instrument a code fragment from *within* an already active
+        trace (e.g. inside an event handler) without disturbing the enclosing
+        rewrite's transient state. Returns the instrumented AST; the caller may
+        edit it before running it with ``exec_raw(..., instrument=False)``.
+
+        Use this (rather than ``parse``/``exec``) when you need to compile a
+        fragment mid-handler: it neither re-enters the tracing context (which
+        would reset tracer state) nor clobbers an in-flight parse, so nested
+        instrumented constructs in the fragment still dispatch to handlers.
+
+        ``tracers`` scopes the instrumentation to a subset of the active stack;
+        pass it when a foreign co-tracer should not weave its events into the
+        fragment (e.g. it would not recognize the fragment's synthetic nodes)."""
+        if filename is None:
+            filename = self.make_sandbox_fname()
+        with self._preserve_transient_rewrite_state():
+            return self.parse(code, mode="exec", filename=filename, tracers=tracers)
+
+    def exec_fragment(
+        self,
+        code: Union[str, ast.Module],
+        global_env: dict,
+        local_env: dict,
+        filename: Optional[str] = None,
+    ) -> dict:
+        """Parse, instrument, and run a code fragment from within an active
+        trace, reusing the current tracing context. ``local_env`` is mutated
+        with whatever the fragment defines and returned. See
+        :meth:`parse_fragment`."""
+        if filename is None:
+            filename = self.make_sandbox_fname()
+        module = (
+            self.parse_fragment(code, filename=filename)
+            if isinstance(code, str)
+            else code
+        )
+        self.exec_raw(
+            module,
+            global_env=global_env,
+            local_env=local_env,
+            filename=filename,
+            instrument=False,
+        )
+        return local_env
 
     def exec_raw(
         self,

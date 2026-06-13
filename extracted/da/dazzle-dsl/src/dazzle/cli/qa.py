@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import os
 import re
 import shutil
@@ -309,6 +310,12 @@ def _seed_demo_data_for_trial(project_dir: Path, site_url: str, test_secret: str
     return True
 
 
+def _missing_signing_server_deps() -> list[str]:
+    """Importable-module names from the [signing] extra that the signing
+    SERVER path needs but the current environment lacks."""
+    return [mod for mod in ("fpdf", "pyhanko") if importlib.util.find_spec(mod) is None]
+
+
 def _provision_signing_env(
     app_spec: Any,
     tmp_root: Path,
@@ -324,6 +331,21 @@ def _provision_signing_env(
     """
     if not app_spec.has_signable_entity():
         return None
+    # Preflight the SERVER half of the signing stack before burning an
+    # LLM persona run (#1377): minting the cert needs only cryptography,
+    # but sign_document needs fpdf2 + pyhanko in the server process. A
+    # missing extra used to surface 6 steps later as an HTTP 500 the
+    # persona could only describe as "showstopper".
+    missing = _missing_signing_server_deps()
+    if missing:
+        typer.echo(
+            f"Signing trial harness: {' + '.join(missing)} not installed — the app "
+            "has signable entities and sign_document would return HTTP 500. "
+            "Install with: pip install 'dazzle-dsl[signing]' "
+            "(or: uv pip install 'fpdf2>=2.8.0' 'pyhanko>=0.25.0' 'Pillow>=10.0')",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     env = mint_ephemeral_cert_env(tmp_root, project_name=project_name)
     inbox_path = tmp_root / "mock_inbox.json"
     inbox_path.write_text("[]", encoding="utf-8")
@@ -631,7 +653,12 @@ def _build_signing_seed_batch(
 
 
 def _seed_signable_rows(
-    *, app_spec: Any, base_url: str, signatory_email: str, test_secret: str = ""
+    *,
+    app_spec: Any,
+    base_url: str,
+    signatory_email: str,
+    test_secret: str = "",
+    token_state: str = "fresh",
 ) -> list[SeededDoc]:
     """For each signable entity in *app_spec*, insert one row + mint a token.
 
@@ -639,6 +666,9 @@ def _seed_signable_rows(
     ``/api/{entity}`` endpoint, so this works on apps with Cedar policies.
     Required FK refs are resolved via the AppSpec IR and included as parent
     fixtures in the same batch (#1285).
+
+    ``token_state="expired"`` mints already-expired tokens so *_token_expired*
+    scenarios exercise the real "Invalid or expired link" page (TR-51).
 
     Returns a list of :class:`~dazzle.qa.signing_seed.SeededDoc` objects
     (one per signable entity) ready to write into the mock inbox.
@@ -671,7 +701,11 @@ def _seed_signable_rows(
                 f"got created keys: {list(created)}"
             )
 
-        token = mint_token(record_id=row_id, email=signatory_email)
+        # expires_hours=-1 mints a token whose expiry is already in the
+        # past — verify_token then rejects it exactly as it would a real
+        # two-week-old email link.
+        expires_hours = -1 if token_state == "expired" else 72
+        token = mint_token(record_id=row_id, email=signatory_email, expires_hours=expires_hours)
         docs.append(
             SeededDoc(
                 entity=entity.name,
@@ -679,6 +713,7 @@ def _seed_signable_rows(
                 token=token,
                 signing_url=f"{base_url}/sign/{entity.name}/{row_id}?token={token}",
                 signatory_email=signatory_email,
+                token_state=token_state,
             )
         )
     return docs
@@ -888,6 +923,17 @@ def qa_trial(
     model: str | None = typer.Option(
         None, "--model", help="Override LLM model (default: Claude Sonnet)"
     ),
+    llm_driver: str | None = typer.Option(
+        None,
+        "--llm-driver",
+        help=(
+            "How the trial persona reaches the model: 'claude-cli' "
+            "(Claude Code CLI, billed to your Claude subscription — no API "
+            "key) or 'anthropic-api' (metered, ANTHROPIC_API_KEY). Default: "
+            "DAZZLE_LLM_DRIVER env, then [llm] driver in dazzle.toml, then "
+            "auto-detect. See docs/reference/llm-drivers.md."
+        ),
+    ),
     fresh_db: bool = typer.Option(
         False,
         "--fresh-db",
@@ -927,7 +973,11 @@ def qa_trial(
     from dazzle.agent.observer import PlaywrightObserver
     from dazzle.cli.runtime_impl.ports import read_runtime_test_secret
     from dazzle.cli.utils import load_project_appspec
-    from dazzle.qa.trial_report import build_trial_report, render_trial_report
+    from dazzle.qa.trial_report import (
+        build_trial_report,
+        render_trial_report,
+        trial_abort_message,
+    )
     from dazzle.testing.ux.interactions.server_fixture import launch_interaction_server
 
     project_dir = _resolve_project_dir(app)
@@ -974,7 +1024,45 @@ def qa_trial(
         )
         raise typer.Exit(code=2)
 
+    # Resolve the LLM driver before any server/db work so a missing
+    # key or CLI fails fast with onboarding guidance, not mid-trial.
+    from dazzle.core.manifest import load_manifest
+    from dazzle.llm.driver import LLMDriverError, resolve_llm_driver
+
+    manifest_driver: str | None = None
+    manifest_path = project_dir / "dazzle.toml"
+    if manifest_path.exists():
+        try:
+            manifest_driver = load_manifest(manifest_path).llm.driver
+        except Exception:
+            manifest_driver = None  # manifest problems surface later, in full
+    try:
+        resolved_driver = resolve_llm_driver(explicit=llm_driver, manifest_driver=manifest_driver)
+    except LLMDriverError as exc:
+        typer.echo(f"LLM driver: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    billing_note = (
+        "Claude subscription via Claude Code CLI"
+        if resolved_driver == "claude-cli"
+        else "Anthropic API (metered)"
+    )
     typer.echo(f"Trial scenario: {scenario_name} (as persona {login_persona})")
+    typer.echo(f"LLM driver: {resolved_driver} ({billing_note})")
+
+    # Optional per-scenario signing-token state (TR-51). "expired" seeds an
+    # already-expired token so *_token_expired scenarios exercise the real
+    # "Invalid or expired link" page instead of a fresh, signable token.
+    signing_token_state = str(chosen.get("signing_token_state", "fresh"))
+    if signing_token_state not in ("fresh", "expired"):
+        typer.echo(
+            f"Scenario '{scenario_name}': signing_token_state must be "
+            f"'fresh' or 'expired', got {signing_token_state!r}.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if signing_token_state == "expired":
+        typer.echo("Signing trial harness: seeding an EXPIRED token per scenario config.")
 
     if fresh_db:
         _reset_db_for_trial(project_dir)
@@ -1058,6 +1146,7 @@ def qa_trial(
                         base_url=site_url,
                         signatory_email="trial-signatory@example.com",
                         test_secret=test_secret_val,
+                        token_state=signing_token_state,
                     )
                     seed_ctx = SigningSeedContext(
                         env=seed_ctx.env,
@@ -1133,7 +1222,10 @@ def qa_trial(
                         observer=observer_inner,
                         executor=executor_inner,
                         model=model,
-                        use_tool_calls=True,
+                        # Native tool use needs the SDK; the claude-cli
+                        # driver carries tools over the text protocol.
+                        use_tool_calls=resolved_driver != "claude-cli",
+                        llm_driver=resolved_driver,
                     )
                     mission_inner = build_trial_mission(
                         chosen,
@@ -1174,6 +1266,7 @@ def qa_trial(
             business_context=chosen.get("business_context", ""),
             friction=friction,
             model=model,
+            llm_driver=resolved_driver,
         )
         if verdict:
             verdict = f"(synthesized from recorded friction — agent ran out of steps)\n\n{verdict}"
@@ -1219,6 +1312,18 @@ def qa_trial(
         output.parent.mkdir(parents=True, exist_ok=True)
 
     output.write_text(rendered, encoding="utf-8")
+
+    # #1375: an agent-loop death (LLM billing/auth failure, observer
+    # crash) must exit nonzero — autonomous consumers read the exit code
+    # and would otherwise book an infrastructure failure as a clean PASS.
+    # The report is still written above: it's the forensic record.
+    abort_msg = trial_abort_message(
+        transcript.outcome, transcript.error, step_count=len(transcript.steps)
+    )
+    if abort_msg is not None:
+        typer.echo(f"\n{abort_msg}\nReport (forensics): {output}", err=True)
+        raise typer.Exit(code=3)
+
     typer.echo(
         f"\nTrial complete. {len(friction)} friction observation(s) recorded. Report: {output}",
         file=sys.stdout,

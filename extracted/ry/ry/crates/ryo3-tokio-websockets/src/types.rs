@@ -2,7 +2,7 @@ use futures_util::stream::{SplitSink, SplitStream};
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use ryo3_bytes::RyBytes;
-use ryo3_core::{py_type_err, py_value_err, py_value_error};
+use ryo3_core::macros::{py_type_err, py_value_err, py_value_error};
 use ryo3_url::UrlLike;
 use tokio::net::TcpStream;
 use tokio_websockets::{MaybeTlsStream, Message, WebSocketStream};
@@ -29,7 +29,7 @@ impl<'py> FromPyObject<'_, 'py> for UriLike {
     type Error = PyErr;
     fn extract(obj: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         let url = obj.extract::<UrlLike>()?;
-        url.0
+        url.into_inner()
             .as_str()
             .parse::<http::Uri>()
             .map(Self)

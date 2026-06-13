@@ -16,7 +16,7 @@ from smplkit.logging.models import AsyncSmplLogGroup, AsyncSmplLogger, SmplLogGr
 
 if TYPE_CHECKING:  # pragma: no cover
     from smplkit import LogLevel
-    from smplkit.logging._client import (
+    from smplkit.logging.clients import (
         AsyncLoggingClient,
         LoggingClient,
         AsyncLogGroupsClient,

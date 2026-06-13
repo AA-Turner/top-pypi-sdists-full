@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-invocations
-Version: 1.0.0b4
+Version: 1.0.0b5
 Summary: Invocations protocol for Azure AI Hosted Agents
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT

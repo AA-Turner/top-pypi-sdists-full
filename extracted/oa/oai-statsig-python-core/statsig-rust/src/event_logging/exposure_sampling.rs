@@ -53,7 +53,7 @@ pub struct ExposureSampling {
 }
 
 impl ExposureSampling {
-    pub fn new(sdk_key: &str) -> Self {
+    pub fn new(sdk_instance_id: &str) -> Self {
         let now = Utc::now().timestamp_millis() as u64;
 
         Self {
@@ -63,7 +63,7 @@ impl ExposureSampling {
             exposure_dedupe_set: RwLock::from(AHashSet::default()),
             last_exposure_dedupe_reset: AtomicU64::from(now),
 
-            global_configs: GlobalConfigs::get_instance(sdk_key),
+            global_configs: GlobalConfigs::get_instance(sdk_instance_id),
         }
     }
 

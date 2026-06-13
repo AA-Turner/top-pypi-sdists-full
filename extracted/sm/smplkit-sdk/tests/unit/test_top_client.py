@@ -30,10 +30,10 @@ from smplkit import (
 )
 from smplkit._config import resolve_client_config
 from smplkit._transport import _to_transport_config, build_service_transports
-from smplkit.account._client import AsyncSettingsClient, SettingsClient
-from smplkit.config._client import AsyncConfigClient, ConfigClient
-from smplkit.flags._client import AsyncFlagsClient, FlagsClient
-from smplkit.logging._client import (
+from smplkit.account.clients import AsyncSettingsClient, SettingsClient
+from smplkit.config.clients import AsyncConfigClient, ConfigClient
+from smplkit.flags.clients import AsyncFlagsClient, FlagsClient
+from smplkit.logging.clients import (
     AsyncLoggingClient,
     LoggingClient,
     AsyncLogGroupsClient,
@@ -41,7 +41,7 @@ from smplkit.logging._client import (
     LogGroupsClient,
     LoggersClient,
 )
-from smplkit.platform._client import (
+from smplkit.platform.clients import (
     AsyncContextsClient,
     AsyncContextTypesClient,
     AsyncEnvironmentsClient,
@@ -473,18 +473,18 @@ class TestRuntimeConfigFetchPaths:
 
         return SmplClient(api_key="sk_test", environment="test", service="svc")
 
-    @patch("smplkit.config._client.list_configs.sync_detailed")
+    @patch("smplkit.config.clients.list_configs.sync_detailed")
     def test_fetch_all_configs_network_error(self, mock_list):
         import httpx
 
-        from smplkit._errors import ConnectionError
+        from smplkit.errors import ConnectionError
 
         mock_list.side_effect = httpx.ConnectError("refused")
         client = self._client()
         with pytest.raises(ConnectionError):
             client.config._fetch_all_configs()
 
-    @patch("smplkit.config._client.list_configs.sync_detailed")
+    @patch("smplkit.config.clients.list_configs.sync_detailed")
     def test_fetch_all_configs_parsed_none(self, mock_list):
         mock = MagicMock()
         mock.status_code = 200
@@ -494,18 +494,18 @@ class TestRuntimeConfigFetchPaths:
         client = self._client()
         assert client.config._fetch_all_configs() == []
 
-    @patch("smplkit.config._client.get_config.sync_detailed")
+    @patch("smplkit.config.clients.get_config.sync_detailed")
     def test_fetch_config_network_error(self, mock_get):
         import httpx
 
-        from smplkit._errors import ConnectionError
+        from smplkit.errors import ConnectionError
 
         mock_get.side_effect = httpx.ConnectError("refused")
         client = self._client()
         with pytest.raises(ConnectionError):
             client.config._fetch_config("anything")
 
-    @patch("smplkit.config._client.get_config.sync_detailed")
+    @patch("smplkit.config.clients.get_config.sync_detailed")
     def test_fetch_config_parsed_none_returns_none(self, mock_get):
         mock = MagicMock()
         mock.status_code = 200
@@ -515,7 +515,7 @@ class TestRuntimeConfigFetchPaths:
         client = self._client()
         assert client.config._fetch_config("any") is None
 
-    @patch("smplkit.config._client.get_config.sync_detailed")
+    @patch("smplkit.config.clients.get_config.sync_detailed")
     def test_handle_config_changed_with_none_fetched_returns_quietly(self, mock_get):
         mock = MagicMock()
         mock.status_code = 200
@@ -529,10 +529,10 @@ class TestRuntimeConfigFetchPaths:
         # cache unchanged because fetch returned None
         assert client.config._config_cache == {"x": {"a": 1}}
 
-    @patch("smplkit.config._client.list_configs.asyncio_detailed")
+    @patch("smplkit.config.clients.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_network_error(self, mock_list):
         from smplkit import AsyncSmplClient
-        from smplkit._errors import ConnectionError
+        from smplkit.errors import ConnectionError
         import httpx
 
         async def _run():
@@ -543,7 +543,7 @@ class TestRuntimeConfigFetchPaths:
 
         asyncio.run(_run())
 
-    @patch("smplkit.config._client.list_configs.asyncio_detailed")
+    @patch("smplkit.config.clients.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_parsed_none(self, mock_list):
         from smplkit import AsyncSmplClient
 
@@ -558,21 +558,21 @@ class TestRuntimeConfigFetchPaths:
 
         asyncio.run(_run())
 
-    @patch("smplkit.config._client.list_configs.sync_detailed")
+    @patch("smplkit.config.clients.list_configs.sync_detailed")
     def test_fetch_all_configs_reraises_unknown_exception(self, mock_list):
         mock_list.side_effect = RuntimeError("unexpected")
         client = self._client()
         with pytest.raises(RuntimeError, match="unexpected"):
             client.config._fetch_all_configs()
 
-    @patch("smplkit.config._client.get_config.sync_detailed")
+    @patch("smplkit.config.clients.get_config.sync_detailed")
     def test_fetch_config_reraises_unknown_exception(self, mock_get):
         mock_get.side_effect = RuntimeError("unexpected")
         client = self._client()
         with pytest.raises(RuntimeError, match="unexpected"):
             client.config._fetch_config("x")
 
-    @patch("smplkit.config._client.get_config.sync_detailed")
+    @patch("smplkit.config.clients.get_config.sync_detailed")
     def test_fetch_config_returns_built_config(self, mock_get):
         attrs = MagicMock()
         attrs.name = "Common"
@@ -598,7 +598,7 @@ class TestRuntimeConfigFetchPaths:
         assert cfg.id == "common"
         assert cfg.name == "Common"
 
-    @patch("smplkit.config._client.list_configs.asyncio_detailed")
+    @patch("smplkit.config.clients.list_configs.asyncio_detailed")
     def test_async_fetch_all_configs_reraises_unknown_exception(self, mock_list):
         from smplkit import AsyncSmplClient
 

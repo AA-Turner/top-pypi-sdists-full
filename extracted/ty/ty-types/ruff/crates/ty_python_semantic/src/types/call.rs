@@ -1,6 +1,7 @@
 use super::context::InferContext;
 use super::{Signature, Type, TypeContext};
 use crate::Db;
+use crate::place::Provenance;
 use crate::types::call::bind::BindingError;
 use crate::types::{MemberLookupPolicy, PropertyInstanceType};
 use ruff_python_ast as ast;
@@ -73,7 +74,8 @@ impl<'db> Type<'db> {
             // TODO: if `rhs_reflected` is possibly unbound, we should union the two possible
             // Bindings together
             if !rhs_reflected.is_undefined()
-                && rhs_reflected != left_class.member(db, reflected_dunder).place
+                && !rhs_reflected
+                    .is_equal_ignoring_provenance(left_class.member(db, reflected_dunder).place)
             {
                 return Ok(right_ty
                     .try_call_dunder_with_policy(
@@ -189,7 +191,7 @@ pub enum CallDunderError<'db> {
     /// The dunder attribute exists but it can't be called with the given arguments.
     ///
     /// This includes non-callable dunder attributes that are possibly unbound.
-    CallError(CallErrorKind, Box<Bindings<'db>>),
+    CallError(CallErrorKind, Box<Bindings<'db>>, Provenance<'db>),
 
     /// The type has the specified dunder method and it is callable
     /// with the specified arguments without any binding errors
@@ -209,22 +211,30 @@ pub enum CallDunderError<'db> {
 }
 
 impl<'db> CallDunderError<'db> {
+    pub fn provenance(&self) -> Provenance<'db> {
+        match self {
+            Self::CallError(_, _, provenance) => *provenance,
+            Self::PossiblyUnbound { .. } | Self::MethodNotAvailable => Provenance::Unknown,
+        }
+    }
+
+    pub fn with_provenance(self, provenance: Provenance<'db>) -> Self {
+        match self {
+            Self::CallError(kind, bindings, _) => Self::CallError(kind, bindings, provenance),
+            Self::PossiblyUnbound { .. } | Self::MethodNotAvailable => self,
+        }
+    }
+
     pub fn return_type(&self, db: &'db dyn Db) -> Option<Type<'db>> {
         match self {
-            Self::MethodNotAvailable | Self::CallError(CallErrorKind::NotCallable, _) => None,
-            Self::CallError(_, bindings) => Some(bindings.return_type(db)),
+            Self::MethodNotAvailable | Self::CallError(CallErrorKind::NotCallable, _, _) => None,
+            Self::CallError(_, bindings, _) => Some(bindings.return_type(db)),
             Self::PossiblyUnbound { bindings, .. } => Some(bindings.return_type(db)),
         }
     }
 
     pub fn fallback_return_type(&self, db: &'db dyn Db) -> Type<'db> {
         self.return_type(db).unwrap_or(Type::unknown())
-    }
-}
-
-impl<'db> From<CallError<'db>> for CallDunderError<'db> {
-    fn from(CallError(kind, bindings): CallError<'db>) -> Self {
-        Self::CallError(kind, bindings)
     }
 }
 
@@ -241,7 +251,7 @@ pub enum CallBinOpError {
 impl From<CallDunderError<'_>> for CallBinOpError {
     fn from(value: CallDunderError<'_>) -> Self {
         match value {
-            CallDunderError::CallError(_, _) => Self::CallError,
+            CallDunderError::CallError(_, _, _) => Self::CallError,
             CallDunderError::MethodNotAvailable | CallDunderError::PossiblyUnbound { .. } => {
                 CallBinOpError::NotSupported
             }

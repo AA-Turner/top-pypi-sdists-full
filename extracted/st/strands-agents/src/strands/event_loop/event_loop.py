@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace as trace_api
 
+from ..experimental.checkpoint import Checkpoint, CheckpointPosition
 from ..hooks import AfterModelCallEvent, BeforeModelCallEvent, MessageAddedEvent
 from ..telemetry.metrics import Trace
 from ..telemetry.tracer import Tracer, get_tracer
@@ -34,6 +35,7 @@ from ..types._events import (
 )
 from ..types.agent import Limits
 from ..types.content import Message, Messages
+from ..types.event_loop import Metrics, Usage
 from ..types.exceptions import (
     ContextWindowOverflowException,
     EventLoopException,
@@ -154,6 +156,27 @@ async def _estimate_input_tokens(agent: "Agent") -> int:
     )
 
 
+def _build_checkpoint_stop_event(
+    agent: "Agent",
+    position: CheckpointPosition,
+    cycle_index: int,
+    message: Message,
+    request_state: Any,
+) -> EventLoopStopEvent:
+    """Build a checkpoint stop event. Used at ``after_model`` and ``after_tools``."""
+    checkpoint = Checkpoint(
+        position=position,
+        cycle_index=cycle_index,
+    )
+    return EventLoopStopEvent(
+        "checkpoint",
+        message,
+        agent.event_loop_metrics,
+        request_state,
+        checkpoint=checkpoint,
+    )
+
+
 async def event_loop_cycle(
     agent: "Agent",
     invocation_state: dict[str, Any],
@@ -186,12 +209,16 @@ async def event_loop_cycle(
             :class:`~strands.types.agent.Limits`.
 
     Yields:
-        Model and tool stream events. The last event is a tuple containing:
+        Model and tool stream events. The final ``EventLoopStopEvent`` payload
+        (``event["stop"]``) is a 7-tuple:
 
-            - StopReason: Reason the model stopped generating (e.g., "tool_use")
+            - StopReason: Reason the model stopped generating (e.g., "tool_use", "checkpoint")
             - Message: The generated message from the model
             - EventLoopMetrics: Updated metrics for the event loop
             - Any: Updated request state
+            - Sequence[Interrupt] | None: Interrupts raised during the cycle, if any
+            - BaseModel | None: Structured output result, if any
+            - Checkpoint | None: Checkpoint captured when stop_reason == "checkpoint"
 
     Raises:
         EventLoopException: If an error occurs during execution
@@ -219,6 +246,18 @@ async def event_loop_cycle(
     # Initialize state and get cycle trace
     if "request_state" not in invocation_state:
         invocation_state["request_state"] = {}
+
+    # Consume the resume marker (one-shot).
+    resume_context = agent._checkpoint
+    if resume_context is not None:
+        agent._checkpoint = None
+        # after_tools means that cycle finished; resume increments cycle_index.
+        next_cycle = (
+            resume_context.cycle_index + 1 if resume_context.position == "after_tools" else resume_context.cycle_index
+        )
+        agent._checkpoint_cycle_index = next_cycle
+        agent._checkpoint_resume_position = resume_context.position
+
     attributes = {"event_loop_cycle_id": str(invocation_state.get("event_loop_cycle_id"))}
     cycle_start_time, cycle_trace = agent.event_loop_metrics.start_cycle(attributes=attributes)
     invocation_state["event_loop_cycle_trace"] = cycle_trace
@@ -278,6 +317,24 @@ async def event_loop_cycle(
                 )
 
             if stop_reason == "tool_use":
+                # Emit after_model checkpoint, unless we just resumed from one.
+                if agent._checkpointing and not agent._cancel_signal.is_set():
+                    resume_position = agent._checkpoint_resume_position
+                    agent._checkpoint_resume_position = None
+                    if resume_position != "after_model":
+                        cycle_index = agent._checkpoint_cycle_index
+                        agent.event_loop_metrics.end_cycle(cycle_start_time, cycle_trace)
+                        if cycle_span:
+                            tracer.end_event_loop_cycle_span(span=cycle_span, message=message)
+                        yield _build_checkpoint_stop_event(
+                            agent=agent,
+                            position="after_model",
+                            cycle_index=cycle_index,
+                            message=message,
+                            request_state=invocation_state["request_state"],
+                        )
+                        return
+
                 # Handle tool execution
                 tool_events = _handle_tool_execution(
                     stop_reason,
@@ -438,13 +495,39 @@ async def _handle_model_execution(
                 except Exception as e:
                     logger.debug("error=<%s> | token estimation failed, proceeding without estimate", e)
 
-                await agent.hooks.invoke_callbacks_async(
-                    BeforeModelCallEvent(
+                before_model_call_event = BeforeModelCallEvent(
+                    agent=agent,
+                    invocation_state=invocation_state,
+                    projected_input_tokens=projected_input_tokens,
+                )
+                await agent.hooks.invoke_callbacks_async(before_model_call_event)
+
+                if before_model_call_event.cancel:
+                    cancel_text = (
+                        before_model_call_event.cancel
+                        if isinstance(before_model_call_event.cancel, str)
+                        else "model call denied by hook"
+                    )
+                    message: Message = {"role": "assistant", "content": [{"text": cancel_text}]}
+                    stop_reason: StopReason = "end_turn"
+                    usage: Usage = {"inputTokens": 0, "outputTokens": 0, "totalTokens": 0}
+                    metrics: Metrics = {"latencyMs": 0}
+
+                    after_model_call_event = AfterModelCallEvent(
                         agent=agent,
                         invocation_state=invocation_state,
-                        projected_input_tokens=projected_input_tokens,
+                        stop_response=AfterModelCallEvent.ModelStopResponse(
+                            stop_reason=stop_reason,
+                            message=message,
+                        ),
                     )
-                )
+                    await agent.hooks.invoke_callbacks_async(after_model_call_event)
+
+                    tracer.end_model_invoke_span(model_invoke_span, message, usage, metrics, stop_reason)
+                    if after_model_call_event.retry:
+                        continue
+                    yield ModelStopReason(stop_reason=stop_reason, message=message, usage=usage, metrics=metrics)
+                    break
 
                 if structured_output_context.forced_mode:
                     tool_spec = structured_output_context.get_tool_spec()
@@ -703,6 +786,31 @@ async def _handle_tool_execution(
             agent.event_loop_metrics,
             invocation_state["request_state"],
             structured_output=structured_output_result,
+        )
+        return
+
+    # Emit after_tools checkpoint. Only fires on tool_use cycles: a model that
+    # returns end_turn first never reaches this branch.
+    if agent._checkpointing and not agent._cancel_signal.is_set():
+        cycle_index = agent._checkpoint_cycle_index
+        agent._checkpoint_cycle_index = cycle_index + 1
+        yield _build_checkpoint_stop_event(
+            agent=agent,
+            position="after_tools",
+            cycle_index=cycle_index,
+            message=message,
+            request_state=invocation_state["request_state"],
+        )
+        return
+
+    # If checkpointing is on and cancel suppressed the checkpoint above, emit
+    # "cancelled" now to avoid an extra model call.
+    if agent._checkpointing and agent._cancel_signal.is_set():
+        yield EventLoopStopEvent(
+            "cancelled",
+            message,
+            agent.event_loop_metrics,
+            invocation_state["request_state"],
         )
         return
 

@@ -1623,7 +1623,7 @@ def run_aws_iamrole_connection_flow(
     local_unavailable: bool = False,
 ) -> Tuple[str, str, Optional[TinyB], Optional[TinyB]]:
     """
-    Run the interactive AWS IAM Role connection flow for S3.
+    Run the interactive AWS IAM Role connection flow for S3 or DynamoDB.
 
     Guides the user through creating an IAM policy and role with the appropriate
     trust policy that includes AWS account IDs from the selected environments.
@@ -1631,7 +1631,7 @@ def run_aws_iamrole_connection_flow(
     Args:
         config: The CLI configuration dictionary.
         client: The TinyB client instance.
-        service: The data connector service type (e.g., 's3').
+        service: The data connector service type (e.g., 's3' or 'dynamodb').
         connection_name: The name for the connection being created.
         policy: The access policy type ('read' or 'write').
         local_unavailable: If True, local environment is unavailable (e.g., missing AWS credentials).
@@ -1639,23 +1639,41 @@ def run_aws_iamrole_connection_flow(
     Returns:
         A tuple containing:
             - role_arn (str): The AWS IAM Role ARN entered by the user.
-            - region (str): The AWS region where the bucket is located.
+            - region (str): The AWS region where the resource is located.
             - cloud_client (Optional[TinyB]): The TinyB client instance for the cloud environment.
             - local_client (Optional[TinyB]): The TinyB client instance for the local environment.
     """
+    bucket_name: Optional[str]
+    table_name: Optional[str] = None
+    region_prompt: str
     if service == DataConnectorType.AMAZON_DYNAMODB:
-        raise NotImplementedError("DynamoDB is not supported")
-
-    bucket_name = click.prompt(
-        FeedbackManager.highlight(
-            message="? Bucket name (specific name recommended, use '*' for unrestricted access in IAM policy)"
-        ),
-        prompt_suffix="\n> ",
-    )
-    validate_string_connector_param("Bucket", bucket_name)
+        table_name = click.prompt(
+            FeedbackManager.highlight(
+                message="? DynamoDB table name (specific name recommended, use '*' for unrestricted access in IAM policy)"
+            ),
+            prompt_suffix="\n> ",
+        )
+        validate_string_connector_param("DynamoDB table name", table_name)
+        bucket_name = click.prompt(
+            FeedbackManager.highlight(
+                message="? Export bucket name (specific name recommended, use '*' for unrestricted access in IAM policy)"
+            ),
+            prompt_suffix="\n> ",
+        )
+        validate_string_connector_param("Export bucket name", bucket_name)
+        region_prompt = "? Region (the region where the DynamoDB table is located)"
+    else:
+        bucket_name = click.prompt(
+            FeedbackManager.highlight(
+                message="? Bucket name (specific name recommended, use '*' for unrestricted access in IAM policy)"
+            ),
+            prompt_suffix="\n> ",
+        )
+        validate_string_connector_param("Bucket", bucket_name)
+        region_prompt = "? Region (the region where the bucket is located)"
 
     region = click.prompt(
-        FeedbackManager.highlight(message="? Region (the region where the bucket is located)"),
+        FeedbackManager.highlight(message=region_prompt),
         default="us-east-1",
         show_default=True,
         prompt_suffix="\n> ",
@@ -1738,15 +1756,27 @@ def run_aws_iamrole_connection_flow(
     # Use cloud_client as the main client if local is unavailable
     policy_client = cloud_client if local_unavailable and cloud_client else client
 
-    access_policy, trust_policy, _ = get_aws_iamrole_policies(
-        policy_client,
-        service=service,
-        policy=policy,
-        bucket=bucket_name,
-        external_id_seed=connection_name,
-        cloud_client=cloud_client if not local_unavailable else None,
-        local_client=local_client,
-    )
+    if table_name is not None:
+        access_policy, trust_policy, _ = get_aws_iamrole_policies(
+            policy_client,
+            service=service,
+            policy=policy,
+            bucket=bucket_name,
+            table_name=table_name,
+            external_id_seed=connection_name,
+            cloud_client=cloud_client if not local_unavailable else None,
+            local_client=local_client,
+        )
+    else:
+        access_policy, trust_policy, _ = get_aws_iamrole_policies(
+            policy_client,
+            service=service,
+            policy=policy,
+            bucket=bucket_name,
+            external_id_seed=connection_name,
+            cloud_client=cloud_client if not local_unavailable else None,
+            local_client=local_client,
+        )
 
     click.echo(FeedbackManager.gray(message="\n» Step 1: AWS Authentication"))
     click.echo(
@@ -1756,7 +1786,10 @@ def run_aws_iamrole_connection_flow(
     )
     click.echo(
         FeedbackManager.info(
-            message="You'll be creating a single IAM Policy and Role to access your S3 data. Using IAM Roles improves security by providing temporary credentials and following least privilege principles."
+            message=(
+                "You'll be creating a single IAM Policy and Role to access your data. "
+                "Using IAM Roles improves security by providing temporary credentials and following least privilege principles."
+            )
         )
     )
     click.echo(FeedbackManager.click_enter_to_continue())
@@ -1781,7 +1814,7 @@ def run_aws_iamrole_connection_flow(
         click.echo(FeedbackManager.info(message="3. Copy and paste the following policy:"))
     click.echo(FeedbackManager.highlight(message=f"\n{access_policy}\n"))
     click.echo(
-        FeedbackManager.info(message=f"4. Name the policy something meaningful (e.g., TinybirdS3Access-{bucket_name})")
+        FeedbackManager.info(message=f"4. Name the policy something meaningful (e.g., TinybirdAccess-{bucket_name})")
     )
     click.echo(FeedbackManager.info(message="5. Click 'Create policy'"))
     click.echo(FeedbackManager.click_enter_to_continue())
@@ -1807,7 +1840,7 @@ def run_aws_iamrole_connection_flow(
     click.echo(FeedbackManager.highlight(message=f"\n{trust_policy}\n"))
     click.echo(FeedbackManager.info(message="4. Click Next, search for and select the policy you just created"))
     click.echo(
-        FeedbackManager.info(message=f"5. Name the role something meaningful (e.g., TinybirdS3Role-{bucket_name})")
+        FeedbackManager.info(message=f"5. Name the role something meaningful (e.g., TinybirdRole-{bucket_name})")
     )
     click.echo(FeedbackManager.info(message="6. Click 'Create role'"))
     click.echo(FeedbackManager.info(message="7. Copy the Role ARN from the role details page"))
@@ -1954,6 +1987,7 @@ def get_aws_iamrole_policies(
     service: str,
     policy: str = "write",
     bucket: Optional[str] = None,
+    table_name: Optional[str] = None,
     external_id_seed: Optional[str] = None,
     cloud_client: Optional[TinyB] = None,
     local_client: Optional[TinyB] = None,
@@ -1979,7 +2013,7 @@ def get_aws_iamrole_policies(
         if policy == "write":
             access_policy = client.get_access_write_policy(service, bucket)
         elif policy == "read":
-            access_policy = client.get_access_read_policy(service, bucket)
+            access_policy = client.get_access_read_policy(service, bucket, table_name=table_name)
         else:
             raise Exception(f"Access policy {policy} not supported. Choose from 'read' or 'write'")
         if not len(access_policy) > 0:

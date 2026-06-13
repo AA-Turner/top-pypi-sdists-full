@@ -257,7 +257,6 @@ def try_vdisplay_control_fallback(
     """
     del project
     from koru.integrations.vdisplay_client import (
-        send_chat,
         vdisplay_fallback_enabled,
     )
 
@@ -266,19 +265,34 @@ def try_vdisplay_control_fallback(
     # Ensure session for audit/recovery when using vdisplay (addresses gap in auto runner not setting VDISPLAY_SESSION)
     os.environ.setdefault("VDISPLAY_SESSION", "1")
     try:
-        # Load VQL metadata (our analysis or fresh per-screenshot) to provide
-        # click_center / data_locations / decision_data for semantic actions.
-        # This gives the autonomy loop precise mouse coords and "where the data is"
-        # (pngs, client code, .env LLM, planfile) for decisions in JetBrains/Cursor.
-        from koru.integrations.vdisplay_client import load_vql_metadata, record_koru_drive_step
-        vql = load_vql_metadata()
+        from koru.autonomy.desktop_preflight import prepare_vdisplay_capture_preflight
+        from koru.integrations.photo_vql_drive import PhotoVqlDrive
+        from koru.integrations.vdisplay_client import (
+            load_vql_metadata,
+            record_koru_drive_step,
+        )
+
+        drive = PhotoVqlDrive(ide=ide)
+        preflight = prepare_vdisplay_capture_preflight(
+            ide=ide,
+            prepare_fn=lambda **_: drive.prepare(reuse_fresh=True),
+            load_vql_fn=load_vql_metadata,
+        )
+        observe = preflight.observe
+        vql = preflight.vql
+        if not preflight.ok:
+            reply = preflight.failure_reply(backend="vdisplay")
+            reply["fallback_from"] = "plugin"
+            return reply
         vql_note = ""
         if vql.get("ui_elements"):
             cc = vql["ui_elements"][0].get("click_center", {})
             vql_note = f" VQL click_center={cc} (use for editor focus / chat in IDE)"
-        reply = send_chat(prompt, ide=ide, submit=submit)
+        reply = drive.act(prompt, submit=submit, dry_run=False)
         reply.setdefault("fallback_from", "plugin")
         reply.setdefault("vql_context", vql.get("_source") or "loaded")
+        reply.setdefault("photo_vql_observe", observe)
+        reply.setdefault("desktop_preflight", preflight.as_dict())
         if vql_note:
             reply["vql_note"] = vql_note
         # Record to vdisplay session for audit trail (P1)
@@ -397,6 +411,8 @@ def resolve_autopilot_ide(cli_value: str) -> str:
 
 def apply_agent_lane_environ(project: Path, agent_lane: str) -> str | None:
     """Set lane exports in ``os.environ``; returns lane id or ``None`` if skipped."""
+    from koru.autonomous_vdisplay_defaults import apply_vdisplay_drive_defaults
+
     lane, _source = resolve_agent_lane_id(
         project,
         agent_lane,
@@ -406,6 +422,7 @@ def apply_agent_lane_environ(project: Path, agent_lane: str) -> str | None:
         return None
     for key, val in agent_lane_environment(lane).items():
         os.environ[key] = val
+    apply_vdisplay_drive_defaults(ide=lane)
     return lane
 
 

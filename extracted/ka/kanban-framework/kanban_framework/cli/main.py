@@ -161,7 +161,14 @@ def main() -> None:
     # Intercept --help/-h in subcommand args to prevent dirty data (#594).
     # Without this, `kanban knowledge add --help` would create a blank entry
     # because the handler treats "--help" as a positional content argument.
-    if "--help" in args or "-h" in args:
+    #
+    # BUT: commands with their own dispatch() (benchmark, knowledge, etc.)
+    # handle --help per-subcommand and should NOT be intercepted here (#636).
+    _DISPATCH_COMMANDS = frozenset({
+        "benchmark", "knowledge", "version", "plan", "evolve-skills",
+        "framework", "evaluator", "inbox", "subtask", "codebase",
+    })
+    if ("--help" in args or "-h" in args) and cmd not in _DISPATCH_COMMANDS:
         _output({"success": True, "data": {
             "help": True,
             "command": cmd,
@@ -186,14 +193,46 @@ def main() -> None:
     fn = getattr(mod, fn_name)
     try:
         result = fn(args[1:])
-        _log.info("command %s completed: success=%s", cmd, not result.get("error"))
+        # Convention: handlers return `{"error": "..."}` for expected failures
+        # (bad input, missing files, validation errors). These must surface as
+        # `success: False` in the JSON envelope — not be wrapped as success.
+        # Without this, `kanban create --mode bogus` returned success=True
+        # even though the handler explicitly rejected the mode (#644).
+        is_error = isinstance(result, dict) and bool(result.get("error"))
+        _log.info("command %s completed: success=%s", cmd, not is_error)
         if _USE_JSON:
-            _output({"success": True, "data": result})
+            if is_error:
+                _output({
+                    "success": False,
+                    "error": result["error"],
+                    "code": result.get("code", "HandlerError"),
+                    "data": result,  # preserve extra fields like available_modes
+                })
+            else:
+                _output({"success": True, "data": result})
         else:
             _render(cmd, result)
     except Exception as e:
+        import traceback
+        tb_text = traceback.format_exc()
         _log.exception("command %s failed: %s", cmd, e)
-        _output({"success": False, "error": str(e), "code": type(e).__name__})
+        # Always echo full traceback to stderr so terminal users can debug —
+        # JSON users get it under the "traceback" field below.
+        sys.stderr.write(tb_text)
+        log_file_path = ""
+        try:
+            from kanban_framework.infra.filesystem import Filesystem as _Fs
+            log_file_path = str(_Fs.find_project_root() / ".kanban" / "log" / "kanban.log")
+        except Exception:
+            pass
+        _output({
+            "success": False,
+            "error": str(e),
+            "code": type(e).__name__,
+            "traceback": tb_text,
+            "command": f"{cmd} {' '.join(args[1:])}".strip(),
+            "log_file": log_file_path,
+        })
 
 
 def _render(cmd: str, data: dict) -> None:

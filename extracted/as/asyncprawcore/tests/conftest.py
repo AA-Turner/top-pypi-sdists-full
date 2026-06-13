@@ -22,7 +22,7 @@ def patch_sleep(monkeypatch):
 @pytest.fixture
 async def requestor():
     """Return path to image."""
-    _requestor = Requestor("asyncprawcore:test (by u/Lil_SpazJoekp)")
+    _requestor = Requestor(user_agent="asyncprawcore:test (by u/Lil_SpazJoekp)")
     _requestor.headers = {"Accept-Encoding": "identity", **_requestor.headers}
     yield _requestor
     await _requestor.close()
@@ -32,16 +32,16 @@ async def requestor():
 def trusted_authenticator(requestor):
     """Return a TrustedAuthenticator instance."""
     return TrustedAuthenticator(
-        requestor,
-        pytest.placeholders.client_id,
-        pytest.placeholders.client_secret,
+        client_id=pytest.placeholders.client_id,
+        client_secret=pytest.placeholders.client_secret,
+        requestor=requestor,
     )
 
 
 @pytest.fixture
 def untrusted_authenticator(requestor):
     """Return an UntrustedAuthenticator instance."""
-    return UntrustedAuthenticator(requestor, pytest.placeholders.client_id)
+    return UntrustedAuthenticator(client_id=pytest.placeholders.client_id, requestor=requestor)
 
 
 def env_default(key):

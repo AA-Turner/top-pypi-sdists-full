@@ -547,9 +547,7 @@ class PdfDocument:
     def erase_artifacts(self, page: int) -> None:
         """Erase both header and footer content."""
 
-    def within(
-        self, slf: PdfDocument, page: int, bbox: tuple[float, float, float, float]
-    ) -> PdfPageRegion:
+    def within(self, page: int, bbox: tuple[float, float, float, float]) -> PdfPageRegion:
         """Focus extraction on a region."""
 
     def render_page(
@@ -1338,8 +1336,8 @@ class PdfDocument:
         """
 
     def __len__(self) -> int: ...
-    def __getitem__(self, slf: PdfDocument, index: int) -> Page: ...
-    def __iter__(self, slf: PdfDocument) -> PdfDocumentIter: ...
+    def __getitem__(self, index: int) -> Page: ...
+    def __iter__(self) -> PdfDocumentIter: ...
     @property
     def pages(self) -> PdfDocumentIter:
         """
@@ -1949,14 +1947,18 @@ class DocumentBuilder:
         `RuntimeError`.
         """
 
-    def a4_page(self, slf_handle: DocumentBuilder) -> FluentPageBuilder:
+    def a4_page(
+        self,
+    ) -> FluentPageBuilder:
         """
         Start a new A4 page and return a `FluentPageBuilder`. Call
         `.done()` on the returned builder to commit the page.
         """
 
-    def letter_page(self, slf_handle: DocumentBuilder) -> FluentPageBuilder: ...
-    def page(self, slf_handle: DocumentBuilder, width: float, height: float) -> FluentPageBuilder:
+    def letter_page(
+        self,
+    ) -> FluentPageBuilder: ...
+    def page(self, width: float, height: float) -> FluentPageBuilder:
         """
         Start a new page with custom dimensions in PDF points
         (72 pt = 1 inch). Use for non-standard paper sizes.

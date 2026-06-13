@@ -59,12 +59,12 @@ blazen-train = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 candle-core = { workspace = true, optional = true }
 tonic = { workspace = true, optional = true }
-blazen-3d = { version = "0.6.72", path = "../blazen-3d", default-features = false, optional = true }
+blazen-3d = { version = "0.6.74", path = "../blazen-3d", default-features = false, optional = true }
 blazen-audio-music = { workspace = true, optional = true }
 blazen-audio-codec = { workspace = true, optional = true }
 blazen-audio = { workspace = true, optional = true }
 blazen-audio-vc = { workspace = true, optional = true }
-blazen-macros = { version = "0.6.72", path = "../blazen-macros" }
+blazen-macros = { version = "0.6.74", path = "../blazen-macros" }
 
 [features]
 default = ["local-all"]

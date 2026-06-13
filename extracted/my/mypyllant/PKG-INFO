@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: myPyllant
-Version: 0.9.12
+Version: 0.9.14
 Summary: A Python library to interact with the API behind the myVAILLANT app
 Project-URL: Homepage, https://github.com/signalkraft/myPyllant
 Project-URL: Bug Tracker, https://github.com/signalkraft/myPyllant/issues
@@ -10,7 +10,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.14,>=3.10
-Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: aiohttp<3.14,>=3.8.0
 Requires-Dist: pydantic<3.0,>=2.10
 Description-Content-Type: text/markdown
 

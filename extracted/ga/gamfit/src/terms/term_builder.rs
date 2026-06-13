@@ -11,12 +11,14 @@ use ndarray::{Array2, ArrayView1};
 
 use crate::basis::{
     BSplineBasisSpec, BSplineBoundaryConditions, BSplineEndpointBoundaryCondition,
-    BSplineIdentifiability, BSplineKnotSpec, CenterCountRequest, CenterStrategy, DuchonBasisSpec,
+    BSplineIdentifiability, BSplineKnotSpec, CenterCountRequest, CenterStrategy,
+    ConstantCurvatureBasisSpec, ConstantCurvatureIdentifiability, DuchonBasisSpec,
     DuchonNullspaceOrder, DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability,
-    MaternNu, OneDimensionalBoundary, SpatialIdentifiability, SphereMethod, SphereWahbaKernel,
-    SphericalSplineBasisSpec, SphericalSplineIdentifiability, ThinPlateBasisSpec,
-    auto_spatial_center_strategy, default_num_centers, default_spatial_center_strategy,
-    default_spherical_harmonic_degree, plan_spatial_basis,
+    MaternNu, MeasureJetBasisSpec, MeasureJetIdentifiability, OneDimensionalBoundary,
+    SpatialIdentifiability, SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec,
+    SphericalSplineIdentifiability, ThinPlateBasisSpec, auto_spatial_center_strategy,
+    default_num_centers, default_spatial_center_strategy, default_spherical_harmonic_degree,
+    plan_spatial_basis,
 };
 use crate::inference::data::{DataError, EncodedDataset as Dataset};
 use crate::inference::formula_dsl::{
@@ -1206,6 +1208,14 @@ pub(crate) fn canonicalize_smooth_type(raw: &str) -> &str {
         // matches gamfit's `"matern"` exactly (same kernel-Gram identity,
         // same REML route).
         "gp" => "matern",
+        // Constant-curvature (M_κ) geodesic-kernel smooth (#944). All aliases
+        // collapse to one canonical type so `bs="curv"`/`bs="mkappa"` cannot
+        // diverge from `curv(...)`.
+        "curv" | "constant_curvature" | "mkappa" => "curvature",
+        // Measure-jet spline: multiscale local-jet-residual energy of the
+        // empirical measure. No mgcv equivalent (mgcv has no measure-learned
+        // geometry smooth), so no mgcv alias is mapped.
+        "mjs" | "measure_jet" | "web" => "measurejet",
         other => other,
     }
 }
@@ -1973,6 +1983,147 @@ pub fn build_smooth_basis(
                     wahba_kernel,
                     identifiability: SphericalSplineIdentifiability::CenterSumToZero,
                 },
+            })
+        }
+        "curvature" => {
+            // Constant-curvature (M_κ) geodesic-kernel smooth (#944): the
+            // κ-generic sibling of the intrinsic S² smooth above. The feature
+            // columns are κ-stereographic chart coordinates; `kappa=` is the
+            // fixed sectional curvature (default 0 = flat), and the geometry
+            // comes from `geometry::constant_curvature::ConstantCurvature`.
+            validate_known_options(
+                "curvature",
+                options,
+                &[
+                    "type",
+                    "bs",
+                    "by",
+                    "centers",
+                    "k",
+                    "basis_dim",
+                    "basis-dim",
+                    "basisdim",
+                    "knots",
+                    "kappa",
+                    "length_scale",
+                    "double_penalty",
+                    "id",
+                    "__by_col",
+                ],
+            )?;
+            let kappa = option_f64(options, "kappa").unwrap_or(0.0);
+            if !kappa.is_finite() {
+                return Err("curvature smooth requires a finite kappa".to_string());
+            }
+            let length_scale = option_f64(options, "length_scale").unwrap_or(0.0);
+            if !length_scale.is_finite() || length_scale < 0.0 {
+                return Err(format!(
+                    "curvature smooth length_scale must be positive (or omitted for auto); got {length_scale}"
+                ));
+            }
+            let centers = parse_countwith_basis_alias(
+                options,
+                "centers",
+                default_num_centers(ds.values.nrows(), cols.len()),
+            )?;
+            if centers < 2 {
+                return Err("curvature smooth requires at least 2 centers".to_string());
+            }
+            Ok(SmoothBasisSpec::ConstantCurvature {
+                feature_cols: cols.to_vec(),
+                spec: ConstantCurvatureBasisSpec {
+                    center_strategy: CenterStrategy::FarthestPoint {
+                        num_centers: centers,
+                    },
+                    kappa,
+                    // 0.0 sentinel = κ-independent auto initialization in the
+                    // basis builder (median chart center spacing, doubled).
+                    length_scale,
+                    double_penalty: smooth_double_penalty,
+                    identifiability: ConstantCurvatureIdentifiability::CenterSumToZero,
+                },
+            })
+        }
+        "measurejet" => {
+            // Measure-jet spline: multiscale local-jet-residual energy of the
+            // empirical measure. The feature columns are ambient coordinates
+            // of data concentrated near an unknown low-dimensional set; the
+            // geometry (centers, masses, scale band) is read off the measure
+            // at build time — magic by default, every option optional.
+            validate_known_options(
+                "measurejet",
+                options,
+                &[
+                    "type",
+                    "bs",
+                    "by",
+                    "centers",
+                    "k",
+                    "basis_dim",
+                    "basis-dim",
+                    "basisdim",
+                    "knots",
+                    "s",
+                    "alpha",
+                    "tau",
+                    "scales",
+                    "length_scale",
+                    "double_penalty",
+                    "id",
+                    "__by_col",
+                ],
+            )?;
+            let order_s = option_f64(options, "s").unwrap_or(0.0);
+            // 0.0 = auto sentinel; explicit values must sit inside the
+            // admissible order interval of the affine-jet (r = 2) energy.
+            if !(order_s.is_finite() && (order_s == 0.0 || (order_s > 0.0 && order_s < 2.0))) {
+                return Err(format!(
+                    "measurejet smooth s must lie in (0, 2) (or be omitted for auto); got {order_s}"
+                ));
+            }
+            let alpha = option_f64(options, "alpha").unwrap_or(1.0);
+            if !alpha.is_finite() {
+                return Err("measurejet smooth requires a finite alpha".to_string());
+            }
+            let tau0 = option_f64(options, "tau").unwrap_or(1e-3);
+            if !(tau0.is_finite() && tau0 >= 0.0) {
+                return Err(format!(
+                    "measurejet smooth tau must be finite and nonnegative; got {tau0}"
+                ));
+            }
+            let num_scales = option_usize(options, "scales").unwrap_or(0);
+            let length_scale = option_f64(options, "length_scale").unwrap_or(0.0);
+            if !length_scale.is_finite() || length_scale < 0.0 {
+                return Err(format!(
+                    "measurejet smooth length_scale must be positive (or omitted for auto); got {length_scale}"
+                ));
+            }
+            let centers = parse_countwith_basis_alias(
+                options,
+                "centers",
+                default_num_centers(ds.values.nrows(), cols.len()),
+            )?;
+            if centers < 3 {
+                return Err("measurejet smooth requires at least 3 centers".to_string());
+            }
+            Ok(SmoothBasisSpec::MeasureJet {
+                feature_cols: cols.to_vec(),
+                spec: MeasureJetBasisSpec {
+                    center_strategy: CenterStrategy::FarthestPoint {
+                        num_centers: centers,
+                    },
+                    order_s,
+                    alpha,
+                    tau0,
+                    num_scales,
+                    // 0.0 sentinel = auto initialization in the basis builder
+                    // (median nearest-center spacing, doubled).
+                    length_scale,
+                    double_penalty: smooth_double_penalty,
+                    identifiability: MeasureJetIdentifiability::CenterSumToZero,
+                    frozen_quadrature: None,
+                },
+                input_scales: None,
             })
         }
         "matern" => {

@@ -193,7 +193,6 @@ def _make_test_runner(layout: LayoutPlan, out_dir: Path) -> Callable[..., tuple[
     Picks the right tool based on the test file extension. Returns
     (ok, log, failure_count).
     """
-
     def run(test_path: Path, _impl_path: Path) -> tuple[bool, str, int]:
         rel = test_path.relative_to(out_dir)
         suffix = test_path.suffix
@@ -207,6 +206,42 @@ def _make_test_runner(layout: LayoutPlan, out_dir: Path) -> Callable[..., tuple[
             cwd = out_dir / "frontend" if (out_dir / "frontend").exists() else out_dir
             test_rel = test_path.relative_to(cwd)
             cmd = ["npx", "--no-install", "jest", str(test_rel), "--passWithNoTests"]
+        elif suffix == ".dart":
+            cwd = out_dir / "frontend" if (out_dir / "frontend").exists() else out_dir
+            is_flutter = False
+            try:
+                pubspec = cwd / "pubspec.yaml"
+                if pubspec.exists():
+                    content = pubspec.read_text(encoding="utf-8", errors="replace")
+                    if "sdk: flutter" in content or "flutter:" in content:
+                        is_flutter = True
+            except Exception:
+                pass
+            tool = "flutter" if is_flutter else "dart"
+            cmd = [tool, "test"]
+        elif suffix == ".swift":
+            cwd = out_dir / "frontend" if (out_dir / "frontend").exists() else out_dir
+            cmd = ["swift", "test"]
+        elif suffix in {".kt", ".java"}:
+            cwd = out_dir / "frontend" if (out_dir / "frontend").exists() else out_dir
+            if (cwd / "pom.xml").exists():
+                cmd = ["mvn", "test"]
+            elif (cwd / "build.gradle").exists():
+                gradlew = cwd / "gradlew"
+                cmd = [str(gradlew)] if gradlew.exists() else ["gradle", "test"]
+                if gradlew.exists():
+                    cmd.append("test")
+            else:
+                cmd = ["gradle", "test"]
+        elif suffix == ".rs":
+            cwd = out_dir / "frontend" if (out_dir / "frontend").exists() else out_dir
+            cmd = ["cargo", "test"]
+        elif suffix == ".go":
+            cwd = out_dir / "frontend" if (out_dir / "frontend").exists() else out_dir
+            cmd = ["go", "test", "./..."]
+        elif suffix in {".cpp", ".hpp", ".h"}:
+            cwd = out_dir / "frontend" / "build" if (out_dir / "frontend" / "build").exists() else (out_dir / "build" if (out_dir / "build").exists() else out_dir)
+            cmd = ["ctest"]
         else:
             return False, f"no runner for {suffix}", 1
 
@@ -319,6 +354,89 @@ def _missing_modules_from_log(log_text: str, project_root: Path) -> list[str]:
     return missing
 
 
+def _clean_json_str(s: str) -> str:
+    """Attempt to clean common LLM JSON errors:
+    1. Strip trailing commas before } or ]
+    2. Convert single-quoted keys/values to double-quoted keys/values
+    3. Strip line comments (//, #) and block comments (/* */) outside strings
+    4. Handle control characters by keeping them (strict=False handles it)
+    """
+    out = []
+    i = 0
+    n = len(s)
+    in_quote = None  # None, '"', or "'"
+    escaped = False
+    
+    while i < n:
+        char = s[i]
+        
+        if escaped:
+            out.append(char)
+            escaped = False
+            i += 1
+            continue
+            
+        if in_quote:
+            if char == '\\':
+                escaped = True
+                out.append(char)
+            elif char == in_quote:
+                # Closing the string
+                out.append('"')
+                in_quote = None
+            else:
+                if in_quote == "'" and char == '"':
+                    # Escape double quote inside what was a single-quoted string
+                    out.append('\\"')
+                elif in_quote == '"' and char == "'":
+                    # Keep single quote inside double-quoted string (do not escape it)
+                    out.append("'")
+                else:
+                    out.append(char)
+            i += 1
+            continue
+            
+        # Outside string
+        # Comments:
+        if char == '/' and i + 1 < n and s[i+1] == '/':
+            i += 2
+            while i < n and s[i] != '\n':
+                i += 1
+            continue
+        if char == '/' and i + 1 < n and s[i+1] == '*':
+            i += 2
+            while i + 1 < n and not (s[i] == '*' and s[i+1] == '/'):
+                i += 1
+            i += 2
+            continue
+        if char == '#' and (i == 0 or s[i-1] in ' \t\n,'):
+            i += 1
+            while i < n and s[i] != '\n':
+                i += 1
+            continue
+            
+        # Quotes:
+        if char in ('"', "'"):
+            in_quote = char
+            out.append('"')
+            i += 1
+            continue
+            
+        # Trailing comma:
+        if char == ',':
+            next_idx = i + 1
+            while next_idx < n and s[next_idx].isspace():
+                next_idx += 1
+            if next_idx < n and s[next_idx] in ('}', ']'):
+                i = next_idx
+                continue
+                
+        out.append(char)
+        i += 1
+        
+    return "".join(out)
+
+
 def _parse_fixes_from_llm(
     raw: str,
     relevant_files: list[Path],
@@ -348,76 +466,84 @@ def _parse_fixes_from_llm(
     start = raw_clean.find("{")
     end = raw_clean.rfind("}")
     if start != -1 and end != -1:
-        try:
-            fixes = json.loads(raw_clean[start : end + 1], strict=False)
-            if isinstance(fixes, dict) and fixes:
-                # Ensure at least one key matches a target file, exists, or is a valid code file under project root
-                any_match = False
-                for k in fixes.keys():
-                    k_str = str(k)
-                    k_clean = k_str.lower()
-                    k_base = Path(k_clean).name
+        json_text = raw_clean[start : end + 1]
+        for attempt in (1, 2):
+            try:
+                if attempt == 1:
+                    fixes = json.loads(json_text, strict=False)
+                else:
+                    cleaned = _clean_json_str(json_text)
+                    fixes = json.loads(cleaned, strict=False)
                     
-                    # 1.1 Target files check
-                    for target in all_targets:
-                        t_lower = target.lower()
-                        t_base = Path(t_lower).name
-                        if k_clean == t_lower or k_base == t_base or t_lower in k_clean:
+                if isinstance(fixes, dict) and fixes:
+                    # Ensure at least one key matches a target file, exists, or is a valid code file under project root
+                    any_match = False
+                    for k in fixes.keys():
+                        k_str = str(k)
+                        k_clean = k_str.lower()
+                        k_base = Path(k_clean).name
+                        
+                        # 1.1 Target files check
+                        for target in all_targets:
+                            t_lower = target.lower()
+                            t_base = Path(t_lower).name
+                            if k_clean == t_lower or k_base == t_base or t_lower in k_clean:
+                                any_match = True
+                                break
+                        if any_match:
+                            break
+                            
+                        # 1.2 Exists under project check
+                        if (project_root / k_str).exists() or (project_root.parent / k_str).exists():
                             any_match = True
                             break
-                    if any_match:
-                        break
-                        
-                    # 1.2 Exists under project check
-                    if (project_root / k_str).exists() or (project_root.parent / k_str).exists():
-                        any_match = True
-                        break
-                        
-                    # 1.3 Valid code file path check
-                    try:
-                        resolved_path = Path(k_str).resolve() if Path(k_str).is_absolute() else (project_root / k_str).resolve()
-                        if project_root.resolve() in resolved_path.parents or resolved_path == project_root.resolve():
-                            if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
-                                any_match = True
-                                break
-                        elif project_root.parent.resolve() in resolved_path.parents:
-                            if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
-                                any_match = True
-                                break
-                    except Exception:
-                        pass
-                
-                if any_match:
-                    # Normalize fixes keys to project-relative or parent-relative paths
-                    normalized_fixes = {}
-                    for k, v in fixes.items():
-                        k_str = str(k)
+                            
+                        # 1.3 Valid code file path check
                         try:
-                            k_path = Path(k_str)
-                            first_part = k_path.parts[0] if k_path.parts else ""
-                            repo_dirs = {"backend", "frontend", "shared", "deploy", ".github", ".sage"}
-                            is_nested = project_root.name in repo_dirs
-                            if is_nested and first_part in repo_dirs:
-                                resolved = k_path.resolve() if k_path.is_absolute() else (project_root.parent / k_path).resolve()
-                            else:
-                                resolved = k_path.resolve() if k_path.is_absolute() else (project_root / k_path).resolve()
-
-                            if project_root.resolve() in resolved.parents or resolved == project_root.resolve():
-                                rel = str(resolved.relative_to(project_root.resolve()))
-                                normalized_fixes[rel] = str(v)
-                            elif project_root.parent.resolve() in resolved.parents:
-                                rel = str(resolved.relative_to(project_root.parent.resolve()))
-                                normalized_fixes[rel] = str(v)
-                            else:
-                                normalized_fixes[k_str] = str(v)
+                            resolved_path = Path(k_str).resolve() if Path(k_str).is_absolute() else (project_root / k_str).resolve()
+                            if project_root.resolve() in resolved_path.parents or resolved_path == project_root.resolve():
+                                if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
+                                    any_match = True
+                                    break
+                            elif project_root.parent.resolve() in resolved_path.parents:
+                                if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
+                                    any_match = True
+                                    break
                         except Exception:
-                            normalized_fixes[k_str] = str(v)
-                    return normalized_fixes
-        except Exception:
-            pass
+                            pass
+                    
+                    if any_match:
+                        # Normalize fixes keys to project-relative or parent-relative paths
+                        normalized_fixes = {}
+                        for k, v in fixes.items():
+                            k_str = str(k)
+                            try:
+                                k_path = Path(k_str)
+                                first_part = k_path.parts[0] if k_path.parts else ""
+                                repo_dirs = {"backend", "frontend", "shared", "deploy", ".github", ".sage"}
+                                is_nested = project_root.name in repo_dirs
+                                if is_nested and first_part in repo_dirs:
+                                    resolved = k_path.resolve() if k_path.is_absolute() else (project_root.parent / k_path).resolve()
+                                else:
+                                    resolved = k_path.resolve() if k_path.is_absolute() else (project_root / k_path).resolve()
 
-    # 2. Fallback 1: Extract code blocks from Markdown fences (supporting multiline indent)
-    blocks = re.findall(r"^[ \t]*```[a-zA-Z0-9+_-]*\n(.*?)\n^[ \t]*```", raw_clean, re.DOTALL | re.MULTILINE)
+                                if project_root.resolve() in resolved.parents or resolved == project_root.resolve():
+                                    rel = str(resolved.relative_to(project_root.resolve()))
+                                    normalized_fixes[rel] = str(v)
+                                elif project_root.parent.resolve() in resolved.parents:
+                                    rel = str(resolved.relative_to(project_root.parent.resolve()))
+                                    normalized_fixes[rel] = str(v)
+                                else:
+                                    normalized_fixes[k_str] = str(v)
+                            except Exception:
+                                normalized_fixes[k_str] = str(v)
+                        return normalized_fixes
+            except Exception:
+                pass
+
+    # 2. Fallback 1: Extract code blocks from Markdown fences using finditer
+    pattern = r"^[ \t]*```[a-zA-Z0-9+_-]*\n(.*?)\n^[ \t]*```"
+    matches = list(re.finditer(pattern, raw_clean, re.DOTALL | re.MULTILINE))
     fixes: dict[str, str] = {}
 
     def _find_target_in_block(block_content: str) -> str | None:
@@ -449,10 +575,53 @@ def _parse_fixes_from_llm(
                         pass
         return None
 
-    for block in blocks:
-        target = _find_target_in_block(block)
+    def _find_target_in_preceding_text(text: str) -> str | None:
+        text_lower = text.lower()
+        best_target = None
+        best_pos = -1
+        
+        for target in all_targets:
+            t_lower = target.lower()
+            t_base = Path(target).name.lower()
+            
+            # Check for full target match
+            pos = text_lower.rfind(t_lower)
+            if pos != -1 and pos > best_pos:
+                best_pos = pos
+                best_target = target
+                
+            # Check for normalized/alternate path match (e.g. swapping backslash/slash)
+            t_alt = target.replace("/", "\\").lower()
+            pos_alt = text_lower.rfind(t_alt)
+            if pos_alt != -1 and pos_alt > best_pos:
+                best_pos = pos_alt
+                best_target = target
+                
+            # Check for basename match, ensuring it's matched as a word or file path segment
+            pos_base = text_lower.rfind(t_base)
+            if pos_base != -1 and pos_base > best_pos:
+                start_char_idx = pos_base - 1
+                if start_char_idx >= 0:
+                    prev_char = text_lower[start_char_idx]
+                    if prev_char.isalnum() or prev_char == '_':
+                        continue
+                best_pos = pos_base
+                best_target = target
+        return best_target
+
+    last_end = 0
+    for match in matches:
+        block_content = match.group(1)
+        start_idx = match.start()
+        preceding_text = raw_clean[last_end:start_idx]
+        last_end = match.end()
+        
+        target = _find_target_in_block(block_content)
+        if not target:
+            target = _find_target_in_preceding_text(preceding_text)
+            
         if target:
-            fixes[target] = block
+            fixes[target] = block_content
 
     if fixes:
         return fixes
@@ -813,7 +982,7 @@ def build_project_dynamic(
             deps, out_dir / "backend", project_name=project_slug + "-backend"
         )
         log(f"      wrote backend/requirements.txt + pyproject.toml ({len(deps.python_runtime)} deps)")
-    if plan.stack.frontend:
+    if plan.stack.frontend and plan.stack.frontend in {"react", "react-native-web", "nextjs", "vue", "svelte"}:
         emit_node_package_json(
             deps,
             out_dir / "frontend",

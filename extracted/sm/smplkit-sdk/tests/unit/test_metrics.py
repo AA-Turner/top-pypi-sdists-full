@@ -750,8 +750,8 @@ class TestFlagsInstrumentation:
             )
         else:
             parent._metrics = None
-        with patch("smplkit.flags._client.AuthenticatedClient"):
-            from smplkit.flags._client import FlagsClient
+        with patch("smplkit.flags.clients.AuthenticatedClient"):
+            from smplkit.flags.clients import FlagsClient
 
             client = FlagsClient(parent=parent, transport=MagicMock(), contexts=MagicMock(), metrics=parent._metrics)
         client._connected = True
@@ -846,7 +846,7 @@ class TestConfigInstrumentation:
         else:
             parent._metrics = None
 
-        from smplkit.config._client import ConfigClient
+        from smplkit.config.clients import ConfigClient
 
         client = ConfigClient(parent=parent, transport=MagicMock(), metrics=parent._metrics)
         return client, parent

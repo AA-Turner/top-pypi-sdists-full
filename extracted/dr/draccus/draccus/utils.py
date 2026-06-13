@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2025-2026 The Board of Trustees of the Leland Stanford Junior University
+# Copyright 2019 Fabrice Normandin
+# Copyright 2021 Elad Richardson
+
 """Utility functions used in various parts of the draccus package."""
 import builtins
 import collections.abc as c_abc
@@ -376,13 +381,13 @@ def has_generic_arg(args):
 def is_choice_type(cls: Any) -> bool:
     """
     Returns True if
-    1) cls is a ChoiceRegistry or PluginRegistry, or a *direct* subclass of one of those
+    1) cls is a ChoiceRegistry/PluginRegistry/QNamePluginRegistry, or a *direct* subclass of one of those
     OR
     2) cls structurally matches the ChoiceType protocol, but none of its parents do
     """
-    from draccus.choice_types import ChoiceRegistry, ChoiceType, PluginRegistry
+    from draccus.choice_types import ChoiceRegistry, ChoiceType, PluginRegistry, QNamePluginRegistry
 
-    CHOICE_BASES = (ChoiceRegistry, PluginRegistry, ChoiceType)
+    CHOICE_BASES = (ChoiceRegistry, PluginRegistry, QNamePluginRegistry, ChoiceType)
 
     # Skip if not a proper class
     if not isinstance(cls, type):

@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "cibuildwheel.ci",
+    "contextlib",
+    "functools",
+    "hashlib",
+    "humanize",
+    "io",
+    "pathlib",
+    "re",
+    "textwrap",
+}
+
 import codecs
 import contextlib
 import dataclasses
@@ -363,11 +375,11 @@ class Logger:
         out.write("\n")
         return out.getvalue()
 
-    @property
+    @functools.cached_property
     def colors(self) -> Colors:
         return Colors(enabled=self.colors_enabled)
 
-    @property
+    @functools.cached_property
     def symbols(self) -> Symbols:
         return Symbols(unicode=self.unicode_enabled)
 

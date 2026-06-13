@@ -18,6 +18,7 @@ _METADATA_SERVER_URL = 'http://metadata.google.internal/computeMetadata/v1/'
 _METADATA_HEADERS = {'Metadata-Flavor': 'Google'}
 
 MACHINE_TYPE_TO_ACCELERATOR_TYPE_MAPPING = {
+    'tpu7x': 'TPU-7x',
     'ct6e': 'TPU-v6e',
     'ct5p': 'TPU-v5p',
     'ct5lp': 'TPU-v5e',
@@ -42,6 +43,7 @@ class GCPOptions:
   location: Optional[str] = None
   replica_id: str = '0'
   acc_type: Optional[str] = None
+  cluster_name: Optional[str] = None
   enable_gcp_goodput_metrics: bool = True
   enable_gcp_step_deviation_metrics: bool = True
 
@@ -90,6 +92,9 @@ class BadputType(enum.Enum):
   INFRASTRUCTURE_RECOVERY_FROM_DISRUPTION = 9
   CUSTOM_BADPUT_EVENTS = 10
   OTHER = 11
+  ELASTIC_SLICE_DOWN = 12
+  ELASTIC_SCALE_UP = 13
+  ELASTIC_REINITIALIZATION = 14
 
 
 class WorkloadMetricDetails(TypedDict):
@@ -107,6 +112,18 @@ class IntervalWorkloadMetricDetails(TypedDict):
   interval_goodput: dict[GoodputType, float]
   interval_badput: dict[BadputType, float | dict[str, float]]
   interval_size: int  # Unit: seconds.
+
+
+class ElasticWorkloadMetricDetails(WorkloadMetricDetails, total=False):
+  stepping_slice_efficiency: float
+  available_slice_efficiency: float
+
+
+class ElasticIntervalWorkloadMetricDetails(
+    IntervalWorkloadMetricDetails, total=False
+):
+  stepping_slice_efficiency: float
+  available_slice_efficiency: float
 
 
 ACTIVITY_EXCLUSION_LIST = [
@@ -383,3 +400,12 @@ def get_accelerator_type():
       return accelerator_type
 
   return 'UNKNOWN'
+
+
+def get_cluster_name() -> Optional[str]:
+  """Retrieves the cluster name from GCP metadata server.
+
+  Returns:
+    str: The cluster name as a string, or None if not found.
+  """
+  return get_gcp_metadata('instance', 'attributes/cluster-name')

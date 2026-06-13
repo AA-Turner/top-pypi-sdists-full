@@ -18,7 +18,7 @@ use super::{
     TypeQualifiers, class_base::ClassBase, function::FunctionType,
 };
 use super::{TypeVarVariance, display};
-use crate::place::{DefinedPlace, TypeOrigin};
+use crate::place::{DefinedPlace, Provenance, TypeOrigin};
 use crate::types::callable::{CallableFunctionProvenance, CallableTypeKind};
 use crate::types::constraints::{
     ConstraintSet, ConstraintSetBuilder, IteratorConstraintsExtension,
@@ -77,15 +77,14 @@ pub enum CodeGeneratorKind<'db> {
 }
 
 impl<'db> CodeGeneratorKind<'db> {
-    pub fn from_class(
-        db: &'db dyn Db,
-        class: ClassLiteral<'db>,
-        specialization: Option<Specialization<'db>>,
-    ) -> Option<Self> {
+    /// Return the code-generation behavior for a class.
+    ///
+    /// This is invariant across generic specializations. Type arguments affect the types of
+    /// synthesized members, but not whether the class is dataclass-like, a `NamedTuple`, or a
+    /// `TypedDict`.
+    pub fn from_class(db: &'db dyn Db, class: ClassLiteral<'db>) -> Option<Self> {
         match class {
-            ClassLiteral::Static(static_class) => {
-                Self::from_static_class(db, static_class, specialization)
-            }
+            ClassLiteral::Static(static_class) => Self::from_static_class(db, static_class),
             ClassLiteral::Dynamic(dynamic_class) => Self::from_dynamic_class(db, dynamic_class),
             ClassLiteral::DynamicNamedTuple(_) => Some(Self::NamedTuple),
             ClassLiteral::DynamicTypedDict(_) => Some(Self::TypedDict),
@@ -93,11 +92,7 @@ impl<'db> CodeGeneratorKind<'db> {
         }
     }
 
-    fn from_static_class(
-        db: &'db dyn Db,
-        class: StaticClassLiteral<'db>,
-        specialization: Option<Specialization<'db>>,
-    ) -> Option<Self> {
+    fn from_static_class(db: &'db dyn Db, class: StaticClassLiteral<'db>) -> Option<Self> {
         if class.dataclass_params(db).is_none()
             && class.known(db).is_none()
             && !class.has_explicit_bases(db)
@@ -106,13 +101,12 @@ impl<'db> CodeGeneratorKind<'db> {
             return None;
         }
 
-        #[salsa::tracked(cycle_initial=|_, _, _, _| None,
+        #[salsa::tracked(cycle_initial=|_, _, _| None,
             heap_size=ruff_memory_usage::heap_size
         )]
         fn code_generator_of_static_class<'db>(
             db: &'db dyn Db,
             class: StaticClassLiteral<'db>,
-            specialization: Option<Specialization<'db>>,
         ) -> Option<CodeGeneratorKind<'db>> {
             // If a class is directly decorated as a dataclass, it's a dataclass.
             // If a class' metaclass is a dataclass transformer, it's a dataclass.
@@ -135,7 +129,7 @@ impl<'db> CodeGeneratorKind<'db> {
                     )
                 })
                 && let Some(transformer_params) =
-                    class.iter_mro(db, specialization).skip(1).find_map(|base| {
+                    class.iter_mro(db, None).skip(1).find_map(|base| {
                         base.into_class().and_then(|class| {
                             class
                                 .static_class_literal(db)
@@ -156,7 +150,7 @@ impl<'db> CodeGeneratorKind<'db> {
             }
         }
 
-        code_generator_of_static_class(db, class, specialization)
+        code_generator_of_static_class(db, class)
     }
 
     fn from_dynamic_class(db: &'db dyn Db, class: DynamicClassLiteral<'db>) -> Option<Self> {
@@ -184,17 +178,9 @@ impl<'db> CodeGeneratorKind<'db> {
         code_generator_of_dynamic_class(db, class)
     }
 
-    pub fn matches(
-        self,
-        db: &'db dyn Db,
-        class: ClassLiteral<'db>,
-        specialization: Option<Specialization<'db>>,
-    ) -> bool {
+    pub fn matches(self, db: &'db dyn Db, class: ClassLiteral<'db>) -> bool {
         matches!(
-            (
-                CodeGeneratorKind::from_class(db, class, specialization),
-                self
-            ),
+            (CodeGeneratorKind::from_class(db, class), self),
             (Some(Self::DataclassLike(_)), Self::DataclassLike(_))
                 | (Some(Self::NamedTuple), Self::NamedTuple)
                 | (Some(Self::TypedDict), Self::TypedDict)
@@ -2185,7 +2171,7 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                     | TypeRelation::SubtypingAssuming => {
                         ConstraintSet::from_bool(self.constraints, target.is_object(db))
                     }
-                    TypeRelation::Assignability | TypeRelation::ConstraintSetAssignability => {
+                    TypeRelation::Assignability => {
                         ConstraintSet::from_bool(self.constraints, !target.is_final(db))
                     }
                 },
@@ -2466,6 +2452,7 @@ impl<'db, I: Iterator<Item = ClassBase<'db>>> MroLookup<'db, I> {
         let mut union = UnionBuilder::new(db);
         let mut union_qualifiers = TypeQualifiers::empty();
         let mut is_definitely_bound = false;
+        let mut provenance = Provenance::Unknown;
 
         for superclass in self.mro_iter {
             match superclass {
@@ -2485,6 +2472,7 @@ impl<'db, I: Iterator<Item = ClassBase<'db>>> MroLookup<'db, I> {
                                 ty,
                                 origin,
                                 definedness: boundness,
+                                provenance: member_provenance,
                                 ..
                             }),
                         qualifiers,
@@ -2504,6 +2492,7 @@ impl<'db, I: Iterator<Item = ClassBase<'db>>> MroLookup<'db, I> {
                         // higher up in the MRO, and build a union of all inferred types (and
                         // possibly-declared types):
                         union = union.add(ty);
+                        provenance = provenance.or(member_provenance);
 
                         // TODO: We could raise a diagnostic here if there are conflicting type
                         // qualifiers
@@ -2530,6 +2519,7 @@ impl<'db, I: Iterator<Item = ClassBase<'db>>> MroLookup<'db, I> {
                 origin: TypeOrigin::Inferred,
                 definedness: boundness,
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance,
             })
             .with_qualifiers(union_qualifiers)
         };
@@ -2562,11 +2552,12 @@ impl<'db> CompletedMemberLookup<'db> {
 
             (
                 PlaceAndQualifiers {
-                    place: Place::Defined(DefinedPlace { ty, .. }),
+                    place: Place::Defined(DefinedPlace { ty, provenance, .. }),
                     qualifiers,
                 },
                 Some(dynamic),
             ) => Place::bound(IntersectionType::from_two_elements(db, ty, dynamic))
+                .with_provenance(provenance)
                 .with_qualifiers(qualifiers),
 
             (

@@ -43,16 +43,16 @@ from pathlib import Path
 
 from loguru import logger
 
-from licensecheck.types import JOINS, ucstr
+from licensecheck.types import JOINS, License, ucstr
 from licensecheck.types import License as L
 
 THISDIR = Path(__file__).resolve().parent
 
 with Path(THISDIR / "matrix.csv").open(mode="r", newline="", encoding="utf-8") as csv_file:
-	LICENSE_MATRIX = list(csv.reader(csv_file))
+	LICENSE_MATRIX: list[list[str]] = list[list[str]](csv.reader(csv_file))
 
 
-termToLicense = {
+termToLicenseData = {
 	"UNKNOWN": L.UNKNOWN,
 	"PUBLIC DOMAIN": L.PUBLIC,
 	"CC-PDDC": L.PUBLIC,
@@ -64,11 +64,15 @@ termToLicense = {
 	"MIT": L.MIT,
 	"BSD": L.BSD,
 	"ISC": L.ISC,
+	"EUPL": L.EU,
+	"UPL": L.UPL_1,
 	"NCSA": L.NCSA,
 	"PYTHON": L.PSFL,
 	"PSF-2.0": L.PSFL,
 	"APACHE": L.APACHE,
 	"ECLIPSE": L.ECLIPSE,
+	"EPL-1.0": L.ECLIPSE,
+	"EPL-2.0": L.ECLIPSE,
 	"AFL": L.ACADEMIC_FREE,
 	"LGPLV2+": L.LGPL_2_PLUS,
 	"LGPL-2.0-OR-LATER": L.LGPL_2_PLUS,
@@ -76,6 +80,7 @@ termToLicense = {
 	"LGPL-3.0-OR-LATER": L.LGPL_3_PLUS,
 	"LGPL-2.0-ONLY": L.LGPL_2,
 	"LGPLV2": L.LGPL_2,
+	"GNU LIBRARY": L.LGPL_X,
 	"LGPL-3.0-ONLY": L.LGPL_3,
 	"LGPLV3": L.LGPL_3,
 	"LGPL": L.LGPL_X,
@@ -91,16 +96,23 @@ termToLicense = {
 	"GPL-3.0": L.GPL_3,
 	"GPL": L.GPL_X,
 	"MPL": L.MPL,
-	"EUPL": L.EU,
 	"PROPRIETARY": L.PROPRIETARY,
 }
 
+termToLicense: dict[str, License] = dict(
+    sorted(
+        termToLicenseData.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+)
 
-def licenseLookup(licenseStr: ucstr, ignoreLicenses: list[ucstr] | None = None) -> L:
+
+def licenseLookup(licenseStr: ucstr, ignoreLicenses: set[ucstr] | None = None) -> L:
 	"""Identify a license from an uppercase string representation of a license.
 
 	:param ucstr licenseStr: uppercase string representation of a license
-	:param list[ucstr] | None ignoreLicenses: licenses to ignore, defaults to None
+	:param set[ucstr] | None ignoreLicenses: licenses to ignore, defaults to None
 	:return L: License represented by licenseStr
 	"""
 	if len(licenseStr or "") < 1:
@@ -115,41 +127,45 @@ def licenseLookup(licenseStr: ucstr, ignoreLicenses: list[ucstr] | None = None) 
 	return L.UNKNOWN
 
 
-def licenseType(lice: ucstr, ignoreLicenses: list[ucstr] | None = None) -> list[L]:
-	"""Return a list of license types from a license string.
-
-	Args:
-	----
-		lice (ucstr): license name
-		ignoreLicenses (list[ucstr]): a list of licenses to ignore (skipped, compat may still be
-		False)
-
-	Returns:
-	-------
-		list[L]: the license
-
-	"""
+def _lst_licenseType(lice: ucstr, ignoreLicenses: set[ucstr] | None = None) -> list[L]:
 	if len(lice or "") < 1:
 		return [L.NO_LICENSE]
 	return [licenseLookup(ucstr(x), ignoreLicenses) for x in lice.split(JOINS)]
 
 
+def licenseType(lice: ucstr, ignoreLicenses: set[ucstr] | None = None) -> set[L]:
+	"""Return a set of license types from a license string.
+
+	Args:
+	----
+		lice (ucstr): license name
+		ignoreLicenses (set[ucstr]): a set of licenses to ignore (skipped, compat may still be
+		False)
+
+	Returns:
+	-------
+		set[L]: the license
+
+	"""
+	return set(_lst_licenseType(lice, ignoreLicenses))
+
+
 def depCompatWMyLice(
 	myLicense: L,
-	depLice: list[L],
-	ignoreLicenses: list[L] | None = None,
-	failLicenses: list[L] | None = None,
-	onlyLicenses: list[L] | None = None,
+	depLice: set[L],
+	ignoreLicenses: set[L] | None = None,
+	failLicenses: set[L] | None = None,
+	onlyLicenses: set[L] | None = None,
 ) -> bool:
 	"""Identify if the end user license is compatible with the dependency license(s).
 
 	Args:
 	----
 		myLicense (L): end user license to check
-		depLice (list[L]): dependency license
-		ignoreLicenses (list[L], optional): list of licenses to ignore. Defaults to None.
-		failLicenses (list[L], optional): list of licenses to fail on. Defaults to None.
-		onlyLicenses (list[L], optional): list of allowed licenses. Defaults to None.
+		depLice (set[L]): dependency license
+		ignoreLicenses (set[L], optional): set of licenses to ignore. Defaults to None.
+		failLicenses (set[L], optional): set of licenses to fail on. Defaults to None.
+		onlyLicenses (set[L], optional): set of allowed licenses. Defaults to None.
 
 	Returns:
 	-------
@@ -158,9 +174,9 @@ def depCompatWMyLice(
 	"""
 
 	# Protect against None
-	failLicenses = failLicenses or []
-	ignoreLicenses = ignoreLicenses or []
-	onlyLicenses = onlyLicenses or []
+	failLicenses = failLicenses or set()
+	ignoreLicenses = ignoreLicenses or set()
+	onlyLicenses = onlyLicenses or set()
 
 	return any(
 		liceCompat(
@@ -177,17 +193,17 @@ def depCompatWMyLice(
 def liceCompat(
 	myLicense: L,
 	lice: L,
-	ignoreLicenses: list[L],
-	failLicenses: list[L],
-	onlyLicenses: list[L],
+	ignoreLicenses: set[L],
+	failLicenses: set[L],
+	onlyLicenses: set[L],
 ) -> bool:
 	"""Identify if the end user license is compatible with the dependency license.
 
 	:param L myLicense: end user license
 	:param L lice: dependency license
-	:param list[L] ignoreLicenses: list of licenses to ignore. Defaults to None.
-	:param list[L] failLicenses: list of licenses to fail on. Defaults to None.
-	:param list[L] onlyLicenses: list of allowed licenses. Defaults to None.
+	:param set[L] ignoreLicenses: set of licenses to ignore. Defaults to None.
+	:param set[L] failLicenses: set of licenses to fail on. Defaults to None.
+	:param set[L] onlyLicenses: set of allowed licenses. Defaults to None.
 	:return bool: True if compatible, otherwise False
 	"""
 	if lice in failLicenses:

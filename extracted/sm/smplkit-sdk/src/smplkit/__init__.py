@@ -2,11 +2,11 @@
 
 import enum
 
-from smplkit.account._client import AccountClient, AsyncAccountClient
-from smplkit.audit._client import AsyncAuditClient, AuditClient
-from smplkit._client import AsyncSmplClient, SmplClient
-from smplkit._context import ContextScope
-from smplkit._errors import (
+from smplkit.account.clients import AccountClient, AsyncAccountClient
+from smplkit.audit.clients import AsyncAuditClient, AuditClient
+from smplkit.clients import AsyncSmplClient, SmplClient
+from smplkit.context import ContextScope
+from smplkit.errors import (
     ApiErrorDetail,
     Error,
     ConnectionError,
@@ -17,21 +17,16 @@ from smplkit._errors import (
     TimeoutError,
     ValidationError,
 )
-from smplkit.config._client import AsyncConfigClient, ConfigChangeEvent, ConfigClient
+from smplkit.config.clients import AsyncConfigClient, ConfigChangeEvent, ConfigClient
 from smplkit.config.models import ConfigEnvironment, ConfigItem, ItemType
-from smplkit.flags._client import AsyncFlagsClient, FlagChangeEvent, FlagsClient
+from smplkit.flags.clients import AsyncFlagsClient, FlagChangeEvent, FlagsClient
 from smplkit.flags.models import FlagEnvironment, FlagRule, FlagValue
 from smplkit.flags.types import AsyncContext, Context, FlagDeclaration, Op, Rule
-from smplkit.jobs._client import AsyncJobsClient, JobsClient
-from smplkit.logging._client import AsyncLoggingClient, LoggerChangeEvent, LoggingClient
-from smplkit.logging._sources import LoggerSource
-from smplkit.platform._client import AsyncPlatformClient, PlatformClient
+from smplkit.jobs.clients import AsyncJobsClient, JobsClient
+from smplkit.logging.clients import AsyncLoggingClient, LoggerChangeEvent, LoggingClient
+from smplkit.logging.sources import LoggerSource
+from smplkit.platform.clients import AsyncPlatformClient, PlatformClient
 from smplkit.platform.types import Color, EnvironmentClassification
-
-# ContextScope is the public return type of ``SmplClient.set_context`` /
-# ``AsyncSmplClient.set_context``; surface it as ``smplkit.ContextScope`` in
-# IDE hover / help() rather than the private ``smplkit._context`` path.
-ContextScope.__module__ = "smplkit"
 
 
 class LogLevel(str, enum.Enum):

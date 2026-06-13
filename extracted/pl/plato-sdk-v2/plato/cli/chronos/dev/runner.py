@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import json
 import logging
 import os
@@ -47,10 +48,10 @@ from plato.chronos.models import (
 from plato.cli.chronos.config import Config
 from plato.cli.chronos.dev.ecr import ensure_image_exists
 from plato.cli.chronos.dev.profiling import StartupProfiler
-from plato.cli.chronos.dev.ssh import SSHKeyPair
+from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command
 from plato.cli.chronos.dev.sync import SyncManager
 from plato.cli.chronos.env import resolve_config_env_vars
-from plato.cli.chronos.provision import build_sync_targets, provision_vm
+from plato.cli.chronos.provision import build_sync_targets, build_world_process_env, provision_vm
 from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 
@@ -201,6 +202,8 @@ class DevRunner:
         self.world_image: str = ""  # Fetched from registry
         self._world_process: asyncio.subprocess.Process | None = None
         self._sigint_count = 0
+        self._graceful_requested = False
+        self._force_killed = False
         self._shutdown_requested = False
         self._force_fresh_next_run = False
         self._serialized_session: SerializedSession | None = None
@@ -1035,10 +1038,9 @@ class DevRunner:
                     runner_cmd = f"memray run --output /tmp/memray.bin --force -m plato.worlds.runner -- run --world {world_name} --config /tmp/config.json"
                 debug_env = self._forwarded_debug_env_assignments()
                 debug_prefix = f"{debug_env} " if debug_env else ""
-                world_cmd = (
-                    f"{reinstall_cmd}"
-                    f"{debug_prefix}PLATO_API_KEY={shlex.quote(self.api_key)} PLATO_WORLD_DEV_MODE='1' {runner_cmd}"
-                )
+                core_env = build_world_process_env(self.api_key, self.world_env.job_id)
+                env_assignments = " ".join(f"{k}={shlex.quote(v)}" for k, v in core_env.items())
+                world_cmd = f"{reinstall_cmd}{debug_prefix}{env_assignments} PLATO_WORLD_DEV_MODE='1' {runner_cmd}"
 
                 exit_code = await self._run_world_command(world_cmd)
 
@@ -1125,47 +1127,64 @@ class DevRunner:
                 _warn(f"Failed to fetch {label}")
 
     async def _run_world_command(self, command: str) -> int:
-        """Run world command via SSH, streaming output."""
-        import subprocess
+        """Run world command via SSH, streaming output.
 
-        from plato.cli.chronos.dev.ssh import build_ssh_command
-
+        Ctrl-C handling is the linchpin for not leaking warm-pool agent VMs:
+        the remote world runner converts SIGTERM into a graceful asyncio
+        shutdown that unwinds the stage ``finally`` blocks (each calls
+        ``WarmPool.shutdown`` → destroys the ~5 pooled agent VMs via several
+        Chronos API calls). That cleanup takes real wall-clock time, so on the
+        first Ctrl-C we forward SIGTERM and WAIT for the world to exit on its
+        own before tearing anything down; only a second Ctrl-C (or a blown
+        grace window) force-kills.
+        """
         if not self.world_env or not self.ssh_key:
             raise RuntimeError("world_env and ssh_key must be initialized")
 
         ssh_cmd = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
         ssh_cmd.append(command)
 
+        # start_new_session puts the local ssh client in its own session so the
+        # terminal's Ctrl-C (SIGINT, delivered to our foreground process group)
+        # does NOT reach it. Only this process catches SIGINT; we then forward a
+        # graceful SIGTERM to the remote world ourselves and keep the SSH
+        # channel open so the world's async cleanup streams through and finishes
+        # before the channel drops. Without this shield, Ctrl-C kills the local
+        # ssh, the channel tears down, sshd SIGHUPs the half-cleaned world, and
+        # it is abandoned mid-shutdown — leaking its warm-pool VMs every
+        # restart. stdin=DEVNULL keeps the now-backgrounded ssh from taking
+        # SIGTTIN when it tries to read the controlling terminal.
         self._world_process = await asyncio.create_subprocess_exec(
             *ssh_cmd,
+            stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
+            start_new_session=True,
         )
 
-        # Setup signal handler for Ctrl+C
+        loop = asyncio.get_running_loop()
         original_handler = signal.getsignal(signal.SIGINT)
+        self._graceful_requested = False
+        self._force_killed = False
+        graceful_task: asyncio.Task[None] | None = None
+
+        def _begin_graceful() -> None:
+            nonlocal graceful_task
+            if graceful_task is None:
+                graceful_task = loop.create_task(self._graceful_stop_remote())
 
         def sigint_handler(signum: int, frame: object) -> None:
             self._sigint_count += 1
             if self._sigint_count == 1:
+                self._graceful_requested = True
                 console.print("\n  [yellow]Stopping world (graceful)...[/yellow] [dim](Ctrl+C again to force)[/dim]")
-                # Send SIGTERM to the remote world process so close() runs
-                # (cleans up agents, etc.) before SSH drops.
-                if self.world_env and self.ssh_key:
-                    try:
-                        subprocess.run(
-                            build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
-                            + ["pkill -TERM -f 'plato-world-runner'"],
-                            timeout=5,
-                            capture_output=True,
-                        )
-                    except Exception:
-                        pass
+                # Signal handlers can't await; the graceful path must SSH to the
+                # VM and wait for cleanup, so hand it off to the event loop.
+                loop.call_soon_threadsafe(_begin_graceful)
             else:
                 console.print("\n  [red]Force killing...[/red]")
                 self._shutdown_requested = True
-                if self._world_process:
-                    self._world_process.kill()
+                loop.call_soon_threadsafe(self._force_kill_remote)
 
         signal.signal(signal.SIGINT, sigint_handler)
 
@@ -1180,10 +1199,85 @@ class DevRunner:
                     sys.stdout.flush()
 
             await self._world_process.wait()
-            return self._world_process.returncode or 0
+            exit_code = self._world_process.returncode or 0
+            if self._force_killed:
+                _warn("World force-killed before cleanup finished — warm-pool VMs may have leaked")
+            elif self._graceful_requested:
+                _step("World shut down gracefully — warm-pool VMs released")
+            return exit_code
         finally:
+            if graceful_task is not None:
+                graceful_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await graceful_task
             signal.signal(signal.SIGINT, original_handler)
             self._world_process = None
+
+    async def _graceful_stop_remote(self) -> None:
+        """Forward SIGTERM to the remote world and wait for its cleanup.
+
+        The world runner turns SIGTERM into a graceful asyncio shutdown, which
+        unwinds the stage ``finally`` blocks (``WarmPool.shutdown`` destroys the
+        pooled agent VMs). We give it a generous window — VM destruction is
+        several Chronos API calls per VM — and only force-kill if it overruns.
+        A second Ctrl-C skips this wait via :meth:`_force_kill_remote`.
+        """
+        proc = self._world_process
+        if proc is None or not self.world_env or not self.ssh_key:
+            return
+        ssh_base = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
+
+        await self._ssh_run(ssh_base + ["pkill -TERM -f plato-world-runner"], timeout=15)
+
+        grace_s = 90
+        _info(f"Waiting up to {grace_s}s for world cleanup (releasing warm-pool VMs)...")
+        for elapsed in range(1, grace_s + 1):
+            if proc.returncode is not None:
+                # World exited on its own; _run_world_command logs the result.
+                return
+            if elapsed % 15 == 0:
+                _info(f"Still cleaning up... ({elapsed}/{grace_s}s)")
+            await asyncio.sleep(1)
+
+        if proc.returncode is None:
+            self._force_killed = True
+            _warn(f"World cleanup exceeded {grace_s}s — force killing")
+            await self._ssh_run(ssh_base + ["pkill -KILL -f plato-world-runner"], timeout=10)
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+
+    def _force_kill_remote(self) -> None:
+        """Hard-kill the remote world and drop the local SSH channel (2nd Ctrl-C)."""
+        self._force_killed = True
+        proc = self._world_process
+        if self.world_env and self.ssh_key:
+            ssh_base = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
+            asyncio.ensure_future(self._ssh_run(ssh_base + ["pkill -KILL -f plato-world-runner"], timeout=10))
+        if proc is not None and proc.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+
+    async def _ssh_run(self, cmd: list[str], timeout: float) -> str:
+        """Run a one-shot SSH command on the world VM, returning combined output.
+
+        Best-effort: swallows failures/timeouts so signal-path callers never
+        raise. The persistent ControlMaster keeps these connections cheap.
+        """
+        proc: asyncio.subprocess.Process | None = None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            return out.decode(errors="replace") if out else ""
+        except Exception:
+            if proc is not None and proc.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    proc.kill()
+            return ""
 
     async def _read_input(self, prompt: str) -> str:
         """Read a line of input, async-friendly."""

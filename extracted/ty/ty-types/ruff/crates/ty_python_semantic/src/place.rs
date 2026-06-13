@@ -7,7 +7,9 @@ use ty_module_resolver::{
 };
 
 use crate::dunder_all::dunder_all_names;
-use crate::reachability::{ReachabilityConstraintsExtension, evaluate_reachability};
+use crate::reachability::{
+    ReachabilityEvaluationCache, evaluate_reachability, evaluate_reachability_with_cache,
+};
 use crate::types::narrow::NarrowingEvaluatorExtension;
 use crate::types::{
     DynamicType, KnownClass, MemberLookupPolicy, Type, TypeAndQualifiers, TypeQualifiers,
@@ -94,13 +96,53 @@ impl PublicTypePolicy {
     }
 }
 
-/// A defined place with its raw type, origin, definedness, and public-type policy.
+/// The source definition provenance for a place.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
+pub enum Provenance<'db> {
+    /// No source definition is known.
+    #[default]
+    Unknown,
+    /// Exactly one source definition is known.
+    SingleDefinition(Definition<'db>),
+    /// Multiple distinct source definitions contribute to the place. Instead of storing all of
+    /// them, or selecting one arbitrarily, we currently discard provenance information in this
+    /// case.
+    MultipleDefinitions,
+}
+
+impl<'db> Provenance<'db> {
+    pub fn from_definition(definition: Option<Definition<'db>>) -> Self {
+        definition.map_or(Self::Unknown, Self::SingleDefinition)
+    }
+
+    /// Merge the provenance from two places.
+    pub fn or(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Unknown, provenance) | (provenance, Self::Unknown) => provenance,
+            (Self::MultipleDefinitions, _) | (_, Self::MultipleDefinitions) => {
+                Self::MultipleDefinitions
+            }
+            (Self::SingleDefinition(left), Self::SingleDefinition(right)) if left == right => self,
+            (Self::SingleDefinition(_), Self::SingleDefinition(_)) => Self::MultipleDefinitions,
+        }
+    }
+
+    pub fn definition(self) -> Option<Definition<'db>> {
+        match self {
+            Self::SingleDefinition(definition) => Some(definition),
+            Self::Unknown | Self::MultipleDefinitions => None,
+        }
+    }
+}
+
+/// A defined place with its raw type, origin, definedness, public-type policy, and provenance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::Update, get_size2::GetSize)]
 pub struct DefinedPlace<'db> {
     pub ty: Type<'db>,
     pub origin: TypeOrigin,
     pub definedness: Definedness,
     pub public_type_policy: PublicTypePolicy,
+    pub provenance: Provenance<'db>,
 }
 
 impl<'db> DefinedPlace<'db> {
@@ -110,6 +152,7 @@ impl<'db> DefinedPlace<'db> {
             origin: TypeOrigin::Inferred,
             definedness: Definedness::AlwaysDefined,
             public_type_policy: PublicTypePolicy::Raw,
+            provenance: Provenance::Unknown,
         }
     }
 
@@ -125,6 +168,16 @@ impl<'db> DefinedPlace<'db> {
 
     pub fn with_public_type_policy(mut self, public_type_policy: PublicTypePolicy) -> Self {
         self.public_type_policy = public_type_policy;
+        self
+    }
+
+    pub fn with_definition(mut self, definition: Definition<'db>) -> Self {
+        self.provenance = Provenance::SingleDefinition(definition);
+        self
+    }
+
+    pub fn with_provenance(mut self, provenance: Provenance<'db>) -> Self {
+        self.provenance = provenance;
         self
     }
 
@@ -178,6 +231,37 @@ impl<'db> Place<'db> {
     /// Constructor that creates a [`Place`] with type origin [`TypeOrigin::Declared`] and definedness [`Definedness::AlwaysDefined`].
     pub fn declared(ty: impl Into<Type<'db>>) -> Self {
         Place::Defined(DefinedPlace::new(ty.into()).with_origin(TypeOrigin::Declared))
+    }
+
+    /// Returns this place with the given definition attached. A no-op for [`Place::Undefined`].
+    #[must_use]
+    pub fn with_definition(self, definition: Definition<'db>) -> Self {
+        match self {
+            Place::Defined(defined) => Place::Defined(defined.with_definition(definition)),
+            Place::Undefined => Place::Undefined,
+        }
+    }
+
+    /// Returns this place with the given provenance attached. A no-op for [`Place::Undefined`].
+    #[must_use]
+    pub fn with_provenance(self, provenance: Provenance<'db>) -> Self {
+        match self {
+            Place::Defined(defined) => Place::Defined(defined.with_provenance(provenance)),
+            Place::Undefined => Place::Undefined,
+        }
+    }
+
+    pub fn is_equal_ignoring_provenance(self, other: Self) -> bool {
+        match (self, other) {
+            (Place::Defined(left), Place::Defined(right)) => {
+                left.ty == right.ty
+                    && left.origin == right.origin
+                    && left.definedness == right.definedness
+                    && left.public_type_policy == right.public_type_policy
+            }
+            (Place::Undefined, Place::Undefined) => true,
+            _ => false,
+        }
     }
 
     pub fn is_undefined(&self) -> bool {
@@ -271,6 +355,7 @@ impl<'db> Place<'db> {
                 {
                     Place::Defined(DefinedPlace {
                         ty: dunder_get_return_ty,
+                        provenance: Provenance::Unknown,
                         ..defined
                     })
                 } else {
@@ -298,14 +383,16 @@ impl<'db> From<LookupResult<'db>> for PlaceAndQualifiers<'db> {
         match value {
             Ok(type_and_qualifiers) => Place::Defined(
                 DefinedPlace::new(type_and_qualifiers.inner_type())
-                    .with_origin(type_and_qualifiers.origin()),
+                    .with_origin(type_and_qualifiers.origin())
+                    .with_provenance(type_and_qualifiers.provenance()),
             )
             .with_qualifiers(type_and_qualifiers.qualifiers()),
             Err(LookupError::Undefined(qualifiers)) => Place::Undefined.with_qualifiers(qualifiers),
             Err(LookupError::PossiblyUndefined(type_and_qualifiers)) => Place::Defined(
                 DefinedPlace::new(type_and_qualifiers.inner_type())
                     .with_origin(type_and_qualifiers.origin())
-                    .with_definedness(Definedness::PossiblyUndefined),
+                    .with_definedness(Definedness::PossiblyUndefined)
+                    .with_provenance(type_and_qualifiers.provenance()),
             )
             .with_qualifiers(type_and_qualifiers.qualifiers()),
         }
@@ -334,13 +421,17 @@ impl<'db> LookupError<'db> {
                 UnionType::from_two_elements(db, ty.inner_type(), ty2.inner_type()),
                 ty.origin().merge(ty2.origin()),
                 ty.qualifiers().union(ty2.qualifiers()),
-            )),
+            )
+            .with_provenance(ty.provenance().or(ty2.provenance()))),
             (LookupError::PossiblyUndefined(ty), Err(LookupError::PossiblyUndefined(ty2))) => {
-                Err(LookupError::PossiblyUndefined(TypeAndQualifiers::new(
-                    UnionType::from_two_elements(db, ty.inner_type(), ty2.inner_type()),
-                    ty.origin().merge(ty2.origin()),
-                    ty.qualifiers().union(ty2.qualifiers()),
-                )))
+                Err(LookupError::PossiblyUndefined(
+                    TypeAndQualifiers::new(
+                        UnionType::from_two_elements(db, ty.inner_type(), ty2.inner_type()),
+                        ty.origin().merge(ty2.origin()),
+                        ty.qualifiers().union(ty2.qualifiers()),
+                    )
+                    .with_provenance(ty.provenance().or(ty2.provenance())),
+                ))
             }
         }
     }
@@ -570,7 +661,25 @@ pub fn place_from_bindings<'db>(
     db: &'db dyn Db,
     bindings_with_constraints: BindingWithConstraintsIterator<'_, 'db>,
 ) -> PlaceWithDefinition<'db> {
-    place_from_bindings_impl(db, bindings_with_constraints, RequiresExplicitReExport::No)
+    place_from_bindings_impl(
+        db,
+        bindings_with_constraints,
+        RequiresExplicitReExport::No,
+        None,
+    )
+}
+
+pub fn place_from_bindings_with_reachability_cache<'db>(
+    db: &'db dyn Db,
+    bindings_with_constraints: BindingWithConstraintsIterator<'_, 'db>,
+    reachability_cache: &ReachabilityEvaluationCache<'db>,
+) -> PlaceWithDefinition<'db> {
+    place_from_bindings_impl(
+        db,
+        bindings_with_constraints,
+        RequiresExplicitReExport::No,
+        Some(reachability_cache),
+    )
 }
 
 /// Build a declared type from a [`DeclarationsIterator`].
@@ -585,7 +694,20 @@ pub fn place_from_declarations<'db>(
     db: &'db dyn Db,
     declarations: DeclarationsIterator<'_, 'db>,
 ) -> PlaceFromDeclarationsResult<'db> {
-    place_from_declarations_impl(db, declarations, RequiresExplicitReExport::No)
+    place_from_declarations_impl(db, declarations, RequiresExplicitReExport::No, None)
+}
+
+pub fn place_from_declarations_with_reachability_cache<'db>(
+    db: &'db dyn Db,
+    declarations: DeclarationsIterator<'_, 'db>,
+    reachability_cache: &ReachabilityEvaluationCache<'db>,
+) -> PlaceFromDeclarationsResult<'db> {
+    place_from_declarations_impl(
+        db,
+        declarations,
+        RequiresExplicitReExport::No,
+        Some(reachability_cache),
+    )
 }
 
 type DeclaredTypeAndConflictingTypes<'db> = (
@@ -724,7 +846,8 @@ impl<'db> PlaceAndQualifiers<'db> {
                 qualifiers,
             } => {
                 let ty = place.public_type_policy.apply_if_needed(db, place.ty);
-                let type_and_qualifiers = TypeAndQualifiers::new(ty, place.origin, qualifiers);
+                let type_and_qualifiers = TypeAndQualifiers::new(ty, place.origin, qualifiers)
+                    .with_provenance(place.provenance);
                 match place.definedness {
                     Definedness::AlwaysDefined => Ok(type_and_qualifiers),
                     Definedness::PossiblyUndefined => {
@@ -801,6 +924,7 @@ impl<'db> PlaceAndQualifiers<'db> {
                 } else {
                     Definedness::PossiblyUndefined
                 },
+                provenance: prev.provenance.or(current.provenance),
                 ..current
             }),
             // If a `Place` in the current cycle is `Defined` but `Undefined` in the previous cycle,
@@ -868,7 +992,7 @@ pub fn place_by_id<'db>(
         ConsideredDefinitions::AllReachable => use_def.reachable_declarations(place_id),
     };
 
-    let declared = place_from_declarations_impl(db, declarations, requires_explicit_reexport)
+    let declared = place_from_declarations_impl(db, declarations, requires_explicit_reexport, None)
         .ignore_conflicting_declarations();
 
     let all_considered_bindings = || match considered_definitions {
@@ -880,7 +1004,7 @@ pub fn place_by_id<'db>(
     // inferred type, without unioning with `Unknown`, because it cannot be modified.
     if let Some(qualifiers) = declared.is_bare_final() {
         let bindings = all_considered_bindings();
-        return place_from_bindings_impl(db, bindings, requires_explicit_reexport)
+        return place_from_bindings_impl(db, bindings, requires_explicit_reexport, None)
             .place
             .with_qualifiers(qualifiers);
     }
@@ -894,22 +1018,25 @@ pub fn place_by_id<'db>(
                     ty: Type::Dynamic(DynamicType::Unknown),
                     origin,
                     definedness,
+                    provenance: declared_provenance,
                     ..
                 }),
             qualifiers,
         } if qualifiers.contains(TypeQualifiers::CLASS_VAR) => {
             let bindings = all_considered_bindings();
-            match place_from_bindings_impl(db, bindings, requires_explicit_reexport).place {
+            match place_from_bindings_impl(db, bindings, requires_explicit_reexport, None).place {
                 Place::Defined(DefinedPlace {
                     ty: inferred,
                     origin,
                     definedness: boundness,
+                    provenance: inferred_provenance,
                     ..
                 }) => Place::Defined(DefinedPlace {
                     ty: UnionType::from_two_elements(db, Type::unknown(), inferred),
                     origin,
                     definedness: boundness,
                     public_type_policy: PublicTypePolicy::Raw,
+                    provenance: inferred_provenance.or(declared_provenance),
                 })
                 .with_qualifiers(qualifiers),
                 Place::Undefined => Place::Defined(DefinedPlace {
@@ -917,6 +1044,7 @@ pub fn place_by_id<'db>(
                     origin,
                     definedness,
                     public_type_policy: PublicTypePolicy::Raw,
+                    provenance: declared_provenance,
                 })
                 .with_qualifiers(qualifiers),
             }
@@ -937,13 +1065,14 @@ pub fn place_by_id<'db>(
                     ty: declared_ty,
                     origin,
                     definedness: Definedness::PossiblyUndefined,
+                    provenance: declared_provenance,
                     ..
                 }),
             qualifiers,
         } => {
             let bindings = all_considered_bindings();
             let boundness_analysis = bindings.boundness_analysis();
-            let inferred = place_from_bindings_impl(db, bindings, requires_explicit_reexport);
+            let inferred = place_from_bindings_impl(db, bindings, requires_explicit_reexport, None);
 
             let place = match inferred.place {
                 // Place is possibly undeclared and definitely unbound
@@ -956,6 +1085,7 @@ pub fn place_by_id<'db>(
                         origin,
                         definedness: Definedness::AlwaysDefined,
                         public_type_policy: PublicTypePolicy::Raw,
+                        provenance: declared_provenance,
                     })
                 }
                 // Place is possibly undeclared and (possibly) bound
@@ -963,6 +1093,7 @@ pub fn place_by_id<'db>(
                     ty: inferred_ty,
                     origin,
                     definedness: boundness,
+                    provenance: inferred_provenance,
                     ..
                 }) => Place::Defined(DefinedPlace {
                     ty: UnionType::from_two_elements(db, inferred_ty, declared_ty),
@@ -973,6 +1104,7 @@ pub fn place_by_id<'db>(
                         boundness
                     },
                     public_type_policy: PublicTypePolicy::Raw,
+                    provenance: inferred_provenance.or(declared_provenance),
                 }),
             };
 
@@ -986,7 +1118,7 @@ pub fn place_by_id<'db>(
             let bindings = all_considered_bindings();
             let boundness_analysis = bindings.boundness_analysis();
             let mut inferred =
-                place_from_bindings_impl(db, bindings, requires_explicit_reexport).place;
+                place_from_bindings_impl(db, bindings, requires_explicit_reexport, None).place;
 
             if boundness_analysis == BoundnessAnalysis::AssumeBound {
                 if let Place::Defined(defined) = inferred {
@@ -1064,6 +1196,7 @@ pub fn place_by_id<'db>(
 enum DeclarationsBoundnessEvaluator<'map, 'db> {
     AssumeBound,
     BasedOnUnboundVisibility {
+        reachability_cache: Option<&'map ReachabilityEvaluationCache<'db>>,
         unbound_visibility: Option<DeclarationWithConstraint<'db>>,
         reachability_constraints: &'map ReachabilityConstraints,
         predicates: &'map IndexSlice<ScopedPredicateId, Predicate<'db>>,
@@ -1086,6 +1219,7 @@ impl<'db> DeclarationsBoundnessEvaluator<'_, 'db> {
                 }
             }
             DeclarationsBoundnessEvaluator::BasedOnUnboundVisibility {
+                reachability_cache,
                 reachability_constraints,
                 unbound_visibility,
                 predicates,
@@ -1100,7 +1234,13 @@ impl<'db> DeclarationsBoundnessEvaluator<'_, 'db> {
                         is_non_exported(db, def, requires_explicit_reexport)
                     }) =>
                     {
-                        reachability_constraints.evaluate(db, predicates, reachability_constraint)
+                        evaluate_reachability_with_cache(
+                            db,
+                            reachability_cache,
+                            reachability_constraints,
+                            predicates,
+                            reachability_constraint,
+                        )
                     }
                     _ => Truthiness::AlwaysFalse,
                 };
@@ -1316,6 +1456,7 @@ fn place_from_bindings_impl<'db>(
     db: &'db dyn Db,
     bindings_with_constraints: BindingWithConstraintsIterator<'_, 'db>,
     requires_explicit_reexport: RequiresExplicitReExport,
+    reachability_cache: Option<&ReachabilityEvaluationCache<'db>>,
 ) -> PlaceWithDefinition<'db> {
     let predicates = bindings_with_constraints.predicates();
     let reachability_constraints = bindings_with_constraints.reachability_constraints();
@@ -1330,7 +1471,7 @@ fn place_from_bindings_impl<'db>(
         Some(BindingWithConstraints {
             binding,
             reachability_constraint,
-            narrowing_constraint: _,
+            ..
         }) if binding.is_undefined_or(is_non_exported) => Some(*reachability_constraint),
         _ => None,
     };
@@ -1341,11 +1482,18 @@ fn place_from_bindings_impl<'db>(
     // expressions, which is extra work and can lead to cycles.
     let unbound_visibility = || {
         unbound_reachability_constraint.map(|reachability_constraint| {
-            reachability_constraints.evaluate(db, predicates, reachability_constraint)
+            evaluate_reachability_with_cache(
+                db,
+                reachability_cache,
+                reachability_constraints,
+                predicates,
+                reachability_constraint,
+            )
         })
     };
 
     let mut first_definition = None;
+    let mut provenance = Provenance::Unknown;
     // special handling for synthetic loop header definitions and nested bindings definitions
     let mut only_non_shadowing_bindings = true;
 
@@ -1354,6 +1502,7 @@ fn place_from_bindings_impl<'db>(
              binding,
              narrowing_constraint,
              reachability_constraint,
+             ..
          }| {
             let binding = match binding {
                 DefinitionState::Defined(binding)
@@ -1370,7 +1519,13 @@ fn place_from_bindings_impl<'db>(
                 }
                 DefinitionState::Deleted => {
                     deleted_reachability = deleted_reachability.or_else(|| {
-                        reachability_constraints.evaluate(db, predicates, reachability_constraint)
+                        evaluate_reachability_with_cache(
+                            db,
+                            reachability_cache,
+                            reachability_constraints,
+                            predicates,
+                            reachability_constraint,
+                        )
                     });
                     return None;
                 }
@@ -1380,8 +1535,13 @@ fn place_from_bindings_impl<'db>(
                 return None;
             }
 
-            let static_reachability =
-                reachability_constraints.evaluate(db, predicates, reachability_constraint);
+            let static_reachability = evaluate_reachability_with_cache(
+                db,
+                reachability_cache,
+                reachability_constraints,
+                predicates,
+                reachability_constraint,
+            );
 
             if static_reachability.is_always_false() {
                 // If the static reachability evaluates to false, the binding is either not reachable
@@ -1458,6 +1618,7 @@ fn place_from_bindings_impl<'db>(
             }
 
             first_definition.get_or_insert(binding);
+            provenance = provenance.or(Provenance::SingleDefinition(binding));
             let binding_ty = binding_type(db, binding);
             Some((
                 narrowing_constraint.narrow(db, binding_ty, binding.place(db)),
@@ -1501,12 +1662,16 @@ fn place_from_bindings_impl<'db>(
         };
 
         match deleted_reachability {
-            Truthiness::AlwaysFalse => {
-                Place::Defined(DefinedPlace::new(ty).with_definedness(boundness))
-            }
+            Truthiness::AlwaysFalse => Place::Defined(
+                DefinedPlace::new(ty)
+                    .with_definedness(boundness)
+                    .with_provenance(provenance),
+            ),
             Truthiness::AlwaysTrue => Place::Undefined,
             Truthiness::Ambiguous => Place::Defined(
-                DefinedPlace::new(ty).with_definedness(Definedness::PossiblyUndefined),
+                DefinedPlace::new(ty)
+                    .with_definedness(Definedness::PossiblyUndefined)
+                    .with_provenance(provenance),
             ),
         }
     } else {
@@ -1672,6 +1837,7 @@ fn place_from_declarations_impl<'db>(
     db: &'db dyn Db,
     declarations_iterator: DeclarationsIterator<'_, 'db>,
     requires_explicit_reexport: RequiresExplicitReExport,
+    reachability_cache: Option<&ReachabilityEvaluationCache<'db>>,
 ) -> PlaceFromDeclarationsResult<'db> {
     let predicates = declarations_iterator.predicates();
     let reachability_constraints = declarations_iterator.reachability_constraints();
@@ -1689,6 +1855,7 @@ fn place_from_declarations_impl<'db>(
             let unbound_visibility = declarations_iterator.peek().cloned();
             declarations = Either::Right(declarations_iterator);
             DeclarationsBoundnessEvaluator::BasedOnUnboundVisibility {
+                reachability_cache,
                 unbound_visibility,
                 predicates,
                 reachability_constraints,
@@ -1698,6 +1865,7 @@ fn place_from_declarations_impl<'db>(
     };
 
     let mut first_declaration = None;
+    let mut provenance = Provenance::Unknown;
     let mut all_declarations_definitely_reachable = true;
 
     let mut types = declarations.filter_map(|declaration_with_constraint| {
@@ -1715,14 +1883,20 @@ fn place_from_declarations_impl<'db>(
             return None;
         }
 
-        let static_reachability =
-            reachability_constraints.evaluate(db, predicates, reachability_constraint);
+        let static_reachability = evaluate_reachability_with_cache(
+            db,
+            reachability_cache,
+            reachability_constraints,
+            predicates,
+            reachability_constraint,
+        );
 
         if static_reachability.is_always_false() {
             None
         } else {
             let declared_type = inferred_declaration(db, declaration).declared()?;
             first_declaration.get_or_insert(declaration);
+            provenance = provenance.or(Provenance::SingleDefinition(declaration));
             all_declarations_definitely_reachable =
                 all_declarations_definitely_reachable && static_reachability.is_always_true();
 
@@ -1748,7 +1922,8 @@ fn place_from_declarations_impl<'db>(
         let place_and_quals = Place::Defined(
             DefinedPlace::new(declared.inner_type())
                 .with_origin(TypeOrigin::Declared)
-                .with_definedness(boundness),
+                .with_definedness(boundness)
+                .with_provenance(provenance),
         )
         .with_qualifiers(declared.qualifiers());
 
@@ -2102,6 +2277,7 @@ mod tests {
                 origin: Inferred,
                 definedness: PossiblyUndefined,
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance: Provenance::Unknown,
             })
             .with_qualifiers(TypeQualifiers::empty())
         };
@@ -2111,6 +2287,7 @@ mod tests {
                 origin: Inferred,
                 definedness: PossiblyUndefined,
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance: Provenance::Unknown,
             })
             .with_qualifiers(TypeQualifiers::empty())
         };
@@ -2121,6 +2298,7 @@ mod tests {
                 origin: Inferred,
                 definedness: AlwaysDefined,
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance: Provenance::Unknown,
             })
             .with_qualifiers(TypeQualifiers::empty())
         };
@@ -2130,6 +2308,7 @@ mod tests {
                 origin: Inferred,
                 definedness: AlwaysDefined,
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance: Provenance::Unknown,
             })
             .with_qualifiers(TypeQualifiers::empty())
         };
@@ -2153,7 +2332,8 @@ mod tests {
                 ty: UnionType::from_elements(&db, [ty1, ty2]),
                 origin: Inferred,
                 definedness: PossiblyUndefined,
-                public_type_policy: PublicTypePolicy::Raw
+                public_type_policy: PublicTypePolicy::Raw,
+                provenance: Provenance::Unknown,
             })
             .into()
         );
@@ -2163,7 +2343,8 @@ mod tests {
                 ty: UnionType::from_elements(&db, [ty1, ty2]),
                 origin: Inferred,
                 definedness: AlwaysDefined,
-                public_type_policy: PublicTypePolicy::Raw
+                public_type_policy: PublicTypePolicy::Raw,
+                provenance: Provenance::Unknown,
             })
             .into()
         );

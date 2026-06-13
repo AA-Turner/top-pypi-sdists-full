@@ -2,7 +2,7 @@
 
 The httpx.MockTransport pattern is reused here — none of these tests
 touch the network. Coverage target is 100% on every line in
-``smplkit.audit._forwarders``.
+``smplkit.audit.forwarders``.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from smplkit.audit import (
     HttpMethod,
     TransformType,
 )
-from smplkit.audit._client import AuditClient
+from smplkit.audit.clients import AuditClient
 
 
 JSONAPI = "application/vnd.api+json"
@@ -62,7 +62,7 @@ def _forwarder_resource(
             "configuration": {
                 "method": "POST",
                 "url": "https://siem.example.com/in",
-                "headers": [{"name": "DD-API-KEY", "value": "<redacted>"}],
+                "headers": [{"name": "DD-API-KEY", "value": "dd-api-key-plaintext"}],
                 "success_status": "2xx",
             },
             "created_at": "2026-05-07T12:00:00+00:00",
@@ -158,7 +158,7 @@ class TestModels:
         f = Forwarder._from_resource(_forwarder_resource())
         assert f.id == FWD_ID
         assert f.name == "Datadog production"
-        assert f.configuration.headers[0].value == "<redacted>"
+        assert f.configuration.headers[0].value == "dd-api-key-plaintext"
         assert f.version == 1
         assert f.deleted_at is None
         assert f.description is None
@@ -186,7 +186,7 @@ class TestModels:
 
     def test_forwarder_from_resource_reads_environments(self):
         # Per-environment overrides round-trip on read: enablement plus an
-        # optional configuration override (redacted headers, like the base).
+        # optional configuration override (plaintext headers, like the base).
         f = Forwarder._from_resource(
             _forwarder_resource(
                 environments={
@@ -196,7 +196,7 @@ class TestModels:
                         "configuration": {
                             "method": "POST",
                             "url": "https://staging.siem.example.com/in",
-                            "headers": [{"name": "DD-API-KEY", "value": "<redacted>"}],
+                            "headers": [{"name": "DD-API-KEY", "value": "dd-api-key-plaintext"}],
                             "success_status": "2xx",
                         },
                     },
@@ -208,7 +208,7 @@ class TestModels:
         assert f.environments["staging"].enabled is False
         assert f.environments["staging"].configuration is not None
         assert f.environments["staging"].configuration.url == "https://staging.siem.example.com/in"
-        assert f.environments["staging"].configuration.headers[0].value == "<redacted>"
+        assert f.environments["staging"].configuration.headers[0].value == "dd-api-key-plaintext"
 
     def test_forwarder_repr_shows_enabled_environments(self):
         f = Forwarder._from_resource(
@@ -417,7 +417,7 @@ class TestForwardersCrud:
                                 "configuration": {
                                     "method": "POST",
                                     "url": "https://staging.example.com/in",
-                                    "headers": [{"name": "X-Env", "value": "<redacted>"}],
+                                    "headers": [{"name": "X-Env", "value": "x-env-plaintext"}],
                                     "success_status": "2xx",
                                 },
                             },
@@ -862,8 +862,8 @@ class TestForwardersCrud:
 
 def test_async_client_exposes_forwarders():
     """The async audit client exposes the genuinely-async forwarders surface."""
-    from smplkit.audit._client import AsyncAuditClient
-    from smplkit.audit._forwarders import AsyncForwardersClient
+    from smplkit.audit.clients import AsyncAuditClient
+    from smplkit.audit.forwarders import AsyncForwardersClient
 
     auth = _AuditAuthClient(base_url="https://audit.example.com", token="sk_api_test")
     c = AsyncAuditClient(auth_client=auth)

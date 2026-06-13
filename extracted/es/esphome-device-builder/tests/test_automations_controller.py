@@ -32,6 +32,9 @@ def _make_controller(config_dir: Path) -> AutomationsController:
     """
     db = MagicMock()
     db.settings.rel_path = config_dir.joinpath
+    # Real index_title returns a str/None; a bare MagicMock would break the
+    # ``title: str | None`` serialization in ``get_available``.
+    db.components.index_title = lambda _component_id: None
     return AutomationsController(db)
 
 
@@ -199,6 +202,31 @@ async def test_get_available_scopes_triggers_to_present_domains(tmp_path: Path) 
     assert "sensor.on_value" not in trigger_ids
 
 
+async def test_get_available_offers_hub_triggers_inherited_through_extends(
+    tmp_path: Path,
+) -> None:
+    """A ``pn532_i2c:`` block surfaces its extends-inherited triggers + the instance (#1405)."""
+    config = tmp_path / "reader.yaml"
+    config.write_text(
+        "esphome:\n  name: reader\n"
+        "i2c:\n  scl: GPIO9\n  sda: GPIO8\n"
+        "pn532_i2c:\n  update_interval: 2s\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    result = await controller.get_available(configuration="reader.yaml")
+    trigger_ids = {t["id"] for t in result["triggers"]}
+    assert {"pn532_i2c.on_tag", "pn532_i2c.on_tag_removed"} <= trigger_ids
+    # The hub-internal domain never matches a top-level key.
+    assert "pn532.on_tag" not in trigger_ids
+    assert any(d["component_id"] == "pn532_i2c" for d in result["devices"])
+
+    bare = tmp_path / "bare.yaml"
+    bare.write_text("esphome:\n  name: bare\n", encoding="utf-8")
+    result = await controller.get_available(configuration="bare.yaml")
+    assert "pn532_i2c.on_tag" not in {t["id"] for t in result["triggers"]}
+
+
 async def test_get_available_returns_configured_scripts_with_parameters(
     tmp_path: Path,
 ) -> None:
@@ -259,6 +287,31 @@ async def test_get_available_lists_configured_component_instances(tmp_path: Path
     assert ("switch.gpio", "relay_two") in devices
     # A single-reading platform with no sub-entity blocks is never a container.
     assert devices[("switch.gpio", "relay_one")]["is_entity_container"] is False
+
+
+async def test_get_available_stamps_catalog_title(tmp_path: Path) -> None:
+    """Every instance's ``title`` is the catalog lookup of its ``component_id``."""
+    config = tmp_path / "device.yaml"
+    config.write_text(
+        "esphome:\n  name: d\n"
+        "wifi:\n  ssid: home\n"
+        "switch:\n"
+        "  - platform: gpio\n"
+        "    id: relay_one\n"
+        "    name: 'Relay 1'\n"
+        "    pin: GPIO5\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    # Stub the catalog so the test pins propagation, not specific titles
+    # (which drift when the catalog is regenerated).
+    controller._db.components.index_title = lambda cid: f"Title[{cid}]"
+    result = await controller.get_available(configuration="device.yaml")
+    devices = {(d["component_id"], d["id"]): d for d in result["devices"]}
+    # Keyed on component_id, stamped regardless of whether name is set.
+    assert devices[("wifi", "wifi")]["name"] is None
+    assert devices[("wifi", "wifi")]["title"] == "Title[wifi]"
+    assert devices[("switch.gpio", "relay_one")]["title"] == "Title[switch.gpio]"
 
 
 async def test_get_available_surfaces_multi_entity_subentities(tmp_path: Path) -> None:

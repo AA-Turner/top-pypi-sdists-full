@@ -4,14 +4,13 @@ import os
 import re
 import math
 import inspect
+import multiprocessing
 
 from bisect import bisect_left
 from typing import Callable, Sequence, TypeAlias, TYPE_CHECKING
 from functools import partial, lru_cache
 from itertools import accumulate
 from contextlib import suppress
-
-import mpire
 
 from tqdm import tqdm
 
@@ -73,6 +72,18 @@ _REGEX_ESCAPED_NON_WHITESPACE_SEMANTIC_SPLITTERS = tuple(
     re.escape(splitter) for splitter in _NON_WHITESPACE_STRUCTURAL_SPLITTERS
 )
 
+# NOTE Whitespace runs are matched with a `{2,}` quantifier rather than a `+` quantifier so that we only ever need the comparatively rare multi-character runs to find the longest run, sparing us from materializing the far more numerous single-character runs (e.g., the single spaces between words), which are never the longest run unless no multi-character run exists.
+_NEWLINE_RUNS = re.compile(r"[\r\n]{2,}")
+_TAB_RUNS = re.compile(r"\t{2,}")
+_WHITESPACE_RUNS = re.compile(r"\s{2,}")
+_NEWLINE_CHAR = re.compile(r"[\r\n]")
+_WHITESPACE_CHAR = re.compile(r"\s")
+_PRECEDER_WHITESPACE_PATTERNS = tuple(
+    (escaped_preceder, re.compile(rf"{escaped_preceder}(\s)"))
+    for escaped_preceder in _REGEX_ESCAPED_NON_WHITESPACE_SEMANTIC_SPLITTERS
+)
+"""A tuple of `(escaped_preceder, compiled_pattern)` pairs used to target whitespace characters preceded by structurally meaningful non-whitespace splitters."""
+
 
 def _split_text(text: str) -> tuple[str, bool, list[str]]:
     """Split text using the most structurally meaningful splitter possible."""
@@ -85,18 +96,25 @@ def _split_text(text: str) -> tuple[str, bool, list[str]]:
     # - the largest sequence of whitespace characters or, if the largest such sequence is only a single character and there exists a whitespace character preceded by a structurally meaningful non-whitespace splitter, then that whitespace character; and
     # - a structurally meaningful non-whitespace splitter.
     if "\n" in text or "\r" in text:
-        splitter = max(re.findall(r"[\r\n]+", text), key=len)
+        runs = _NEWLINE_RUNS.findall(text)
+        splitter = max(runs, key=len) if runs else _NEWLINE_CHAR.search(text).group()
 
     elif "\t" in text:
-        splitter = max(re.findall(r"\t+", text), key=len)
+        runs = _TAB_RUNS.findall(text)
+        splitter = max(runs, key=len) if runs else "\t"
 
-    elif re.search(r"\s", text):
-        splitter = max(re.findall(r"\s+", text), key=len)
+    elif whitespace := _WHITESPACE_CHAR.search(text):
+        runs = _WHITESPACE_RUNS.findall(text)
+
+        if runs:
+            splitter = max(runs, key=len)
 
         # If the splitter is only a single character, see if we can target whitespace characters that are preceded by structurally meaningful non-whitespace splitters to avoid splitting in the middle of sentences.
-        if len(splitter) == 1:
-            for escaped_preceder in _REGEX_ESCAPED_NON_WHITESPACE_SEMANTIC_SPLITTERS:
-                if whitespace_preceded_by_preceder := re.search(rf"{escaped_preceder}(\s)", text):
+        else:
+            splitter = whitespace.group()
+
+            for escaped_preceder, preceder_pattern in _PRECEDER_WHITESPACE_PATTERNS:
+                if whitespace_preceded_by_preceder := preceder_pattern.search(text):
                     splitter = whitespace_preceded_by_preceder.group(1)
                     escaped_splitter = re.escape(splitter)
 
@@ -275,11 +293,11 @@ def chunk(
                 .document
                 for prechunk in prechunks
             ]
-        
+
         else:
             enriched_prechunks = [ilgs_doc]
             prechunk_offsets = [(0, len(text))]
-        
+
         # Hierarchically segment each prechunk, constructing a tree out of extracted spans.
         span_tree: SpanNode = ((0, len(text)), [], None)
 
@@ -494,20 +512,20 @@ def chunk(
 
     offsets: list = []
     splitter_len = len(splitter)
-    split_lens = [len(split) for split in splits]
-    local_split_starts = list(accumulate([0] + [split_len + splitter_len for split_len in split_lens]))
-    split_starts = [start + _start for start in local_split_starts]
-    num_splits_plus_one = len(splits) + 1
+    local_split_starts = list(accumulate([len(split) + splitter_len for split in splits], initial=0))
+    num_splits = len(splits)
+    num_splits_plus_one = num_splits + 1
 
     chunks = []
-    skips = set()
-    """A set of indices of splits to skip because they have already been added to a chunk."""
 
-    # Iterate through the splits.
-    for i, (split, split_start) in enumerate(zip(splits, split_starts)):
-        # Skip the split if it has already been added to a chunk.
-        if i in skips:
-            continue
+    # Iterate through the splits, jumping straight to the start of each new chunk so that splits already merged into a chunk are never revisited.
+    i = 0
+
+    while i < num_splits:
+        split = splits[i]
+
+        # Compute the start offset of the split in the original text. NOTE `split_starts[i]` is `local_split_starts[i] + _start`.
+        split_start = local_split_starts[i] + _start
 
         # If the split is over the chunk size, recursively chunk it.
         if token_counter(split) > local_chunk_size:
@@ -523,10 +541,13 @@ def chunk(
             chunks.extend(new_chunks)
             offsets.extend(new_offsets)
 
+            # The next chunk starts at the very next split.
+            next_i = i + 1
+
         # If the split is equal to or under the chunk size, add it and any subsequent splits to a new chunk until the chunk size is reached.
         else:
-            # Merge the split with subsequent splits until the chunk size is reached.
-            final_split_in_chunk_i, new_chunk = merge_splits(
+            # Merge the split with subsequent splits until the chunk size is reached. NOTE `next_i` is the index of the first split not included in the merged chunk and so the start of the next chunk.
+            next_i, new_chunk = merge_splits(
                 text=text,
                 split_starts=local_split_starts,
                 splitter_len=splitter_len,
@@ -537,20 +558,15 @@ def chunk(
                 high=num_splits_plus_one,
             )
 
-            # Mark any splits included in the new chunk for exclusion from future chunks.
-            skips.update(range(i + 1, final_split_in_chunk_i))
-
             # Add the chunk.
             chunks.append(new_chunk)
 
             # Add the chunk's offsets.
-            split_end = split_starts[final_split_in_chunk_i] - splitter_len
+            split_end = local_split_starts[next_i] + _start - splitter_len
             offsets.append((split_start, split_end))
 
-        # If the splitter is not whitespace and the split is not the last split, add the splitter to the end of the latest chunk if doing so would not cause it to exceed the chunk size otherwise add the splitter as a new chunk.
-        if not splitter_is_whitespace and not (
-            i == len(splits) - 1 or all(j in skips for j in range(i + 1, len(splits)))
-        ):
+        # If the splitter is not whitespace and the chunk just added is not the last chunk, add the splitter to the end of the latest chunk if doing so would not cause it to exceed the chunk size otherwise add the splitter as a new chunk.
+        if not splitter_is_whitespace and next_i < num_splits:
             if token_counter(last_chunk_with_splitter := chunks[-1] + splitter) <= local_chunk_size:
                 chunks[-1] = last_chunk_with_splitter
                 start, end = offsets[-1]
@@ -561,6 +577,9 @@ def chunk(
 
                 chunks.append(splitter)
                 offsets.append((start, start + splitter_len))
+
+        # Advance to the start of the next chunk.
+        i = next_i
 
     # If this is the first call, remove any empty chunks as well as chunks comprised entirely of whitespace and then overlap the chunks if desired and finally return the chunks, optionally with their offsets.
     if is_first_call:
@@ -611,6 +630,36 @@ def chunk(
     # Always return chunks and offsets if this is a recursive call.
     return chunks, offsets
     # endregion
+
+
+_worker_chunk_function: "Callable[[str | ILGSDocument], list[str] | tuple[list[str], list[tuple[int, int]]]] | None" = (
+    None
+)
+"""The chunk function used by multiprocessing pool workers, set by `_initialize_worker()` or `_initialize_worker_from_dill()`."""
+
+
+def _initialize_worker(
+    chunk_function: "Callable[[str | ILGSDocument], list[str] | tuple[list[str], list[tuple[int, int]]]]",
+) -> None:
+    """Initialize a multiprocessing pool worker by storing the provided chunk function in a global variable so that workers can access it without it having to be pickled, which would otherwise fail for unpicklable token counters such as closures and lambdas."""
+
+    global _worker_chunk_function
+    _worker_chunk_function = chunk_function
+
+
+def _initialize_worker_from_dill(pickled_chunk_function: bytes) -> None:  # pragma: no cover
+    """Initialize a multiprocessing pool worker by unpickling the provided `dill`-pickled chunk function and storing it in a global variable. Used on systems that do not support forking processes (namely, Windows), where the chunk function must be pickled to be sent to workers and so may not be picklable by the standard library."""
+
+    import dill  # pyright: ignore[reportMissingImports]
+
+    global _worker_chunk_function
+    _worker_chunk_function = dill.loads(pickled_chunk_function)
+
+
+def _chunk_in_worker(text: "str | ILGSDocument") -> list[str] | tuple[list[str], list[tuple[int, int]]]:
+    """Chunk a text in a multiprocessing pool worker using the chunk function stored by `_initialize_worker()` or `_initialize_worker_from_dill()`."""
+
+    return _worker_chunk_function(text)
 
 
 class Chunker:
@@ -680,7 +729,9 @@ class Chunker:
 
         chunk_function = self._make_chunk_function(offsets=offsets, overlap=overlap)
 
-        if isinstance(text_or_texts, str) or (isaacus_runtime is not None and isinstance(text_or_texts, ILGSDocument_Runtime)):
+        if isinstance(text_or_texts, str) or (
+            isaacus_runtime is not None and isinstance(text_or_texts, ILGSDocument_Runtime)
+        ):
             return chunk_function(text_or_texts)
 
         if progress and processes == 1:
@@ -690,8 +741,24 @@ class Chunker:
             chunks_and_offsets = [chunk_function(text) for text in text_or_texts]
 
         else:
-            with mpire.WorkerPool(processes, use_dill=True) as pool:
-                chunks_and_offsets = pool.map(chunk_function, [(text,) for text in text_or_texts], progress_bar=progress)
+            # On systems that support forking processes (namely, POSIX systems such as Linux and macOS), fork workers and pass the chunk function to them through the pool initializer so that it is inherited through forking rather than pickled, which would otherwise fail for unpicklable token counters such as closures and lambdas. On systems that do not support forking processes (namely, Windows), spawn workers and serialize the chunk function with `dill`, which, unlike the standard library's `pickle`, is able to serialize such token counters.
+            if "fork" in multiprocessing.get_all_start_methods():
+                context = multiprocessing.get_context("fork")
+                initializer, initargs = _initialize_worker, (chunk_function,)
+
+            else:  # pragma: no cover
+                import dill  # pyright: ignore[reportMissingImports]
+
+                context = multiprocessing.get_context("spawn")
+                initializer, initargs = _initialize_worker_from_dill, (dill.dumps(chunk_function),)
+
+            with context.Pool(processes, initializer=initializer, initargs=initargs) as pool:
+                chunked_texts = pool.imap(_chunk_in_worker, text_or_texts)
+
+                if progress:
+                    chunked_texts = tqdm(chunked_texts, total=len(text_or_texts))
+
+                chunks_and_offsets = list(chunked_texts)
 
         if offsets:
             chunks, offsets_ = zip(*chunks_and_offsets)

@@ -97,6 +97,8 @@ CURRENT_VERSIONS: dict[str, dict[str, str]] = {
         "jest": "^29.7.0",
         "babel-preset-expo": "~12.0.4",
         "@babel/core": "^7.25.0",
+        "babel-jest": "^29.7.0",
+        "gensync": "^1.0.0-beta.2",
         "@hookform/resolvers": "^3.9.1",
         "react-hook-form": "^7.54.0",
         "zod": "^3.24.1",

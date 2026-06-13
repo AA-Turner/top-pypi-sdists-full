@@ -211,20 +211,22 @@ class Pdk(BaseModel):
     def model_post_init(self, context: Any) -> None:
         super().model_post_init(context)
 
-        # update the cross sections and cells from base pdks
+        # update the cross sections, cells and containers from base pdks
         # precedence goes from first to last base PDK, and then finally to this PDK
         # (duplicates in the last base PDK will overwrite the others, and this PDK will overwrite that)
-        cross_sections = {}
-        cells = {}
+        cross_sections, cells, containers = {}, {}, {}
         for pdk in self.base_pdks:
             cross_sections.update(pdk.cross_sections)
             cells.update(pdk.cells)
+            containers.update(pdk.containers)
 
         cross_sections.update(self.cross_sections)
         cells.update(self.cells)
+        containers.update(self.containers)
 
         self.cross_sections = cross_sections
         self.cells = cells
+        self.containers = containers
 
     def xsection(
         self, func: Callable[..., CrossSection]
@@ -517,11 +519,10 @@ class Pdk(BaseModel):
             return self.get_cross_section(xs_name, **settings)
         if isinstance(cross_section, CrossSection):
             if kwargs:
-                warnings.warn(
-                    f"{kwargs} ignored for cross_section {cross_section.name!r}",
-                    stacklevel=3,
-                )
-
+                # apply overrides like the str/factory branches do; the copy
+                # gets a derived name, so it caches separately from the
+                # registered cross_section
+                return cross_section.copy(**kwargs)
             return cross_section
         if isinstance(cross_section, kf.DCrossSection | kf.SymmetricalCrossSection):
             if isinstance(cross_section, kf.DCrossSection):
@@ -533,7 +534,7 @@ class Pdk(BaseModel):
             try:
                 layer = self.get_layer_name(layer)
             except ValueError:
-                pass
+                logger.debug("Could not resolve layer name for %r, using as-is", layer)
 
             section_ = Section(
                 name="_default",
@@ -573,11 +574,13 @@ class Pdk(BaseModel):
         assert self.layers is not None
         try:
             return str(self.layers[layer_index])  # type: ignore[index]
-        except Exception:
+        except (KeyError, IndexError, TypeError):
             try:
                 return str(self.layers(layer_index))  # type: ignore[call-arg]
-            except Exception:
-                raise ValueError(f"Could not find name for layer {layer_index}")
+            except (KeyError, TypeError, ValueError) as inner_exc:
+                raise ValueError(
+                    f"Could not find name for layer {layer_index}"
+                ) from inner_exc
 
     def get_layer_views(self) -> LayerViews:
         if self._layer_views_cache is not None:
@@ -598,9 +601,9 @@ class Pdk(BaseModel):
     def get_constant(self, key: str) -> Any:
         try:
             return getattr(self.constants, key)
-        except AttributeError:
+        except AttributeError as e:
             constants = list(self.constants.model_dump().keys())
-            raise AttributeError(f"{key!r} not in {constants}")
+            raise AttributeError(f"{key!r} not in {constants}") from e
 
     def to_updk(self, exclude: Sequence[str] | None = None) -> str:
         """Export to uPDK YAML definition."""

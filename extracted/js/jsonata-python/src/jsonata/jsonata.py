@@ -512,15 +512,21 @@ class Jsonata:
         results = utils.Utils.create_sequence()
         if isinstance(input, utils.Utils.JList) and input.tuple_stream:
             results.tuple_stream = True
-        if not (isinstance(input, list)):
+        if input is None:
+            # undefined input yields undefined output; skip filtering entirely
+            input = utils.Utils.create_sequence()
+        elif not (isinstance(input, list)):
             input = utils.Utils.create_sequence(input)
         if predicate.type == "number":
             index = int(predicate.value)  # round it down - was Math.floor
             if index < 0:
                 # count in from end of array
                 index = len(input) + index
-            item = input[index] if 0 <= index < len(input) else None
-            if item is not None:
+            if 0 <= index < len(input):
+                item = input[index]
+                # Preserve JSON null at this index (vs. out-of-bounds, which is undefined)
+                if item is None:
+                    item = utils.Utils.NULL_VALUE
                 if isinstance(item, list):
                     results = item
                 else:
@@ -1915,6 +1921,7 @@ class Jsonata:
 
         self.input = None
         self.validate_input = True
+        self.output_convert_nulls = True
 
         # Note: now and millis are implemented in Functions
         #  environment.bind("now", defineFunction(function(picture, timezone) {
@@ -1950,6 +1957,24 @@ class Jsonata:
     #     
     def set_validate_input(self, validate_input: bool) -> None:
         self.validate_input = validate_input
+
+    #
+    # Checks whether output NULL_VALUE conversion is enabled
+    #
+    def is_output_convert_nulls(self) -> bool:
+        return self.output_convert_nulls
+
+    #
+    # Enable or disable output NULL_VALUE conversion. Enabled by default, which
+    # returns both "JSONata null" and "JSONata undefined" as Python None.
+    #
+    # When disabled, output values may contain Utils.NULL_VALUE indicating
+    # "JSONata null" while Python None indicates "JSONata undefined".
+    # Manually calling Utils.convert_nulls(result) on a raw result will yield
+    # the converted result.
+    #
+    def set_output_convert_nulls(self, output_convert_nulls: bool) -> None:
+        self.output_convert_nulls = output_convert_nulls
 
     def evaluate(self, input: Optional[Any], bindings: Optional[Frame] = None) -> Optional[Any]:
         # throw if the expression compiled with syntax errors
@@ -1987,7 +2012,8 @@ class Jsonata:
             #  if (typeof callback === "function") {
             #      callback(null, it)
             #  }
-            it = utils.Utils.convert_nulls(it)
+            if self.output_convert_nulls:
+                it = utils.Utils.convert_nulls(it)
             return it
         except Exception as err:
             # insert error message into structure

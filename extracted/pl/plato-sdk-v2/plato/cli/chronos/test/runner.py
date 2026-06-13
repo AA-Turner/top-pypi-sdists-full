@@ -48,7 +48,12 @@ from plato.cli.chronos.dev.runner import resolve_agent_images
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
 from plato.cli.chronos.dev.sync import SyncManager
 from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
-from plato.cli.chronos.provision import SyncTarget, build_sync_targets, provision_vm
+from plato.cli.chronos.provision import (
+    SyncTarget,
+    build_sync_targets,
+    build_world_process_env,
+    provision_vm,
+)
 from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
@@ -667,13 +672,17 @@ class TestRunner:
         if not self.world_env or not self.ssh_key:
             raise RuntimeError("VM and SSH key must be initialized")
 
-        env_map = {"PLATO_API_KEY": self.api_key, **self.config.test.env}
-        env_map["JOB_ID"] = self.world_env.job_id
+        # Core env (PLATO_API_KEY, JOB_ID) is applied after merging test.env so
+        # it cannot be accidentally overridden — JOB_ID in particular controls
+        # mesh-IP SSH to agent VMs (see build_world_process_env).
+        env_map = {
+            **self.config.test.env,
+            **build_world_process_env(self.api_key, self.world_env.job_id),
+        }
         # Tell the world runner not to call /complete — the test runner
         # handles session completion after collecting artifacts.  The
         # Chronos /complete endpoint closes the Plato session (killing
         # the VM), so calling it from within the VM is fatal.
-        # Set after merging test.env so it cannot be accidentally overridden.
         env_map["PLATO_WORLD_TEST_MODE"] = "1"
 
         for env_name in self.config.test.pass_env:

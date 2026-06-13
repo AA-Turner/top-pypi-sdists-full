@@ -21,7 +21,7 @@
 use ndarray::{Array1, Array2};
 
 use crate::linalg::triangular::{CholeskyGuard, cholesky_factor_in_place, cholesky_solve_vector};
-use crate::solver::arrow_schur::ArrowSchurSystem;
+use crate::solver::arrow_schur::{ArrowSchurSystem, DeviceSaePcgData, PcgDiagnostics};
 
 /// Outcome of a single Arrow-Schur Newton solve.
 pub struct ArrowSchurGpuSolution {
@@ -449,11 +449,11 @@ fn build_row_procedural_matvec(
 /// eliminated into `S` on the host streaming path; the device's job is the
 /// dense `K`-dimensional solve, which is the dominant cost at `K = 100K`.
 ///
-/// The dense `S·p` matvec runs on device via cuBLAS `Dgemv` (the `O(K²)` term
-/// that dwarfs the `O(K)` host-side CG scalar recurrences), and the Jacobi
-/// preconditioner uses `diag(S)` extracted once on the host after a single
-/// `dtoh` of the diagonal. Only the `K`-vectors `p` and `S·p` cross the
-/// host↔device boundary per CG iteration.
+/// The dense `S·p` matvec runs on device via cuBLAS `Dgemv`, and the PCG state
+/// vectors (`x`, `r`, `z`, `p`, `S·p`) remain device-resident for the solve.
+/// Jacobi preconditioning is an elementwise CUDA kernel; only convergence
+/// scalars (`pᵀSp`, `rᵀz`, `‖r‖`) cross the host boundary per iteration, plus the
+/// final solution vector.
 ///
 /// Returns `Err(ArrowSchurGpuFailure::Unavailable)` when CUDA is unavailable
 /// or the workload is below the dispatch policy; the caller then runs the CPU
@@ -466,6 +466,17 @@ pub fn solve_reduced_beta_pcg(
     max_iterations: usize,
     relative_tolerance: f64,
 ) -> Result<Array1<f64>, ArrowSchurGpuFailure> {
+    solve_reduced_beta_pcg_with_diagnostics(s_acc, rhs_beta, max_iterations, relative_tolerance)
+        .map(|(x, _)| x)
+}
+
+#[doc(hidden)]
+pub fn solve_reduced_beta_pcg_with_diagnostics(
+    s_acc: &Array2<f64>,
+    rhs_beta: &Array1<f64>,
+    max_iterations: usize,
+    relative_tolerance: f64,
+) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurGpuFailure> {
     let k = rhs_beta.len();
     if s_acc.dim() != (k, k) {
         return Err(ArrowSchurGpuFailure::SchurFactorFailed {
@@ -491,7 +502,51 @@ pub fn solve_reduced_beta_pcg(
 
     #[cfg(target_os = "linux")]
     {
-        cuda::solve_reduced_beta_pcg(s_acc, rhs_beta, max_iterations, relative_tolerance)
+        cuda::solve_reduced_beta_pcg_with_diagnostics(
+            s_acc,
+            rhs_beta,
+            max_iterations,
+            relative_tolerance,
+        )
+    }
+}
+
+pub fn solve_sae_matrix_free_pcg(
+    sys: &ArrowSchurSystem,
+    data: &DeviceSaePcgData,
+    ridge_t: f64,
+    ridge_beta: f64,
+    rhs_beta: &Array1<f64>,
+    max_iterations: usize,
+    relative_tolerance: f64,
+) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurGpuFailure> {
+    if sys.k != data.beta_dim || rhs_beta.len() != data.beta_dim || data.p == 0 {
+        return Err(ArrowSchurGpuFailure::Unavailable);
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        if ridge_t.is_nan()
+            || ridge_beta.is_nan()
+            || relative_tolerance.is_nan()
+            || max_iterations == 0
+        {
+            return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                reason: "SAE matrix-free GPU PCG: invalid controls".to_string(),
+            });
+        }
+        Err(ArrowSchurGpuFailure::Unavailable)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        cuda::solve_sae_matrix_free_pcg(
+            sys,
+            data,
+            ridge_t,
+            ridge_beta,
+            rhs_beta,
+            max_iterations,
+            relative_tolerance,
+        )
     }
 }
 
@@ -558,15 +613,20 @@ mod cuda {
     use super::{ArrowSchurGpuFailure, ArrowSchurGpuSolution, pack_block, pack_host};
     use crate::gpu::driver::to_i32;
     use crate::gpu::linalg::{DispatchOp, route_through_gpu};
-    use crate::solver::arrow_schur::ArrowSchurSystem;
+    use crate::solver::arrow_schur::{
+        ArrowSchurSystem, DeviceSaePcgData, PcgDiagnostics, PcgStopReason,
+    };
     use cudarc::cublas::sys::{
         cublasDiagType_t, cublasFillMode_t, cublasOperation_t, cublasSideMode_t, cublasStatus_t,
     };
     use cudarc::cublas::{CudaBlas, Gemm, GemmConfig, Gemv, GemvConfig};
     use cudarc::cusolver::{DnHandle, sys as cusolver_sys};
-    use cudarc::driver::{CudaSlice, CudaStream, DevicePtr, DevicePtrMut};
+    use cudarc::driver::{
+        CudaContext, CudaModule, CudaSlice, CudaStream, DevicePtr, DevicePtrMut, LaunchConfig,
+        PushKernelArg,
+    };
     use ndarray::Array1;
-    use std::sync::Arc;
+    use std::sync::{Arc, OnceLock};
 
     /// Per-row work slot for the row-block-granular multi-GPU solve. Inputs are
     /// the packed single-row buffers (`d×d` D block + ρ_t ridge, `d×k` B block,
@@ -1429,9 +1489,8 @@ mod cuda {
     // without re-uploading the local factors.
     // ────────────────────────────────────────────────────────────────────
 
-    use cudarc::driver::{CudaContext, CudaModule, LaunchConfig, PushKernelArg};
     use std::collections::HashMap;
-    use std::sync::{Mutex, OnceLock};
+    use std::sync::Mutex;
 
     /// One compiled NVRTC module per `(cc_major, cc_minor, p_max, r_template)`.
     /// `cc_*` lets one process drive multiple device generations; the
@@ -1478,6 +1537,853 @@ mod cuda {
             guard.entry(key).or_insert_with(|| module.clone());
         }
         Ok(module)
+    }
+
+    const PCG_VECTOR_KERNEL_SOURCE: &str = r#"
+extern "C" __global__ void arrow_pcg_jacobi_mul(
+    const double* __restrict__ inv_diag,
+    const double* __restrict__ r,
+    double* __restrict__ z,
+    int n
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        z[idx] = inv_diag[idx] * r[idx];
+    }
+}
+
+extern "C" __global__ void arrow_pcg_update_p(
+    const double* __restrict__ z,
+    double beta,
+    double* __restrict__ p,
+    int n
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        p[idx] = z[idx] + beta * p[idx];
+    }
+}
+
+extern "C" __global__ void arrow_sae_init(
+    double* __restrict__ out,
+    const double* __restrict__ x,
+    double ridge,
+    int n
+) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        out[idx] = ridge * x[idx];
+    }
+}
+
+extern "C" __global__ void arrow_sae_smooth_matvec(
+    const double* __restrict__ x,
+    double* __restrict__ out,
+    const int* __restrict__ block_offsets,
+    const int* __restrict__ block_m,
+    const int* __restrict__ factor_ptr,
+    const double* __restrict__ factors,
+    int p,
+    int n_blocks
+) {
+    int block_id = blockIdx.y;
+    int linear = blockIdx.x * blockDim.x + threadIdx.x;
+    if (block_id >= n_blocks) {
+        return;
+    }
+    int m = block_m[block_id];
+    int total = m * p;
+    if (linear >= total) {
+        return;
+    }
+    int li = linear / p;
+    int oc = linear - li * p;
+    int off = block_offsets[block_id];
+    int fbase = factor_ptr[block_id];
+    double acc = 0.0;
+    for (int lj = 0; lj < m; ++lj) {
+        double a = factors[fbase + li * m + lj];
+        acc += a * x[off + lj * p + oc];
+    }
+    out[off + li * p + oc] += acc;
+}
+
+extern "C" __global__ void arrow_sae_sparse_g_matvec(
+    const double* __restrict__ x,
+    double* __restrict__ out,
+    const int* __restrict__ row_off,
+    const int* __restrict__ col_off,
+    const int* __restrict__ rows,
+    const int* __restrict__ cols,
+    const int* __restrict__ data_ptr,
+    const double* __restrict__ data,
+    int p,
+    int n_blocks
+) {
+    int block_id = blockIdx.y;
+    int linear = blockIdx.x * blockDim.x + threadIdx.x;
+    if (block_id >= n_blocks) {
+        return;
+    }
+    int m_i = rows[block_id];
+    int m_j = cols[block_id];
+    int total = m_i * p;
+    if (linear >= total) {
+        return;
+    }
+    int li = linear / p;
+    int oc = linear - li * p;
+    int rbase = row_off[block_id];
+    int cbase = col_off[block_id];
+    int dbase = data_ptr[block_id];
+    double acc = 0.0;
+    for (int lj = 0; lj < m_j; ++lj) {
+        acc += data[dbase + li * m_j + lj] * x[(cbase + lj) * p + oc];
+    }
+    out[(rbase + li) * p + oc] += acc;
+}
+
+extern "C" __global__ void arrow_sae_gather_u(
+    const double* __restrict__ x,
+    const int* __restrict__ row_ptr,
+    const int* __restrict__ beta_base,
+    const double* __restrict__ phi,
+    double* __restrict__ u,
+    int p,
+    int n_rows
+) {
+    int row = blockIdx.y;
+    int oc = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= n_rows || oc >= p) {
+        return;
+    }
+    double acc = 0.0;
+    int start = row_ptr[row];
+    int end = row_ptr[row + 1];
+    for (int e = start; e < end; ++e) {
+        acc += phi[e] * x[beta_base[e] + oc];
+    }
+    u[row * p + oc] = acc;
+}
+
+extern "C" __global__ void arrow_sae_apply_l(
+    const double* __restrict__ u,
+    const int* __restrict__ jac_ptr,
+    const double* __restrict__ jac,
+    double* __restrict__ w,
+    int p,
+    int max_q,
+    int n_rows
+) {
+    int row = blockIdx.y;
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= n_rows) {
+        return;
+    }
+    int jstart = jac_ptr[row];
+    int q = (jac_ptr[row + 1] - jstart) / p;
+    if (c >= q) {
+        return;
+    }
+    double acc = 0.0;
+    for (int oc = 0; oc < p; ++oc) {
+        acc += jac[jstart + c * p + oc] * u[row * p + oc];
+    }
+    w[row * max_q + c] = acc;
+}
+
+extern "C" __global__ void arrow_sae_apply_ainv(
+    const double* __restrict__ ainv,
+    const double* __restrict__ w,
+    double* __restrict__ v,
+    int max_q,
+    int n_rows
+) {
+    int row = blockIdx.y;
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= n_rows || c >= max_q) {
+        return;
+    }
+    double acc = 0.0;
+    int base = row * max_q * max_q;
+    for (int j = 0; j < max_q; ++j) {
+        acc += ainv[base + c * max_q + j] * w[row * max_q + j];
+    }
+    v[row * max_q + c] = acc;
+}
+
+extern "C" __global__ void arrow_sae_scatter_sub(
+    const double* __restrict__ v,
+    const int* __restrict__ jac_ptr,
+    const double* __restrict__ jac,
+    const int* __restrict__ row_ptr,
+    const int* __restrict__ beta_base,
+    const double* __restrict__ phi,
+    double* __restrict__ out,
+    int p,
+    int max_q,
+    int n_rows
+) {
+    int row = blockIdx.y;
+    int oc = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= n_rows || oc >= p) {
+        return;
+    }
+    int jstart = jac_ptr[row];
+    int q = (jac_ptr[row + 1] - jstart) / p;
+    double lt_v = 0.0;
+    for (int c = 0; c < q; ++c) {
+        lt_v += jac[jstart + c * p + oc] * v[row * max_q + c];
+    }
+    int start = row_ptr[row];
+    int end = row_ptr[row + 1];
+    for (int e = start; e < end; ++e) {
+        atomicAdd(&out[beta_base[e] + oc], -phi[e] * lt_v);
+    }
+}
+
+extern "C" __global__ void arrow_sae_diag_sub(
+    double* __restrict__ diag,
+    const double* __restrict__ ainv,
+    const int* __restrict__ jac_ptr,
+    const double* __restrict__ jac,
+    const int* __restrict__ row_ptr,
+    const int* __restrict__ beta_base,
+    const double* __restrict__ phi,
+    int p,
+    int max_q,
+    int n_rows
+) {
+    int row = blockIdx.y;
+    int oc = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= n_rows || oc >= p) {
+        return;
+    }
+    int jstart = jac_ptr[row];
+    int q = (jac_ptr[row + 1] - jstart) / p;
+    int abase = row * max_q * max_q;
+    double quad = 0.0;
+    for (int c = 0; c < q; ++c) {
+        double lc = jac[jstart + c * p + oc];
+        for (int d = 0; d < q; ++d) {
+            quad += lc * ainv[abase + c * max_q + d] * jac[jstart + d * p + oc];
+        }
+    }
+    int start = row_ptr[row];
+    int end = row_ptr[row + 1];
+    for (int e = start; e < end; ++e) {
+        double pe = phi[e];
+        atomicAdd(&diag[beta_base[e] + oc], -(pe * pe) * quad);
+    }
+}
+"#;
+
+    fn pcg_vector_module(
+        ctx: &Arc<CudaContext>,
+    ) -> Result<&'static Arc<CudaModule>, ArrowSchurGpuFailure> {
+        static CACHE: crate::gpu::common::PtxModuleCache =
+            crate::gpu::common::PtxModuleCache::new();
+        CACHE
+            .get_or_compile(ctx, "arrow_pcg_vector", PCG_VECTOR_KERNEL_SOURCE)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)
+    }
+
+    fn pcg_launch_config(n: usize) -> Result<LaunchConfig, ArrowSchurGpuFailure> {
+        let threads = 256u32;
+        let blocks = ((n as u32).saturating_add(threads - 1) / threads).max(1);
+        Ok(LaunchConfig {
+            grid_dim: (blocks, 1, 1),
+            block_dim: (threads, 1, 1),
+            shared_mem_bytes: 0,
+        })
+    }
+
+    fn launch_jacobi_mul(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        inv_diag: &CudaSlice<f64>,
+        r: &CudaSlice<f64>,
+        z: &mut CudaSlice<f64>,
+        n: usize,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let kernel = module
+            .load_function("arrow_pcg_jacobi_mul")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let n_i32 = to_i32(n).ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let mut builder = stream.launch_builder(&kernel);
+        builder.arg(inv_diag).arg(r).arg(z).arg(&n_i32);
+        // SAFETY: all buffers have length n and belong to `stream`; the kernel only
+        // reads/writes indices `< n`.
+        unsafe { builder.launch(pcg_launch_config(n)?) }
+            .map(drop)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)
+    }
+
+    fn launch_update_p(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        z: &CudaSlice<f64>,
+        beta: f64,
+        p: &mut CudaSlice<f64>,
+        n: usize,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let kernel = module
+            .load_function("arrow_pcg_update_p")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let n_i32 = to_i32(n).ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let mut builder = stream.launch_builder(&kernel);
+        builder.arg(z).arg(&beta).arg(p).arg(&n_i32);
+        // SAFETY: z/p both have length n and belong to `stream`; the kernel only
+        // reads/writes indices `< n`.
+        unsafe { builder.launch(pcg_launch_config(n)?) }
+            .map(drop)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)
+    }
+
+    struct DeviceSaePcgBuffers {
+        row_ptr: CudaSlice<i32>,
+        beta_base: CudaSlice<i32>,
+        phi: CudaSlice<f64>,
+        jac_ptr: CudaSlice<i32>,
+        jac: CudaSlice<f64>,
+        smooth_offsets: CudaSlice<i32>,
+        smooth_m: CudaSlice<i32>,
+        smooth_ptr: CudaSlice<i32>,
+        smooth_data: CudaSlice<f64>,
+        g_row_off: CudaSlice<i32>,
+        g_col_off: CudaSlice<i32>,
+        g_rows: CudaSlice<i32>,
+        g_cols: CudaSlice<i32>,
+        g_ptr: CudaSlice<i32>,
+        g_data: CudaSlice<f64>,
+        ainv: CudaSlice<f64>,
+        u: CudaSlice<f64>,
+        w: CudaSlice<f64>,
+        v: CudaSlice<f64>,
+        n_rows: usize,
+        p: usize,
+        k: usize,
+        max_q: usize,
+        smooth_blocks: usize,
+        g_blocks: usize,
+    }
+
+    fn checked_i32(value: usize) -> Result<i32, ArrowSchurGpuFailure> {
+        to_i32(value).ok_or(ArrowSchurGpuFailure::Unavailable)
+    }
+
+    fn sae_penalty_diag_host(
+        data: &DeviceSaePcgData,
+        ridge_beta: f64,
+    ) -> Result<Vec<f64>, ArrowSchurGpuFailure> {
+        let mut diag = vec![ridge_beta; data.beta_dim];
+        for block in &data.smooth_blocks {
+            let (rows, cols) = block.factor_a.dim();
+            if rows != cols {
+                return Err(ArrowSchurGpuFailure::Unavailable);
+            }
+            for row in 0..rows {
+                let coeff = block.factor_a[[row, row]];
+                let base = block
+                    .global_offset
+                    .checked_add(
+                        row.checked_mul(data.p)
+                            .ok_or(ArrowSchurGpuFailure::Unavailable)?,
+                    )
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+                let end = base
+                    .checked_add(data.p)
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+                if end > diag.len() {
+                    return Err(ArrowSchurGpuFailure::Unavailable);
+                }
+                for channel in 0..data.p {
+                    diag[base + channel] += coeff;
+                }
+            }
+        }
+        for block in &data.sparse_g_blocks {
+            if block.row_off != block.col_off {
+                continue;
+            }
+            let (rows, cols) = block.data.dim();
+            for row in 0..rows.min(cols) {
+                let coeff = block.data[[row, row]];
+                let beta_row = block
+                    .row_off
+                    .checked_add(row)
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+                let base = beta_row
+                    .checked_mul(data.p)
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+                let end = base
+                    .checked_add(data.p)
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+                if end > diag.len() {
+                    return Err(ArrowSchurGpuFailure::Unavailable);
+                }
+                for channel in 0..data.p {
+                    diag[base + channel] += coeff;
+                }
+            }
+        }
+        Ok(diag)
+    }
+
+    fn flatten_device_sae_data(
+        sys: &ArrowSchurSystem,
+        data: &DeviceSaePcgData,
+        ridge_t: f64,
+        stream: &Arc<CudaStream>,
+    ) -> Result<DeviceSaePcgBuffers, ArrowSchurGpuFailure> {
+        let n_rows = sys.rows.len();
+        let p = data.p;
+        let k = data.beta_dim;
+        if data.a_phi.len() != n_rows || data.local_jac.len() != n_rows {
+            return Err(ArrowSchurGpuFailure::Unavailable);
+        }
+
+        let mut row_ptr_host = Vec::with_capacity(n_rows + 1);
+        let mut beta_base_host = Vec::<i32>::new();
+        let mut phi_host = Vec::<f64>::new();
+        row_ptr_host.push(0_i32);
+        for row in &data.a_phi {
+            for &(base, phi) in row {
+                beta_base_host.push(checked_i32(base)?);
+                phi_host.push(phi);
+            }
+            row_ptr_host.push(checked_i32(beta_base_host.len())?);
+        }
+
+        let mut jac_ptr_host = Vec::with_capacity(n_rows + 1);
+        let mut jac_host = Vec::<f64>::new();
+        let mut max_q = 0usize;
+        jac_ptr_host.push(0_i32);
+        for row_jac in &data.local_jac {
+            if row_jac.len() % p != 0 {
+                return Err(ArrowSchurGpuFailure::Unavailable);
+            }
+            max_q = max_q.max(row_jac.len() / p);
+            jac_host.extend_from_slice(row_jac);
+            jac_ptr_host.push(checked_i32(jac_host.len())?);
+        }
+        if max_q == 0 {
+            return Err(ArrowSchurGpuFailure::Unavailable);
+        }
+
+        let mut smooth_offsets_host = Vec::with_capacity(data.smooth_blocks.len());
+        let mut smooth_m_host = Vec::with_capacity(data.smooth_blocks.len());
+        let mut smooth_ptr_host = Vec::with_capacity(data.smooth_blocks.len() + 1);
+        let mut smooth_data_host = Vec::<f64>::new();
+        smooth_ptr_host.push(0_i32);
+        for block in &data.smooth_blocks {
+            let (rows, cols) = block.factor_a.dim();
+            if rows != cols {
+                return Err(ArrowSchurGpuFailure::Unavailable);
+            }
+            smooth_offsets_host.push(checked_i32(block.global_offset)?);
+            smooth_m_host.push(checked_i32(rows)?);
+            for r in 0..rows {
+                for c in 0..cols {
+                    smooth_data_host.push(block.factor_a[[r, c]]);
+                }
+            }
+            smooth_ptr_host.push(checked_i32(smooth_data_host.len())?);
+        }
+
+        let mut g_row_off_host = Vec::with_capacity(data.sparse_g_blocks.len());
+        let mut g_col_off_host = Vec::with_capacity(data.sparse_g_blocks.len());
+        let mut g_rows_host = Vec::with_capacity(data.sparse_g_blocks.len());
+        let mut g_cols_host = Vec::with_capacity(data.sparse_g_blocks.len());
+        let mut g_ptr_host = Vec::with_capacity(data.sparse_g_blocks.len() + 1);
+        let mut g_data_host = Vec::<f64>::new();
+        g_ptr_host.push(0_i32);
+        for block in &data.sparse_g_blocks {
+            let (rows, cols) = block.data.dim();
+            g_row_off_host.push(checked_i32(block.row_off)?);
+            g_col_off_host.push(checked_i32(block.col_off)?);
+            g_rows_host.push(checked_i32(rows)?);
+            g_cols_host.push(checked_i32(cols)?);
+            for r in 0..rows {
+                for c in 0..cols {
+                    g_data_host.push(block.data[[r, c]]);
+                }
+            }
+            g_ptr_host.push(checked_i32(g_data_host.len())?);
+        }
+
+        let mut ainv_host = vec![0.0_f64; n_rows * max_q * max_q];
+        for (row_idx, row) in sys.rows.iter().enumerate() {
+            let q = data.local_jac[row_idx].len() / p;
+            if row.htt.dim() != (q, q) {
+                return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: format!(
+                        "SAE device PCG row {row_idx}: H_tt shape {:?} != ({q}, {q})",
+                        row.htt.dim()
+                    ),
+                });
+            }
+            let mut block = row.htt.clone();
+            for d in 0..q {
+                block[[d, d]] += ridge_t;
+            }
+            let factor = crate::linalg::triangular::cholesky_factor_in_place(
+                block.view(),
+                crate::linalg::triangular::CholeskyGuard::NonnegativePivot,
+            )
+            .ok_or_else(|| {
+                let scale = row
+                    .htt
+                    .diag()
+                    .iter()
+                    .map(|v| v.abs())
+                    .fold(0.0_f64, f64::max)
+                    .max(1.0);
+                ArrowSchurGpuFailure::RidgeBumpRequired {
+                    row: row_idx,
+                    bump: scale * f64::EPSILON.sqrt() * super::RIDGE_BUMP_EPS_MARGIN,
+                }
+            })?;
+            for col in 0..q {
+                let mut e = Array1::<f64>::zeros(q);
+                e[col] = 1.0;
+                let solved =
+                    crate::linalg::triangular::cholesky_solve_vector(factor.view(), e.view());
+                for r in 0..q {
+                    ainv_host[row_idx * max_q * max_q + r * max_q + col] = solved[r];
+                }
+            }
+        }
+
+        Ok(DeviceSaePcgBuffers {
+            row_ptr: stream
+                .clone_htod(&row_ptr_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            beta_base: stream
+                .clone_htod(&beta_base_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            phi: stream
+                .clone_htod(&phi_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            jac_ptr: stream
+                .clone_htod(&jac_ptr_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            jac: stream
+                .clone_htod(&jac_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            smooth_offsets: stream
+                .clone_htod(&smooth_offsets_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            smooth_m: stream
+                .clone_htod(&smooth_m_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            smooth_ptr: stream
+                .clone_htod(&smooth_ptr_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            smooth_data: stream
+                .clone_htod(&smooth_data_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            g_row_off: stream
+                .clone_htod(&g_row_off_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            g_col_off: stream
+                .clone_htod(&g_col_off_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            g_rows: stream
+                .clone_htod(&g_rows_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            g_cols: stream
+                .clone_htod(&g_cols_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            g_ptr: stream
+                .clone_htod(&g_ptr_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            g_data: stream
+                .clone_htod(&g_data_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            ainv: stream
+                .clone_htod(&ainv_host)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            u: stream
+                .alloc_zeros::<f64>(n_rows * p)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            w: stream
+                .alloc_zeros::<f64>(n_rows * max_q)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            v: stream
+                .alloc_zeros::<f64>(n_rows * max_q)
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?,
+            n_rows,
+            p,
+            k,
+            max_q,
+            smooth_blocks: data.smooth_blocks.len(),
+            g_blocks: data.sparse_g_blocks.len(),
+        })
+    }
+
+    fn launch_sae_init(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        out: &mut CudaSlice<f64>,
+        x: &CudaSlice<f64>,
+        ridge: f64,
+        n: usize,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let kernel = module
+            .load_function("arrow_sae_init")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let n_i32 = checked_i32(n)?;
+        let mut builder = stream.launch_builder(&kernel);
+        builder.arg(out).arg(x).arg(&ridge).arg(&n_i32);
+        // SAFETY: `out` and `x` are live device buffers with at least `n`
+        // entries on `stream`; the kernel writes one in-bounds element per
+        // launched index below `n`.
+        unsafe { builder.launch(pcg_launch_config(n)?) }
+            .map(drop)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)
+    }
+
+    fn launch_sae_penalty_matvec(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        buffers: &mut DeviceSaePcgBuffers,
+        x: &CudaSlice<f64>,
+        out: &mut CudaSlice<f64>,
+        ridge_beta: f64,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        launch_sae_init(stream, module, out, x, ridge_beta, buffers.k)?;
+        if buffers.smooth_blocks > 0 {
+            let kernel = module
+                .load_function("arrow_sae_smooth_matvec")
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+            let max_m = buffers.k;
+            let p_i32 = checked_i32(buffers.p)?;
+            let blocks_i32 = checked_i32(buffers.smooth_blocks)?;
+            let cfg = LaunchConfig {
+                grid_dim: (
+                    ((max_m as u32).saturating_add(255) / 256).max(1),
+                    checked_i32(buffers.smooth_blocks)? as u32,
+                    1,
+                ),
+                block_dim: (256, 1, 1),
+                shared_mem_bytes: 0,
+            };
+            let mut builder = stream.launch_builder(&kernel);
+            builder
+                .arg(x)
+                .arg(&mut *out)
+                .arg(&buffers.smooth_offsets)
+                .arg(&buffers.smooth_m)
+                .arg(&buffers.smooth_ptr)
+                .arg(&buffers.smooth_data)
+                .arg(&p_i32)
+                .arg(&blocks_i32);
+            // SAFETY: smooth block metadata and dense smooth data were flattened
+            // into live device buffers; the 2D grid covers only declared block
+            // and coefficient-channel work items, and the kernel bounds-checks
+            // against each block's stored size.
+            unsafe { builder.launch(cfg) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+        if buffers.g_blocks > 0 {
+            let kernel = module
+                .load_function("arrow_sae_sparse_g_matvec")
+                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+            let max_work = buffers
+                .k
+                .checked_div(buffers.p)
+                .unwrap_or(0)
+                .saturating_mul(buffers.p);
+            let p_i32 = checked_i32(buffers.p)?;
+            let blocks_i32 = checked_i32(buffers.g_blocks)?;
+            let cfg = LaunchConfig {
+                grid_dim: (
+                    ((max_work as u32).saturating_add(255) / 256).max(1),
+                    checked_i32(buffers.g_blocks)? as u32,
+                    1,
+                ),
+                block_dim: (256, 1, 1),
+                shared_mem_bytes: 0,
+            };
+            let mut builder = stream.launch_builder(&kernel);
+            builder
+                .arg(x)
+                .arg(&mut *out)
+                .arg(&buffers.g_row_off)
+                .arg(&buffers.g_col_off)
+                .arg(&buffers.g_rows)
+                .arg(&buffers.g_cols)
+                .arg(&buffers.g_ptr)
+                .arg(&buffers.g_data)
+                .arg(&p_i32)
+                .arg(&blocks_i32);
+            // SAFETY: sparse G block metadata/data are live device buffers built
+            // from host CSR-like block descriptors; the launch dimensions cover
+            // declared block work only and the kernel checks row/column bounds
+            // before reading or accumulating.
+            unsafe { builder.launch(cfg) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+        Ok(())
+    }
+
+    fn launch_sae_row_schur_sub(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        buffers: &mut DeviceSaePcgBuffers,
+        x: &CudaSlice<f64>,
+        out: &mut CudaSlice<f64>,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let p_i32 = checked_i32(buffers.p)?;
+        let max_q_i32 = checked_i32(buffers.max_q)?;
+        let n_rows_i32 = checked_i32(buffers.n_rows)?;
+        let cfg_p_rows = LaunchConfig {
+            grid_dim: (
+                ((buffers.p as u32).saturating_add(255) / 256).max(1),
+                checked_i32(buffers.n_rows)? as u32,
+                1,
+            ),
+            block_dim: (256, 1, 1),
+            shared_mem_bytes: 0,
+        };
+        let gather = module
+            .load_function("arrow_sae_gather_u")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        {
+            let mut builder = stream.launch_builder(&gather);
+            builder
+                .arg(x)
+                .arg(&buffers.row_ptr)
+                .arg(&buffers.beta_base)
+                .arg(&buffers.phi)
+                .arg(&mut buffers.u)
+                .arg(&p_i32)
+                .arg(&n_rows_i32);
+            // SAFETY: `x`, row pointers, beta offsets, basis rows, and `u` are
+            // live device buffers sized for `n_rows` by `p`; the kernel guards
+            // row/channel indices before gathering.
+            unsafe { builder.launch(cfg_p_rows) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+
+        let cfg_q_rows = LaunchConfig {
+            grid_dim: (
+                ((buffers.max_q as u32).saturating_add(255) / 256).max(1),
+                checked_i32(buffers.n_rows)? as u32,
+                1,
+            ),
+            block_dim: (256, 1, 1),
+            shared_mem_bytes: 0,
+        };
+        let apply_l = module
+            .load_function("arrow_sae_apply_l")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        {
+            let mut builder = stream.launch_builder(&apply_l);
+            builder
+                .arg(&buffers.u)
+                .arg(&buffers.jac_ptr)
+                .arg(&buffers.jac)
+                .arg(&mut buffers.w)
+                .arg(&p_i32)
+                .arg(&max_q_i32)
+                .arg(&n_rows_i32);
+            // SAFETY: `u`, Jacobian row pointers/data, and `w` are live buffers
+            // sized for the `(n_rows, p)` to `(n_rows, max_q)` multiply; the
+            // kernel checks row and local-coordinate bounds.
+            unsafe { builder.launch(cfg_q_rows) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+
+        let apply_ainv = module
+            .load_function("arrow_sae_apply_ainv")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        {
+            let mut builder = stream.launch_builder(&apply_ainv);
+            builder
+                .arg(&buffers.ainv)
+                .arg(&buffers.w)
+                .arg(&mut buffers.v)
+                .arg(&max_q_i32)
+                .arg(&n_rows_i32);
+            // SAFETY: `ainv`, `w`, and `v` are live device buffers sized for
+            // `n_rows * max_q`; the kernel guards all row/local-coordinate
+            // indices before reading or writing.
+            unsafe { builder.launch(cfg_q_rows) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+
+        let scatter = module
+            .load_function("arrow_sae_scatter_sub")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        {
+            let mut builder = stream.launch_builder(&scatter);
+            builder
+                .arg(&buffers.v)
+                .arg(&buffers.jac_ptr)
+                .arg(&buffers.jac)
+                .arg(&buffers.row_ptr)
+                .arg(&buffers.beta_base)
+                .arg(&buffers.phi)
+                .arg(out)
+                .arg(&p_i32)
+                .arg(&max_q_i32)
+                .arg(&n_rows_i32);
+            // SAFETY: `v`, Jacobian metadata, row pointers, beta offsets, basis
+            // rows, and `out` are live buffers for `n_rows` by `p`; scatter
+            // indices are checked against row and channel bounds in the kernel.
+            unsafe { builder.launch(cfg_p_rows) }.map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        }
+        Ok(())
+    }
+
+    fn launch_sae_diag_sub(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        buffers: &DeviceSaePcgBuffers,
+        diag: &mut CudaSlice<f64>,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let kernel = module
+            .load_function("arrow_sae_diag_sub")
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let p_i32 = checked_i32(buffers.p)?;
+        let max_q_i32 = checked_i32(buffers.max_q)?;
+        let n_rows_i32 = checked_i32(buffers.n_rows)?;
+        let cfg = LaunchConfig {
+            grid_dim: (
+                ((buffers.p as u32).saturating_add(255) / 256).max(1),
+                checked_i32(buffers.n_rows)? as u32,
+                1,
+            ),
+            block_dim: (256, 1, 1),
+            shared_mem_bytes: 0,
+        };
+        let mut builder = stream.launch_builder(&kernel);
+        builder
+            .arg(diag)
+            .arg(&buffers.ainv)
+            .arg(&buffers.jac_ptr)
+            .arg(&buffers.jac)
+            .arg(&buffers.row_ptr)
+            .arg(&buffers.beta_base)
+            .arg(&buffers.phi)
+            .arg(&p_i32)
+            .arg(&max_q_i32)
+            .arg(&n_rows_i32);
+        // SAFETY: diagonal output and all read-only SAE row metadata buffers are
+        // live on `stream` with sizes matching `n_rows`, `p`, and `max_q`; the
+        // kernel bounds-checks its flattened work index.
+        unsafe { builder.launch(cfg) }
+            .map(drop)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)
+    }
+
+    fn launch_sae_matvec(
+        stream: &Arc<CudaStream>,
+        module: &Arc<CudaModule>,
+        buffers: &mut DeviceSaePcgBuffers,
+        x: &CudaSlice<f64>,
+        out: &mut CudaSlice<f64>,
+        ridge_beta: f64,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        launch_sae_penalty_matvec(stream, module, buffers, x, out, ridge_beta)?;
+        launch_sae_row_schur_sub(stream, module, buffers, x, out)
     }
 
     /// Pack `D + ρ_t I`, `B`, and `g` into the strided `(n × P_MAX × P_MAX)`
@@ -1955,27 +2861,155 @@ mod cuda {
         Ok(closure)
     }
 
-    /// Jacobi-preconditioned conjugate-gradient solve of the dense reduced
-    /// β-system `S·δβ = r` fully on device.
-    ///
-    /// `S` (`k × k`, symmetric positive definite) and `r` (`k`) are uploaded
-    /// once. Each CG iteration evaluates `S·p` via cuBLAS `Dgemv` device-side
-    /// (the `O(k²)` cost that dominates at `k = 100K`), downloads the `k`-vector
-    /// result, and runs the scalar CG recurrences on the host (the `O(k)` dot
-    /// products and `axpy`s are negligible beside the matvec). The Jacobi
-    /// preconditioner `M^{-1} = diag(S)^{-1}` is extracted once from a single
-    /// diagonal `dtoh`.
-    ///
-    /// Returns `Unavailable` when the workload is below the GEMV dispatch
-    /// policy or no CUDA context is reachable, and `SchurFactorFailed` when the
-    /// Jacobi diagonal is not strictly positive (an indefinite reduced system
-    /// the caller escalates with a proximal ridge).
-    pub(super) fn solve_reduced_beta_pcg(
+    pub(super) fn solve_sae_matrix_free_pcg(
+        sys: &ArrowSchurSystem,
+        data: &DeviceSaePcgData,
+        ridge_t: f64,
+        ridge_beta: f64,
+        rhs_beta: &Array1<f64>,
+        max_iterations: usize,
+        relative_tolerance: f64,
+    ) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurGpuFailure> {
+        let k = rhs_beta.len();
+        if k == 0 || data.beta_dim != k || sys.k != k {
+            return Err(ArrowSchurGpuFailure::Unavailable);
+        }
+        let runtime = crate::gpu::runtime::GpuRuntime::global()
+            .filter(|rt| {
+                rt.policy()
+                    .dense_hessian_work_target_is_gpu(sys.rows.len(), k)
+            })
+            .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let ctx = crate::gpu::runtime::cuda_context_for(runtime.selected_device().ordinal)
+            .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let stream = ctx
+            .new_stream()
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let blas = CudaBlas::new(stream.clone()).map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let vector_module = pcg_vector_module(&ctx)?;
+        let mut buffers = flatten_device_sae_data(sys, data, ridge_t, &stream)?;
+
+        let rhs_norm = rhs_beta.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if rhs_norm == 0.0 {
+            return Ok((Array1::<f64>::zeros(k), PcgDiagnostics::default()));
+        }
+        let tol = (relative_tolerance.max(0.0) * rhs_norm).max(1e-12);
+        let rhs_dev = stream
+            .clone_htod(
+                rhs_beta
+                    .as_slice()
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?,
+            )
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let diag_host = sae_penalty_diag_host(data, ridge_beta)?;
+        let mut diag_dev = stream
+            .clone_htod(&diag_host)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        launch_sae_diag_sub(&stream, vector_module, &buffers, &mut diag_dev)?;
+        let diag_host = stream
+            .clone_dtoh(&diag_dev)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let mut inv_diag = Vec::with_capacity(k);
+        for (idx, &d) in diag_host.iter().enumerate() {
+            if !d.is_finite() || d <= 1.0e-18 {
+                return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: format!(
+                        "SAE matrix-free GPU PCG: non-positive Schur Jacobi diagonal at {idx}: {d:e}"
+                    ),
+                });
+            }
+            inv_diag.push(1.0 / d);
+        }
+        let inv_diag_dev = stream
+            .clone_htod(&inv_diag)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+
+        let mut x_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let mut r_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        device_copy(&blas, &stream, k, &rhs_dev, &mut r_dev)?;
+        let mut z_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        launch_jacobi_mul(&stream, vector_module, &inv_diag_dev, &r_dev, &mut z_dev, k)?;
+        let mut p_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        device_copy(&blas, &stream, k, &z_dev, &mut p_dev)?;
+        let mut ap_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+
+        let mut rz = device_dot(&blas, &stream, k, &r_dev, &z_dev)?;
+        if rz <= 0.0 || !rz.is_finite() {
+            return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                reason: format!("SAE matrix-free GPU PCG: non-positive initial rᵀM⁻¹r={rz:e}"),
+            });
+        }
+        let mut diag = PcgDiagnostics {
+            precond_apply_calls: 1,
+            stopping_reason: PcgStopReason::MaxIter,
+            ..PcgDiagnostics::default()
+        };
+
+        for _ in 0..max_iterations.max(1) {
+            launch_sae_matvec(
+                &stream,
+                vector_module,
+                &mut buffers,
+                &p_dev,
+                &mut ap_dev,
+                ridge_beta,
+            )?;
+            diag.matvec_calls += 1;
+            diag.iterations += 1;
+            let pap = device_dot(&blas, &stream, k, &p_dev, &ap_dev)?;
+            if pap <= 0.0 || !pap.is_finite() {
+                return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: format!("SAE matrix-free GPU PCG: non-positive curvature pᵀAp={pap:e}"),
+                });
+            }
+            let alpha = rz / pap;
+            device_axpy(&blas, &stream, k, alpha, &p_dev, &mut x_dev)?;
+            device_axpy(&blas, &stream, k, -alpha, &ap_dev, &mut r_dev)?;
+            let r_norm = device_nrm2(&blas, &stream, k, &r_dev)?;
+            if r_norm <= tol {
+                diag.final_relative_residual = r_norm / rhs_norm;
+                diag.stopping_reason = PcgStopReason::Converged;
+                break;
+            }
+            launch_jacobi_mul(&stream, vector_module, &inv_diag_dev, &r_dev, &mut z_dev, k)?;
+            diag.precond_apply_calls += 1;
+            let rz_new = device_dot(&blas, &stream, k, &r_dev, &z_dev)?;
+            if rz_new <= 0.0 || !rz_new.is_finite() {
+                return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: format!("SAE matrix-free GPU PCG: non-positive rᵀM⁻¹r={rz_new:e}"),
+                });
+            }
+            let beta = rz_new / rz;
+            launch_update_p(&stream, vector_module, &z_dev, beta, &mut p_dev, k)?;
+            rz = rz_new;
+        }
+        if diag.stopping_reason != PcgStopReason::Converged {
+            let r_norm = device_nrm2(&blas, &stream, k, &r_dev)?;
+            diag.final_relative_residual = r_norm / rhs_norm;
+            diag.stopping_reason = PcgStopReason::MaxIter;
+        }
+        let x = stream
+            .clone_dtoh(&x_dev)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        Ok((Array1::from_vec(x), diag))
+    }
+
+    pub(super) fn solve_reduced_beta_pcg_with_diagnostics(
         s_acc: &ndarray::Array2<f64>,
         rhs_beta: &Array1<f64>,
         max_iterations: usize,
         relative_tolerance: f64,
-    ) -> Result<Array1<f64>, ArrowSchurGpuFailure> {
+    ) -> Result<(Array1<f64>, PcgDiagnostics), ArrowSchurGpuFailure> {
         let k = rhs_beta.len();
         let runtime =
             crate::gpu::linalg::route_through_gpu(crate::gpu::linalg::DispatchOp::Gemv { m: k, k })
@@ -1984,6 +3018,9 @@ mod cuda {
             .and_then(|ctx| ctx.new_stream().ok())
             .ok_or(ArrowSchurGpuFailure::Unavailable)?;
         let blas = CudaBlas::new(stream.clone()).map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let ctx = crate::gpu::runtime::cuda_context_for(runtime.device.ordinal)
+            .ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let vector_module = pcg_vector_module(&ctx)?;
 
         // Jacobi diagonal from S; must be strictly positive for SPD.
         let mut inv_diag = vec![0.0_f64; k];
@@ -2015,28 +3052,51 @@ mod cuda {
         // uses an unbounded trust region (pure CG to tolerance).
         let rhs_norm = rhs_beta.iter().map(|v| v * v).sum::<f64>().sqrt();
         if rhs_norm == 0.0 {
-            return Ok(Array1::<f64>::zeros(k));
+            return Ok((Array1::<f64>::zeros(k), PcgDiagnostics::default()));
         }
         let tol = (relative_tolerance.max(0.0) * rhs_norm).max(1e-12);
 
-        let mut x = vec![0.0_f64; k];
-        let mut r: Vec<f64> = rhs_beta.iter().copied().collect();
-        let mut z: Vec<f64> = (0..k).map(|j| inv_diag[j] * r[j]).collect();
-        let mut p = z.clone();
-        let mut rz: f64 = r.iter().zip(&z).map(|(a, b)| a * b).sum();
-        let mut p_dev = stream
-            .clone_htod(&p)
+        // Device-resident PCG state. Only convergence scalars cross back during
+        // the loop; x/r/z/p/Sp stay on CUDA until the final solution download.
+        let mut x_dev = stream
+            .alloc_zeros::<f64>(k)
             .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let mut r_dev = stream
+            .clone_htod(
+                rhs_beta
+                    .as_slice()
+                    .ok_or(ArrowSchurGpuFailure::Unavailable)?,
+            )
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let inv_diag_dev = stream
+            .clone_htod(&inv_diag)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let mut z_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        launch_jacobi_mul(&stream, vector_module, &inv_diag_dev, &r_dev, &mut z_dev, k)?;
+        let mut p_dev = stream
+            .alloc_zeros::<f64>(k)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        device_copy(&blas, &stream, k, &z_dev, &mut p_dev)?;
         let mut sp_dev = stream
             .alloc_zeros::<f64>(k)
             .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        let mut rz = device_dot(&blas, &stream, k, &r_dev, &z_dev)?;
+        let mut diag = PcgDiagnostics {
+            precond_apply_calls: 1,
+            stopping_reason: PcgStopReason::MaxIter,
+            ..PcgDiagnostics::default()
+        };
+        if rz <= 0.0 || !rz.is_finite() {
+            return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                reason: format!("reduced-β GPU PCG: non-positive initial rᵀM⁻¹r={rz:e}"),
+            });
+        }
 
         let max_iters = max_iterations.max(1);
         for _ in 0..max_iters {
             // sp = S · p (device GEMV, S column-major k×k, op = N).
-            stream
-                .memcpy_htod(&p, &mut p_dev)
-                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
             let gemv_cfg = GemvConfig::<f64> {
                 trans: cublasOperation_t::CUBLAS_OP_N,
                 m: to_i32(k).ok_or(ArrowSchurGpuFailure::Unavailable)?,
@@ -2050,11 +3110,10 @@ mod cuda {
             // SAFETY: s_dev is k×k column-major, p_dev / sp_dev length k.
             unsafe { blas.gemv(gemv_cfg, &s_dev, &p_dev, &mut sp_dev) }
                 .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
-            let sp = stream
-                .clone_dtoh(&sp_dev)
-                .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+            diag.matvec_calls += 1;
+            diag.iterations += 1;
 
-            let p_sp: f64 = p.iter().zip(&sp).map(|(a, b)| a * b).sum();
+            let p_sp = device_dot(&blas, &stream, k, &p_dev, &sp_dev)?;
             if !(p_sp > 0.0) {
                 // Non-positive curvature on a (proximal-ridged) SPD system means
                 // numerical breakdown; surface so the caller escalates.
@@ -2063,26 +3122,156 @@ mod cuda {
                 });
             }
             let alpha = rz / p_sp;
-            for j in 0..k {
-                x[j] += alpha * p[j];
-                r[j] -= alpha * sp[j];
-            }
-            let r_norm = r.iter().map(|v| v * v).sum::<f64>().sqrt();
+            device_axpy(&blas, &stream, k, alpha, &p_dev, &mut x_dev)?;
+            device_axpy(&blas, &stream, k, -alpha, &sp_dev, &mut r_dev)?;
+            let r_norm = device_nrm2(&blas, &stream, k, &r_dev)?;
             if r_norm <= tol {
+                diag.final_relative_residual = r_norm / rhs_norm;
+                diag.stopping_reason = PcgStopReason::Converged;
                 break;
             }
-            for j in 0..k {
-                z[j] = inv_diag[j] * r[j];
+            launch_jacobi_mul(&stream, vector_module, &inv_diag_dev, &r_dev, &mut z_dev, k)?;
+            diag.precond_apply_calls += 1;
+            let rz_new = device_dot(&blas, &stream, k, &r_dev, &z_dev)?;
+            if rz_new <= 0.0 || !rz_new.is_finite() {
+                return Err(ArrowSchurGpuFailure::SchurFactorFailed {
+                    reason: format!("reduced-β GPU PCG: non-positive rᵀM⁻¹r={rz_new:e}"),
+                });
             }
-            let rz_new: f64 = r.iter().zip(&z).map(|(a, b)| a * b).sum();
             let beta = rz_new / rz;
-            for j in 0..k {
-                p[j] = z[j] + beta * p[j];
-            }
+            launch_update_p(&stream, vector_module, &z_dev, beta, &mut p_dev, k)?;
             rz = rz_new;
         }
+        if diag.stopping_reason != PcgStopReason::Converged {
+            let r_norm = device_nrm2(&blas, &stream, k, &r_dev)?;
+            diag.final_relative_residual = r_norm / rhs_norm;
+            diag.stopping_reason = PcgStopReason::MaxIter;
+        }
 
-        Ok(Array1::from_vec(x))
+        let x = stream
+            .clone_dtoh(&x_dev)
+            .map_err(|_| ArrowSchurGpuFailure::Unavailable)?;
+        Ok((Array1::from_vec(x), diag))
+    }
+
+    fn device_copy(
+        blas: &CudaBlas,
+        stream: &Arc<CudaStream>,
+        n: usize,
+        src: &CudaSlice<f64>,
+        dst: &mut CudaSlice<f64>,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let n_i = to_i32(n).ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let (src_ptr, _src_rec) = src.device_ptr(stream);
+        let (dst_ptr, _dst_rec) = dst.device_ptr_mut(stream);
+        // SAFETY: src and dst are live device allocations on this stream with at
+        // least n contiguous f64 entries and unit stride.
+        let status = unsafe {
+            cudarc::cublas::sys::cublasDcopy_v2(
+                *blas.handle(),
+                n_i,
+                src_ptr as *const f64,
+                1,
+                dst_ptr as *mut f64,
+                1,
+            )
+        };
+        if status == cublasStatus_t::CUBLAS_STATUS_SUCCESS {
+            Ok(())
+        } else {
+            Err(ArrowSchurGpuFailure::Unavailable)
+        }
+    }
+
+    fn device_axpy(
+        blas: &CudaBlas,
+        stream: &Arc<CudaStream>,
+        n: usize,
+        alpha: f64,
+        x: &CudaSlice<f64>,
+        y: &mut CudaSlice<f64>,
+    ) -> Result<(), ArrowSchurGpuFailure> {
+        let n_i = to_i32(n).ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let (x_ptr, _x_rec) = x.device_ptr(stream);
+        let (y_ptr, _y_rec) = y.device_ptr_mut(stream);
+        // SAFETY: x and y are live device allocations on this stream with at
+        // least n contiguous f64 entries and unit stride; cuBLAS only reads alpha.
+        let status = unsafe {
+            cudarc::cublas::sys::cublasDaxpy_v2(
+                *blas.handle(),
+                n_i,
+                &alpha,
+                x_ptr as *const f64,
+                1,
+                y_ptr as *mut f64,
+                1,
+            )
+        };
+        if status == cublasStatus_t::CUBLAS_STATUS_SUCCESS {
+            Ok(())
+        } else {
+            Err(ArrowSchurGpuFailure::Unavailable)
+        }
+    }
+
+    fn device_dot(
+        blas: &CudaBlas,
+        stream: &Arc<CudaStream>,
+        n: usize,
+        x: &CudaSlice<f64>,
+        y: &CudaSlice<f64>,
+    ) -> Result<f64, ArrowSchurGpuFailure> {
+        let n_i = to_i32(n).ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let (x_ptr, _x_rec) = x.device_ptr(stream);
+        let (y_ptr, _y_rec) = y.device_ptr(stream);
+        let mut result = 0.0_f64;
+        // SAFETY: x and y are live device allocations on this stream with at
+        // least n contiguous f64 entries and unit stride; result is a valid host
+        // out-pointer for the cuBLAS scalar.
+        let status = unsafe {
+            cudarc::cublas::sys::cublasDdot_v2(
+                *blas.handle(),
+                n_i,
+                x_ptr as *const f64,
+                1,
+                y_ptr as *const f64,
+                1,
+                &mut result,
+            )
+        };
+        if status == cublasStatus_t::CUBLAS_STATUS_SUCCESS {
+            Ok(result)
+        } else {
+            Err(ArrowSchurGpuFailure::Unavailable)
+        }
+    }
+
+    fn device_nrm2(
+        blas: &CudaBlas,
+        stream: &Arc<CudaStream>,
+        n: usize,
+        x: &CudaSlice<f64>,
+    ) -> Result<f64, ArrowSchurGpuFailure> {
+        let n_i = to_i32(n).ok_or(ArrowSchurGpuFailure::Unavailable)?;
+        let (x_ptr, _x_rec) = x.device_ptr(stream);
+        let mut result = 0.0_f64;
+        // SAFETY: x is a live device allocation on this stream with at least n
+        // contiguous f64 entries and unit stride; result is a valid host
+        // out-pointer for the cuBLAS scalar.
+        let status = unsafe {
+            cudarc::cublas::sys::cublasDnrm2_v2(
+                *blas.handle(),
+                n_i,
+                x_ptr as *const f64,
+                1,
+                &mut result,
+            )
+        };
+        if status == cublasStatus_t::CUBLAS_STATUS_SUCCESS {
+            Ok(result)
+        } else {
+            Err(ArrowSchurGpuFailure::Unavailable)
+        }
     }
 }
 
@@ -2135,6 +3324,97 @@ mod tests {
             sys.gb[r] = sample();
         }
         sys
+    }
+
+    fn device_pcg_fixture(k: usize) -> (Array2<f64>, Array1<f64>) {
+        let mut s = Array2::<f64>::zeros((k, k));
+        for row in 0..k {
+            s[[row, row]] = 2.5 + 0.001 * ((row % 17) as f64);
+            if row + 1 < k {
+                s[[row, row + 1]] = -0.05;
+                s[[row + 1, row]] = -0.05;
+            }
+            if row + 7 < k {
+                s[[row, row + 7]] = 0.01;
+                s[[row + 7, row]] = 0.01;
+            }
+        }
+        let rhs = Array1::from_shape_fn(k, |idx| ((idx as f64 + 1.0) * 0.013).sin());
+        (s, rhs)
+    }
+
+    fn dense_pcg_cpu_reference(
+        s: &Array2<f64>,
+        rhs: &Array1<f64>,
+        max_iterations: usize,
+        relative_tolerance: f64,
+    ) -> Array1<f64> {
+        let k = rhs.len();
+        let rhs_norm = rhs.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if rhs_norm == 0.0 {
+            return Array1::<f64>::zeros(k);
+        }
+        let tol = (relative_tolerance.max(0.0) * rhs_norm).max(1e-12);
+        let inv_diag: Vec<f64> = (0..k).map(|idx| 1.0 / s[[idx, idx]]).collect();
+        let mut x = Array1::<f64>::zeros(k);
+        let mut r = rhs.clone();
+        let mut z = Array1::from_shape_fn(k, |idx| inv_diag[idx] * r[idx]);
+        let mut p = z.clone();
+        let mut sp = Array1::<f64>::zeros(k);
+        let mut rz = r.iter().zip(z.iter()).map(|(a, b)| a * b).sum::<f64>();
+        for _ in 0..max_iterations.max(1) {
+            for row in 0..k {
+                let mut acc = 0.0;
+                for col in 0..k {
+                    acc += s[[row, col]] * p[col];
+                }
+                sp[row] = acc;
+            }
+            let p_sp = p.iter().zip(sp.iter()).map(|(a, b)| a * b).sum::<f64>();
+            let alpha = rz / p_sp;
+            for idx in 0..k {
+                x[idx] += alpha * p[idx];
+                r[idx] -= alpha * sp[idx];
+            }
+            let r_norm = r.iter().map(|v| v * v).sum::<f64>().sqrt();
+            if r_norm <= tol {
+                break;
+            }
+            for idx in 0..k {
+                z[idx] = inv_diag[idx] * r[idx];
+            }
+            let rz_next = r.iter().zip(z.iter()).map(|(a, b)| a * b).sum::<f64>();
+            let beta = rz_next / rz;
+            for idx in 0..k {
+                p[idx] = z[idx] + beta * p[idx];
+            }
+            rz = rz_next;
+        }
+        x
+    }
+
+    #[test]
+    fn device_resident_pcg_matches_cpu_reference_when_cuda_admits() {
+        let (s, rhs) = device_pcg_fixture(512);
+        let max_iterations = 200usize;
+        let relative_tolerance = 1.0e-12;
+        let cpu = dense_pcg_cpu_reference(&s, &rhs, max_iterations, relative_tolerance);
+        let Ok((device, diag)) =
+            solve_reduced_beta_pcg_with_diagnostics(&s, &rhs, max_iterations, relative_tolerance)
+        else {
+            return;
+        };
+        let max_err = cpu
+            .iter()
+            .zip(device.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_err <= 1.0e-10,
+            "device resident PCG parity failed: max_err={max_err:e}, diag={diag:?}"
+        );
+        assert!(diag.matvec_calls > 0);
+        assert_eq!(diag.matvec_calls, diag.iterations);
     }
 
     #[test]

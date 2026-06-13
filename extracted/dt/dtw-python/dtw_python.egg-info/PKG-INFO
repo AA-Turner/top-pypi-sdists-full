@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dtw-python
-Version: 1.7.4
+Version: 1.7.5
 Summary: A comprehensive implementation of dynamic time warping (DTW) algorithms.
 Home-page: https://DynamicTimeWarping.github.io
 Author-email: Toni Giorgino <toni.giorgino@gmail.com>

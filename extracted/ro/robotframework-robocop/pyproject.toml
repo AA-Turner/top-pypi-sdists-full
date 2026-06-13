@@ -11,10 +11,9 @@ maintainers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "click>=8.0.0",
     "jinja2>=3.1.4",
     "robotframework>=5.0,<7.5",
-    "typer>=0.12.5",
+    "typer>=0.26.0",
     "rich>=10.11.0",
     "tomli==2.2.1; python_version < '3.11'",
     "tomli-w>=1.0",
@@ -52,7 +51,8 @@ robocop-mcp = "robocop.mcp.server:main"
 
 [project.optional-dependencies]
 mcp = [
-    "fastmcp>=3.0.0"
+    "fastmcp>=3.0.0",
+    "pydantic>=2.13.4"
 ]
 
 [project.urls]
@@ -87,7 +87,8 @@ dev = [
     "mypy>=1.19.1",
     "types-jinja2",
     "types-pytz",
-    "msgpack-types"
+    "msgpack-types",
+    "deptry>=0.25.1",
 ]
 doc = [
     "mkdocs",
@@ -100,6 +101,7 @@ doc = [
 ]
 mcp = [
     "fastmcp>=3.0.0",
+    "pydantic>=2.13.4",
 ]
 
 [tool.ruff]

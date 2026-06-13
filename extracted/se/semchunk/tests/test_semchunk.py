@@ -147,7 +147,13 @@ def test_semchunk() -> None:
             chunks, offsets = chunker([DETERMINISTIC_TEST_INPUT, DETERMINISTIC_TEST_INPUT], offsets = True, processes = 2)
             assert chunks == [DETERMINISTIC_TEST_OUTPUT_CHUNKS[name], DETERMINISTIC_TEST_OUTPUT_CHUNKS[name]]
             assert offsets == [DETERMINISTIC_TEST_OUTPUT_OFFSETS[name], DETERMINISTIC_TEST_OUTPUT_OFFSETS[name]]
-    
+
+        # Test the multiprocessing worker helpers directly as they would otherwise only ever run in pool worker subprocesses.
+        from semchunk.semchunk import _chunk_in_worker, _initialize_worker
+
+        _initialize_worker(chunker._make_chunk_function(offsets = False, overlap = None))
+        assert _chunk_in_worker(DETERMINISTIC_TEST_INPUT) == DETERMINISTIC_TEST_OUTPUT_CHUNKS[name]
+
     # Test causing a `ValueError` by passing a token counter without a chunk size.
     try:
         chunker = semchunk.chunkerify(list(token_counters.values())[0], None)
@@ -182,9 +188,10 @@ def test_semchunk() -> None:
     tokenizer = tiktoken.encoding_for_model('gpt-4')
     chunker = semchunk.chunkerify(tokenizer, 1)
     
-    # Try enabling a progress bar.
+    # Try enabling a progress bar, including with multiple processes.
     chunker([DETERMINISTIC_TEST_INPUT, DETERMINISTIC_TEST_INPUT], progress = True)
     chunker([DETERMINISTIC_TEST_INPUT, DETERMINISTIC_TEST_INPUT], offsets = True, progress = True)
+    chunker([DETERMINISTIC_TEST_INPUT, DETERMINISTIC_TEST_INPUT], progress = True, processes = 2)
     
     # Test chunking nothing to ensure no errors are raised.
     semchunk.chunk('', 512, lambda *args: 0)

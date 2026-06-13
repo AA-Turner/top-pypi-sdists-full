@@ -6595,6 +6595,121 @@ def _runtime_tools_payload(store):
     return out[:8]
 
 
+# ── Claude subscription limit meter (inspired by Clawdmeter, 2026-06-12) ──
+# A 1-token Haiku probe authenticated with the node's EXISTING Claude Code
+# OAuth token returns the OFFICIAL unified rate-limit headers -- the same
+# numbers behind Claude Code's /usage: 5h-window and 7d-window utilization
+# + reset times. Percentages and timestamps only (aggregates, no content)
+# -> rides the plaintext heartbeat like `stuck` / `runtime_tools`.
+# Hardening lessons from Clawdmeter's issue tracker baked in: tolerate
+# header renames (#42), never use a non-subscription token silently (#44),
+# and degrade to absent for enterprise/API-key accounts (#41).
+_LIMITS_CACHE: dict = {"at": 0.0, "payload": None}
+_LIMITS_TTL_S = 300          # probe at most every 5 min (1 token each)
+_LIMITS_TIMEOUT_S = 8
+
+
+def _read_claude_oauth_token():
+    """The node's Claude Code OAuth access token, or None. macOS keeps it
+    in the Keychain; Linux/Windows in ~/.claude/.credentials.json. Only a
+    subscription OAuth token (sk-ant-oat...) is returned -- an API key
+    would silently probe the WRONG account (Clawdmeter #44)."""
+    blob = None
+    try:
+        import subprocess as _sp
+        out = _sp.run(
+            ["security", "find-generic-password", "-s",
+             "Claude Code-credentials", "-w"],
+            capture_output=True, text=True, timeout=10)
+        blob = out.stdout.strip() or None
+    except Exception:
+        blob = None
+    if not blob:
+        try:
+            p = Path.home() / ".claude" / ".credentials.json"
+            if p.exists():
+                blob = p.read_text()
+        except Exception:
+            blob = None
+    if not blob:
+        return None
+    try:
+        d = json.loads(blob)
+        tok = ((d.get("claudeAiOauth") or {}).get("accessToken")
+               or d.get("accessToken"))
+        if isinstance(tok, str) and tok.startswith("sk-ant-oat"):
+            return tok
+    except Exception:
+        pass
+    return None
+
+
+def _probe_claude_limits():
+    """One 1-token Haiku call -> unified limit headers. Returns the
+    heartbeat payload dict or None (no creds / no headers / any error)."""
+    token = _read_claude_oauth_token()
+    if not token:
+        return None
+    try:
+        import urllib.request as _ur
+        req = _ur.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps({
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "hi"}],
+            }).encode(),
+            headers={
+                "anthropic-version": "2023-06-01",
+                "anthropic-beta": "oauth-2025-04-20",
+                "Content-Type": "application/json",
+                "User-Agent": "claude-code/2.1.5",
+                "Authorization": "Bearer " + token,
+            })
+        try:
+            resp = _ur.urlopen(req, timeout=_LIMITS_TIMEOUT_S)
+            hs = {k.lower(): v for k, v in dict(resp.headers).items()}
+        except Exception as e:
+            # Rate-limited (429) STILL carries the headers -- that's the
+            # most important moment to read them.
+            hs = {k.lower(): v for k, v in dict(
+                getattr(e, "headers", None) or {}).items()}
+        def _pct(name):
+            try:
+                return int(round(float(hs[name]) * 100))
+            except Exception:
+                return None
+        def _epoch(name):
+            try:
+                return int(hs[name])
+            except Exception:
+                return None
+        out = {
+            "fiveh_pct": _pct("anthropic-ratelimit-unified-5h-utilization"),
+            "fiveh_reset": _epoch("anthropic-ratelimit-unified-5h-reset"),
+            "sevend_pct": _pct("anthropic-ratelimit-unified-7d-utilization"),
+            "sevend_reset": _epoch("anthropic-ratelimit-unified-7d-reset"),
+            "status": hs.get("anthropic-ratelimit-unified-status") or "",
+        }
+        if out["fiveh_pct"] is None and out["sevend_pct"] is None:
+            return None  # enterprise / API-key / renamed headers -> absent
+        return out
+    except Exception:
+        return None
+
+
+def _heartbeat_limits_payload():
+    """TTL-cached limits for the heartbeat. The probe costs one Haiku
+    token and ~1s -- pay it at most once per _LIMITS_TTL_S; every
+    heartbeat in between rides the cache."""
+    now = time.time()
+    if now - _LIMITS_CACHE["at"] < _LIMITS_TTL_S:
+        return _LIMITS_CACHE["payload"]
+    _LIMITS_CACHE["at"] = now
+    _LIMITS_CACHE["payload"] = _probe_claude_limits()
+    return _LIMITS_CACHE["payload"]
+
+
 def send_heartbeat(config: dict) -> bool:
     """Send heartbeat to cloud. Returns True on success, False on failure.
 
@@ -6651,6 +6766,14 @@ def send_heartbeat(config: dict) -> bool:
     except Exception as _rtt_e:
         log.debug("runtime_tools payload build failed (continuing): %s",
                   _rtt_e)
+    # Official Claude subscription limit meter (5h/7d windows) -- see
+    # _probe_claude_limits. Absent for API-key/enterprise accounts.
+    try:
+        _lim = _heartbeat_limits_payload()
+        if _lim:
+            payload["limits"] = _lim
+    except Exception as _lim_e:
+        log.debug("limits payload build failed (continuing): %s", _lim_e)
     # Agent-install self-report (cloud bug fix 2026-05-18). Cloud Run pods
     # can't stat the user's home directory, so the daemon tells cloud what
     # agents exist locally and cloud aggregates across the user's fleet.
@@ -10660,6 +10783,7 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 # events table on read. parent_session_id carries the runtime
                 # prefix so it matches the parent's session row id; the cloud
                 # filter normalises both bare + prefixed forms.
+                _subagent_ingested = False
                 if getattr(s, "parent_id", None):
                     try:
                         _sa_extra = s.extra if isinstance(s.extra, dict) else {}
@@ -10687,7 +10811,13 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                                       if s.end_reason == "error" else ""),
                             "runtime": runtime,
                         })
+                        _subagent_ingested = True
                     except Exception as _sae:
+                        # Write failed (e.g. a transient DuckDB writer-lock /
+                        # WAL-conflict window). Leave _subagent_ingested False so
+                        # we DON'T advance the watermark below — otherwise this
+                        # child is permanently skipped and its lane never appears
+                        # in the Command River even after the store recovers.
                         log.debug("family subagent ingest failed (%s): %s", ns_id, _sae)
                 # Sub-agent children stop here: they ride the snapshot
                 # ``subagents[]`` slice (river lanes), not the top-level
@@ -10696,9 +10826,11 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 # subagent row itself (cache-aware, from the adapter), so we skip
                 # the per-event re-ingest + cloud session push entirely — a big
                 # CPU saving for a session that fanned out to hundreds of agents.
-                # Mark the watermark so we don't re-scan an unchanged child.
+                # Mark the watermark ONLY when the subagent row actually landed,
+                # so a failed write is retried next pass (self-healing) instead of
+                # being stranded behind an advanced high-water mark.
                 if getattr(s, "parent_id", None):
-                    if _activity:
+                    if _activity and _subagent_ingested:
                         _evt_hw[ns_id] = _activity
                     continue
                 # Carry the same row to cloud so the cloud Sessions list shows it.
@@ -14391,7 +14523,7 @@ def _emit_detector_incidents(store, state: dict) -> int:
     return emitted
 
 
-def _build_device_summary(spending, daily_usage):
+def _build_device_summary(spending, daily_usage, efficiency=None):
     """Compact, all-runtime payload for a WiFi hardware companion.
 
     Mirrors ``routes/device.py``'s ``/api/device/snapshot`` but built on the
@@ -14569,6 +14701,27 @@ def _build_device_summary(spending, daily_usage):
                 n = int(hot.get("repeat_count") or 0)
                 msg = f"{rt} looping, {n} repeats, no progress"
             summary["alert"] = {"message": str(msg)[:200]}
+    except Exception:
+        pass
+    # Efficiency grade + monthly savings hint (schema 2, additive). One letter
+    # plus one dollar figure for the glance hero sub-line; the full ranked plan
+    # lives on the web Cost tab. `efficiency` is the slice sync_system_snapshot
+    # already computed this cycle (shared, never recomputed here — CPU budget).
+    # Omitted entirely (older firmware tolerates unknown/missing fields) rather
+    # than faked when the window is thin or the engine failed.
+    try:
+        if (isinstance(efficiency, dict) and efficiency.get("grade")
+                and not efficiency.get("insufficient_data")):
+            _save = 0.0
+            for _a in (efficiency.get("actions") or []):
+                try:
+                    _save += float(_a.get("savings_monthly_usd") or 0.0)
+                except (TypeError, ValueError):
+                    pass
+            summary["efficiency"] = {
+                "grade": str(efficiency["grade"])[:1],
+                "save_monthly_usd": round(_save, 2),
+            }
     except Exception:
         pass
     # A waiting approval or a stuck/looping agent is what needs a human.
@@ -15180,6 +15333,23 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         _inv_node_id,
     )
 
+    # Efficiency grade + measured savings, computed ONCE per cycle on the
+    # daemon's OWN store handle (never a read_only re-open — FLYWHEEL §1) and
+    # shared by BOTH the top-level `efficiency` snapshot slice (hosted Cost
+    # tab) and `deviceSummary.efficiency` (the desk-device glance sub-line).
+    # Best-effort: None on any failure, both consumers omit honestly.
+    _eff_slice = None
+    try:
+        from clawmetry import local_store as _ls_eff
+        from clawmetry.efficiency import build_efficiency_slice as _build_eff
+        _eff_store = _ls_eff.get_store()
+        if _eff_store is not None:
+            _eff_slice = _build_eff(
+                _eff_store.query_efficiency_rollup(days=30) or [], days=30
+            )
+    except Exception as _e_eff:
+        log.debug("snapshot: efficiency slice failed: %s", _e_eff)
+
     from clawmetry.providers_pricing import provider_for_model as _pfm
     payload = {
         "system": system,
@@ -15227,7 +15397,8 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # Compact all-runtime slice a WiFi hardware companion decrypts + renders
         # (the device GETs the snapshot, decrypts with the user's key, reads
         # this). Cloud stays blind; E2E preserved.
-        "deviceSummary": _build_device_summary(spending, _du),
+        "deviceSummary": _build_device_summary(spending, _du,
+                                               efficiency=_eff_slice),
         "cronJobs": _build_cron_jobs(paths),
         "cronHealthSummary": _build_cron_health_summary_snapshot(),
         "harness": _build_harness_snapshot(),
@@ -15289,6 +15460,15 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # error counts. Map keyed by event_id; empty == nothing resolved.
         "resolvedErrors": _build_resolved_errors(),
     }
+
+    # Efficiency grade + measured savings (node-wide + byRuntime), so the
+    # hosted dashboard can serve /api/efficiency from the encrypted snapshot.
+    # Computed ONCE per cycle (above, before the payload dict) and shared with
+    # the deviceSummary builder — the CPU budget forbids running the rollup
+    # aggregate twice per push. Best-effort: omitted on failure (cloud falls
+    # back to its honest empty state).
+    if _eff_slice is not None:
+        payload["efficiency"] = _eff_slice
 
     # ── NemoClaw / sandbox enrichment ────────────────────────────────────────
     # Detect NemoClaw and add optional sandbox metadata to the snapshot.

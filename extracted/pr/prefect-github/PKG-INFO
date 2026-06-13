@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-github
-Version: 0.4.3
+Version: 0.4.4
 Summary: Prefect integrations interacting with GitHub
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -20,7 +20,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: sgqlc>=15.0
-Requires-Dist: prefect>=3.6.17
+Requires-Dist: prefect>=3.7.4
 Dynamic: license-file
 
 # prefect-github

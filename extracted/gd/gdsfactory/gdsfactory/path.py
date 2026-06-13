@@ -354,31 +354,16 @@ class Path(UMGeometricObject):
             end_angle: float or None The angle at the end of the path.
 
         """
-        new_points = np.array(points, dtype=np.float64)
-        dx = np.diff(points[:, 0])
-        dy = np.diff(points[:, 1])
-        theta = np.arctan2(dy, dx)
-        theta = np.concatenate([theta[:1], theta, theta[-1:]])
-        theta_mid = (np.pi + theta[1:] + theta[:-1]) / 2  # Mean angle between segments
-        dtheta_int = np.pi + theta[:-1] - theta[1:]  # Internal angle between segments
-        offset_distance_array = np.array(offset_distance) / np.sin(dtheta_int / 2)
-
-        new_points[:, 0] -= offset_distance_array * np.cos(theta_mid)
-        new_points[:, 1] -= offset_distance_array * np.sin(theta_mid)
-
-        if start_angle is not None:
-            start_angle_rad = start_angle * np.pi / 180
-            new_points[0, :] = points[0, :] + (
-                np.sin(start_angle_rad) * offset_distance_array[0],
-                -np.cos(start_angle_rad) * offset_distance_array[0],
-            )
-        if end_angle is not None:
-            end_angle_rad = end_angle * np.pi / 180
-            new_points[-1, :] = points[-1, :] + (
-                np.sin(end_angle_rad) * offset_distance_array[-1],
-                -np.cos(end_angle_rad) * offset_distance_array[-1],
-            )
-        return new_points
+        cos_mid, sin_mid, sin_half = _compute_offset_directions(points)
+        return _offset_curve_from_directions(
+            points,
+            offset_distance,
+            cos_mid,
+            sin_mid,
+            sin_half,
+            start_angle=start_angle,
+            end_angle=end_angle,
+        )
 
     def _parametric_offset_curve(
         self,
@@ -634,6 +619,19 @@ class Path(UMGeometricObject):
         transition: Transition | TransitionAsymmetric,
         all_angle: bool = False,
     ) -> AnyComponent:
+        """Extrudes a path along a transition.
+
+        Allows different transition methods for the upper and lower edges.
+
+        Args:
+            transition: Transition or TransitionAsymmetric object describing the
+                cross-sections and default transition types.
+            all_angle: if True, returns a ComponentAllAngle.
+
+        Returns:
+            AnyComponent: The extruded component with the specified transition methods
+                for each edge.
+        """
         return extrude_transition(p=self, transition=transition, all_angle=all_angle)
 
     def copy(self) -> Path:
@@ -1058,6 +1056,15 @@ def extrude(
 
     layer = get_layer(layer or x.layer)
 
+    _dir_cache: (
+        tuple[
+            npt.NDArray[np.floating[Any]],
+            npt.NDArray[np.floating[Any]],
+            npt.NDArray[np.floating[Any]],
+        ]
+        | None
+    ) = None
+
     for section in x.sections:
         p_sec = p.copy()
         port_names = section.port_names
@@ -1071,6 +1078,8 @@ def extrude(
         layer = get_layer(section.layer)
 
         xsection_points.append([width_value, offset_value])
+
+        path_changed = bool(section.insets and section.insets != (0, 0))
 
         if section.insets and section.insets != (0, 0):
             p_pts = p_sec.points
@@ -1189,6 +1198,7 @@ def extrude(
 
         if callable(offset_function):
             p_sec.offset(offset_function)
+            path_changed = True
             offset_value = 0
         end_angle = p_sec.end_angle
         start_angle = p_sec.start_angle
@@ -1203,19 +1213,26 @@ def extrude(
 
         assert width_value is not None
 
-        dy = offset_value + width_value / 2
+        dy1 = offset_value + width_value / 2
+        dy2 = offset_value - width_value / 2
 
-        points1 = p_sec.centerpoint_offset_curve(
-            points,
-            offset_distance=dy,
-            start_angle=start_angle,
-            end_angle=end_angle,
-        )
-        dy = offset_value - width_value / 2
+        if path_changed:
+            # Path was modified (insets or offset_function), compute fresh directions
+            cos_mid, sin_mid, sin_half = _compute_offset_directions(points)
+            _dir_cache = None
+        elif _dir_cache is not None:
+            cos_mid, sin_mid, sin_half = _dir_cache
+        else:
+            cos_mid, sin_mid, sin_half = _compute_offset_directions(points)
+            _dir_cache = (cos_mid, sin_mid, sin_half)
 
-        points2 = p_sec.centerpoint_offset_curve(
+        points1, points2 = _apply_offsets(
             points,
-            offset_distance=dy,
+            dy1,
+            dy2,
+            cos_mid,
+            sin_mid,
+            sin_half,
             start_angle=start_angle,
             end_angle=end_angle,
         )
@@ -1542,6 +1559,101 @@ def extrude_transition(
     return c
 
 
+def _compute_offset_directions(
+    points: npt.NDArray[np.floating[Any]],
+) -> tuple[
+    npt.NDArray[np.floating[Any]],
+    npt.NDArray[np.floating[Any]],
+    npt.NDArray[np.floating[Any]],
+]:
+    """Pre-compute direction vectors for centerpoint offset curves.
+
+    Returns (cos_theta_mid, sin_theta_mid, sin_half_dtheta_int).
+    """
+    dx = np.diff(points[:, 0])
+    dy = np.diff(points[:, 1])
+    theta = np.arctan2(dy, dx)
+    theta = np.concatenate([theta[:1], theta, theta[-1:]])
+    theta_mid = (np.pi + theta[1:] + theta[:-1]) / 2
+    dtheta_int = np.pi + theta[:-1] - theta[1:]
+    sin_half = np.sin(dtheta_int / 2)
+    return np.cos(theta_mid), np.sin(theta_mid), sin_half
+
+
+def _offset_curve_from_directions(
+    points: npt.NDArray[np.floating[Any]],
+    offset_distance: float | Sequence[float] | npt.NDArray[np.floating[Any]],
+    cos_theta_mid: npt.NDArray[np.floating[Any]],
+    sin_theta_mid: npt.NDArray[np.floating[Any]],
+    sin_half_dtheta_int: npt.NDArray[np.floating[Any]],
+    start_angle: float | None = None,
+    end_angle: float | None = None,
+) -> npt.NDArray[np.floating[Any]]:
+    """Single offset curve from pre-computed direction vectors.
+
+    Equivalent to calling ``centerpoint_offset_curve`` but avoids
+    recomputing the direction trig.
+    """
+    new_points = points.copy()
+    offset_array = offset_distance / sin_half_dtheta_int
+
+    new_points[:, 0] -= offset_array * cos_theta_mid
+    new_points[:, 1] -= offset_array * sin_theta_mid
+
+    if start_angle is not None:
+        sa = start_angle * np.pi / 180
+        sin_sa, cos_sa = np.sin(sa), np.cos(sa)
+        new_points[0, :] = points[0, :] + (
+            sin_sa * offset_array[0],
+            -cos_sa * offset_array[0],
+        )
+
+    if end_angle is not None:
+        ea = end_angle * np.pi / 180
+        sin_ea, cos_ea = np.sin(ea), np.cos(ea)
+        new_points[-1, :] = points[-1, :] + (
+            sin_ea * offset_array[-1],
+            -cos_ea * offset_array[-1],
+        )
+
+    return new_points
+
+
+def _apply_offsets(
+    points: npt.NDArray[np.floating[Any]],
+    offset_distance1: float | Sequence[float] | npt.NDArray[np.floating[Any]],
+    offset_distance2: float | Sequence[float] | npt.NDArray[np.floating[Any]],
+    cos_theta_mid: npt.NDArray[np.floating[Any]],
+    sin_theta_mid: npt.NDArray[np.floating[Any]],
+    sin_half_dtheta_int: npt.NDArray[np.floating[Any]],
+    start_angle: float | None = None,
+    end_angle: float | None = None,
+) -> tuple[
+    npt.NDArray[np.floating[Any]],
+    npt.NDArray[np.floating[Any]],
+]:
+    return (
+        _offset_curve_from_directions(
+            points,
+            offset_distance1,
+            cos_theta_mid,
+            sin_theta_mid,
+            sin_half_dtheta_int,
+            start_angle=start_angle,
+            end_angle=end_angle,
+        ),
+        _offset_curve_from_directions(
+            points,
+            offset_distance2,
+            cos_theta_mid,
+            sin_theta_mid,
+            sin_half_dtheta_int,
+            start_angle=start_angle,
+            end_angle=end_angle,
+        ),
+    )
+
+
 def _rotated_delta(
     point: npt.NDArray[np.floating[Any]],
     center: npt.NDArray[np.floating[Any]],
@@ -1626,6 +1738,19 @@ def _cut_path_with_ray(
     return np.array(points)
 
 
+# Floor on the angular resolution of an auto-computed bend, in degrees per point.
+# The arc-length based npoints formula underflows for small radii, so a tight bend
+# would otherwise collapse to a 2-point chord (#4557). This floor keeps it curved.
+# It is bounded (<= 360 / _MAX_DEG_PER_BEND_POINT points per turn) so it can't blow
+# up near angle=0, unlike the inverted 360 / abs(angle) floor removed in #4337.
+_MAX_DEG_PER_BEND_POINT = 5.0
+
+
+def _bend_npoints_floor(angle: float) -> int:
+    """Minimum points for an auto-computed bend so it stays a curve, not a chord."""
+    return math.ceil(abs(angle) / _MAX_DEG_PER_BEND_POINT) + 1
+
+
 def arc(
     radius: float | None = 10.0,
     angle: float = 90,
@@ -1667,10 +1792,10 @@ def arc(
 
     if angular_step is not None:
         npoints = math.ceil(abs(angle / angular_step)) + 1
+    elif not npoints:
+        npoints = int(abs(angle) / 360 * radius / PDK.bend_points_distance / 2)
+        npoints = max(npoints, _bend_npoints_floor(angle), 2)
     else:
-        npoints = npoints or int(
-            abs(angle) / 360 * radius / PDK.bend_points_distance / 2
-        )
         npoints = max(int(npoints), 2)
 
     t = np.linspace(
@@ -1814,10 +1939,11 @@ def euler(
             2 * num_pts_euler + num_pts_arc - 2
         )  # Total points (avoiding duplicates)
     else:
-        npoints = npoints or abs(
-            int(angle / 360 * radius / pdk.bend_points_distance / 2)
-        )
-        npoints = max(int(npoints), 2)
+        if not npoints:
+            npoints = abs(int(angle / 360 * radius / pdk.bend_points_distance / 2))
+            npoints = max(npoints, _bend_npoints_floor(angle), 2)
+        else:
+            npoints = max(int(npoints), 2)
         # Use simplified form: sp/(s0/2) = 2p/(p+1), avoids 0/0 at alpha=0
         num_pts_euler = int(np.round(2 * p / (p + 1) * npoints))
         num_pts_arc = npoints - num_pts_euler

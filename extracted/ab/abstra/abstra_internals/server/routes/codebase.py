@@ -20,6 +20,7 @@ from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import Project
+from abstra_internals.server.socket_listener import serve_listener_websocket
 from abstra_internals.services.requirements import validate_requirements_content
 from abstra_internals.settings import Settings
 from abstra_internals.utils.code_check import code_check
@@ -31,26 +32,13 @@ def get_editor_bp(repos: Repositories):
     controller = CodebaseController(repos)
     sock = flask_sock.Sock(bp)
 
-    def _wait_inactivity(ws: flask_sock.Server):
-        keep_alive_interval = 30
-        while True:
-            try:
-                msg = ws.receive(timeout=keep_alive_interval + 10)
-                if msg is None:
-                    break
-            except Exception:
-                break
-
     @sock.route("/events")
     def _websocket(ws: flask_sock.Server):
-        try:
-            ws.thread.name = "CodebaseEventsWebSocket"
-            CodebaseEventController.register(ws)
-            _wait_inactivity(ws)
-        except Exception as e:
-            AbstraLogger.capture_exception(e)
-        finally:
-            CodebaseEventController.unregister(ws)
+        serve_listener_websocket(
+            ws,
+            thread_name="CodebaseEventsWebSocket",
+            registry=CodebaseEventController,
+        )
 
     @bp.get("/files")
     def _list_files():

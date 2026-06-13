@@ -44,7 +44,12 @@ class TodoItem(BaseModel):
         ..., description="The task description in imperative form (e.g., 'Implement feature X')"
     )
     status: Literal["pending", "in_progress", "completed", "blocked"] = Field(
-        ..., description="Task status: pending, in_progress, completed, or blocked"
+        default="pending",
+        description=(
+            "Task status. Defaults to 'pending' for new tasks — omit it when "
+            "creating a plan. When restructuring an existing list, set it "
+            "explicitly to preserve in-progress/completed tasks."
+        ),
     )
     active_form: str = Field(
         ...,
@@ -57,4 +62,17 @@ class TodoItem(BaseModel):
     depends_on: list[str] = Field(
         default_factory=list,
         description="List of todo IDs that must be completed before this task.",
+    )
+
+
+class TodoStatusUpdate(BaseModel):
+    """Input model for a single entry of the update_todo_statuses batch tool.
+
+    Each entry pairs a todo ID with the status it should transition to.
+    """
+
+    todo_id: str = Field(..., description="The ID of the todo to update (from read_todos).")
+    status: Literal["pending", "in_progress", "completed", "blocked"] = Field(
+        ...,
+        description="New status: pending, in_progress, completed, or blocked.",
     )

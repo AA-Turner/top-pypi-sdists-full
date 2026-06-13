@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -11,7 +12,7 @@ use crate::{
     output_logger::{
         initialize_output_logger, shutdown_output_logger, LogLevel, OutputLogProvider,
     },
-    sdk_event_emitter::SdkEventEmitter,
+    sdk_event_emitter::{SdkEvent, SdkEventEmitter},
     SpecStore, SpecsSource, SpecsUpdate, StatsigErr, StatsigOptions, StatsigRuntime,
 };
 
@@ -380,4 +381,45 @@ fn test_no_updates_update_field_short_circuit_parse() {
     });
 
     assert!(update_result.is_ok())
+}
+
+#[test]
+fn test_specs_updated_callback_runs_without_holding_store_lock() {
+    let event_emitter = Arc::new(SdkEventEmitter::default());
+    let spec_store = Arc::new(SpecStore::new(
+        "test",
+        "test".to_string(),
+        StatsigRuntime::get_runtime(),
+        event_emitter.clone(),
+        None,
+    ));
+    let callback_store = spec_store.clone();
+
+    event_emitter.subscribe(SdkEvent::SPECS_UPDATED, move |event| {
+        let SdkEvent::SpecsUpdated { source, values, .. } = event else {
+            panic!("expected a specs updated event");
+        };
+        assert_eq!(source, &SpecsSource::Network);
+        assert!(values.time > 0);
+
+        callback_store.set_source(SpecsSource::Bootstrap);
+    });
+
+    let (completed_tx, completed_rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let contents = include_bytes!("../../tests/data/eval_proj_dcs.json");
+        let result = spec_store.set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(contents.to_vec()),
+            source: SpecsSource::Network,
+            received_at: 2000,
+            source_api: None,
+            has_updates: None,
+        });
+        completed_tx.send(result).unwrap();
+    });
+
+    let result = completed_rx
+        .recv_timeout(Duration::from_millis(500))
+        .expect("specs updated callback deadlocked while re-entering the spec store");
+    assert!(result.is_ok());
 }

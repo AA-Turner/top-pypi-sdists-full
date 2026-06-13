@@ -9,6 +9,8 @@ return the highest exit code.
 """
 
 import contextlib as _contextlib
+import json as _json
+import os as _os
 import sys as _sys
 import typing as _t
 from warnings import warn as _warn
@@ -71,6 +73,7 @@ class Failure(list[Failed]):
         self._name = self._func.name
         if (
             self._func.parent is not None
+            and hasattr(self._func.parent, "name")
             and self._func.parent.name
             and not isinstance(self._func.parent, _ast.nodes.Module)
         ):
@@ -98,7 +101,7 @@ class Failure(list[Failed]):
     def _add(
         self,
         value: _Message,
-        hint: bool = False,
+        include_hint: bool = False,
         **kwargs: _t.Any,
     ) -> None:
         self._retcode.append(int(not value.new))
@@ -108,7 +111,7 @@ class Failure(list[Failed]):
             value.description.format(**kwargs),
             value.symbolic,
             self.lineno,
-            value.hint if hint else None,
+            value.hint if include_hint else None,
             value.new,
         )
         if value not in self._func.messages and failed not in self:
@@ -224,9 +227,15 @@ class Failure(list[Failed]):
             self._add(_E[203])
 
     def _sig3xx_description(self, doc: _Param) -> None:
-        if doc.description is None and doc.name is not None:
+        # freeze result as it is a property and PyCharm complains
+        # `Member 'None' of 'str | None' does not have attribute
+        # 'startswith'` as property could theoretically have different
+        # result from doc.description is None to
+        # doc.description.startswith
+        doc_description = doc.description
+        if doc_description is None and doc.name is not None:
             self._add(_E[301])
-        elif doc.description is not None and not doc.description.startswith(
+        elif doc_description is not None and not doc_description.startswith(
             " ",
         ):
             # syntax-error-in-description
@@ -238,19 +247,19 @@ class Failure(list[Failed]):
             self._add(_E[303])
         elif doc.closing_token != ":":
             # bad-closing-token
-            self._add(_E[304], token=doc.closing_token, hint=True)
-        if doc.description is not None and not all(
+            self._add(_E[304], token=doc.closing_token, include_hint=True)
+        if doc_description is not None and not all(
             stripped[0].isupper()
-            for i in _sentence_tokenizer(doc.description)
+            for i in _sentence_tokenizer(doc_description)
             if i and (stripped := i.strip())[0].isalpha()
         ):
             # description is not capitalized
             self._add(_E[305])
         # description-missing-period
         if (
-            doc.description
-            and doc.description.strip()
-            and doc.description.strip()[-1]
+            doc_description
+            and doc_description.strip()
+            and doc_description.strip()[-1]
             not in (
                 "`",
                 ".",
@@ -259,22 +268,28 @@ class Failure(list[Failed]):
             self._add(_E[306])
 
     def _sig4xx_parameters(self, doc: _Param, sig: _Param) -> None:
+        # freeze result as it is a property and PyCharm complains
+        # `Expected type 'str', got 'str | None' instead ' in
+        # _almost_equal as property could theoretically have different
+        # result from sig.name is not None and doc.name is not None
+        sig_name = sig.name
+        doc_name = doc.name
         if doc.indent > 0:
             # incorrect-indent
             self._add(_E[401])
         elif doc != sig:
             if (
-                sig.name in self._func.docstring.args.names
-                or doc.name in self._func.signature.args.names
+                sig_name in self._func.docstring.args.names
+                or doc_name in self._func.signature.args.names
             ) and len(self._func.docstring.args) > 1:
                 # params-out-of-order
                 self._add(_E[402])
             elif (
-                doc.name != _UNNAMED
-                and sig.name is not None
-                and doc.name is not None
+                doc_name != _UNNAMED
+                and sig_name is not None
+                and doc_name is not None
             ):
-                if _almost_equal(sig.name, doc.name, _MIN_MATCH, _MAX_MATCH):
+                if _almost_equal(sig_name, doc_name, _MIN_MATCH, _MAX_MATCH):
                     # spelling-error
                     self._add(_E[403])
                 else:
@@ -288,7 +303,7 @@ class Failure(list[Failed]):
             # no types, cannot know either way
             if self._func.signature.returns.type == _RetType.UNTYPED:
                 # confirm-return-needed
-                self._add(_E[501], hint=True)
+                self._add(_E[501], include_hint=True)
             # return-type is none, so no return should be documented
             elif self._func.docstring.returns.returns:
                 if self._func.signature.returns.type == _RetType.NONE:
@@ -302,7 +317,7 @@ class Failure(list[Failed]):
                 lines = str(self._func.docstring.string).splitlines()
                 self._add(
                     _E[503],
-                    hint=(
+                    include_hint=(
                         len(lines) > 1
                         and "return" in lines[-1]
                         and ":param" not in lines[-1]
@@ -312,11 +327,11 @@ class Failure(list[Failed]):
             # this method is init, so no return should be documented
             if self._func.isinit:
                 # class-return-documented
-                self._add(_E[504], hint=True)
+                self._add(_E[504], include_hint=True)
             # method is property and not set to document property
             elif self._func.isproperty and not check_property_returns:
                 # return-documented-for-property
-                self._add(_E[505], hint=True)
+                self._add(_E[505], include_hint=True)
 
     def _sig9xx_error(self) -> None:
         # invalid-syntax
@@ -349,6 +364,7 @@ class Failure(list[Failed]):
         return max(self._retcode)
 
 
+# TODO: make report json by default and wrap with a reporter for cli
 def report(
     failures: Failures,
     config: _Config,
@@ -364,8 +380,10 @@ def report(
     :param file: Module path when failures came from a file (optional).
     :return: Exit code (non-zero if any check failed).
     """
+    format_json = _os.getenv("_DOCSIG_FORMAT_JSON") is not None
     retcodes = [0]
     output = []
+    obj = []
     for failure in failures:
         retcodes.append(failure.retcode)
         path_prefix = f"{file}:" if file is not None else ""
@@ -392,7 +410,18 @@ def report(
             if extra is not None:
                 output.append(f"    {extra}")
 
-    if output:
+            obj.append(
+                {
+                    "line": None if failure.retcode == 2 else item.lineno,
+                    "message": msg,
+                    "exit": failure.retcode,
+                },
+            )
+
+    if format_json:
+        print(_json.dumps(obj).strip())  # pragma: no cover
+
+    elif output:
         print("\n".join(output))
 
     return max(retcodes)

@@ -15,8 +15,8 @@ use crate::families::lognormal_kernel::FrailtySpec;
 use crate::families::scale_design::scale_transform_from_payload;
 use crate::families::survival::assemble_competing_risks_cif_from_endpoints;
 use crate::families::survival_construction::{
-    SurvivalBaselineConfig, SurvivalLikelihoodMode, SurvivalTimeBuildOutput,
-    add_survival_time_derivative_guard_offset, build_survival_time_basis,
+    SurvivalBaselineConfig, SurvivalBaselineTarget, SurvivalLikelihoodMode,
+    SurvivalTimeBuildOutput, add_survival_time_derivative_guard_offset, build_survival_time_basis,
     build_survival_time_offsets_for_likelihood, build_survival_timewiggle_derivative_design,
     center_survival_time_designs_at_anchor, evaluate_survival_time_basis_row,
     normalize_survival_time_pair, parse_survival_likelihood_mode,
@@ -403,7 +403,16 @@ pub fn predict_survival(
     {
         require_structural_survival_time_basis(&time_build.basisname, "saved survival sampling")?;
     }
-    let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
+    let mut baseline_cfg = saved_survival_runtime_baseline_config(model)?;
+    if weibull_baseline_in_beta {
+        baseline_cfg = SurvivalBaselineConfig {
+            target: SurvivalBaselineTarget::Linear,
+            scale: None,
+            shape: None,
+            rate: None,
+            makeham: None,
+        };
+    }
 
     // Resolve the time-grid: either the explicit grid (same for every
     // row) or per-row exit times (one column per row).
@@ -519,25 +528,13 @@ pub fn predict_survival(
                     )?;
                 }
                 let (mut r_eta_entry, mut r_eta_exit, mut r_deriv_exit) =
-                    if weibull_baseline_in_beta {
-                        // The fitted Weibull baseline lives in the (anchor-centered)
-                        // linear time-basis coefficients; the saved `Weibull`
-                        // baseline target is reporting metadata only. Carry a zero
-                        // parametric offset so it is not double-counted (issue #897).
-                        (
-                            Array1::<f64>::zeros(1),
-                            Array1::<f64>::zeros(1),
-                            Array1::<f64>::zeros(1),
-                        )
-                    } else {
-                        build_survival_time_offsets_for_likelihood(
-                            &single_entry,
-                            &single_exit,
-                            &baseline_cfg,
-                            saved_likelihood_mode,
-                            None,
-                        )?
-                    };
+                    build_survival_time_offsets_for_likelihood(
+                        &single_entry,
+                        &single_exit,
+                        &baseline_cfg,
+                        saved_likelihood_mode,
+                        None,
+                    )?;
                 if saved_likelihood_mode == SurvivalLikelihoodMode::MarginalSlope {
                     add_survival_time_derivative_guard_offset(
                         &single_entry,
@@ -1960,6 +1957,25 @@ fn predict_survival_location_scale_batch(
         .and(&mut cumulative_hazard)
         .and(&mut hazard)
         .par_for_each(|(i, j), s, ch, h| {
+            // Survival-curve origin: at t = 0 everyone is still at risk, so
+            // S(0) = 1, H(0) = 0 and h(0) = 0 exactly, independent of the
+            // fitted baseline. Anchor the origin column directly instead of
+            // routing it through the (probit-survival) baseline, whose index is
+            // -inf at S0(0) = 1. This matches the transformation / marginal-slope
+            // predict path's `t <= 0` handling and keeps the default surface grid
+            // — whose first node is the origin for the `Surv(time, event)`
+            // right-censored shorthand — evaluable end to end (#1024).
+            let query_time = if per_row_eval {
+                age_exit[i]
+            } else {
+                eval_times[j]
+            };
+            if query_time <= 0.0 {
+                *s = 1.0;
+                *ch = 0.0;
+                *h = 0.0;
+                return;
+            }
             let k = if per_row_eval { i } else { i * eval_width + j };
             let surv = survival_prob_full[k].clamp(SURVIVAL_PROB_MIN_FOR_LOG, 1.0);
             *s = surv;
@@ -1975,12 +1991,25 @@ fn predict_survival_location_scale_batch(
     let times = if per_row_eval {
         age_exit.to_vec()
     } else {
-        eval_times
+        // Cloned (not moved) so the origin-column anchor below can still read the
+        // per-column query times when assembling the survival standard errors.
+        eval_times.clone()
     };
 
     let survival_se = response_se_full.as_ref().map(|response_se| {
         let mut out = Array2::<f64>::zeros((n, t_cols));
         ndarray::Zip::indexed(&mut out).par_for_each(|(i, j), slot| {
+            // S(0) = 1 is a deterministic identity, so its standard error is 0
+            // at the origin column (consistent with the anchored survival above).
+            let query_time = if per_row_eval {
+                age_exit[i]
+            } else {
+                eval_times[j]
+            };
+            if query_time <= 0.0 {
+                *slot = 0.0;
+                return;
+            }
             let k = if per_row_eval { i } else { i * eval_width + j };
             *slot = response_se[k].max(0.0);
         });
@@ -2013,6 +2042,158 @@ fn prepared_sigma_design_view(
     input: &crate::families::survival_location_scale::SurvivalLocationScalePredictInput,
 ) -> &crate::matrix::DesignMatrix {
     &input.x_log_sigma
+}
+
+pub(crate) struct LocationScaleEtaComponents {
+    pub h: Array1<f64>,
+    pub time_jac: Array2<f64>,
+    pub eta_t: Array1<f64>,
+    pub eta_ls: Array1<f64>,
+    pub inv_sigma: Array1<f64>,
+}
+
+pub(crate) struct LocationScaleTimeWarpComponents {
+    pub(crate) h: Array1<f64>,
+    pub(crate) time_jac: Array2<f64>,
+    pub(crate) time_wiggle_dq: Option<Array1<f64>>,
+}
+
+pub(crate) fn location_scale_time_warp_components(
+    x_time_exit: &Array2<f64>,
+    eta_time_offset_exit: &Array1<f64>,
+    time_wiggle_knots: Option<&Array1<f64>>,
+    time_wiggle_degree: Option<usize>,
+    time_wiggle_ncols: usize,
+    fit: &UnifiedFitResult,
+) -> Result<LocationScaleTimeWarpComponents, String> {
+    let n = x_time_exit.nrows();
+    if eta_time_offset_exit.len() != n {
+        return Err("survival location-scale time-warp row mismatch across inputs".to_string());
+    }
+    let beta_time = fit.beta_time();
+    if x_time_exit.ncols() != beta_time.len() {
+        return Err(format!(
+            "survival location-scale time-warp design mismatch: x_exit={} beta_time={}",
+            x_time_exit.ncols(),
+            beta_time.len()
+        ));
+    }
+
+    let p_time_total = beta_time.len();
+    let p_wiggle = time_wiggle_ncols.min(p_time_total);
+    let p_base = p_time_total - p_wiggle;
+    let beta_base = beta_time.slice(s![..p_base]).to_owned();
+    let h_base = if p_base > 0 {
+        x_time_exit.slice(s![.., ..p_base]).dot(&beta_base) + eta_time_offset_exit
+    } else {
+        eta_time_offset_exit.clone()
+    };
+    let mut h = h_base.clone();
+    let mut time_jac = x_time_exit.clone();
+    let mut time_wiggle_dq = None;
+    if p_wiggle > 0 {
+        if x_time_exit
+            .slice(s![.., p_base..p_time_total])
+            .iter()
+            .any(|&value| value != 0.0)
+        {
+            return Err(
+                "survival location-scale timewiggle prediction requires zero placeholder tail columns"
+                    .to_string(),
+            );
+        }
+        let knots = time_wiggle_knots.ok_or_else(|| {
+            "survival location-scale time-warp: timewiggle coefficients are missing knot metadata"
+                .to_string()
+        })?;
+        let degree = time_wiggle_degree.ok_or_else(|| {
+            "survival location-scale time-warp: timewiggle coefficients are missing degree metadata"
+                .to_string()
+        })?;
+        let beta_w = beta_time.slice(s![p_base..p_time_total]).to_owned();
+        let time_basis = crate::families::wiggle::monotone_wiggle_basis_with_derivative_order(
+            h_base.view(),
+            knots,
+            degree,
+            0,
+        )?;
+        let time_basis_d1 = crate::families::wiggle::monotone_wiggle_basis_with_derivative_order(
+            h_base.view(),
+            knots,
+            degree,
+            1,
+        )?;
+        if time_basis.ncols() != p_wiggle || time_basis_d1.ncols() != p_wiggle {
+            return Err(format!(
+                "survival location-scale time-warp timewiggle mismatch: value basis has {} columns, derivative basis has {}, beta has {}",
+                time_basis.ncols(),
+                time_basis_d1.ncols(),
+                p_wiggle
+            ));
+        }
+        let dq = time_basis_d1.dot(&beta_w) + 1.0;
+        h = &h_base + &time_basis.dot(&beta_w);
+        time_jac = Array2::<f64>::zeros((n, p_time_total));
+        if p_base > 0 {
+            let scaled_base = crate::families::survival_location_scale::scale_dense_rows(
+                &x_time_exit.slice(s![.., ..p_base]).to_owned(),
+                &dq,
+            )?;
+            time_jac.slice_mut(s![.., ..p_base]).assign(&scaled_base);
+        }
+        time_jac
+            .slice_mut(s![.., p_base..p_time_total])
+            .assign(&time_basis);
+        time_wiggle_dq = Some(dq);
+    }
+
+    Ok(LocationScaleTimeWarpComponents {
+        h,
+        time_jac,
+        time_wiggle_dq,
+    })
+}
+
+pub(crate) fn location_scale_eta_components(
+    x_time_exit: &Array2<f64>,
+    eta_time_offset_exit: &Array1<f64>,
+    time_wiggle_knots: Option<&Array1<f64>>,
+    time_wiggle_degree: Option<usize>,
+    time_wiggle_ncols: usize,
+    x_threshold: &crate::matrix::DesignMatrix,
+    eta_threshold_offset: &Array1<f64>,
+    x_log_sigma: &crate::matrix::DesignMatrix,
+    eta_log_sigma_offset: &Array1<f64>,
+    fit: &UnifiedFitResult,
+) -> Result<LocationScaleEtaComponents, String> {
+    let n = x_time_exit.nrows();
+    if x_threshold.nrows() != n
+        || eta_threshold_offset.len() != n
+        || x_log_sigma.nrows() != n
+        || eta_log_sigma_offset.len() != n
+    {
+        return Err("survival location-scale eta component row mismatch across inputs".to_string());
+    }
+    let time_components = location_scale_time_warp_components(
+        x_time_exit,
+        eta_time_offset_exit,
+        time_wiggle_knots,
+        time_wiggle_degree,
+        time_wiggle_ncols,
+        fit,
+    )?;
+    let beta_threshold = fit.beta_threshold();
+    let beta_log_sigma = fit.beta_log_sigma();
+    let eta_t = x_threshold.matrixvectormultiply(&beta_threshold) + eta_threshold_offset;
+    let eta_ls = x_log_sigma.matrixvectormultiply(&beta_log_sigma) + eta_log_sigma_offset;
+    let inv_sigma = eta_ls.mapv(crate::families::sigma_link::exp_sigma_inverse_from_eta_scalar);
+    Ok(LocationScaleEtaComponents {
+        h: time_components.h,
+        time_jac: time_components.time_jac,
+        eta_t,
+        eta_ls,
+        inv_sigma,
+    })
 }
 
 fn location_scale_eta_derivative_components(
@@ -2048,41 +2229,22 @@ fn location_scale_eta_derivative_components(
         ));
     }
 
+    let time_components = location_scale_time_warp_components(
+        x_time_exit,
+        eta_time_offset_exit,
+        time_wiggle_knots,
+        time_wiggle_degree,
+        time_wiggle_ncols,
+        fit,
+    )?;
     let beta_base = beta_time.slice(s![..p_base]).to_owned();
     let mut eta_derivative = if p_base > 0 {
         x_time_derivative.dot(&beta_base) + derivative_offset_exit
     } else {
         derivative_offset_exit.clone()
     };
-    if p_wiggle > 0 {
-        let knots = time_wiggle_knots.ok_or_else(|| {
-            "survival location-scale hazard derivative: timewiggle coefficients are missing knot metadata"
-                .to_string()
-        })?;
-        let degree = time_wiggle_degree.ok_or_else(|| {
-            "survival location-scale hazard derivative: timewiggle coefficients are missing degree metadata"
-                .to_string()
-        })?;
-        let beta_w = beta_time.slice(s![p_base..p_time_total]).to_owned();
-        let h_base = if p_base > 0 {
-            x_time_exit.slice(s![.., ..p_base]).dot(&beta_base) + eta_time_offset_exit
-        } else {
-            eta_time_offset_exit.clone()
-        };
-        let basis_d1 = crate::families::wiggle::monotone_wiggle_basis_with_derivative_order(
-            h_base.view(),
-            knots,
-            degree,
-            1,
-        )?;
-        if basis_d1.ncols() != p_wiggle {
-            return Err(format!(
-                "survival location-scale hazard derivative timewiggle mismatch: derivative basis has {} columns but beta has {}",
-                basis_d1.ncols(),
-                p_wiggle
-            ));
-        }
-        eta_derivative *= &(basis_d1.dot(&beta_w) + 1.0);
+    if let Some(dq) = time_components.time_wiggle_dq.as_ref() {
+        eta_derivative *= dq;
     }
     if eta_derivative
         .iter()

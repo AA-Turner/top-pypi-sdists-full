@@ -3,6 +3,7 @@
 # for complete details.
 
 import datetime
+import enum
 import re
 import sys
 import typing
@@ -29,6 +30,14 @@ class TestTypesAPI:
         with pytest.raises(ValueError, match="invalid PrintableString: café"):
             asn1.PrintableString("café")
 
+    def test_hash_printable_string(self) -> None:
+        assert hash(asn1.PrintableString("MyString")) == hash(
+            asn1.PrintableString("MyString")
+        )
+        assert hash(asn1.PrintableString("MyString")) != hash(
+            asn1.PrintableString("OtherString")
+        )
+
     def test_repr_ia5_string(self) -> None:
         my_string = "MyString"
         assert repr(asn1.IA5String(my_string)) == f"IA5String({my_string!r})"
@@ -41,6 +50,14 @@ class TestTypesAPI:
         with pytest.raises(ValueError, match="invalid IA5String: café"):
             asn1.IA5String("café")
 
+    def test_hash_ia5_string(self) -> None:
+        assert hash(asn1.IA5String("MyString")) == hash(
+            asn1.IA5String("MyString")
+        )
+        assert hash(asn1.IA5String("MyString")) != hash(
+            asn1.IA5String("OtherString")
+        )
+
     def test_utc_time_as_datetime(self) -> None:
         dt = datetime.datetime(
             2000, 1, 1, 10, 10, 10, tzinfo=datetime.timezone.utc
@@ -52,6 +69,16 @@ class TestTypesAPI:
             2000, 1, 1, 10, 10, 10, tzinfo=datetime.timezone.utc
         )
         assert repr(asn1.UTCTime(dt)) == f"UTCTime({dt!r})"
+
+    def test_hash_utc_time(self) -> None:
+        dt = datetime.datetime(
+            2000, 1, 1, 10, 10, 10, tzinfo=datetime.timezone.utc
+        )
+        other_dt = datetime.datetime(
+            2001, 1, 1, 10, 10, 10, tzinfo=datetime.timezone.utc
+        )
+        assert hash(asn1.UTCTime(dt)) == hash(asn1.UTCTime(dt))
+        assert hash(asn1.UTCTime(dt)) != hash(asn1.UTCTime(other_dt))
 
     def test_invalid_utc_time(self) -> None:
         with pytest.raises(
@@ -107,6 +134,18 @@ class TestTypesAPI:
         )
         assert repr(asn1.GeneralizedTime(dt)) == f"GeneralizedTime({dt!r})"
 
+    def test_hash_generalized_time(self) -> None:
+        dt = datetime.datetime(
+            2000, 1, 1, 10, 10, 10, 300000, tzinfo=datetime.timezone.utc
+        )
+        other_dt = datetime.datetime(
+            2001, 1, 1, 10, 10, 10, 300000, tzinfo=datetime.timezone.utc
+        )
+        assert hash(asn1.GeneralizedTime(dt)) == hash(asn1.GeneralizedTime(dt))
+        assert hash(asn1.GeneralizedTime(dt)) != hash(
+            asn1.GeneralizedTime(other_dt)
+        )
+
     def test_invalid_generalized_time(self) -> None:
         with pytest.raises(
             ValueError,
@@ -127,6 +166,17 @@ class TestTypesAPI:
         assert (
             repr(asn1.BitString(data, 2))
             == f"BitString(data={data!r}, padding_bits=2)"
+        )
+
+    def test_hash_bitstring(self) -> None:
+        assert hash(asn1.BitString(b"\x01\x02\x30", 2)) == hash(
+            asn1.BitString(b"\x01\x02\x30", 2)
+        )
+        assert hash(asn1.BitString(b"\x01\x02\x30", 2)) != hash(
+            asn1.BitString(b"\x01\x02\x40", 2)
+        )
+        assert hash(asn1.BitString(b"\x01\x02\x30", 2)) != hash(
+            asn1.BitString(b"\x01\x02\x30", 3)
         )
 
     def test_invalid_bitstring(self) -> None:
@@ -378,6 +428,14 @@ class TestSequenceAPI:
         choice = declarative_asn1.Type.Choice(my_list)
         assert choice._0 is my_list
 
+        my_value_map: dict = {}
+        value_set = declarative_asn1.Type.ValueSet(
+            type(None), ann_type, my_value_map
+        )
+        assert value_set._0 is type(None)
+        assert value_set._1 is ann_type
+        assert value_set._2 is my_value_map
+
     def test_fields_of_variant_encoding(self) -> None:
         from cryptography.hazmat.bindings._rust import declarative_asn1
 
@@ -527,3 +585,46 @@ class TestSetAPI:
             @asn1.set
             class Example:
                 foo: Invalid
+
+
+class TestValueSetAPI:
+    def test_fail_non_enum(self) -> None:
+        with pytest.raises(
+            TypeError,
+            match=re.escape(
+                "value sets can only be defined from enum.Enum subclasses"
+            ),
+        ):
+
+            @asn1.value_set(int)
+            class Example:
+                pass
+
+    def test_fail_empty_enum(self) -> None:
+        with pytest.raises(
+            TypeError,
+            match="value set 'Example' must have at least one member",
+        ):
+
+            @asn1.value_set(int)
+            class Example(enum.Enum):
+                pass
+
+    def test_fail_member_value_of_wrong_type(self) -> None:
+        with pytest.raises(
+            TypeError,
+            match="member 'B' of value set 'Example' must have a value "
+            "of type 'int', got: 'str'",
+        ):
+
+            @asn1.value_set(int)
+            class Example(enum.Enum):
+                A = 1
+                B = "b"
+
+    def test_fail_unsupported_value_type(self) -> None:
+        with pytest.raises(
+            TypeError,
+            match="cannot handle type",
+        ):
+            asn1.value_set(float)

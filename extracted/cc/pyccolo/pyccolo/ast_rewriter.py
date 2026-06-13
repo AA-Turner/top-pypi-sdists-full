@@ -253,6 +253,21 @@ class AstRewriter(ast.NodeTransformer):
             return None
         return Range.singleton_span(end_lineno, end_col_offset)
 
+    @staticmethod
+    def _get_subscript_range_for(node: ast.AST) -> Optional[Range]:
+        # The opening bracket of a subscript sits immediately after the value,
+        # which is exactly the position a paired ``{`` -> ``[`` swap registers.
+        # Relies on end_col_offset, so subscript-augmentation detection requires
+        # Python 3.8+; on 3.7 this returns None (the swap still works, but a
+        # brace-block subscript is not distinguishable via get_augmentations).
+        if not isinstance(node, ast.Subscript):
+            return None
+        end_lineno: Optional[int] = getattr(node.value, "end_lineno", None)
+        end_col_offset: Optional[int] = getattr(node.value, "end_col_offset", None)
+        if end_lineno is None or end_col_offset is None:
+            return None
+        return Range.singleton_span(end_lineno, end_col_offset)
+
     def _get_range_for(
         self, aug_type: AugmentationType, node: ast.AST
     ) -> Optional[Range]:
@@ -270,6 +285,8 @@ class AstRewriter(ast.NodeTransformer):
             return self._get_boolop_range_for(node)
         elif aug_type == AugmentationType.call:
             return self._get_call_range_for(node)
+        elif aug_type == AugmentationType.subscript:
+            return self._get_subscript_range_for(node)
         else:
             raise NotImplementedError()
 
@@ -339,6 +356,18 @@ class AstRewriter(ast.NodeTransformer):
             TraceEvent, List[Predicate]
         ] = defaultdict(list)
 
+        # A tracer with guards globally disabled wants *none* of its handlers
+        # guarded, but that only matters when some *other* tracer enables guards
+        # (the rewriter inserts guards iff global_guards_enabled, which is the
+        # ``any`` over tracers). When no tracer wants guards there is nothing to be
+        # exempt from, so skip building the exempt predicates entirely -- both to
+        # avoid pointless work and, importantly, to leave the standalone code path
+        # byte-for-byte unchanged (building extra predicates perturbs object
+        # identities, which some id()-order-sensitive bookkeeping is fragile to).
+        any_guards_enabled = any(
+            tracer.global_guards_enabled for tracer in self._tracers
+        )
+
         for tracer in self._tracers:
             if not self.should_instrument_with_tracer(tracer):
                 continue
@@ -350,7 +379,12 @@ class AstRewriter(ast.NodeTransformer):
                 )
                 for handler_spec in handler_data:
                     raw_handler_predicates_by_event[evt].append(handler_spec.predicate)
-                    if handler_spec.exempt_from_guards:
+                    # Honor a guard-disabled tracer's intent by treating all of its
+                    # handlers as guard-exempt -- but only when guards are actually
+                    # in play (see above).
+                    if handler_spec.exempt_from_guards or (
+                        any_guards_enabled and not tracer.global_guards_enabled
+                    ):
                         raw_guard_exempt_handler_predicates_by_event[evt].append(
                             handler_spec.predicate
                         )

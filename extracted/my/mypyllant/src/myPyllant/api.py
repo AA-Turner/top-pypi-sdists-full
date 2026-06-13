@@ -22,6 +22,7 @@ from myPyllant.const import (
     DEFAULT_CONTROL_IDENTIFIER,
     DEFAULT_QUICK_VETO_DURATION,
     LOGIN_URL,
+    SYSTEM_CONTROL_API_URL_BASE,
     TOKEN_URL,
 )
 from myPyllant.enums import (
@@ -524,7 +525,10 @@ class MyPyllantAPI:
                 f"Invalid HVAC mode, must be one of {', '.join(ZoneOperatingType)}"
             )
         if zone.control_identifier.is_vrc700:
-            url = f"{await self.get_system_api_base(zone.system_id)}/zone/{zone.index}/{operating_type}/operation-mode"
+            url = (
+                f"{SYSTEM_CONTROL_API_URL_BASE}/systems/{zone.system_id}"
+                f"/zones/{zone.index}/{operating_type}-operation-mode"
+            )
             mode_enum = ZoneOperatingModeVRC700  # type: ignore
         else:
             if operating_type == "cooling":
@@ -693,14 +697,34 @@ class MyPyllantAPI:
                 f"Invalid veto type, must be one of {', '.join(ZoneOperatingType)}"
             )
         setpoint_type = str(setpoint_type).lower()
+
+        if zone.control_identifier.is_vrc700:
+            if setpoint_type == "cooling":
+                # VRC700 cooling DAY mode (the equivalent of manual mode) uses the
+                # same endpoint as the regular cooling setpoint
+                return await self.set_cooling_setpoint(zone, temperature)
+
+            # VRC700 heating DAY mode (the equivalent of manual mode) doesn't support
+            # PATCH .../zone/{index}/heating/manual-mode-setpoint (404). The real app
+            # uses comfort-room-temperature instead.
+            url = f"{await self.get_system_api_base(zone.system_id)}/zone/{zone.index}/heating/comfort-room-temperature"
+            await self.aiohttp_session.patch(
+                url,
+                json={"comfortRoomTemperature": temperature},
+                headers=self.get_authorized_headers(),
+            )
+            zone.heating.day_temperature_heating = temperature
+            zone.heating.manual_mode_setpoint_heating = temperature
+            zone.desired_room_temperature_setpoint_heating = temperature
+            if zone.heating.operation_mode_heating == ZoneOperatingModeVRC700.DAY:
+                zone.desired_room_temperature_setpoint = temperature
+            return zone
+
         payload: dict[str, Any] = {
             "setpoint": temperature,
+            "type": setpoint_type.upper(),
         }
-        if zone.control_identifier.is_vrc700:
-            url = f"{await self.get_system_api_base(zone.system_id)}/zone/{zone.index}/{setpoint_type}/manual-mode-setpoint"
-        else:
-            url = f"{await self.get_system_api_base(zone.system_id)}/zones/{zone.index}/manual-mode-setpoint"
-            payload["type"] = setpoint_type.upper()
+        url = f"{await self.get_system_api_base(zone.system_id)}/zones/{zone.index}/manual-mode-setpoint"
         await self.aiohttp_session.patch(
             url,
             json=payload,
@@ -722,30 +746,41 @@ class MyPyllantAPI:
 
         return zone
 
+    async def set_cooling_setpoint(
+        self,
+        zone: Zone,
+        temperature: float,
+    ):
+        """
+        Sets the cooling setpoint temperature for a zone.
+
+        Parameters:
+            zone: The target zone
+            temperature: The target cooling temperature
+        """
+        logger.debug("Setting cooling setpoint for %s to %s", zone.name, temperature)
+        payload: dict[str, Any] = {"setpoint": temperature}
+        if zone.control_identifier.is_vrc700:
+            url = f"{await self.get_system_api_base(zone.system_id)}/zone/{zone.index}/cooling/setpoint"
+        else:
+            url = f"{await self.get_system_api_base(zone.system_id)}/zones/{zone.index}/setpoint-cooling"
+        await self.aiohttp_session.patch(
+            url,
+            json=payload,
+            headers=self.get_authorized_headers(),
+        )
+        if zone.cooling:
+            zone.desired_room_temperature_setpoint_cooling = temperature
+            zone.cooling.setpoint_cooling = temperature
+        return zone
+
     async def set_time_controlled_cooling_setpoint(
         self,
         zone: Zone,
         temperature: float,
     ):
         logger.debug("Setting time controlled setpoint for cooling on %s", zone.name)
-        if zone.control_identifier.is_vrc700:
-            raise ValueError(
-                "Time controlled cooling setpoint is not supported on VRC700 controllers"
-            )
-
-        payload: dict[str, Any] = {
-            "setpoint": temperature,
-        }
-        await self.aiohttp_session.patch(
-            f"{await self.get_system_api_base(zone.system_id)}/zones/{zone.index}/setpoint-cooling",
-            json=payload,
-            headers=self.get_authorized_headers(),
-        )
-        if zone.cooling:
-            if zone.cooling.operation_mode_cooling == ZoneOperatingMode.TIME_CONTROLLED:
-                zone.desired_room_temperature_setpoint_cooling = temperature
-            zone.cooling.setpoint_cooling = temperature
-        return zone
+        return await self.set_cooling_setpoint(zone, temperature)
 
     async def cancel_quick_veto_zone_temperature(
         self, zone: Zone, veto_type: str = "heating"
@@ -1019,15 +1054,22 @@ class MyPyllantAPI:
 
         Parameters:
             domestic_hot_water: The water heater
-            temperature: The desired temperature, only whole numbers are supported by the API, floats get rounded
+            temperature: The desired temperature. VRC700 controllers support 0.5 degree
+                steps, other controllers only support whole numbers and floats get rounded
         """
-        if isinstance(temperature, float):
-            logger.warning("Domestic hot water can only be set to whole numbers")
-            temperature = int(round(temperature, 0))
-        url = (
-            f"{await self.get_system_api_base(domestic_hot_water.system_id)}"
-            f"/domestic-hot-water/{domestic_hot_water.index}/temperature"
-        )
+        if domestic_hot_water.control_identifier.is_vrc700:
+            url = (
+                f"{SYSTEM_CONTROL_API_URL_BASE}/systems/{domestic_hot_water.system_id}"
+                f"/domestic-hot-water/{domestic_hot_water.index}/tapping-setpoint"
+            )
+        else:
+            if isinstance(temperature, float):
+                logger.warning("Domestic hot water can only be set to whole numbers")
+                temperature = int(round(temperature, 0))
+            url = (
+                f"{await self.get_system_api_base(domestic_hot_water.system_id)}"
+                f"/domestic-hot-water/{domestic_hot_water.index}/temperature"
+            )
         await self.aiohttp_session.patch(
             url, json={"setpoint": temperature}, headers=self.get_authorized_headers()
         )
@@ -1605,9 +1647,15 @@ class MyPyllantAPI:
         """
         url = f"{await self.get_system_api_base(circuit.system_id)}/circuit/{circuit.index}/heating-curve"
 
+        control_identifier = await self.get_control_identifier(circuit.system_id)
+        if control_identifier.is_vrc700:
+            payload = {"setPoint": heating_curve}
+        else:
+            payload = {"heatingCurve": heating_curve}
+
         await self.aiohttp_session.patch(
             url,
-            json={"heatingCurve": heating_curve},
+            json=payload,
             headers=self.get_authorized_headers(),
         )
         circuit.heating_curve = heating_curve
@@ -1625,13 +1673,22 @@ class MyPyllantAPI:
         :param heat_demand_limited_by_outside_temperature:
         :return:
         """
-        url = f"{await self.get_system_api_base(circuit.system_id)}/circuit/{circuit.index}/heat-demand-limited-by-outside-temperature"
+        control_identifier = await self.get_control_identifier(circuit.system_id)
+        if control_identifier.is_vrc700:
+            url = (
+                f"{SYSTEM_CONTROL_API_URL_BASE}/systems/{circuit.system_id}"
+                f"/circuits/{circuit.index}/heat-demand-limited-by-outside-temperature"
+            )
+            payload = {"setpoint": heat_demand_limited_by_outside_temperature}
+        else:
+            url = f"{await self.get_system_api_base(circuit.system_id)}/circuit/{circuit.index}/heat-demand-limited-by-outside-temperature"
+            payload = {
+                "heatDemandLimitedByOutsideTemperature": heat_demand_limited_by_outside_temperature
+            }
 
         await self.aiohttp_session.post(
             url,
-            json={
-                "heatDemandLimitedByOutsideTemperature": heat_demand_limited_by_outside_temperature
-            },
+            json=payload,
             headers=self.get_authorized_headers(),
         )
         circuit.heat_demand_limited_by_outside_temperature = (

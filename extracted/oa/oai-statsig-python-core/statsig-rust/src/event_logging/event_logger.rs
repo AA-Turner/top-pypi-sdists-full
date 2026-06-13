@@ -74,6 +74,7 @@ impl EventLogger {
         event_logging_adapter: &Arc<dyn EventLoggingAdapter>,
         statsig_rt: &Arc<StatsigRuntime>,
     ) -> Arc<Self> {
+        let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
         let me = Arc::new(Self {
             queue: EventQueue::new(
                 options
@@ -83,7 +84,7 @@ impl EventLogger {
                     .event_logging_max_pending_batch_queue_size
                     .unwrap_or(DEFAULT_PENDING_BATCH_COUNT_MAX),
             ),
-            event_sampler: ExposureSampling::new(sdk_key),
+            event_sampler: ExposureSampling::new(sdk_instance_id),
             flush_interval: FlushInterval::new(),
             options: options.clone(),
             logging_adapter: event_logging_adapter.clone(),
@@ -91,8 +92,8 @@ impl EventLogger {
             shutdown_notify: Notify::new(),
             limit_flush_notify: Notify::new(),
             limit_flush_semaphore: Arc::new(Semaphore::new(MAX_LIMIT_FLUSH_TASKS)),
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
-            sec_expo_experiment: SecExpoAsPrimaryExperiment::new(sdk_key, options),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            sec_expo_experiment: SecExpoAsPrimaryExperiment::new(sdk_instance_id, options),
             enqueue_dropped_events_count: AtomicU64::new(0),
         });
 

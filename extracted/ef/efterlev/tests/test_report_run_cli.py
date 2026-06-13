@@ -65,9 +65,10 @@ def test_pipeline_runs_init_scan_gap_document_poam_in_order(  # type: ignore[no-
     tmp_path: Path, monkeypatch
 ) -> None:
     """A fresh target with no .efterlev/ runs every default stage in
-    the documented order. v0.1.163 / #368 added `vdr` after `poam`;
-    v0.1.223 removed the OSCAL stages from the default set (opt-in via
-    --with-oscal)."""
+    the documented order. v0.1.226 moved the deterministic gap-derived
+    emits (poam, vdr) BEFORE `agent document` so a documentation-stage
+    failure can't take them down (2026-06-11 onboarding run lost POA&M +
+    VDR + OSCAL to a doc-agent guard rejection at KSI 29/60)."""
     calls: list[tuple[str, list[str]]] = []
     list(_stub_command_outcomes(monkeypatch, calls))  # consume the generator
 
@@ -79,9 +80,9 @@ def test_pipeline_runs_init_scan_gap_document_poam_in_order(  # type: ignore[no-
         "scan",
         "inventory",
         "agent gap",
-        "agent document",
         "poam",
         "vdr",
+        "agent document",
         "inspector",
     ]
 
@@ -106,9 +107,9 @@ def test_pipeline_skips_init_when_frmr_cache_exists(  # type: ignore[no-untyped-
         "scan",
         "inventory",
         "agent gap",
-        "agent document",
         "poam",
         "vdr",
+        "agent document",
         "inspector",
     ]
 
@@ -382,8 +383,9 @@ def test_pipeline_announces_stages_at_start(  # type: ignore[no-untyped-def]
     list(_stub_command_outcomes(monkeypatch, calls))
 
     result = runner.invoke(app, ["report", "run", "--target", str(tmp_path), "--skip-init"])
-    # v0.1.164 / #369 added `inventory` between scan and agent gap.
-    assert "scan → inventory → agent gap → agent document → poam" in result.output
+    # v0.1.164 / #369 added `inventory` between scan and agent gap;
+    # v0.1.226 moved the deterministic emits before `agent document`.
+    assert "scan → inventory → agent gap → poam → vdr → agent document" in result.output
 
 
 # Ensure subapp object reference is stable across imports (defensive).
@@ -643,7 +645,9 @@ def test_pipeline_vdr_runs_after_poam_before_oscal(  # type: ignore[no-untyped-d
     pipeline so a reader scanning artifacts sees the program-current
     POA&M first, then the ahead-of-RFC-0012 VDR, then the OSCAL
     machine-readable views. v0.1.223: OSCAL is opt-in, so the ordering
-    assertion opts in via --with-oscal."""
+    assertion opts in via --with-oscal. v0.1.226: all three now precede
+    `agent document` (deterministic emits are upstream of the LLM
+    narrative stage)."""
     calls: list[tuple[str, list[str]]] = []
     list(_stub_command_outcomes(monkeypatch, calls))
 

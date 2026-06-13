@@ -80,6 +80,29 @@ def cmd_create(args: list[str]) -> dict:
     if task_mode is None:
         task_mode = ai["recommended_mode"]
 
+    # Validate mode exists — reject unknown modes early with clean error
+    # rather than letting task creation succeed and crash later on next-step
+    # when workflow loader can't find the mode (#644).
+    if user_specified_mode and task_mode:
+        from kanban_framework.infra.scheduler import Scheduler
+        try:
+            workflow = tm._cfg.workflow if tm._cfg else {}
+            available = list(Scheduler.get_modes(
+                workflow=workflow, kanban_dir=fs.kanban_dir
+            ).keys())
+        except Exception:
+            available = []
+        if task_mode not in available:
+            return {
+                "error": (
+                    f"Unknown mode: '{task_mode}'. "
+                    f"Available: {', '.join(sorted(available)) or '(none)'}. "
+                    f"Add a workflow file at .kanban/workflows/{task_mode}.json "
+                    f"to define a custom mode."
+                ),
+                "available_modes": sorted(available),
+            }
+
     # Parse auto_mode flags
     auto_mode = AutoMode()
     if auto_mode_flags:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tailwind
-Version: 4.4.2
+Version: 4.5.0
 Summary: Tailwind CSS Framework for Django projects
 Project-URL: Homepage, https://github.com/timonweb/django-tailwind
 Author-email: Tim Kamanin <tim@timonweb.com>
@@ -14,6 +14,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent

@@ -20,6 +20,7 @@ from tinybird.tb.modules.common import (
     get_gcs_svc_account_creds,
     run_gcp_svc_account_connection_flow,
 )
+from tinybird.tb.modules.connection_dynamodb import connection_create_dynamodb
 from tinybird.tb.modules.connection_kafka import (
     connection_create_kafka,
     echo_kafka_data,
@@ -246,6 +247,51 @@ def connection_create_gcs(ctx: Context) -> None:
             connection_path=connection_path,
         )
     )
+
+
+@connection_create.command(
+    name="dynamodb", short_help="Creates a AWS DynamoDB connection using IAM role authentication."
+)
+@click.option("--connection-name", default=None, help="The name of the connection to identify it in Tinybird")
+@click.option("--table-arn", default=None, help="Optional. Validate the connection against this DynamoDB table ARN")
+@click.pass_context
+def connection_create_dynamodb_cmd(ctx: Context, connection_name: Optional[str], table_arn: Optional[str]) -> None:
+    """
+    Creates a AWS DynamoDB connection using IAM role authentication.
+
+    \b
+    $ tb connection create dynamodb
+    """
+    obj: Dict[str, Any] = ctx.ensure_object(dict)
+    project: Project = obj["project"]
+    client: TinyB = obj["client"]
+    env: str = obj["env"]
+    config = obj["config"]
+
+    local_aws_unavailable = env == "local" and not client.check_aws_credentials()
+
+    if env == "local" and not local_aws_unavailable:
+        click.echo(FeedbackManager.gray(message="» Building project before continue..."))
+        error = build_project(project=project, tb_client=client, watch=False, config=config, silent=True)
+        if error:
+            click.echo(FeedbackManager.error(message=error))
+        else:
+            click.echo(FeedbackManager.success(message="✓ Build completed"))
+
+    result = connection_create_dynamodb(ctx, connection_name=connection_name, table_arn=table_arn)
+
+    if env == "local" and not local_aws_unavailable and not result["error"]:
+        click.echo(FeedbackManager.gray(message="» Building project to access the new connection..."))
+        error = build_project(project=project, tb_client=client, watch=False, config=config, silent=True)
+        if error:
+            click.echo(FeedbackManager.error(message=error))
+        else:
+            click.echo(FeedbackManager.success(message="✓ Build completed"))
+
+    # connection_create_dynamodb already prints the failure details; exit non-zero so scripted/CI
+    # usage does not treat a connection with missing secrets as a success.
+    if result["error"]:
+        ctx.exit(1)
 
 
 @connection_create.command(name="kafka", help="Create a Kafka connection.")

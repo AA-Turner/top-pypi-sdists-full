@@ -42,6 +42,7 @@ __all__ = (
     "ListGoalsPaginatorName",
     "ListJournalRecordsPaginatorName",
     "ListServicesPaginatorName",
+    "ListTriggersPaginatorName",
     "MCPServerAuthorizationMethodType",
     "MonitorAccountTypeType",
     "NewRelicRegionType",
@@ -87,6 +88,7 @@ ListExecutionsPaginatorName = Literal["list_executions"]
 ListGoalsPaginatorName = Literal["list_goals"]
 ListJournalRecordsPaginatorName = Literal["list_journal_records"]
 ListServicesPaginatorName = Literal["list_services"]
+ListTriggersPaginatorName = Literal["list_triggers"]
 MCPServerAuthorizationMethodType = Literal[
     "api-key", "bearer-token", "oauth-3lo", "oauth-client-credentials"
 ]
@@ -598,4 +600,5 @@ PaginatorName = Literal[
     "list_goals",
     "list_journal_records",
     "list_services",
+    "list_triggers",
 ]

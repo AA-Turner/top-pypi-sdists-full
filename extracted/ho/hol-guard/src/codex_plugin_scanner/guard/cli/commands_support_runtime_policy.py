@@ -1,12 +1,14 @@
 """Guard CLI helper definitions."""
 
 # fmt: off
-# ruff: noqa: F403, F405, I001
+# ruff: noqa: F403, F405
 
 from __future__ import annotations
 
+from ..store import _runtime_scoped_exact_match_key
 from ._commands_shared import *
 from .commands_parser_helpers import *
+
 
 def _claude_notification_tool_name(payload: dict[str, object]) -> str | None:
     direct_name = _optional_string(payload.get("tool_name"))
@@ -75,6 +77,8 @@ def _native_approval_center_context(response_payload: dict[str, object], *, harn
         "copilot": "Copilot",
         "guard-cli": "package install",
         "opencode": "OpenCode",
+        "kimi": "Kimi",
+        "grok": "Grok",
     }.get(canonical_harness, "the harness")
     if canonical_harness in {
         "npm",
@@ -210,16 +214,22 @@ def _runtime_stored_policy_action(
         and scope in {"workspace", "publisher", "harness", "global"}
         and _runtime_artifact_risk_classes(artifact)
     ):
+        decision_artifact_id = _optional_string(decision.get("artifact_id"))
         if scope == "workspace":
-            decision_artifact_id = _optional_string(decision.get("artifact_id"))
             decision_artifact_hash = _optional_string(decision.get("artifact_hash"))
             if decision_artifact_id == artifact_id and (
                 decision_artifact_hash is None or decision_artifact_hash == artifact_hash
             ):
                 return action
+            return None
+        if scope in {"harness", "global"}:
+            decision_artifact_hash = _optional_string(decision.get("artifact_hash"))
+            exact_match_key = _runtime_scoped_exact_match_key(artifact_id)
+            if exact_match_key is None:
+                return action if decision_artifact_id is not None else None
+            return action if decision_artifact_hash == exact_match_key else None
         return None
     return action
-
 def _runtime_artifact_policy_action(config: GuardConfig, artifact: GuardArtifact, harness: str) -> str:
     if _prompt_requires_hard_block(artifact):
         return "block"

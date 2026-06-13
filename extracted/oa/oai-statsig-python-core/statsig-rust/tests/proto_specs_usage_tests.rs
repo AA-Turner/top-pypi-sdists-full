@@ -276,7 +276,9 @@ fn reset_and_get_checksum(statsig: &Statsig) -> String {
 
     let curr_checksum = data.values.checksum.clone().unwrap_or_default();
 
-    data.values.checksum = Some("__test_curr_values".to_string());
+    Arc::get_mut(&mut data.values)
+        .expect("spec store should be the only owner outside update callbacks")
+        .checksum = Some("__test_curr_values".to_string());
 
     curr_checksum
 }

@@ -1,19 +1,19 @@
 Metadata-Version: 2.4
 Name: ibm-watsonx-orchestrate
-Version: 2.10.1
+Version: 2.11.0
 Summary: IBM watsonx.orchestrate ADK
 Author-email: IBM <support@ibm.com>
 License: MIT License
 License-File: LICENSE
-Requires-Python: <3.14,>=3.11
+Requires-Python: <3.15,>=3.11
 Requires-Dist: certifi>=2024.8.30
 Requires-Dist: charset-normalizer>=2
 Requires-Dist: click<8.2.0,>=8.0.0
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: ibm-cloud-sdk-core>=3.24.2
-Requires-Dist: ibm-watsonx-orchestrate-clients==2.10.1
-Requires-Dist: ibm-watsonx-orchestrate-core==2.10.1
+Requires-Dist: ibm-watsonx-orchestrate-clients==2.11.0
+Requires-Dist: ibm-watsonx-orchestrate-core==2.11.0
 Requires-Dist: jsonref==1.1.0
 Requires-Dist: langchain-core~=1.4.0
 Requires-Dist: packaging>=24.2

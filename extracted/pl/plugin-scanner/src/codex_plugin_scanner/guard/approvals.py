@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse, urlunparse
 
 from .adapters import get_adapter
 from .adapters.base import HarnessContext
@@ -25,12 +25,12 @@ from .local_dashboard_session import build_local_dashboard_session_token
 from .local_supply_chain import build_local_supply_chain_posture
 from .models import GuardApprovalRequest, HarnessDetection, PolicyDecision
 from .risk import artifact_risk_signals, artifact_risk_summary
-from .store import GuardStore
+from .store import GuardStore, _runtime_scoped_exact_match_key
 
 GUARD_COMMAND = "hol-guard"
 GUARD_DASHBOARD_URL = "https://hol.org/guard"
 GUARD_INBOX_URL = f"{GUARD_DASHBOARD_URL}/inbox"
-GUARD_FLEET_URL = f"{GUARD_DASHBOARD_URL}/fleet"
+GUARD_FLEET_URL = f"{GUARD_DASHBOARD_URL}/protect"
 GUARD_CONNECT_URL = f"{GUARD_DASHBOARD_URL}/connect"
 _WORKSPACE_SCOPED_RUNTIME_ARTIFACT_TYPES = frozenset(
     {
@@ -151,13 +151,50 @@ def primary_approval_url(
         return None
     approval_url = request.get("approval_url")
     if isinstance(approval_url, str) and approval_url.strip():
-        return approval_url.strip().replace("/approvals/", "/requests/")
+        return _canonical_local_approval_url(
+            approval_url.strip().replace("/approvals/", "/requests/"),
+            approval_center_url=approval_center_url,
+        )
     request_id = request.get("request_id")
     if isinstance(request_id, str) and request_id.strip() and isinstance(approval_center_url, str):
         center = approval_center_url.strip()
         if center:
             return build_approval_request_url(center, request_id.strip())
     return None
+
+
+def _canonical_local_approval_url(approval_url: str, *, approval_center_url: str | None) -> str:
+    if not isinstance(approval_center_url, str) or not approval_center_url.strip():
+        return approval_url
+    try:
+        parsed_approval = urlparse(approval_url)
+        parsed_center = urlparse(approval_center_url.strip())
+    except ValueError:
+        return approval_url
+    loopback_hosts = {"127.0.0.1", "::1", "localhost"}
+    approval_host = _parsed_url_host(parsed_approval)
+    center_host = _parsed_url_host(parsed_center)
+    if parsed_approval.scheme not in {"http", "https"} or approval_host not in loopback_hosts:
+        return approval_url
+    if parsed_center.scheme not in {"http", "https"} or center_host not in loopback_hosts:
+        return approval_url
+    return urlunparse(
+        parsed_approval._replace(
+            scheme=parsed_center.scheme,
+            netloc=parsed_center.netloc,
+        )
+    )
+
+
+def _parsed_url_host(parsed: ParseResult) -> str:
+    host_port = parsed.netloc.rsplit("@", 1)[-1]
+    if host_port.startswith("["):
+        host, _separator, _rest = host_port[1:].partition("]")
+        return host
+    if host_port.count(":") == 1:
+        host, _port = host_port.rsplit(":", 1)
+        return host
+    return host_port
 
 
 def queue_blocked_approvals(
@@ -255,6 +292,7 @@ def apply_approval_resolution(
     return_queue_result: bool = False,
     resolve_scope_matches: bool = True,
     approval_gate_input: ApprovalGateInput | None = None,
+    persist_policy: bool = True,
 ) -> dict[str, object]:
     request = store.get_approval_request(request_id)
     if request is None:
@@ -269,14 +307,17 @@ def apply_approval_resolution(
     request_artifact_id = _string_or_none(request.get("artifact_id"))
     request_artifact_hash = _string_or_none(request.get("artifact_hash"))
     request_publisher = _string_or_none(request.get("publisher"))
-    harness_artifact_id = request_artifact_id if scope == "harness" else None
-    scoped_artifact_id = request_artifact_id if scope == "artifact" else workspace_artifact_id or harness_artifact_id
+    scoped_artifact_id = request_artifact_id if scope in {"artifact", "harness", "global"} else workspace_artifact_id
+    scoped_artifact_hash = request_artifact_hash if scope == "artifact" else workspace_artifact_hash
+    broad_runtime_exact_match_key = _broad_runtime_exact_match_key(request, scope)
+    if broad_runtime_exact_match_key is not None:
+        scoped_artifact_hash = broad_runtime_exact_match_key
     decision = PolicyDecision(
         harness="*" if scope == "global" else str(request["harness"]),
         scope=scope,
         action="allow" if action == "allow" else "block",
         artifact_id=scoped_artifact_id,
-        artifact_hash=request_artifact_hash if scope == "artifact" else workspace_artifact_hash,
+        artifact_hash=scoped_artifact_hash,
         workspace=workspace if scope == "workspace" else None,
         publisher=request_publisher if scope == "publisher" else None,
         reason=reason,
@@ -289,7 +330,8 @@ def apply_approval_resolution(
         approval_gate_input=approval_gate_input,
         now=resolved_at,
     )
-    store.upsert_policy(decision, resolved_at, approval_gate_grant=approval_gate_grant)
+    if persist_policy:
+        store.upsert_policy(decision, resolved_at, approval_gate_grant=approval_gate_grant)
     resolution_harness = None if scope == "global" else str(request["harness"])
     if return_queue_result:
         result = store.resolve_request_with_queue_result(
@@ -371,6 +413,17 @@ def _workspace_policy_artifact_keys(request: Mapping[str, object], scope: str) -
     if not isinstance(artifact_hash, str) or not artifact_hash:
         return artifact_id, None
     return artifact_id, artifact_hash
+
+
+def _broad_runtime_exact_match_key(request: Mapping[str, object], scope: str) -> str | None:
+    if scope not in {"harness", "global"}:
+        return None
+    if request.get("artifact_type") not in _WORKSPACE_SCOPED_RUNTIME_ARTIFACT_TYPES:
+        return None
+    artifact_id = request.get("artifact_id")
+    if not isinstance(artifact_id, str) or not artifact_id:
+        return None
+    return _runtime_scoped_exact_match_key(artifact_id)
 
 
 def _append_guard_token_to_url(url: str, auth_token: str) -> str:
@@ -1266,7 +1319,7 @@ def _resolve_guard_urls(sync_url: object) -> tuple[str, str, str, str]:
     return (
         dashboard_url,
         f"{dashboard_url}/inbox",
-        f"{dashboard_url}/fleet",
+        f"{dashboard_url}/protect",
         f"{dashboard_url}/connect",
     )
 

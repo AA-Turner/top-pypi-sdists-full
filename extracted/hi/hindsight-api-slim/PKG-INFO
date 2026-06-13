@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hindsight-api-slim
-Version: 0.8.1
+Version: 0.8.2
 Summary: Hindsight: Agent Memory That Works Like Human Memory
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.13.3

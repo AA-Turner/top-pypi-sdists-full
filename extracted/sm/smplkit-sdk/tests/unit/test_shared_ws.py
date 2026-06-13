@@ -11,6 +11,18 @@ import websockets.frames
 from smplkit._ws import SharedWebSocket, _BACKOFF_SCHEDULE
 
 
+@pytest.fixture(autouse=True)
+def _no_real_websocket():
+    """Override the conftest no-op patch of ``SharedWebSocket.start``.
+
+    This module tests the genuine ``start`` / ``_connect`` / ``_reconnect``
+    machinery directly, mocking the network at the ``websockets.connect``
+    boundary per-test. It must keep the real ``SharedWebSocket.start``, so
+    this no-op override shadows the autouse fixture in ``tests/conftest.py``.
+    """
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -542,13 +554,13 @@ class TestMultiProductRouting:
 
 class TestLazyInit:
     def test_ws_manager_none_until_ensure_ws(self):
-        from smplkit._client import SmplClient
+        from smplkit.clients import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
         assert client._ws_manager is None
 
     def test_ensure_ws_creates_and_starts(self):
-        from smplkit._client import SmplClient
+        from smplkit.clients import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
@@ -558,7 +570,7 @@ class TestLazyInit:
             ws.start.assert_called_once()
 
     def test_ensure_ws_reuses_existing(self):
-        from smplkit._client import SmplClient
+        from smplkit.clients import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
@@ -567,7 +579,7 @@ class TestLazyInit:
             assert ws1 is ws2
 
     def test_close_stops_ws_manager(self):
-        from smplkit._client import SmplClient
+        from smplkit.clients import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
         with patch.object(SharedWebSocket, "start"):
@@ -578,7 +590,7 @@ class TestLazyInit:
         assert client._ws_manager is None
 
     def test_close_without_ws_is_fine(self):
-        from smplkit._client import SmplClient
+        from smplkit.clients import SmplClient
 
         client = SmplClient(api_key="sk_test", environment="test")
         client.close()  # Should not raise

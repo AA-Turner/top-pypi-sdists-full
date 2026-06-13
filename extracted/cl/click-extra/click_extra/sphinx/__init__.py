@@ -36,6 +36,7 @@ from sphinx.util import logging
 
 from .. import __version__
 from ..pygments import AnsiHtmlFormatter
+from . import manpages
 from .alerts import convert_github_alerts
 from .click import ClickDomain, cleanup_runner
 from .python import PythonDomain, cleanup_python_runner
@@ -157,6 +158,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     # arbitrary Python execution is off unless explicitly turned on.
     app.add_config_value(EXEC_DIRECTIVES_OPT_IN, False, "env", types=[bool])
     app.connect("config-inited", _register_exec_directives)
+
+    # Wire the man-page emit hook (see manpages.py). No-op until a project
+    # declares one or more entries in `click_extra_manpages`.
+    manpages.setup(app)
 
     # Register GitHub alerts converter only when myst-parser predates
     # the native "alert" syntax extension (added in 5.1.0). On newer

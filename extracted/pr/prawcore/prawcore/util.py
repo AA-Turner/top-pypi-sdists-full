@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .exceptions import Forbidden, InsufficientScope, InvalidToken
+from prawcore.exceptions import Forbidden, InsufficientScope, InvalidToken
 
 if TYPE_CHECKING:
     from requests.models import Response
@@ -18,6 +18,7 @@ _auth_error_mapping = {
 
 def authorization_error_class(
     response: Response,
+    /,
 ) -> InvalidToken | (Forbidden | InsufficientScope):
     """Return an exception instance that maps to the OAuth Error.
 

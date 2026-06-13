@@ -28,6 +28,7 @@ from chex._src import pytypes
 import jax
 from jax import tree_util
 import jax.numpy as jnp
+import numpy as np
 import toolz
 
 FLAGS = flags.FLAGS
@@ -496,7 +497,28 @@ def _with_pmap(fn,
 
   # Set up a reduce function.
   if reduce_fn == "first_device_output":
-    reduce_fn = lambda t: tree_map(lambda x: x[0], t)
+
+    def reduce_fn(x):  # pylint: disable=function-redefined
+      def _reduce_leaf(leaf):
+        if (
+            hasattr(leaf, "__getitem__")
+            and hasattr(leaf, "shape")
+            and leaf.shape
+        ):
+          if (
+              not isinstance(leaf, jax.core.Tracer)
+              and hasattr(leaf, "addressable_shards")
+              and leaf.addressable_shards
+          ):
+            data = leaf.addressable_shards[0].data
+            return data if not data.shape[0] else data[0]
+
+          # Fallback for tracers or other indexable outputs.
+          return leaf if not leaf.shape[0] else leaf[0]
+        return leaf
+
+      return tree_map(_reduce_leaf, x)
+
   elif reduce_fn == "identity" or reduce_fn is None:  # Identity.
     reduce_fn = lambda t: t
 
@@ -525,7 +547,15 @@ def _with_pmap(fn,
       raise ValueError("Number of available devices is less than required for "
                        f"test ({len(devices_)} < {n_devices_})")
 
-    bcast_fn = lambda x: jnp.broadcast_to(x, (n_devices_,) + jnp.array(x).shape)
+    def bcast_fn(x):
+      x = jnp.asarray(x)
+      x = jnp.broadcast_to(x, (n_devices_,) + x.shape)
+      if not isinstance(x, jax.core.Tracer):
+        mesh = jax.sharding.Mesh(np.array(devices_), ("_device_put_sharded",))
+        sharding = jax.NamedSharding(mesh, jax.P("_device_put_sharded"))
+        return jax.device_put(jnp.stack(list(x)), sharding)
+      return x
+
     if broadcast_args_to_devices:
       args = [
           tree_map(bcast_fn, arg) if idx not in static_argnums else arg

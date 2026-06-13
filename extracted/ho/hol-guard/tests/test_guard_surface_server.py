@@ -92,7 +92,7 @@ class TestGuardSurfaceServer:
                 "/",
                 "/home",
                 "/inbox",
-                "/fleet",
+                "/protect",
                 "/evidence",
                 "/supply-chain",
                 "/audit",
@@ -174,9 +174,7 @@ class TestGuardSurfaceServer:
         finally:
             daemon.stop()
 
-        runtime_overview_chunk = (
-            daemon_server_module._STATIC_DIR / "assets" / "chunks" / "runtime-overview.js"
-        ).read_text(encoding="utf-8")
+        runtime_overview_chunk = dashboard_bundle
         feed_health_chunk = (
             daemon_server_module._STATIC_DIR / "assets" / "chunks" / "feed-health-workspace.js"
         ).read_text(encoding="utf-8")
@@ -948,12 +946,12 @@ class TestGuardSurfaceServer:
             "sync_configured": True,
             "dashboard_url": "https://hol.org/guard",
             "inbox_url": "https://hol.org/guard/inbox",
-            "fleet_url": "https://hol.org/guard/fleet",
+            "fleet_url": "https://hol.org/guard/protect",
             "connect_url": "https://hol.org/guard/connect",
         }
         assert payload["dashboard_url"] == "https://hol.org/guard"
         assert payload["inbox_url"] == "https://hol.org/guard/inbox"
-        assert payload["fleet_url"] == "https://hol.org/guard/fleet"
+        assert payload["fleet_url"] == "https://hol.org/guard/protect"
         assert payload["connect_url"] == "https://hol.org/guard/connect"
         assert "inventory" not in payload
 
@@ -1015,7 +1013,7 @@ class TestGuardSurfaceServer:
         assert payload["cloud_pairing_state"]["sync_configured"] is True
         assert payload["dashboard_url"] == "https://hol.org/guard"
         assert payload["inbox_url"] == "https://hol.org/guard/inbox"
-        assert payload["fleet_url"] == "https://hol.org/guard/fleet"
+        assert payload["fleet_url"] == "https://hol.org/guard/protect"
         assert payload["connect_url"] == "https://hol.org/guard/connect"
 
     def test_guard_daemon_runtime_snapshot_uses_oauth_profile_without_legacy_credentials(self, tmp_path) -> None:
@@ -1055,7 +1053,7 @@ class TestGuardSurfaceServer:
         assert payload["sync_configured"] is True
         assert payload["dashboard_url"] == "https://hol.org/guard"
         assert payload["inbox_url"] == "https://hol.org/guard/inbox"
-        assert payload["fleet_url"] == "https://hol.org/guard/fleet"
+        assert payload["fleet_url"] == "https://hol.org/guard/protect"
         assert payload["connect_url"] == "https://hol.org/guard/connect"
         assert payload["cloud_pairing_state"]["state"] == "paired_waiting"
         assert payload["cloud_pairing_state"]["sync_configured"] is True

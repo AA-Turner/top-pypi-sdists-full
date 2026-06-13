@@ -866,6 +866,15 @@ class IMeshCluster(SerializableMixin):
 
 
 @dataclass
+class IDracoCompression(SerializableMixin):
+    enabled: Optional[bool] = None
+    level: Optional[int] = None
+    quantizationPosition: Optional[int] = None
+    quantizationNormal: Optional[int] = None
+    quantizationTexCoord: Optional[int] = None
+
+
+@dataclass
 class ITextInferenceCache(SerializableMixin):
 
     scope: Optional[TextInferenceCacheScope] = None
@@ -1087,6 +1096,7 @@ class ISettings(SerializableMixin):
     decimationTarget: Optional[int] = None
     dilatePixels: Optional[int] = None
     draft: Optional[bool] = None
+    dracoCompression: Optional[Union[bool, IDracoCompression, Dict[str, Any]]] = None
     editRegions: Optional[List[List[Union[IEditRegion, Dict[str, Any]]]]] = None
     earlyStopThreshold: Optional[float] = None
     emotion: Optional[str] = None
@@ -1226,6 +1236,8 @@ class ISettings(SerializableMixin):
             self.texSlat = ITexSlat(**self.texSlat)
         if self.meshCluster is not None and isinstance(self.meshCluster, dict):
             self.meshCluster = IMeshCluster(**self.meshCluster)
+        if self.dracoCompression is not None and isinstance(self.dracoCompression, dict):
+            self.dracoCompression = IDracoCompression(**self.dracoCompression)
         if self.tools is not None:
             self.tools = [
                 ITextInferenceTool(
@@ -1319,7 +1331,7 @@ class IInputReference(SerializableMixin):
 @dataclass
 class IInputs(SerializableMixin):
     references: Optional[List[Union[str, File]]] = None
-    referenceImages: Optional[List[Union[str, File, IInputReference]]] = None
+    referenceImages: Optional[List[Union[str, File, IInputReference, Dict[str, Any]]]] = None
     fonts: Optional[List[Union[IInputFont, Dict[str, Any]]]] = None
     image: Optional[Union[str, File]] = None
     images: Optional[List[Union[str, File]]] = None
@@ -1339,6 +1351,19 @@ class IInputs(SerializableMixin):
             )
             if self.referenceImages is None:
                 self.referenceImages = self.references
+        if self.referenceImages is not None:
+            coerced_reference_images: List[Union[str, File, IInputReference]] = []
+            for item in self.referenceImages:
+                if isinstance(item, dict):
+                    d = dict(item)
+                    if "type" in d:
+                        if "refType" not in d:
+                            d["refType"] = d["type"]
+                        d.pop("type", None)
+                    coerced_reference_images.append(IInputReference(**d))
+                else:
+                    coerced_reference_images.append(item)
+            self.referenceImages = coerced_reference_images
         if self.fonts is not None:
             self.fonts = [
                 IInputFont(**item) if isinstance(item, dict) else item

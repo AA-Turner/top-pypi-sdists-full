@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gamfit
-Version: 0.1.195
+Version: 0.1.196
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: MacOS
@@ -24,7 +24,6 @@ Requires-Dist: pandas>=2.0 ; extra == 'all'
 Requires-Dist: pyarrow>=14 ; extra == 'all'
 Requires-Dist: matplotlib>=3.8 ; extra == 'all'
 Requires-Dist: scikit-learn>=1.4 ; extra == 'all'
-Requires-Dist: torch>=2.0 ; extra == 'all'
 Requires-Dist: nvidia-cublas-cu12>=12.0,<13 ; platform_machine == 'x86_64' and platform_system == 'Linux' and extra == 'cuda'
 Requires-Dist: nvidia-cuda-nvrtc-cu12>=12.0,<13 ; platform_machine == 'x86_64' and platform_system == 'Linux' and extra == 'cuda'
 Requires-Dist: nvidia-cuda-runtime-cu12>=12.0,<13 ; platform_machine == 'x86_64' and platform_system == 'Linux' and extra == 'cuda'
@@ -42,7 +41,6 @@ Requires-Dist: pandas>=2.0 ; extra == 'test'
 Requires-Dist: pyarrow>=14 ; extra == 'test'
 Requires-Dist: matplotlib>=3.8 ; extra == 'test'
 Requires-Dist: scikit-learn>=1.4 ; extra == 'test'
-Requires-Dist: torch>=2.0 ; extra == 'torch'
 Requires-Dist: mypy>=1.18 ; extra == 'type'
 Requires-Dist: numpy>=1.26 ; extra == 'type'
 Requires-Dist: pandas>=2.0 ; extra == 'type'
@@ -62,7 +60,6 @@ Provides-Extra: pandas
 Provides-Extra: plot
 Provides-Extra: sklearn
 Provides-Extra: test
-Provides-Extra: torch
 Provides-Extra: type
 License-File: LICENSE
 Summary: Formula-first generalized additive models with a high-performance Rust core

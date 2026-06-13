@@ -1694,7 +1694,7 @@ class SAGEAgent:
                 if not _cont_response:
                     break
 
-                if "SCAFFOLD_COMPLETE" in _cont_response:
+                if "SCAFFOLD_COMPLETE" in _cont_response or "scaffold_complete" in _cont_response.lower():
                     # Verify the model isn't declaring done too early
                     _cont_written_check, _ = self.process_response(
                         _cont_response, send_fn=send, phase_name="implementation"
@@ -2348,7 +2348,7 @@ class SAGEAgent:
                         break
                     continue
 
-                _check_complete = "SCAFFOLD_COMPLETE" in _batch_resp
+                _check_complete = "SCAFFOLD_COMPLETE" in _batch_resp or "scaffold_complete" in _batch_resp.lower()
                 _batch_written, _ = self.process_response(
                     _batch_resp, send_fn=send, phase_name="implementation"
                 )

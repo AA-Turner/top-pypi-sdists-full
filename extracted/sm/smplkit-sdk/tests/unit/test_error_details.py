@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from smplkit._errors import (
+from smplkit.errors import (
     ApiErrorDetail,
     ConflictError,
     Error,
@@ -425,7 +425,7 @@ def _make_error_response(status_code: int, errors_body: dict) -> MagicMock:
 
 
 class TestConfigClientErrors:
-    @patch("smplkit.config._client.update_config.sync_detailed")
+    @patch("smplkit.config.clients.update_config.sync_detailed")
     def test_update_config_400_surfaces_detail(self, mock_update):
         mock_update.return_value = _make_error_response(
             400,
@@ -461,7 +461,7 @@ class TestConfigClientErrors:
         assert len(exc.errors) == 1
         assert exc.errors[0].source == {"pointer": "/data/id"}
 
-    @patch("smplkit.config._client.create_config.sync_detailed")
+    @patch("smplkit.config.clients.create_config.sync_detailed")
     def test_create_config_multi_error(self, mock_create):
         mock_create.return_value = _make_error_response(
             400,
@@ -493,7 +493,7 @@ class TestConfigClientErrors:
         assert len(exc.errors) == 2
         assert "(and 1 more error)" in str(exc)
 
-    @patch("smplkit.config._client.get_config.sync_detailed")
+    @patch("smplkit.config.clients.get_config.sync_detailed")
     def test_get_config_404_surfaces_detail(self, mock_get):
         mock_get.return_value = _make_error_response(
             404,
@@ -517,7 +517,7 @@ class TestConfigClientErrors:
         assert exc.status_code == 404
         assert "Config 'abc' does not exist." in str(exc)
 
-    @patch("smplkit.config._client.delete_config.sync_detailed")
+    @patch("smplkit.config.clients.delete_config.sync_detailed")
     def test_delete_config_409_surfaces_detail(self, mock_delete):
         mock_delete.return_value = _make_error_response(
             409,
@@ -541,7 +541,7 @@ class TestConfigClientErrors:
         assert exc.status_code == 409
         assert "Config has children" in str(exc)
 
-    @patch("smplkit.config._client.create_config.sync_detailed")
+    @patch("smplkit.config.clients.create_config.sync_detailed")
     def test_non_json_error_response(self, mock_create):
         resp = MagicMock()
         resp.status_code = HTTPStatus(502)
@@ -562,7 +562,7 @@ class TestConfigClientErrors:
 
 
 class TestFlagsClientErrors:
-    @patch("smplkit.flags._client.create_flag.sync_detailed")
+    @patch("smplkit.flags.clients.create_flag.sync_detailed")
     def test_create_flag_400_surfaces_detail(self, mock_create):
         mock_create.return_value = _make_error_response(
             400,
@@ -595,7 +595,7 @@ class TestFlagsClientErrors:
         assert exc.status_code == 400
         assert "The 'id' field is required." in str(exc)
 
-    @patch("smplkit.flags._client.get_flag.sync_detailed")
+    @patch("smplkit.flags.clients.get_flag.sync_detailed")
     def test_get_flag_404_surfaces_detail(self, mock_get):
         mock_get.return_value = _make_error_response(
             404,
@@ -621,9 +621,9 @@ class TestFlagsClientErrors:
 
 
 class TestLoggingClientErrors:
-    @patch("smplkit.logging._client.update_logger.sync_detailed")
+    @patch("smplkit.logging.clients.update_logger.sync_detailed")
     def test_save_new_logger_upserts_via_put(self, mock_update):
-        from smplkit._errors import ConnectionError
+        from smplkit.errors import ConnectionError
         import httpx
 
         # Simulate PUT failing with a network error to verify a single
@@ -637,7 +637,7 @@ class TestLoggingClientErrors:
             lg.save()
         mock_update.assert_called_once()
 
-    @patch("smplkit.logging._client.get_logger.sync_detailed")
+    @patch("smplkit.logging.clients.get_logger.sync_detailed")
     def test_get_logger_404_surfaces_detail(self, mock_get):
         mock_get.return_value = _make_error_response(
             404,

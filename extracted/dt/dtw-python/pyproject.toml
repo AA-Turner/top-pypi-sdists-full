@@ -63,12 +63,10 @@ plots = ["matplotlib"]
 # https://setuptools.pypa.io/en/latest/userguide/datafiles.html
 namespaces = true
 where = ["."]
+include = ["dtw", "dtw.*"]
 
 [tool.setuptools.package-data]
 "dtw.data" = ["*.csv"]
-
-[tool.distutils.bdist_wheel]
-universal = true
 
 [tool.pytest.ini_options]
 # https://docs.pytest.org/en/7.3.x/reference/customize.html
@@ -109,10 +107,9 @@ exclude = [
 
 [dependency-groups]
 dev = [
-    "bump2version>=1.0.1",
+    "bump-my-version",
     "pytest>=7.0.1",
     "pytest-cov>=7.0.0",
     "ipython",
     "matplotlib"
 ]
-

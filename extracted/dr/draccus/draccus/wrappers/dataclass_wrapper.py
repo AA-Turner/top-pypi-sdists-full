@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2025-2026 The Board of Trustees of the Leland Stanford Junior University
+# Copyright 2019 Fabrice Normandin
+# Copyright 2021 Elad Richardson
+
 import argparse
 import dataclasses
 import typing
@@ -26,6 +31,7 @@ class DataclassWrapper(AggregateWrapper[Type[Dataclass]]):
         parent: Optional["Wrapper"] = None,
         _field: Optional[dataclasses.Field] = None,
         preferred_help: str = docstring.HelpOrder.inline,
+        include_config_arg: bool = True,
     ):
         self.dataclass = dataclass
         self._name = name
@@ -40,6 +46,8 @@ class DataclassWrapper(AggregateWrapper[Type[Dataclass]]):
 
         # preferred parse for docstring / help text in < inline | above | below >
         self.preferred_help = preferred_help
+
+        self._include_config_arg = include_config_arg
 
         # the default values
         self._defaults: List[Dataclass] = []
@@ -61,9 +69,14 @@ class DataclassWrapper(AggregateWrapper[Type[Dataclass]]):
 
     def register_actions(self, parser: argparse.ArgumentParser) -> None:
         group = parser.add_argument_group(title=self.title, description=self.description)
+        from .choice_wrapper import ChoiceWrapper  # Local import to avoid circular dependency
 
+        if self.dest is not None and self._include_config_arg:
+            parser.add_argument("--" + self.dest, type=str, required=False, help="Config file for " + self.name)
         for child in self._children:
-            if isinstance(child, AggregateWrapper):
+            if isinstance(child, ChoiceWrapper):
+                child.register_actions(parser)
+            elif isinstance(child, AggregateWrapper):
                 # Child name will always be populated as this is done via our code inside `_wrap_field`
                 parser.add_argument("--" + child.name, type=str, required=False, help="Config file for " + child.name)
                 child.register_actions(parser)

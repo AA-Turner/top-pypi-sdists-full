@@ -5,17 +5,20 @@ use crate::{
     Statsig,
 };
 use dashmap::DashMap;
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 const TAG: &str = "SdkEventEmitter";
 
+#[derive(Clone)]
 struct Listener {
     sub_id_value: String,
-    callback: Box<dyn Fn(SdkEvent) + Send + Sync>,
+    callback: Arc<dyn Fn(SdkEvent) + Send + Sync>,
 }
 
+#[derive(Clone)]
 struct InternalListener {
-    callback: Box<dyn Fn(SdkEvent) -> bool + Send + Sync>,
+    id: String,
+    callback: Arc<dyn Fn(SdkEvent) -> bool + Send + Sync>,
 }
 
 #[derive(Clone)]
@@ -80,7 +83,7 @@ impl SdkEventEmitter {
 
         self.listeners.entry(code).or_default().push(Listener {
             sub_id_value: sub_id.value.clone(),
-            callback: Box::new(callback),
+            callback: Arc::new(callback),
         });
 
         sub_id
@@ -100,7 +103,8 @@ impl SdkEventEmitter {
             .entry(code)
             .or_default()
             .push(InternalListener {
-                callback: Box::new(callback),
+                id: uuid::Uuid::new_v4().to_string(),
+                callback: Arc::new(callback),
             });
     }
 
@@ -125,32 +129,66 @@ impl SdkEventEmitter {
 
     pub(crate) fn emit(&self, event: SdkEvent) {
         let all_code = SdkEventCode::from_name(SdkEvent::ALL).as_raw();
-        self.emit_to_listeners(&event, self.listeners.get(&all_code).as_deref());
-        self.emit_to_internal_listeners(&event, all_code);
-
         let event_code = event.get_code().as_raw();
-        self.emit_to_listeners(&event, self.listeners.get(&event_code).as_deref());
-        self.emit_to_internal_listeners(&event, event_code);
+
+        let all_listeners = self.snapshot_listeners(all_code);
+        let all_internal_listeners = self.snapshot_internal_listeners(all_code);
+        let event_listeners = self.snapshot_listeners(event_code);
+        let event_internal_listeners = self.snapshot_internal_listeners(event_code);
+
+        Self::emit_to_listeners(&event, &all_listeners);
+        self.emit_to_internal_listeners(&event, all_code, &all_internal_listeners);
+        Self::emit_to_listeners(&event, &event_listeners);
+        self.emit_to_internal_listeners(&event, event_code, &event_internal_listeners);
     }
 
-    fn emit_to_listeners(&self, event: &SdkEvent, listeners: Option<&Vec<Listener>>) {
-        let listeners = match listeners {
-            Some(listeners) => listeners,
-            None => return,
-        };
+    fn snapshot_listeners(&self, code: u8) -> Vec<Listener> {
+        self.listeners
+            .get(&code)
+            .map(|listeners| listeners.value().clone())
+            .unwrap_or_default()
+    }
 
+    fn snapshot_internal_listeners(&self, code: u8) -> Vec<InternalListener> {
+        self.internal_listeners
+            .get(&code)
+            .map(|listeners| listeners.value().clone())
+            .unwrap_or_default()
+    }
+
+    fn emit_to_listeners(event: &SdkEvent, listeners: &[Listener]) {
         listeners
             .iter()
             .for_each(|listener| (listener.callback)(event.clone()));
     }
 
-    fn emit_to_internal_listeners(&self, event: &SdkEvent, code: u8) {
-        let mut listeners = match self.internal_listeners.get_mut(&code) {
-            Some(listeners) => listeners,
-            None => return,
-        };
+    fn emit_to_internal_listeners(
+        &self,
+        event: &SdkEvent,
+        code: u8,
+        listeners: &[InternalListener],
+    ) {
+        let expired_ids = listeners
+            .iter()
+            .filter_map(|listener| {
+                if (listener.callback)(event.clone()) {
+                    None
+                } else {
+                    Some(listener.id.as_str())
+                }
+            })
+            .collect::<Vec<_>>();
 
-        listeners.retain(|listener| (listener.callback)(event.clone()));
+        if expired_ids.is_empty() {
+            return;
+        }
+
+        // Callback execution has completed and this thread holds no listener-map
+        // guard. Wait for the shard so expired one-shot listeners cannot be
+        // retained indefinitely under sustained contention.
+        if let Some(mut listeners) = self.internal_listeners.get_mut(&code) {
+            listeners.retain(|listener| !expired_ids.contains(&listener.id.as_str()));
+        }
     }
 }
 
@@ -294,5 +332,81 @@ impl Statsig {
             reason,
             rule_id,
         });
+    }
+}
+
+#[cfg(test)]
+mod cleanup_tests {
+    use super::*;
+    use std::{
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            mpsc, Arc, Barrier,
+        },
+        thread,
+        time::Duration,
+    };
+
+    #[test]
+    fn contended_cleanup_waits_and_prunes_dead_internal_listener() {
+        let emitter = Arc::new(SdkEventEmitter::default());
+        let callback_count = Arc::new(AtomicUsize::new(0));
+        let callback_started = Arc::new(Barrier::new(2));
+        let callback_can_return = Arc::new(Barrier::new(2));
+
+        let callback_count_clone = Arc::clone(&callback_count);
+        let callback_started_clone = Arc::clone(&callback_started);
+        let callback_can_return_clone = Arc::clone(&callback_can_return);
+        emitter.subscribe_internal(SdkEvent::GATE_EVALUATED, move |_| {
+            let invocation = callback_count_clone.fetch_add(1, Ordering::SeqCst);
+            if invocation == 0 {
+                callback_started_clone.wait();
+                callback_can_return_clone.wait();
+            }
+            false
+        });
+
+        let emitter_clone = Arc::clone(&emitter);
+        let (emit_done_tx, emit_done_rx) = mpsc::channel();
+        let emit_thread = thread::spawn(move || {
+            emitter_clone.emit(SdkEvent::GateEvaluated {
+                gate_name: "test_gate",
+                rule_id: "test_rule_id",
+                value: true,
+                reason: "test_reason",
+            });
+            emit_done_tx
+                .send(())
+                .expect("emit receiver should remain open");
+        });
+
+        callback_started.wait();
+        let code = SdkEventCode::GateEvaluated.as_raw();
+        let shard_guard = emitter
+            .internal_listeners
+            .get_mut(&code)
+            .expect("internal listener should exist");
+        callback_can_return.wait();
+
+        assert!(
+            emit_done_rx
+                .recv_timeout(Duration::from_millis(250))
+                .is_err(),
+            "emit should wait for contended listener cleanup"
+        );
+
+        drop(shard_guard);
+        emit_done_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("emit should finish after the shard lock is released");
+        emit_thread.join().expect("emit thread should not panic");
+
+        emitter.emit(SdkEvent::GateEvaluated {
+            gate_name: "test_gate",
+            rule_id: "test_rule_id",
+            value: true,
+            reason: "test_reason",
+        });
+        assert_eq!(callback_count.load(Ordering::SeqCst), 1);
     }
 }

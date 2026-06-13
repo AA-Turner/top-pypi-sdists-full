@@ -692,6 +692,7 @@ struct ConstraintSetStorage<'db> {
     constraint_cache: FxHashMap<Constraint<'db>, ConstraintId>,
     typevar_cache: FxHashMap<BoundTypeVarIdentity<'db>, TypeVarId>,
     node_cache: FxHashMap<InteriorNodeData, NodeId>,
+    constraint_implication_cache: FxHashMap<(ConstraintId, ConstraintId), bool>,
 
     negate_cache: FxHashMap<NodeId, NodeId>,
     or_cache: FxHashMap<(NodeId, NodeId, usize), NodeId>,
@@ -703,6 +704,7 @@ struct ConstraintSetStorage<'db> {
 
     single_sequent_cache: FxHashMap<ConstraintId, SequentMap>,
     pair_sequent_cache: FxHashMap<(ConstraintId, ConstraintId), SequentMap>,
+    constraint_set_subtype_cache: FxHashMap<(Type<'db>, Type<'db>), bool>,
 }
 
 impl<'db> ConstraintSetBuilder<'db> {
@@ -913,6 +915,44 @@ impl<'db> ConstraintSetBuilder<'db> {
 
     fn constraint_data(&self, constraint: ConstraintId) -> Constraint<'db> {
         self.storage.borrow().constraints[constraint]
+    }
+
+    fn cached_constraint_implies(
+        &self,
+        db: &'db dyn Db,
+        ante: ConstraintId,
+        post: ConstraintId,
+    ) -> bool {
+        let key = (ante, post);
+        if let Some(result) = self.storage.borrow().constraint_implication_cache.get(&key) {
+            return *result;
+        }
+
+        let result = ante.implies(db, self, post);
+        self.storage
+            .borrow_mut()
+            .constraint_implication_cache
+            .insert(key, result);
+        result
+    }
+
+    fn cached_is_constraint_set_subtype_of(
+        &self,
+        db: &'db dyn Db,
+        source: Type<'db>,
+        target: Type<'db>,
+    ) -> bool {
+        let key = (source, target);
+        if let Some(result) = self.storage.borrow().constraint_set_subtype_cache.get(&key) {
+            return *result;
+        }
+
+        let result = source.is_constraint_set_subtype_of(db, target);
+        self.storage
+            .borrow_mut()
+            .constraint_set_subtype_cache
+            .insert(key, result);
+        result
     }
 
     fn interior_node_data(&self, node: NodeId) -> InteriorNodeData {
@@ -2402,6 +2442,10 @@ impl NodeId {
                 .is_always_satisfied(db, builder)
         };
 
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "all type variables must pass the check regardless of order"
+        )]
         for typevar in typevars {
             if typevar.is_inferable(db, inferable) {
                 // If the typevar is in inferable position, we need to verify that some valid
@@ -3030,6 +3074,20 @@ impl<'db> Type<'db> {
     }
 }
 
+#[salsa::tracked(
+    cycle_initial = |_, _, _, _| true,
+    heap_size = get_size2::GetSize::get_heap_size
+)]
+fn is_possibly_constraint_set_assignable<'db>(
+    db: &'db dyn Db,
+    source: Type<'db>,
+    target: Type<'db>,
+) -> bool {
+    source
+        .when_constraint_set_assignable_to_owned(db, target)
+        .query(|_builder, when| !when.is_never_satisfied(db))
+}
+
 /// Per-path bounds for all typevars. Each element is the set of typevar bounds for one BDD path.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, get_size2::GetSize, salsa::Update)]
 pub enum PathBounds<'db> {
@@ -3176,9 +3234,7 @@ impl<'db> PathBounds<'db> {
         match bound_typevar.typevar(db).require_bound_or_constraints(db) {
             TypeVarBoundOrConstraints::UpperBound(bound) => {
                 let bound = bound.top_materialization(db);
-                let when = lower.when_constraint_set_assignable_to_owned(db, bound);
-                let is_never_satisfied = when.query(|_builder, when| when.is_never_satisfied(db));
-                if is_never_satisfied {
+                if !is_possibly_constraint_set_assignable(db, lower, bound) {
                     // This path does not satisfy the typevar's upper bound, and is
                     // therefore not a valid specialization.
                     return Err(());
@@ -4953,6 +5009,9 @@ impl SequentMap {
         let bound_typevar = bound_constraint_data.typevar;
         let constrained_constraint_data = builder.constraint_data(constrained_constraint);
         let constrained_typevar = constrained_constraint_data.typevar;
+
+        // Transitive pivots require subtyping; classes with dynamic bases can be assignable to
+        // unrelated types without being subtypes.
         let (new_lower, new_upper) = match (
             constrained_constraint_data.bounds.lower,
             constrained_constraint_data.bounds.upper,
@@ -4992,12 +5051,11 @@ impl SequentMap {
             (constrained_lower, Some(constrained_upper), Some(bound_lower), _)
                 if !constrained_upper.is_never()
                     && !constrained_upper.is_object()
-                    && constrained_upper
-                        .top_materialization(db)
-                        .is_constraint_set_assignable_to(
-                            db,
-                            bound_lower.bottom_materialization(db),
-                        ) =>
+                    && builder.cached_is_constraint_set_subtype_of(
+                        db,
+                        constrained_upper.top_materialization(db),
+                        bound_lower.bottom_materialization(db),
+                    ) =>
             {
                 (constrained_lower, Some(Type::TypeVar(bound_typevar)))
             }
@@ -5006,12 +5064,11 @@ impl SequentMap {
             (Some(constrained_lower), constrained_upper, _, Some(bound_upper))
                 if !constrained_lower.is_never()
                     && !constrained_lower.is_object()
-                    && bound_upper
-                        .top_materialization(db)
-                        .is_constraint_set_assignable_to(
-                            db,
-                            constrained_lower.bottom_materialization(db),
-                        ) =>
+                    && builder.cached_is_constraint_set_subtype_of(
+                        db,
+                        bound_upper.top_materialization(db),
+                        constrained_lower.bottom_materialization(db),
+                    ) =>
             {
                 (Some(Type::TypeVar(bound_typevar)), constrained_upper)
             }
@@ -5107,6 +5164,21 @@ impl SequentMap {
         left_constraint: ConstraintId,
         right_constraint: ConstraintId,
     ) {
+        // Keep this precheck aligned with `variance_of`, which visits lazy types.
+        let has_typevar_bound = |bounds: ConstraintBounds<'db>| {
+            bounds
+                .lower
+                .is_some_and(|bound| any_over_type(db, bound, true, Type::is_type_var))
+                || bounds
+                    .upper
+                    .is_some_and(|bound| any_over_type(db, bound, true, Type::is_type_var))
+        };
+        if !has_typevar_bound(builder.constraint_data(left_constraint).bounds)
+            && !has_typevar_bound(builder.constraint_data(right_constraint).bounds)
+        {
+            return;
+        }
+
         let mut try_tightening =
             |bound_constraint: ConstraintId, constrained_constraint: ConstraintId| {
                 let bound_data = builder.constraint_data(bound_constraint);
@@ -5563,7 +5635,7 @@ impl SequentMap {
         // identify constraints that are identical besides e.g. ordering of union/intersection
         // elements. (For instance, when processing `T ≤ τ₁ & τ₂` and `T ≤ τ₂ & τ₁`, these clauses
         // would add sequents for `(T ≤ τ₁ & τ₂) → (T ≤ τ₂ & τ₁)` and vice versa.)
-        if left_constraint.implies(db, builder, right_constraint) {
+        if builder.cached_constraint_implies(db, left_constraint, right_constraint) {
             tracing::trace!(
                 target: "ty_python_semantic::types::constraints::SequentMap",
                 left = %left_constraint.display(db, builder),
@@ -5572,7 +5644,7 @@ impl SequentMap {
             );
             self.add_single_implication(db, builder, left_constraint, right_constraint);
         }
-        if right_constraint.implies(db, builder, left_constraint) {
+        if builder.cached_constraint_implies(db, right_constraint, left_constraint) {
             tracing::trace!(
                 target: "ty_python_semantic::types::constraints::SequentMap",
                 left = %left_constraint.display(db, builder),
@@ -5647,6 +5719,10 @@ impl SequentMap {
                     }
                 };
 
+                #[expect(
+                    clippy::iter_over_hash_type,
+                    reason = "this debug-only formatter has no stable ordering contract"
+                )]
                 for (ante1, ante2) in &self.map.pair_impossibilities {
                     maybe_write_prefix(f)?;
                     write!(
@@ -5926,6 +6002,10 @@ impl PathAssignments {
 
         self.discover_constraint(db, builder, assignment.constraint());
 
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "any matching tautology yields the same conflict result"
+        )]
         for ante in &self.map.single_tautologies {
             if self.assignment_holds(ante.when_false()) {
                 // The sequent map says (ante1) is always true, and the current path asserts that
@@ -5945,6 +6025,10 @@ impl PathAssignments {
             }
         }
 
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "any matching impossibility yields the same conflict result"
+        )]
         for (ante1, ante2) in &self.map.pair_impossibilities {
             if self.assignment_holds(ante1.when_true()) && self.assignment_holds(ante2.when_true())
             {
@@ -6343,6 +6427,49 @@ mod tests {
     ) -> ConstraintSet<'db, 'c> {
         let ty = bound.to_instance(db);
         ConstraintSet::constrain_typevar(db, builder, bound_typevar, ty, ty)
+    }
+
+    #[test]
+    fn constraint_implications_are_cached() {
+        let db = setup_db();
+        let t = create_typevar(&db, "T");
+        let builder = ConstraintSetBuilder::new();
+        let t_int = ConstraintId::new(
+            &db,
+            &builder,
+            t,
+            Type::Never,
+            KnownClass::Int.to_instance(&db),
+        );
+        let t_bool = ConstraintId::new(
+            &db,
+            &builder,
+            t,
+            Type::Never,
+            KnownClass::Bool.to_instance(&db),
+        );
+
+        assert!(builder.cached_constraint_implies(&db, t_bool, t_int));
+        assert!(builder.cached_constraint_implies(&db, t_bool, t_int));
+
+        {
+            let storage = builder.storage.borrow();
+            assert_eq!(
+                storage.constraint_implication_cache.get(&(t_bool, t_int)),
+                Some(&true)
+            );
+            assert_eq!(storage.constraint_implication_cache.len(), 1);
+        }
+
+        assert!(!builder.cached_constraint_implies(&db, t_int, t_bool));
+        assert!(!builder.cached_constraint_implies(&db, t_int, t_bool));
+
+        let storage = builder.storage.borrow();
+        assert_eq!(
+            storage.constraint_implication_cache.get(&(t_int, t_bool)),
+            Some(&false)
+        );
+        assert_eq!(storage.constraint_implication_cache.len(), 2);
     }
 
     #[track_caller]

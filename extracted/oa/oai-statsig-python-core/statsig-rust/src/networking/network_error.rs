@@ -27,6 +27,15 @@ impl NetworkError {
             NetworkError::RequestNotRetryable(_, _, _) => "RequestNotRetryable",
         }
     }
+
+    pub fn status_code(&self) -> Option<u16> {
+        match self {
+            NetworkError::RequestFailed(_, status, _)
+            | NetworkError::RetriesExhausted(_, status, _, _)
+            | NetworkError::RequestNotRetryable(_, status, _) => *status,
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for NetworkError {

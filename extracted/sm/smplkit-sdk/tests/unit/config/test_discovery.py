@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import BaseModel, Field
 
-from smplkit._errors import NotFoundError
-from smplkit._client import AsyncSmplClient, SmplClient
-from smplkit.config._client import (
+from smplkit.errors import NotFoundError
+from smplkit.clients import AsyncSmplClient, SmplClient
+from smplkit.config.clients import (
     ConfigChangeEvent,
     _apply_change_to_target,
     _build_config_bulk_request,

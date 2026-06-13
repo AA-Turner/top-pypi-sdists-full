@@ -480,6 +480,55 @@ def test_parse_fixes_from_llm_single_file_fallback():
     assert "def health_check():" in fixes["app/api/health.py"]
 
 
+def test_parse_fixes_from_llm_json_cleaning():
+    """Verify that _parse_fixes_from_llm can parse and clean up malformed JSON."""
+    from sage.core.dynamic_builder import _parse_fixes_from_llm
+    from pathlib import Path
+
+    # JSON with single quotes, trailing commas, and line comments
+    raw = """
+    Here is the JSON fix:
+    {
+      'app/main.py': 'from fastapi import FastAPI\napp = FastAPI()', // this is a comment
+      'app/utils.py': 'def foo():\n    return 42',
+    }
+    """
+    relevant = [Path("app/main.py"), Path("app/utils.py")]
+    fixes = _parse_fixes_from_llm(raw, relevant, [], Path("/tmp"))
+    assert fixes is not None
+    assert "app/main.py" in fixes
+    assert "app/utils.py" in fixes
+    assert "FastAPI" in fixes["app/main.py"]
+    assert "def foo():" in fixes["app/utils.py"]
+
+
+def test_parse_fixes_from_llm_preceding_text_filename():
+    """Verify that _parse_fixes_from_llm can associate a code block with preceding text filename."""
+    from sage.core.dynamic_builder import _parse_fixes_from_llm
+    from pathlib import Path
+
+    raw = """
+    We need to update two files.
+    
+    Here is the first update for app/core/security.py:
+    ```python
+    ALGORITHM = "HS256"
+    ```
+    
+    Now, let's fix backend/app/webhooks/handlers.py with this change:
+    ```python
+    import jwt
+    ```
+    """
+    relevant = [Path("/tmp/app/core/security.py"), Path("/tmp/app/webhooks/handlers.py")]
+    fixes = _parse_fixes_from_llm(raw, relevant, [], Path("/tmp"))
+    assert fixes is not None
+    assert "app/core/security.py" in fixes
+    assert "app/webhooks/handlers.py" in fixes
+    assert 'ALGORITHM = "HS256"' in fixes["app/core/security.py"]
+    assert "import jwt" in fixes["app/webhooks/handlers.py"]
+
+
 def test_attempt_repair_validation_retry_loop(tmp_path, monkeypatch):
     """Verify that _attempt_repair retries validation failures and writes valid code."""
     from sage.core.dynamic_builder import _attempt_repair
@@ -530,16 +579,30 @@ def test_attempt_repair_validation_retry_loop(tmp_path, monkeypatch):
     assert 'ALGORITHM = "HS256"' in target.read_text()
 
 
-def test_verify_report_build_and_runs_ok():
-    """Verify that VerifyReport correctly parses build_ok and runs_ok from steps."""
+def test_verify_report_all_four_checks():
+    """Verify that VerifyReport correctly parses all four verification checks (install_ok, build_ok, runs_ok, tests_ok) from steps."""
     from sage.core.install_verify import VerifyReport, StepResult, DiscoveredProject
     
     project = DiscoveredProject(kind="python", root=Path("/tmp"))
     
     # Test all None if steps are empty or mismatching names
     report_empty = VerifyReport(project=project, steps=[])
+    assert report_empty.install_ok is None
     assert report_empty.build_ok is None
     assert report_empty.runs_ok is None
+    assert report_empty.tests_ok is None
+    
+    # Test install_ok matches install, tidy, restore
+    report_install_fail = VerifyReport(project=project, steps=[
+        StepResult(name="npm install", ok=False, returncode=1, log="", duration_s=1.0)
+    ])
+    assert report_install_fail.install_ok is False
+    assert report_install_fail.build_ok is None
+    
+    report_tidy_ok = VerifyReport(project=project, steps=[
+        StepResult(name="go mod tidy", ok=True, returncode=0, log="", duration_s=1.0)
+    ])
+    assert report_tidy_ok.install_ok is True
     
     # Test build_ok matches compile or build
     report_build_fail = VerifyReport(project=project, steps=[
@@ -566,6 +629,17 @@ def test_verify_report_build_and_runs_ok():
     ])
     assert report_import_ok.build_ok is None
     assert report_import_ok.runs_ok is True
+
+    # Test tests_ok matches test, pytest, rspec, ctest
+    report_test_fail = VerifyReport(project=project, steps=[
+        StepResult(name="pytest", ok=False, returncode=1, log="", duration_s=1.0)
+    ])
+    assert report_test_fail.tests_ok is False
+    
+    report_test_ok = VerifyReport(project=project, steps=[
+        StepResult(name="npm test", ok=True, returncode=0, log="", duration_s=1.0)
+    ])
+    assert report_test_ok.tests_ok is True
 
 
 def test_repl_agent_task_ok_requires_build_and_run(monkeypatch):
@@ -976,8 +1050,9 @@ def test_attempt_repair_with_unlisted_files(tmp_path):
     assert not any("could not parse fix" in m for m in mock_log)
 
 
-def test_init_py_interceptor(tmp_path):
+def test_init_py_interceptor(tmp_path, monkeypatch):
     """Verify that writing to __init__.py is intercepted and results in a 0-byte file on disk."""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     init_path = tmp_path / "__init__.py"
     
     # Write using builtins.open

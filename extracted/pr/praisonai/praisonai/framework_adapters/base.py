@@ -100,6 +100,8 @@ class FrameworkAdapter(Protocol):
 class BaseFrameworkAdapter:
     """Base class for framework adapters providing common functionality."""
     
+    DEFAULT_MODEL = "openai/gpt-4o-mini"
+    
     def __init__(self):
         self._tool_registry: Dict[str, Any] = {}
         
@@ -115,21 +117,37 @@ class BaseFrameworkAdapter:
         """List all registered tool names."""
         return list(self._tool_registry.keys())
     
+    def _resolve_llm(self, spec, llm_config):
+        """Build a PraisonAIModel from a per-agent llm/function_calling_llm spec.
+        Accepts str, dict, or None. Single source of truth for all adapters."""
+        from ..inc import PraisonAIModel
+        import os
+        
+        base = llm_config[0].get('base_url') if (llm_config and len(llm_config) > 0) else None
+        key = llm_config[0].get('api_key') if (llm_config and len(llm_config) > 0) else None
+
+        if isinstance(spec, str) and spec.strip():
+            model = spec.strip()
+        elif isinstance(spec, dict) and spec.get('model'):
+            model = spec['model']
+        else:
+            model = os.environ.get("MODEL_NAME") or self.DEFAULT_MODEL
+
+        return PraisonAIModel(model=model, base_url=base, api_key=key).get_model()
+    
     def _format_template(self, template: str, **kwargs) -> str:
-        """Safely format template string with given kwargs."""
-        try:
-            return template.format(**kwargs)
-        except KeyError as e:
-            # Import logger here to avoid circular imports
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning("Template formatting failed for key %s; returning original template", e)
+        """Safely format template string with given kwargs, preserving JSON-like braces."""
+        if not isinstance(template, str):
             return template
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning("Template formatting error: %s; returning original template", e)
-            return template
+        
+        import re
+        
+        def _sub(m):
+            name = m.group(1)
+            return str(kwargs[name]) if name in kwargs else m.group(0)
+        
+        # Only substitute simple variable names like {topic}, not JSON like {"level":2}
+        return re.sub(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}', _sub, template)
     
     def resolve(self) -> "FrameworkAdapter":
         """Default implementation returns self."""
@@ -162,6 +180,7 @@ class BaseFrameworkAdapter:
             task_callback=task_callback,
             cli_config=cli_config
         )
+    
     def cleanup(self) -> None:
         """Clean up resources - default implementation does nothing."""
         pass

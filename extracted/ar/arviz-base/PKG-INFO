@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arviz-base
-Version: 1.1.0
+Version: 1.2.0
 Summary: Base ArviZ features and converters.
 Author-email: ArviZ team <arvizdevs@gmail.com>
 Requires-Python: >=3.12
@@ -36,6 +36,7 @@ Requires-Dist: sphinx>=5 ; extra == "doc"
 Requires-Dist: sphinx-design ; extra == "doc"
 Requires-Dist: jupyter-sphinx ; extra == "doc"
 Requires-Dist: h5netcdf[h5py] ; extra == "doc"
+Requires-Dist: watermark ; extra == "doc"
 Requires-Dist: h5netcdf[h5py] ; extra == "h5netcdf"
 Requires-Dist: netcdf4 ; extra == "netcdf4"
 Requires-Dist: xarray!=2025.8.0 ; extra == "test"

@@ -107,8 +107,7 @@ class ToolResolver:
                 cache: Dict[str, Callable] = {}
                 for name, obj in inspect.getmembers(module):
                     if (not name.startswith('_') and 
-                        callable(obj) and 
-                        not inspect.isclass(obj)):
+                        callable(obj)):
                         cache[name] = obj
                         logger.debug(f"Loaded local tool: {name}")
                 
@@ -246,7 +245,7 @@ class ToolResolver:
         
         return None
     
-    def resolve(self, name: str) -> Optional[Callable]:
+    def resolve(self, name: str, instantiate: bool = False) -> Optional[Callable]:
         """Resolve a tool name to a callable.
         
         Resolution order:
@@ -258,6 +257,7 @@ class ToolResolver:
         
         Args:
             name: Tool name to resolve
+            instantiate: If True, instantiate class tools automatically
             
         Returns:
             Callable if found, None if not found
@@ -272,6 +272,8 @@ class ToolResolver:
         # Fast path: cached result
         cached = self._resolve_cache.get(name, _SENTINEL)
         if cached is not _SENTINEL:
+            if instantiate and self._is_class(cached):
+                return cached()
             return cached
 
         # Load local tools outside the cache lock to prevent lock-order inversion
@@ -281,6 +283,9 @@ class ToolResolver:
             # Double-check inside lock
             cached = self._resolve_cache.get(name, _SENTINEL)
             if cached is not _SENTINEL:
+                # Apply instantiation to cached result if needed
+                if instantiate and self._is_class(cached):
+                    return cached()
                 return cached
 
             # 1. Check local tools.py first (highest priority)
@@ -288,36 +293,51 @@ class ToolResolver:
                 logger.debug(f"Resolved '{name}' from local tools.py")
                 tool = local_tools[name]
                 self._resolve_cache[name] = tool
+                if instantiate and self._is_class(tool):
+                    return tool()
                 return tool
             
             # 2. Check wrapper ToolRegistry (NEW - ahead of SDK paths)
             tool = self._resolve_from_wrapper_registry(name)
             if tool is not None:
                 self._resolve_cache[name] = tool
+                if instantiate and self._is_class(tool):
+                    return tool()
                 return tool
             
             # 3. Check praisonaiagents.tools
             tool = self._resolve_from_praisonaiagents(name)
             if tool is not None:
                 self._resolve_cache[name] = tool
+                if instantiate and self._is_class(tool):
+                    return tool()
                 return tool
             
             # 4. Check praisonai-tools package
             tool = self._resolve_from_praisonai_tools(name)
             if tool is not None:
                 self._resolve_cache[name] = tool
+                if instantiate and self._is_class(tool):
+                    return tool()
                 return tool
             
             # 5. Check core SDK tool registry
             tool = self._resolve_from_registry(name)
             if tool is not None:
                 self._resolve_cache[name] = tool
+                if instantiate and self._is_class(tool):
+                    return tool()
                 return tool
             
             # Cache the None result to avoid repeated failed lookups
             logger.warning(f"Tool '{name}' not found in any source")
             self._resolve_cache[name] = None
             return None
+    
+    def _is_class(self, obj) -> bool:
+        """Check if object is a class (not an instance)."""
+        import inspect
+        return inspect.isclass(obj)
     
     def resolve_many(self, names: List[str]) -> List[Callable]:
         """Resolve multiple tool names to callables.
@@ -394,13 +414,13 @@ class ToolResolver:
         return available
     
     def validate_yaml_tools(self, yaml_config: Dict[str, Any]) -> List[str]:
-        """Validate that all tools referenced in YAML config can be resolved.
+        """Validate that all tools and toolsets referenced in YAML config can be resolved.
         
         Args:
             yaml_config: Parsed YAML configuration dict
             
         Returns:
-            List of tool names that could not be resolved (empty if all valid)
+            List of tool/toolset names that could not be resolved (empty if all valid)
         """
         missing = []
         
@@ -413,15 +433,32 @@ class ToolResolver:
             if not isinstance(role_config, dict):
                 continue
             
+            # Validate tools
             tools = role_config.get('tools', [])
-            if not tools:
-                continue
+            if tools:
+                for tool_name in tools:
+                    if not tool_name or not isinstance(tool_name, str):
+                        continue
+                    if not self.has_tool(tool_name.strip()):
+                        missing.append(tool_name)
             
-            for tool_name in tools:
-                if not tool_name or not isinstance(tool_name, str):
-                    continue
-                if not self.has_tool(tool_name.strip()):
-                    missing.append(tool_name)
+            # Validate toolsets
+            toolsets = role_config.get('toolsets', [])
+            if toolsets:
+                try:
+                    from praisonaiagents.toolsets import list_toolsets
+                    available_toolsets = set(list_toolsets())
+                    
+                    for toolset_name in toolsets:
+                        if not toolset_name or not isinstance(toolset_name, str):
+                            continue
+                        if toolset_name.strip() not in available_toolsets:
+                            missing.append(f"toolset:{toolset_name}")
+                except ImportError:
+                    # If toolsets module not available, mark all as missing
+                    for toolset_name in toolsets:
+                        if toolset_name and isinstance(toolset_name, str):
+                            missing.append(f"toolset:{toolset_name}")
         
         return list(set(missing))  # Remove duplicates
     
@@ -516,6 +553,74 @@ class ToolResolver:
                 continue
         
         return result
+    
+    def resolve_toolsets(self, toolset_names: List[str]) -> List[Callable]:
+        """Resolve named toolset groups to callables.
+        
+        Expands each toolset to tool names, then resolves to callables.
+        
+        Args:
+            toolset_names: List of toolset names to resolve
+            
+        Returns:
+            List of resolved callables from all toolsets
+        """
+        if not toolset_names:
+            return []
+        
+        try:
+            from praisonaiagents.toolsets import resolve_toolsets
+            
+            # Resolve toolset names to tool names
+            tool_names = resolve_toolsets(toolset_names)
+            logger.debug(f"Resolved toolsets {toolset_names} to tools: {tool_names}")
+            
+            # Resolve tool names to callables
+            return self.resolve_many(tool_names)
+            
+        except ImportError as e:
+            logger.warning(f"Toolset support unavailable: {e}")
+            return []
+        except (ValueError, KeyError) as e:
+            raise ValueError(
+                f"Failed to resolve toolsets {toolset_names}: {e}. "
+                "Check toolset names and includes."
+            ) from e
+    
+    def resolve_tools_and_toolsets(
+        self, 
+        tool_names: Optional[List[str]] = None,
+        toolset_names: Optional[List[str]] = None
+    ) -> List[Callable]:
+        """Resolve both individual tools and toolset groups to callables.
+        
+        Args:
+            tool_names: List of individual tool names
+            toolset_names: List of toolset names to expand
+            
+        Returns:
+            Combined list of callables from tools and toolsets
+        """
+        all_tools = []
+        
+        # Add explicit tools
+        if tool_names:
+            all_tools.extend(self.resolve_many(tool_names))
+        
+        # Add toolset tools
+        if toolset_names:
+            all_tools.extend(self.resolve_toolsets(toolset_names))
+        
+        # Deduplicate while preserving order
+        deduped: List[Callable] = []
+        seen: set[int] = set()
+        for tool in all_tools:
+            marker = id(tool)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            deduped.append(tool)
+        return deduped
 
 
 # Context-local resolver for multi-project safety
@@ -619,5 +724,36 @@ def validate_yaml_tools(yaml_config: Dict[str, Any], resolver: Optional[ToolReso
         List of missing tool names
     """
     return (resolver or _get_default_resolver()).validate_yaml_tools(yaml_config)
+
+
+def resolve_toolsets(toolset_names: List[str], resolver: Optional[ToolResolver] = None) -> List[Callable]:
+    """Resolve named toolset groups to callables.
+    
+    Args:
+        toolset_names: List of toolset names to resolve
+        resolver: Optional resolver instance. If None, uses cached default resolver.
+        
+    Returns:
+        List of resolved callables from all toolsets
+    """
+    return (resolver or _get_default_resolver()).resolve_toolsets(toolset_names)
+
+
+def resolve_tools_and_toolsets(
+    tool_names: Optional[List[str]] = None,
+    toolset_names: Optional[List[str]] = None,
+    resolver: Optional[ToolResolver] = None
+) -> List[Callable]:
+    """Resolve both individual tools and toolset groups to callables.
+    
+    Args:
+        tool_names: List of individual tool names
+        toolset_names: List of toolset names to expand
+        resolver: Optional resolver instance. If None, uses cached default resolver.
+        
+    Returns:
+        Combined list of callables from tools and toolsets
+    """
+    return (resolver or _get_default_resolver()).resolve_tools_and_toolsets(tool_names, toolset_names)
 
 

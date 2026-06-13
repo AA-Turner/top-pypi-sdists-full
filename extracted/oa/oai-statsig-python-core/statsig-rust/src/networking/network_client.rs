@@ -97,11 +97,15 @@ impl NetworkClient {
             })
             .unwrap_or((false, None, None, false));
 
+        let sdk_instance_id = options
+            .map(|opts| opts.get_sdk_instance_id(sdk_key))
+            .unwrap_or(sdk_key);
+
         NetworkClient {
             headers: headers.unwrap_or_default(),
             is_shutdown: Arc::new(AtomicBool::new(false)),
             net_provider,
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             disable_network,
             proxy_config,
             ca_cert_pem,
@@ -323,7 +327,7 @@ impl NetworkClient {
                 bypass_dedupe: false,
                 info: serde_json::to_string(error).unwrap_or_default(),
                 dedupe_key: Some(dedupe_key),
-                extra: None,
+                extra: Some(get_network_error_extra_tags(error, args)),
             });
         }
     }
@@ -360,6 +364,23 @@ impl NetworkClient {
             Some(tags),
         ));
     }
+}
+
+fn get_network_error_extra_tags(
+    error: &NetworkError,
+    request_args: &RequestArgs,
+) -> HashMap<String, String> {
+    let (_, request_path) = get_source_service_and_request_path(&request_args.url);
+    HashMap::from([
+        (REQUEST_PATH_TAG.to_string(), request_path),
+        (
+            STATUS_CODE_TAG.to_string(),
+            error
+                .status_code()
+                .map(|code| code.to_string())
+                .unwrap_or("none".to_string()),
+        ),
+    ])
 }
 
 fn get_network_request_latency_tags(
@@ -527,10 +548,11 @@ fn get_error_message_for_status(
 #[cfg(test)]
 mod tests {
     use super::{
-        get_network_request_latency_tags, get_request_path, get_source_service_and_request_path,
-        should_log_network_request_latency, DELTAS_USED_TAG, ID_LIST_FILE_ID_TAG, REQUEST_PATH_TAG,
+        get_network_error_extra_tags, get_network_request_latency_tags, get_request_path,
+        get_source_service_and_request_path, should_log_network_request_latency, DELTAS_USED_TAG,
+        ID_LIST_FILE_ID_TAG, REQUEST_PATH_TAG, STATUS_CODE_TAG,
     };
-    use crate::networking::RequestArgs;
+    use crate::networking::{NetworkError, RequestArgs};
 
     #[test]
     fn test_get_request_path_with_sample_urls() {
@@ -622,5 +644,26 @@ mod tests {
             tags_without_id.get(DELTAS_USED_TAG),
             Some(&"true".to_string())
         );
+    }
+
+    #[test]
+    fn test_network_error_extra_tags_include_request_path_and_status_code() {
+        let request_args = RequestArgs {
+            url: "https://prodregistryv2.org/v1/log_event".to_string(),
+            ..RequestArgs::new()
+        };
+        let error = NetworkError::RequestNotRetryable(
+            request_args.url.clone(),
+            Some(429),
+            "Too Many Requests".to_string(),
+        );
+
+        let tags = get_network_error_extra_tags(&error, &request_args);
+
+        assert_eq!(
+            tags.get(REQUEST_PATH_TAG),
+            Some(&"/v1/log_event".to_string())
+        );
+        assert_eq!(tags.get(STATUS_CODE_TAG), Some(&"429".to_string()));
     }
 }

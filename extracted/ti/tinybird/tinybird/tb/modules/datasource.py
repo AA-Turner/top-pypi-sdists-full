@@ -37,6 +37,7 @@ from tinybird.tb.modules.common import (
     push_data,
 )
 from tinybird.tb.modules.config import CLIConfig
+from tinybird.tb.modules.connection_dynamodb import connection_create_dynamodb, validate_dynamodb_table
 from tinybird.tb.modules.connection_kafka import (
     connection_create_kafka,
     echo_kafka_data,
@@ -66,6 +67,32 @@ from tinybird.tb.modules.secret import save_secret_to_env_file
 from tinybird.tb.modules.telemetry import add_telemetry_event
 
 
+def _dynamodb_key_schema_sort_key(key_schema: dict[str, str]) -> int:
+    if key_schema.get("key_type") == "HASH":
+        return 0
+    if key_schema.get("key_type") == "RANGE":
+        return 1
+    return 2
+
+
+def _dynamodb_attribute_type(attribute_name: str, validation_result: dict) -> str:
+    attribute_type_by_name = {
+        str(attribute.get("name")): attribute.get("type")
+        for attribute in validation_result.get("attribute_definitions", [])
+    }
+    if attribute_type_by_name.get(attribute_name) == "N":
+        return "Float64"
+    return "String"
+
+
+def _dynamodb_key_columns(validation_result: dict) -> list[str]:
+    return [
+        str(key_schema["attribute_name"])
+        for key_schema in sorted(validation_result.get("key_schema", []), key=_dynamodb_key_schema_sort_key)
+        if key_schema.get("attribute_name")
+    ]
+
+
 def create_terminal_box(content: str, new_content: Optional[str] = None, title: Optional[str] = None) -> str:
     lines = content.splitlines() or [""]
     if new_content:
@@ -83,6 +110,26 @@ def create_terminal_box(content: str, new_content: Optional[str] = None, title: 
     output.extend(f"| {line.ljust(max_line_width)} |" for line in lines)
     output.append(border)
     return "\n".join(output)
+
+
+def _extract_connection_setting(content: str, key: str) -> Optional[str]:
+    pattern = re.compile(rf"^{key}\s+(.+)$", re.MULTILINE)
+    match = pattern.search(content)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    return value.strip("\"'")
+
+
+def _resolve_dynamodb_role_arn(connection_content: str, project: Project) -> Optional[str]:
+    raw = _extract_connection_setting(connection_content, "DYNAMODB_ARN")
+    if not raw:
+        return None
+    secret_match = re.search(r"tb_secret\(\s*[\"']([^\"']+)[\"']", raw)
+    if secret_match:
+        secret_name = secret_match.group(1)
+        return project.get_secrets().get(secret_name)
+    return raw or None
 
 
 @cli.group()
@@ -825,6 +872,7 @@ def datasource_sample(ctx: Context, datasource_name: str, max_files: int, wait: 
 @click.option("--s3", is_flag=True, default=False, help="Create a data source from a S3 connection")
 @click.option("--gcs", is_flag=True, default=False, help="Create a data source from a GCS connection")
 @click.option("--kafka", is_flag=True, default=False, help="Create a data source from a Kafka connection")
+@click.option("--dynamodb", is_flag=True, default=False, help="Create a data source from a DynamoDB connection")
 @click.option("--kafka-topic", "kafka_topic_param", type=str, help="Kafka topic")
 @click.option("--kafka-group-id", "kafka_group_id_param", type=str, help="Kafka group ID")
 @click.option(
@@ -847,6 +895,8 @@ def datasource_sample(ctx: Context, datasource_name: str, max_files: int, wait: 
     type=click.Choice(["csv", "ndjson", "parquet"], case_sensitive=False),
     help="S3 import format (default: auto-detected from file extension)",
 )
+@click.option("--dynamodb-table-arn", "dynamodb_table_arn_param", type=str, help="DynamoDB table ARN")
+@click.option("--dynamodb-export-bucket", "dynamodb_export_bucket_param", type=str, help="S3 export bucket")
 @click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @click.pass_context
 def datasource_create(
@@ -859,6 +909,7 @@ def datasource_create(
     s3: bool,
     gcs: bool,
     kafka: bool,
+    dynamodb: bool,
     kafka_topic_param: str,
     kafka_group_id_param: str,
     kafka_auto_offset_reset_param: str,
@@ -866,6 +917,8 @@ def datasource_create(
     s3_sample_file_param: Optional[str],
     s3_schedule_param: Optional[str],
     s3_format_param: Optional[str],
+    dynamodb_table_arn_param: Optional[str],
+    dynamodb_export_bucket_param: Optional[str],
     yes: bool,
 ):
     wizard_data: dict[str, str | bool | float] = {
@@ -890,6 +943,10 @@ def datasource_create(
             "s3": ("S3", "Connect your data source to S3. A S3 connection file is required."),
             "gcs": ("GCS", "Connect your data source to GCS. A GCS connection file is required."),
             "kafka": ("Kafka", "Connect your data source to a Kafka topic. A Kafka connection file is required."),
+            "dynamodb": (
+                "DynamoDB",
+                "Connect your data source to a DynamoDB table. A DynamoDB connection file is required.",
+            ),
         }
         datasource_type: Optional[str] = None
         connection_file: Optional[str] = None
@@ -926,6 +983,8 @@ ENGINE "MergeTree"
             datasource_type = "gcs"
         elif kafka:
             datasource_type = "kafka"
+        elif dynamodb:
+            datasource_type = "dynamodb"
         elif connection_name:
             # Determine type from local connection file
             connection_files = project.get_connection_files()
@@ -938,6 +997,8 @@ ENGINE "MergeTree"
                     datasource_type = "s3"
                 elif project.is_gcs_connection(connection_content):
                     datasource_type = "gcs"
+                elif project.is_dynamodb_connection(connection_content):
+                    datasource_type = "dynamodb"
 
         datasource_type_index = -1
 
@@ -993,7 +1054,7 @@ ENGINE "MergeTree"
             add_telemetry_event("system_info", **wizard_data)
             return
 
-        connection_required = datasource_type in ("kafka", "s3", "gcs")
+        connection_required = datasource_type in ("kafka", "s3", "gcs", "dynamodb")
 
         if connection_required:
             if env == "local":
@@ -1044,6 +1105,13 @@ ENGINE "MergeTree"
                             svc_account_creds="GCS_SERVICE_ACCOUNT_CREDENTIALS_JSON",
                             folder=project.folder,
                         )
+                    elif datasource_type == "dynamodb":
+                        result = connection_create_dynamodb(ctx)
+                        if result.get("error"):
+                            raise CLIDatasourceException(
+                                FeedbackManager.error(message=f"DynamoDB connection creation failed: {result['error']}")
+                            )
+                        connection_name = result["name"]
                     new_connection_created = True
                     if env == "local" and new_connection_created:
                         click.echo(FeedbackManager.gray(message="\n» Building project to access the new connection..."))
@@ -1421,6 +1489,103 @@ ENGINE "MergeTree"
 IMPORT_CONNECTION_NAME "{gcs_conn_name}"
 IMPORT_BUCKET_URI "gs://my-bucket/*.csv"
 IMPORT_SCHEDULE "@auto"
+"""
+
+        if datasource_type == "dynamodb":
+            assert connection_name is not None
+            wizard_data["current_step"] = "dynamodb_configuration"
+
+            connection_files = project.get_dynamodb_connection_files()
+            connection_file = next((f for f in connection_files if Path(f).stem == connection_name), None)
+            if not connection_file:
+                raise CLIDatasourceException(
+                    FeedbackManager.error(message=f"No DynamoDB connection found with name '{connection_name}'.")
+                )
+
+            connection_content = Path(connection_file).read_text()
+            connection_region = _extract_connection_setting(connection_content, "DYNAMODB_REGION")
+            if not connection_region:
+                raise CLIDatasourceException(
+                    FeedbackManager.error(
+                        message=f"Could not determine DYNAMODB_REGION from connection '{connection_name}'."
+                    )
+                )
+
+            dynamodb_table_arn = dynamodb_table_arn_param
+            if not dynamodb_table_arn:
+                dynamodb_table_arn = click.prompt(
+                    FeedbackManager.highlight(
+                        message="? DynamoDB table ARN (e.g. arn:aws:dynamodb:us-east-1:123456789012:table/my-table)"
+                    )
+                )
+            if not dynamodb_table_arn.startswith("arn:aws:dynamodb:"):
+                raise CLIDatasourceException(
+                    FeedbackManager.error(
+                        message=f"Invalid table ARN: '{dynamodb_table_arn}'. Must start with 'arn:aws:dynamodb:'."
+                    )
+                )
+
+            dynamodb_export_bucket = dynamodb_export_bucket_param
+            if not dynamodb_export_bucket:
+                dynamodb_export_bucket = click.prompt(
+                    FeedbackManager.highlight(message="? S3 export bucket (e.g. my-exports-bucket)")
+                )
+            if dynamodb_export_bucket.startswith("s3://"):
+                raise CLIDatasourceException(
+                    FeedbackManager.error(
+                        message=(
+                            f"Invalid export bucket: '{dynamodb_export_bucket}'. Use the bucket name only, "
+                            "without the 's3://' prefix."
+                        )
+                    )
+                )
+
+            connection_role_arn = _resolve_dynamodb_role_arn(connection_content, project)
+            if not connection_role_arn:
+                raise CLIDatasourceException(
+                    FeedbackManager.error(
+                        message=f"Could not determine the role ARN from connection '{connection_name}'."
+                    )
+                )
+
+            click.echo(FeedbackManager.gray(message="\n» Validating DynamoDB table..."))
+            validation_result = validate_dynamodb_table(
+                client,
+                dynamodb_table_arn,
+                connection_region,
+                connection_role_arn,
+                fail_on_error=True,
+                external_id_seed=connection_name,
+            )
+            assert validation_result is not None
+
+            key_columns = _dynamodb_key_columns(validation_result)
+            key_schema = "".join(
+                f"    `{key_column}` {_dynamodb_attribute_type(key_column, validation_result)} `json:$.Item.{key_column}`,\n"
+                for key_column in key_columns
+            )
+            sorting_key = ", ".join(key_columns)
+            old_record_column = ""
+            if validation_result.get("stream_view_type") == "NEW_AND_OLD_IMAGES":
+                old_record_column = "    `_old_record` Nullable(String) `json:$.OldImage`,\n"
+
+            ds_content = f"""DESCRIPTION >
+    {name} - DynamoDB data source
+
+SCHEMA >
+{key_schema}    `_record` String `json:$.NewImage`,
+{old_record_column}    `_timestamp` DateTime64(3) `json:$.ApproximateCreationDateTime`,
+    `_event_name` LowCardinality(String) `json:$.eventName`,
+    `_is_deleted` UInt8 `json:$._is_deleted`
+
+ENGINE "ReplacingMergeTree"
+ENGINE_SORTING_KEY {sorting_key}
+ENGINE_VER _timestamp
+ENGINE_IS_DELETED _is_deleted
+
+IMPORT_CONNECTION_NAME '{connection_name}'
+IMPORT_TABLE_ARN '{dynamodb_table_arn}'
+IMPORT_EXPORT_BUCKET '{dynamodb_export_bucket}'
 """
 
         wizard_data["current_step"] = "create_datasource_file"

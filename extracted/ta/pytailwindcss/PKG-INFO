@@ -1,26 +1,24 @@
 Metadata-Version: 2.4
 Name: pytailwindcss
-Version: 0.3.0
+Version: 0.3.1
 Summary: Standalone Tailwind CSS CLI, installable via pip. Use Tailwind CSS without Node.js.
+Project-URL: Homepage, https://github.com/timonweb/pytailwindcss
+Author-email: Tim Kamanin <tim@timonweb.com>
 License: MIT
 License-File: LICENSE
-Keywords: cli,tailwind,css
-Author: Tim Kamanin
-Author-email: tim@timonweb.com
-Requires-Python: >=3.11,<4.0
+Keywords: cli,css,tailwind
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Project-URL: Homepage, https://github.com/timonweb/pytailwindcss
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # Standalone Tailwind CSS CLI, installable via pip
@@ -135,4 +133,3 @@ Found a bug or have a suggestion? Please use the issue tracker on GitHub:
 [https://github.com/timonweb/pytailwindcss/issues](https://github.com/timonweb/pytailwindcss/issues)
 
 2021 - 2025 (c) Tim Kamanin — [A Full-Stack Django and Wagtail Developer](https://timonweb.com)
-

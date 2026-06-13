@@ -97,6 +97,8 @@ __all__ = (
     "CreateChatResponseTypeDef",
     "CreatePrivateConnectionInputTypeDef",
     "CreatePrivateConnectionOutputTypeDef",
+    "CreateTriggerRequestTypeDef",
+    "CreateTriggerResponseTypeDef",
     "DatadogAuthorizationConfigTypeDef",
     "DatadogServiceDetailsTypeDef",
     "DeleteAgentSpaceInputTypeDef",
@@ -104,6 +106,7 @@ __all__ = (
     "DeleteAssetRequestTypeDef",
     "DeletePrivateConnectionInputTypeDef",
     "DeletePrivateConnectionOutputTypeDef",
+    "DeleteTriggerRequestTypeDef",
     "DeregisterServiceInputTypeDef",
     "DescribePrivateConnectionInputTypeDef",
     "DescribePrivateConnectionOutputTypeDef",
@@ -139,6 +142,8 @@ __all__ = (
     "GetRecommendationResponseTypeDef",
     "GetServiceInputTypeDef",
     "GetServiceOutputTypeDef",
+    "GetTriggerRequestTypeDef",
+    "GetTriggerResponseTypeDef",
     "GitHubConfigurationTypeDef",
     "GitLabConfigurationTypeDef",
     "GitLabDetailsTypeDef",
@@ -193,6 +198,9 @@ __all__ = (
     "ListServicesOutputTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTriggersRequestPaginateTypeDef",
+    "ListTriggersRequestTypeDef",
+    "ListTriggersResponseTypeDef",
     "ListWebhooksInputTypeDef",
     "ListWebhooksOutputTypeDef",
     "MCPServerAPIKeyConfigTypeDef",
@@ -246,6 +254,7 @@ __all__ = (
     "RegisteredServiceTypeDef",
     "RegisteredSlackServiceDetailsTypeDef",
     "ResponseMetadataTypeDef",
+    "ScheduleConditionTypeDef",
     "SelfManagedInputTypeDef",
     "SendMessageContentBlockDeltaEventTypeDef",
     "SendMessageContentBlockDeltaTypeDef",
@@ -281,6 +290,8 @@ __all__ = (
     "TaskFilterTypeDef",
     "TaskTypeDef",
     "TimestampTypeDef",
+    "TriggerConditionTypeDef",
+    "TriggerTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAgentSpaceInputTypeDef",
     "UpdateAgentSpaceOutputTypeDef",
@@ -300,6 +311,8 @@ __all__ = (
     "UpdatePrivateConnectionCertificateOutputTypeDef",
     "UpdateRecommendationRequestTypeDef",
     "UpdateRecommendationResponseTypeDef",
+    "UpdateTriggerRequestTypeDef",
+    "UpdateTriggerResponseTypeDef",
     "UsageMetricTypeDef",
     "UserMessageBlockTypeDef",
     "UserReferenceTypeDef",
@@ -520,6 +533,11 @@ class DeletePrivateConnectionInputTypeDef(TypedDict):
     name: str
 
 
+class DeleteTriggerRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    triggerId: str
+
+
 class DeregisterServiceInputTypeDef(TypedDict):
     serviceId: str
 
@@ -659,6 +677,11 @@ class GetRecommendationRequestTypeDef(TypedDict):
 
 class GetServiceInputTypeDef(TypedDict):
     serviceId: str
+
+
+class GetTriggerRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    triggerId: str
 
 
 class GitHubConfigurationTypeDef(TypedDict):
@@ -815,6 +838,13 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class ListTriggersRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    status: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ListWebhooksInputTypeDef(TypedDict):
     agentSpaceId: str
     associationId: str
@@ -968,6 +998,10 @@ class RegisteredAzureIdentityDetailsTypeDef(TypedDict):
     webIdentityTokenAudiences: Sequence[str]
 
 
+class ScheduleConditionTypeDef(TypedDict):
+    expression: str
+
+
 class SendMessageJsonDeltaTypeDef(TypedDict):
     partialJson: NotRequired[str]
 
@@ -1100,6 +1134,13 @@ class UpdateRecommendationRequestTypeDef(TypedDict):
     recommendationId: str
     status: NotRequired[RecommendationStatusType]
     additionalContext: NotRequired[str]
+    clientToken: NotRequired[str]
+
+
+class UpdateTriggerRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    triggerId: str
+    status: NotRequired[str]
     clientToken: NotRequired[str]
 
 
@@ -1443,6 +1484,12 @@ class ListServicesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListTriggersRequestPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    status: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListAssetsRequestPaginateTypeDef(TypedDict):
     agentSpaceId: str
     assetType: NotRequired[str]
@@ -1553,6 +1600,10 @@ class TaskTypeDef(TypedDict):
 RegisteredAzureIdentityDetailsUnionTypeDef = Union[
     RegisteredAzureIdentityDetailsTypeDef, RegisteredAzureIdentityDetailsOutputTypeDef
 ]
+
+
+class TriggerConditionTypeDef(TypedDict):
+    schedule: NotRequired[ScheduleConditionTypeDef]
 
 
 class SendMessageContentBlockDeltaTypeDef(TypedDict):
@@ -1744,6 +1795,32 @@ class UpdateBacklogTaskResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+CreateTriggerRequestTypeDef = TypedDict(
+    "CreateTriggerRequestTypeDef",
+    {
+        "agentSpaceId": str,
+        "type": str,
+        "condition": TriggerConditionTypeDef,
+        "action": Mapping[str, Any],
+        "status": NotRequired[str],
+        "clientToken": NotRequired[str],
+    },
+)
+TriggerTypeDef = TypedDict(
+    "TriggerTypeDef",
+    {
+        "triggerId": str,
+        "agentSpaceId": str,
+        "type": str,
+        "condition": TriggerConditionTypeDef,
+        "action": dict[str, Any],
+        "status": str,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+    },
+)
+
+
 class SendMessageContentBlockDeltaEventTypeDef(TypedDict):
     index: NotRequired[int]
     delta: NotRequired[SendMessageContentBlockDeltaTypeDef]
@@ -1802,6 +1879,27 @@ class ListPendingMessagesResponseTypeDef(TypedDict):
     executionId: str
     messages: list[PendingMessageTypeDef]
     createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListTriggersResponseTypeDef(TypedDict):
+    items: list[TriggerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class UpdateTriggerResponseTypeDef(TypedDict):
+    trigger: TriggerTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

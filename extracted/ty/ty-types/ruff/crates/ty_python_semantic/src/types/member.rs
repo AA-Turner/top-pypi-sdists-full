@@ -73,7 +73,12 @@ pub fn class_member<'db>(db: &'db dyn Db, scope: ScopeId<'db>, name: &str) -> Me
             }
 
             if let PlaceAndQualifiers {
-                place: Place::Defined(DefinedPlace { ty, .. }),
+                place:
+                    Place::Defined(DefinedPlace {
+                        ty,
+                        provenance: declared_provenance,
+                        ..
+                    }),
                 qualifiers,
             } = place_and_quals
             {
@@ -87,9 +92,12 @@ pub fn class_member<'db>(db: &'db dyn Db, scope: ScopeId<'db>, name: &str) -> Me
                 Member {
                     inner: match inferred {
                         Place::Undefined => Place::Undefined.with_qualifiers(qualifiers),
-                        Place::Defined(place) => {
-                            Place::Defined(DefinedPlace { ty, ..place }).with_qualifiers(qualifiers)
-                        }
+                        Place::Defined(place) => Place::Defined(DefinedPlace {
+                            ty,
+                            provenance: place.provenance.or(declared_provenance),
+                            ..place
+                        })
+                        .with_qualifiers(qualifiers),
                     },
                 }
             } else {

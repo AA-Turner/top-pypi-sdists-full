@@ -20,18 +20,32 @@ use crate::fs::file_read_stream::PyFileReadStream;
 #[pyclass(name = "Metadata", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone)]
-pub struct PyMetadata(pub std::fs::Metadata);
+pub struct PyMetadata(std::fs::Metadata);
 
 impl From<std::fs::Metadata> for PyMetadata {
+    #[inline]
     fn from(m: std::fs::Metadata) -> Self {
-        Self(m)
+        Self::new(m)
     }
 }
 
 impl PyMetadata {
+    #[inline]
     #[must_use]
     pub fn new(m: std::fs::Metadata) -> Self {
         Self(m)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn inner(&self) -> &std::fs::Metadata {
+        &self.0
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn into_inner(self) -> std::fs::Metadata {
+        self.0
     }
 }
 
@@ -134,7 +148,7 @@ impl PyMetadata {
 #[pyclass(name = "Permissions", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct PyPermissions(pub std::fs::Permissions);
+pub struct PyPermissions(std::fs::Permissions);
 
 impl From<std::fs::Permissions> for PyPermissions {
     fn from(p: std::fs::Permissions) -> Self {
@@ -146,6 +160,16 @@ impl PyPermissions {
     #[must_use]
     pub fn new(p: std::fs::Permissions) -> Self {
         Self(p)
+    }
+
+    #[must_use]
+    pub fn inner(&self) -> &std::fs::Permissions {
+        &self.0
+    }
+
+    #[must_use]
+    pub fn into_inner(self) -> std::fs::Permissions {
+        self.0
     }
 }
 
@@ -188,9 +212,8 @@ impl From<std::fs::DirEntry> for PyDirEntry {
 impl PyDirEntry {
     fn __repr__(&self) -> String {
         let path = self.0.path();
-        let pathstr = path.to_string_lossy();
-        let s = format!("DirEntry('{pathstr}')");
-        s
+        let path_disp = path.display();
+        format!("DirEntry('{path_disp}')")
     }
 
     #[must_use]
@@ -267,9 +290,9 @@ fn write_impl<P: AsRef<Path>, C: AsRef<[u8]>>(fspath: P, b: C) -> PyResult<usize
     match write_res {
         Ok(()) => Ok(b.as_ref().len()),
         Err(e) => {
-            let fspath_str = fspath.as_ref().to_string_lossy();
+            let fspath_display = fspath.as_ref().display();
             Err(PyNotADirectoryError::new_err(format!(
-                "write_bytes - parent: {fspath_str} - {e}"
+                "write_bytes - parent: {fspath_display} - {e}"
             )))
         }
     }
@@ -482,7 +505,7 @@ pub struct PyReadDir {
 #[pymethods]
 impl PyReadDir {
     fn __repr__(&self) -> String {
-        format!("{self:?}")
+        format!("{self}")
     }
 
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -532,7 +555,7 @@ impl PyReadDir {
     }
 }
 
-impl std::fmt::Debug for PyReadDir {
+impl std::fmt::Display for PyReadDir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let path = self.path.to_string_lossy();
         write!(f, "ReadDir(\"{path}\")")

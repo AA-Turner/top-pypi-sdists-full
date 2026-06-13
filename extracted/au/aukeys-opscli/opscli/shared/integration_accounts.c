@@ -2090,6 +2090,21 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
+/* dict_getitem_default.proto */
+static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value);
+
+/* PyObjectCall2Args.proto (used by CallUnboundCMethod1) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
+
+/* CallUnboundCMethod1.proto */
+CYTHON_UNUSED
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#else
+#define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
+#endif
+
 /* HasAttr.proto (used by ImportImpl) */
 #if __PYX_LIMITED_VERSION_HEX >= 0x030d0000
 #define __Pyx_HasAttr(o, n)  PyObject_HasAttrWithError(o, n)
@@ -2122,9 +2137,6 @@ static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bas
 #else
 #define __Pyx_SetNameInClass(ns, name, value)  PyObject_SetItem(ns, name, value)
 #endif
-
-/* PyObjectCall2Args.proto (used by Py3ClassCreate) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
 
 /* PyObjectLookupSpecial.proto (used by Py3ClassCreate) */
 #if CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
@@ -2460,6 +2472,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAccountClient_2_get_auth(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_alias); /* proto */
 static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAccountClient_4get_accounts(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_platform); /* proto */
 static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integration_account_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_encrypted_b64, PyObject *__pyx_v_raw_key); /* proto */
+static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_2_has_mcp_api_key(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_headers); /* proto */
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
 /* SmallCodeConfig */
@@ -2480,13 +2493,14 @@ typedef struct {
   PyObject *__pyx_empty_tuple;
   PyObject *__pyx_empty_bytes;
   PyObject *__pyx_empty_unicode;
+  __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_get;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_slice[3];
   PyObject *__pyx_tuple[2];
-  PyObject *__pyx_codeobj_tab[6];
-  PyObject *__pyx_string_tab[164];
+  PyObject *__pyx_codeobj_tab[7];
+  PyObject *__pyx_string_tab[170];
   PyObject *__pyx_number_tab[3];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -2534,164 +2548,170 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_G9wmJAd50hIsQm5z4HNRQkAqaEbBAdYh __pyx_string_tab[3]
 #define __pyx_kp_u_HTTP __pyx_string_tab[4]
 #define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[5]
-#define __pyx_kp_u__10 __pyx_string_tab[6]
-#define __pyx_kp_u__11 __pyx_string_tab[7]
-#define __pyx_kp_u__12 __pyx_string_tab[8]
-#define __pyx_kp_u__13 __pyx_string_tab[9]
-#define __pyx_kp_u__2 __pyx_string_tab[10]
-#define __pyx_kp_u__4 __pyx_string_tab[11]
-#define __pyx_kp_u__6 __pyx_string_tab[12]
-#define __pyx_kp_u__7 __pyx_string_tab[13]
-#define __pyx_kp_u__8 __pyx_string_tab[14]
-#define __pyx_kp_u__9 __pyx_string_tab[15]
-#define __pyx_kp_u_add_note __pyx_string_tab[16]
-#define __pyx_kp_u_api_v1_integration_accounts __pyx_string_tab[17]
-#define __pyx_kp_u_base64_2 __pyx_string_tab[18]
-#define __pyx_kp_u_data_2 __pyx_string_tab[19]
-#define __pyx_kp_u_int_str __pyx_string_tab[20]
-#define __pyx_kp_u_opscli_shared_integration_accoun_2 __pyx_string_tab[21]
-#define __pyx_kp_u_str_None __pyx_string_tab[22]
-#define __pyx_kp_u_tuple_IntegrationAccountRecord __pyx_string_tab[23]
-#define __pyx_kp_u_tuple_dict_str_str_dict_str_str __pyx_string_tab[24]
-#define __pyx_kp_u_utf_8 __pyx_string_tab[25]
-#define __pyx_n_u_AES __pyx_string_tab[26]
-#define __pyx_n_u_AuthClient __pyx_string_tab[27]
-#define __pyx_n_u_Authorization __pyx_string_tab[28]
-#define __pyx_n_u_CBC __pyx_string_tab[29]
-#define __pyx_n_u_Cipher __pyx_string_tab[30]
-#define __pyx_n_u_DEFAULT_INTEGRATION_ACCOUNT_ENCR __pyx_string_tab[31]
-#define __pyx_n_u_ENV_INTEGRATION_ACCOUNT_ENCRYPT __pyx_string_tab[32]
-#define __pyx_n_u_INTEGRATION_ACCOUNT_BAD_JSON __pyx_string_tab[33]
-#define __pyx_n_u_INTEGRATION_ACCOUNT_BUSINESS_ERR __pyx_string_tab[34]
-#define __pyx_n_u_INTEGRATION_ACCOUNT_ENCRYPT_KEY __pyx_string_tab[35]
-#define __pyx_n_u_INTEGRATION_ACCOUNT_ERROR __pyx_string_tab[36]
-#define __pyx_n_u_INTEGRATION_ACCOUNT_HTTP_ERROR __pyx_string_tab[37]
-#define __pyx_n_u_IntegrationAccountBadJsonError __pyx_string_tab[38]
-#define __pyx_n_u_IntegrationAccountBundle __pyx_string_tab[39]
-#define __pyx_n_u_IntegrationAccountBusinessError __pyx_string_tab[40]
-#define __pyx_n_u_IntegrationAccountBusinessError_2 __pyx_string_tab[41]
-#define __pyx_n_u_IntegrationAccountClient __pyx_string_tab[42]
-#define __pyx_n_u_IntegrationAccountClient___init __pyx_string_tab[43]
-#define __pyx_n_u_IntegrationAccountClient__get_au __pyx_string_tab[44]
-#define __pyx_n_u_IntegrationAccountClient_get_acc __pyx_string_tab[45]
-#define __pyx_n_u_IntegrationAccountError __pyx_string_tab[46]
-#define __pyx_n_u_IntegrationAccountHttpError __pyx_string_tab[47]
-#define __pyx_n_u_IntegrationAccountHttpError___in __pyx_string_tab[48]
-#define __pyx_n_u_IntegrationAccountRecord __pyx_string_tab[49]
-#define __pyx_n_u_None __pyx_string_tab[50]
-#define __pyx_n_u_PKCS7 __pyx_string_tab[51]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[52]
-#define __pyx_n_u_RemoteError __pyx_string_tab[53]
-#define __pyx_n_u__3 __pyx_string_tab[54]
-#define __pyx_n_u_accounts __pyx_string_tab[55]
-#define __pyx_n_u_algorithms __pyx_string_tab[56]
-#define __pyx_n_u_alias __pyx_string_tab[57]
-#define __pyx_n_u_annotations __pyx_string_tab[58]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[59]
-#define __pyx_n_u_auth_client __pyx_string_tab[60]
-#define __pyx_n_u_b64decode __pyx_string_tab[61]
-#define __pyx_n_u_bad_json_error_cls __pyx_string_tab[62]
-#define __pyx_n_u_base64 __pyx_string_tab[63]
-#define __pyx_n_u_block_size __pyx_string_tab[64]
-#define __pyx_n_u_build_request_auth __pyx_string_tab[65]
-#define __pyx_n_u_business_code __pyx_string_tab[66]
-#define __pyx_n_u_business_error_cls __pyx_string_tab[67]
-#define __pyx_n_u_cipher __pyx_string_tab[68]
-#define __pyx_n_u_ciphertext __pyx_string_tab[69]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[70]
-#define __pyx_n_u_code __pyx_string_tab[71]
-#define __pyx_n_u_cookies __pyx_string_tab[72]
-#define __pyx_n_u_cryptography_hazmat_primitives __pyx_string_tab[73]
-#define __pyx_n_u_cryptography_hazmat_primitives_c __pyx_string_tab[74]
-#define __pyx_n_u_data __pyx_string_tab[75]
-#define __pyx_n_u_dataclass __pyx_string_tab[76]
-#define __pyx_n_u_dataclasses __pyx_string_tab[77]
-#define __pyx_n_u_decode __pyx_string_tab[78]
-#define __pyx_n_u_decrypt_integration_account_valu __pyx_string_tab[79]
-#define __pyx_n_u_decryptor __pyx_string_tab[80]
-#define __pyx_n_u_default_account __pyx_string_tab[81]
-#define __pyx_n_u_digest __pyx_string_tab[82]
-#define __pyx_n_u_doc __pyx_string_tab[83]
-#define __pyx_n_u_encrypt_key __pyx_string_tab[84]
-#define __pyx_n_u_encrypted_b64 __pyx_string_tab[85]
-#define __pyx_n_u_exc __pyx_string_tab[86]
-#define __pyx_n_u_finalize __pyx_string_tab[87]
-#define __pyx_n_u_frozen __pyx_string_tab[88]
-#define __pyx_n_u_func __pyx_string_tab[89]
-#define __pyx_n_u_get __pyx_string_tab[90]
-#define __pyx_n_u_get_accounts __pyx_string_tab[91]
-#define __pyx_n_u_get_auth __pyx_string_tab[92]
-#define __pyx_n_u_get_mcp_request_headers __pyx_string_tab[93]
-#define __pyx_n_u_get_ops_system_url __pyx_string_tab[94]
-#define __pyx_n_u_get_token_by_session __pyx_string_tab[95]
-#define __pyx_n_u_getenv __pyx_string_tab[96]
-#define __pyx_n_u_hashlib __pyx_string_tab[97]
-#define __pyx_n_u_headers __pyx_string_tab[98]
-#define __pyx_n_u_http_error_cls __pyx_string_tab[99]
-#define __pyx_n_u_httpx __pyx_string_tab[100]
-#define __pyx_n_u_init __pyx_string_tab[101]
-#define __pyx_n_u_int __pyx_string_tab[102]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[103]
-#define __pyx_n_u_item __pyx_string_tab[104]
-#define __pyx_n_u_items __pyx_string_tab[105]
-#define __pyx_n_u_iv __pyx_string_tab[106]
-#define __pyx_n_u_jwt __pyx_string_tab[107]
-#define __pyx_n_u_key __pyx_string_tab[108]
-#define __pyx_n_u_main __pyx_string_tab[109]
-#define __pyx_n_u_message __pyx_string_tab[110]
-#define __pyx_n_u_metaclass __pyx_string_tab[111]
-#define __pyx_n_u_modes __pyx_string_tab[112]
-#define __pyx_n_u_module __pyx_string_tab[113]
-#define __pyx_n_u_mro_entries __pyx_string_tab[114]
-#define __pyx_n_u_name __pyx_string_tab[115]
-#define __pyx_n_u_name_2 __pyx_string_tab[116]
-#define __pyx_n_u_ops __pyx_string_tab[117]
-#define __pyx_n_u_ops_system_url __pyx_string_tab[118]
-#define __pyx_n_u_opscli_auth __pyx_string_tab[119]
-#define __pyx_n_u_opscli_auth_config __pyx_string_tab[120]
-#define __pyx_n_u_opscli_mcp_context __pyx_string_tab[121]
-#define __pyx_n_u_opscli_shared_exceptions __pyx_string_tab[122]
-#define __pyx_n_u_opscli_shared_http __pyx_string_tab[123]
-#define __pyx_n_u_opscli_shared_integration_accoun __pyx_string_tab[124]
-#define __pyx_n_u_os __pyx_string_tab[125]
-#define __pyx_n_u_padded __pyx_string_tab[126]
-#define __pyx_n_u_padding __pyx_string_tab[127]
-#define __pyx_n_u_params __pyx_string_tab[128]
-#define __pyx_n_u_parse_remote_response __pyx_string_tab[129]
-#define __pyx_n_u_password __pyx_string_tab[130]
-#define __pyx_n_u_payload __pyx_string_tab[131]
-#define __pyx_n_u_plaintext __pyx_string_tab[132]
-#define __pyx_n_u_platform __pyx_string_tab[133]
-#define __pyx_n_u_polarisUserToken __pyx_string_tab[134]
-#define __pyx_n_u_pop __pyx_string_tab[135]
-#define __pyx_n_u_prepare __pyx_string_tab[136]
-#define __pyx_n_u_qualname __pyx_string_tab[137]
-#define __pyx_n_u_raw_key __pyx_string_tab[138]
-#define __pyx_n_u_records __pyx_string_tab[139]
-#define __pyx_n_u_response __pyx_string_tab[140]
-#define __pyx_n_u_return __pyx_string_tab[141]
-#define __pyx_n_u_rstrip __pyx_string_tab[142]
-#define __pyx_n_u_self __pyx_string_tab[143]
-#define __pyx_n_u_session_id __pyx_string_tab[144]
-#define __pyx_n_u_set_name __pyx_string_tab[145]
-#define __pyx_n_u_setdefault __pyx_string_tab[146]
-#define __pyx_n_u_sha256 __pyx_string_tab[147]
-#define __pyx_n_u_status_code __pyx_string_tab[148]
-#define __pyx_n_u_str __pyx_string_tab[149]
-#define __pyx_n_u_strip __pyx_string_tab[150]
-#define __pyx_n_u_super __pyx_string_tab[151]
-#define __pyx_n_u_test __pyx_string_tab[152]
-#define __pyx_n_u_timeout __pyx_string_tab[153]
-#define __pyx_n_u_unpadder __pyx_string_tab[154]
-#define __pyx_n_u_update __pyx_string_tab[155]
-#define __pyx_n_u_username __pyx_string_tab[156]
-#define __pyx_n_u_values __pyx_string_tab[157]
-#define __pyx_kp_b_iso88591_5_81_vZq_A_H_s_6_A_AQ_Rq_Qa_q_A __pyx_string_tab[158]
-#define __pyx_kp_b_iso88591_A_Q_Q_A_Q_O_s_A_G1_N_A_r_q_0 __pyx_string_tab[159]
-#define __pyx_kp_b_iso88591_N_Ry_O1 __pyx_string_tab[160]
-#define __pyx_kp_b_iso88591_Ry_Q __pyx_string_tab[161]
-#define __pyx_kp_b_iso88591_XQ_4z_5_A_at1_L_A_A_A_q_1_q_q_w __pyx_string_tab[162]
-#define __pyx_kp_b_iso88591_q_4q_a_t1_d_1D_Q_7_2_1_Q_4_aq_w __pyx_string_tab[163]
+#define __pyx_kp_u_X_MCP_API_Key __pyx_string_tab[6]
+#define __pyx_kp_u__10 __pyx_string_tab[7]
+#define __pyx_kp_u__11 __pyx_string_tab[8]
+#define __pyx_kp_u__12 __pyx_string_tab[9]
+#define __pyx_kp_u__13 __pyx_string_tab[10]
+#define __pyx_kp_u__2 __pyx_string_tab[11]
+#define __pyx_kp_u__4 __pyx_string_tab[12]
+#define __pyx_kp_u__6 __pyx_string_tab[13]
+#define __pyx_kp_u__7 __pyx_string_tab[14]
+#define __pyx_kp_u__8 __pyx_string_tab[15]
+#define __pyx_kp_u__9 __pyx_string_tab[16]
+#define __pyx_kp_u_add_note __pyx_string_tab[17]
+#define __pyx_kp_u_api_v1_integration_accounts __pyx_string_tab[18]
+#define __pyx_kp_u_base64_2 __pyx_string_tab[19]
+#define __pyx_kp_u_data_2 __pyx_string_tab[20]
+#define __pyx_kp_u_dict_str_str __pyx_string_tab[21]
+#define __pyx_kp_u_int_str __pyx_string_tab[22]
+#define __pyx_kp_u_opscli_shared_integration_accoun_2 __pyx_string_tab[23]
+#define __pyx_kp_u_str_None __pyx_string_tab[24]
+#define __pyx_kp_u_tuple_IntegrationAccountRecord __pyx_string_tab[25]
+#define __pyx_kp_u_tuple_dict_str_str_dict_str_str __pyx_string_tab[26]
+#define __pyx_kp_u_utf_8 __pyx_string_tab[27]
+#define __pyx_n_u_AES __pyx_string_tab[28]
+#define __pyx_n_u_AuthClient __pyx_string_tab[29]
+#define __pyx_n_u_Authorization __pyx_string_tab[30]
+#define __pyx_n_u_CBC __pyx_string_tab[31]
+#define __pyx_n_u_Cipher __pyx_string_tab[32]
+#define __pyx_n_u_DEFAULT_INTEGRATION_ACCOUNT_ENCR __pyx_string_tab[33]
+#define __pyx_n_u_ENV_INTEGRATION_ACCOUNT_ENCRYPT __pyx_string_tab[34]
+#define __pyx_n_u_INTEGRATION_ACCOUNT_BAD_JSON __pyx_string_tab[35]
+#define __pyx_n_u_INTEGRATION_ACCOUNT_BUSINESS_ERR __pyx_string_tab[36]
+#define __pyx_n_u_INTEGRATION_ACCOUNT_ENCRYPT_KEY __pyx_string_tab[37]
+#define __pyx_n_u_INTEGRATION_ACCOUNT_ERROR __pyx_string_tab[38]
+#define __pyx_n_u_INTEGRATION_ACCOUNT_HTTP_ERROR __pyx_string_tab[39]
+#define __pyx_n_u_IntegrationAccountBadJsonError __pyx_string_tab[40]
+#define __pyx_n_u_IntegrationAccountBundle __pyx_string_tab[41]
+#define __pyx_n_u_IntegrationAccountBusinessError __pyx_string_tab[42]
+#define __pyx_n_u_IntegrationAccountBusinessError_2 __pyx_string_tab[43]
+#define __pyx_n_u_IntegrationAccountClient __pyx_string_tab[44]
+#define __pyx_n_u_IntegrationAccountClient___init __pyx_string_tab[45]
+#define __pyx_n_u_IntegrationAccountClient__get_au __pyx_string_tab[46]
+#define __pyx_n_u_IntegrationAccountClient_get_acc __pyx_string_tab[47]
+#define __pyx_n_u_IntegrationAccountError __pyx_string_tab[48]
+#define __pyx_n_u_IntegrationAccountHttpError __pyx_string_tab[49]
+#define __pyx_n_u_IntegrationAccountHttpError___in __pyx_string_tab[50]
+#define __pyx_n_u_IntegrationAccountRecord __pyx_string_tab[51]
+#define __pyx_n_u_None __pyx_string_tab[52]
+#define __pyx_n_u_PKCS7 __pyx_string_tab[53]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[54]
+#define __pyx_n_u_RemoteError __pyx_string_tab[55]
+#define __pyx_n_u__3 __pyx_string_tab[56]
+#define __pyx_n_u_accounts __pyx_string_tab[57]
+#define __pyx_n_u_algorithms __pyx_string_tab[58]
+#define __pyx_n_u_alias __pyx_string_tab[59]
+#define __pyx_n_u_annotations __pyx_string_tab[60]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[61]
+#define __pyx_n_u_auth_client __pyx_string_tab[62]
+#define __pyx_n_u_b64decode __pyx_string_tab[63]
+#define __pyx_n_u_bad_json_error_cls __pyx_string_tab[64]
+#define __pyx_n_u_base64 __pyx_string_tab[65]
+#define __pyx_n_u_block_size __pyx_string_tab[66]
+#define __pyx_n_u_bool __pyx_string_tab[67]
+#define __pyx_n_u_build_request_auth __pyx_string_tab[68]
+#define __pyx_n_u_business_code __pyx_string_tab[69]
+#define __pyx_n_u_business_error_cls __pyx_string_tab[70]
+#define __pyx_n_u_cipher __pyx_string_tab[71]
+#define __pyx_n_u_ciphertext __pyx_string_tab[72]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[73]
+#define __pyx_n_u_code __pyx_string_tab[74]
+#define __pyx_n_u_cookies __pyx_string_tab[75]
+#define __pyx_n_u_cryptography_hazmat_primitives __pyx_string_tab[76]
+#define __pyx_n_u_cryptography_hazmat_primitives_c __pyx_string_tab[77]
+#define __pyx_n_u_data __pyx_string_tab[78]
+#define __pyx_n_u_dataclass __pyx_string_tab[79]
+#define __pyx_n_u_dataclasses __pyx_string_tab[80]
+#define __pyx_n_u_decode __pyx_string_tab[81]
+#define __pyx_n_u_decrypt_integration_account_valu __pyx_string_tab[82]
+#define __pyx_n_u_decryptor __pyx_string_tab[83]
+#define __pyx_n_u_default_account __pyx_string_tab[84]
+#define __pyx_n_u_digest __pyx_string_tab[85]
+#define __pyx_n_u_doc __pyx_string_tab[86]
+#define __pyx_n_u_encrypt_key __pyx_string_tab[87]
+#define __pyx_n_u_encrypted_b64 __pyx_string_tab[88]
+#define __pyx_n_u_exc __pyx_string_tab[89]
+#define __pyx_n_u_finalize __pyx_string_tab[90]
+#define __pyx_n_u_frozen __pyx_string_tab[91]
+#define __pyx_n_u_func __pyx_string_tab[92]
+#define __pyx_n_u_get __pyx_string_tab[93]
+#define __pyx_n_u_get_accounts __pyx_string_tab[94]
+#define __pyx_n_u_get_auth __pyx_string_tab[95]
+#define __pyx_n_u_get_mcp_request_headers __pyx_string_tab[96]
+#define __pyx_n_u_get_ops_system_url __pyx_string_tab[97]
+#define __pyx_n_u_get_token_by_session __pyx_string_tab[98]
+#define __pyx_n_u_getenv __pyx_string_tab[99]
+#define __pyx_n_u_has_mcp_api_key __pyx_string_tab[100]
+#define __pyx_n_u_hashlib __pyx_string_tab[101]
+#define __pyx_n_u_headers __pyx_string_tab[102]
+#define __pyx_n_u_http_error_cls __pyx_string_tab[103]
+#define __pyx_n_u_httpx __pyx_string_tab[104]
+#define __pyx_n_u_init __pyx_string_tab[105]
+#define __pyx_n_u_int __pyx_string_tab[106]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[107]
+#define __pyx_n_u_item __pyx_string_tab[108]
+#define __pyx_n_u_items __pyx_string_tab[109]
+#define __pyx_n_u_iv __pyx_string_tab[110]
+#define __pyx_n_u_jwt __pyx_string_tab[111]
+#define __pyx_n_u_key __pyx_string_tab[112]
+#define __pyx_n_u_main __pyx_string_tab[113]
+#define __pyx_n_u_mcp_headers __pyx_string_tab[114]
+#define __pyx_n_u_message __pyx_string_tab[115]
+#define __pyx_n_u_metaclass __pyx_string_tab[116]
+#define __pyx_n_u_modes __pyx_string_tab[117]
+#define __pyx_n_u_module __pyx_string_tab[118]
+#define __pyx_n_u_mro_entries __pyx_string_tab[119]
+#define __pyx_n_u_name __pyx_string_tab[120]
+#define __pyx_n_u_name_2 __pyx_string_tab[121]
+#define __pyx_n_u_ops __pyx_string_tab[122]
+#define __pyx_n_u_ops_system_url __pyx_string_tab[123]
+#define __pyx_n_u_opscli_auth __pyx_string_tab[124]
+#define __pyx_n_u_opscli_auth_config __pyx_string_tab[125]
+#define __pyx_n_u_opscli_mcp_context __pyx_string_tab[126]
+#define __pyx_n_u_opscli_shared_exceptions __pyx_string_tab[127]
+#define __pyx_n_u_opscli_shared_http __pyx_string_tab[128]
+#define __pyx_n_u_opscli_shared_integration_accoun __pyx_string_tab[129]
+#define __pyx_n_u_os __pyx_string_tab[130]
+#define __pyx_n_u_padded __pyx_string_tab[131]
+#define __pyx_n_u_padding __pyx_string_tab[132]
+#define __pyx_n_u_params __pyx_string_tab[133]
+#define __pyx_n_u_parse_remote_response __pyx_string_tab[134]
+#define __pyx_n_u_password __pyx_string_tab[135]
+#define __pyx_n_u_payload __pyx_string_tab[136]
+#define __pyx_n_u_plaintext __pyx_string_tab[137]
+#define __pyx_n_u_platform __pyx_string_tab[138]
+#define __pyx_n_u_polarisUserToken __pyx_string_tab[139]
+#define __pyx_n_u_pop __pyx_string_tab[140]
+#define __pyx_n_u_prepare __pyx_string_tab[141]
+#define __pyx_n_u_qualname __pyx_string_tab[142]
+#define __pyx_n_u_raw_key __pyx_string_tab[143]
+#define __pyx_n_u_records __pyx_string_tab[144]
+#define __pyx_n_u_response __pyx_string_tab[145]
+#define __pyx_n_u_return __pyx_string_tab[146]
+#define __pyx_n_u_rstrip __pyx_string_tab[147]
+#define __pyx_n_u_self __pyx_string_tab[148]
+#define __pyx_n_u_session_id __pyx_string_tab[149]
+#define __pyx_n_u_set_name __pyx_string_tab[150]
+#define __pyx_n_u_setdefault __pyx_string_tab[151]
+#define __pyx_n_u_sha256 __pyx_string_tab[152]
+#define __pyx_n_u_status_code __pyx_string_tab[153]
+#define __pyx_n_u_str __pyx_string_tab[154]
+#define __pyx_n_u_strip __pyx_string_tab[155]
+#define __pyx_n_u_super __pyx_string_tab[156]
+#define __pyx_n_u_test __pyx_string_tab[157]
+#define __pyx_n_u_timeout __pyx_string_tab[158]
+#define __pyx_n_u_unpadder __pyx_string_tab[159]
+#define __pyx_n_u_update __pyx_string_tab[160]
+#define __pyx_n_u_username __pyx_string_tab[161]
+#define __pyx_n_u_values __pyx_string_tab[162]
+#define __pyx_kp_b_iso88591_1_4q_t1A __pyx_string_tab[163]
+#define __pyx_kp_b_iso88591_5_81_vZq_A_H_s_6_A_AQ_Rq_Qa_q_A __pyx_string_tab[164]
+#define __pyx_kp_b_iso88591_A_Q_Q_A_Q_O_s_A_G1_N_A_r_q_0 __pyx_string_tab[165]
+#define __pyx_kp_b_iso88591_N_Ry_O1 __pyx_string_tab[166]
+#define __pyx_kp_b_iso88591_Ry_Q __pyx_string_tab[167]
+#define __pyx_kp_b_iso88591_XQ_4z_5_A_at1_L_A_A_A_q_1_q_q_w __pyx_string_tab[168]
+#define __pyx_kp_b_iso88591_q_Q_4q_a_t1_d_1D_Q_7_1_1_Q_4q_a __pyx_string_tab[169]
 #define __pyx_int_16 __pyx_number_tab[0]
 #define __pyx_int_20 __pyx_number_tab[1]
 #define __pyx_int_32 __pyx_number_tab[2]
@@ -2711,8 +2731,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<6; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<164; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<7; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<170; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -2738,8 +2758,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<6; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<164; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<7; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<170; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -3619,8 +3639,8 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *         self.ops_system_url = get_ops_system_url().rstrip("/")
  * 
  *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt
 */
 
 /* Python wrapper */
@@ -3734,20 +3754,20 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAccountClient_2_get_auth(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_alias) {
+  PyObject *__pyx_v_mcp_headers = NULL;
   PyObject *__pyx_v_jwt = NULL;
   PyObject *__pyx_v_headers = NULL;
   PyObject *__pyx_v_cookies = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  int __pyx_t_3;
-  PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
-  PyObject *__pyx_t_6 = NULL;
-  size_t __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *(*__pyx_t_9)(PyObject *);
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  int __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *(*__pyx_t_8)(PyObject *);
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3756,66 +3776,99 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   /* "opscli/shared/integration_accounts.py":96
  * 
  *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()             # <<<<<<<<<<<<<<
+ *         if self.session_id:
+ *             jwt = self.jwt
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get_mcp_request_headers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_mcp_headers = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/shared/integration_accounts.py":97
+ *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:             # <<<<<<<<<<<<<<
  *             jwt = self.jwt
  *             if not jwt:
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__pyx_t_2) {
+  if (__pyx_t_5) {
 
-    /* "opscli/shared/integration_accounts.py":97
- *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:
+    /* "opscli/shared/integration_accounts.py":98
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
  *             jwt = self.jwt             # <<<<<<<<<<<<<<
  *             if not jwt:
  *                 jwt = self.auth_client.get_token_by_session(self.session_id, alias)
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_jwt = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":98
+    /* "opscli/shared/integration_accounts.py":99
  *         if self.session_id:
  *             jwt = self.jwt
  *             if not jwt:             # <<<<<<<<<<<<<<
  *                 jwt = self.auth_client.get_token_by_session(self.session_id, alias)
  *             headers = {"Authorization": f"Bearer {jwt}"}
 */
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_jwt); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
-    __pyx_t_3 = (!__pyx_t_2);
-    if (__pyx_t_3) {
+    __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_v_jwt); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_6 = (!__pyx_t_5);
+    if (__pyx_t_6) {
 
-      /* "opscli/shared/integration_accounts.py":99
+      /* "opscli/shared/integration_accounts.py":100
  *             jwt = self.jwt
  *             if not jwt:
  *                 jwt = self.auth_client.get_token_by_session(self.session_id, alias)             # <<<<<<<<<<<<<<
  *             headers = {"Authorization": f"Bearer {jwt}"}
- *             headers.update(get_mcp_request_headers())
+ *             headers.update(mcp_headers)
 */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 99, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_4 = __pyx_t_5;
-      __Pyx_INCREF(__pyx_t_4);
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 99, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = 0;
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_t_3 = __pyx_t_2;
+      __Pyx_INCREF(__pyx_t_3);
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 100, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __pyx_t_4 = 0;
       {
-        PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_t_6, __pyx_v_alias};
-        __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_token_by_session, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+        PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_t_7, __pyx_v_alias};
+        __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_token_by_session, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF_SET(__pyx_v_jwt, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "opscli/shared/integration_accounts.py":98
+      /* "opscli/shared/integration_accounts.py":99
  *         if self.session_id:
  *             jwt = self.jwt
  *             if not jwt:             # <<<<<<<<<<<<<<
@@ -3824,259 +3877,361 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
     }
 
-    /* "opscli/shared/integration_accounts.py":100
+    /* "opscli/shared/integration_accounts.py":101
  *             if not jwt:
  *                 jwt = self.auth_client.get_token_by_session(self.session_id, alias)
  *             headers = {"Authorization": f"Bearer {jwt}"}             # <<<<<<<<<<<<<<
- *             headers.update(get_mcp_request_headers())
+ *             headers.update(mcp_headers)
  *             return headers, {"polarisUserToken": self.session_id}
 */
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_jwt, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 100, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Bearer, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Authorization, __pyx_t_6) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_jwt, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_7 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Bearer, __pyx_t_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_Authorization, __pyx_t_7) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_v_headers = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":101
+    /* "opscli/shared/integration_accounts.py":102
  *                 jwt = self.auth_client.get_token_by_session(self.session_id, alias)
  *             headers = {"Authorization": f"Bearer {jwt}"}
- *             headers.update(get_mcp_request_headers())             # <<<<<<<<<<<<<<
+ *             headers.update(mcp_headers)             # <<<<<<<<<<<<<<
  *             return headers, {"polarisUserToken": self.session_id}
- *         headers, cookies = self.auth_client.build_request_auth(alias)
+ *         if self.jwt:
 */
-    __pyx_t_6 = __pyx_v_headers;
-    __Pyx_INCREF(__pyx_t_6);
-    __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_get_mcp_request_headers); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 101, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_7 = 1;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_8))) {
-      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_8);
-      assert(__pyx_t_4);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
-      __Pyx_INCREF(__pyx_t_4);
-      __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
-      __pyx_t_7 = 0;
-    }
-    #endif
+    __pyx_t_7 = __pyx_v_headers;
+    __Pyx_INCREF(__pyx_t_7);
+    __pyx_t_4 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
-      __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 101, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-    }
-    __pyx_t_7 = 0;
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_5};
-      __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_mcp_headers};
+      __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":102
+    /* "opscli/shared/integration_accounts.py":103
  *             headers = {"Authorization": f"Bearer {jwt}"}
- *             headers.update(get_mcp_request_headers())
+ *             headers.update(mcp_headers)
  *             return headers, {"polarisUserToken": self.session_id}             # <<<<<<<<<<<<<<
- *         headers, cookies = self.auth_client.build_request_auth(alias)
- *         headers.update(get_mcp_request_headers())
+ *         if self.jwt:
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 102, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_polarisUserToken, __pyx_t_5) < (0)) __PYX_ERR(0, 102, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 102, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_session_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_polarisUserToken, __pyx_t_7) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
     __Pyx_INCREF(__pyx_v_headers);
     __Pyx_GIVEREF(__pyx_v_headers);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 102, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 103, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 102, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 103, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_r = ((PyObject*)__pyx_t_5);
-    __pyx_t_5 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_7);
+    __pyx_t_7 = 0;
     goto __pyx_L0;
 
-    /* "opscli/shared/integration_accounts.py":96
- * 
+    /* "opscli/shared/integration_accounts.py":97
  *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:             # <<<<<<<<<<<<<<
  *             jwt = self.jwt
  *             if not jwt:
 */
   }
 
-  /* "opscli/shared/integration_accounts.py":103
- *             headers.update(get_mcp_request_headers())
+  /* "opscli/shared/integration_accounts.py":104
+ *             headers.update(mcp_headers)
  *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:             # <<<<<<<<<<<<<<
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)
+*/
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (__pyx_t_6) {
+
+    /* "opscli/shared/integration_accounts.py":105
+ *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}             # <<<<<<<<<<<<<<
+ *             headers.update(mcp_headers)
+ *             return headers, {}
+*/
+    __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_jwt); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_t_1, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Bearer, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_Authorization, __pyx_t_1) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_v_headers = __pyx_t_7;
+    __pyx_t_7 = 0;
+
+    /* "opscli/shared/integration_accounts.py":106
+ *         if self.jwt:
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)             # <<<<<<<<<<<<<<
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):
+*/
+    __pyx_t_1 = __pyx_v_headers;
+    __Pyx_INCREF(__pyx_t_1);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_mcp_headers};
+      __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 106, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+    }
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+    /* "opscli/shared/integration_accounts.py":107
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)
+ *             return headers, {}             # <<<<<<<<<<<<<<
+ *         if _has_mcp_api_key(mcp_headers):
+ *             return mcp_headers, {}
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_INCREF(__pyx_v_headers);
+    __Pyx_GIVEREF(__pyx_v_headers);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 107, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_7);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 107, __pyx_L1_error);
+    __pyx_t_7 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/shared/integration_accounts.py":104
+ *             headers.update(mcp_headers)
+ *             return headers, {"polarisUserToken": self.session_id}
+ *         if self.jwt:             # <<<<<<<<<<<<<<
+ *             headers = {"Authorization": f"Bearer {self.jwt}"}
+ *             headers.update(mcp_headers)
+*/
+  }
+
+  /* "opscli/shared/integration_accounts.py":108
+ *             headers.update(mcp_headers)
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):             # <<<<<<<<<<<<<<
+ *             return mcp_headers, {}
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+*/
+  __pyx_t_7 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_has_mcp_api_key); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_2);
+    assert(__pyx_t_7);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
+    __Pyx_INCREF(__pyx_t_7);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_mcp_headers};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 108, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 108, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_6) {
+
+    /* "opscli/shared/integration_accounts.py":109
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):
+ *             return mcp_headers, {}             # <<<<<<<<<<<<<<
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+ *         headers.update(mcp_headers)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx_v_mcp_headers);
+    __Pyx_GIVEREF(__pyx_v_mcp_headers);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_mcp_headers) != (0)) __PYX_ERR(0, 109, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_1);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 109, __pyx_L1_error);
+    __pyx_t_1 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_2);
+    __pyx_t_2 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/shared/integration_accounts.py":108
+ *             headers.update(mcp_headers)
+ *             return headers, {}
+ *         if _has_mcp_api_key(mcp_headers):             # <<<<<<<<<<<<<<
+ *             return mcp_headers, {}
+ *         headers, cookies = self.auth_client.build_request_auth(alias)
+*/
+  }
+
+  /* "opscli/shared/integration_accounts.py":110
+ *         if _has_mcp_api_key(mcp_headers):
+ *             return mcp_headers, {}
  *         headers, cookies = self.auth_client.build_request_auth(alias)             # <<<<<<<<<<<<<<
- *         headers.update(get_mcp_request_headers())
+ *         headers.update(mcp_headers)
  *         return headers, cookies
 */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_1 = __pyx_t_6;
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_auth_client); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_1 = __pyx_t_7;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_7 = 0;
+  __pyx_t_4 = 0;
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_alias};
-    __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_build_request_auth, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_build_request_auth, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 103, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
   }
-  if ((likely(PyTuple_CheckExact(__pyx_t_5))) || (PyList_CheckExact(__pyx_t_5))) {
-    PyObject* sequence = __pyx_t_5;
+  if ((likely(PyTuple_CheckExact(__pyx_t_2))) || (PyList_CheckExact(__pyx_t_2))) {
+    PyObject* sequence = __pyx_t_2;
     Py_ssize_t size = __Pyx_PySequence_SIZE(sequence);
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 103, __pyx_L1_error)
+      __PYX_ERR(0, 110, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
-      __pyx_t_6 = PyTuple_GET_ITEM(sequence, 0);
-      __Pyx_INCREF(__pyx_t_6);
+      __pyx_t_7 = PyTuple_GET_ITEM(sequence, 0);
+      __Pyx_INCREF(__pyx_t_7);
       __pyx_t_1 = PyTuple_GET_ITEM(sequence, 1);
       __Pyx_INCREF(__pyx_t_1);
     } else {
-      __pyx_t_6 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
-      __Pyx_XGOTREF(__pyx_t_6);
+      __pyx_t_7 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 110, __pyx_L1_error)
+      __Pyx_XGOTREF(__pyx_t_7);
       __pyx_t_1 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_1);
     }
     #else
-    __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_1 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_1 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     #endif
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_8 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 103, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
-    index = 0; __pyx_t_6 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_6)) goto __pyx_L5_unpacking_failed;
-    __Pyx_GOTREF(__pyx_t_6);
-    index = 1; __pyx_t_1 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_1)) goto __pyx_L5_unpacking_failed;
+    __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3);
+    index = 0; __pyx_t_7 = __pyx_t_8(__pyx_t_3); if (unlikely(!__pyx_t_7)) goto __pyx_L7_unpacking_failed;
+    __Pyx_GOTREF(__pyx_t_7);
+    index = 1; __pyx_t_1 = __pyx_t_8(__pyx_t_3); if (unlikely(!__pyx_t_1)) goto __pyx_L7_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_1);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
-    __pyx_t_9 = NULL;
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    goto __pyx_L6_unpacking_done;
-    __pyx_L5_unpacking_failed:;
-    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __pyx_t_9 = NULL;
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_8(__pyx_t_3), 2) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_8 = NULL;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    goto __pyx_L8_unpacking_done;
+    __pyx_L7_unpacking_failed:;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_8 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 103, __pyx_L1_error)
-    __pyx_L6_unpacking_done:;
+    __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_L8_unpacking_done:;
   }
-  __pyx_v_headers = __pyx_t_6;
-  __pyx_t_6 = 0;
+  __pyx_v_headers = __pyx_t_7;
+  __pyx_t_7 = 0;
   __pyx_v_cookies = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/shared/integration_accounts.py":104
- *             return headers, {"polarisUserToken": self.session_id}
+  /* "opscli/shared/integration_accounts.py":111
+ *             return mcp_headers, {}
  *         headers, cookies = self.auth_client.build_request_auth(alias)
- *         headers.update(get_mcp_request_headers())             # <<<<<<<<<<<<<<
+ *         headers.update(mcp_headers)             # <<<<<<<<<<<<<<
  *         return headers, cookies
  * 
 */
   __pyx_t_1 = __pyx_v_headers;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_8 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_mcp_request_headers); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 104, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = 1;
-  #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_4))) {
-    __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_4);
-    assert(__pyx_t_8);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
-    __Pyx_INCREF(__pyx_t_8);
-    __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
-    __pyx_t_7 = 0;
-  }
-  #endif
+  __pyx_t_4 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
-    __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-  }
-  __pyx_t_7 = 0;
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_t_6};
-    __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_mcp_headers};
+    __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
   }
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/shared/integration_accounts.py":105
+  /* "opscli/shared/integration_accounts.py":112
  *         headers, cookies = self.auth_client.build_request_auth(alias)
- *         headers.update(get_mcp_request_headers())
+ *         headers.update(mcp_headers)
  *         return headers, cookies             # <<<<<<<<<<<<<<
  * 
  *     def get_accounts(self, platform: str) -> IntegrationAccountBundle:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 105, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 112, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_v_headers);
   __Pyx_GIVEREF(__pyx_v_headers);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 105, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_headers) != (0)) __PYX_ERR(0, 112, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_cookies);
   __Pyx_GIVEREF(__pyx_v_cookies);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v_cookies) != (0)) __PYX_ERR(0, 105, __pyx_L1_error);
-  __pyx_r = ((PyObject*)__pyx_t_5);
-  __pyx_t_5 = 0;
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_cookies) != (0)) __PYX_ERR(0, 112, __pyx_L1_error);
+  __pyx_r = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
   /* "opscli/shared/integration_accounts.py":95
  *         self.ops_system_url = get_ops_system_url().rstrip("/")
  * 
  *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt
 */
 
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_6);
-  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_AddTraceback("opscli.shared.integration_accounts.IntegrationAccountClient._get_auth", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_mcp_headers);
   __Pyx_XDECREF(__pyx_v_jwt);
   __Pyx_XDECREF(__pyx_v_headers);
   __Pyx_XDECREF(__pyx_v_cookies);
@@ -4085,7 +4240,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   return __pyx_r;
 }
 
-/* "opscli/shared/integration_accounts.py":107
+/* "opscli/shared/integration_accounts.py":114
  *         return headers, cookies
  * 
  *     def get_accounts(self, platform: str) -> IntegrationAccountBundle:             # <<<<<<<<<<<<<<
@@ -4134,39 +4289,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_platform,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 107, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 114, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 107, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 114, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 107, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 114, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_accounts", 0) < (0)) __PYX_ERR(0, 107, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_accounts", 0) < (0)) __PYX_ERR(0, 114, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_accounts", 1, 2, 2, i); __PYX_ERR(0, 107, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_accounts", 1, 2, 2, i); __PYX_ERR(0, 114, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 107, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 114, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 107, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 114, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_platform = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_accounts", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 107, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_accounts", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 114, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4177,7 +4332,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_platform), (&PyUnicode_Type), 0, "platform", 2))) __PYX_ERR(0, 107, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_platform), (&PyUnicode_Type), 0, "platform", 2))) __PYX_ERR(0, 114, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAccountClient_4get_accounts(__pyx_self, __pyx_v_self, __pyx_v_platform);
 
   /* function exit code */
@@ -4233,7 +4388,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_accounts", 0);
 
-  /* "opscli/shared/integration_accounts.py":109
+  /* "opscli/shared/integration_accounts.py":116
  *     def get_accounts(self, platform: str) -> IntegrationAccountBundle:
  *         """"""
  *         headers, cookies = self._get_auth("ops")             # <<<<<<<<<<<<<<
@@ -4247,7 +4402,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ops};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get_auth, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
@@ -4256,7 +4411,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 109, __pyx_L1_error)
+      __PYX_ERR(0, 116, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -4266,22 +4421,22 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __Pyx_INCREF(__pyx_t_4);
     } else {
       __pyx_t_2 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 116, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_2);
       __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 116, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_4);
     }
     #else
-    __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_5 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_5 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5);
@@ -4289,7 +4444,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_GOTREF(__pyx_t_2);
     index = 1; __pyx_t_4 = __pyx_t_6(__pyx_t_5); if (unlikely(!__pyx_t_4)) goto __pyx_L3_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_6(__pyx_t_5), 2) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_6(__pyx_t_5), 2) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
     __pyx_t_6 = NULL;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     goto __pyx_L4_unpacking_done;
@@ -4297,7 +4452,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 109, __pyx_L1_error)
+    __PYX_ERR(0, 116, __pyx_L1_error)
     __pyx_L4_unpacking_done:;
   }
   __pyx_v_headers = __pyx_t_2;
@@ -4305,7 +4460,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   __pyx_v_cookies = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/shared/integration_accounts.py":110
+  /* "opscli/shared/integration_accounts.py":117
  *         """"""
  *         headers, cookies = self._get_auth("ops")
  *         response = httpx.get(             # <<<<<<<<<<<<<<
@@ -4313,40 +4468,40 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *             params={"platform": platform},
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/shared/integration_accounts.py":111
+  /* "opscli/shared/integration_accounts.py":118
  *         headers, cookies = self._get_auth("ops")
  *         response = httpx.get(
  *             f"{self.ops_system_url}/api/v1/integration-accounts",             # <<<<<<<<<<<<<<
  *             params={"platform": platform},
  *             headers=headers,
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ops_system_url); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_ops_system_url); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 118, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 118, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_api_v1_integration_accounts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_api_v1_integration_accounts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 118, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/shared/integration_accounts.py":112
+  /* "opscli/shared/integration_accounts.py":119
  *         response = httpx.get(
  *             f"{self.ops_system_url}/api/v1/integration-accounts",
  *             params={"platform": platform},             # <<<<<<<<<<<<<<
  *             headers=headers,
  *             cookies=cookies,
 */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_platform, __pyx_v_platform) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_platform, __pyx_v_platform) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
 
-  /* "opscli/shared/integration_accounts.py":114
+  /* "opscli/shared/integration_accounts.py":121
  *             params={"platform": platform},
  *             headers=headers,
  *             cookies=cookies,             # <<<<<<<<<<<<<<
@@ -4367,25 +4522,25 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 4 : 0)] = {__pyx_t_4, __pyx_t_2};
-    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_params, __pyx_t_7, __pyx_t_8, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_v_headers, __pyx_t_8, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cookies, __pyx_v_cookies, __pyx_t_8, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_20, __pyx_t_8, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_params, __pyx_t_7, __pyx_t_8, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_v_headers, __pyx_t_8, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cookies, __pyx_v_cookies, __pyx_t_8, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_int_20, __pyx_t_8, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_response = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/shared/integration_accounts.py":117
+  /* "opscli/shared/integration_accounts.py":124
  *             timeout=20,
  *         )
  *         payload = parse_remote_response(             # <<<<<<<<<<<<<<
@@ -4393,37 +4548,37 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *             http_error_cls=IntegrationAccountHttpError,
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_parse_remote_response); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_parse_remote_response); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
 
-  /* "opscli/shared/integration_accounts.py":119
+  /* "opscli/shared/integration_accounts.py":126
  *         payload = parse_remote_response(
  *             response,
  *             http_error_cls=IntegrationAccountHttpError,             # <<<<<<<<<<<<<<
  *             business_error_cls=IntegrationAccountBusinessError,
  *             bad_json_error_cls=IntegrationAccountBadJsonError,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_IntegrationAccountHttpError); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 119, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_IntegrationAccountHttpError); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
 
-  /* "opscli/shared/integration_accounts.py":120
+  /* "opscli/shared/integration_accounts.py":127
  *             response,
  *             http_error_cls=IntegrationAccountHttpError,
  *             business_error_cls=IntegrationAccountBusinessError,             # <<<<<<<<<<<<<<
  *             bad_json_error_cls=IntegrationAccountBadJsonError,
  *         )
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBusinessError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBusinessError); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "opscli/shared/integration_accounts.py":121
+  /* "opscli/shared/integration_accounts.py":128
  *             http_error_cls=IntegrationAccountHttpError,
  *             business_error_cls=IntegrationAccountBusinessError,
  *             bad_json_error_cls=IntegrationAccountBadJsonError,             # <<<<<<<<<<<<<<
  *         )
  *         data = payload.get("data")
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4439,11 +4594,11 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_5, __pyx_v_response};
-    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_http_error_cls, __pyx_t_7, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_business_error_cls, __pyx_t_2, __pyx_t_9, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_bad_json_error_cls, __pyx_t_4, __pyx_t_9, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_http_error_cls, __pyx_t_7, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_business_error_cls, __pyx_t_2, __pyx_t_9, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_bad_json_error_cls, __pyx_t_4, __pyx_t_9, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -4451,13 +4606,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_payload = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/shared/integration_accounts.py":123
+  /* "opscli/shared/integration_accounts.py":130
  *             bad_json_error_cls=IntegrationAccountBadJsonError,
  *         )
  *         data = payload.get("data")             # <<<<<<<<<<<<<<
@@ -4471,13 +4626,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_mstate_global->__pyx_n_u_data};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 123, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/shared/integration_accounts.py":124
+  /* "opscli/shared/integration_accounts.py":131
  *         )
  *         data = payload.get("data")
  *         if not isinstance(data, dict):             # <<<<<<<<<<<<<<
@@ -4488,7 +4643,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   __pyx_t_11 = (!__pyx_t_10);
   if (unlikely(__pyx_t_11)) {
 
-    /* "opscli/shared/integration_accounts.py":125
+    /* "opscli/shared/integration_accounts.py":132
  *         data = payload.get("data")
  *         if not isinstance(data, dict):
  *             raise IntegrationAccountBadJsonError(" data ")             # <<<<<<<<<<<<<<
@@ -4496,7 +4651,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *         records: list[IntegrationAccountRecord] = []
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_3 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -4515,14 +4670,14 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 125, __pyx_L1_error)
+    __PYX_ERR(0, 132, __pyx_L1_error)
 
-    /* "opscli/shared/integration_accounts.py":124
+    /* "opscli/shared/integration_accounts.py":131
  *         )
  *         data = payload.get("data")
  *         if not isinstance(data, dict):             # <<<<<<<<<<<<<<
@@ -4531,19 +4686,19 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
   }
 
-  /* "opscli/shared/integration_accounts.py":127
+  /* "opscli/shared/integration_accounts.py":134
  *             raise IntegrationAccountBadJsonError(" data ")
  * 
  *         records: list[IntegrationAccountRecord] = []             # <<<<<<<<<<<<<<
  *         for item in data.get("accounts") or []:
  *             if not isinstance(item, dict):
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_records = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/shared/integration_accounts.py":128
+  /* "opscli/shared/integration_accounts.py":135
  * 
  *         records: list[IntegrationAccountRecord] = []
  *         for item in data.get("accounts") or []:             # <<<<<<<<<<<<<<
@@ -4557,10 +4712,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_mstate_global->__pyx_n_u_accounts};
     __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
   if (!__pyx_t_11) {
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   } else {
@@ -4569,7 +4724,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     goto __pyx_L8_bool_binop_done;
   }
-  __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_INCREF(__pyx_t_9);
   __pyx_t_1 = __pyx_t_9;
@@ -4580,9 +4735,9 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __pyx_t_12 = 0;
     __pyx_t_13 = NULL;
   } else {
-    __pyx_t_12 = -1; __pyx_t_9 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
+    __pyx_t_12 = -1; __pyx_t_9 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_13 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 128, __pyx_L1_error)
+    __pyx_t_13 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 135, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4591,7 +4746,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_9);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
           #endif
           if (__pyx_t_12 >= __pyx_temp) break;
         }
@@ -4601,7 +4756,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_9);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
           #endif
           if (__pyx_t_12 >= __pyx_temp) break;
         }
@@ -4612,13 +4767,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
         #endif
         ++__pyx_t_12;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_13(__pyx_t_9);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 128, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 135, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4628,7 +4783,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":129
+    /* "opscli/shared/integration_accounts.py":136
  *         records: list[IntegrationAccountRecord] = []
  *         for item in data.get("accounts") or []:
  *             if not isinstance(item, dict):             # <<<<<<<<<<<<<<
@@ -4639,7 +4794,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __pyx_t_10 = (!__pyx_t_11);
     if (__pyx_t_10) {
 
-      /* "opscli/shared/integration_accounts.py":130
+      /* "opscli/shared/integration_accounts.py":137
  *         for item in data.get("accounts") or []:
  *             if not isinstance(item, dict):
  *                 continue             # <<<<<<<<<<<<<<
@@ -4648,7 +4803,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
       goto __pyx_L6_continue;
 
-      /* "opscli/shared/integration_accounts.py":129
+      /* "opscli/shared/integration_accounts.py":136
  *         records: list[IntegrationAccountRecord] = []
  *         for item in data.get("accounts") or []:
  *             if not isinstance(item, dict):             # <<<<<<<<<<<<<<
@@ -4657,7 +4812,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
     }
 
-    /* "opscli/shared/integration_accounts.py":131
+    /* "opscli/shared/integration_accounts.py":138
  *             if not isinstance(item, dict):
  *                 continue
  *             name = str(item.get("name") or "").strip()             # <<<<<<<<<<<<<<
@@ -4671,10 +4826,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_name};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
     if (!__pyx_t_10) {
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     } else {
@@ -4686,7 +4841,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
     __pyx_t_4 = __pyx_mstate_global->__pyx_kp_u__2;
     __pyx_L11_bool_binop_done:;
-    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_8 = __pyx_t_2;
@@ -4697,13 +4852,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 131, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_XDECREF_SET(__pyx_v_name, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":132
+    /* "opscli/shared/integration_accounts.py":139
  *                 continue
  *             name = str(item.get("name") or "").strip()
  *             username = str(item.get("username") or "").strip()             # <<<<<<<<<<<<<<
@@ -4717,10 +4872,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_username};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 139, __pyx_L1_error)
     if (!__pyx_t_10) {
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     } else {
@@ -4732,7 +4887,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
     __pyx_t_8 = __pyx_mstate_global->__pyx_kp_u__2;
     __pyx_L13_bool_binop_done:;
-    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_2 = __pyx_t_4;
@@ -4743,13 +4898,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_XDECREF_SET(__pyx_v_username, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":133
+    /* "opscli/shared/integration_accounts.py":140
  *             name = str(item.get("name") or "").strip()
  *             username = str(item.get("username") or "").strip()
  *             password = str(item.get("password") or "").strip()             # <<<<<<<<<<<<<<
@@ -4763,10 +4918,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_password};
       __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 140, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 140, __pyx_L1_error)
     if (!__pyx_t_10) {
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     } else {
@@ -4778,7 +4933,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
     __pyx_t_2 = __pyx_mstate_global->__pyx_kp_u__2;
     __pyx_L15_bool_binop_done:;
-    __pyx_t_8 = __Pyx_PyObject_Unicode(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_Unicode(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_4 = __pyx_t_8;
@@ -4789,13 +4944,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_XDECREF_SET(__pyx_v_password, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":134
+    /* "opscli/shared/integration_accounts.py":141
  *             username = str(item.get("username") or "").strip()
  *             password = str(item.get("password") or "").strip()
  *             if not name or not username or not password:             # <<<<<<<<<<<<<<
@@ -4804,7 +4959,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
     {
       Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_name);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 134, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 141, __pyx_L1_error)
       __pyx_t_11 = (__pyx_temp != 0);
     }
 
@@ -4816,7 +4971,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     }
     {
       Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_username);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 134, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 141, __pyx_L1_error)
       __pyx_t_14 = (__pyx_temp != 0);
     }
 
@@ -4828,7 +4983,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     }
     {
       Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_password);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 134, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 141, __pyx_L1_error)
       __pyx_t_11 = (__pyx_temp != 0);
     }
 
@@ -4837,7 +4992,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __pyx_L18_bool_binop_done:;
     if (__pyx_t_10) {
 
-      /* "opscli/shared/integration_accounts.py":135
+      /* "opscli/shared/integration_accounts.py":142
  *             password = str(item.get("password") or "").strip()
  *             if not name or not username or not password:
  *                 continue             # <<<<<<<<<<<<<<
@@ -4846,7 +5001,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
       goto __pyx_L6_continue;
 
-      /* "opscli/shared/integration_accounts.py":134
+      /* "opscli/shared/integration_accounts.py":141
  *             username = str(item.get("username") or "").strip()
  *             password = str(item.get("password") or "").strip()
  *             if not name or not username or not password:             # <<<<<<<<<<<<<<
@@ -4855,7 +5010,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
     }
 
-    /* "opscli/shared/integration_accounts.py":137
+    /* "opscli/shared/integration_accounts.py":144
  *                 continue
  *             records.append(
  *                 IntegrationAccountRecord(             # <<<<<<<<<<<<<<
@@ -4863,10 +5018,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *                     username=decrypt_integration_account_value(username, self.encrypt_key),
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IntegrationAccountRecord); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 137, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IntegrationAccountRecord); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
 
-    /* "opscli/shared/integration_accounts.py":139
+    /* "opscli/shared/integration_accounts.py":146
  *                 IntegrationAccountRecord(
  *                     name=name,
  *                     username=decrypt_integration_account_value(username, self.encrypt_key),             # <<<<<<<<<<<<<<
@@ -4874,9 +5029,9 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *                 )
 */
     __pyx_t_7 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 139, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_encrypt_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 139, __pyx_L1_error)
+    __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_encrypt_key); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
     __pyx_t_3 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -4896,11 +5051,11 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
 
-    /* "opscli/shared/integration_accounts.py":140
+    /* "opscli/shared/integration_accounts.py":147
  *                     name=name,
  *                     username=decrypt_integration_account_value(username, self.encrypt_key),
  *                     password=decrypt_integration_account_value(password, self.encrypt_key),             # <<<<<<<<<<<<<<
@@ -4908,9 +5063,9 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
  *             )
 */
     __pyx_t_15 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 140, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 147, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_encrypt_key); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 140, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_encrypt_key); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 147, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
     __pyx_t_3 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -4930,7 +5085,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
       __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
       __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 140, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __pyx_t_3 = 1;
@@ -4947,32 +5102,32 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_8, NULL};
-      __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 137, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 144, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, __pyx_v_name, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 137, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_username, __pyx_t_2, __pyx_t_7, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 137, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_password, __pyx_t_5, __pyx_t_7, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 137, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, __pyx_v_name, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_username, __pyx_t_2, __pyx_t_7, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_password, __pyx_t_5, __pyx_t_7, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
       __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
 
-    /* "opscli/shared/integration_accounts.py":136
+    /* "opscli/shared/integration_accounts.py":143
  *             if not name or not username or not password:
  *                 continue
  *             records.append(             # <<<<<<<<<<<<<<
  *                 IntegrationAccountRecord(
  *                     name=name,
 */
-    __pyx_t_17 = __Pyx_PyList_Append(__pyx_v_records, __pyx_t_1); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_17 = __Pyx_PyList_Append(__pyx_v_records, __pyx_t_1); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/shared/integration_accounts.py":128
+    /* "opscli/shared/integration_accounts.py":135
  * 
  *         records: list[IntegrationAccountRecord] = []
  *         for item in data.get("accounts") or []:             # <<<<<<<<<<<<<<
@@ -4983,7 +5138,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   }
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/shared/integration_accounts.py":144
+  /* "opscli/shared/integration_accounts.py":151
  *             )
  * 
  *         default_account = str(data.get("default_account") or "").strip() or None             # <<<<<<<<<<<<<<
@@ -4997,10 +5152,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default_account};
     __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 144, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 151, __pyx_L1_error)
   if (!__pyx_t_10) {
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   } else {
@@ -5012,7 +5167,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
   __pyx_t_7 = __pyx_mstate_global->__pyx_kp_u__2;
   __pyx_L24_bool_binop_done:;
-  __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_t_7); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_t_7); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 151, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_4 = __pyx_t_5;
@@ -5023,10 +5178,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 151, __pyx_L1_error)
   if (!__pyx_t_10) {
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
@@ -5041,7 +5196,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   __pyx_v_default_account = __pyx_t_9;
   __pyx_t_9 = 0;
 
-  /* "opscli/shared/integration_accounts.py":145
+  /* "opscli/shared/integration_accounts.py":152
  * 
  *         default_account = str(data.get("default_account") or "").strip() or None
  *         return IntegrationAccountBundle(             # <<<<<<<<<<<<<<
@@ -5050,10 +5205,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBundle); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBundle); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "opscli/shared/integration_accounts.py":146
+  /* "opscli/shared/integration_accounts.py":153
  *         default_account = str(data.get("default_account") or "").strip() or None
  *         return IntegrationAccountBundle(
  *             platform=str(data.get("platform") or platform).strip() or platform,             # <<<<<<<<<<<<<<
@@ -5067,10 +5222,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_platform};
     __pyx_t_16 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 146, __pyx_L1_error)
+    if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 153, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
   }
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_16); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 153, __pyx_L1_error)
   if (!__pyx_t_10) {
     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
   } else {
@@ -5082,7 +5237,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   __Pyx_INCREF(__pyx_v_platform);
   __pyx_t_8 = __pyx_v_platform;
   __pyx_L28_bool_binop_done:;
-  __pyx_t_16 = __Pyx_PyObject_Unicode(__pyx_t_8); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_16 = __Pyx_PyObject_Unicode(__pyx_t_8); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_16);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __pyx_t_2 = __pyx_t_16;
@@ -5093,10 +5248,10 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 146, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 153, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 153, __pyx_L1_error)
   if (!__pyx_t_10) {
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   } else {
@@ -5109,14 +5264,14 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   __pyx_t_4 = __pyx_v_platform;
   __pyx_L26_bool_binop_done:;
 
-  /* "opscli/shared/integration_accounts.py":148
+  /* "opscli/shared/integration_accounts.py":155
  *             platform=str(data.get("platform") or platform).strip() or platform,
  *             default_account=default_account,
  *             accounts=tuple(records),             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_7 = PyList_AsTuple(__pyx_v_records); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_7 = PyList_AsTuple(__pyx_v_records); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_3 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5132,25 +5287,25 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_1, NULL};
-    __pyx_t_16 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 145, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_16);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_platform, __pyx_t_4, __pyx_t_16, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_default_account, __pyx_v_default_account, __pyx_t_16, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_accounts, __pyx_t_7, __pyx_t_16, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_platform, __pyx_t_4, __pyx_t_16, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_default_account, __pyx_v_default_account, __pyx_t_16, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_accounts, __pyx_t_7, __pyx_t_16, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
     __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_16);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 145, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 152, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __pyx_r = __pyx_t_9;
   __pyx_t_9 = 0;
   goto __pyx_L0;
 
-  /* "opscli/shared/integration_accounts.py":107
+  /* "opscli/shared/integration_accounts.py":114
  *         return headers, cookies
  * 
  *     def get_accounts(self, platform: str) -> IntegrationAccountBundle:             # <<<<<<<<<<<<<<
@@ -5188,7 +5343,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_24IntegrationAc
   return __pyx_r;
 }
 
-/* "opscli/shared/integration_accounts.py":152
+/* "opscli/shared/integration_accounts.py":159
  * 
  * 
  * def decrypt_integration_account_value(encrypted_b64: str, raw_key: str) -> str:             # <<<<<<<<<<<<<<
@@ -5237,39 +5392,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_encrypted_b64,&__pyx_mstate_global->__pyx_n_u_raw_key,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 152, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 159, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 159, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 152, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 159, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decrypt_integration_account_value", 0) < (0)) __PYX_ERR(0, 152, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "decrypt_integration_account_value", 0) < (0)) __PYX_ERR(0, 159, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decrypt_integration_account_value", 1, 2, 2, i); __PYX_ERR(0, 152, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("decrypt_integration_account_value", 1, 2, 2, i); __PYX_ERR(0, 159, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 152, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 159, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 152, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 159, __pyx_L3_error)
     }
     __pyx_v_encrypted_b64 = ((PyObject*)values[0]);
     __pyx_v_raw_key = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decrypt_integration_account_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 152, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decrypt_integration_account_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 159, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5280,8 +5435,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_encrypted_b64), (&PyUnicode_Type), 0, "encrypted_b64", 2))) __PYX_ERR(0, 152, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_raw_key), (&PyUnicode_Type), 0, "raw_key", 2))) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_encrypted_b64), (&PyUnicode_Type), 0, "encrypted_b64", 2))) __PYX_ERR(0, 159, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_raw_key), (&PyUnicode_Type), 0, "raw_key", 2))) __PYX_ERR(0, 159, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integration_account_value(__pyx_self, __pyx_v_encrypted_b64, __pyx_v_raw_key);
 
   /* function exit code */
@@ -5343,7 +5498,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("decrypt_integration_account_value", 0);
 
-  /* "opscli/shared/integration_accounts.py":154
+  /* "opscli/shared/integration_accounts.py":161
  * def decrypt_integration_account_value(encrypted_b64: str, raw_key: str) -> str:
  *     """"""
  *     try:             # <<<<<<<<<<<<<<
@@ -5359,7 +5514,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "opscli/shared/integration_accounts.py":155
+      /* "opscli/shared/integration_accounts.py":162
  *     """"""
  *     try:
  *         data = base64.b64decode(encrypted_b64)             # <<<<<<<<<<<<<<
@@ -5367,9 +5522,9 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
  *         raise IntegrationAccountBadJsonError(" base64") from exc
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_base64); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 155, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_base64); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 162, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_b64decode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 155, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_b64decode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 162, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_8 = 1;
@@ -5389,13 +5544,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
         __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 155, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_data = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "opscli/shared/integration_accounts.py":154
+      /* "opscli/shared/integration_accounts.py":161
  * def decrypt_integration_account_value(encrypted_b64: str, raw_key: str) -> str:
  *     """"""
  *     try:             # <<<<<<<<<<<<<<
@@ -5413,7 +5568,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/shared/integration_accounts.py":156
+    /* "opscli/shared/integration_accounts.py":163
  *     try:
  *         data = base64.b64decode(encrypted_b64)
  *     except Exception as exc:             # <<<<<<<<<<<<<<
@@ -5423,7 +5578,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("opscli.shared.integration_accounts.decrypt_integration_account_value", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_5) < 0) __PYX_ERR(0, 156, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_5) < 0) __PYX_ERR(0, 163, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_5);
@@ -5431,7 +5586,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
       __pyx_v_exc = __pyx_t_7;
       /*try:*/ {
 
-        /* "opscli/shared/integration_accounts.py":157
+        /* "opscli/shared/integration_accounts.py":164
  *         data = base64.b64decode(encrypted_b64)
  *     except Exception as exc:
  *         raise IntegrationAccountBadJsonError(" base64") from exc             # <<<<<<<<<<<<<<
@@ -5439,7 +5594,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
  *         raise IntegrationAccountBadJsonError("")
 */
         __pyx_t_10 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 157, __pyx_L14_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 164, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_11);
         __pyx_t_8 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -5458,15 +5613,15 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
           __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 157, __pyx_L14_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_6);
         }
         __Pyx_Raise(__pyx_t_6, 0, 0, __pyx_v_exc);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __PYX_ERR(0, 157, __pyx_L14_error)
+        __PYX_ERR(0, 164, __pyx_L14_error)
       }
 
-      /* "opscli/shared/integration_accounts.py":156
+      /* "opscli/shared/integration_accounts.py":163
  *     try:
  *         data = base64.b64decode(encrypted_b64)
  *     except Exception as exc:             # <<<<<<<<<<<<<<
@@ -5510,7 +5665,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/shared/integration_accounts.py":154
+    /* "opscli/shared/integration_accounts.py":161
  * def decrypt_integration_account_value(encrypted_b64: str, raw_key: str) -> str:
  *     """"""
  *     try:             # <<<<<<<<<<<<<<
@@ -5526,18 +5681,18 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_L8_try_end:;
   }
 
-  /* "opscli/shared/integration_accounts.py":158
+  /* "opscli/shared/integration_accounts.py":165
  *     except Exception as exc:
  *         raise IntegrationAccountBadJsonError(" base64") from exc
  *     if len(data) <= 16:             # <<<<<<<<<<<<<<
  *         raise IntegrationAccountBadJsonError("")
  * 
 */
-  __pyx_t_20 = PyObject_Length(__pyx_v_data); if (unlikely(__pyx_t_20 == ((Py_ssize_t)-1))) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_t_20 = PyObject_Length(__pyx_v_data); if (unlikely(__pyx_t_20 == ((Py_ssize_t)-1))) __PYX_ERR(0, 165, __pyx_L1_error)
   __pyx_t_21 = (__pyx_t_20 <= 16);
   if (unlikely(__pyx_t_21)) {
 
-    /* "opscli/shared/integration_accounts.py":159
+    /* "opscli/shared/integration_accounts.py":166
  *         raise IntegrationAccountBadJsonError(" base64") from exc
  *     if len(data) <= 16:
  *         raise IntegrationAccountBadJsonError("")             # <<<<<<<<<<<<<<
@@ -5545,7 +5700,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
  *     iv = data[:16]
 */
     __pyx_t_7 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -5564,14 +5719,14 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
       __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 159, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 166, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __Pyx_Raise(__pyx_t_5, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __PYX_ERR(0, 159, __pyx_L1_error)
+    __PYX_ERR(0, 166, __pyx_L1_error)
 
-    /* "opscli/shared/integration_accounts.py":158
+    /* "opscli/shared/integration_accounts.py":165
  *     except Exception as exc:
  *         raise IntegrationAccountBadJsonError(" base64") from exc
  *     if len(data) <= 16:             # <<<<<<<<<<<<<<
@@ -5580,31 +5735,31 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
 */
   }
 
-  /* "opscli/shared/integration_accounts.py":161
+  /* "opscli/shared/integration_accounts.py":168
  *         raise IntegrationAccountBadJsonError("")
  * 
  *     iv = data[:16]             # <<<<<<<<<<<<<<
  *     ciphertext = data[16:]
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]
 */
-  __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_data, 0, 16, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 161, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_data, 0, 16, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_iv = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "opscli/shared/integration_accounts.py":162
+  /* "opscli/shared/integration_accounts.py":169
  * 
  *     iv = data[:16]
  *     ciphertext = data[16:]             # <<<<<<<<<<<<<<
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]
  * 
 */
-  __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_data, 16, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 1, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetSlice(__pyx_v_data, 16, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 1, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 169, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_v_ciphertext = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "opscli/shared/integration_accounts.py":163
+  /* "opscli/shared/integration_accounts.py":170
  *     iv = data[:16]
  *     ciphertext = data[16:]
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]             # <<<<<<<<<<<<<<
@@ -5612,12 +5767,12 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
  *     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_hashlib); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_hashlib); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sha256); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sha256); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-  __pyx_t_11 = PyUnicode_AsUTF8String(__pyx_v_raw_key); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_11 = PyUnicode_AsUTF8String(__pyx_v_raw_key); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_8 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5637,7 +5792,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __pyx_t_4 = __pyx_t_7;
@@ -5648,16 +5803,16 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_digest, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 163, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
-  __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_t_5, 0, 32, NULL, NULL, &__pyx_mstate_global->__pyx_slice[2], 0, 1, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetSlice(__pyx_t_5, 0, 32, NULL, NULL, &__pyx_mstate_global->__pyx_slice[2], 0, 1, 1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_key = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "opscli/shared/integration_accounts.py":165
+  /* "opscli/shared/integration_accounts.py":172
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]
  * 
  *     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))             # <<<<<<<<<<<<<<
@@ -5665,12 +5820,12 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
  *     padded = decryptor.update(ciphertext) + decryptor.finalize()
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Cipher); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_Cipher); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_11 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_algorithms); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_algorithms); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_AES); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_AES); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_22);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_8 = 1;
@@ -5690,13 +5845,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_22, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 165, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
   __pyx_t_11 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_modes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_modes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_CBC); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_CBC); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_23);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_t_8 = 1;
@@ -5716,7 +5871,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_t_22 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_23, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-    if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 165, __pyx_L1_error)
+    if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_22);
   }
   __pyx_t_8 = 1;
@@ -5738,13 +5893,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 165, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 172, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __pyx_v_cipher = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "opscli/shared/integration_accounts.py":166
+  /* "opscli/shared/integration_accounts.py":173
  * 
  *     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
  *     decryptor = cipher.decryptor()             # <<<<<<<<<<<<<<
@@ -5758,13 +5913,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_decryptor, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __pyx_v_decryptor = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "opscli/shared/integration_accounts.py":167
+  /* "opscli/shared/integration_accounts.py":174
  *     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
  *     decryptor = cipher.decryptor()
  *     padded = decryptor.update(ciphertext) + decryptor.finalize()             # <<<<<<<<<<<<<<
@@ -5778,7 +5933,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_ciphertext};
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 167, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __pyx_t_22 = __pyx_v_decryptor;
@@ -5788,17 +5943,17 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     PyObject *__pyx_callargs[2] = {__pyx_t_22, NULL};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_finalize, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 167, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  __pyx_t_22 = PyNumber_Add(__pyx_t_7, __pyx_t_4); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_22 = PyNumber_Add(__pyx_t_7, __pyx_t_4); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_22);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_padded = __pyx_t_22;
   __pyx_t_22 = 0;
 
-  /* "opscli/shared/integration_accounts.py":169
+  /* "opscli/shared/integration_accounts.py":176
  *     padded = decryptor.update(ciphertext) + decryptor.finalize()
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -5814,7 +5969,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __Pyx_XGOTREF(__pyx_t_1);
     /*try:*/ {
 
-      /* "opscli/shared/integration_accounts.py":170
+      /* "opscli/shared/integration_accounts.py":177
  * 
  *     try:
  *         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()             # <<<<<<<<<<<<<<
@@ -5822,17 +5977,17 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
  *     except ValueError as exc:
 */
       __pyx_t_10 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_padding); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 170, __pyx_L21_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_padding); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 177, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_PKCS7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 170, __pyx_L21_error)
+      __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_PKCS7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 177, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_23);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_algorithms); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 170, __pyx_L21_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_algorithms); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 177, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_AES); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 170, __pyx_L21_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_AES); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 177, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_block_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 170, __pyx_L21_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_block_size); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 177, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_8 = 1;
@@ -5853,7 +6008,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
         __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 170, __pyx_L21_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 177, __pyx_L21_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __pyx_t_4 = __pyx_t_7;
@@ -5864,13 +6019,13 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
         __pyx_t_22 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_unpadder, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 170, __pyx_L21_error)
+        if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 177, __pyx_L21_error)
         __Pyx_GOTREF(__pyx_t_22);
       }
       __pyx_v_unpadder = __pyx_t_22;
       __pyx_t_22 = 0;
 
-      /* "opscli/shared/integration_accounts.py":171
+      /* "opscli/shared/integration_accounts.py":178
  *     try:
  *         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
  *         plaintext = unpadder.update(padded) + unpadder.finalize()             # <<<<<<<<<<<<<<
@@ -5884,7 +6039,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_padded};
         __pyx_t_22 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 171, __pyx_L21_error)
+        if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 178, __pyx_L21_error)
         __Pyx_GOTREF(__pyx_t_22);
       }
       __pyx_t_4 = __pyx_v_unpadder;
@@ -5894,17 +6049,17 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
         PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
         __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_finalize, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 171, __pyx_L21_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 178, __pyx_L21_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
-      __pyx_t_4 = PyNumber_Add(__pyx_t_22, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 171, __pyx_L21_error)
+      __pyx_t_4 = PyNumber_Add(__pyx_t_22, __pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 178, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_v_plaintext = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "opscli/shared/integration_accounts.py":169
+      /* "opscli/shared/integration_accounts.py":176
  *     padded = decryptor.update(ciphertext) + decryptor.finalize()
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -5926,7 +6081,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/shared/integration_accounts.py":172
+    /* "opscli/shared/integration_accounts.py":179
  *         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
  *         plaintext = unpadder.update(padded) + unpadder.finalize()
  *     except ValueError as exc:             # <<<<<<<<<<<<<<
@@ -5936,7 +6091,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_t_12 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_ValueError))));
     if (__pyx_t_12) {
       __Pyx_AddTraceback("opscli.shared.integration_accounts.decrypt_integration_account_value", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_22) < 0) __PYX_ERR(0, 172, __pyx_L23_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_22) < 0) __PYX_ERR(0, 179, __pyx_L23_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_22);
@@ -5944,14 +6099,15 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
       __pyx_v_exc = __pyx_t_7;
       /*try:*/ {
 
-        /* "opscli/shared/integration_accounts.py":173
+        /* "opscli/shared/integration_accounts.py":180
  *         plaintext = unpadder.update(padded) + unpadder.finalize()
  *     except ValueError as exc:
  *         raise IntegrationAccountBadJsonError("") from exc             # <<<<<<<<<<<<<<
  *     return plaintext.decode("utf-8")
+ * 
 */
         __pyx_t_5 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 173, __pyx_L32_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBadJsonError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 180, __pyx_L32_error)
         __Pyx_GOTREF(__pyx_t_10);
         __pyx_t_8 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -5970,15 +6126,15 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
           __pyx_t_23 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 173, __pyx_L32_error)
+          if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 180, __pyx_L32_error)
           __Pyx_GOTREF(__pyx_t_23);
         }
         __Pyx_Raise(__pyx_t_23, 0, 0, __pyx_v_exc);
         __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-        __PYX_ERR(0, 173, __pyx_L32_error)
+        __PYX_ERR(0, 180, __pyx_L32_error)
       }
 
-      /* "opscli/shared/integration_accounts.py":172
+      /* "opscli/shared/integration_accounts.py":179
  *         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
  *         plaintext = unpadder.update(padded) + unpadder.finalize()
  *     except ValueError as exc:             # <<<<<<<<<<<<<<
@@ -6024,7 +6180,7 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     }
     goto __pyx_L23_except_error;
 
-    /* "opscli/shared/integration_accounts.py":169
+    /* "opscli/shared/integration_accounts.py":176
  *     padded = decryptor.update(ciphertext) + decryptor.finalize()
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -6040,10 +6196,12 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     __pyx_L26_try_end:;
   }
 
-  /* "opscli/shared/integration_accounts.py":174
+  /* "opscli/shared/integration_accounts.py":181
  *     except ValueError as exc:
  *         raise IntegrationAccountBadJsonError("") from exc
  *     return plaintext.decode("utf-8")             # <<<<<<<<<<<<<<
+ * 
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_7 = __pyx_v_plaintext;
@@ -6053,15 +6211,15 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
     PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_utf_8};
     __pyx_t_22 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_decode, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 174, __pyx_L1_error)
+    if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_22);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_22))||((__pyx_t_22) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_22))) __PYX_ERR(0, 174, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_22))||((__pyx_t_22) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_22))) __PYX_ERR(0, 181, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_22);
   __pyx_t_22 = 0;
   goto __pyx_L0;
 
-  /* "opscli/shared/integration_accounts.py":152
+  /* "opscli/shared/integration_accounts.py":159
  * 
  * 
  * def decrypt_integration_account_value(encrypted_b64: str, raw_key: str) -> str:             # <<<<<<<<<<<<<<
@@ -6092,6 +6250,152 @@ static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_decrypt_integra
   __Pyx_XDECREF(__pyx_v_padded);
   __Pyx_XDECREF(__pyx_v_unpadder);
   __Pyx_XDECREF(__pyx_v_plaintext);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/shared/integration_accounts.py":184
+ * 
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:             # <<<<<<<<<<<<<<
+ *     return bool(headers.get("X-MCP-API-Key"))
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_6shared_20integration_accounts_3_has_mcp_api_key(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_6shared_20integration_accounts_3_has_mcp_api_key = {"_has_mcp_api_key", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_6shared_20integration_accounts_3_has_mcp_api_key, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_6shared_20integration_accounts_3_has_mcp_api_key(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_headers = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_has_mcp_api_key (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_headers,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 184, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 184, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_has_mcp_api_key", 0) < (0)) __PYX_ERR(0, 184, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_has_mcp_api_key", 1, 1, 1, i); __PYX_ERR(0, 184, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 184, __pyx_L3_error)
+    }
+    __pyx_v_headers = ((PyObject*)values[0]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_has_mcp_api_key", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 184, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.shared.integration_accounts._has_mcp_api_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_headers), (&PyDict_Type), 0, "headers", 2))) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_6shared_20integration_accounts_2_has_mcp_api_key(__pyx_self, __pyx_v_headers);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_6shared_20integration_accounts_2_has_mcp_api_key(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_headers) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_has_mcp_api_key", 0);
+
+  /* "opscli/shared/integration_accounts.py":185
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:
+ *     return bool(headers.get("X-MCP-API-Key"))             # <<<<<<<<<<<<<<
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_headers, __pyx_mstate_global->__pyx_kp_u_X_MCP_API_Key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_2))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/shared/integration_accounts.py":184
+ * 
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:             # <<<<<<<<<<<<<<
+ *     return bool(headers.get("X-MCP-API-Key"))
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("opscli.shared.integration_accounts._has_mcp_api_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -7142,8 +7446,8 @@ __Pyx_RefNannySetupContext("PyInit_integration_accounts", 0);
  *         self.ops_system_url = get_ops_system_url().rstrip("/")
  * 
  *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt
 */
   __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
@@ -7160,25 +7464,25 @@ __Pyx_RefNannySetupContext("PyInit_integration_accounts", 0);
   if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_auth, __pyx_t_8) < (0)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "opscli/shared/integration_accounts.py":107
+  /* "opscli/shared/integration_accounts.py":114
  *         return headers, cookies
  * 
  *     def get_accounts(self, platform: str) -> IntegrationAccountBundle:             # <<<<<<<<<<<<<<
  *         """"""
  *         headers, cookies = self._get_auth("ops")
 */
-  __pyx_t_8 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_platform, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBundle) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_20integration_accounts_24IntegrationAccountClient_5get_accounts, 0, __pyx_mstate_global->__pyx_n_u_IntegrationAccountClient_get_acc, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_integration_accoun, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 107, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_platform, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_IntegrationAccountBundle) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_20integration_accounts_24IntegrationAccountClient_5get_accounts, 0, __pyx_mstate_global->__pyx_n_u_IntegrationAccountClient_get_acc, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_integration_accoun, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_8);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_accounts, __pyx_t_5) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_accounts, __pyx_t_5) < (0)) __PYX_ERR(0, 114, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "opscli/shared/integration_accounts.py":75
@@ -7197,37 +7501,57 @@ __Pyx_RefNannySetupContext("PyInit_integration_accounts", 0);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/shared/integration_accounts.py":152
+  /* "opscli/shared/integration_accounts.py":159
  * 
  * 
  * def decrypt_integration_account_value(encrypted_b64: str, raw_key: str) -> str:             # <<<<<<<<<<<<<<
  *     """"""
  *     try:
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_encrypted_b64, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_raw_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_20integration_accounts_1decrypt_integration_account_value, 0, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_integration_accoun, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_encrypted_b64, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_raw_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_20integration_accounts_1decrypt_integration_account_value, 0, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_integration_accoun, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu, __pyx_t_5) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_decrypt_integration_account_valu, __pyx_t_5) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/shared/integration_accounts.py":184
+ * 
+ * 
+ * def _has_mcp_api_key(headers: dict[str, str]) -> bool:             # <<<<<<<<<<<<<<
+ *     return bool(headers.get("X-MCP-API-Key"))
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_headers, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6shared_20integration_accounts_3_has_mcp_api_key, 0, __pyx_mstate_global->__pyx_n_u_has_mcp_api_key, NULL, __pyx_mstate_global->__pyx_n_u_opscli_shared_integration_accoun, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_has_mcp_api_key, __pyx_t_2) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/shared/integration_accounts.py":1
  * """"""             # <<<<<<<<<<<<<<
  * 
  * from __future__ import annotations
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_5) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_2) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -7274,6 +7598,8 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 37, __pyx_L1_error)
 
   /* Cached unbound methods */
+  __pyx_mstate->__pyx_umethod_PyDict_Type_get.type = (PyObject*)&PyDict_Type;
+  __pyx_mstate->__pyx_umethod_PyDict_Type_get.method_name = &__pyx_mstate->__pyx_n_u_get;
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.method_name = &__pyx_mstate->__pyx_n_u_items;
   __pyx_mstate->__pyx_umethod_PyDict_Type_pop.type = (PyObject*)&PyDict_Type;
@@ -7291,36 +7617,36 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/shared/integration_accounts.py":161
+  /* "opscli/shared/integration_accounts.py":168
  *         raise IntegrationAccountBadJsonError("")
  * 
  *     iv = data[:16]             # <<<<<<<<<<<<<<
  *     ciphertext = data[16:]
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]
 */
-  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_16, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 161, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_16, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 168, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
 
-  /* "opscli/shared/integration_accounts.py":162
+  /* "opscli/shared/integration_accounts.py":169
  * 
  *     iv = data[:16]
  *     ciphertext = data[16:]             # <<<<<<<<<<<<<<
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]
  * 
 */
-  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(__pyx_mstate_global->__pyx_int_16, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(__pyx_mstate_global->__pyx_int_16, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 169, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[1]);
 
-  /* "opscli/shared/integration_accounts.py":163
+  /* "opscli/shared/integration_accounts.py":170
  *     iv = data[:16]
  *     ciphertext = data[16:]
  *     key = hashlib.sha256(raw_key.encode("utf-8")).digest()[:32]             # <<<<<<<<<<<<<<
  * 
  *     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
 */
-  __pyx_mstate_global->__pyx_slice[2] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_32, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[2])) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[2] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_32, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[2])) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[2]);
 
@@ -7339,8 +7665,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *         self.ops_system_url = get_ops_system_url().rstrip("/")
  * 
  *     def _get_auth(self, alias: str = "ops") -> tuple[dict[str, str], dict[str, str]]:             # <<<<<<<<<<<<<<
+ *         mcp_headers = get_mcp_request_headers()
  *         if self.session_id:
- *             jwt = self.jwt
 */
   __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(1, ((PyObject*)__pyx_mstate_global->__pyx_n_u_ops)); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
@@ -7394,34 +7720,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{1},{17},{7},{44},{27},{179},{21},{21},{45},{1},{0},{57},{1},{27},{27},{33},{8},{28},{40},{42},{9},{37},{10},{36},{37},{5},{3},{10},{13},{3},{6},{39},{35},{28},{34},{31},{25},{30},{30},{24},{31},{40},{24},{33},{34},{37},{23},{27},{36},{24},{4},{5},{20},{11},{36},{8},{10},{5},{15},{18},{11},{9},{18},{6},{10},{18},{13},{18},{6},{10},{18},{4},{7},{30},{38},{4},{9},{11},{6},{33},{9},{15},{6},{7},{11},{13},{3},{8},{6},{8},{3},{12},{9},{23},{18},{20},{6},{7},{7},{14},{5},{8},{3},{13},{4},{5},{2},{3},{3},{8},{7},{13},{5},{10},{15},{4},{8},{3},{14},{11},{18},{18},{24},{18},{34},{2},{6},{7},{6},{21},{8},{7},{9},{8},{16},{3},{11},{12},{7},{7},{8},{6},{6},{4},{10},{12},{10},{6},{11},{3},{5},{5},{8},{7},{8},{6},{8},{6},{232},{93},{25},{27},{373},{120}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2177 bytes) */
-const char* const cstring = "BZh91AY&SY\377.L\002\000\000\273\377\377\377\377\377\377\377\337\377\377\277\375\377\177\277\377\377\364U\377\377\377\357\323\357\374\300@@@O\340\300\000`\006\374s\235\003\225]\000-\212\027\000n\301\242H\321FM4\332\236\223zM\032\232=4\215\250\362&52=\002zL\232\032h\321\243\321\242hi\243M4\365\030\002\003e6\221\220\311\223\010i\246#\t\2042d\3656Pd\223@\2324\321\211\242m\032H\365\006\211\247\251\352~B&\230\000\207\240&\206L\200\032\031\030&\206M=4ja\036\220\3040\214\002\031\003\023&L\200j\233S\r*l\246\247\352\217\324\023\324\3101\0001\r\000\323 d\320\031\000\006F 4\000\030\232\006\020\302b4hh\323C!\246 \r\r\001)\244\004\024\315\ny\001\251\350\224\3653\324\217jh\217Sd\020\323\324\323M24\000\006@\000\310\300\t\202\007\242z\2004\000\311\240\001\221\372\232\2001\000\003@h\323F\200\323\020a\000\310\310h44\302\014\023\023A\240\006\200\000`\232\006\t\220a\032\014\206\232a2b\000h@\000\320\0324\321\2404\304\030@22\032\r\r0\203\004\304\320h\001\240\000\030&\201\202d\030F\203!\246\230L\230\200\032+\303\360\217\2707\343\375\234.A\037\252?\3220 p\364\016\202@\223Z\0230>\354\336\330\372\024`\252\001!$\201%\027\307;\205\243\001\332L\rx\2103\020.\331$\312,\356\303\261 \220\345\366\331\213\036\022\r\"\215\305\326!!,\226V\366\373\023\233!\013kX\024\024\016:8:\014\031\272\374\263\252\021\354\3070\023\210X\"B\0077Q\330\254\256\371\352\354\205u\027\177\253\342\356=\256ez_\254J\307u\345\210\260@\351\031\276\245\242\256\253-*\004iIwA\002\312\220uL),\314\322X\014\206X\337\257I;\017\n}\274\353\356G\275\210f\315*P\324pIZ\236LVx&(g\027\036\366\223V\202\203l\006\324b\233\217u^{\215\017/i\350\315\211\304\247\225\257)\324\345\230\0314d\"`\337`\342/*\260M\326\365\275U\244\330n\201-\t)Y}\022'\344oA\307\304o\256\226\023\230\270\307\253\024M\343\224#z\255\251\365\344FG\224O\277.\370\235\326\021\007x\317\023i%\330\006H\333\213/YQ5U\265\206\030nU/\"+^*\250^\241{y\037\300Ln\023\276;\325_\272Q3\371\347<\232T\367\377\037\312L'\203\246Qv\010\016\036\213G\032\225N\254\221\r\002\211\232)\260\032\201\320\323S`""[\216\027\005\363\t!/*QJ\203v\022&F;\013\275\177\005x{\250l\254\3431\030\254qq\270\n%\242V\262[\215\344\271^uy\304\3259rY\027\223\335\274\256W@g\035\257\014\300&jz\257\305p\216\023\031t\332\200\3226\216#\305\205\326\270\251\037\361'\023\230&1`0N4\307)#p\223\177Z{\264\346\200\3247\253\256\335\221X?Dbj\333\230>MB*\244h82n\232\r\177>,\355\340\271\214\320G\235\323\254\032\261\365R\245\031\036\241k\256%&\222\025\303\264\241\311\223U\246z\331B\310\337\007\262V\301\210\026\256|\035\014\240\235\243\n\275\361:\313\007(\350\300\n\017\3442G1.\322\316\266m\251W`0\010\250\277\307P\203\323\321j\303\004?\016\036\242\025\215%\0210\307\255\017q\230\224\"\302\25406\202\3257\031\275\242l\355\3138\266gC\312\353\216G#\224\311\343'\220\232e\320{\307\214?VQ \320\262\272*r\314\270$\035\031\002\3701>I\033h\330\010\311.\344Mr\350\335\354\034\035\3753\014j#yQ\362\20265\345\014h2b\203\3221\325\252A\330\202T\200\204I$\214 \342B\323\tP\326%I(\370Z\326\241\262\203F2\021\236\230\212H\017>WMo\300\327\010\316u7\366sq\320r\313\234_g\210\341dw\225\364r\262`#;\345\020\234^\372j\327\351_K4'\222\267`\355\033c\247z\020*\317\210J\004\264B\354 \362\264\210_\003=\371K\024b\302D\235\311\322\222\336\325\324E\262\266\236l6\032\334\363\214v\363\351\323\314,\335\321\205\2656s\335X\322\020\300\326`7l\346\246\365\352\324\203m\365\204_\245\364\202\232\005%\003.&gM\244\345\356[\026g\327\227\006\242\371\013^\262\254K\302\353&\036b\344\245\216\335\313\006\013\022G6\r\254[\276\366\355\006\317\032(\261\255\202\303\213:\354m\373\034F\222\351\234\020\320\244\303\352\312\346\315\370g\2432\206\356\201\242D\350\265R$UnP,\343d\346@\311\276n=\002\307\036P 9wg\204&fz8\003\273\263\241\322\241\262\253\213%\n\302\245t\241\234I1\023Id\351e\001\350\202,\302C\247O\3210\311\242\243\021\226\311\r\352kl\255\001\251,un\256\375\274\327\2636\352d\215\366\265\311\t\307\313%\275\234\210\225\305b\034\000\302\243\023\033\003\241m\220\017\242\001$\267\003\201b\024\023\302\004\023N\027\334\\J\\a\350\200\220\251o2\037t<\270k\n$\007\221'\031\350Zf""\376\361\221`\\\271w2\360\202\214`\362,k\307@\234N\317\2339\024\300cy1\034X\3343\317q\020Y\253i!\022\260\316)>yl\014H\332\345\rFJ\250\330\243\233Cf\256\021\226'gqn\306\313%1b\223\323\030\357\216z\21139,\0366\220\225\275r\272\255\223.d9BS\230\236\272\023\200\234(\273\245\271\005\032\0217LZ}A\020\240\010\021\000\326\336\034!\021\246\022H\277\n\340v<\006\365p\233\344a\304\314\334\034V\334k\222\330\243:Z\324P\007\253\246\316J6I\342\023v\002s*N\314R\302\206\304&\354d\022\025s9\\NP\030\276\352\033\366\021+\215\360gF6\"\261 \261\302\364u\347H\330\260\353\226\030\256\343\006\217Jh\353p1\270\271&\233\217I\325g\261\2066\355\201\210F\023-2[\310\023\n\326\343\331YMT\211\314w\355\254Me\321\224@*J4\254B\223\336\226\240\220\026V\036\270\353\346]l&J\001\225m\304Q7I\203\335\222$\363\245H\276\222y\272y\206`\201\226X{\035st\037\031x\201^Z\230\026T\324\326a\211\221$\022\202D#*rs\240\253\332Fk\025A \000\265\242\275mT\200\366\272\276`>3\000\314(\007-\312;\206\037\200\357\013\237U\354D\016\314\013\260\315A\310\004+\241%\375@\020`\377$\225}\2207\031\372\345NQV\207\363\245\263<>\373\341\224x\206,{\024\"\345\351\336\234\262\266\316\256\3159d\017~(V\337\326>\023\030\377+\217K\207v\023E\365\245\301\006BWH\r\2726\344BeZ\017U\332\034`\333x\021\177.\253\320\325\240\224\224h\032\\3'YGaL36t\243v\004\370c\250?Z\333@\025$!\241\223F\211\n\035G\222\036j\031\341=\226Us\2723\232\236\324\353\036_\300\344\211\306E\300#!\036@\355\200\274\305\016\005\274\324\2620\034etY#G\216\310~&\351q\035\307\214\010\331\221\035\260\303l$\001A$+\004\030\233\251\325\365\013\316\257[Ax\3422\352\326\225\226\005\221B\0028\227\030\271\251\020\315O\035E\217u\246\275\273;I\336\023z!\237@\371\260u#/\332C\360\374\237\371\003i%\255lF\213\311\nE\234^h\240Ja\024\353+\213Zi\345\316\\H\222\244xkd\251I<\004\244\247\261H\021\254\252\223\304\266N\306f\245)\004\306\031\245\204\306\002 \257\226|\"\254\207\003\372\234\355\266\337\363\374\035\221\214\343\203\364\017\242DX\203\016%n5~\236\302w\320\"\001\005\270\321\"-PM~\022i\377\213\035E\333""\264\241\256\204\004.\245\276@!\204\301s\005\022\325\331]\206\266\034`s\221\016\316M\234\223_\370\273\222)\302\204\207\371r`\020";
-    PyObject *data = __Pyx_DecompressString(cstring, 2177, 2);
+    const struct { const unsigned int length: 9; } index[] = {{1},{17},{7},{44},{27},{179},{13},{21},{21},{45},{1},{0},{57},{1},{27},{27},{33},{8},{28},{40},{42},{14},{9},{37},{10},{36},{37},{5},{3},{10},{13},{3},{6},{39},{35},{28},{34},{31},{25},{30},{30},{24},{31},{40},{24},{33},{34},{37},{23},{27},{36},{24},{4},{5},{20},{11},{36},{8},{10},{5},{15},{18},{11},{9},{18},{6},{10},{4},{18},{13},{18},{6},{10},{18},{4},{7},{30},{38},{4},{9},{11},{6},{33},{9},{15},{6},{7},{11},{13},{3},{8},{6},{8},{3},{12},{9},{23},{18},{20},{6},{16},{7},{7},{14},{5},{8},{3},{13},{4},{5},{2},{3},{3},{8},{11},{7},{13},{5},{10},{15},{4},{8},{3},{14},{11},{18},{18},{24},{18},{34},{2},{6},{7},{6},{21},{8},{7},{9},{8},{16},{3},{11},{12},{7},{7},{8},{6},{6},{4},{10},{12},{10},{6},{11},{3},{5},{5},{8},{7},{8},{6},{8},{6},{23},{232},{93},{25},{27},{373},{176}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2217 bytes) */
+const char* const cstring = "BZh91AY&SY\3231\244\013\000\000\314\177\377\377\377\377\377\377\337\377\377\277\377\377\177\277\377\377\364U\377\377\377\357\323\357\374\300@@@O\340\300\000`\007<-\0202\250P\000\n\260\006\2704)0\250z\2156\246\004\333T\365\030\230\3244\362&\320\236\211\352h\364F\233SA\24014\310\r4\365\036\241\247\251\243\322d3S\322a\001\352h\003C@\3104\006\233S e\004&\2324\324\362d\r\023\321M\250d\324\317P\323M4\2321=4&\010h`\021\202\r\030#!\351\242?Q\032\033H\310\323\000\021\246\010\r4\300\001\024\204z\236\241\240=@\362 \000\006@bh\000\000\000\000a\000\014\232h\014 \032\0004\0324\000\000\000\032\006\324\022\232@!\r&\020\320\320T\364\324y5\036\232\217S\365M\007\250\007\250\000\000\006\200\000\000\000\000\000\000\000\000\000\017S@\002\000\006\200d\3104\032d\3042\000b\000\310i\243\001\003@\3204\000\003\020d\323FM\032hd2d0\200\304\320bb\006\020\0004\003&A\240\323&!\220\003\020\006CM\030\010\032\006\201\240\000\030\203&\2322h\323C!\223!\204\006&\203\023\0201^\321\335\037Lo\267\371\373NA7\344\217\357\214\010\035\256\354\356\322a&\270&b}I\273\335\037\375Fb\250\004\204\222\004\205\027\315K\331k\275\361d\312l3@C\263\0200\337$\312,\356\303\261 \220\346\027[)\231c \342\024//\262\022d\233=\253\203|\351\315\222\235\255BD\212\332\350\271\022\245k\003'4$e\307\206\205\231Pp\215\221\004'\267\261/>\325Q\205\345n\r\324{\346\257\327\277i\241\210\321b\300j\260\222\223\223Q\030cB\252\307\324\2038\340\030\353YRBq\311RT\224I]\226ST2\031V*\375Iy\233\366\362\031\260\354\250~\211\347\000\334\\A\022\030\026\360\346_7\225\236d\331\222\007z\026\275\277\235\225Zp ]@\272\026%;^\002\352\210\026\366su\361\244\334\262ZbWq\252h'\215c\006f\367X\365I\365\205M\255\216\r\251;\001\250&\002\223\0348\315C\346o\201\351t\022\361\027\001\366\215\267=uf\016\321\362$\242\2529KfF\034\002(M\344\256\310\256^\020(kF\267\227\243l&\314\302.\247\344)\246\026)4\225\204)\250\322\274hd\364\0236\272\013\233\350w\244\303(\234M\371\304U\251e\010\316z-\346\337\203\201\211\301&y\267\206\222\333\317\034\316w=\022R\375*3\307\246\222d\237&Y\227""\233\014\263%\344\026a\236\330\274R(\02311\207\335j\252!`p\324\273\023\257\327\201\362\317\201e\233k\204*\221\321[\372\222KD\255d\312\206b/\2529RY4ND\226\0059\212n\352\244e\227F\014\270\341\220\ny5NE\240\260\211D\304[5\337/\232\347J\341R\351\337&\213\267\262\311\240L\"\250Q6\3446h5\0016\251Lm\377VK\203@\330b9W\"\231\234\361sP\325\310t\230\210\242\210P8L\033J31\226RqRf5\221\371}e\213V=\376T\243#\276\255\325\246\223I\n\371\2504\343\325\233U\246xyB\261\302\017\344.\224\357\223\021/^O\347\306\312)\205$\3558U\362\304\360\324\034\245\307\\s\034f\010\346#1\007\244\321\307\2457\357\027\214S\235\343$=\356aQ\n!\33004p,h\02382\004\351\252\340\216\201B,)\303\023`\\\246\3437\224M\251\274\001\266\332\220\362\276\363\251\324:\355\3349\324\303\\\3272\260\207h\306(\014\353\020\260\362\233\255\035\361\007>@\273\n\233F\213L\232\241\014\022\333\350..\362\357a\301\337\246\303\034a\034\n\217\241\204v7\245\014\3103\345\203\3221\344\325\252\027\233\\4\233\261z\212\267\351\265Z2<D\177,\345\014\332\256\272\345v\323\234\323\301\207G\027F\017\241\323]\335o\004g:\267Of\216\212\016\344\275\305\364t\270Z<\313\n9Y0\021\236\022\210N/\20597{\207\332\315\t\347\255\370\273F\350\355\346\204\n\263\345d\240K\\/\306\017+\210\2011B\031\217\206\320\265\220\204\006\022\220\313M1bL\005\227\300\303\255\204\272E\310\232Z\343\212\265k\262\334\273\271\356\251\263]\365\215!\014L\214\007-\274Zn\312\271 \273\216\031\004C\215?\030)\240RP72\2638\233kx\036+E\231\367e\325\3440\220\267k*\304\300/\264\303\260\272\311f\273\206\303\005\222G\212\203d.\351=\333\003\177\274E\026k\240\261\333:\366\334>7)\264\276m\325\206\265&\035\3717 o\341\216\252\263(r\353\032$N>:D\212\255\352\005\271\263\370(\031\372G\013\265\002\333\360\204\342@s\017+\236\0234\275\034\001\335\331\320\351P\330\253\233r\205aR\274Hg\022LD\342-:Z\200\364A\026a!\323\247\350\260\311\242\243\021\226\302\034\264\311\261n\207\032Y\252\335\2148V\214\031\233Rd\216\223\\\344\304\347\0144N\231;|#<h\230,K\201\351m\310\023\266\263*\3347\246\303\0235'\300\334wE\253\253%c""\251\343\254\277Po\003\306\371\031l_\035\033\014\314\027\245s`\232r\353pH\347\3439\371\340\272\035\274b\224\240\3572\340\310:\004\354\235\237N\262)\200\305\344\304sb\341\256|H\202\323[\211\010\225\215b\223\353\226\370\304\216\016q\250\311U6\375\034\340\033Eq\214\262\273;\213\2326\264\246,\262zO1\010f\247!&g%\213\306\204%we_V\317\271\241\025\311\304\335<#\222\340\270\315ivz\370\346\311\246\273\207.W\022d\010H<\276\306\356[He\024\221\2065\304\362<\247-q\233\347a\304\314\335\357hp\265\351oQ\235,\224P\007\253\246\324J6\223\304&\354\004\346T\235\262\313\032\033\320\233\261\234HU\320\345r\271@c\013\350w\253\021+\231\361gFfh\254\250,\340\230\201\241\027e\327\262\250y\327,\001\020\262\"\317<'$\"\364Upc\260al\202*KPt \306e\306{\272\202a\\\335\r\333\255\302\032k\3622\364\"q\355\251\333 \327\302va\241\030_\303\254P\005\205\2072\355\272cg\327\200\320\232\031g(\0359ES\336w\311g\367\274'\247g\253\375~\310@!\007\324:\0231.@\212er\013\253\014\300\203\267\2571\01072%\002\222\010\203m\377\227\333!_\342c\267h\024\000\010u5w\356\254\220B\266\343\322\010\246`\214\313J\005f\301-\314v@\340\300\357\330\367\024\272\266\300\235\273\024\2514*\001\013\\\3453\020\t\022?s\215=\3103\337\017\311n\212J\344\3755\320O\277\006\370c\034s\034\256'LU\210I\212tJ\272t\255dC$Q\004|P\253\2743\243D\361Ry=\035.\315=\217&\230\275p1\001\220\325\344\201\233Z\354\210<U\017\353d\224\330\225\334\327jv\250\325\353\320\320\007.h\005\007Jt\2531\217g^1\362\362e\377B\2503\364\037|\257\340\005[\2342<\273T\014\277\372Y\263z\376\250Uz\312\311\366O\216\243\324\265\247\013\0025Hz\340\246\310\310M\020>\210\021#\212Q\014:xi\205K\351\260p2)\234\017\225=t{'\255\306\024\273\3013\372\232\315\n\000R\t\025\004\0317\357\245w\222\307\302\312\370\313\n\035?\002\324\240\341A,\340&\013Hb\353~?\3073waqq?\371\344N\364\0379wX>\033+\347B\257f\343]\306H\261DR\213x\"Q\rl\021\2208n 9v\330?Q\340K\003\322$\240E\265$\363\371JQ%H\366\252F2\214\342I\335\324\366]\0025\224j\367\023\222\036n\325F\030UEM\030]\206\032.\213\256\021\002\271N\201\304Ai\234""\322\207\022\317/\372:\3434\210f\006!\242\t\262\013\314\214\302\343\307\340\\\375\006\320\020\006`d\034Z\000WU\342\213\372&\341\003\270\030(v`\014\3531X\200\201\260H\344\220c\321\220\371c\024\346\022\214J\277\363\200}\210\377\027rE8P\220\3231\244\013";
+    PyObject *data = __Pyx_DecompressString(cstring, 2217, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1948 bytes) */
-const char* const cstring = "x\332\235V\335s\023\327\025\217\203\032D\"\003\302\246nBI\326\t\2653\255\221\021\310|\265IG\266\025\333\204\021\376\"S\232\322;W\332+k\361jw\265\367\256myx\360t\230v\323\226\262m\200n>J\224\241\244;\235i\275\231\244\315B2\023?\372q\037\365\350\231\"a\236\332?\241\347\356\312\306\304v\231\351\203\356\236{\276\317\357\234{\257z\323\006+\016\310\022Q\230pY\310\252\n\351'X'\2720tj\266t&-\366\035)\216\320\261R\337|j8;>6\235.\343L\256?-^(&\207\3062\003G\316\314M\027\324\327\036~\360\313\206i\255~\376I\375\332\027\302\360\344\344\250\360\360\372{\253\213\213\377Z\370EVeD`E\314\204\201\n+\252\212 QA$\262\224#:fD\256\010\224\351R\236A@PR\204\321\314\350\341\324\311\224\200\025Q\320\311%\222gT\240F./cJ\t\025\324\202\2203$\231I\212\300*\032\241\ta\244 TTCP\010\021\005\246\n\032\350m4`E\242\010\2240N\010\335XQT\206\231\244*\010\314%e\252[\020%\035\202H3\204[\277\201eJ\022\365\2537\356{\177\335X\023\324Q\277\373Y\375\232\033nAT\267L`>\370\362\243\373\336B\3437\357\324\257\335\254\337\375\347\352_n\327\027At%T\376\206\207\037o\334\327\377\366\307\306\337\377\3214\370\363\247\253\237\337\371\367W\277]]\374\242q{\241\361\321\035`>\374\303\235\206y\023\210\306\315_%6Z6~w\247~\355\366:\276\033E\367\275\367\353\277\376xKQ\375\335\253\365{\327\037|\371n\343\326\225u\005,\212\010\000!\275X\223zg\222\275\222\302\310\224\036\340s\030\347\363\252\2410\2729\351\373\336\325\206\275\330\370\360\235\306\r\363\301\373W\204\034\246\344xjs\212\253__\257\177p\353\301W\367\352\356\357\005\0213,\324\027\357\256~\372\261\024L\032\264]\325h^\226zi\021\346M\334\030\034\255\005Oh\025\320k\316%34\231\274=\362H-\035j\215\223\274\252\213=B\"\221\270\030\352\2100Po\203a\017\217r\261Gx|\177\321`\205\303'\323\231\211G\223\317)U\227\346\003\267\003\375\003\003\222V$\372`\346\215\364\371\263\223h$;\231\031\032OO\216\234\313\242\364\300\300\271\363\331I\224\311\016\214_\030\235Dof.d\262o=Ie+q\177z\020\235\2318\227\335Rv~b$\233\231\230@\231\361\361s\343\377\207\363m\355\370\341lJ7\001\331\217\3053TU2\272\256\352[""H\rE\224\311V|*)\204\322m\3156\210\023\010I\212\304\020\332\254\0276b;\376\023\r\023h\2120\204\241\217\333j\004\n\315\301\332\254\264M\372\303\214iO\022\375\217\344\302\331\344\323;\372\346\300\304\t\204F+s\360\033\204\201DY2\007\362\3028)\301\021\014\034m>k\341\371\177x\343\353\372\275O\036\376\351V\343\263\033k\025`y\n&\226\025K@I\230\"\364\350n\343\033ZQ\362\222\232\200\350\252\301x\00384(\037 \221;\236\022!/\221\344\260\210.A\307\021\341\321AJ\303\263\234\223\325\3744\242\322<\341\227\255\210tR6\010\r\341\3155\373\211\002\007k\233u\007\371\340\344\204+\203\002!\242B\000\036\304t\234\207\200\371in\227W\325i\211\320\274^\321\230\n\210i\305J\242\210\347K\230%4]*I\374>~\2024\021\306\240\374b\341\277\340\302_'\010\r+\204\225{A[\\.h\006\313\306\232\0024\211\024\260!\257O\210(M\361\212\221\250\346\021\"J\350e\232T\232$\021\021\240H\346\362\005I\001\374\347IAW\347\211\202P\301P\300\000Fm\343\264\255\317&\377\226\362\332:\240E\202E\250\201\263\3412D\024n;RB\206.s\016S\247\301c\256\202\240\032\n\211\003\217(3EL\213\360z6-\2130\203\217\300\347\273\271\265a\204\222\221\304\333\324\234\000\t\\\363\037\225f.\3152(\005\241\022\206\306\240\022\270\307S\204\023M\364\200\004\354\302\217!\203\004(]\005\030\340\251\346l\005\227\310\332\ny?\236zx\253'x\271\033H\230D\245 M59\200\001g\360\001ir\302G \001\210\022-\230\341\307\371\274\262\3079[=\027*\325\340I#\"_\341q\327\260\216K\300\322)\001\304\371)\203\017\325\3009\341\177\023f\241\351\032\256\310*\0265\031KA6@\260\202\252\2274U\306\272D\317S\242O\3626@p\2044\035\354\364\000\216\262\201\345\260~\035\317\362\271\320\203\203N\327\374\353\360Z\351\212\316\377\333h\224\310\205f\013\221$\"h'kb\007Ts\354\240\250\243}\307)\234_#<Y`\031\032\033\032\321\021b\30102\251D\240\231\206\022\224\251\033\032\314;1 \032w\027\2143\365\237\352s\177\276tr9\271\022\371V-\272\307\234\261~j\227\253-\265\310s\346kvK-\272\333\337\335\343\244\375\303\303\313\300\333\271@\315N\363\270\325f\245\327$\316\330Jd\227\331n\216\233\345Z$n\265[c\026\256E\2365\273\255""\016\273\305\356\250\356\254\226\235]n\207\367\264\367\262\227^\211\264\232oYI\353\214-V;\253\307\235\375\216\350v\272\311Zd\257\365\214u\211Gm5/XS\366\230-;/;#\356\005\017\007i\265Y'\354\256jK\365\005'\345\\\366N-A\364vk\330\036\252&\253\303N\277St%\257\3143~\335\216?\312xd9\316y\247\254!;i\247\027\322+\321\375\326X-\332j\216qkp\301\267\273\236\255Ec\3469\373GU\352|\337M\363\315\220\225\344\237\254\335\311?\351Z\254\265\026\333c\352A=qN\226W\2421?\366\242\377\342\021\367i\267\333\213{\235~\344P5\353vr\347\343f%\320\013\274&\375H\227\337u\332\373\206\304\217\035\264\307\374\310\367\252?\001\364\242q\353\005;e\317;q\247\223W\332gGl\010\272\333\304&\203Lb\355\326Y\000&\3063^_V\242\373\374}\335\325r\220\333\001\033\264^\262\313\301\262\002-\234\265D\273\023\230\321\347\314\2249o\3079t\265\030X\034q[\334\370J\364\250\033T6l\r\362P\366\317\2346'\315\353b\326i@\276PM\327\366B\235m\3261\013[\014R+W\243\316\016\347\230S\000|b\035\026\005\347)\233\001\366g\335\035\3561\267\340m\317\346N\373\354\035 \250\200\213\224Sn\272>\001\340\356}\325i\251\265?\017\210\264\037\364\017\276\356ao~\271}y\354\361\335\177\242O\355:`\277\002y\211\325CU\354w\237\366^\361&\226\236Y\312/\267-C\273\366\370{\002\034\366[\023\000n\273=Y\215W{\234\274\373\274\327\265\264c\351\330\022\256\305\276\313\341\334o\235\347\230\370\221\357\330;\375\227z!\221\000\035\260\334g\035\202\211\r2M\326\366~\033\260\353\361\273~\350%\275\301\245V\310&\326\341w\274\n\023\034\007\320\302\304\375\003GC\372\264\1770\351\266\2730Na\013/\373?\340y\227kA\017\260\337\221p0\247\241\355\377\005\303\031\224\254";
-    PyObject *data = __Pyx_DecompressString(cstring, 1948, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2017 bytes) */
+const char* const cstring = "x\332\235V\333s\023\327\031\307A\r\"\210\213\260\301M(\311:\2418\323\3322\n2\267\226td\241\330\006*,\333dBSz\346H{d-^\355\256\366\2345\310\303\003\323a\332MZ\312\266\001\272\271\224(CIw:\323z3I\033A2\023?\372q\037\365\350\231\"a\236\332?\241\337\331\225o\261]f\372\240\335s\276\373\367\373~\347\254\372\222\006+\246d\211(L\270*dT\205\014\020\254\023]\030<~\271t:)\366\037*\016\323l\251\177:1\224\031\315N&\3138\235\033H\212\027\212\361\301l:u\350\364\225\311\202z\362\311\207\277j\232\326\302\027\2376n~)\014\215\217\217\010On\275\27703\363\257k\277\314\250\214\010\254\210\231\220\252\260\242\252\010\022\025D\"K9\242cF\344\212@\231.\345\031$\004#E\030I\217\364&\216%\004\254\210\202N.\221<\243\0025ry\031SJ\250\240\026\204\234!\311LR\004V\321\010\215\t\303\005\241\242\032\202B\210(0U\320\300n\245\003+\022E\240\204\361\205\320\215\025Ee\230I\252\202\300]R&\272\005Q\322!\2114E\270\367\033X\246$\366V\357OS#\275\311\221\341\3363\244\322\270q\373Q\355\257+\033\204\246\032\017>o\334t\203-\250\032\226\t\302\307_}\374\250v\255\371\233w\0327\3574\036\374s\341/\367\0323\240\272\036\030\177+\302OV\356\033\177\373c\363\357\377h9\374\371\263\205/\356\377\373\353\337.\314|\331\274w\255\371\361}\020>\371\303\375\246y\007\026\315;\277\216\255\364l\376\356~\343\346\275%\260W\252\036\325>h\274\373\311\272\252\306{7\032\017o=\376\352\275\346\335\353K\006X\024\021\240C\372\260&\365M\305\373$\205\221\t\335\007\253\027\347\363\252\2410\272\266\350G\265\033M{\246\371\321;\315\333\346\343\017\256\0139L\311\221\304\332\022\027\276\271\325\370\360\356\343\257\0376\334\337\013\"fXh\314<X\370\354\023\021f\3776P\240\207\363\340\242\344\223\020V\252F\363\262\324G\213@Eqe)h\261\224\230V\001\273\026e\231\241\311\344\355\341e\263d`5J\362\252.\366\010\261X\354b`\263:_\217\260z\177\321`\205\336c\311\364\330\362\241\340+U\227\246\375\260\251\201TJ\322\212D?\225~#y\376\3548\032\316\214\247\007G\223\343\303\3472(\231J\235;\237\031G\351Lj\364\302\3108:\223\276\220\316\274\3714\223\365\324\003\311S\350\364\330""\271\314\272\272\363c\303\231\364\330\030J\217\216\236\033\375?\202o\350\307\317mK\273\006\310\001,\236\246\252\222\326uU_Gk(\242L\326\223SI!\224n\350\266B\035CHR$\206\320Z\273`\020\033\311\237\352\030C\023\204!\014s\334\320\3027h\021k\255\321\006\345\0171\246=M\365?\212\013\270\311\331;r&5v\024\241\221\312\025\370\235\002B\242\014\271\002\372\302()\301\201\364\003\255=y\301m\360\344\3667\215\207\237>\371\323\335\346\347\267\027;\300\362\0040\226\025K\260\2220Eh\371\332\343\033ZQ\362\222\032\203\354\252\301\370\00084(\357#\221;\222\020\241.\221\344\260\210.\301\304\021\341\331AK\203\223\235\223\325\374$\242\3224\311\251\252\314\357b\021\351\244l\020\032@\234k\315\024\371A\0267KA\362\376\351\t\236\014\232\204\254\n\001\210\020\323q\036\222\346'\271_^U'%B\363zEc*\240\246\025+\261\"\236.a\026\323t\251$\361\353\372)\332X\220\203\362\253\206\377\374\357\301\322\202\320\240Kx\362(h\235\013\006Ma\331X4\200A\221\0026\344%\226\210\322\004\357\030\211j\036!\242\004Q&I\245\265$\"\002$\311\225|AR`\006\323\244\240\253\323DA\250`(\340\000t[\311\270%~\362w)\257-\001Z$X\204\036\270\030.DD\341\306#%d\3502\2270u\022\"\346*\010\272\241P8\310\2102\205\2120p\036\003nq^\020l\213\360\261mE*\002/\227\207\301wW\026\t\n\020 \211\217\255\305\n\tR\361\037\225\246.]f\020\t\241\022\206A\371\301[\341J\220\031O\020\220\221\026\260\260\004X\203\227!\203\006V\272\n\010\301G\236\213\025\\\"\213OhiuW\301\245\037\343H\254X\002Q\225\2024\321\222@v.\340\334iI\202oD\014\300&\232O\361\325r\336\344j\311z_\023\225j\360\375#\"\177\302\337\002\r\353\270\004\"\235\022\030\006?\204\360\242\032\004'\374\017\306e\340\203\206+\262\212EM\306\222_\r,XA\325K\232*c]\242\347)\321\307\371\204 9B\232\016~\272\017G\331\300r\320\277\216/\363\t\351\376=@\027\343\353\3601\323\025\235\377+\322(\221\013\255\351\"ID0i\326\302\016V-FBS\257\365\037\241p\274\215\340\320\201g\340lhDG\210\371<eR\211\300\\\r\305oS748\n\304\200l<\234\317t\352mz\321{1\356F\353\241mf\302,[[,f\307\355\244\267\251\337\375\305\354\261\271\370|\350;\365\360N""s\312\372\231]\256\266q\253\223v[=\274\303\333\321\343$\275\336\2419\220m\271F\315.\363\210\325n%\0275Nv>\264\325\3540G\315r=\024\265:\254\254\205\353\241\347\314n\253\323n\263;\253[\252eg\253\333Y{\246\366r-9\037\332n\276i\305\255\323\266X\355\252\036q\3668\242\333\345\306\353\241]\326\263\326%\236u\273y\301\232\260\263\266\354\274\354\014\273\027j\330/\253\335:j\037\254\266U_p\022\316\325\332\361Y\310\336a\r\331\203\325xu\310\031p\212\256T+\363\212_\267\243\313\025\017\317\371\275\036\267\006y\237\327\222\363\341=V\266\036\336nf\2717\204\340\333\255\317\325\303\021\363\234\375\343*u~\340&\371f\320\212\363W\306\356\342\257d=\262\275\036\331i\352~?Q\276,\317\207#^\004\320<\344>\343v\327\242\265./t\240\232q\273x\360Q\263\342\333\371Q\343^\350\240w\360D\355[\032/\262\337\316z\241\357W\337\002\364\302Q\353\005;aO;Q\247\213w\332o\207lH\272\303\304&\203J\"\035\326Y\000&\302+^z\314\207w{\273\273\253e\277\266}6X\275d\227\375\307<\214\360\262%\332] \014\363AO\333Q\016]=\002\036\207\33467:\037~\315\365;\033\262N\361T\366\317\235v'\311\373b\326\t@\276PM\326wA\237\355\326a\013\003G\022@\207\260\263\3319\354\024\000\237H\247E!x\302f\200\375Yw\263{\330-\3246\026\363\240\375\366fPT D\302)\267B\037\005pw\275\352\264\325;\236\007D:\366{\373_\257\341\332\364\\\307\\v\365\356?\341M[\367\331\257@]b\365@\025{\335'j\257\324\306f\237\235\315\317\265\317\301\270vz;}\034\366Xc\000n\207=^\215V{\234\274\373|\355\340\354\346\331\303\263\270\036\371\036\207s\217u\236c\342\205\276ko\361^\352\203B\302{\275\275\275N6@\t\"\354\266\016\000s\375\212\343\365]{\001\303\036\357\340\217j\361\332\251\331\355PU\244\323\353|\025\230\034\005\360\202\0068\354\355\326\to\177\334\355p\227\343,\331\035p\361*\313\343PGx\233\267m\037\247#\027\234\204\261\264\246\177\325\373!o\271\\\367\307\207-\177\001t\371/'\354\307\223";
+    PyObject *data = __Pyx_DecompressString(cstring, 2017, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3381 bytes) */
-const char* const bytes = "/AuthClient | NoneBearer G9wmJAd50hIsQm5z4HNRQkAqaEbBAdYh1GQEC0Jxkfo=\351\233\206\346\210\220\350\264\246\345\217\267 HTTP \351\224\231\350\257\257\343\200\202Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.\345\215\225\344\270\252\351\233\206\346\210\220\350\264\246\345\217\267\343\200\202\345\271\263\345\217\260\350\264\246\345\217\267\351\233\206\345\220\210\343\200\202\347\273\237\344\270\200\346\213\211\345\217\226\345\271\266\350\247\243\345\257\206\345\220\204\345\271\263\345\217\260\351\233\206\346\210\220\350\264\246\345\217\267\343\200\202?\351\233\206\346\210\220\350\264\246\345\217\267\345\255\227\346\256\265\350\247\243\345\257\206\345\244\261\350\264\245\357\274\214\350\257\267\346\243\200\346\237\245\345\257\206\351\222\245\346\210\226\345\257\206\346\226\207.\351\233\206\346\210\220\350\264\246\345\217\267\346\216\245\345\217\243\351\224\231\350\257\257\343\200\202\351\233\206\346\210\220\350\264\246\345\217\267\344\270\232\345\212\241\351\224\231\350\257\257\343\200\202\351\233\206\346\210\220\350\264\246\345\217\267\345\223\215\345\272\224\347\273\223\346\236\204\351\224\231\350\257\257\343\200\202add_note/api/v1/integration-accounts\351\233\206\346\210\220\350\264\246\345\217\267\345\255\227\346\256\265\344\270\215\346\230\257\346\234\211\346\225\210\347\232\204 base64\351\233\206\346\210\220\350\264\246\345\217\267\346\216\245\345\217\243\350\277\224\345\233\236\347\274\272\345\260\221 data \345\257\271\350\261\241int | stropscli/shared/integration_accounts.pystr | Nonetuple[IntegrationAccountRecord, ...]tuple[dict[str, str], dict[str, str]]utf-8AESAuthClientAuthorizationCBCCipherDEFAULT_INTEGRATION_ACCOUNT_ENCRYPT_KEYENV_INTEGRATION_ACCOUNT_ENCRYPT_KEYINTEGRATION_ACCOUNT_BAD_JSONINTEGRATION_ACCOUNT_BUSINESS_ERRORINTEGRATION_ACCOUNT_ENCRYPT_KEYINTEGRATION_ACCOUNT_ERRORINTEGRATION_ACCOUNT_HTTP_ERRORIntegrationAccountBa""dJsonErrorIntegrationAccountBundleIntegrationAccountBusinessErrorIntegrationAccountBusinessError.__init__IntegrationAccountClientIntegrationAccountClient.__init__IntegrationAccountClient._get_authIntegrationAccountClient.get_accountsIntegrationAccountErrorIntegrationAccountHttpErrorIntegrationAccountHttpError.__init__IntegrationAccountRecordNonePKCS7__Pyx_PyDict_NextRefRemoteError\351\233\206\346\210\220\350\264\246\345\217\267\345\255\227\346\256\265\345\257\206\346\226\207\351\225\277\345\272\246\351\235\236\346\263\225accountsalgorithmsalias__annotations__asyncio.coroutinesauth_clientb64decodebad_json_error_clsbase64block_sizebuild_request_authbusiness_codebusiness_error_clscipherciphertextcline_in_tracebackcodecookiescryptography.hazmat.primitivescryptography.hazmat.primitives.ciphersdatadataclassdataclassesdecodedecrypt_integration_account_valuedecryptordefault_accountdigest__doc__encrypt_keyencrypted_b64excfinalizefrozen__func__getget_accounts_get_authget_mcp_request_headersget_ops_system_urlget_token_by_sessiongetenvhashlibheadershttp_error_clshttpx__init__int_is_coroutineitemitemsivjwtkey__main__message__metaclass__modes__module____mro_entries__name__name__opsops_system_urlopscli.authopscli.auth.configopscli.mcp.contextopscli.shared.exceptionsopscli.shared.httpopscli.shared.integration_accountsospaddedpaddingparamsparse_remote_responsepasswordpayloadplaintextplatformpolarisUserTokenpop__prepare____qualname__raw_keyrecordsresponsereturnrstripselfsession_id__set_name__setdefaultsha256status_codestrstripsuper__test__timeoutunpadderupdateusernamevalues\320\0005\260^\3008\3101\340\004\005\330\010\017\210v\220Z\230q\240\001\330\004\013\210=\230\001\330\010\016\320\016,\250A\320-H\310\001\330\004\007\200s\210!\2106\220\023\220A\330\010\016\320\016,\250A\250Q\340\004\t\210\024\210R\210q\330\004\021\220\024\220Q\220a\330\004\n\210'\220\027\230\001\230\027\240\007\240q\250\t\260\027\270\002\270\"\270A\340\004\r\210V\2201\220J\230d\240!\2406\250\025\250d\260!\2601\330""\004\020\220\006\220j\240\001\330\004\r\210Y\220g\230Q\230l\250\"\250I\260Y\270a\340\004\005\330\010\023\2207\230&\240\001\240\032\2504\250|\2709\300A\330\010\024\220H\230G\2401\240H\250B\250h\260i\270q\330\004\013\210>\230\021\330\010\016\320\016,\250A\320-I\310\021\330\004\013\2109\220G\2301\230A\200A\340\010\025\220Q\330\010\r\210Q\330\010\024\220A\330\010\025\220Q\330\t\n\330\010\014\210O\230<\240s\250*\260A\330\010\014\210G\2201\330\010\014\210N\230!\330\010\014\210A\330\014\r\330\014\017\210r\220\027\230\001\230\021\330\014\017\210q\340\010\014\320\014\036\320\0360\260\002\260'\270\021\270!\320\004$\240N\260!\330\010\r\210R\210y\230\001\230\021\330\010\014\210O\2301\320\004&\320&:\270!\330\010\r\210R\210y\230\001\230\021\330\010\014\320\014\035\230Q\320\004%\240X\250Q\340\010\021\220\032\2304\230z\250\021\250!\330\010\023\2205\230\004\230A\330\014\016\210a\210t\2201\330\014\024\220L\240\001\330\014\024\220A\330\014\024\220A\330\014\024\220A\340\010\022\320\022'\240q\330\014\r\330\014\033\2301\330\014\037\230q\330\014\037\230q\340\010\017\210w\220d\230!\2301\330\010\013\2104\210z\230\021\230&\240\001\330\014\022\320\0220\260\001\260\021\340\0102\260!\330\010\014\210H\220D\230\004\230A\230\\\250\023\250A\330\014\017\210t\220:\230Q\230f\240A\330\020\021\330\014\023\2203\220a\220t\2304\230q\240\010\250\003\2503\250f\260A\330\014\027\220s\230!\2304\230t\2401\240L\260\003\2603\260f\270A\330\014\027\220s\230!\2304\230t\2401\240L\260\003\2603\260f\270A\330\014\017\210t\2205\230\003\2304\230y\250\003\2504\250q\330\020\021\330\014\023\2207\230!\330\020(\250\001\330\024\031\230\021\330\024\035\320\035>\270a\270z\310\024\310Q\330\024\035\320\035>\270a\270z\310\024\310Q\360\010\000\t\033\230#\230Q\230d\240$\240a\320':\270#\270S\300\006\300c\310\023\310A\330\010\017\320\017'\240q\330\014\025\220S\230\001\230\024\230T\240\021\240,\250c\260\031\270&\300\003\3003\300a\330\014\034\230A\330\014\025\220U\230!\2301\320\004\030\230\007\320\037/\250q\330\010\013\2104\210q\330\014""\022\220$\220a\330\014\017\210t\2201\330\020\026\220d\230,\320&;\2701\270D\300\r\310Q\330\014\027\320\027(\250\t\260\021\260!\330\014\023\2207\230!\320\0332\260!\330\014\023\220:\320\0351\260\024\260Q\330\010\021\220\032\2304\230|\320+>\270a\270q\330\010\017\210w\220a\320\027.\250a\330\010\017\210y\230\001";
+    #else /* compression: none (3518 bytes) */
+const char* const bytes = "/AuthClient | NoneBearer G9wmJAd50hIsQm5z4HNRQkAqaEbBAdYh1GQEC0Jxkfo=\351\233\206\346\210\220\350\264\246\345\217\267 HTTP \351\224\231\350\257\257\343\200\202Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.X-MCP-API-Key\345\215\225\344\270\252\351\233\206\346\210\220\350\264\246\345\217\267\343\200\202\345\271\263\345\217\260\350\264\246\345\217\267\351\233\206\345\220\210\343\200\202\347\273\237\344\270\200\346\213\211\345\217\226\345\271\266\350\247\243\345\257\206\345\220\204\345\271\263\345\217\260\351\233\206\346\210\220\350\264\246\345\217\267\343\200\202?\351\233\206\346\210\220\350\264\246\345\217\267\345\255\227\346\256\265\350\247\243\345\257\206\345\244\261\350\264\245\357\274\214\350\257\267\346\243\200\346\237\245\345\257\206\351\222\245\346\210\226\345\257\206\346\226\207.\351\233\206\346\210\220\350\264\246\345\217\267\346\216\245\345\217\243\351\224\231\350\257\257\343\200\202\351\233\206\346\210\220\350\264\246\345\217\267\344\270\232\345\212\241\351\224\231\350\257\257\343\200\202\351\233\206\346\210\220\350\264\246\345\217\267\345\223\215\345\272\224\347\273\223\346\236\204\351\224\231\350\257\257\343\200\202add_note/api/v1/integration-accounts\351\233\206\346\210\220\350\264\246\345\217\267\345\255\227\346\256\265\344\270\215\346\230\257\346\234\211\346\225\210\347\232\204 base64\351\233\206\346\210\220\350\264\246\345\217\267\346\216\245\345\217\243\350\277\224\345\233\236\347\274\272\345\260\221 data \345\257\271\350\261\241dict[str, str]int | stropscli/shared/integration_accounts.pystr | Nonetuple[IntegrationAccountRecord, ...]tuple[dict[str, str], dict[str, str]]utf-8AESAuthClientAuthorizationCBCCipherDEFAULT_INTEGRATION_ACCOUNT_ENCRYPT_KEYENV_INTEGRATION_ACCOUNT_ENCRYPT_KEYINTEGRATION_ACCOUNT_BAD_JSONINTEGRATION_ACCOUNT_BUSINESS_ERRORINTEGRATION_ACCOUNT_ENCRYPT_KEYINTEGRATION_ACCOUNT_ERRORINTEGRATION_ACCOUNT_HTT""P_ERRORIntegrationAccountBadJsonErrorIntegrationAccountBundleIntegrationAccountBusinessErrorIntegrationAccountBusinessError.__init__IntegrationAccountClientIntegrationAccountClient.__init__IntegrationAccountClient._get_authIntegrationAccountClient.get_accountsIntegrationAccountErrorIntegrationAccountHttpErrorIntegrationAccountHttpError.__init__IntegrationAccountRecordNonePKCS7__Pyx_PyDict_NextRefRemoteError\351\233\206\346\210\220\350\264\246\345\217\267\345\255\227\346\256\265\345\257\206\346\226\207\351\225\277\345\272\246\351\235\236\346\263\225accountsalgorithmsalias__annotations__asyncio.coroutinesauth_clientb64decodebad_json_error_clsbase64block_sizeboolbuild_request_authbusiness_codebusiness_error_clscipherciphertextcline_in_tracebackcodecookiescryptography.hazmat.primitivescryptography.hazmat.primitives.ciphersdatadataclassdataclassesdecodedecrypt_integration_account_valuedecryptordefault_accountdigest__doc__encrypt_keyencrypted_b64excfinalizefrozen__func__getget_accounts_get_authget_mcp_request_headersget_ops_system_urlget_token_by_sessiongetenv_has_mcp_api_keyhashlibheadershttp_error_clshttpx__init__int_is_coroutineitemitemsivjwtkey__main__mcp_headersmessage__metaclass__modes__module____mro_entries__name__name__opsops_system_urlopscli.authopscli.auth.configopscli.mcp.contextopscli.shared.exceptionsopscli.shared.httpopscli.shared.integration_accountsospaddedpaddingparamsparse_remote_responsepasswordpayloadplaintextplatformpolarisUserTokenpop__prepare____qualname__raw_keyrecordsresponsereturnrstripselfsession_id__set_name__setdefaultsha256status_codestrstripsuper__test__timeoutunpadderupdateusernamevalues\320\000\036\320\0361\260\021\330\004\013\2104\210q\220\007\220t\2301\230A\320\0005\260^\3008\3101\340\004\005\330\010\017\210v\220Z\230q\240\001\330\004\013\210=\230\001\330\010\016\320\016,\250A\320-H\310\001\330\004\007\200s\210!\2106\220\023\220A\330\010\016\320\016,\250A\250Q\340\004\t\210\024\210R\210q\330\004\021\220\024\220Q\220a\330\004\n\210'\220""\027\230\001\230\027\240\007\240q\250\t\260\027\270\002\270\"\270A\340\004\r\210V\2201\220J\230d\240!\2406\250\025\250d\260!\2601\330\004\020\220\006\220j\240\001\330\004\r\210Y\220g\230Q\230l\250\"\250I\260Y\270a\340\004\005\330\010\023\2207\230&\240\001\240\032\2504\250|\2709\300A\330\010\024\220H\230G\2401\240H\250B\250h\260i\270q\330\004\013\210>\230\021\330\010\016\320\016,\250A\320-I\310\021\330\004\013\2109\220G\2301\230A\200A\340\010\025\220Q\330\010\r\210Q\330\010\024\220A\330\010\025\220Q\330\t\n\330\010\014\210O\230<\240s\250*\260A\330\010\014\210G\2201\330\010\014\210N\230!\330\010\014\210A\330\014\r\330\014\017\210r\220\027\230\001\230\021\330\014\017\210q\340\010\014\320\014\036\320\0360\260\002\260'\270\021\270!\320\004$\240N\260!\330\010\r\210R\210y\230\001\230\021\330\010\014\210O\2301\320\004&\320&:\270!\330\010\r\210R\210y\230\001\230\021\330\010\014\320\014\035\230Q\320\004%\240X\250Q\340\010\021\220\032\2304\230z\250\021\250!\330\010\023\2205\230\004\230A\330\014\016\210a\210t\2201\330\014\024\220L\240\001\330\014\024\220A\330\014\024\220A\330\014\024\220A\340\010\022\320\022'\240q\330\014\r\330\014\033\2301\330\014\037\230q\330\014\037\230q\340\010\017\210w\220d\230!\2301\330\010\013\2104\210z\230\021\230&\240\001\330\014\022\320\0220\260\001\260\021\340\0102\260!\330\010\014\210H\220D\230\004\230A\230\\\250\023\250A\330\014\017\210t\220:\230Q\230f\240A\330\020\021\330\014\023\2203\220a\220t\2304\230q\240\010\250\003\2503\250f\260A\330\014\027\220s\230!\2304\230t\2401\240L\260\003\2603\260f\270A\330\014\027\220s\230!\2304\230t\2401\240L\260\003\2603\260f\270A\330\014\017\210t\2205\230\003\2304\230y\250\003\2504\250q\330\020\021\330\014\023\2207\230!\330\020(\250\001\330\024\031\230\021\330\024\035\320\035>\270a\270z\310\024\310Q\330\024\035\320\035>\270a\270z\310\024\310Q\360\010\000\t\033\230#\230Q\230d\240$\240a\320':\270#\270S\300\006\300c\310\023\310A\330\010\017\320\017'\240q\330\014\025\220S\230\001\230\024\230T\240\021\240,\250c\260\031""\270&\300\003\3003\300a\330\014\034\230A\330\014\025\220U\230!\2301\320\004\030\230\007\320\037/\250q\330\010\026\320\026-\250Q\330\010\013\2104\210q\330\014\022\220$\220a\330\014\017\210t\2201\330\020\026\220d\230,\320&;\2701\270D\300\r\310Q\330\014\027\320\027(\250\t\260\021\260!\330\014\023\2207\230!\2301\330\014\023\220:\320\0351\260\024\260Q\330\010\013\2104\210q\330\014\027\320\027(\250\t\260\021\260$\260a\330\014\023\2207\230!\2301\330\014\023\2209\230A\330\010\013\320\013\033\2301\230A\330\014\023\220=\240\001\330\010\021\220\032\2304\230|\320+>\270a\270q\330\010\017\210w\220a\220q\330\010\017\210y\230\001";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 158; i++) {
+    for (int i = 0; i < 163; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 26) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 28) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -7429,7 +7755,7 @@ const char* const bytes = "/AuthClient | NoneBearer G9wmJAd50hIsQm5z4HNRQkAqaEbB
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 158; i < 164; i++) {
+    for (int i = 163; i < 170; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -7440,15 +7766,15 @@ const char* const bytes = "/AuthClient | NoneBearer G9wmJAd50hIsQm5z4HNRQkAqaEbB
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 164; i++) {
+    for (Py_ssize_t i = 0; i < 170; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 158;
-      for (Py_ssize_t i=0; i<6; ++i) {
+      PyObject **table = stringtab + 163;
+      for (Py_ssize_t i=0; i<7; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -7535,19 +7861,24 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_integration_accoun_2, __pyx_mstate->__pyx_n_u_init, __pyx_mstate->__pyx_kp_b_iso88591_A_Q_Q_A_Q_O_s_A_G1_N_A_r_q_0, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 95};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_jwt, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_cookies};
-    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_integration_accoun_2, __pyx_mstate->__pyx_n_u_get_auth, __pyx_mstate->__pyx_kp_b_iso88591_q_4q_a_t1_d_1D_Q_7_2_1_Q_4_aq_w, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 95};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_alias, __pyx_mstate->__pyx_n_u_mcp_headers, __pyx_mstate->__pyx_n_u_jwt, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_cookies};
+    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_integration_accoun_2, __pyx_mstate->__pyx_n_u_get_auth, __pyx_mstate->__pyx_kp_b_iso88591_q_Q_4q_a_t1_d_1D_Q_7_1_1_Q_4q_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 13, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 107};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 13, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 114};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_platform, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_cookies, __pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_records, __pyx_mstate->__pyx_n_u_item, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_username, __pyx_mstate->__pyx_n_u_password, __pyx_mstate->__pyx_n_u_default_account};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_integration_accoun_2, __pyx_mstate->__pyx_n_u_get_accounts, __pyx_mstate->__pyx_kp_b_iso88591_XQ_4z_5_A_at1_L_A_A_A_q_1_q_q_w, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 152};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 159};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_encrypted_b64, __pyx_mstate->__pyx_n_u_raw_key, __pyx_mstate->__pyx_n_u_data, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_iv, __pyx_mstate->__pyx_n_u_ciphertext, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_cipher, __pyx_mstate->__pyx_n_u_decryptor, __pyx_mstate->__pyx_n_u_padded, __pyx_mstate->__pyx_n_u_unpadder, __pyx_mstate->__pyx_n_u_plaintext};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_integration_accoun_2, __pyx_mstate->__pyx_n_u_decrypt_integration_account_valu, __pyx_mstate->__pyx_kp_b_iso88591_5_81_vZq_A_H_s_6_A_AQ_Rq_Qa_q_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 184};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_headers};
+    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_shared_integration_accoun_2, __pyx_mstate->__pyx_n_u_has_mcp_api_key, __pyx_mstate->__pyx_kp_b_iso88591_1_4q_t1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -9535,6 +9866,95 @@ __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
     return 0;
 }
 
+/* PyObjectCall2Args (used by CallUnboundCMethod1) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
+    PyObject *args[3] = {NULL, arg1, arg2};
+    return __Pyx_PyObject_FastCall(function, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
+}
+
+/* CallUnboundCMethod1 */
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg) {
+    int was_initialized =  __Pyx_CachedCFunction_GetAndSetInitializing(cfunc);
+    if (likely(was_initialized == 2 && cfunc->func)) {
+        int flag = cfunc->flag;
+        if (flag == METH_O) {
+            return __Pyx_CallCFunction(cfunc, self, arg);
+        } else if (flag == METH_FASTCALL) {
+            return __Pyx_CallCFunctionFast(cfunc, self, &arg, 1);
+        } else if (flag == (METH_FASTCALL | METH_KEYWORDS)) {
+            return __Pyx_CallCFunctionFastWithKeywords(cfunc, self, &arg, 1, NULL);
+        }
+    }
+#if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
+    else if (unlikely(was_initialized == 1)) {
+        __Pyx_CachedCFunction tmp_cfunc = {
+#ifndef __cplusplus
+            0
+#endif
+        };
+        tmp_cfunc.type = cfunc->type;
+        tmp_cfunc.method_name = cfunc->method_name;
+        return __Pyx__CallUnboundCMethod1(&tmp_cfunc, self, arg);
+    }
+#endif
+    PyObject* result = __Pyx__CallUnboundCMethod1(cfunc, self, arg);
+    __Pyx_CachedCFunction_SetFinishedInitializing(cfunc);
+    return result;
+}
+#endif
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg){
+    PyObject *result = NULL;
+    if (unlikely(!cfunc->func && !cfunc->method) && unlikely(__Pyx_TryUnpackUnboundCMethod(cfunc) < 0)) return NULL;
+#if CYTHON_COMPILING_IN_CPYTHON
+    if (cfunc->func && (cfunc->flag & METH_VARARGS)) {
+        PyObject *args = PyTuple_New(1);
+        if (unlikely(!args)) return NULL;
+        Py_INCREF(arg);
+        PyTuple_SET_ITEM(args, 0, arg);
+        if (cfunc->flag & METH_KEYWORDS)
+            result = __Pyx_CallCFunctionWithKeywords(cfunc, self, args, NULL);
+        else
+            result = __Pyx_CallCFunction(cfunc, self, args);
+        Py_DECREF(args);
+    } else
+#endif
+    {
+        result = __Pyx_PyObject_Call2Args(cfunc->method, self, arg);
+    }
+    return result;
+}
+
+/* dict_getitem_default */
+static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value) {
+    PyObject* value;
+#if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07020000
+    value = PyDict_GetItemWithError(d, key);
+    if (unlikely(!value)) {
+        if (unlikely(PyErr_Occurred()))
+            return NULL;
+        value = default_value;
+    }
+    Py_INCREF(value);
+    if ((1));
+#else
+    if (PyBytes_CheckExact(key) || PyUnicode_CheckExact(key) || PyLong_CheckExact(key)) {
+        value = PyDict_GetItem(d, key);
+        if (unlikely(!value)) {
+            value = default_value;
+        }
+        Py_INCREF(value);
+    }
+#endif
+    else {
+        if (default_value == Py_None)
+            value = __Pyx_CallUnboundCMethod1(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key);
+        else
+            value = __Pyx_CallUnboundCMethod2(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key, default_value);
+    }
+    return value;
+}
+
 /* HasAttr (used by ImportImpl) */
 #if __PYX_LIMITED_VERSION_HEX < 0x030d0000
 static CYTHON_INLINE int __Pyx_HasAttr(PyObject *o, PyObject *n) {
@@ -9855,12 +10275,6 @@ static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bas
     }
     Py_INCREF((PyObject*) metaclass);
     return (PyObject*) metaclass;
-}
-
-/* PyObjectCall2Args (used by Py3ClassCreate) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
-    PyObject *args[3] = {NULL, arg1, arg2};
-    return __Pyx_PyObject_FastCall(function, args+1, 2 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
 }
 
 /* PyObjectLookupSpecial (used by Py3ClassCreate) */

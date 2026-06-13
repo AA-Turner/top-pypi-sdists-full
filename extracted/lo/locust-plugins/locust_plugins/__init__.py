@@ -11,6 +11,7 @@ from functools import wraps
 import gevent
 import traceback
 import sys
+import types
 
 
 @events.init_command_line_parser.add_listener
@@ -165,19 +166,19 @@ def on_locust_init(environment, **kwargs):
 
 
 @events.test_start.add_listener
-def set_up_iteration_limit(environment: Environment, **kwargs):
+def set_up_limits(environment: Environment, **kwargs):
     options = environment.parsed_options
+    runner: Runner = environment.runner
     locust.stats.CONSOLE_STATS_INTERVAL_SEC = environment.parsed_options.console_stats_interval
     if options.iterations:
-        runner: Runner = environment.runner
         runner.iterations_started = 0
         runner.iteration_target_reached = False
-        logging.debug(f"Iteration limit set to {options.iterations}")
+        logging.debug(f"Iteration limit set to {environment.parsed_options.iterations}")
 
         def iteration_limit_wrapper(method):
             @wraps(method)
             def wrapped(self, task):
-                if runner.iterations_started == options.iterations:
+                if runner.iterations_started >= options.iterations:
                     if not runner.iteration_target_reached:
                         runner.iteration_target_reached = True
                         logging.info(
@@ -190,7 +191,10 @@ def set_up_iteration_limit(environment: Environment, **kwargs):
                         # need to trigger this in a separate greenlet, in case test_stop handlers do something async
                         gevent.spawn_later(0.1, runner.quit)
                     raise StopUser()
-                runner.iterations_started = runner.iterations_started + 1
+
+                if isinstance(task, types.FunctionType):
+                    # execute_task can be called with a task or an entire TaskSet. In the latter case, we don't want to count it as an iteration.
+                    runner.iterations_started = runner.iterations_started + 1
                 method(self, task)
 
             return wrapped

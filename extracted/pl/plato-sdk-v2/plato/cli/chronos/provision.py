@@ -41,6 +41,19 @@ class SyncTarget:
     remote_path: str
 
 
+def build_world_process_env(api_key: str, job_id: str) -> dict[str, str]:
+    """Core env vars for the world process on the VM, shared by test and dev.
+
+    JOB_ID flips VMRuntime into mesh-IP SSH for agent VMs (production parity —
+    the Chronos runtime sets it on boot). Without it the runtime falls back to
+    gateway mode: run_ssh still reaches agent VMs via its ProxyCommand extra
+    opts, but rsync_to builds a plain ssh against the bare job-id hostname,
+    which is unresolvable from the world VM, so every agent code install
+    (sync_dev_code) fails.
+    """
+    return {"PLATO_API_KEY": api_key, "JOB_ID": job_id}
+
+
 def _resolve_dev_path(value: Path | None, config_dir: Path) -> Path | None:
     """Resolve a dev-config path; relative paths are config-file-relative."""
     if value is None:

@@ -213,7 +213,8 @@ def _rolling_window_worker(config: dict, termination_event: synchronize.Event):
 
 def _create_goodput_calculator(config: dict) -> GoodputCalculator:
   """Creates a GoodputCalculator instance from the shared config."""
-  return GoodputCalculator(
+  calculator_class = config.get('calculator_class', GoodputCalculator)
+  return calculator_class(
       job_name=config['job_name'],
       logger_name=config['logger_name'],
       using_pathways=config['pathway_enabled'],
@@ -320,6 +321,15 @@ def _upload_goodput_metrics_to_gcm(
     # Use the config dictionary instead of self-based attributes
     gcp_options = config['gcp_options']
     job_name = config['job_name']
+    optional_labels = {}
+    cluster_name = getattr(gcp_options, 'cluster_name', None)
+    if cluster_name:
+      optional_labels['cluster_name'] = cluster_name
+
+    def _build_labels(labels_dict):
+      labels = labels_dict.copy()
+      labels.update(optional_labels)
+      return labels
 
     # Populate goodput time metrics.
     for goodput_type, time_value in goodput_details[
@@ -331,10 +341,10 @@ def _upload_goodput_metrics_to_gcm(
           'metric_type': 'compute.googleapis.com/workload/goodput_time',
           'value': time_value,
           'value_type': ValueType.DOUBLE,
-          'metric_labels': {
+          'metric_labels': _build_labels({
               'goodput_source': goodput_type.name,
               'accelerator_type': gcp_options.acc_type,
-          },
+          }),
           'resource_type': 'compute.googleapis.com/Workload',
           'resource_labels': {
               'location': gcp_options.location,
@@ -353,10 +363,10 @@ def _upload_goodput_metrics_to_gcm(
           'metric_type': 'compute.googleapis.com/workload/badput_time',
           'value': time_value,
           'value_type': ValueType.DOUBLE,
-          'metric_labels': {
+          'metric_labels': _build_labels({
               'badput_source': badput_label,
               'accelerator_type': gcp_options.acc_type,
-          },
+          }),
           'resource_type': 'compute.googleapis.com/Workload',
           'resource_labels': {
               'location': gcp_options.location,
@@ -370,10 +380,10 @@ def _upload_goodput_metrics_to_gcm(
         'metric_type': 'compute.googleapis.com/workload/disruptions',
         'value': goodput_details[MetricType.DISRUPTION_COUNT.value],
         'value_type': ValueType.INT,
-        'metric_labels': {
+        'metric_labels': _build_labels({
             'accelerator_type': gcp_options.acc_type,
             'window_type': MonitoringWindowType.CUMULATIVE.value,
-        },
+        }),
         'resource_type': 'compute.googleapis.com/Workload',
         'resource_labels': {
             'location': gcp_options.location,
@@ -387,7 +397,9 @@ def _upload_goodput_metrics_to_gcm(
         'metric_type': 'compute.googleapis.com/workload/max_productive_steps',
         'value': goodput_details[MetricType.MAX_PRODUCTIVE_STEP.value],
         'value_type': ValueType.INT,
-        'metric_labels': {'accelerator_type': gcp_options.acc_type},
+        'metric_labels': _build_labels(
+            {'accelerator_type': gcp_options.acc_type}
+        ),
         'resource_type': 'compute.googleapis.com/Workload',
         'resource_labels': {
             'location': gcp_options.location,
@@ -410,7 +422,9 @@ def _upload_goodput_metrics_to_gcm(
           'metric_type': 'compute.googleapis.com/workload/step_time_deviation',
           'value': step_time_deviation_from_baseline,
           'value_type': ValueType.DOUBLE,
-          'metric_labels': {'accelerator_type': gcp_options.acc_type},
+          'metric_labels': _build_labels(
+              {'accelerator_type': gcp_options.acc_type}
+          ),
           'resource_type': 'compute.googleapis.com/Workload',
           'resource_labels': {
               'location': gcp_options.location,
@@ -424,10 +438,10 @@ def _upload_goodput_metrics_to_gcm(
         'metric_type': 'compute.googleapis.com/workload/total_elapsed_time',
         'value': goodput_details[MetricType.TOTAL_ELAPSED_TIME.value],
         'value_type': ValueType.DOUBLE,
-        'metric_labels': {
+        'metric_labels': _build_labels({
             'accelerator_type': gcp_options.acc_type,
             'window_type': MonitoringWindowType.CUMULATIVE.value,
-        },
+        }),
         'resource_type': 'compute.googleapis.com/Workload',
         'resource_labels': {
             'location': gcp_options.location,
@@ -448,6 +462,38 @@ def _upload_goodput_metrics_to_gcm(
             'replica_id': gcp_options.replica_id,
         },
     })
+
+    # Populate slice efficiency metrics (cumulative).
+    slice_efficiency_metrics = []
+    if config.get('include_slice_efficiency', False):
+      for metric_type, key in (
+          (
+              'compute.googleapis.com/workload/stepping_slice_efficiency',
+              'stepping_slice_efficiency',
+          ),
+          (
+              'compute.googleapis.com/workload/available_slice_efficiency',
+              'available_slice_efficiency',
+          ),
+      ):
+        value = goodput_details.get(key)
+        if value is not None:
+          slice_efficiency_metrics.append({
+              'metric_type': metric_type,
+              'value': value,
+              'value_type': ValueType.DOUBLE,
+              'metric_labels': _build_labels({
+                  'accelerator_type': gcp_options.acc_type,
+              }),
+              'resource_type': 'compute.googleapis.com/Workload',
+              'resource_labels': {
+                  'location': gcp_options.location,
+                  'workload_id': job_name,
+                  'replica_id': gcp_options.replica_id,
+              },
+          })
+    # TODO(b/519328677): Enable after metrics rollout
+    # gcm_metrics.extend(slice_efficiency_metrics)
 
     # Send metrics to Google Cloud Monitoring.
     if metrics_sender and gcm_metrics:
@@ -547,6 +593,16 @@ def _upload_interval_goodput_metrics_to_gcm(
       )
       return
 
+    optional_labels = {}
+    cluster_name = getattr(gcp_options, 'cluster_name', None)
+    if cluster_name:
+      optional_labels['cluster_name'] = cluster_name
+
+    def _build_labels(labels_dict):
+      labels = labels_dict.copy()
+      labels.update(optional_labels)
+      return labels
+
     # Populate Interval Goodput.
     interval_goodput_data = interval_metric_details.get(
         IntervalMetricType.INTERVAL_GOODPUT.value, {}
@@ -559,11 +615,11 @@ def _upload_interval_goodput_metrics_to_gcm(
             'metric_type': 'compute.googleapis.com/workload/interval_goodput',
             'value': goodput_value,
             'value_type': ValueType.DOUBLE,
-            'metric_labels': {
+            'metric_labels': _build_labels({
                 'goodput_source': goodput_type.name,
                 'accelerator_type': gcp_options.acc_type,
                 'rolling_window_size': str(window_size),
-            },
+            }),
             'resource_type': 'compute.googleapis.com/Workload',
             'resource_labels': {
                 'location': gcp_options.location,
@@ -583,11 +639,11 @@ def _upload_interval_goodput_metrics_to_gcm(
           'metric_type': 'compute.googleapis.com/workload/interval_badput',
           'value': badput_value,
           'value_type': ValueType.DOUBLE,
-          'metric_labels': {
+          'metric_labels': _build_labels({
               'badput_source': badput_type,
               'accelerator_type': gcp_options.acc_type,
               'rolling_window_size': str(window_size),
-          },
+          }),
           'resource_type': 'compute.googleapis.com/Workload',
           'resource_labels': {
               'location': gcp_options.location,
@@ -595,6 +651,39 @@ def _upload_interval_goodput_metrics_to_gcm(
               'replica_id': gcp_options.replica_id,
           },
       })
+
+    # Populate slice efficiency metrics (interval).
+    slice_efficiency_metrics = []
+    if config.get('include_slice_efficiency', False):
+      for metric_type, key in (
+          (
+              'compute.googleapis.com/workload/stepping_slice_efficiency',
+              'stepping_slice_efficiency',
+          ),
+          (
+              'compute.googleapis.com/workload/available_slice_efficiency',
+              'available_slice_efficiency',
+          ),
+      ):
+        value = interval_metric_details.get(key)
+        if value is not None:
+          slice_efficiency_metrics.append({
+              'metric_type': metric_type,
+              'value': value,
+              'value_type': ValueType.DOUBLE,
+              'metric_labels': _build_labels({
+                  'accelerator_type': gcp_options.acc_type,
+                  'rolling_window_size': str(window_size),
+              }),
+              'resource_type': 'compute.googleapis.com/Workload',
+              'resource_labels': {
+                  'location': gcp_options.location,
+                  'workload_id': job_name,
+                  'replica_id': gcp_options.replica_id,
+              },
+          })
+    # TODO(b/519328677): Enable after metrics rollout
+    # gcm_metrics.extend(slice_efficiency_metrics)
 
     if metrics_sender and gcm_metrics:
       log_context = {
@@ -630,6 +719,7 @@ class GoodputMonitor:
       configured_ideal_step_time=None,
       step_deviation_interval_seconds=10,
       gcp_options: GCPOptions = GCPOptions(),
+      skip_final_flush: bool = False,
   ):
     """Initializes the GoodputMonitor.
 
@@ -641,8 +731,8 @@ class GoodputMonitor:
         Monitoring.
       monitoring_enabled: Whether to enable monitoring. If the application is
         interested in monitoring Goodput, it should set this value to True if
-        monitoring from TPU worker 0 andthe application's configurations request
-        Goodput monitoring.
+        monitoring from TPU worker 0 and the application's configurations
+        request Goodput monitoring.
       pathway_enabled: Whether the application is using Pathways.
       include_badput_breakdown: Whether to query and upload badput breakdown
         data to Tensorboard.
@@ -653,6 +743,8 @@ class GoodputMonitor:
       step_deviation_interval_seconds: The interval to query step deviation
         data.
       gcp_options: The options for Google Cloud Monitoring.
+      skip_final_flush: Whether to skip the final goodput metrics flush upon
+        termination.
     """
     if not monitoring_enabled:
       logger.info(
@@ -661,6 +753,7 @@ class GoodputMonitor:
       self._initialized = False
       return
     self._initialized = True
+    self._skip_final_flush = skip_final_flush
 
     self._goodput_calculator = GoodputCalculator(
         job_name=job_name,
@@ -705,6 +798,7 @@ class GoodputMonitor:
         'step_deviation_interval_seconds': step_deviation_interval_seconds,
         'gcp_options': gcp_options,
         'rolling_windows': [],
+        'calculator_class': GoodputCalculator,
     }
 
     # Process management attributes
@@ -757,7 +851,7 @@ class GoodputMonitor:
         self._goodput_process.pid,
     )
 
-  def stop_goodput_uploader(self):
+  def stop_goodput_uploader(self, skip_final_flush: bool | None = None):
     """Stops the cumulative goodput uploader process and performs a final upload."""
     if not self._initialized:
       return
@@ -785,7 +879,13 @@ class GoodputMonitor:
             exit_code,
         )
     self._goodput_process = None
-    self._final_goodput_query_and_upload()
+    should_skip = (
+        skip_final_flush
+        if skip_final_flush is not None
+        else getattr(self, '_skip_final_flush', False)
+    )
+    if not should_skip:
+      self._final_goodput_query_and_upload()
 
   def _final_goodput_query_and_upload(self):
     """Performs final cumulative goodput query and uploads data to Tensorboard & GCM."""
@@ -861,7 +961,7 @@ class GoodputMonitor:
         self._step_deviation_process.pid,
     )
 
-  def stop_step_deviation_uploader(self):
+  def stop_step_deviation_uploader(self, skip_final_flush: bool | None = None):
     """Stops the step deviation uploader process and performs a final upload."""
     if not self._initialized:
       return
@@ -894,7 +994,13 @@ class GoodputMonitor:
         )
 
     self._step_deviation_process = None
-    self._final_step_deviation_query_and_upload()
+    should_skip = (
+        skip_final_flush
+        if skip_final_flush is not None
+        else getattr(self, '_skip_final_flush', False)
+    )
+    if not should_skip:
+      self._final_step_deviation_query_and_upload()
 
   def _final_step_deviation_query_and_upload(self):
     """Performs a final step deviation query and upload."""
@@ -951,7 +1057,9 @@ class GoodputMonitor:
         self._rolling_window_process.pid,
     )
 
-  def stop_rolling_window_goodput_uploader(self):
+  def stop_rolling_window_goodput_uploader(
+      self, skip_final_flush: bool | None = None
+  ):
     """Stops the rolling window goodput uploader process and performs a final upload."""
     if not self._initialized:
       return
@@ -984,7 +1092,13 @@ class GoodputMonitor:
         )
 
     self._rolling_window_process = None
-    self._final_rolling_window_goodput_query_and_upload()
+    should_skip = (
+        skip_final_flush
+        if skip_final_flush is not None
+        else getattr(self, '_skip_final_flush', False)
+    )
+    if not should_skip:
+      self._final_rolling_window_goodput_query_and_upload()
 
   def _final_rolling_window_goodput_query_and_upload(self):
     """Performs a finalrolling window goodput query and upload."""

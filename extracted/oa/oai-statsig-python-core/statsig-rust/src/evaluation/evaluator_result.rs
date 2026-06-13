@@ -560,6 +560,7 @@ fn result_to_base_eval(spec_name: &str, result: &mut EvaluatorResult) -> BaseEva
         name,
         rule_id,
         secondary_exposures: std::mem::take(&mut result.secondary_exposures),
+        version: result.version,
         exposure_info: Some(exposure_info),
     }
 }
@@ -598,6 +599,7 @@ fn result_to_base_eval_v2(
         name: spec_name.to_string(),
         rule_id,
         secondary_exposures: exposures,
+        version: result.version,
     }
 }
 

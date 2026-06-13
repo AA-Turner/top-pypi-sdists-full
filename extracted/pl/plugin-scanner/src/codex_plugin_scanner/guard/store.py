@@ -94,6 +94,17 @@ from .store_evidence import (
 from .store_evidence import (
     store_evidence as _store_evidence_impl,
 )
+from .store_receipt_rollups import (
+    backfill_receipt_rollups,
+    count_receipts_from_rollups,
+    load_receipt_analytics,
+    receipt_rollup_index_statements,
+    receipt_rollup_schema_statements,
+    receipt_rollups_initialized,
+    receipt_rollups_need_backfill,
+    record_receipt_insert,
+    record_receipt_policy_decision_change,
+)
 from .store_resume import (
     delete_request_resumes as purge_request_resumes,
 )
@@ -175,6 +186,16 @@ _SCOPED_HARNESS_FAMILIES = frozenset(
         "tool-action",
     }
 )
+_SCOPED_RUNTIME_EXACT_FAMILIES = frozenset(
+    {
+        "file-read",
+        "package-request",
+        "prompt",
+        "tool-action",
+    }
+)
+_RUNTIME_SCOPED_EXACT_MATCH_PREFIX = "runtime-exact:"
+_REMOTE_POLICY_SOURCES = frozenset({"cloud-sync", "team-policy", "policy-bundle"})
 _POLICY_SCOPES = frozenset({"artifact", "workspace", "publisher", "harness", "global"})
 _SLOW_STORE_WARNING_ENV = "HOL_GUARD_WARN_SLOW_STORE"
 _SECRET_FINGERPRINT_PREFIX = "pbkdf2-sha256$"
@@ -284,23 +305,7 @@ class KeychainSecretStore:
     def set_secret(self, secret_id: str, value: str) -> None:
         if not self._is_available():
             raise RuntimeError("macOS keychain command is not available")
-        prompt_payload = f"{value}\n{value}\n"
-        subprocess.run(
-            [
-                "/usr/bin/security",
-                "add-generic-password",
-                "-a",
-                secret_id,
-                "-s",
-                self.service_name,
-                "-U",
-                "-w",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-            input=prompt_payload,
-        )
+        raise RuntimeError("macOS security CLI does not support noninteractive secret writes without argv exposure")
 
     def get_secret(self, secret_id: str) -> str | None:
         if not self._is_available():
@@ -776,6 +781,14 @@ _OAUTH_SECRET_PAYLOAD_PROCESS_CACHE: dict[tuple[str, str, str], str] = {}
 _OAUTH_HEALTH_RESULT_PROCESS_CACHE: dict[tuple[str, str], tuple[float, dict[str, object]]] = {}
 
 
+def receipt_index_statements() -> list[str]:
+    return [
+        ("create index if not exists idx_receipts_harness_artifact on runtime_receipts(harness, artifact_id)"),
+        ("create index if not exists idx_receipts_timestamp_harness on runtime_receipts(timestamp, harness)"),
+        ("create index if not exists idx_receipts_timestamp_desc on runtime_receipts(timestamp desc)"),
+    ]
+
+
 class GuardStore:
     """Local SQLite store for Guard state."""
 
@@ -917,6 +930,7 @@ class GuardStore:
         connection.row_factory = sqlite3.Row
         start = time.monotonic()
         try:
+            connection.execute("pragma busy_timeout=10000")
             yield connection
             connection.commit()
         finally:
@@ -1325,11 +1339,22 @@ class GuardStore:
                 self._record_schema_version(connection, version=3)
             for idx_stmt in approval_index_statements():
                 connection.execute(idx_stmt)
+            for idx_stmt in receipt_index_statements():
+                connection.execute(idx_stmt)
+            for statement in receipt_rollup_schema_statements():
+                connection.execute(statement)
+            for idx_stmt in receipt_rollup_index_statements():
+                connection.execute(idx_stmt)
+            if not self._schema_version_applied(connection, version=6):
+                if receipt_rollups_need_backfill(connection):
+                    backfill_receipt_rollups(connection)
+                self._record_schema_version(connection, version=6)
             self._ensure_attachment_column(connection, "lease_id", "text not null default ''")
             self._ensure_attachment_column(connection, "lease_expires_at", "text")
             self._ensure_local_device(connection)
             if not self._schema_version_applied(connection, version=2):
                 self._record_schema_version(connection, version=2)
+            connection.execute("pragma journal_mode=WAL")
 
     @staticmethod
     def _ensure_policy_column(connection: sqlite3.Connection, column_name: str, column_type: str) -> None:
@@ -2070,12 +2095,21 @@ class GuardStore:
                       artifact_id is null or artifact_id = ?
                     )
                   )
-                  or scope = 'global'
+                    or (
+                      scope = 'global' and (
+                        artifact_id is null
+                        or artifact_id = ?
+                        or artifact_id = ?
+                      )
+                    )
                 )
                 and (expires_at is null or expires_at > ?)
                 order by case scope when 'artifact' then 0 when 'workspace' then 1 when 'publisher' then 2
-                          when 'harness' then 3 else 4 end,
-                         case when scope = 'workspace' and artifact_id is not null then 0 else 1 end,
+                         when 'harness' then 3 else 4 end,
+                         case
+                           when scope in ('workspace', 'harness', 'global') and artifact_id is not null then 0
+                           else 1
+                         end,
                          updated_at desc
                 """,
                 (
@@ -2090,12 +2124,33 @@ class GuardStore:
                     artifact_hash,
                     publisher,
                     action_family_key,
+                    artifact_id,
+                    action_family_key,
                     current_time,
                 ),
             ).fetchall()
         if not rows:
             return None
-        row = rows[0]
+        row = next(
+            (
+                candidate
+                for candidate in rows
+                if not _scoped_runtime_row_requires_exact_match(
+                    scope=str(candidate["scope"]),
+                    stored_artifact_id=(
+                        str(candidate["artifact_id"]) if isinstance(candidate["artifact_id"], str) else None
+                    ),
+                    stored_artifact_hash=(
+                        str(candidate["artifact_hash"]) if isinstance(candidate["artifact_hash"], str) else None
+                    ),
+                    source=str(candidate["source"]),
+                    requested_artifact_id=artifact_id,
+                )
+            ),
+            None,
+        )
+        if row is None:
+            return None
         return {
             "harness": row["harness"],
             "scope": row["scope"],
@@ -2109,11 +2164,15 @@ class GuardStore:
 
     @staticmethod
     def _normalized_policy_keys(decision: PolicyDecision) -> tuple[str | None, str | None, str | None, str | None]:
-        if decision.scope == "harness":
+        if decision.scope in {"harness", "global"}:
             artifact_id = _artifact_family_key(decision.artifact_id)
         else:
             artifact_id = decision.artifact_id if decision.scope in {"artifact", "workspace"} else None
-        artifact_hash = decision.artifact_hash if decision.scope in {"artifact", "workspace"} else None
+        artifact_hash = (
+            decision.artifact_hash
+            if decision.scope in {"artifact", "workspace"} or _is_runtime_scoped_exact_match_key(decision.artifact_hash)
+            else None
+        )
         workspace = _workspace_policy_key(decision.workspace) if decision.scope == "workspace" else None
         publisher = decision.publisher if decision.scope == "publisher" else None
         return artifact_id, artifact_hash, workspace, publisher
@@ -2183,6 +2242,7 @@ class GuardStore:
                     workspace_id=workspace_id,
                 ),
             )
+            record_receipt_insert(connection, receipt)
 
     def set_receipt_action_envelope(self, receipt_id: str, action_envelope: dict[str, object]) -> None:
         with self._connect() as connection:
@@ -2203,9 +2263,29 @@ class GuardStore:
 
     def update_receipt_policy_decision(self, receipt_id: str, policy_decision: str) -> None:
         with self._connect() as connection:
+            row = connection.execute(
+                """
+                select harness, artifact_id, artifact_name, policy_decision, timestamp
+                from runtime_receipts
+                where receipt_id = ?
+                """,
+                (receipt_id,),
+            ).fetchone()
+            if row is None:
+                return
+            old_policy_decision = str(row["policy_decision"])
             connection.execute(
                 "update runtime_receipts set policy_decision = ? where receipt_id = ?",
                 (policy_decision, receipt_id),
+            )
+            record_receipt_policy_decision_change(
+                connection,
+                harness=str(row["harness"]),
+                artifact_name=row["artifact_name"],
+                artifact_id=str(row["artifact_id"]),
+                timestamp=str(row["timestamp"]),
+                old_policy_decision=old_policy_decision,
+                new_policy_decision=policy_decision,
             )
 
     def update_receipt_approval_context(
@@ -2347,12 +2427,15 @@ class GuardStore:
         return self._receipt_dict_from_row(row, include_rowid=False)
 
     def count_receipts(self, harness: str | None = None) -> int:
-        query = "select count(*) as total from runtime_receipts"
-        params: tuple[object, ...] = ()
-        if harness is not None:
-            query += " where harness = ?"
-            params = (harness,)
         with self._connect() as connection:
+            rollup_total = count_receipts_from_rollups(connection, harness=harness)
+            if rollup_total is not None:
+                return rollup_total
+            query = "select count(*) as total from runtime_receipts"
+            params: tuple[object, ...] = ()
+            if harness is not None:
+                query += " where harness = ?"
+                params = (harness,)
             row = connection.execute(query, params).fetchone()
         return int(row["total"]) if row is not None else 0
 
@@ -2363,175 +2446,20 @@ class GuardStore:
         trend_days: int = 7,
         top_limit: int = 10,
     ) -> dict[str, object]:
-        """Aggregate receipt metrics without loading full receipt rows."""
-        from datetime import datetime, timedelta, timezone
-
+        """Aggregate receipt metrics from incremental rollups."""
         activity_days = max(1, min(activity_days, 366))
         trend_days = max(1, min(trend_days, activity_days))
         top_limit = max(1, min(top_limit, 50))
 
-        now = datetime.now(tz=timezone.utc)
-        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        activity_start = start_of_today - timedelta(days=activity_days - 1)
-        trend_start = start_of_today - timedelta(days=trend_days - 1)
-        activity_start_iso = activity_start.isoformat().replace("+00:00", "Z")
-        trend_start_iso = trend_start.isoformat().replace("+00:00", "Z")
-
         with self._connect() as connection:
-            totals_row = connection.execute(
-                """
-                select
-                  count(*) as total,
-                  sum(case when policy_decision = 'allow' then 1 else 0 end) as allowed,
-                  sum(case when policy_decision = 'block' then 1 else 0 end) as blocked,
-                  sum(case when policy_decision not in ('allow', 'block') then 1 else 0 end) as reviewed,
-                  min(timestamp) as first_activity_at,
-                  max(timestamp) as last_activity_at
-                from runtime_receipts
-                """
-            ).fetchone()
-
-            daily_rows = connection.execute(
-                """
-                select date(timestamp) as day_key, count(*) as total
-                from runtime_receipts
-                where timestamp >= ?
-                group by date(timestamp)
-                order by day_key asc
-                """,
-                (activity_start_iso,),
-            ).fetchall()
-
-            trend_rows = connection.execute(
-                """
-                select
-                  date(timestamp) as day_key,
-                  sum(case when policy_decision = 'allow' then 1 else 0 end) as allowed,
-                  sum(case when policy_decision = 'block' then 1 else 0 end) as blocked,
-                  sum(case when policy_decision not in ('allow', 'block') then 1 else 0 end) as reviewed
-                from runtime_receipts
-                where timestamp >= ?
-                group by date(timestamp)
-                order by day_key asc
-                """,
-                (trend_start_iso,),
-            ).fetchall()
-
-            harness_rows = connection.execute(
-                """
-                select
-                  harness,
-                  count(*) as total,
-                  sum(case when policy_decision = 'allow' then 1 else 0 end) as allowed,
-                  sum(case when policy_decision = 'block' then 1 else 0 end) as blocked
-                from runtime_receipts
-                group by harness
-                order by total desc
-                limit ?
-                """,
-                (top_limit,),
-            ).fetchall()
-
-            artifact_rows = connection.execute(
-                """
-                select
-                  lower(coalesce(nullif(artifact_name, ''), artifact_id)) as name,
-                  count(*) as total,
-                  sum(case when policy_decision = 'allow' then 1 else 0 end) as allowed,
-                  sum(case when policy_decision = 'block' then 1 else 0 end) as blocked
-                from runtime_receipts
-                group by lower(coalesce(nullif(artifact_name, ''), artifact_id))
-                order by total desc
-                limit ?
-                """,
-                (top_limit,),
-            ).fetchall()
-
-        total = int(totals_row["total"]) if totals_row is not None else 0
-        allowed = int(totals_row["allowed"] or 0) if totals_row is not None else 0
-        blocked = int(totals_row["blocked"] or 0) if totals_row is not None else 0
-        reviewed = int(totals_row["reviewed"] or 0) if totals_row is not None else 0
-        first_activity_at = (
-            str(totals_row["first_activity_at"]) if totals_row and totals_row["first_activity_at"] else None
-        )
-        last_activity_at = (
-            str(totals_row["last_activity_at"]) if totals_row and totals_row["last_activity_at"] else None
-        )
-
-        daily_map = {str(row["day_key"]): int(row["total"]) for row in daily_rows}
-        trend_map = {
-            str(row["day_key"]): {
-                "allowed": int(row["allowed"] or 0),
-                "blocked": int(row["blocked"] or 0),
-                "reviewed": int(row["reviewed"] or 0),
-            }
-            for row in trend_rows
-        }
-
-        daily_activity: list[dict[str, object]] = []
-        for offset in range(activity_days):
-            day = activity_start + timedelta(days=offset)
-            day_key = day.strftime("%Y-%m-%d")
-            daily_activity.append({"date_key": day_key, "total": daily_map.get(day_key, 0)})
-
-        trend_buckets: list[dict[str, object]] = []
-        for offset in range(trend_days):
-            day = trend_start + timedelta(days=offset)
-            day_key = day.strftime("%Y-%m-%d")
-            counts = trend_map.get(day_key, {"allowed": 0, "blocked": 0, "reviewed": 0})
-            trend_buckets.append(
-                {
-                    "date_key": day_key,
-                    "label": f"{day.strftime('%b')} {day.day}",
-                    "allowed": counts["allowed"],
-                    "blocked": counts["blocked"],
-                    "reviewed": counts["reviewed"],
-                }
+            if not receipt_rollups_initialized(connection):
+                backfill_receipt_rollups(connection)
+            return load_receipt_analytics(
+                connection,
+                activity_days=activity_days,
+                trend_days=trend_days,
+                top_limit=top_limit,
             )
-
-        active_day_streak = 0
-        streak_entries = list(reversed(daily_activity))
-        if streak_entries and int(streak_entries[0]["total"]) == 0:
-            streak_entries = streak_entries[1:]
-        for entry in streak_entries:
-            if int(entry["total"]) > 0:
-                active_day_streak += 1
-            else:
-                break
-
-        peak_day_total = max((int(entry["total"]) for entry in daily_activity), default=0)
-
-        return {
-            "total": total,
-            "allowed": allowed,
-            "blocked": blocked,
-            "reviewed": reviewed,
-            "first_activity_at": first_activity_at,
-            "last_activity_at": last_activity_at,
-            "active_day_streak": active_day_streak,
-            "peak_day_total": peak_day_total,
-            "daily_activity": daily_activity,
-            "trend_buckets": trend_buckets,
-            "by_harness": [
-                {
-                    "harness": str(row["harness"]),
-                    "total": int(row["total"]),
-                    "allowed": int(row["allowed"] or 0),
-                    "blocked": int(row["blocked"] or 0),
-                }
-                for row in harness_rows
-            ],
-            "top_artifacts": [
-                {
-                    "name": str(row["name"]),
-                    "total": int(row["total"]),
-                    "allowed": int(row["allowed"] or 0),
-                    "blocked": int(row["blocked"] or 0),
-                }
-                for row in artifact_rows
-            ],
-            "loaded_sample_limit": 200,
-        }
 
     def receipt_decision_counts(self, harness: str, artifact_id: str) -> dict[str, int]:
         with self._connect() as connection:
@@ -2647,6 +2575,7 @@ class GuardStore:
         cursor: str | None = None,
         harness: str | None = None,
         search: str | None = None,
+        include_totals: bool = True,
     ) -> dict[str, object]:
         with self._connect() as connection:
             return load_pending_approval_summaries(
@@ -2655,6 +2584,7 @@ class GuardStore:
                 cursor=cursor,
                 harness=harness,
                 search=search,
+                include_totals=include_totals,
             )
 
     def list_approval_request_page(
@@ -2665,6 +2595,7 @@ class GuardStore:
         cursor: str | None = None,
         harness: str | None = None,
         search: str | None = None,
+        include_totals: bool = True,
     ) -> dict[str, object]:
         with self._connect() as connection:
             return load_approval_request_page(
@@ -2674,6 +2605,7 @@ class GuardStore:
                 cursor=cursor,
                 harness=harness,
                 search=search,
+                include_totals=include_totals,
             )
 
     def get_approval_request(self, request_id: str) -> dict[str, object] | None:
@@ -2899,10 +2831,14 @@ class GuardStore:
         publisher: str | None,
     ) -> tuple[list[str] | None, tuple[object, ...]]:
         if scope == "global":
+            if _runtime_scoped_exact_match_key(artifact_id) is not None:
+                return ["artifact_id = ?"], (artifact_id,)
             return [], ()
         if scope == "harness":
             if harness is None:
                 return None, ()
+            if _runtime_scoped_exact_match_key(artifact_id) is not None:
+                return ["harness = ?", "artifact_id = ?"], (harness, artifact_id)
             family_key = _artifact_family_key(artifact_id)
             if family_key is None:
                 return ["harness = ?"], (harness,)
@@ -5173,6 +5109,41 @@ def _artifact_family_key(artifact_id: str | None) -> str | None:
     if family not in _SCOPED_HARNESS_FAMILIES:
         return None
     return f"family:{family}"
+
+
+def _runtime_scoped_exact_match_key(artifact_id: str | None) -> str | None:
+    if artifact_id is None or not artifact_id.strip() or artifact_id.startswith("family:"):
+        return None
+    family_key = _artifact_family_key(artifact_id)
+    if family_key is None or _family_key_value(family_key) not in _SCOPED_RUNTIME_EXACT_FAMILIES:
+        return None
+    digest = sha256(artifact_id.encode("utf-8")).hexdigest()
+    return f"{_RUNTIME_SCOPED_EXACT_MATCH_PREFIX}{digest}"
+
+
+def _is_runtime_scoped_exact_match_key(value: str | None) -> bool:
+    return isinstance(value, str) and value.startswith(_RUNTIME_SCOPED_EXACT_MATCH_PREFIX)
+
+
+def _scoped_runtime_row_requires_exact_match(
+    *,
+    scope: str,
+    stored_artifact_id: str | None,
+    stored_artifact_hash: str | None,
+    source: str,
+    requested_artifact_id: str | None,
+) -> bool:
+    if scope not in {"harness", "global"}:
+        return False
+    if source in _REMOTE_POLICY_SOURCES:
+        return False
+    family_key = _artifact_family_key(stored_artifact_id)
+    if family_key is None or _family_key_value(family_key) not in _SCOPED_RUNTIME_EXACT_FAMILIES:
+        return False
+    expected_exact_key = _runtime_scoped_exact_match_key(requested_artifact_id)
+    if expected_exact_key is None:
+        return True
+    return stored_artifact_hash != expected_exact_key
 
 
 def _family_key_value(family_key: str) -> str:

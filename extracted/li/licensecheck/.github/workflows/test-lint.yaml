@@ -16,11 +16,9 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - '3.9'
-          - '3.10'
-          - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
 
     steps:
       - name: Checkout code
@@ -39,7 +37,13 @@ jobs:
         run: uv sync
 
       - name: Run pytest
-        run: uv run pytest
+        run: uv run pytest tests/platform_independent
+
+      - name: Run on self
+        run: |
+          uv run licensecheck -r pyproject.toml
+          uv run licensecheck --only-licenses mit apache --show-only-failing -g dev -r pyproject.toml
+          uv run licensecheck --only-licenses mit apache --show-only-failing -f csv -r pyproject.toml
 
       - name: Run ruff
         run: uv run ruff check --output-format=github

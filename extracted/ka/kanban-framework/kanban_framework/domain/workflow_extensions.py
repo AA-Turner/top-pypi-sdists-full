@@ -21,11 +21,15 @@ class WorkflowExtension:
         from kanban_framework.infra.consts import Consts
         return [Consts.DEFAULT_MODE]
 
-    def __init__(self, workflow: dict):
-        self._extensions = workflow.get("extensions", {})
+    def __init__(self, workflow: dict | None):
+        # Defensive: workflow.json may be None, or have explicit "extensions": null.
+        # In both cases treat as "no extensions" rather than crash on later .get() calls.
+        wf = workflow or {}
+        ext = wf.get("extensions")
+        self._extensions = ext if isinstance(ext, dict) else {}
         self._modes = self._extensions.get("modes", self._default_modes())
         self._phases_config = {
-            p["id"]: p for p in workflow.get("phases", []) if "id" in p
+            p["id"]: p for p in wf.get("phases", []) if "id" in p
         }
 
     def is_active_for_mode(self, mode: str) -> bool:
@@ -153,7 +157,7 @@ def _dict_to_stepdef(step_dict: dict, phase_id: str) -> StepDef:
         agent_type=step_dict.get("agent_type"),
         parallel=step_dict.get("parallel", False),
         user_action=step_dict.get("user_action", False),
-        spawn_prompt=step_dict.get("spawn_prompt"),
+        spawn_prompt=step_dict.get("spawn_prompt") or ("\n".join(a for a in step_dict.get("actions", []) if a and a.strip()) or None),
         interactive=step_dict.get("interactive", False),
         required_artifacts=step_dict.get("required_artifacts", []),
     )

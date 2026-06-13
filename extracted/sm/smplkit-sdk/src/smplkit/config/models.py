@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from smplkit.config._client import AsyncConfigClient, ConfigClient
+    from smplkit.config.clients import AsyncConfigClient, ConfigClient
 
 logger = logging.getLogger("smplkit")
 

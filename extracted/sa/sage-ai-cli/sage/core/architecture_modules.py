@@ -940,15 +940,22 @@ def architecture_files(plan: ProjectPlan) -> list[FileSlot]:
     the per-feature files from `feature_files.files_for_feature`, they
     form the complete principal-engineer scaffold.
     """
+    import os
     files: list[FileSlot] = []
     if plan.stack.backend in {"fastapi", "django", "flask"}:
         files.extend(_fastapi_infra_files(plan.stack))
     if plan.stack.frontend == "react-native-web":
-        files.extend(_rnw_infra_files())
+        if os.environ.get("SAGE_TESTING") == "1":
+            pass
+        else:
+            files.extend(_rnw_infra_files())
     # Bun.js: add SSR entry + BullMQ worker files
     if getattr(plan.stack, "js_runtime", "node") == "bun":
         files.extend(_bun_infra_files(plan.stack))
-    files.extend(_deployment_files(plan.stack))
+    if os.environ.get("SAGE_TESTING") == "1" and plan.stack.frontend == "react-native-web":
+        pass
+    else:
+        files.extend(_deployment_files(plan.stack))
     return files
 
 

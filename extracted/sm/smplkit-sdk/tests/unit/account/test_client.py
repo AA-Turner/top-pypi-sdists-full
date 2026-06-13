@@ -1,11 +1,11 @@
-"""Tests for smplkit.account._client — account settings sync + async sub-clients."""
+"""Tests for smplkit.account.clients — account settings sync + async sub-clients."""
 
 from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from smplkit.account._client import AsyncSettingsClient, SettingsClient
+from smplkit.account.clients import AsyncSettingsClient, SettingsClient
 from smplkit.account.models import AccountSettings, AsyncAccountSettings
 
 
@@ -19,7 +19,7 @@ class Test_SettingsClient:
         return SettingsClient("http://app:8000", "sk_test")
 
     def test_get(self):
-        with patch("smplkit.account._client.httpx.Client") as MockClient:
+        with patch("smplkit.account.clients.httpx.Client") as MockClient:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.content = b'{"environment_order":["prod"]}'
@@ -31,7 +31,7 @@ class Test_SettingsClient:
             assert settings.environment_order == ["prod"]
 
     def test_get_empty_response(self):
-        with patch("smplkit.account._client.httpx.Client") as MockClient:
+        with patch("smplkit.account.clients.httpx.Client") as MockClient:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.content = b"null"
@@ -42,7 +42,7 @@ class Test_SettingsClient:
             assert settings._data == {}
 
     def test_save(self):
-        with patch("smplkit.account._client.httpx.Client") as MockClient:
+        with patch("smplkit.account.clients.httpx.Client") as MockClient:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.content = b'{"environment_order":["prod","staging"]}'
@@ -54,7 +54,7 @@ class Test_SettingsClient:
             assert result.environment_order == ["prod", "staging"]
 
     def test_save_empty_response(self):
-        with patch("smplkit.account._client.httpx.Client") as MockClient:
+        with patch("smplkit.account.clients.httpx.Client") as MockClient:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.content = b"null"
@@ -86,7 +86,7 @@ class Test_AsyncSettingsClient:
             async_ctx.__aexit__ = AsyncMock(return_value=False)
             async_ctx.get = AsyncMock(return_value=mock_resp)
 
-            with patch("smplkit.account._client.httpx.AsyncClient", return_value=async_ctx):
+            with patch("smplkit.account.clients.httpx.AsyncClient", return_value=async_ctx):
                 client = self._make_client()
                 settings = await client.get()
                 assert isinstance(settings, AsyncAccountSettings)
@@ -106,7 +106,7 @@ class Test_AsyncSettingsClient:
             async_ctx.__aexit__ = AsyncMock(return_value=False)
             async_ctx.get = AsyncMock(return_value=mock_resp)
 
-            with patch("smplkit.account._client.httpx.AsyncClient", return_value=async_ctx):
+            with patch("smplkit.account.clients.httpx.AsyncClient", return_value=async_ctx):
                 client = self._make_client()
                 settings = await client.get()
                 assert settings._data == {}
@@ -125,7 +125,7 @@ class Test_AsyncSettingsClient:
             async_ctx.__aexit__ = AsyncMock(return_value=False)
             async_ctx.put = AsyncMock(return_value=mock_resp)
 
-            with patch("smplkit.account._client.httpx.AsyncClient", return_value=async_ctx):
+            with patch("smplkit.account.clients.httpx.AsyncClient", return_value=async_ctx):
                 client = self._make_client()
                 result = await client._save({"environment_order": ["prod", "staging"]})
                 assert isinstance(result, AsyncAccountSettings)
@@ -145,7 +145,7 @@ class Test_AsyncSettingsClient:
             async_ctx.__aexit__ = AsyncMock(return_value=False)
             async_ctx.put = AsyncMock(return_value=mock_resp)
 
-            with patch("smplkit.account._client.httpx.AsyncClient", return_value=async_ctx):
+            with patch("smplkit.account.clients.httpx.AsyncClient", return_value=async_ctx):
                 client = self._make_client()
                 result = await client._save({})
                 assert result._data == {}

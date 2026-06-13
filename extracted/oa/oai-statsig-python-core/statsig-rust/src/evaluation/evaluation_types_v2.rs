@@ -3,7 +3,8 @@ use crate::gcir::gcir_formatter::GCIRHashable;
 use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
 use crate::{
-    evaluation::evaluation_types::is_false, specs_response::explicit_params::ExplicitParameters,
+    evaluation::evaluation_types::{is_false, push_optional_version_hash_values},
+    specs_response::explicit_params::ExplicitParameters,
 };
 use crate::{hashing, SecondaryExposure};
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,7 @@ pub struct BaseEvaluationV2 {
     pub name: String,
     pub rule_id: InternedString,
     pub secondary_exposures: Vec<String>,
+    pub version: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -27,12 +29,13 @@ pub struct GateEvaluationV2 {
 
 impl GCIRHashable for GateEvaluationV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let mut hash_array = vec![
             name.hash,
             self.value as u64,
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         hashing::hash_one(hash_array)
     }
 }
@@ -53,13 +56,14 @@ pub struct DynamicConfigEvaluationV2 {
 
 impl GCIRHashable for DynamicConfigEvaluationV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let mut hash_array = vec![
             name.hash,
             self.value.get_hash(),
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.passed as u64,
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         hashing::hash_one(hash_array)
     }
 }
@@ -102,6 +106,7 @@ impl GCIRHashable for ExperimentEvaluationV2 {
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.is_in_layer as u64,
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         let mut explicit_params_hashes = Vec::new();
         if let Some(explicit_parameters) = &self.explicit_parameters {
             for value in explicit_parameters.to_vec_interned() {
@@ -175,6 +180,7 @@ impl GCIRHashable for LayerEvaluationV2 {
                 .as_ref()
                 .map_or(0, |n| n.hash),
         ];
+        push_optional_version_hash_values(&mut hash_array, &self.base.version);
         let mut explicit_params_hashes = Vec::new();
         for value in self.explicit_parameters.to_vec_interned() {
             explicit_params_hashes.push(value.hash);

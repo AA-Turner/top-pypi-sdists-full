@@ -321,6 +321,46 @@ cluster.add_nodegroup_capacity("custom-node-group",
 > the [neuron plugin](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/containers/dlc-then-eks-devflow.html)
 > will be automatically installed in the kubernetes cluster.
 
+##### Default AMI type (under feature flag)
+
+By default, managed node groups that do not set `amiType` use `AL2_X86_64` (or `AL2_ARM_64` for
+ARM instances). Amazon Linux 2 EKS-optimized AMIs reached end of support on **November 26, 2025**.
+AL2023 is the AWS-recommended default.
+
+New applications should enable the `@aws-cdk/aws-eks:defaultToAL2023` feature flag in `cdk.json`:
+
+```json
+{
+  "context": {
+    "@aws-cdk/aws-eks:defaultToAL2023": true
+  }
+}
+```
+
+When the flag is enabled, the default AMI type for x86_64 instances becomes
+`AL2023_X86_64_STANDARD`, and for ARM instances it becomes `AL2023_ARM_64_STANDARD`. GPU
+instances continue to default to `AL2_X86_64_GPU` because AL2023 splits GPU support into
+separate NVIDIA and Neuron AMI variants — GPU users must pick a variant explicitly.
+
+**Migration for existing applications.** Enabling this flag on an existing app will cause
+managed node groups that previously defaulted to AL2 to be replaced with AL2023 on the next
+deploy, which terminates running pods. To roll out safely, pin every existing node group to its
+current AMI type first, and only then enable the flag as shown below. Then gradually unpin the
+AMI for the nodes you want to upgrade.
+
+```python
+# cluster: eks.Cluster
+
+
+# Pin existing node groups to AL2 explicitly before enabling the flag.
+cluster.add_nodegroup_capacity("workers",
+    instance_types=[ec2.InstanceType("m5.large")],
+    ami_type=eks.NodegroupAmiType.AL2_X86_64
+)
+```
+
+Explicitly setting `amiType` will pin it — it is not affected by the feature flag.
+
 #### Node Groups with IPv6 Support
 
 Node groups are available with IPv6 configured networks.  For custom roles assigned to node groups additional permissions are necessary in order for pods to obtain an IPv6 address.  The default node role will include these permissions.
@@ -19400,9 +19440,11 @@ class NodegroupAmiType(enum.Enum):
 
         # cluster: eks.Cluster
         
-        cluster.add_nodegroup_capacity("BottlerocketNvidiaNG",
-            ami_type=eks.NodegroupAmiType.BOTTLEROCKET_X86_64_NVIDIA,
-            instance_types=[ec2.InstanceType("g4dn.xlarge")]
+        
+        # Pin existing node groups to AL2 explicitly before enabling the flag.
+        cluster.add_nodegroup_capacity("workers",
+            instance_types=[ec2.InstanceType("m5.large")],
+            ami_type=eks.NodegroupAmiType.AL2_X86_64
         )
     '''
 

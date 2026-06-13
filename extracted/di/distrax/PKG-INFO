@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: distrax
-Version: 0.1.8
+Version: 0.1.9
 Summary: Distrax: Probability distributions in JAX.
 Keywords: jax,probability,distribution,python,machine learning
 Author-email: Google DeepMind <distrax-dev@google.com>

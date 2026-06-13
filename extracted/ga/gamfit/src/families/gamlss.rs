@@ -1,17 +1,16 @@
 use crate::basis::{BasisOptions, PenaltyInfo, PenaltySource};
 use crate::custom_family::{
-    AdditiveBlockJacobian, BatchedOuterGradientTerms, BlockEffectiveJacobian, BlockWorkingSet,
-    BlockwiseFitOptions, CustomFamily, CustomFamilyBlockPsiDerivative,
-    CustomFamilyJointDesignChannel, CustomFamilyJointDesignPairContribution,
-    CustomFamilyJointPsiOperator, CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef,
-    CustomFamilyPsiSecondDesignAction, CustomFamilyWarmStart, ExactNewtonJointGradientEvaluation,
-    ExactNewtonJointHessianWorkspace, ExactNewtonJointPsiDirectCache,
-    ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiWorkspace, FamilyChannelHessian,
-    FamilyEvaluation, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, PsiDesignMap,
-    evaluate_custom_family_joint_hyper, evaluate_custom_family_joint_hyper_efs, fit_custom_family,
-    fit_custom_family_fixed_log_lambdas, resolve_custom_family_x_psi_map,
-    resolve_custom_family_x_psi_psi_map, second_psi_linear_map, shared_dense_arc,
-    weighted_crossprod_psi_maps,
+    AdditiveBlockJacobian, BlockEffectiveJacobian, BlockWorkingSet, BlockwiseFitOptions,
+    CustomFamily, CustomFamilyBlockPsiDerivative, CustomFamilyJointDesignChannel,
+    CustomFamilyJointDesignPairContribution, CustomFamilyJointPsiOperator,
+    CustomFamilyPsiDesignAction, CustomFamilyPsiLinearMapRef, CustomFamilyPsiSecondDesignAction,
+    CustomFamilyWarmStart, ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
+    ExactNewtonJointPsiDirectCache, ExactNewtonJointPsiSecondOrderTerms,
+    ExactNewtonJointPsiWorkspace, FamilyChannelHessian, FamilyEvaluation, ParameterBlockSpec,
+    ParameterBlockState, PenaltyMatrix, PsiDesignMap, evaluate_custom_family_joint_hyper,
+    evaluate_custom_family_joint_hyper_efs, fit_custom_family, fit_custom_family_fixed_log_lambdas,
+    resolve_custom_family_x_psi_map, resolve_custom_family_x_psi_psi_map, second_psi_linear_map,
+    shared_dense_arc, weighted_crossprod_psi_maps,
 };
 use crate::estimate::UnifiedFitResult;
 use crate::faer_ndarray::{fast_ab, fast_atv, fast_av, fast_joint_hessian_2x2};
@@ -56,12 +55,18 @@ use crate::solver::estimate::validate_all_finite_estimation;
 use crate::types::{InverseLink, RidgePolicy, StandardLink};
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis, s};
 use rayon::prelude::*;
-use statrs::function::gamma::{digamma, ln_gamma};
 use std::borrow::Cow;
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
+
+mod dispersion_family;
+pub use dispersion_family::{
+    DispersionFamilyKind, DispersionGlmLocationScaleTermSpec, FAMILY_BETA_LOCATION_SCALE,
+    FAMILY_GAMMA_LOCATION_SCALE, FAMILY_NEGBIN_LOCATION_SCALE, FAMILY_TWEEDIE_LOCATION_SCALE,
+    fit_dispersion_glm_location_scale_terms,
+};
 
 mod binomial_q_derivs;
 use binomial_q_derivs::{
@@ -3185,678 +3190,6 @@ pub(crate) fn fit_gaussian_location_scale_terms_with_selected_wiggle(
     })
 }
 
-// ============================================================================
-// #913: dispersion-channel GAMLSS location-scale families.
-//
-// `noise_formula` (a second linear predictor on the dispersion channel) was
-// wired only for Gaussian/Binomial location-scale and the survival families.
-// The genuine-dispersion mean families — NegativeBinomial, Gamma, Beta and
-// Tweedie — were mean-only with a single scalar dispersion. This module adds a
-// SINGLE generic two-block family that routes all four through the existing
-// blockwise REML engine and the shared `LocationScaleFamilyBuilder` /
-// `fit_location_scale_terms` plumbing, so the κ-coordinate assembly, warm
-// start, shrinkage-penalised scale block and result extraction are reused
-// verbatim. A family is added by supplying only its per-row log-likelihood and
-// the (mean, log-precision) working sets — everything else is shared.
-//
-// Block layout: block 0 = mean predictor (η_μ, log link for NB/Gamma/Tweedie,
-// logit for Beta); block 1 = log-precision predictor (η_d). The dispersion
-// channel models log(precision) uniformly — `θ` for NegativeBinomial, the
-// shape `ν` for Gamma, `φ` for Beta, and `1/φ` for Tweedie — so a larger η_d
-// always means *less* dispersion, matching the Gaussian/Binomial convention
-// where η_logσ smaller ⇒ tighter. With no `noise_formula` the log-precision
-// block is a single intercept and the fit reduces to the scalar-dispersion
-// model.
-//
-// The mean and dispersion parameters of every exponential-dispersion family
-// (and NB2) are Fisher-orthogonal, so block-cyclic Fisher-scoring IRLS — the
-// Rigby–Stasinopoulos scheme `gamlss` uses — converges to the joint MLE with
-// block-diagonal working sets; the inner solver therefore needs no cross-block
-// curvature. Smoothing-parameter selection runs through the engine's
-// first-order (gradient-only) outer path: the family declines the dense outer
-// Hessian capability because its working weights couple the two blocks
-// (`W_μ` depends on the precision and vice-versa), which the block-local
-// diagonal-drift hook cannot represent exactly. The REML criterion *value* is
-// the exact penalised Laplace surface at the converged β̂; only the analytic
-// ρ-Hessian is omitted, exactly as for any first-order custom family.
-// ============================================================================
-
-/// The genuine-dispersion mean family whose precision (overdispersion) channel
-/// can carry a second `noise_formula` linear predictor (issue #913).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DispersionFamilyKind {
-    /// NB2: `Var = μ + μ²/θ`; the precision channel models `log θ`.
-    NegativeBinomial,
-    /// Gamma with `Var = μ²/ν`; the precision channel models `log ν` (shape).
-    Gamma,
-    /// Beta(μφ, (1−μ)φ) with a logit mean link; the precision channel models
-    /// `log φ`.
-    Beta,
-    /// Tweedie compound Poisson–Gamma with `Var = φ μ^p`, fixed power `p`; the
-    /// precision channel models `log(1/φ)`. The per-row density uses the
-    /// saddlepoint (Nelder–Pregibon) approximation for `y > 0` and the exact
-    /// point mass at `y = 0`; this is the standard tractable Tweedie ML
-    /// surface (an exact-series φ-derivative is the remaining hard sub-item of
-    /// #913).
-    Tweedie { p: f64 },
-}
-
-impl DispersionFamilyKind {
-    pub const fn family_tag(self) -> &'static str {
-        match self {
-            DispersionFamilyKind::NegativeBinomial => FAMILY_NEGBIN_LOCATION_SCALE,
-            DispersionFamilyKind::Gamma => FAMILY_GAMMA_LOCATION_SCALE,
-            DispersionFamilyKind::Beta => FAMILY_BETA_LOCATION_SCALE,
-            DispersionFamilyKind::Tweedie { .. } => FAMILY_TWEEDIE_LOCATION_SCALE,
-        }
-    }
-
-    /// The mean link is logit for Beta (a probability mean) and log otherwise.
-    const fn mean_is_logit(self) -> bool {
-        matches!(self, DispersionFamilyKind::Beta)
-    }
-}
-
-pub const FAMILY_NEGBIN_LOCATION_SCALE: &str = "negbin-location-scale";
-pub const FAMILY_GAMMA_LOCATION_SCALE: &str = "gamma-location-scale";
-pub const FAMILY_BETA_LOCATION_SCALE: &str = "beta-location-scale";
-pub const FAMILY_TWEEDIE_LOCATION_SCALE: &str = "tweedie-location-scale";
-
-/// `η` magnitude clamp shared by both channels (mirrors PIRLS `ETA_CLAMP`):
-/// keeps `exp(η)` and the logit jet away from overflow while staying in the
-/// smooth interior of every link.
-const DISPERSION_ETA_CLAMP: f64 = 30.0;
-/// Floor for a per-row IRLS working weight / curvature so the block normal
-/// equations stay positive-definite. The working *response* always carries the
-/// exact score, so the stationary point (penalised score = 0) is independent
-/// of this floor; it only conditions the inner solve.
-const DISPERSION_MIN_CURVATURE: f64 = 1e-12;
-
-/// Trigamma `ψ'(x)` for `x > 0` via upward recurrence to the asymptotic
-/// regime; matches the PIRLS implementation used by the scalar-dispersion
-/// NB/Beta/Gamma paths so the location-scale derivatives agree with them.
-fn dispersion_trigamma(mut x: f64) -> f64 {
-    if !(x.is_finite() && x > 0.0) {
-        return f64::NAN;
-    }
-    let mut acc = 0.0;
-    while x < 8.0 {
-        acc += 1.0 / (x * x);
-        x += 1.0;
-    }
-    let inv = 1.0 / x;
-    let inv2 = inv * inv;
-    // ψ'(x) ≈ 1/x + 1/(2x²) + 1/(6x³) − 1/(30x⁵) + 1/(42x⁷)
-    acc + inv + 0.5 * inv2 + inv * inv2 / 6.0 - inv * inv2 * inv2 / 30.0
-        + inv * inv2 * inv2 * inv2 / 42.0
-}
-
-/// Per-row working quantities for both channels at the current `(η_μ, η_d)`.
-struct DispersionRowKernel {
-    loglik: f64,
-    mean_weight: f64,
-    mean_response: f64,
-    disp_weight: f64,
-    disp_response: f64,
-}
-
-/// Evaluate the row log-likelihood and the (mean, log-precision) Fisher-scoring
-/// working sets for one observation. `eta_mu`/`eta_d` already include any
-/// per-channel offset (they are the block predictors). `prior_weight` is the
-/// observation's prior weight.
-fn dispersion_row_kernel(
-    kind: DispersionFamilyKind,
-    yi: f64,
-    eta_mu: f64,
-    eta_d: f64,
-    prior_weight: f64,
-) -> DispersionRowKernel {
-    let wi = prior_weight.max(0.0);
-    let em = eta_mu.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
-    let ed = eta_d.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
-    match kind {
-        DispersionFamilyKind::NegativeBinomial => {
-            let mu = em.exp().max(1e-300);
-            let theta = ed.exp().max(1e-12); // precision (size)
-            let tpm = theta + mu;
-            let tpy = theta + yi;
-            let loglik = wi
-                * (ln_gamma(yi + theta) - ln_gamma(theta) - ln_gamma(yi + 1.0)
-                    + theta * theta.ln()
-                    - theta * tpm.ln()
-                    + yi * mu.ln()
-                    - yi * tpm.ln());
-            // Mean block (log link): W = μθ/(θ+μ) = full NB2 Fisher weight,
-            // z = η + (y−μ)/μ.
-            let mean_weight = wi * mu * theta / tpm;
-            let mean_response = em + (yi - mu) / mu;
-            // Precision block (log link on θ): MASS glm.nb θ score / observed
-            // information, chained to η_d = log θ.
-            let s_theta =
-                digamma(yi + theta) - digamma(theta) + theta.ln() + 1.0 - tpm.ln() - tpy / tpm;
-            let info_theta = -dispersion_trigamma(yi + theta) + dispersion_trigamma(theta)
-                - 1.0 / theta
-                + 2.0 / tpm
-                - tpy / (tpm * tpm);
-            let info_pos = info_theta.max(DISPERSION_MIN_CURVATURE);
-            let disp_weight = wi * theta * theta * info_pos;
-            let disp_response = ed + s_theta / (theta * info_pos);
-            DispersionRowKernel {
-                loglik,
-                mean_weight,
-                mean_response,
-                disp_weight,
-                disp_response,
-            }
-        }
-        DispersionFamilyKind::Gamma => {
-            let mu = em.exp().max(1e-300);
-            let nu = ed.exp().max(1e-12); // precision = shape ν
-            let y_pos = yi.max(1e-300);
-            let loglik = wi
-                * (nu * nu.ln() - nu * mu.ln() - ln_gamma(nu) + (nu - 1.0) * y_pos.ln()
-                    - nu * yi / mu);
-            // Mean block (log link): Var = μ²/ν ⇒ W = ν, z = η + (y−μ)/μ.
-            let mean_weight = wi * nu;
-            let mean_response = em + (yi - mu) / mu;
-            // Shape block (log link on ν): deterministic Fisher information
-            // ψ'(ν) − 1/ν > 0 for all ν > 0.
-            let s_nu = nu.ln() + 1.0 - mu.ln() - digamma(nu) + y_pos.ln() - yi / mu;
-            let info_nu = (dispersion_trigamma(nu) - 1.0 / nu).max(DISPERSION_MIN_CURVATURE);
-            let disp_weight = wi * nu * nu * info_nu;
-            let disp_response = ed + s_nu / (nu * info_nu);
-            DispersionRowKernel {
-                loglik,
-                mean_weight,
-                mean_response,
-                disp_weight,
-                disp_response,
-            }
-        }
-        DispersionFamilyKind::Beta => {
-            // logit mean link.
-            let mu = (1.0 / (1.0 + (-em).exp())).clamp(1e-12, 1.0 - 1e-12);
-            let phi = ed.exp().max(1e-12); // precision
-            let q = (mu * (1.0 - mu)).max(1e-12); // dμ/dη
-            let yc = yi.clamp(1e-12, 1.0 - 1e-12);
-            let a = (mu * phi).max(1e-12);
-            let b = ((1.0 - mu) * phi).max(1e-12);
-            let loglik = wi
-                * (ln_gamma(phi) - ln_gamma(a) - ln_gamma(b)
-                    + (a - 1.0) * yc.ln()
-                    + (b - 1.0) * (1.0 - yc).ln());
-            // Mean block (logit link): Ferrari–Cribari-Neto score/information.
-            let score_mu = phi * (digamma(b) - digamma(a) + yc.ln() - (1.0 - yc).ln());
-            let info_mu = (phi * phi * (dispersion_trigamma(a) + dispersion_trigamma(b)))
-                .max(DISPERSION_MIN_CURVATURE);
-            let mean_weight = wi * q * q * info_mu;
-            let mean_response = em + score_mu / (q * info_mu);
-            // Precision block (log link on φ).
-            let s_phi = digamma(phi) - mu * digamma(a) - (1.0 - mu) * digamma(b)
-                + mu * yc.ln()
-                + (1.0 - mu) * (1.0 - yc).ln();
-            let info_phi = (mu * mu * dispersion_trigamma(a)
-                + (1.0 - mu) * (1.0 - mu) * dispersion_trigamma(b)
-                - dispersion_trigamma(phi))
-            .max(DISPERSION_MIN_CURVATURE);
-            let disp_weight = wi * phi * phi * info_phi;
-            let disp_response = ed + s_phi / (phi * info_phi);
-            DispersionRowKernel {
-                loglik,
-                mean_weight,
-                mean_response,
-                disp_weight,
-                disp_response,
-            }
-        }
-        DispersionFamilyKind::Tweedie { p } => {
-            let mu = em.exp().max(1e-300);
-            // Precision channel models log(1/φ) ⇒ φ = exp(−η_d).
-            let phi = (-ed).exp().max(1e-12);
-            let one_minus_p = 1.0 - p;
-            let two_minus_p = 2.0 - p;
-            let mean_weight = wi * mu.powf(two_minus_p) / phi;
-            let mean_response = em + (yi - mu) / mu;
-            if yi > 0.0 {
-                // Saddlepoint (Nelder–Pregibon) density for y > 0.
-                let dev = 2.0
-                    * (yi.powf(two_minus_p) / (one_minus_p * two_minus_p)
-                        - yi * mu.powf(one_minus_p) / one_minus_p
-                        + mu.powf(two_minus_p) / two_minus_p);
-                let loglik = wi
-                    * (-dev / (2.0 * phi)
-                        - 0.5 * (2.0 * std::f64::consts::PI * phi).ln()
-                        - 0.5 * p * yi.ln());
-                // ∂ℓ/∂φ = dev/(2φ²) − 1/(2φ); chain to η_d = −log φ.
-                let s_phi = dev / (2.0 * phi * phi) - 1.0 / (2.0 * phi);
-                let s_eta = -phi * s_phi;
-                // Fisher information wrt φ is 1/(2φ²) (E[dev] = φ) ⇒ wrt η_d it
-                // is the constant 1/2.
-                let disp_weight = wi * 0.5;
-                let disp_response = ed + s_eta / 0.5;
-                DispersionRowKernel {
-                    loglik,
-                    mean_weight,
-                    mean_response,
-                    disp_weight,
-                    disp_response,
-                }
-            } else {
-                // Exact point mass P(Y=0) = exp(−μ^{2−p}/(φ(2−p))) (1 < p < 2).
-                let c = mu.powf(two_minus_p) / two_minus_p;
-                let loglik = wi * (-c / phi);
-                // ∂ℓ/∂φ = c/φ²; chain to η_d = −log φ.
-                let s_phi = c / (phi * phi);
-                let s_eta = -phi * s_phi;
-                // −∂²ℓ/∂φ² = 2c/φ³ ⇒ Fisher information wrt η_d is 2c/φ. The
-                // working response divides by this per-row curvature so the
-                // prior weight cancels (and a zero-prior-weight row stays
-                // excluded via `disp_weight = 0`).
-                let curvature_eta = (2.0 * c / phi).max(DISPERSION_MIN_CURVATURE);
-                let disp_weight = wi * curvature_eta;
-                let disp_response = ed + s_eta / curvature_eta;
-                DispersionRowKernel {
-                    loglik,
-                    mean_weight,
-                    mean_response,
-                    disp_weight,
-                    disp_response,
-                }
-            }
-        }
-    }
-}
-
-/// Two-block GAMLSS family for the genuine-dispersion mean families (#913).
-#[derive(Clone)]
-pub(crate) struct DispersionGlmLocationScaleFamily {
-    kind: DispersionFamilyKind,
-    y: Array1<f64>,
-    weights: Array1<f64>,
-}
-
-impl DispersionGlmLocationScaleFamily {
-    const BLOCK_MEAN: usize = 0;
-    const BLOCK_DISP: usize = 1;
-}
-
-impl CustomFamily for DispersionGlmLocationScaleFamily {
-    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        if block_states.len() != 2 {
-            return Err(format!(
-                "{} expects 2 blocks (mean, log-precision), got {}",
-                self.kind.family_tag(),
-                block_states.len()
-            ));
-        }
-        let eta_mu = &block_states[Self::BLOCK_MEAN].eta;
-        let eta_d = &block_states[Self::BLOCK_DISP].eta;
-        let n = self.y.len();
-        if eta_mu.len() != n || eta_d.len() != n || self.weights.len() != n {
-            return Err(format!(
-                "{} row-count mismatch: y={n}, eta_mu={}, eta_d={}, weights={}",
-                self.kind.family_tag(),
-                eta_mu.len(),
-                eta_d.len(),
-                self.weights.len()
-            ));
-        }
-        let mut log_likelihood = 0.0;
-        let mut mean_weights = Array1::<f64>::zeros(n);
-        let mut mean_response = Array1::<f64>::zeros(n);
-        let mut disp_weights = Array1::<f64>::zeros(n);
-        let mut disp_response = Array1::<f64>::zeros(n);
-        for i in 0..n {
-            let row =
-                dispersion_row_kernel(self.kind, self.y[i], eta_mu[i], eta_d[i], self.weights[i]);
-            if row.loglik.is_finite() {
-                log_likelihood += row.loglik;
-            }
-            mean_weights[i] = row.mean_weight.max(0.0);
-            mean_response[i] = row.mean_response;
-            disp_weights[i] = row.disp_weight.max(0.0);
-            disp_response[i] = row.disp_response;
-        }
-        Ok(FamilyEvaluation {
-            log_likelihood,
-            blockworking_sets: vec![
-                BlockWorkingSet::diagonal_checked(mean_response, mean_weights)?,
-                BlockWorkingSet::diagonal_checked(disp_response, disp_weights)?,
-            ],
-        })
-    }
-
-    fn log_likelihood_only(&self, block_states: &[ParameterBlockState]) -> Result<f64, String> {
-        if block_states.len() != 2 {
-            return Err(format!(
-                "{} expects 2 blocks for log-likelihood, got {}",
-                self.kind.family_tag(),
-                block_states.len()
-            ));
-        }
-        let eta_mu = &block_states[Self::BLOCK_MEAN].eta;
-        let eta_d = &block_states[Self::BLOCK_DISP].eta;
-        let mut ll = 0.0;
-        for i in 0..self.y.len() {
-            let row =
-                dispersion_row_kernel(self.kind, self.y[i], eta_mu[i], eta_d[i], self.weights[i]);
-            if row.loglik.is_finite() {
-                ll += row.loglik;
-            }
-        }
-        Ok(ll)
-    }
-
-    fn coefficient_hessian_cost(&self, specs: &[ParameterBlockSpec]) -> u64 {
-        crate::families::location_scale_engine::location_scale_coefficient_hessian_cost(
-            self.y.len() as u64,
-            specs,
-        )
-    }
-
-    /// The mean and precision working weights couple across both blocks, which
-    /// the block-local diagonal drift hook cannot represent, so decline the
-    /// dense outer Hessian capability whenever the actual two-block (or
-    /// larger) geometry is in play; a degenerate single-block probe — there
-    /// is no cross-block coupling to reject — keeps the trait default's
-    /// availability verdict.
-    ///
-    /// The override still validates the block-spec slice it is handed (the
-    /// same consistency check the trait default's assertion bottoms out in)
-    /// so a malformed probe is reported here rather than downstream.
-    fn outer_hyper_hessian_dense_available(&self, specs: &[ParameterBlockSpec]) -> bool {
-        assert!(
-            crate::custom_family::validate_blockspec_consistency(specs).is_ok(),
-            "DispersionGlmLocationScale outer hyper-Hessian dense availability: \
-             inconsistent parameter block specs"
-        );
-        specs.len() < 2
-    }
-}
-
-/// Term spec consumed by [`fit_dispersion_glm_location_scale_terms`]; mirrors
-/// [`GaussianLocationScaleTermSpec`] with the dispersion channel in place of
-/// the Gaussian log-σ channel.
-pub struct DispersionGlmLocationScaleTermSpec {
-    pub kind: DispersionFamilyKind,
-    pub y: Array1<f64>,
-    pub weights: Array1<f64>,
-    pub meanspec: TermCollectionSpec,
-    pub log_dispspec: TermCollectionSpec,
-    pub mean_offset: Array1<f64>,
-    pub log_disp_offset: Array1<f64>,
-}
-
-struct DispersionGlmLocationScaleTermBuilder {
-    kind: DispersionFamilyKind,
-    y: Array1<f64>,
-    weights: Array1<f64>,
-    meanspec: TermCollectionSpec,
-    noisespec: TermCollectionSpec,
-    mean_offset: Array1<f64>,
-    noise_offset: Array1<f64>,
-}
-
-/// Warm start for a dispersion location-scale fit: project a link-transformed
-/// response onto the mean block and seed the log-precision block at a constant
-/// (precision ≈ 1) baseline. The block-cyclic IRLS then refines both jointly.
-fn dispersion_location_scale_warm_start(
-    kind: DispersionFamilyKind,
-    y: &Array1<f64>,
-    weights: &Array1<f64>,
-    mean_block: &ParameterBlockSpec,
-    disp_block: &ParameterBlockSpec,
-    mean_beta_hint: Option<&Array1<f64>>,
-    disp_beta_hint: Option<&Array1<f64>>,
-) -> Result<(Array1<f64>, Array1<f64>), String> {
-    let ridge_floor = 1e-10;
-    let mean_beta = if let Some(beta) = mean_beta_hint {
-        beta.clone()
-    } else {
-        let target = Array1::from_shape_fn(y.len(), |i| {
-            if kind.mean_is_logit() {
-                let yi = y[i].clamp(1e-3, 1.0 - 1e-3);
-                (yi / (1.0 - yi)).ln()
-            } else {
-                // log mean link; the +0.1 keeps zero counts finite.
-                (y[i].max(0.0) + 0.1).ln()
-            }
-        });
-        solve_penalizedweighted_projection(
-            &mean_block.design,
-            &mean_block.offset,
-            &target,
-            weights,
-            &mean_block.penalties,
-            &mean_block.initial_log_lambdas,
-            ridge_floor,
-        )?
-    };
-    let disp_beta = if let Some(beta) = disp_beta_hint {
-        beta.clone()
-    } else {
-        // η_d ≈ 0 ⇒ precision ≈ 1 baseline; project the constant onto the
-        // dispersion design so any non-intercept columns start at zero.
-        let target = Array1::<f64>::zeros(y.len());
-        solve_penalizedweighted_projection(
-            &disp_block.design,
-            &disp_block.offset,
-            &target,
-            weights,
-            &disp_block.penalties,
-            &disp_block.initial_log_lambdas,
-            ridge_floor,
-        )?
-    };
-    Ok((mean_beta, disp_beta))
-}
-
-impl LocationScaleFamilyBuilder for DispersionGlmLocationScaleTermBuilder {
-    type Family = DispersionGlmLocationScaleFamily;
-
-    fn meanspec(&self) -> &TermCollectionSpec {
-        &self.meanspec
-    }
-
-    fn noisespec(&self) -> &TermCollectionSpec {
-        &self.noisespec
-    }
-
-    fn noise_penalty_count(&self, noise_design: &TermCollectionDesign) -> usize {
-        // Mirror the Gaussian/Binomial scale block: a full-span shrinkage
-        // penalty pins the log-precision nullspace so REML does not optimise
-        // the dispersion smoothing on a flat surface.
-        noise_design.penalties.len() + 1
-    }
-
-    fn build_blocks(
-        &self,
-        theta: &Array1<f64>,
-        mean_design: &TermCollectionDesign,
-        noise_design: &TermCollectionDesign,
-        mean_beta_hint: Option<Array1<f64>>,
-        noise_beta_hint: Option<Array1<f64>>,
-    ) -> Result<Vec<ParameterBlockSpec>, String> {
-        let layout = GamlssLambdaLayout::two_block(
-            mean_design.penalties.len(),
-            self.noise_penalty_count(noise_design),
-        );
-        layout.validate_theta_len(theta.len(), "dispersion location-scale")?;
-
-        let mut meanspec = build_location_scale_block(
-            "mu",
-            mean_design.design.clone(),
-            self.mean_offset.clone(),
-            mean_design.penalties_as_penalty_matrix(),
-            mean_design.nullspace_dims.clone(),
-            layout.mean_from(theta),
-            mean_beta_hint,
-            0,
-            LOCATION_SCALE_N_OUTPUTS,
-            "DispersionLocationScale::build_blocks: mu",
-        )?;
-
-        let p_disp = noise_design.design.ncols();
-        let mut disp_penalties = noise_design.penalties_as_penalty_matrix();
-        disp_penalties.push(PenaltyMatrix::Dense(identity_penalty(p_disp)));
-        let mut disp_nullspace = noise_design.nullspace_dims.clone();
-        disp_nullspace.push(0);
-        let mut dispspec = build_location_scale_block(
-            "log_precision",
-            noise_design.design.clone(),
-            self.noise_offset.clone(),
-            disp_penalties,
-            disp_nullspace,
-            layout.noise_from(theta),
-            noise_beta_hint,
-            1,
-            LOCATION_SCALE_N_OUTPUTS,
-            "DispersionLocationScale::build_blocks: log_precision",
-        )?;
-
-        if meanspec.initial_beta.is_none() || dispspec.initial_beta.is_none() {
-            let (mean_beta0, disp_beta0) = dispersion_location_scale_warm_start(
-                self.kind,
-                &self.y,
-                &self.weights,
-                &meanspec,
-                &dispspec,
-                meanspec.initial_beta.as_ref(),
-                dispspec.initial_beta.as_ref(),
-            )?;
-            if meanspec.initial_beta.is_none() {
-                meanspec.initial_beta = Some(mean_beta0);
-            }
-            if dispspec.initial_beta.is_none() {
-                dispspec.initial_beta = Some(disp_beta0);
-            }
-        }
-
-        Ok(vec![meanspec, dispspec])
-    }
-
-    fn build_family(
-        &self,
-        mean_design: &TermCollectionDesign,
-        noise_design: &TermCollectionDesign,
-    ) -> Self::Family {
-        // The family stores y/weights/kind directly and does not need the
-        // designs at construction time, but the row geometry of the offered
-        // designs is the only cross-check that ties this family back to the
-        // builder's data — assert it before handing the family to the engine
-        // so a misaligned design surfaces here rather than downstream in the
-        // inner solver.
-        assert_eq!(
-            mean_design.design.nrows(),
-            self.y.len(),
-            "DispersionGlmLocationScale::build_family: mean design row count must match y"
-        );
-        assert_eq!(
-            noise_design.design.nrows(),
-            self.y.len(),
-            "DispersionGlmLocationScale::build_family: noise design row count must match y"
-        );
-        DispersionGlmLocationScaleFamily {
-            kind: self.kind,
-            y: self.y.clone(),
-            weights: self.weights.clone(),
-        }
-    }
-
-    fn extract_primary_betas(
-        &self,
-        fit: &UnifiedFitResult,
-    ) -> Result<(Array1<f64>, Array1<f64>), String> {
-        let mean_beta = fit
-            .block_states
-            .get(DispersionGlmLocationScaleFamily::BLOCK_MEAN)
-            .ok_or_else(|| "missing dispersion mean block state".to_string())?
-            .beta
-            .clone();
-        let disp_beta = fit
-            .block_states
-            .get(DispersionGlmLocationScaleFamily::BLOCK_DISP)
-            .ok_or_else(|| "missing dispersion log-precision block state".to_string())?
-            .beta
-            .clone();
-        Ok((mean_beta, disp_beta))
-    }
-
-    fn build_psiderivative_blocks(
-        &self,
-        data: ndarray::ArrayView2<'_, f64>,
-        meanspec: &TermCollectionSpec,
-        noisespec: &TermCollectionSpec,
-        mean_design: &TermCollectionDesign,
-        noise_design: &TermCollectionDesign,
-    ) -> Result<Vec<Vec<CustomFamilyBlockPsiDerivative>>, String> {
-        // The dispersion location-scale families have no closed-form analytic
-        // spatial psi derivatives, and `fit_dispersion_glm_location_scale_terms`
-        // disables the κ/ψ joint optimizer before the engine ever asks. If we
-        // do get called (for example by a future caller that forgets the
-        // disable), return a real diagnostic rather than a sentinel — emit the
-        // exact data and design shape that was passed in so the bug is
-        // diagnosable from the error string alone.
-        Err(format!(
-            "dispersion location-scale ({:?}) does not implement analytic spatial \
-             psi derivatives; the κ/ψ joint optimizer must be disabled before \
-             this builder is consulted. Called with data {n_rows}×{n_cols}, mean \
-             spec (linear={mean_lin}, random={mean_re}, smooth={mean_sm}), noise \
-             spec (linear={noise_lin}, random={noise_re}, smooth={noise_sm}), \
-             mean design cols={mean_p}, noise design cols={noise_p}",
-            self.kind,
-            n_rows = data.nrows(),
-            n_cols = data.ncols(),
-            mean_lin = meanspec.linear_terms.len(),
-            mean_re = meanspec.random_effect_terms.len(),
-            mean_sm = meanspec.smooth_terms.len(),
-            noise_lin = noisespec.linear_terms.len(),
-            noise_re = noisespec.random_effect_terms.len(),
-            noise_sm = noisespec.smooth_terms.len(),
-            mean_p = mean_design.design.ncols(),
-            noise_p = noise_design.design.ncols(),
-        ))
-    }
-}
-
-/// Fit a dispersion-channel GAMLSS location-scale model (#913). All four
-/// genuine-dispersion mean families share this single entry; the per-family
-/// likelihood lives in [`dispersion_row_kernel`].
-pub fn fit_dispersion_glm_location_scale_terms(
-    data: ndarray::ArrayView2<'_, f64>,
-    spec: DispersionGlmLocationScaleTermSpec,
-    options: &BlockwiseFitOptions,
-    kappa_options: &SpatialLengthScaleOptimizationOptions,
-) -> Result<BlockwiseTermFitResult, String> {
-    if let DispersionFamilyKind::Tweedie { p } = spec.kind {
-        if !(p.is_finite() && p > 1.0 && p < 2.0) {
-            return Err(format!(
-                "Tweedie location-scale requires a variance power strictly in (1, 2); got p={p}"
-            ));
-        }
-    }
-    // The κ/ψ anisotropic-kernel joint optimizer needs analytic psi
-    // derivatives this family does not provide; disable it so the engine runs
-    // the full ρ REML directly via `fit_custom_family` (1-D and tensor smooth
-    // penalties λ are still REML-selected).
-    let mut kappa = kappa_options.clone();
-    kappa.enabled = false;
-    fit_location_scale_terms(
-        data,
-        DispersionGlmLocationScaleTermBuilder {
-            kind: spec.kind,
-            y: spec.y,
-            weights: spec.weights,
-            meanspec: spec.meanspec,
-            noisespec: spec.log_dispspec,
-            mean_offset: spec.mean_offset,
-            noise_offset: spec.log_disp_offset,
-        },
-        options,
-        &kappa,
-    )
-}
-
 pub(crate) fn fit_binomial_location_scale_terms(
     data: ndarray::ArrayView2<'_, f64>,
     spec: BinomialLocationScaleTermSpec,
@@ -4828,6 +4161,80 @@ fn binomial_location_scale_log_likelihood(
     }
 }
 
+#[inline]
+fn binomial_expected_q_information_derivatives(
+    weight: f64,
+    mu: f64,
+    d1: f64,
+    d2: f64,
+    d3: f64,
+) -> (f64, f64, f64) {
+    if weight == 0.0
+        || !mu.is_finite()
+        || !d1.is_finite()
+        || !d2.is_finite()
+        || !d3.is_finite()
+        || mu <= 0.0
+        || mu >= 1.0
+        || d1 == 0.0
+    {
+        return (0.0, 0.0, 0.0);
+    }
+    let var = mu * (1.0 - mu);
+    if !var.is_finite() || var <= 0.0 {
+        return (0.0, 0.0, 0.0);
+    }
+    let var1 = d1 * (1.0 - 2.0 * mu);
+    let var2 = d2 * (1.0 - 2.0 * mu) - 2.0 * d1 * d1;
+
+    let f = weight * d1 * d1 / var;
+    let num1 = 2.0 * d1 * d2 * var - d1 * d1 * var1;
+    let f1 = weight * num1 / (var * var);
+    let num1_prime = 2.0 * (d2 * d2 + d1 * d3) * var - d1 * d1 * var2;
+    let f2 = weight * (num1_prime / (var * var) - 2.0 * num1 * var1 / (var * var * var));
+    if f.is_finite() && f1.is_finite() && f2.is_finite() {
+        (f, f1, f2)
+    } else {
+        (0.0, 0.0, 0.0)
+    }
+}
+
+fn binomial_expected_location_scale_second_coefficients(
+    q: NonWiggleQDerivs,
+    f: f64,
+    f1: f64,
+    f2: f64,
+    d_eta_t_u: f64,
+    d_eta_ls_u: f64,
+    d_eta_t_v: f64,
+    d_eta_ls_v: f64,
+) -> (f64, f64, f64) {
+    let u = nonwiggle_q_directional(q, d_eta_t_u, d_eta_ls_u);
+    let v = nonwiggle_q_directional(q, d_eta_t_v, d_eta_ls_v);
+    let q_uv = q.q_tl * (d_eta_t_u * d_eta_ls_v + d_eta_t_v * d_eta_ls_u)
+        + q.q_ll * d_eta_ls_u * d_eta_ls_v;
+    let q_t_uv = q.q_tl_ls * d_eta_ls_u * d_eta_ls_v;
+    let q_ls_uv = q.q_tl_ls * (d_eta_ls_u * d_eta_t_v + d_eta_ls_v * d_eta_t_u)
+        + q.q_ll_ls * d_eta_ls_u * d_eta_ls_v;
+    let scalar = f2 * u.delta_q * v.delta_q + f1 * q_uv;
+    let tt = scalar * q.q_t * q.q_t
+        + 2.0 * f1 * u.delta_q * q.q_t * v.delta_q_t
+        + 2.0 * f1 * v.delta_q * q.q_t * u.delta_q_t
+        + 2.0 * f * (q.q_t * q_t_uv + u.delta_q_t * v.delta_q_t);
+    let tl = scalar * q.q_t * q.q_ls
+        + f1 * u.delta_q * (v.delta_q_t * q.q_ls + q.q_t * v.delta_q_ls)
+        + f1 * v.delta_q * (u.delta_q_t * q.q_ls + q.q_t * u.delta_q_ls)
+        + f * (q_t_uv * q.q_ls
+            + q.q_t * q_ls_uv
+            + u.delta_q_t * v.delta_q_ls
+            + v.delta_q_t * u.delta_q_ls);
+    let ll = scalar * q.q_ls * q.q_ls
+        + 2.0 * f1 * u.delta_q * q.q_ls * v.delta_q_ls
+        + 2.0 * f1 * v.delta_q * q.q_ls * u.delta_q_ls
+        + 2.0 * f * (q.q_ls * q_ls_uv + u.delta_q_ls * v.delta_q_ls);
+    (tt, tl, ll)
+}
+
 fn binomial_location_scalerow(
     y: f64,
     weight: f64,
@@ -5026,6 +4433,66 @@ fn binomial_location_scale_core(
     })
 }
 
+#[inline]
+fn binomial_location_scale_nll_tower(
+    y: f64,
+    weight: f64,
+    eta_t: f64,
+    eta_ls: f64,
+    q_value: f64,
+    mu: f64,
+    dmu_dq: f64,
+    d2mu_dq2: f64,
+    d3mu_dq3: f64,
+    link_kind: &InverseLink,
+    include_fourth: bool,
+) -> Result<crate::families::jet_tower::Tower4<2>, String> {
+    use crate::families::jet_tower::Tower4;
+    let eta_t_tower = Tower4::<2>::variable(eta_t, 0);
+    let eta_ls_tower = Tower4::<2>::variable(eta_ls, 1);
+    let inv_sigma = (eta_ls_tower * -1.0).exp();
+    let q = -eta_t_tower * inv_sigma;
+    let ll = binomial_location_scale_log_likelihood(y, weight, q_value, link_kind, mu)?;
+    let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
+        y, weight, q_value, mu, dmu_dq, d2mu_dq2, d3mu_dq3, link_kind,
+    );
+    let m4 = if include_fourth {
+        binomial_neglog_q_fourth_derivative_dispatch(
+            y, weight, q_value, mu, dmu_dq, d2mu_dq2, d3mu_dq3, link_kind,
+        )?
+    } else {
+        0.0
+    };
+    Ok(q.compose_unary([-ll, m1, m2, m3, m4]))
+}
+
+#[inline]
+fn binomial_location_scale_nll_tower_from_core_row(
+    y: f64,
+    weight: f64,
+    core: &BinomialLocationScaleCore,
+    row: usize,
+    link_kind: &InverseLink,
+    include_fourth: bool,
+) -> Result<crate::families::jet_tower::Tower4<2>, String> {
+    let sigma = core.sigma[row];
+    let eta_t = -core.q0[row] * sigma;
+    let eta_ls = sigma.ln();
+    binomial_location_scale_nll_tower(
+        y,
+        weight,
+        eta_t,
+        eta_ls,
+        core.q0[row],
+        core.mu[row],
+        core.dmu_dq[row],
+        core.d2mu_dq2[row],
+        core.d3mu_dq3[row],
+        link_kind,
+        include_fourth,
+    )
+}
+
 /// Pure row-coefficient builder for the binomial location-scale joint
 /// directional derivative `D_β H_L[u]`. Returns `(c_tt, c_tl, c_ll)` such
 /// that the resulting matrix is
@@ -5042,63 +4509,28 @@ fn binomial_location_scale_first_directional_coefficients(
     d_eta_t: &Array1<f64>,
     d_eta_ls: &Array1<f64>,
     link_kind: &InverseLink,
-) -> (Array1<f64>, Array1<f64>, Array1<f64>) {
+) -> Result<(Array1<f64>, Array1<f64>, Array1<f64>), String> {
     let n = y.len();
-    let mut c_tt_v = vec![0.0_f64; n];
-    let mut c_tl_v = vec![0.0_f64; n];
-    let mut c_ll_v = vec![0.0_f64; n];
-    let y_slice = y.as_slice().expect("y must be contiguous");
-    let w_slice = weights.as_slice().expect("weights must be contiguous");
-    let q0_slice = core.q0.as_slice().expect("q0 must be contiguous");
-    let sigma_slice = core.sigma.as_slice().expect("sigma must be contiguous");
-    let dsigma_slice = core
-        .dsigma_deta
-        .as_slice()
-        .expect("dsigma_deta must be contiguous");
-    let mu_slice = core.mu.as_slice().expect("mu must be contiguous");
-    let dmu_slice = core.dmu_dq.as_slice().expect("dmu_dq must be contiguous");
-    let d2mu_slice = core
-        .d2mu_dq2
-        .as_slice()
-        .expect("d2mu_dq2 must be contiguous");
-    let d3mu_slice = core
-        .d3mu_dq3
-        .as_slice()
-        .expect("d3mu_dq3 must be contiguous");
-    let det_slice = d_eta_t.as_slice().expect("d_eta_t must be contiguous");
-    let del_slice = d_eta_ls.as_slice().expect("d_eta_ls must be contiguous");
-    c_tt_v
-        .par_iter_mut()
-        .zip(c_tl_v.par_iter_mut())
-        .zip(c_ll_v.par_iter_mut())
-        .enumerate()
-        .for_each(|(i, ((c_tt, c_tl), c_ll))| {
-            let q = q0_slice[i];
-            let r = 1.0 / sigma_slice[i];
-            let s = dsigma_slice[i] / sigma_slice[i];
-            let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
-                y_slice[i],
-                w_slice[i],
-                q,
-                mu_slice[i],
-                dmu_slice[i],
-                d2mu_slice[i],
-                d3mu_slice[i],
-                link_kind,
-            );
-            let a = det_slice[i];
-            let b = del_slice[i];
-            let sb = s * b;
-            let du = -r * a - q * sb;
-            *c_tt = r * r * (m3 * du - 2.0 * m2 * sb);
-            *c_tl = s * r * (q * m3 * du + m2 * (2.0 * du - q * sb) - m1 * sb);
-            *c_ll = s * s * (m1 + 3.0 * q * m2 + q * q * m3) * du;
-        });
-    (
-        Array1::from_vec(c_tt_v),
-        Array1::from_vec(c_tl_v),
-        Array1::from_vec(c_ll_v),
-    )
+    let triples: Result<Vec<(f64, f64, f64)>, String> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let tower = binomial_location_scale_nll_tower_from_core_row(
+                y[i], weights[i], core, i, link_kind, false,
+            )?;
+            let dir = [d_eta_t[i], d_eta_ls[i]];
+            let contracted = tower.third_contracted(&dir);
+            Ok((contracted[0][0], contracted[0][1], contracted[1][1]))
+        })
+        .collect();
+    let mut coeff_tt = Array1::<f64>::zeros(n);
+    let mut coeff_tl = Array1::<f64>::zeros(n);
+    let mut coeff_ll = Array1::<f64>::zeros(n);
+    for (i, (tt, tl, ll)) in triples?.into_iter().enumerate() {
+        coeff_tt[i] = tt;
+        coeff_tl[i] = tl;
+        coeff_ll[i] = ll;
+    }
+    Ok((coeff_tt, coeff_tl, coeff_ll))
 }
 
 /// Pure row-coefficient builder for the binomial location-scale joint
@@ -5123,51 +4555,13 @@ fn binomial_location_scalesecond_directional_coefficients(
     let triples: Result<Vec<(f64, f64, f64)>, String> = (0..n)
         .into_par_iter()
         .map(|i| -> Result<(f64, f64, f64), String> {
-            let q = core.q0[i];
-            let r = 1.0 / core.sigma[i];
-            let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
-                y[i],
-                weights[i],
-                q,
-                core.mu[i],
-                core.dmu_dq[i],
-                core.d2mu_dq2[i],
-                core.d3mu_dq3[i],
-                link_kind,
-            );
-            let m4 = binomial_neglog_q_fourth_derivative_dispatch(
-                y[i],
-                weights[i],
-                q,
-                core.mu[i],
-                core.dmu_dq[i],
-                core.d2mu_dq2[i],
-                core.d3mu_dq3[i],
-                link_kind,
+            let tower = binomial_location_scale_nll_tower_from_core_row(
+                y[i], weights[i], core, i, link_kind, true,
             )?;
-            let s = core.dsigma_deta[i] / core.sigma[i];
-            let a = d_eta_t_u[i];
-            let b = s * d_eta_ls_u[i];
-            let c = d_eta_t_v[i];
-            let d = s * d_eta_ls_v[i];
-            let du = -r * a - q * b;
-            let dv = -r * c - q * d;
-            let d2 = r * (a * d + b * c) + q * b * d;
-            let tt =
-                r * r * (m4 * du * dv + m3 * (d2 - 2.0 * d * du - 2.0 * b * dv) + 4.0 * m2 * b * d);
-            let tl = s
-                * r
-                * (q * m4 * du * dv
-                    + m3 * (q * d2 + 3.0 * du * dv - q * (d * du + b * dv))
-                    + m2 * (q * b * d + 2.0 * d2 - 2.0 * (d * du + b * dv))
-                    + m1 * b * d);
-            let ll = s
-                * s
-                * (q * q * m4 * du * dv
-                    + m3 * (q * q * d2 + 5.0 * q * du * dv)
-                    + m2 * (3.0 * q * d2 + 4.0 * du * dv)
-                    + m1 * d2);
-            Ok((tt, tl, ll))
+            let dir_u = [d_eta_t_u[i], d_eta_ls_u[i]];
+            let dir_v = [d_eta_t_v[i], d_eta_ls_v[i]];
+            let contracted = tower.fourth_contracted(&dir_u, &dir_v);
+            Ok((contracted[0][0], contracted[0][1], contracted[1][1]))
         })
         .collect();
     let triples = triples?;
@@ -14426,38 +13820,32 @@ impl BinomialLocationScaleFamily {
         let y_slice = self.y.as_slice().expect("y must be contiguous");
         let w_slice = self.weights.as_slice().expect("weights must be contiguous");
         let q0_slice = core.q0.as_slice().expect("q0 must be contiguous");
-        let sigma_slice = core.sigma.as_slice().expect("sigma must be contiguous");
-        let mu_slice = core.mu.as_slice().expect("mu must be contiguous");
-        let dmu_slice = core.dmu_dq.as_slice().expect("dmu_dq must be contiguous");
-        let d2mu_slice = core
-            .d2mu_dq2
-            .as_slice()
-            .expect("d2mu_dq2 must be contiguous");
-        let d3mu_slice = core
-            .d3mu_dq3
-            .as_slice()
-            .expect("d3mu_dq3 must be contiguous");
         let eta_t_slice = eta_t.as_slice().expect("eta_t must be contiguous");
+        let eta_ls_slice = eta_ls.as_slice().expect("eta_ls must be contiguous");
         let link_kind = &self.link_kind;
-        grad_eta_t_v
-            .par_iter_mut()
-            .zip(grad_eta_ls_v.par_iter_mut())
-            .enumerate()
-            .for_each(|(i, (g_t, g_ls))| {
-                let (m1, _, _) = binomial_neglog_q_derivatives_dispatch(
+        let gradient_pairs: Result<Vec<(f64, f64)>, String> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let tower = binomial_location_scale_nll_tower(
                     y_slice[i],
                     w_slice[i],
+                    eta_t_slice[i],
+                    eta_ls_slice[i],
                     q0_slice[i],
-                    mu_slice[i],
-                    dmu_slice[i],
-                    d2mu_slice[i],
-                    d3mu_slice[i],
+                    core.mu[i],
+                    core.dmu_dq[i],
+                    core.d2mu_dq2[i],
+                    core.d3mu_dq3[i],
                     link_kind,
-                );
-                let q0d = nonwiggle_q_derivs(eta_t_slice[i], sigma_slice[i]);
-                *g_t = -m1 * q0d.q_t;
-                *g_ls = -m1 * q0d.q_ls;
-            });
+                    false,
+                )?;
+                Ok((-tower.g[0], -tower.g[1]))
+            })
+            .collect();
+        for (i, (g_t, g_ls)) in gradient_pairs?.into_iter().enumerate() {
+            grad_eta_t_v[i] = g_t;
+            grad_eta_ls_v[i] = g_ls;
+        }
         let grad_eta_t = Array1::from_vec(grad_eta_t_v);
         let grad_eta_ls = Array1::from_vec(grad_eta_ls_v);
         let grad_t = x_t.transpose_vector_multiply(&grad_eta_t);
@@ -14516,6 +13904,454 @@ impl BinomialLocationScaleFamily {
             &x_ls,
             d_beta_u_flat,
             d_betav_flat,
+        )
+    }
+
+    fn expected_joint_information_from_designs(
+        &self,
+        block_states: &[ParameterBlockState],
+        x_t: &Array2<f64>,
+        x_ls: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        if block_states.len() != 2 {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleFamily expects 2 blocks, got {}",
+                    block_states.len()
+                ),
+            }
+            .into());
+        }
+        let n = self.y.len();
+        let eta_t = &block_states[Self::BLOCK_T].eta;
+        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
+        if eta_t.len() != n
+            || eta_ls.len() != n
+            || self.weights.len() != n
+            || x_t.nrows() != n
+            || x_ls.nrows() != n
+        {
+            return Err(GamlssError::DimensionMismatch {
+                reason: "BinomialLocationScaleFamily expected information input size mismatch"
+                    .to_string(),
+            }
+            .into());
+        }
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            None,
+            &self.link_kind,
+        )?;
+        let rows: Vec<(f64, f64, f64)> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let q = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+                let (f, _, _) = binomial_expected_q_information_derivatives(
+                    self.weights[i],
+                    core.mu[i],
+                    core.dmu_dq[i],
+                    core.d2mu_dq2[i],
+                    core.d3mu_dq3[i],
+                );
+                (f * q.q_t * q.q_t, f * q.q_t * q.q_ls, f * q.q_ls * q.q_ls)
+            })
+            .collect();
+        let mut coeff_tt = Array1::<f64>::zeros(n);
+        let mut coeff_tl = Array1::<f64>::zeros(n);
+        let mut coeff_ll = Array1::<f64>::zeros(n);
+        for (i, (tt, tl, ll)) in rows.into_iter().enumerate() {
+            coeff_tt[i] = tt;
+            coeff_tl[i] = tl;
+            coeff_ll[i] = ll;
+        }
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let total = pt + pls;
+        let h_tt = xt_diag_x_dense(x_t, &coeff_tt)?;
+        let h_tl = xt_diag_y_dense(x_t, &coeff_tl, x_ls)?;
+        let h_ll = xt_diag_x_dense(x_ls, &coeff_ll)?;
+        let mut h = Array2::<f64>::zeros((total, total));
+        h.slice_mut(s![0..pt, 0..pt]).assign(&h_tt);
+        h.slice_mut(s![0..pt, pt..total]).assign(&h_tl);
+        h.slice_mut(s![pt..total, pt..total]).assign(&h_ll);
+        mirror_upper_to_lower(&mut h);
+        Ok(Some(h))
+    }
+
+    fn expected_joint_information_directional_from_designs(
+        &self,
+        block_states: &[ParameterBlockState],
+        x_t: &Array2<f64>,
+        x_ls: &Array2<f64>,
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        if block_states.len() != 2 {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleFamily expects 2 blocks, got {}",
+                    block_states.len()
+                ),
+            }
+            .into());
+        }
+        let n = self.y.len();
+        let eta_t = &block_states[Self::BLOCK_T].eta;
+        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
+        if eta_t.len() != n
+            || eta_ls.len() != n
+            || self.weights.len() != n
+            || x_t.nrows() != n
+            || x_ls.nrows() != n
+        {
+            return Err(GamlssError::DimensionMismatch {
+                reason: "BinomialLocationScaleFamily expected dI input size mismatch".to_string(),
+            }
+            .into());
+        }
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let total = pt + pls;
+        if d_beta_flat.len() != total {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleFamily expected dI direction length mismatch: got {}, expected {}",
+                    d_beta_flat.len(),
+                    total
+                ),
+            }
+            .into());
+        }
+        let d_eta_t = fast_av(x_t, &d_beta_flat.slice(s![0..pt]));
+        let d_eta_ls = fast_av(x_ls, &d_beta_flat.slice(s![pt..total]));
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            None,
+            &self.link_kind,
+        )?;
+        let rows: Vec<(f64, f64, f64)> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let q = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+                let u = nonwiggle_q_directional(q, d_eta_t[i], d_eta_ls[i]);
+                let (f, f1, _) = binomial_expected_q_information_derivatives(
+                    self.weights[i],
+                    core.mu[i],
+                    core.dmu_dq[i],
+                    core.d2mu_dq2[i],
+                    core.d3mu_dq3[i],
+                );
+                let tt = f1 * u.delta_q * q.q_t * q.q_t + 2.0 * f * q.q_t * u.delta_q_t;
+                let tl = f1 * u.delta_q * q.q_t * q.q_ls
+                    + f * (u.delta_q_t * q.q_ls + q.q_t * u.delta_q_ls);
+                let ll = f1 * u.delta_q * q.q_ls * q.q_ls + 2.0 * f * q.q_ls * u.delta_q_ls;
+                (tt, tl, ll)
+            })
+            .collect();
+        let mut coeff_tt = Array1::<f64>::zeros(n);
+        let mut coeff_tl = Array1::<f64>::zeros(n);
+        let mut coeff_ll = Array1::<f64>::zeros(n);
+        for (i, (tt, tl, ll)) in rows.into_iter().enumerate() {
+            coeff_tt[i] = tt;
+            coeff_tl[i] = tl;
+            coeff_ll[i] = ll;
+        }
+        let d_h_tt = xt_diag_x_dense(x_t, &coeff_tt)?;
+        let d_h_tl = xt_diag_y_dense(x_t, &coeff_tl, x_ls)?;
+        let d_h_ll = xt_diag_x_dense(x_ls, &coeff_ll)?;
+        let mut d_h = Array2::<f64>::zeros((total, total));
+        d_h.slice_mut(s![0..pt, 0..pt]).assign(&d_h_tt);
+        d_h.slice_mut(s![0..pt, pt..total]).assign(&d_h_tl);
+        d_h.slice_mut(s![pt..total, pt..total]).assign(&d_h_ll);
+        mirror_upper_to_lower(&mut d_h);
+        Ok(Some(d_h))
+    }
+
+    fn expected_joint_information_second_directional_from_designs(
+        &self,
+        block_states: &[ParameterBlockState],
+        x_t: &Array2<f64>,
+        x_ls: &Array2<f64>,
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        if block_states.len() != 2 {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleFamily expects 2 blocks, got {}",
+                    block_states.len()
+                ),
+            }
+            .into());
+        }
+        let n = self.y.len();
+        let eta_t = &block_states[Self::BLOCK_T].eta;
+        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
+        if eta_t.len() != n
+            || eta_ls.len() != n
+            || self.weights.len() != n
+            || x_t.nrows() != n
+            || x_ls.nrows() != n
+        {
+            return Err(GamlssError::DimensionMismatch {
+                reason: "BinomialLocationScaleFamily expected d2I input size mismatch".to_string(),
+            }
+            .into());
+        }
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let total = pt + pls;
+        if d_beta_u_flat.len() != total {
+            return Err(GamlssError::DimensionMismatch { reason: format!(
+                "BinomialLocationScaleFamily expected d2I u direction length mismatch: got {}, expected {}",
+                d_beta_u_flat.len(),
+                total
+            ) }.into());
+        }
+        if d_betav_flat.len() != total {
+            return Err(GamlssError::DimensionMismatch { reason: format!(
+                "BinomialLocationScaleFamily expected d2I v direction length mismatch: got {}, expected {}",
+                d_betav_flat.len(),
+                total
+            ) }.into());
+        }
+        let d_eta_t_u = fast_av(x_t, &d_beta_u_flat.slice(s![0..pt]));
+        let d_eta_ls_u = fast_av(x_ls, &d_beta_u_flat.slice(s![pt..total]));
+        let d_eta_t_v = fast_av(x_t, &d_betav_flat.slice(s![0..pt]));
+        let d_eta_ls_v = fast_av(x_ls, &d_betav_flat.slice(s![pt..total]));
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            None,
+            &self.link_kind,
+        )?;
+        let rows: Vec<(f64, f64, f64)> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let q = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+                let (f, f1, f2) = binomial_expected_q_information_derivatives(
+                    self.weights[i],
+                    core.mu[i],
+                    core.dmu_dq[i],
+                    core.d2mu_dq2[i],
+                    core.d3mu_dq3[i],
+                );
+                binomial_expected_location_scale_second_coefficients(
+                    q,
+                    f,
+                    f1,
+                    f2,
+                    d_eta_t_u[i],
+                    d_eta_ls_u[i],
+                    d_eta_t_v[i],
+                    d_eta_ls_v[i],
+                )
+            })
+            .collect();
+        let mut coeff_tt = Array1::<f64>::zeros(n);
+        let mut coeff_tl = Array1::<f64>::zeros(n);
+        let mut coeff_ll = Array1::<f64>::zeros(n);
+        for (i, (tt, tl, ll)) in rows.into_iter().enumerate() {
+            coeff_tt[i] = tt;
+            coeff_tl[i] = tl;
+            coeff_ll[i] = ll;
+        }
+        let d2_h_tt = xt_diag_x_dense(x_t, &coeff_tt)?;
+        let d2_h_tl = xt_diag_y_dense(x_t, &coeff_tl, x_ls)?;
+        let d2_h_ll = xt_diag_x_dense(x_ls, &coeff_ll)?;
+        let mut d2_h = Array2::<f64>::zeros((total, total));
+        d2_h.slice_mut(s![0..pt, 0..pt]).assign(&d2_h_tt);
+        d2_h.slice_mut(s![0..pt, pt..total]).assign(&d2_h_tl);
+        d2_h.slice_mut(s![pt..total, pt..total]).assign(&d2_h_ll);
+        mirror_upper_to_lower(&mut d2_h);
+        Ok(Some(d2_h))
+    }
+
+    fn expected_joint_contracted_trace_hessian_from_designs(
+        &self,
+        block_states: &[ParameterBlockState],
+        x_t: &Array2<f64>,
+        x_ls: &Array2<f64>,
+        trace_weight: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        if block_states.len() != 2 {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleFamily expects 2 blocks, got {}",
+                    block_states.len()
+                ),
+            }
+            .into());
+        }
+        let n = self.y.len();
+        let eta_t = &block_states[Self::BLOCK_T].eta;
+        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
+        if eta_t.len() != n
+            || eta_ls.len() != n
+            || self.weights.len() != n
+            || x_t.nrows() != n
+            || x_ls.nrows() != n
+        {
+            return Err(GamlssError::DimensionMismatch {
+                reason: "BinomialLocationScaleFamily expected contracted trace input size mismatch"
+                    .to_string(),
+            }
+            .into());
+        }
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let total = pt + pls;
+        if trace_weight.dim() != (total, total) {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleFamily expected contracted trace weight shape {:?} == ({total}, {total})",
+                    trace_weight.dim()
+                ),
+            }
+            .into());
+        }
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            None,
+            &self.link_kind,
+        )?;
+        let rows: Vec<(f64, f64, f64)> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let mut trace_tt = 0.0;
+                for a in 0..pt {
+                    for b in 0..pt {
+                        trace_tt += x_t[[i, a]] * trace_weight[[a, b]] * x_t[[i, b]];
+                    }
+                }
+                let mut trace_tl = 0.0;
+                for a in 0..pt {
+                    for b in 0..pls {
+                        trace_tl += x_t[[i, a]]
+                            * (trace_weight[[a, pt + b]] + trace_weight[[pt + b, a]])
+                            * x_ls[[i, b]];
+                    }
+                }
+                let mut trace_ll = 0.0;
+                for a in 0..pls {
+                    for b in 0..pls {
+                        trace_ll += x_ls[[i, a]] * trace_weight[[pt + a, pt + b]] * x_ls[[i, b]];
+                    }
+                }
+                let q = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+                let (f, f1, f2) = binomial_expected_q_information_derivatives(
+                    self.weights[i],
+                    core.mu[i],
+                    core.dmu_dq[i],
+                    core.d2mu_dq2[i],
+                    core.d3mu_dq3[i],
+                );
+                let (tt_tt, tt_tl, tt_ll) = binomial_expected_location_scale_second_coefficients(
+                    q, f, f1, f2, 1.0, 0.0, 1.0, 0.0,
+                );
+                let (tl_tt, tl_tl, tl_ll) = binomial_expected_location_scale_second_coefficients(
+                    q, f, f1, f2, 1.0, 0.0, 0.0, 1.0,
+                );
+                let (ll_tt, ll_tl, ll_ll) = binomial_expected_location_scale_second_coefficients(
+                    q, f, f1, f2, 0.0, 1.0, 0.0, 1.0,
+                );
+                (
+                    trace_tt * tt_tt + trace_tl * tt_tl + trace_ll * tt_ll,
+                    trace_tt * tl_tt + trace_tl * tl_tl + trace_ll * tl_ll,
+                    trace_tt * ll_tt + trace_tl * ll_tl + trace_ll * ll_ll,
+                )
+            })
+            .collect();
+        let mut coeff_tt = Array1::<f64>::zeros(n);
+        let mut coeff_tl = Array1::<f64>::zeros(n);
+        let mut coeff_ll = Array1::<f64>::zeros(n);
+        for (i, (tt, tl, ll)) in rows.into_iter().enumerate() {
+            coeff_tt[i] = tt;
+            coeff_tl[i] = tl;
+            coeff_ll[i] = ll;
+        }
+        let h_tt = xt_diag_x_dense(x_t, &coeff_tt)?;
+        let h_tl = xt_diag_y_dense(x_t, &coeff_tl, x_ls)?;
+        let h_ll = xt_diag_x_dense(x_ls, &coeff_ll)?;
+        let mut h = Array2::<f64>::zeros((total, total));
+        h.slice_mut(s![0..pt, 0..pt]).assign(&h_tt);
+        h.slice_mut(s![0..pt, pt..total]).assign(&h_tl);
+        h.slice_mut(s![pt..total, pt..total]).assign(&h_ll);
+        mirror_upper_to_lower(&mut h);
+        Ok(Some(h))
+    }
+
+    fn expected_joint_information_for_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: Option<&[ParameterBlockSpec]>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
+            return Ok(None);
+        };
+        self.expected_joint_information_from_designs(block_states, &x_t, &x_ls)
+    }
+
+    fn expected_joint_information_directional_for_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: Option<&[ParameterBlockSpec]>,
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
+            return Ok(None);
+        };
+        self.expected_joint_information_directional_from_designs(
+            block_states,
+            &x_t,
+            &x_ls,
+            d_beta_flat,
+        )
+    }
+
+    fn expected_joint_information_second_directional_for_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: Option<&[ParameterBlockSpec]>,
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
+            return Ok(None);
+        };
+        self.expected_joint_information_second_directional_from_designs(
+            block_states,
+            &x_t,
+            &x_ls,
+            d_beta_u_flat,
+            d_betav_flat,
+        )
+    }
+
+    fn expected_joint_contracted_trace_hessian_for_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: Option<&[ParameterBlockSpec]>,
+        trace_weight: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
+            return Ok(None);
+        };
+        self.expected_joint_contracted_trace_hessian_from_designs(
+            block_states,
+            &x_t,
+            &x_ls,
+            trace_weight,
         )
     }
 
@@ -14767,6 +14603,13 @@ impl BinomialLocationScaleFamily {
         x_t: &DesignMatrix,
         x_ls: &DesignMatrix,
     ) -> Result<Option<Array2<f64>>, String> {
+        if let (Some(x_t_dense), Some(x_ls_dense)) = (x_t.as_dense_ref(), x_ls.as_dense_ref()) {
+            return self.exact_newton_joint_hessian_from_designs(
+                block_states,
+                x_t_dense,
+                x_ls_dense,
+            );
+        }
         let (coeff_tt, coeff_tl, coeff_ll) =
             self.exact_newton_joint_hessian_row_coefficients(block_states)?;
         let pt = x_t.ncols();
@@ -14879,14 +14722,15 @@ impl BinomialLocationScaleFamily {
             None,
             &self.link_kind,
         )?;
-        let (coeff_tt, coeff_tl, coeff_ll) = binomial_location_scale_first_directional_coefficients(
-            &self.y,
-            &self.weights,
-            &core,
-            &d_eta_t,
-            &d_eta_ls,
-            &self.link_kind,
-        );
+        let (coeff_tt, coeff_tl, coeff_ll) =
+            binomial_location_scale_first_directional_coefficients(
+                &self.y,
+                &self.weights,
+                &core,
+                &d_eta_t,
+                &d_eta_ls,
+                &self.link_kind,
+            )?;
 
         let d_h_tt = xt_diag_x_dense(x_t, &coeff_tt)?;
         let d_h_tl = xt_diag_y_dense(x_t, &coeff_tl, x_ls)?;
@@ -16211,38 +16055,32 @@ impl CustomFamily for BinomialLocationScaleFamily {
         let y_slice_e = self.y.as_slice().expect("y must be contiguous");
         let w_slice_e = self.weights.as_slice().expect("weights must be contiguous");
         let q0_slice_e = core.q0.as_slice().expect("q0 must be contiguous");
-        let sigma_slice_e = core.sigma.as_slice().expect("sigma must be contiguous");
-        let mu_slice_e = core.mu.as_slice().expect("mu must be contiguous");
-        let dmu_slice_e = core.dmu_dq.as_slice().expect("dmu_dq must be contiguous");
-        let d2mu_slice_e = core
-            .d2mu_dq2
-            .as_slice()
-            .expect("d2mu_dq2 must be contiguous");
-        let d3mu_slice_e = core
-            .d3mu_dq3
-            .as_slice()
-            .expect("d3mu_dq3 must be contiguous");
         let eta_t_slice_e = eta_t.as_slice().expect("eta_t must be contiguous");
+        let eta_ls_slice_e = eta_ls.as_slice().expect("eta_ls must be contiguous");
         let link_kind_e = &self.link_kind;
-        grad_eta_t_v
-            .par_iter_mut()
-            .zip(grad_eta_ls_v.par_iter_mut())
-            .enumerate()
-            .for_each(|(i, (g_t, g_ls))| {
-                let (m1, _, _) = binomial_neglog_q_derivatives_dispatch(
+        let gradient_pairs: Result<Vec<(f64, f64)>, String> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let tower = binomial_location_scale_nll_tower(
                     y_slice_e[i],
                     w_slice_e[i],
+                    eta_t_slice_e[i],
+                    eta_ls_slice_e[i],
                     q0_slice_e[i],
-                    mu_slice_e[i],
-                    dmu_slice_e[i],
-                    d2mu_slice_e[i],
-                    d3mu_slice_e[i],
+                    core.mu[i],
+                    core.dmu_dq[i],
+                    core.d2mu_dq2[i],
+                    core.d3mu_dq3[i],
                     link_kind_e,
-                );
-                let q0d = nonwiggle_q_derivs(eta_t_slice_e[i], sigma_slice_e[i]);
-                *g_t = -m1 * q0d.q_t;
-                *g_ls = -m1 * q0d.q_ls;
-            });
+                    false,
+                )?;
+                Ok((-tower.g[0], -tower.g[1]))
+            })
+            .collect();
+        for (i, (g_t, g_ls)) in gradient_pairs?.into_iter().enumerate() {
+            grad_eta_t_v[i] = g_t;
+            grad_eta_ls_v[i] = g_ls;
+        }
         let grad_eta_t = Array1::from_vec(grad_eta_t_v);
         let grad_eta_ls = Array1::from_vec(grad_eta_ls_v);
         let grad_t = threshold_design.transpose_vector_multiply(&grad_eta_t);
@@ -16589,6 +16427,66 @@ impl CustomFamily for BinomialLocationScaleFamily {
         )
     }
 
+    fn joint_jeffreys_information_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_joint_information_for_specs(block_states, Some(specs))
+    }
+
+    fn joint_jeffreys_information_directional_derivative_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_joint_information_directional_for_specs(
+            block_states,
+            Some(specs),
+            d_beta_flat,
+        )
+    }
+
+    fn joint_jeffreys_information_second_directional_derivative_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_joint_information_second_directional_for_specs(
+            block_states,
+            Some(specs),
+            d_beta_u_flat,
+            d_betav_flat,
+        )
+    }
+
+    fn joint_jeffreys_information_contracted_trace_hessian_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        weight: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_joint_contracted_trace_hessian_for_specs(block_states, Some(specs), weight)
+    }
+
+    fn joint_jeffreys_information_contracted_trace_hessian_available(&self) -> bool {
+        true
+    }
+
+    fn joint_jeffreys_information_matches_observed_hessian(&self) -> bool {
+        // The Jeffreys information above is the EXPECTED Fisher information,
+        // not the observed Hessian: observed-Hessian conditioning certificates
+        // ("Jeffreys provably skippable" matvec pre-checks) must not gate the
+        // expected-information term off — for probit-class likelihoods the
+        // observed information grows on saturated misclassified rows exactly
+        // where the expected information collapses and the gate must arm
+        // (gam#1020).
+        false
+    }
+
     fn exact_newton_joint_gradient_evaluation(
         &self,
         block_states: &[ParameterBlockState],
@@ -16681,446 +16579,6 @@ impl CustomFamily for BinomialLocationScaleFamily {
         }
         let n = self.y.len();
         specs[Self::BLOCK_T].design.nrows() == n && specs[Self::BLOCK_LOG_SIGMA].design.nrows() == n
-    }
-
-    /// Batched analytic-gradient hook (Fix #8).
-    ///
-    /// Falls through to `None` (generic per-θ_j path) whenever any θ_j is a
-    /// ψ coordinate; the design-drift composition for ψ is handled by the
-    /// existing unified evaluator. ρ-only is the common warm-start regime
-    /// and the dominant large-scale cost.
-    fn batched_outer_gradient_terms(
-        &self,
-        block_states: &[ParameterBlockState],
-        specs: &[ParameterBlockSpec],
-        derivative_blocks: &[Vec<CustomFamilyBlockPsiDerivative>],
-        rho: &ndarray::Array1<f64>,
-        options: &BlockwiseFitOptions,
-        workspace: Option<Arc<dyn ExactNewtonJointHessianWorkspace>>,
-    ) -> Result<Option<BatchedOuterGradientTerms>, String> {
-        use crate::faer_ndarray::FaerCholesky;
-        use faer::Side;
-
-        if options.outer_score_subsample.is_some() {
-            return Ok(None);
-        }
-
-        // ψ-coords fall back to the generic path; the leverage form here is
-        // ρ-only (penalty hyperparameters).
-        let psi_dim: usize = derivative_blocks.iter().map(Vec::len).sum();
-        if psi_dim != 0 {
-            return Ok(None);
-        }
-
-        if !self.exact_joint_supported() {
-            return Ok(None);
-        }
-        if block_states.len() != 2 || specs.len() != 2 {
-            return Ok(None);
-        }
-
-        // Designs and dimensions.
-        let Some((x_t_cow, x_ls_cow)) = self.exact_joint_dense_block_designs(Some(specs))? else {
-            return Ok(None);
-        };
-        let x_t = x_t_cow.into_owned();
-        let x_ls = x_ls_cow.into_owned();
-        let pt = x_t.ncols();
-        let pls = x_ls.ncols();
-        let total = pt + pls;
-        let n = self.y.len();
-
-        // Operator-aware downgrade: in the matrix-free regime the unified
-        // per-θ_j path uses the family's `ExactNewtonJointHessianWorkspace`
-        // (matvec + dH/d²H operators) and never materializes the dense
-        // total×total joint Hessian, the dense Cholesky factor, or the
-        // total×n leverage panels (`Q_t`, `Q_l`) that this batched fast-path
-        // builds below. At large scale (e.g. n≈4·10⁵, total≈120) those
-        // dense allocations and the n·total² leverage solve dominate
-        // wall-clock time and inflate resident memory by ~6 GiB. Decline
-        // the batched path when the joint dimensions cross the same gate
-        // used for matrix-free outer routing — the unified evaluator will
-        // produce identical gradient values via the operator workspace.
-        if crate::custom_family::use_joint_matrix_free_path(total, n) {
-            return Ok(None);
-        }
-
-        // ── Step 1: build dense joint Hessian H_L (unpenalized).
-        let h_l = if let Some(workspace) = workspace.as_ref() {
-            if let Some(hessian) = workspace.hessian_dense()? {
-                hessian
-            } else {
-                self.exact_newton_joint_hessian_from_designs(block_states, &x_t, &x_ls)?
-                    .ok_or_else(|| {
-                        "BinomialLocationScaleFamily: unable to assemble joint Hessian for batched gradient"
-                            .to_string()
-                    })?
-            }
-        } else {
-            self.exact_newton_joint_hessian_from_designs(block_states, &x_t, &x_ls)?
-                .ok_or_else(|| {
-                "BinomialLocationScaleFamily: unable to assemble joint Hessian for batched gradient"
-                    .to_string()
-            })?
-        };
-
-        // ── Step 2: assemble penalty `S_λ` and add to H.
-        // Match the unified evaluator's per-block convention.
-        let mut h = h_l.clone();
-        let total_pen: usize = specs.iter().map(|s| s.penalties.len()).sum();
-        if rho.len() != total_pen {
-            return Ok(None);
-        }
-        // Per-block per-penalty lambdas.
-        let mut per_block_rho: Vec<Vec<f64>> = Vec::with_capacity(specs.len());
-        let mut cursor = 0;
-        for spec in specs {
-            let cnt = spec.penalties.len();
-            let mut row = Vec::with_capacity(cnt);
-            for k in 0..cnt {
-                row.push(rho[cursor + k]);
-            }
-            per_block_rho.push(row);
-            cursor += cnt;
-        }
-        // Ranges in flattened β.
-        let ranges: Vec<(usize, usize)> = {
-            let mut out = Vec::with_capacity(specs.len());
-            let mut s_pos = 0usize;
-            for spec in specs {
-                let p = spec.design.ncols();
-                out.push((s_pos, s_pos + p));
-                s_pos += p;
-            }
-            out
-        };
-        // Add S_λ block-wise.
-        for (b, spec) in specs.iter().enumerate() {
-            let (start, end) = ranges[b];
-            let p = end - start;
-            let mut s_b = ndarray::Array2::<f64>::zeros((p, p));
-            for (k, pen) in spec.penalties.iter().enumerate() {
-                let lambda = per_block_rho[b][k].exp();
-                pen.add_scaled_to(lambda, &mut s_b);
-            }
-            // Add to H.
-            let mut h_block = h.slice_mut(s![start..end, start..end]);
-            h_block += &s_b;
-        }
-
-        // ── Step 3: Cholesky-factor H.
-        let factor = h
-            .cholesky(Side::Lower)
-            .map_err(|e| format!("BinomialLocationScale batched gradient: Cholesky failed: {e}"))?;
-
-        // β flattened.
-        let beta_flat = {
-            let mut out = ndarray::Array1::<f64>::zeros(total);
-            for b in 0..specs.len() {
-                let (start, end) = ranges[b];
-                out.slice_mut(s![start..end]).assign(&block_states[b].beta);
-            }
-            out
-        };
-
-        // ── Step 4: leverage blocks L_i = Z_i H⁻¹ Z_iᵀ (2×2 per row).
-        // Solve H · M = Zᵀ where Z stacks both block designs into n × total
-        // logical rows, but each row is (x_t_i, 0) for the threshold direction
-        // and (0, x_ls_i) for the log-σ direction. We materialize Q_t and Q_l
-        // as two (total × n) panels, one per channel.
-        const LEVERAGE_CHUNK_ROWS: usize = 1024;
-        const MIN_PARALLEL_LEVERAGE_ROWS: usize = 2 * LEVERAGE_CHUNK_ROWS;
-        let leverage_chunk_rows = if n >= MIN_PARALLEL_LEVERAGE_ROWS {
-            LEVERAGE_CHUNK_ROWS
-        } else {
-            n.max(1)
-        };
-        let leverage_chunks = n.div_ceil(leverage_chunk_rows);
-
-        struct LeverageScratch {
-            rhs_t: ndarray::Array2<f64>,
-            rhs_l: ndarray::Array2<f64>,
-        }
-
-        impl LeverageScratch {
-            fn new(total: usize, chunk_rows: usize) -> Self {
-                Self {
-                    rhs_t: ndarray::Array2::<f64>::zeros((total, chunk_rows)),
-                    rhs_l: ndarray::Array2::<f64>::zeros((total, chunk_rows)),
-                }
-            }
-        }
-
-        let leverage_parts: Vec<(
-            usize,
-            ndarray::Array1<f64>,
-            ndarray::Array1<f64>,
-            ndarray::Array1<f64>,
-        )> = (0..leverage_chunks)
-            .into_par_iter()
-            .map_init(
-                || LeverageScratch::new(total, leverage_chunk_rows),
-                |scratch, chunk_idx| {
-                    let row_start = chunk_idx * leverage_chunk_rows;
-                    let row_end = (row_start + leverage_chunk_rows).min(n);
-                    let m = row_end - row_start;
-                    let mut rhs_t = scratch.rhs_t.slice_mut(s![.., 0..m]);
-                    let mut rhs_l = scratch.rhs_l.slice_mut(s![.., 0..m]);
-                    rhs_t.fill(0.0);
-                    rhs_l.fill(0.0);
-                    for j in 0..m {
-                        let i = row_start + j;
-                        for c in 0..pt {
-                            rhs_t[[c, j]] = x_t[[i, c]];
-                        }
-                        for c in 0..pls {
-                            rhs_l[[pt + c, j]] = x_ls[[i, c]];
-                        }
-                    }
-                    let q_t = factor.solve_mat(&rhs_t.to_owned());
-                    let q_l = factor.solve_mat(&rhs_l.to_owned());
-                    let mut chunk_00 = ndarray::Array1::<f64>::zeros(m);
-                    let mut chunk_01 = ndarray::Array1::<f64>::zeros(m);
-                    let mut chunk_11 = ndarray::Array1::<f64>::zeros(m);
-                    for j in 0..m {
-                        let i = row_start + j;
-                        let mut l00 = 0.0;
-                        let mut l11 = 0.0;
-                        let mut l01 = 0.0;
-                        for c in 0..pt {
-                            l00 += x_t[[i, c]] * q_t[[c, j]];
-                            l01 += x_t[[i, c]] * q_l[[c, j]];
-                        }
-                        for c in 0..pls {
-                            l11 += x_ls[[i, c]] * q_l[[pt + c, j]];
-                        }
-                        chunk_00[j] = l00;
-                        chunk_01[j] = l01;
-                        chunk_11[j] = l11;
-                    }
-                    (row_start, chunk_00, chunk_01, chunk_11)
-                },
-            )
-            .collect();
-
-        // L00, L01, L11: per-row leverage entries.
-        let mut leverage_00 = ndarray::Array1::<f64>::zeros(n);
-        let mut leverage_01 = ndarray::Array1::<f64>::zeros(n);
-        let mut leverage_11 = ndarray::Array1::<f64>::zeros(n);
-        for (row_start, chunk_00, chunk_01, chunk_11) in leverage_parts {
-            let row_end = row_start + chunk_00.len();
-            leverage_00
-                .slice_mut(s![row_start..row_end])
-                .assign(&chunk_00);
-            leverage_01
-                .slice_mut(s![row_start..row_end])
-                .assign(&chunk_01);
-            leverage_11
-                .slice_mut(s![row_start..row_end])
-                .assign(&chunk_11);
-        }
-
-        // ── Step 5: per-coordinate accumulation.
-        // Build (H^{-1})_{b,b} once per block; this amortizes
-        // tr(H^{-1} A_k) across all penalties supported in block b.
-        let h_inv_block_diag: Vec<ndarray::Array2<f64>> = (0..specs.len())
-            .into_par_iter()
-            .map(|b| {
-                let (start, end) = ranges[b];
-                let p_b = end - start;
-                let mut rhs = ndarray::Array2::<f64>::zeros((total, p_b));
-                for c in 0..p_b {
-                    rhs[[start + c, c]] = 1.0;
-                }
-                let m_full = factor.solve_mat(&rhs);
-                let mut block = ndarray::Array2::<f64>::zeros((p_b, p_b));
-                for r in 0..p_b {
-                    for c in 0..p_b {
-                        block[[r, c]] = m_full[[start + r, c]];
-                    }
-                }
-                block
-            })
-            .collect();
-
-        // Pseudologdet helper for the penalty pseudo-inverse trace.
-        let mut s_pseudologdet_blocks: Vec<
-            crate::solver::estimate::reml::penalty_logdet::PenaltyPseudologdet,
-        > = Vec::with_capacity(specs.len());
-        for b in 0..specs.len() {
-            let (start, end) = ranges[b];
-            let p_b = end - start;
-            let mut s_b = ndarray::Array2::<f64>::zeros((p_b, p_b));
-            for (k, pen) in specs[b].penalties.iter().enumerate() {
-                let lambda = per_block_rho[b][k].exp();
-                pen.add_scaled_to(lambda, &mut s_b);
-            }
-            // No metadata-based structural-nullity hint: the
-            // PenaltyPseudologdet classifier derives the positive eigenspace
-            // from the assembled spectrum alone (issues #192/#318).
-            s_pseudologdet_blocks.push(
-                crate::solver::estimate::reml::penalty_logdet::PenaltyPseudologdet::from_assembled(
-                    s_b, None,
-                )?,
-            );
-        }
-
-        // Cache the family core once: per-row scalars are independent of u_k.
-        let core = binomial_location_scale_core(
-            &self.y,
-            &self.weights,
-            &block_states[Self::BLOCK_T].eta,
-            &block_states[Self::BLOCK_LOG_SIGMA].eta,
-            None,
-            &self.link_kind,
-        )?;
-        // Pre-compute per-row m1/m2/m3, r, s_factor, q.
-        let mut row_m1 = ndarray::Array1::<f64>::zeros(n);
-        let mut row_m2 = ndarray::Array1::<f64>::zeros(n);
-        let mut row_m3 = ndarray::Array1::<f64>::zeros(n);
-        let mut row_r = ndarray::Array1::<f64>::zeros(n);
-        let mut row_s = ndarray::Array1::<f64>::zeros(n);
-        let mut row_q = ndarray::Array1::<f64>::zeros(n);
-        let row_scalars: Vec<(f64, f64, f64, f64, f64, f64)> = (0..n)
-            .into_par_iter()
-            .map(|i| {
-                let q = core.q0[i];
-                let r = 1.0 / core.sigma[i];
-                let s_factor = core.dsigma_deta[i] / core.sigma[i];
-                let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
-                    self.y[i],
-                    self.weights[i],
-                    q,
-                    core.mu[i],
-                    core.dmu_dq[i],
-                    core.d2mu_dq2[i],
-                    core.d3mu_dq3[i],
-                    &self.link_kind,
-                );
-                (m1, m2, m3, r, s_factor, q)
-            })
-            .collect();
-        for (i, (m1, m2, m3, r, s_factor, q)) in row_scalars.into_iter().enumerate() {
-            row_m1[i] = m1;
-            row_m2[i] = m2;
-            row_m3[i] = m3;
-            row_r[i] = r;
-            row_s[i] = s_factor;
-            row_q[i] = q;
-        }
-
-        let mut objective_theta = ndarray::Array1::<f64>::zeros(total_pen);
-        let mut trace_h_inv_hdot = ndarray::Array1::<f64>::zeros(total_pen);
-        let mut trace_s_pinv_sdot = ndarray::Array1::<f64>::zeros(total_pen);
-
-        const MIN_PARALLEL_PENALTY_COORDS: usize = 2;
-        let mut penalty_coords = Vec::with_capacity(total_pen);
-        let mut flat_idx = 0usize;
-        for b in 0..specs.len() {
-            for k_local in 0..specs[b].penalties.len() {
-                penalty_coords.push((flat_idx, b, k_local));
-                flat_idx += 1;
-            }
-        }
-        let penalty_coord_chunk_size = if penalty_coords.len() >= MIN_PARALLEL_PENALTY_COORDS {
-            1
-        } else {
-            penalty_coords.len().max(1)
-        };
-
-        struct PenaltyGradientPart {
-            flat_idx: usize,
-            objective_theta: f64,
-            trace_h_inv_hdot: f64,
-            trace_s_pinv_sdot: f64,
-        }
-
-        let penalty_parts: Vec<Result<Vec<PenaltyGradientPart>, String>> = penalty_coords
-            .par_chunks(penalty_coord_chunk_size)
-            .map(|chunk| {
-                let mut chunk_parts = Vec::with_capacity(chunk.len());
-                for &(flat_idx, b, k_local) in chunk {
-                    let (start, end) = ranges[b];
-                    let p_b = end - start;
-                    let beta_b = beta_flat.slice(s![start..end]).to_owned();
-                    let pen = &specs[b].penalties[k_local];
-                    let lambda_k = per_block_rho[b][k_local].exp();
-                    let mut s_k_local = ndarray::Array2::<f64>::zeros((p_b, p_b));
-                    pen.add_scaled_to(lambda_k, &mut s_k_local);
-                    let s_k_beta_local = s_k_local.dot(&beta_b);
-                    let objective_theta = 0.5 * beta_b.dot(&s_k_beta_local);
-
-                    // u_k = -H^{-1} (A_k β).
-                    let mut a_k_beta_full = ndarray::Array1::<f64>::zeros(total);
-                    a_k_beta_full
-                        .slice_mut(s![start..end])
-                        .assign(&s_k_beta_local);
-                    let mut u_k = factor.solvevec(&a_k_beta_full);
-                    u_k.mapv_inplace(|v| -v);
-
-                    // tr(H^{-1} A_k) = tr( (H^{-1})_{b,b} · (λ_k S_k) ).
-                    let m_block = &h_inv_block_diag[b];
-                    let mut tr_pen = 0.0;
-                    for r in 0..p_b {
-                        for c in 0..p_b {
-                            tr_pen += m_block[[r, c]] * s_k_local[[c, r]];
-                        }
-                    }
-
-                    // Drift trace: Σ_i tr(C_i(u_k) · L_i).
-                    let u_k_t = u_k.slice(s![0..pt]).to_owned();
-                    let u_k_ls = u_k.slice(s![pt..total]).to_owned();
-                    let d_eta_t = fast_av(&x_t, &u_k_t);
-                    let d_eta_ls = fast_av(&x_ls, &u_k_ls);
-                    let mut drift_trace = 0.0;
-                    for i in 0..n {
-                        let q = row_q[i];
-                        let r_val = row_r[i];
-                        let s_factor = row_s[i];
-                        let m1 = row_m1[i];
-                        let m2 = row_m2[i];
-                        let m3 = row_m3[i];
-                        let a_eta = d_eta_t[i];
-                        let b_eta = d_eta_ls[i];
-                        let sb = s_factor * b_eta;
-                        let du = -r_val * a_eta - q * sb;
-                        let c_tt = r_val * r_val * (m3 * du - 2.0 * m2 * sb);
-                        let c_tl =
-                            s_factor * r_val * (q * m3 * du + m2 * (2.0 * du - q * sb) - m1 * sb);
-                        let c_ll = s_factor * s_factor * (m1 + 3.0 * q * m2 + q * q * m3) * du;
-                        drift_trace += c_tt * leverage_00[i]
-                            + 2.0 * c_tl * leverage_01[i]
-                            + c_ll * leverage_11[i];
-                    }
-
-                    // Penalty pseudo-logdet derivative: tr(S^+ · λ_k S_k) (block-local).
-                    let trace_s_pinv_sdot =
-                        s_pseudologdet_blocks[b].tau_gradient_component(&s_k_local);
-
-                    chunk_parts.push(PenaltyGradientPart {
-                        flat_idx,
-                        objective_theta,
-                        trace_h_inv_hdot: tr_pen + drift_trace,
-                        trace_s_pinv_sdot,
-                    });
-                }
-                Ok(chunk_parts)
-            })
-            .collect();
-
-        for chunk in penalty_parts {
-            for part in chunk? {
-                objective_theta[part.flat_idx] = part.objective_theta;
-                trace_h_inv_hdot[part.flat_idx] = part.trace_h_inv_hdot;
-                trace_s_pinv_sdot[part.flat_idx] = part.trace_s_pinv_sdot;
-            }
-        }
-
-        Ok(Some(BatchedOuterGradientTerms {
-            objective_theta,
-            trace_h_inv_hdot,
-            trace_s_pinv_sdot,
-        }))
     }
 }
 
@@ -17285,7 +16743,7 @@ impl BinomialLocationScaleHessianWorkspace {
         &self,
         key: &BinomialDirectionKey,
         eta: &BinomialDirectionEta,
-    ) -> Arc<BinomialRowCoeffTriple> {
+    ) -> Result<Arc<BinomialRowCoeffTriple>, String> {
         if let Some(value) = self
             .first_coeff_cache
             .lock()
@@ -17293,7 +16751,7 @@ impl BinomialLocationScaleHessianWorkspace {
             .get(key)
             .cloned()
         {
-            return value;
+            return Ok(value);
         }
         let (tt, tl, ll) = binomial_location_scale_first_directional_coefficients(
             &self.family.y,
@@ -17302,7 +16760,7 @@ impl BinomialLocationScaleHessianWorkspace {
             &eta.t,
             &eta.ls,
             &self.family.link_kind,
-        );
+        )?;
         let value = Arc::new(BinomialRowCoeffTriple {
             tt: Arc::new(tt),
             tl: Arc::new(tl),
@@ -17312,10 +16770,10 @@ impl BinomialLocationScaleHessianWorkspace {
             .first_coeff_cache
             .lock()
             .expect("binomial first coefficient cache lock poisoned");
-        cache
+        Ok(cache
             .entry(key.clone())
             .or_insert_with(|| value.clone())
-            .clone()
+            .clone())
     }
 
     /// No caching here, deliberately: at large-scale shape (n=320k, K=14 outer
@@ -17479,7 +16937,7 @@ impl ExactNewtonJointHessianWorkspace for BinomialLocationScaleHessianWorkspace 
         }
         let key = BinomialDirectionKey::from_array(d_beta_flat);
         let eta = self.direction_eta(&key, d_beta_flat, pt, total);
-        let coeffs = self.first_coefficients(&key, &eta);
+        let coeffs = self.first_coefficients(&key, &eta)?;
         Ok(Some(Arc::new(make_two_block_design_row_coeff_operator(
             self.x_t.clone(),
             self.x_ls.clone(),
@@ -19815,6 +19273,336 @@ impl BinomialLocationScaleWiggleFamily {
             d0,
         })
     }
+
+    fn expected_wiggle_geometry_inputs<'a>(
+        &'a self,
+        block_states: &'a [ParameterBlockState],
+        specs: Option<&'a [ParameterBlockSpec]>,
+    ) -> Result<Option<ExpectedWiggleGeometryInputs<'a>>, String> {
+        if block_states.len() != 3 {
+            return Err(GamlssError::DimensionMismatch {
+                reason: format!(
+                    "BinomialLocationScaleWiggleFamily expects 3 blocks, got {}",
+                    block_states.len()
+                ),
+            }
+            .into());
+        }
+        let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
+            return Ok(None);
+        };
+        let n = self.y.len();
+        let eta_t = &block_states[Self::BLOCK_T].eta;
+        let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
+        let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
+        if eta_t.len() != n || eta_ls.len() != n || etaw.len() != n || self.weights.len() != n {
+            return Err(GamlssError::DimensionMismatch {
+                reason:
+                    "BinomialLocationScaleWiggleFamily expected-information input size mismatch"
+                        .to_string(),
+            }
+            .into());
+        }
+        Ok(Some(ExpectedWiggleGeometryInputs {
+            x_t,
+            x_ls,
+            eta_t,
+            eta_ls,
+            etaw,
+        }))
+    }
+
+    fn expected_wiggle_information_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some(inputs) = self.expected_wiggle_geometry_inputs(block_states, Some(specs))? else {
+            return Ok(None);
+        };
+        let ExpectedWiggleGeometryInputs {
+            x_t,
+            x_ls,
+            eta_t,
+            eta_ls,
+            etaw,
+        } = inputs;
+        let betaw = &block_states[Self::BLOCK_WIGGLE].beta;
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            Some(etaw),
+            &self.link_kind,
+        )?;
+        let b0 = self.wiggle_design(core.q0.view())?;
+        let d0 = self.wiggle_basiswith_options(core.q0.view(), BasisOptions::first_derivative())?;
+        let m = d0.dot(betaw) + 1.0;
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let pw = b0.ncols();
+        let total = pt + pls + pw;
+        let mut out = Array2::<f64>::zeros((total, total));
+        let mut b = Array1::<f64>::zeros(total);
+        for i in 0..self.y.len() {
+            let q = core.q0[i] + etaw[i];
+            let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q).map_err(|e| {
+                format!("BinomialLocationScaleWiggle expected information link jet failed: {e}")
+            })?;
+            let (f, _, _) = binomial_expected_q_information_derivatives(
+                self.weights[i],
+                jet.mu,
+                jet.d1,
+                jet.d2,
+                jet.d3,
+            );
+            if f == 0.0 {
+                continue;
+            }
+            let q0 = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+            b.fill(0.0);
+            b.slice_mut(s![0..pt])
+                .scaled_add(m[i] * q0.q_t, &x_t.row(i));
+            b.slice_mut(s![pt..pt + pls])
+                .scaled_add(m[i] * q0.q_ls, &x_ls.row(i));
+            b.slice_mut(s![pt + pls..]).assign(&b0.row(i));
+            scaled_outer_add(out.view_mut(), f, b.view(), b.view());
+        }
+        mirror_upper_to_lower(&mut out);
+        Ok(Some(out))
+    }
+
+    fn expected_wiggle_information_directional_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some(inputs) = self.expected_wiggle_geometry_inputs(block_states, Some(specs))? else {
+            return Ok(None);
+        };
+        let ExpectedWiggleGeometryInputs {
+            x_t,
+            x_ls,
+            eta_t,
+            eta_ls,
+            etaw,
+        } = inputs;
+        let betaw = &block_states[Self::BLOCK_WIGGLE].beta;
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            Some(etaw),
+            &self.link_kind,
+        )?;
+        let b0 = self.wiggle_design(core.q0.view())?;
+        let d0 = self.wiggle_basiswith_options(core.q0.view(), BasisOptions::first_derivative())?;
+        let dd0 =
+            self.wiggle_basiswith_options(core.q0.view(), BasisOptions::second_derivative())?;
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let pw = b0.ncols();
+        let layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
+        let (u_t, u_ls, uw) = layout.split_three(d_beta_flat, "expected wiggle d_beta")?;
+        let d_eta_t = fast_av(&x_t, &u_t);
+        let d_eta_ls = fast_av(&x_ls, &u_ls);
+        let m = d0.dot(betaw) + 1.0;
+        let g2 = dd0.dot(betaw);
+        let total = layout.total();
+        let mut out = Array2::<f64>::zeros((total, total));
+        let mut b = Array1::<f64>::zeros(total);
+        let mut bu = Array1::<f64>::zeros(total);
+        for i in 0..self.y.len() {
+            let q = core.q0[i] + etaw[i];
+            let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q).map_err(|e| {
+                format!("BinomialLocationScaleWiggle expected dI link jet failed: {e}")
+            })?;
+            let (f, f1, _) = binomial_expected_q_information_derivatives(
+                self.weights[i],
+                jet.mu,
+                jet.d1,
+                jet.d2,
+                jet.d3,
+            );
+            if f == 0.0 && f1 == 0.0 {
+                continue;
+            }
+            let q0 = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+            let dq0_u = q0.q_t * d_eta_t[i] + q0.q_ls * d_eta_ls[i];
+            let dq0_t_u = q0.q_tl * d_eta_ls[i];
+            let dq0_ls_u = q0.q_tl * d_eta_t[i] + q0.q_ll * d_eta_ls[i];
+            let bu_w = b0.row(i).dot(&uw);
+            let b1u = d0.row(i).dot(&uw);
+            let dm_u = g2[i] * dq0_u + b1u;
+            let alpha_u = m[i] * dq0_u + bu_w;
+            let q_t = m[i] * q0.q_t;
+            let q_ls = m[i] * q0.q_ls;
+            let dq_t_u = dm_u * q0.q_t + m[i] * dq0_t_u;
+            let dq_ls_u = dm_u * q0.q_ls + m[i] * dq0_ls_u;
+            b.fill(0.0);
+            bu.fill(0.0);
+            b.slice_mut(s![0..pt]).scaled_add(q_t, &x_t.row(i));
+            b.slice_mut(s![pt..pt + pls]).scaled_add(q_ls, &x_ls.row(i));
+            b.slice_mut(s![pt + pls..]).assign(&b0.row(i));
+            bu.slice_mut(s![0..pt]).scaled_add(dq_t_u, &x_t.row(i));
+            bu.slice_mut(s![pt..pt + pls])
+                .scaled_add(dq_ls_u, &x_ls.row(i));
+            bu.slice_mut(s![pt + pls..]).scaled_add(dq0_u, &d0.row(i));
+            scaled_outer_add(out.view_mut(), f1 * alpha_u, b.view(), b.view());
+            scaled_outer_add(out.view_mut(), f, bu.view(), b.view());
+            scaled_outer_add(out.view_mut(), f, b.view(), bu.view());
+        }
+        mirror_upper_to_lower(&mut out);
+        Ok(Some(out))
+    }
+
+    fn expected_wiggle_information_second_directional_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let Some(inputs) = self.expected_wiggle_geometry_inputs(block_states, Some(specs))? else {
+            return Ok(None);
+        };
+        let ExpectedWiggleGeometryInputs {
+            x_t,
+            x_ls,
+            eta_t,
+            eta_ls,
+            etaw,
+        } = inputs;
+        let betaw = &block_states[Self::BLOCK_WIGGLE].beta;
+        let core = binomial_location_scale_core(
+            &self.y,
+            &self.weights,
+            eta_t,
+            eta_ls,
+            Some(etaw),
+            &self.link_kind,
+        )?;
+        let b0 = self.wiggle_design(core.q0.view())?;
+        let d0 = self.wiggle_basiswith_options(core.q0.view(), BasisOptions::first_derivative())?;
+        let dd0 =
+            self.wiggle_basiswith_options(core.q0.view(), BasisOptions::second_derivative())?;
+        let d3q = self.wiggle_d3q_dq03(core.q0.view(), betaw.view())?;
+        let pt = x_t.ncols();
+        let pls = x_ls.ncols();
+        let pw = b0.ncols();
+        let layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
+        let (u_t, u_ls, uw) = layout.split_three(d_beta_u_flat, "expected wiggle d_beta_u")?;
+        let (v_t, v_ls, vw) = layout.split_three(d_betav_flat, "expected wiggle d_beta_v")?;
+        let d_eta_t_u = fast_av(&x_t, &u_t);
+        let d_eta_ls_u = fast_av(&x_ls, &u_ls);
+        let d_eta_t_v = fast_av(&x_t, &v_t);
+        let d_eta_ls_v = fast_av(&x_ls, &v_ls);
+        let m = d0.dot(betaw) + 1.0;
+        let g2 = dd0.dot(betaw);
+        let total = layout.total();
+        let mut out = Array2::<f64>::zeros((total, total));
+        let mut b = Array1::<f64>::zeros(total);
+        let mut bu = Array1::<f64>::zeros(total);
+        let mut bv = Array1::<f64>::zeros(total);
+        let mut buv = Array1::<f64>::zeros(total);
+        for i in 0..self.y.len() {
+            let q = core.q0[i] + etaw[i];
+            let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q).map_err(|e| {
+                format!("BinomialLocationScaleWiggle expected d2I link jet failed: {e}")
+            })?;
+            let (f, f1, f2) = binomial_expected_q_information_derivatives(
+                self.weights[i],
+                jet.mu,
+                jet.d1,
+                jet.d2,
+                jet.d3,
+            );
+            if f == 0.0 && f1 == 0.0 && f2 == 0.0 {
+                continue;
+            }
+            let q0 = nonwiggle_q_derivs(eta_t[i], core.sigma[i]);
+            let dq0_u = q0.q_t * d_eta_t_u[i] + q0.q_ls * d_eta_ls_u[i];
+            let dq0_v = q0.q_t * d_eta_t_v[i] + q0.q_ls * d_eta_ls_v[i];
+            let d2q0_uv = q0.q_tl * (d_eta_t_u[i] * d_eta_ls_v[i] + d_eta_t_v[i] * d_eta_ls_u[i])
+                + q0.q_ll * d_eta_ls_u[i] * d_eta_ls_v[i];
+            let dq0_t_u = q0.q_tl * d_eta_ls_u[i];
+            let dq0_t_v = q0.q_tl * d_eta_ls_v[i];
+            let dq0_ls_u = q0.q_tl * d_eta_t_u[i] + q0.q_ll * d_eta_ls_u[i];
+            let dq0_ls_v = q0.q_tl * d_eta_t_v[i] + q0.q_ll * d_eta_ls_v[i];
+            let d2q0_t_uv = q0.q_tl_ls * d_eta_ls_u[i] * d_eta_ls_v[i];
+            let d2q0_ls_uv = q0.q_tl_ls
+                * (d_eta_ls_u[i] * d_eta_t_v[i] + d_eta_ls_v[i] * d_eta_t_u[i])
+                + q0.q_ll_ls * d_eta_ls_u[i] * d_eta_ls_v[i];
+
+            let br = b0.row(i);
+            let dr = d0.row(i);
+            let ddr = dd0.row(i);
+            let b_u = br.dot(&uw);
+            let b_v = br.dot(&vw);
+            let b1_u = dr.dot(&uw);
+            let b1_v = dr.dot(&vw);
+            let b2_u = ddr.dot(&uw);
+            let b2_v = ddr.dot(&vw);
+            let dm_u = g2[i] * dq0_u + b1_u;
+            let dm_v = g2[i] * dq0_v + b1_v;
+            let d2m_uv = d3q[i] * dq0_u * dq0_v + g2[i] * d2q0_uv + b2_v * dq0_u + b2_u * dq0_v;
+            let alpha_u = m[i] * dq0_u + b_u;
+            let alpha_v = m[i] * dq0_v + b_v;
+            let alpha_uv = m[i] * d2q0_uv + g2[i] * dq0_u * dq0_v + b1_u * dq0_v + b1_v * dq0_u;
+
+            let q_t = m[i] * q0.q_t;
+            let q_ls = m[i] * q0.q_ls;
+            let dq_t_u = dm_u * q0.q_t + m[i] * dq0_t_u;
+            let dq_t_v = dm_v * q0.q_t + m[i] * dq0_t_v;
+            let dq_ls_u = dm_u * q0.q_ls + m[i] * dq0_ls_u;
+            let dq_ls_v = dm_v * q0.q_ls + m[i] * dq0_ls_v;
+            let d2q_t_uv = d2m_uv * q0.q_t + dm_u * dq0_t_v + dm_v * dq0_t_u + m[i] * d2q0_t_uv;
+            let d2q_ls_uv =
+                d2m_uv * q0.q_ls + dm_u * dq0_ls_v + dm_v * dq0_ls_u + m[i] * d2q0_ls_uv;
+
+            b.fill(0.0);
+            bu.fill(0.0);
+            bv.fill(0.0);
+            buv.fill(0.0);
+            b.slice_mut(s![0..pt]).scaled_add(q_t, &x_t.row(i));
+            b.slice_mut(s![pt..pt + pls]).scaled_add(q_ls, &x_ls.row(i));
+            b.slice_mut(s![pt + pls..]).assign(&br);
+            bu.slice_mut(s![0..pt]).scaled_add(dq_t_u, &x_t.row(i));
+            bu.slice_mut(s![pt..pt + pls])
+                .scaled_add(dq_ls_u, &x_ls.row(i));
+            bu.slice_mut(s![pt + pls..]).scaled_add(dq0_u, &dr);
+            bv.slice_mut(s![0..pt]).scaled_add(dq_t_v, &x_t.row(i));
+            bv.slice_mut(s![pt..pt + pls])
+                .scaled_add(dq_ls_v, &x_ls.row(i));
+            bv.slice_mut(s![pt + pls..]).scaled_add(dq0_v, &dr);
+            buv.slice_mut(s![0..pt]).scaled_add(d2q_t_uv, &x_t.row(i));
+            buv.slice_mut(s![pt..pt + pls])
+                .scaled_add(d2q_ls_uv, &x_ls.row(i));
+            buv.slice_mut(s![pt + pls..])
+                .scaled_add(dq0_u * dq0_v, &ddr);
+            buv.slice_mut(s![pt + pls..]).scaled_add(d2q0_uv, &dr);
+
+            scaled_outer_add(
+                out.view_mut(),
+                f2 * alpha_u * alpha_v + f1 * alpha_uv,
+                b.view(),
+                b.view(),
+            );
+            scaled_outer_add(out.view_mut(), f1 * alpha_u, bv.view(), b.view());
+            scaled_outer_add(out.view_mut(), f1 * alpha_u, b.view(), bv.view());
+            scaled_outer_add(out.view_mut(), f1 * alpha_v, bu.view(), b.view());
+            scaled_outer_add(out.view_mut(), f1 * alpha_v, b.view(), bu.view());
+            scaled_outer_add(out.view_mut(), f, buv.view(), b.view());
+            scaled_outer_add(out.view_mut(), f, b.view(), buv.view());
+            scaled_outer_add(out.view_mut(), f, bu.view(), bv.view());
+            scaled_outer_add(out.view_mut(), f, bv.view(), bu.view());
+        }
+        mirror_upper_to_lower(&mut out);
+        Ok(Some(out))
+    }
 }
 
 /// Per-row pieces of the 3-block wiggle joint Hessian.
@@ -19841,6 +19629,14 @@ struct BinomialLocationScaleWiggleHessianRowPieces {
     coeffww: Array1<f64>,
     b0: Array2<f64>,
     d0: Array2<f64>,
+}
+
+struct ExpectedWiggleGeometryInputs<'a> {
+    x_t: Cow<'a, Array2<f64>>,
+    x_ls: Cow<'a, Array2<f64>>,
+    eta_t: &'a Array1<f64>,
+    eta_ls: &'a Array1<f64>,
+    etaw: &'a Array1<f64>,
 }
 
 impl BinomialLocationScaleWiggleHessianRowPieces {
@@ -20440,6 +20236,44 @@ impl CustomFamily for BinomialLocationScaleWiggleFamily {
         };
         let pieces = self.wiggle_hessian_row_pieces(block_states)?;
         Ok(Some(pieces.assemble_dense(&x_t, &x_ls)?))
+    }
+
+    fn joint_jeffreys_information_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_wiggle_information_with_specs(block_states, specs)
+    }
+
+    fn joint_jeffreys_information_directional_derivative_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_wiggle_information_directional_with_specs(block_states, specs, d_beta_flat)
+    }
+
+    fn joint_jeffreys_information_second_directional_derivative_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.expected_wiggle_information_second_directional_with_specs(
+            block_states,
+            specs,
+            d_beta_u_flat,
+            d_betav_flat,
+        )
+    }
+
+    fn joint_jeffreys_information_matches_observed_hessian(&self) -> bool {
+        // Expected Fisher information override (gam#1020): observed-Hessian
+        // conditioning pre-checks must not skip the expected-information gate.
+        false
     }
 
     fn has_explicit_joint_hessian(&self) -> bool {
@@ -22075,6 +21909,9 @@ mod tests {
         binomial_neglog_q_fourth_derivative_logit_closed_form,
         binomial_neglog_q_fourth_derivative_probit_closed_form,
     };
+    use super::dispersion_family::{
+        DISPERSION_ETA_CLAMP, DISPERSION_MIN_CURVATURE, DispersionRowKernel, dispersion_row_kernel,
+    };
     use crate::basis::{
         CenterStrategy, Dense, KnotSource, MaternBasisSpec, MaternIdentifiability, MaternNu,
         create_basis,
@@ -22089,6 +21926,7 @@ mod tests {
     use num_dual::{
         DualNum, second_derivative, second_partial_derivative, third_partial_derivative_vec,
     };
+    use statrs::function::gamma::ln_gamma;
 
     fn intercept_block(n: usize) -> ParameterBlockInput {
         ParameterBlockInput {
@@ -22171,6 +22009,357 @@ mod tests {
             "d_sigma_deta / sigma must preserve the remaining tail derivative"
         );
         assert_eq!(logb_dlog_sigma_deta(f64::INFINITY, f64::INFINITY), 1.0);
+    }
+
+    fn assert_rel_close(label: &str, actual: f64, expected: f64, tol: f64) {
+        let scale = expected.abs().max(1.0);
+        assert!(
+            (actual - expected).abs() <= tol * scale,
+            "{label}: actual={actual:+.16e}, expected={expected:+.16e}, diff={:+.3e}, scale={scale:.3e}",
+            actual - expected
+        );
+    }
+
+    fn hand_binomial_q_directional(
+        q: NonWiggleQDerivs,
+        d_eta_t: f64,
+        d_eta_ls: f64,
+    ) -> NonWiggleQDirectional {
+        NonWiggleQDirectional {
+            delta_q: q.q_t * d_eta_t + q.q_ls * d_eta_ls,
+            delta_q_t: q.q_tl * d_eta_ls,
+            delta_q_ls: q.q_tl * d_eta_t + q.q_ll * d_eta_ls,
+            delta_q_tl: q.q_tl_ls * d_eta_ls,
+            delta_q_ll: q.q_tl_ls * d_eta_t + q.q_ll_ls * d_eta_ls,
+        }
+    }
+
+    fn hand_binomial_second_q_directional(
+        q: NonWiggleQDerivs,
+        u_t: f64,
+        u_ls: f64,
+        v_t: f64,
+        v_ls: f64,
+    ) -> (f64, f64, f64, f64, f64) {
+        let d2q = q.q_tl * (u_t * v_ls + v_t * u_ls) + q.q_ll * u_ls * v_ls;
+        let d2q_t = q.q_tl_ls * u_ls * v_ls;
+        let d2q_ls = q.q_tl_ls * (u_ls * v_t + v_ls * u_t) + q.q_ll_ls * u_ls * v_ls;
+        let d2q_tl = -q.q_tl_ls * u_ls * v_ls;
+        let d2q_ll = d2q;
+        (d2q, d2q_t, d2q_ls, d2q_tl, d2q_ll)
+    }
+
+    #[test]
+    fn binomial_nonwiggle_tower_matches_hand_witness_channels() {
+        let links = [
+            InverseLink::Standard(StandardLink::Probit),
+            InverseLink::Standard(StandardLink::Logit),
+            InverseLink::Standard(StandardLink::CLogLog),
+        ];
+        let dirs = [([0.7, -0.4], [-0.2, 0.9]), ([1.3, 0.2], [0.5, -1.1])];
+        for link in links {
+            for y in [0.0, 1.0] {
+                for weight in [0.25, 2.0] {
+                    for q_target in [-8.0, -6.0, -1.25, 0.0, 1.4, 6.0, 8.0] {
+                        for eta_ls in [-0.7_f64, 0.0, 0.9] {
+                            let sigma = eta_ls.exp();
+                            let eta_t = -q_target * sigma;
+                            let jet = inverse_link_jet_for_inverse_link(&link, q_target)
+                                .expect("binomial link jet");
+                            let tower = binomial_location_scale_nll_tower(
+                                y, weight, eta_t, eta_ls, q_target, jet.mu, jet.d1, jet.d2, jet.d3,
+                                &link, true,
+                            )
+                            .expect("binomial row tower");
+                            let (m1, m2, m3) = binomial_neglog_q_derivatives_dispatch(
+                                y, weight, q_target, jet.mu, jet.d1, jet.d2, jet.d3, &link,
+                            );
+                            let m4 = binomial_neglog_q_fourth_derivative_dispatch(
+                                y, weight, q_target, jet.mu, jet.d1, jet.d2, jet.d3, &link,
+                            )
+                            .expect("binomial m4");
+                            let q = nonwiggle_q_derivs(eta_t, sigma);
+                            let h_tt =
+                                hessian_coeff_fromobjective_q_terms(m1, m2, q.q_t, q.q_t, 0.0);
+                            let h_tl =
+                                hessian_coeff_fromobjective_q_terms(m1, m2, q.q_t, q.q_ls, q.q_tl);
+                            let h_ll =
+                                hessian_coeff_fromobjective_q_terms(m1, m2, q.q_ls, q.q_ls, q.q_ll);
+                            assert_rel_close("binomial h_tt", tower.h[0][0], h_tt, 1e-12);
+                            assert_rel_close("binomial h_tl", tower.h[0][1], h_tl, 1e-12);
+                            assert_rel_close("binomial h_ll", tower.h[1][1], h_ll, 1e-12);
+
+                            for (u, v) in dirs {
+                                let du = hand_binomial_q_directional(q, u[0], u[1]);
+                                let t3 = tower.third_contracted(&u);
+                                let dh_tt = directionalhessian_coeff_fromobjective_q_terms(
+                                    m1,
+                                    m2,
+                                    m3,
+                                    du.delta_q,
+                                    q.q_t,
+                                    q.q_t,
+                                    0.0,
+                                    du.delta_q_t,
+                                    du.delta_q_t,
+                                    0.0,
+                                );
+                                let dh_tl = directionalhessian_coeff_fromobjective_q_terms(
+                                    m1,
+                                    m2,
+                                    m3,
+                                    du.delta_q,
+                                    q.q_t,
+                                    q.q_ls,
+                                    q.q_tl,
+                                    du.delta_q_t,
+                                    du.delta_q_ls,
+                                    du.delta_q_tl,
+                                );
+                                let dh_ll = directionalhessian_coeff_fromobjective_q_terms(
+                                    m1,
+                                    m2,
+                                    m3,
+                                    du.delta_q,
+                                    q.q_ls,
+                                    q.q_ls,
+                                    q.q_ll,
+                                    du.delta_q_ls,
+                                    du.delta_q_ls,
+                                    du.delta_q_ll,
+                                );
+                                assert_rel_close("binomial dh_tt", t3[0][0], dh_tt, 1e-12);
+                                assert_rel_close("binomial dh_tl", t3[0][1], dh_tl, 1e-12);
+                                assert_rel_close("binomial dh_ll", t3[1][1], dh_ll, 1e-12);
+
+                                let dv = hand_binomial_q_directional(q, v[0], v[1]);
+                                let (d2q, d2q_t, d2q_ls, d2q_tl, d2q_ll) =
+                                    hand_binomial_second_q_directional(q, u[0], u[1], v[0], v[1]);
+                                let t4 = tower.fourth_contracted(&u, &v);
+                                let d2h_tt = second_directionalhessian_coeff_fromobjective_q_terms(
+                                    m1,
+                                    m2,
+                                    m3,
+                                    m4,
+                                    du.delta_q,
+                                    dv.delta_q,
+                                    d2q,
+                                    q.q_t,
+                                    q.q_t,
+                                    0.0,
+                                    du.delta_q_t,
+                                    dv.delta_q_t,
+                                    du.delta_q_t,
+                                    dv.delta_q_t,
+                                    d2q_t,
+                                    d2q_t,
+                                    0.0,
+                                    0.0,
+                                    0.0,
+                                );
+                                let d2h_tl = second_directionalhessian_coeff_fromobjective_q_terms(
+                                    m1,
+                                    m2,
+                                    m3,
+                                    m4,
+                                    du.delta_q,
+                                    dv.delta_q,
+                                    d2q,
+                                    q.q_t,
+                                    q.q_ls,
+                                    q.q_tl,
+                                    du.delta_q_t,
+                                    dv.delta_q_t,
+                                    du.delta_q_ls,
+                                    dv.delta_q_ls,
+                                    d2q_t,
+                                    d2q_ls,
+                                    du.delta_q_tl,
+                                    dv.delta_q_tl,
+                                    d2q_tl,
+                                );
+                                let d2h_ll = second_directionalhessian_coeff_fromobjective_q_terms(
+                                    m1,
+                                    m2,
+                                    m3,
+                                    m4,
+                                    du.delta_q,
+                                    dv.delta_q,
+                                    d2q,
+                                    q.q_ls,
+                                    q.q_ls,
+                                    q.q_ll,
+                                    du.delta_q_ls,
+                                    dv.delta_q_ls,
+                                    du.delta_q_ls,
+                                    dv.delta_q_ls,
+                                    d2q_ls,
+                                    d2q_ls,
+                                    du.delta_q_ll,
+                                    dv.delta_q_ll,
+                                    d2q_ll,
+                                );
+                                assert_rel_close("binomial d2h_tt", t4[0][0], d2h_tt, 1e-12);
+                                assert_rel_close("binomial d2h_tl", t4[0][1], d2h_tl, 1e-12);
+                                assert_rel_close("binomial d2h_ll", t4[1][1], d2h_ll, 1e-12);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn hand_trigamma(x: f64) -> f64 {
+        crate::families::jet_tower::trigamma_derivative_stack(x)[0]
+    }
+
+    fn hand_dispersion_row_kernel(
+        kind: DispersionFamilyKind,
+        yi: f64,
+        eta_mu: f64,
+        eta_d: f64,
+        prior_weight: f64,
+    ) -> DispersionRowKernel {
+        let wi = prior_weight.max(0.0);
+        let em = eta_mu.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
+        let ed = eta_d.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
+        match kind {
+            DispersionFamilyKind::NegativeBinomial => {
+                let mu = em.exp().max(1e-300);
+                let theta = ed.exp().max(1e-12);
+                let tpm = theta + mu;
+                let tpy = theta + yi;
+                let loglik = wi
+                    * (ln_gamma(yi + theta) - ln_gamma(theta) - ln_gamma(yi + 1.0)
+                        + theta * theta.ln()
+                        - theta * tpm.ln()
+                        + yi * mu.ln()
+                        - yi * tpm.ln());
+                let mean_weight = wi * mu * theta / tpm;
+                let mean_response = em + (yi - mu) / mu;
+                let s_theta = statrs::function::gamma::digamma(yi + theta)
+                    - statrs::function::gamma::digamma(theta)
+                    + theta.ln()
+                    + 1.0
+                    - tpm.ln()
+                    - tpy / tpm;
+                let info_theta = -hand_trigamma(yi + theta) + hand_trigamma(theta) - 1.0 / theta
+                    + 2.0 / tpm
+                    - tpy / (tpm * tpm);
+                let info_pos = info_theta.max(DISPERSION_MIN_CURVATURE);
+                DispersionRowKernel {
+                    loglik,
+                    mean_weight,
+                    mean_response,
+                    disp_weight: wi * theta * theta * info_pos,
+                    disp_response: ed + s_theta / (theta * info_pos),
+                }
+            }
+            DispersionFamilyKind::Gamma => {
+                let mu = em.exp().max(1e-300);
+                let nu = ed.exp().max(1e-12);
+                let y_pos = yi.max(1e-300);
+                let loglik = wi
+                    * (nu * nu.ln() - nu * mu.ln() - ln_gamma(nu) + (nu - 1.0) * y_pos.ln()
+                        - nu * yi / mu);
+                let s_nu = nu.ln() + 1.0 - mu.ln() - statrs::function::gamma::digamma(nu)
+                    + y_pos.ln()
+                    - yi / mu;
+                let info_nu = (hand_trigamma(nu) - 1.0 / nu).max(DISPERSION_MIN_CURVATURE);
+                DispersionRowKernel {
+                    loglik,
+                    mean_weight: wi * nu,
+                    mean_response: em + (yi - mu) / mu,
+                    disp_weight: wi * nu * nu * info_nu,
+                    disp_response: ed + s_nu / (nu * info_nu),
+                }
+            }
+            DispersionFamilyKind::Beta => {
+                let mu = (1.0 / (1.0 + (-em).exp())).clamp(1e-12, 1.0 - 1e-12);
+                let phi = ed.exp().max(1e-12);
+                let q = (mu * (1.0 - mu)).max(1e-12);
+                let yc = yi.clamp(1e-12, 1.0 - 1e-12);
+                let a = mu * phi;
+                let b = (1.0 - mu) * phi;
+                let loglik = wi
+                    * (ln_gamma(phi) - ln_gamma(a) - ln_gamma(b)
+                        + (a - 1.0) * yc.ln()
+                        + (b - 1.0) * (1.0 - yc).ln());
+                let score_mu = phi
+                    * (statrs::function::gamma::digamma(b) - statrs::function::gamma::digamma(a)
+                        + yc.ln()
+                        - (1.0 - yc).ln());
+                let info_mu = (phi * phi * (hand_trigamma(a) + hand_trigamma(b)))
+                    .max(DISPERSION_MIN_CURVATURE);
+                let s_phi = statrs::function::gamma::digamma(phi)
+                    - mu * statrs::function::gamma::digamma(a)
+                    - (1.0 - mu) * statrs::function::gamma::digamma(b)
+                    + mu * yc.ln()
+                    + (1.0 - mu) * (1.0 - yc).ln();
+                let info_phi = (mu * mu * hand_trigamma(a)
+                    + (1.0 - mu) * (1.0 - mu) * hand_trigamma(b)
+                    - hand_trigamma(phi))
+                .max(DISPERSION_MIN_CURVATURE);
+                DispersionRowKernel {
+                    loglik,
+                    mean_weight: wi * q * q * info_mu,
+                    mean_response: em + score_mu / (q * info_mu),
+                    disp_weight: wi * phi * phi * info_phi,
+                    disp_response: ed + s_phi / (phi * info_phi),
+                }
+            }
+            DispersionFamilyKind::Tweedie { .. } => {
+                panic!("Tweedie dispersion witness is intentionally out of migration scope")
+            }
+        }
+    }
+
+    #[test]
+    fn dispersion_row_towers_match_hand_witnesses() {
+        let cases = [
+            (
+                DispersionFamilyKind::NegativeBinomial,
+                0.0,
+                -1.5,
+                -25.0,
+                0.7,
+            ),
+            (DispersionFamilyKind::NegativeBinomial, 6.0, 2.0, 25.0, 1.3),
+            (DispersionFamilyKind::Gamma, 0.2, -2.0, -25.0, 0.9),
+            (DispersionFamilyKind::Gamma, 9.0, 1.7, 25.0, 1.1),
+            (DispersionFamilyKind::Beta, 0.02, -3.0, -20.0, 0.8),
+            (DispersionFamilyKind::Beta, 0.98, 3.0, 20.0, 1.4),
+        ];
+        for (kind, y, eta_mu, eta_d, weight) in cases {
+            let actual = dispersion_row_kernel(kind, y, eta_mu, eta_d, weight);
+            let expected = hand_dispersion_row_kernel(kind, y, eta_mu, eta_d, weight);
+            assert_rel_close("dispersion loglik", actual.loglik, expected.loglik, 1e-10);
+            assert_rel_close(
+                "dispersion mean_weight",
+                actual.mean_weight,
+                expected.mean_weight,
+                1e-10,
+            );
+            assert_rel_close(
+                "dispersion mean_response",
+                actual.mean_response,
+                expected.mean_response,
+                1e-10,
+            );
+            assert_rel_close(
+                "dispersion disp_weight",
+                actual.disp_weight,
+                expected.disp_weight,
+                1e-10,
+            );
+            assert_rel_close(
+                "dispersion disp_response",
+                actual.disp_response,
+                expected.disp_response,
+                1e-10,
+            );
+        }
     }
 
     fn logistic_numdual<D: DualNum<f64> + Copy>(x: D) -> D {
@@ -23999,6 +24188,81 @@ mod tests {
                 analytic[i]
             );
         }
+    }
+
+    #[test]
+    fn binomial_location_scale_wiggle_expected_info_derivatives_match_finite_difference() {
+        let (family, states, specs, xt, xls, xw_at_base) = bls_wiggle_workspace_fixture();
+        let p = states[0].beta.len() + states[1].beta.len() + states[2].beta.len();
+        let pt = states[0].beta.len();
+        let pls = states[1].beta.len();
+        let pw = states[2].beta.len();
+        assert_eq!(p, pt + pls + pw);
+        assert_eq!(xw_at_base.ncols(), pw);
+        // gam#1020: the expected-information override must disarm the
+        // observed-Hessian "Jeffreys skippable" matvec pre-checks.
+        assert!(!family.joint_jeffreys_information_matches_observed_hessian());
+        let u = Array1::from_shape_fn(p, |i| 0.04 * ((i + 1) as f64).cos());
+        let v = Array1::from_shape_fn(p, |i| -0.03 * ((i + 2) as f64).sin());
+        let eps = 1e-5;
+        let perturb = |direction: &Array1<f64>, scale: f64| -> Vec<ParameterBlockState> {
+            let mut out = states.clone();
+            for j in 0..pt {
+                out[0].beta[j] += scale * direction[j];
+            }
+            for j in 0..pls {
+                out[1].beta[j] += scale * direction[pt + j];
+            }
+            for j in 0..pw {
+                out[2].beta[j] += scale * direction[pt + pls + j];
+            }
+            out[0].eta = xt.dot(&out[0].beta);
+            out[1].eta = xls.dot(&out[1].beta);
+            let q0 = Array1::from_iter(out[0].eta.iter().zip(out[1].eta.iter()).map(
+                |(&eta_t, &eta_ls)| {
+                    binomial_location_scale_q0(eta_t, exp_sigma_from_eta_scalar(eta_ls))
+                },
+            ));
+            out[2].eta = family
+                .wiggle_design(q0.view())
+                .expect("perturbed wiggle basis")
+                .dot(&out[2].beta);
+            out
+        };
+
+        let h_plus = family
+            .joint_jeffreys_information_with_specs(&perturb(&u, eps), &specs)
+            .expect("expected I plus")
+            .expect("expected I plus present");
+        let h_minus = family
+            .joint_jeffreys_information_with_specs(&perturb(&u, -eps), &specs)
+            .expect("expected I minus")
+            .expect("expected I minus present");
+        let fd_first = (&h_plus - &h_minus) / (2.0 * eps);
+        let analytic_first = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states, &specs, &u)
+            .expect("expected dI")
+            .expect("expected dI present");
+        assert_close_matrix(&analytic_first, &fd_first, 2e-7, "wiggle expected dI");
+
+        let states_plus = perturb(&v, eps);
+        let states_minus = perturb(&v, -eps);
+        let d_plus = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states_plus, &specs, &u)
+            .expect("expected dI plus")
+            .expect("expected dI plus present");
+        let d_minus = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states_minus, &specs, &u)
+            .expect("expected dI minus")
+            .expect("expected dI minus present");
+        let fd_second = (&d_plus - &d_minus) / (2.0 * eps);
+        let analytic_second = family
+            .joint_jeffreys_information_second_directional_derivative_with_specs(
+                &states, &specs, &u, &v,
+            )
+            .expect("expected d2I")
+            .expect("expected d2I present");
+        assert_close_matrix(&analytic_second, &fd_second, 2e-7, "wiggle expected d2I");
     }
 
     #[test]
@@ -29028,6 +29292,288 @@ mod tests {
             max_err < tol,
             "{label} max error {max_err:.3e} >= {tol:.3e}"
         );
+    }
+
+    #[test]
+    fn binomial_location_scale_expected_info_derivatives_match_finite_difference() {
+        let base = binomial_location_scale_base_fixture();
+        let family = BinomialLocationScaleFamily {
+            y: base.y,
+            weights: base.weights,
+            link_kind: InverseLink::Standard(StandardLink::Probit),
+            threshold_design: Some(base.threshold_design.clone()),
+            log_sigma_design: Some(base.log_sigma_design.clone()),
+            policy: crate::resource::ResourcePolicy::default_library(),
+        };
+        let specs = vec![base.threshold_spec, base.log_sigma_spec];
+        let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
+            .design
+            .as_dense_ref()
+            .expect("threshold dense design");
+        let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+            .design
+            .as_dense_ref()
+            .expect("log-sigma dense design");
+        // gam#1020: the expected-information override must disarm the
+        // observed-Hessian "Jeffreys skippable" matvec pre-checks.
+        assert!(!family.joint_jeffreys_information_matches_observed_hessian());
+        let beta_t = Array1::from_iter((0..x_t.ncols()).map(|j| 0.12 - 0.03 * j as f64));
+        let beta_ls = Array1::from_iter((0..x_ls.ncols()).map(|j| -0.08 + 0.02 * j as f64));
+        let states = vec![
+            ParameterBlockState {
+                beta: beta_t.clone(),
+                eta: x_t.dot(&beta_t),
+            },
+            ParameterBlockState {
+                beta: beta_ls.clone(),
+                eta: x_ls.dot(&beta_ls),
+            },
+        ];
+        let total = beta_t.len() + beta_ls.len();
+        let u = Array1::from_iter((0..total).map(|j| 0.03 * (j as f64 + 0.4).sin()));
+        let v = Array1::from_iter((0..total).map(|j| -0.02 * (j as f64 + 0.7).cos()));
+
+        let info = |direction: &Array1<f64>, scale: f64| {
+            let mut next = states.clone();
+            let pt = beta_t.len();
+            next[BinomialLocationScaleFamily::BLOCK_T]
+                .beta
+                .scaled_add(scale, &direction.slice(s![0..pt]));
+            next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+                .beta
+                .scaled_add(scale, &direction.slice(s![pt..total]));
+            next[BinomialLocationScaleFamily::BLOCK_T].eta =
+                x_t.dot(&next[BinomialLocationScaleFamily::BLOCK_T].beta);
+            next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
+                x_ls.dot(&next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
+            family
+                .joint_jeffreys_information_with_specs(&next, &specs)
+                .expect("expected information")
+                .expect("expected information available")
+        };
+
+        let h0 = family
+            .joint_jeffreys_information_with_specs(&states, &specs)
+            .expect("expected information")
+            .expect("expected information available");
+        assert_close_matrix(&info(&u, 0.0), &h0, 1e-12, "expected information value");
+
+        let eps = 1e-5;
+        let hp = info(&u, eps);
+        let hm = info(&u, -eps);
+        let fd_first = (&hp - &hm) / (2.0 * eps);
+        let analytic_first = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states, &specs, &u)
+            .expect("expected dI")
+            .expect("expected dI available");
+        assert_close_matrix(&analytic_first, &fd_first, 1e-7, "expected dI");
+
+        let mut states_plus = states.clone();
+        let pt = beta_t.len();
+        states_plus[BinomialLocationScaleFamily::BLOCK_T]
+            .beta
+            .scaled_add(eps, &v.slice(s![0..pt]));
+        states_plus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+            .beta
+            .scaled_add(eps, &v.slice(s![pt..total]));
+        states_plus[BinomialLocationScaleFamily::BLOCK_T].eta =
+            x_t.dot(&states_plus[BinomialLocationScaleFamily::BLOCK_T].beta);
+        states_plus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
+            x_ls.dot(&states_plus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
+        let d_plus = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states_plus, &specs, &u)
+            .expect("expected dI plus")
+            .expect("expected dI plus available");
+
+        let mut states_minus = states.clone();
+        states_minus[BinomialLocationScaleFamily::BLOCK_T]
+            .beta
+            .scaled_add(-eps, &v.slice(s![0..pt]));
+        states_minus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+            .beta
+            .scaled_add(-eps, &v.slice(s![pt..total]));
+        states_minus[BinomialLocationScaleFamily::BLOCK_T].eta =
+            x_t.dot(&states_minus[BinomialLocationScaleFamily::BLOCK_T].beta);
+        states_minus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
+            x_ls.dot(&states_minus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
+        let d_minus = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states_minus, &specs, &u)
+            .expect("expected dI minus")
+            .expect("expected dI minus available");
+        let fd_second = (&d_plus - &d_minus) / (2.0 * eps);
+        let analytic_second = family
+            .joint_jeffreys_information_second_directional_derivative_with_specs(
+                &states, &specs, &u, &v,
+            )
+            .expect("expected d2I")
+            .expect("expected d2I available");
+        assert_close_matrix(&analytic_second, &fd_second, 1e-7, "expected d2I");
+    }
+
+    #[test]
+    fn binomial_location_scale_expected_info_contracted_trace_matches_second_directional() {
+        let base = binomial_location_scale_base_fixture();
+        let family = BinomialLocationScaleFamily {
+            y: base.y,
+            weights: base.weights,
+            link_kind: InverseLink::Standard(StandardLink::Probit),
+            threshold_design: Some(base.threshold_design.clone()),
+            log_sigma_design: Some(base.log_sigma_design.clone()),
+            policy: crate::resource::ResourcePolicy::default_library(),
+        };
+        let specs = vec![base.threshold_spec, base.log_sigma_spec];
+        let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
+            .design
+            .as_dense_ref()
+            .expect("threshold dense design");
+        let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+            .design
+            .as_dense_ref()
+            .expect("log-sigma dense design");
+        let beta_t = Array1::from_iter((0..x_t.ncols()).map(|j| 0.11 - 0.02 * j as f64));
+        let beta_ls = Array1::from_iter((0..x_ls.ncols()).map(|j| -0.07 + 0.03 * j as f64));
+        let states = vec![
+            ParameterBlockState {
+                beta: beta_t.clone(),
+                eta: x_t.dot(&beta_t),
+            },
+            ParameterBlockState {
+                beta: beta_ls.clone(),
+                eta: x_ls.dot(&beta_ls),
+            },
+        ];
+        let total = beta_t.len() + beta_ls.len();
+        let weight = Array2::from_shape_fn((total, total), |(i, j)| {
+            0.03 * ((i + 2 * j + 1) as f64).sin()
+        });
+        let contracted = family
+            .joint_jeffreys_information_contracted_trace_hessian_with_specs(
+                &states, &specs, &weight,
+            )
+            .expect("contracted trace")
+            .expect("contracted trace present");
+        let mut expected = Array2::<f64>::zeros((total, total));
+        for a in 0..total {
+            let mut axis_a = Array1::<f64>::zeros(total);
+            axis_a[a] = 1.0;
+            for b in a..total {
+                let mut axis_b = Array1::<f64>::zeros(total);
+                axis_b[b] = 1.0;
+                let second = family
+                    .joint_jeffreys_information_second_directional_derivative_with_specs(
+                        &states, &specs, &axis_a, &axis_b,
+                    )
+                    .expect("expected d2I")
+                    .expect("expected d2I present");
+                let mut trace = 0.0;
+                for row in 0..total {
+                    for col in 0..total {
+                        trace += weight[[row, col]] * second[[col, row]];
+                    }
+                }
+                expected[[a, b]] = trace;
+                expected[[b, a]] = trace;
+            }
+        }
+        assert_close_matrix(&contracted, &expected, 1e-9, "expected contracted trace");
+    }
+
+    #[test]
+    fn binomial_location_scale_expected_hphi_drift_matches_finite_difference() {
+        let base = binomial_location_scale_base_fixture();
+        let family = BinomialLocationScaleFamily {
+            y: base.y,
+            weights: base.weights,
+            link_kind: InverseLink::Standard(StandardLink::Probit),
+            threshold_design: Some(base.threshold_design.clone()),
+            log_sigma_design: Some(base.log_sigma_design.clone()),
+            policy: crate::resource::ResourcePolicy::default_library(),
+        };
+        let specs = vec![base.threshold_spec, base.log_sigma_spec];
+        let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
+            .design
+            .as_dense_ref()
+            .expect("threshold dense design");
+        let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+            .design
+            .as_dense_ref()
+            .expect("log-sigma dense design");
+        let beta_t = Array1::from_iter((0..x_t.ncols()).map(|j| 0.09 - 0.02 * j as f64));
+        let beta_ls = Array1::from_iter((0..x_ls.ncols()).map(|j| -0.06 + 0.04 * j as f64));
+        let states = vec![
+            ParameterBlockState {
+                beta: beta_t.clone(),
+                eta: x_t.dot(&beta_t),
+            },
+            ParameterBlockState {
+                beta: beta_ls.clone(),
+                eta: x_ls.dot(&beta_ls),
+            },
+        ];
+        let total = beta_t.len() + beta_ls.len();
+        let z = Array2::<f64>::eye(total);
+        let direction = Array1::from_shape_fn(total, |i| 0.03 * ((i + 1) as f64).sin());
+        let perturb = |scale: f64| {
+            let mut next = states.clone();
+            let pt = beta_t.len();
+            next[BinomialLocationScaleFamily::BLOCK_T]
+                .beta
+                .scaled_add(scale, &direction.slice(s![0..pt]));
+            next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
+                .beta
+                .scaled_add(scale, &direction.slice(s![pt..total]));
+            next[BinomialLocationScaleFamily::BLOCK_T].eta =
+                x_t.dot(&next[BinomialLocationScaleFamily::BLOCK_T].beta);
+            next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
+                x_ls.dot(&next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
+            next
+        };
+        let hphi_at = |block_states: &[ParameterBlockState]| {
+            let info = family
+                .joint_jeffreys_information_with_specs(block_states, &specs)
+                .expect("expected info")
+                .expect("expected info present");
+            let (_phi, _grad, hphi) =
+                crate::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
+                    info.view(),
+                    z.view(),
+                    |axis: &Array1<f64>| {
+                        family.joint_jeffreys_information_directional_derivative_with_specs(
+                            block_states,
+                            &specs,
+                            axis,
+                        )
+                    },
+                )
+                .expect("hphi term");
+            hphi
+        };
+        let eps = 1e-5;
+        let h_plus = hphi_at(&perturb(eps));
+        let h_minus = hphi_at(&perturb(-eps));
+        let fd = (&h_plus - &h_minus) / (2.0 * eps);
+        let info = family
+            .joint_jeffreys_information_with_specs(&states, &specs)
+            .expect("expected info")
+            .expect("expected info present");
+        let analytic =
+            crate::estimate::reml::jeffreys_subspace::joint_jeffreys_hphi_directional_derivative(
+                info.view(),
+                z.view(),
+                &direction,
+                |axis: &Array1<f64>| {
+                    family.joint_jeffreys_information_directional_derivative_with_specs(
+                        &states, &specs, axis,
+                    )
+                },
+                |u: &Array1<f64>, v: &Array1<f64>| {
+                    family.joint_jeffreys_information_second_directional_derivative_with_specs(
+                        &states, &specs, u, v,
+                    )
+                },
+            )
+            .expect("hphi drift");
+        assert_close_matrix(&analytic, &fd, 1e-7, "expected H_phi drift");
     }
 
     #[test]

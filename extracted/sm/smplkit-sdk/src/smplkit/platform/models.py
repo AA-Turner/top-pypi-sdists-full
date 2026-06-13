@@ -18,7 +18,7 @@ def _coerce_color(value: Color | str | None) -> Color | None:
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from smplkit.platform._client import (
+    from smplkit.platform.clients import (
         AsyncContextTypesClient,
         AsyncEnvironmentsClient,
         AsyncServicesClient,

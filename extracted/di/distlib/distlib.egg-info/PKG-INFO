@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: distlib
-Version: 0.4.2
+Version: 0.4.3
 Summary: Distribution utilities
 Home-page: https://github.com/pypa/distlib
 Author: Vinay Sajip
@@ -30,6 +30,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 License-File: LICENSE.txt
+Dynamic: license-file
 
 |badge1| |badge2|
 

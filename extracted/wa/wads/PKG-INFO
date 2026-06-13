@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wads
-Version: 0.2.3
+Version: 0.2.6
 Summary: Tools for packaging and publishing to pypi for those who just do not want to deal with it
 Project-URL: Homepage, https://github.com/i2mint/wads
 Author: Thor Whalen

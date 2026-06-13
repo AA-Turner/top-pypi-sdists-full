@@ -93,6 +93,7 @@ from ._api import (
 )
 from ._binding import RustExtensionUnavailableError
 from ._compare import compare_models
+from ._linear_dictionary import LinearDictionaryFit, linear_dictionary_fit
 from ._penalties import (
     ARDPenalty,
     AnalyticPenaltyKind,
@@ -164,6 +165,7 @@ from .smooth import (
     Duchon,
     LatentCoord,
     Matern,
+    MeasureJet,
     Pca,
     PeriodicSplineCurve,
     ShapeConstraintLiteral,
@@ -304,6 +306,7 @@ from ._sae_benchmark import (
     run_benchmark as sae_benchmark,
     sweep as sweep_sae_benchmark,
 )
+from .distill import DistilledEncoder, EncoderFallbackStats
 from ._schema import SchemaCheck, SchemaIssue
 from ._summary import Summary
 from ._validation import FormulaValidation

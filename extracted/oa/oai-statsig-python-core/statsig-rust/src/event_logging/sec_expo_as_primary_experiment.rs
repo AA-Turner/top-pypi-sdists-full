@@ -20,7 +20,7 @@ pub(super) struct SecExpoAsPrimaryExperiment {
 }
 
 impl SecExpoAsPrimaryExperiment {
-    pub(super) fn new(sdk_key: &str, options: &StatsigOptions) -> Self {
+    pub(super) fn new(sdk_instance_id: &str, options: &StatsigOptions) -> Self {
         let experiment_number = options
             .experimental_flags
             .as_ref()
@@ -35,7 +35,7 @@ impl SecExpoAsPrimaryExperiment {
 
         Self {
             provided_exp_number: experiment_number,
-            global_configs: GlobalConfigs::get_instance(sdk_key),
+            global_configs: GlobalConfigs::get_instance(sdk_instance_id),
             cached_sec_expo_number: AtomicU64::new(NO_SEC_EXPO_NUMBER),
             last_sec_expo_number_refresh_time: AtomicU64::new(0),
         }

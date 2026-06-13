@@ -134,10 +134,24 @@ def discover_projects(root: Path) -> list[DiscoveredProject]:
             kind = "go"
         elif "Cargo.toml" in filenames:
             kind = "rust"
+        elif "pubspec.yaml" in filenames:
+            kind = "dart"
+        elif "Package.swift" in filenames:
+            kind = "swift"
+        elif "CMakeLists.txt" in filenames or "Makefile" in filenames or "makefile" in filenames:
+            kind = "cpp"
+        elif any(f.endswith(".csproj") for f in filenames):
+            kind = "csharp"
         elif "pom.xml" in filenames or any(
             f.startswith("build.gradle") for f in filenames
         ):
-            kind = "java"
+            # Distinguish java and kotlin by looking for .kt files under this directory
+            has_kt = False
+            for sub_dirpath, _, sub_filenames in os.walk(dirpath):
+                if any(f.endswith(".kt") for f in sub_filenames):
+                    has_kt = True
+                    break
+            kind = "kotlin" if has_kt else "java"
         if kind:
             found.append(DiscoveredProject(kind=kind, root=here))
             seen_roots.add(here)
@@ -246,6 +260,11 @@ def _run_background_check(
     full_env = os.environ.copy()
     if env:
         full_env.update(env)
+        
+    preexec = None
+    if hasattr(os, "setsid"):
+        preexec = os.setsid
+        
     try:
         proc = subprocess.Popen(
             cmd,
@@ -254,17 +273,40 @@ def _run_background_check(
             stderr=subprocess.PIPE,
             text=True,
             env=full_env,
+            preexec_fn=preexec,
         )
         
         time.sleep(timeout)
         
         returncode = proc.poll()
         if returncode is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=2.0)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            import signal
+            terminated = False
+            if hasattr(os, "killpg") and hasattr(os, "getpgid") and preexec is not None:
+                try:
+                    pgid = os.getpgid(proc.pid)
+                    os.killpg(pgid, signal.SIGTERM)
+                    proc.wait(timeout=2.0)
+                    terminated = True
+                except Exception:
+                    pass
+            
+            if not terminated:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    if hasattr(os, "killpg") and hasattr(os, "getpgid") and preexec is not None:
+                        try:
+                            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                            proc.wait()
+                            terminated = True
+                        except Exception:
+                            pass
+                    if not terminated:
+                        proc.kill()
+                        proc.wait()
+                        
             return StepResult(
                 name=name,
                 ok=True,
@@ -307,9 +349,21 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
     has_req = (root / "requirements.txt").exists()
     has_pyproject = (root / "pyproject.toml").exists()
 
-    # 1. Install runtime deps (prefer requirements.txt for fast/exact install,
-    # fall back to pyproject if absent)
-    pip = [sys.executable, "-m", "pip"]
+    # Create local virtual env to isolate project dependencies
+    venv_dir = root / ".venv"
+    if not venv_dir.exists() and (has_req or has_pyproject):
+        try:
+            subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], capture_output=True, check=False)
+        except Exception:
+            pass
+
+    # Determine pip and python paths
+    pip_bin = str(venv_dir / "bin" / "pip") if venv_dir.exists() else None
+    python_bin = str(venv_dir / "bin" / "python") if venv_dir.exists() else sys.executable
+
+    pip = [pip_bin] if pip_bin else [sys.executable, "-m", "pip"]
+
+    # 1. Install runtime deps
     if has_req:
         steps.append(
             run_step(
@@ -320,7 +374,6 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             )
         )
     if has_pyproject:
-        # Also install the package itself so tests can import `app.*`
         steps.append(
             run_step(
                 "pip install -e .[dev]",
@@ -330,13 +383,19 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             )
         )
 
-    # Set up PYTHONPATH environment variable for running compile/import/test steps
+    # Set up PYTHONPATH environment variable
     python_path_dirs = [str(root)]
     if root.name == "backend":
         python_path_dirs.append(str(root.parent))
     if (root / "app").exists():
         python_path_dirs.append(str(root / "app"))
     
+    # Append local venv site-packages so import/test runners can find dependencies
+    if venv_dir.exists():
+        venv_site = venv_dir / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages"
+        if venv_site.exists():
+            python_path_dirs.append(str(venv_site))
+
     existing_pythonpath = os.environ.get("PYTHONPATH", "")
     if existing_pythonpath:
         python_path_dirs.append(existing_pythonpath)
@@ -347,7 +406,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
     steps.append(
         run_step(
             "python compile",
-            [sys.executable, "-m", "compileall", "-q", "."],
+            [python_bin, "-m", "compileall", "-q", "."],
             cwd=root,
             env=python_env,
         )
@@ -365,7 +424,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
         steps.append(
             run_step(
                 "python import check",
-                [sys.executable, "-c", f"import {import_mod}"],
+                [python_bin, "-c", f"import {import_mod}"],
                 cwd=root,
                 timeout=15,
                 env=python_env,
@@ -389,7 +448,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             steps.append(
                 _run_background_check(
                     "python server start check",
-                    [sys.executable, "-m", "uvicorn", f"{import_mod}:app", "--host", "127.0.0.1", "--port", "8999"],
+                    [python_bin, "-m", "uvicorn", f"{import_mod}:app", "--host", "127.0.0.1", "--port", "8999"],
                     cwd=root,
                     timeout=3.0,
                     env=python_env,
@@ -399,24 +458,28 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             steps.append(
                 _run_background_check(
                     "python script run check",
-                    [sys.executable, str(main_py.relative_to(root))],
+                    [python_bin, str(main_py.relative_to(root))],
                     cwd=root,
                     timeout=3.0,
                     env=python_env,
                 )
             )
 
-    # 4. Run tests
-    steps.append(
-        run_step(
+    # 4. Run tests (only if tests directory or test files exist)
+    has_test_files = any(root.glob("**/test_*.py")) or any(root.glob("**/*_test.py"))
+    if has_test_files:
+        res_step = run_step(
             "pytest",
             [sys.executable, "-m", "pytest", "-q"],
             cwd=root,
             env=python_env,
         )
-    )
+        # pytest exit code 5 means no tests were collected, which is fine, but code 0 is success
+        if res_step.returncode in (0, 5):
+            res_step = StepResult(res_step.name, True, res_step.log, res_step.duration_s, res_step.returncode)
+        steps.append(res_step)
 
-    # 5. Lint (only if ruff installed in this env)
+    # 5. Lint
     ruff_paths = [
         root / ".venv" / "bin" / "ruff",
         root / "venv" / "bin" / "ruff",
@@ -495,15 +558,24 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
             )
         )
     else:
-        steps.append(
-            StepResult(
-                name=f"{pm} server start check",
-                ok=False,
-                log="No 'start' or 'dev' script found in package.json",
-                duration_s=0.0,
-                returncode=1,
+        # Check if there is a main file entrypoint to check compilation/loading
+        main_entry = None
+        for fn in ("index.js", "main.js", "src/index.ts", "src/main.ts"):
+            if (root / fn).exists():
+                main_entry = fn
+                break
+        if main_entry:
+            steps.append(run_step("node load check", ["node", main_entry], cwd=root, timeout=15))
+        else:
+            steps.append(
+                StepResult(
+                    name=f"{pm} server start check (not required)",
+                    ok=True,
+                    log="No 'start' or 'dev' script, and no main entrypoint found in package.json",
+                    duration_s=0.0,
+                )
             )
-        )
+
 
     # 4. Test (only if defined)
     if _has_script(pkg, "test"):

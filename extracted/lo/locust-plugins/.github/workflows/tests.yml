@@ -36,8 +36,10 @@ jobs:
       - name: set full Python version in PY env var
         # See https://pre-commit.com/#github-actions-example
         run: echo "PY=$(python -VV | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
-      - run: pip install tox codecov
+      - run: pip install tox
       - run: tox -e ${{ matrix.tox }}
+        timeout-minutes: 5
+
 
   publish:
     name: PyPI - Publish if this is a tagged commit

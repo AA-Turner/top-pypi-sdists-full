@@ -4,7 +4,9 @@ isort:skip_file
 """
 
 import builtins
+import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.internal.containers
 import google.protobuf.message
 import typing
 
@@ -28,6 +30,7 @@ class PlatformCharge(google.protobuf.message.Message):
     REFUNDED_FIELD_NUMBER: builtins.int
     AMOUNT_REFUNDED_FIELD_NUMBER: builtins.int
     CARD_LAST_4_FIELD_NUMBER: builtins.int
+    REFUNDS_FIELD_NUMBER: builtins.int
     stripe_id: builtins.str
     organization_id: builtins.int
     invoice_id: builtins.int
@@ -38,8 +41,27 @@ class PlatformCharge(google.protobuf.message.Message):
     amount: builtins.int
     failure_code: builtins.str
     refunded: builtins.bool
+    """DEPRECATED: Source of truth for refund state is ``refunds`` below.
+    Consumers should check ``len(refunds) > 0`` (or
+    ``sum(refunds[*].amount_cents) == amount``) instead. Left in the proto
+    because ``sentry-protos`` policy disallows field deletion. Not
+    populated by current producers.
+    """
     amount_refunded: builtins.int
+    """DEPRECATED: Source of truth for refund amount is the sum of
+    ``refunds[*].amount_cents`` below. Left in the proto because
+    ``sentry-protos`` policy disallows field deletion. Not populated by
+    current producers.
+    """
     card_last_4: builtins.str
+    @property
+    def refunds(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PlatformRefund]:
+        """Recorded refunds against this charge, ordered by ``date_added_st``
+        ascending. Source of truth for refund state on a charge -- consumers
+        sum ``refunds[*].amount_cents`` if they need the aggregate, and
+        ``len(refunds) > 0`` (or sum == amount) signals "refunded."
+        """
+
     def __init__(
         self,
         *,
@@ -52,9 +74,10 @@ class PlatformCharge(google.protobuf.message.Message):
         refunded: builtins.bool = ...,
         amount_refunded: builtins.int = ...,
         card_last_4: builtins.str | None = ...,
+        refunds: collections.abc.Iterable[global___PlatformRefund] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_card_last_4", b"_card_last_4", "_failure_code", b"_failure_code", "_invoice_id", b"_invoice_id", "card_last_4", b"card_last_4", "failure_code", b"failure_code", "invoice_id", b"invoice_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_card_last_4", b"_card_last_4", "_failure_code", b"_failure_code", "_invoice_id", b"_invoice_id", "amount", b"amount", "amount_refunded", b"amount_refunded", "card_last_4", b"card_last_4", "failure_code", b"failure_code", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "paid", b"paid", "refunded", b"refunded", "stripe_id", b"stripe_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_card_last_4", b"_card_last_4", "_failure_code", b"_failure_code", "_invoice_id", b"_invoice_id", "amount", b"amount", "amount_refunded", b"amount_refunded", "card_last_4", b"card_last_4", "failure_code", b"failure_code", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "paid", b"paid", "refunded", b"refunded", "refunds", b"refunds", "stripe_id", b"stripe_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_card_last_4", b"_card_last_4"]) -> typing.Literal["card_last_4"] | None: ...
     @typing.overload
@@ -63,3 +86,40 @@ class PlatformCharge(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
 
 global___PlatformCharge = PlatformCharge
+
+@typing.final
+class PlatformRefund(google.protobuf.message.Message):
+    """Canonical projection of a stored platform refund. One row per recorded
+    refund against a ``PlatformCharge``.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    STRIPE_ID_FIELD_NUMBER: builtins.int
+    ORGANIZATION_ID_FIELD_NUMBER: builtins.int
+    AMOUNT_CENTS_FIELD_NUMBER: builtins.int
+    REASON_FIELD_NUMBER: builtins.int
+    DATE_ADDED_ST_FIELD_NUMBER: builtins.int
+    stripe_id: builtins.str
+    """Stripe id of the refund (e.g. "re_xxx")."""
+    organization_id: builtins.int
+    amount_cents: builtins.int
+    """Refund amount in cents."""
+    reason: builtins.str
+    """Stripe-supplied refund reason. Unset when Stripe did not provide one."""
+    date_added_st: builtins.int
+    """Unix epoch seconds when the refund was recorded by the platform."""
+    def __init__(
+        self,
+        *,
+        stripe_id: builtins.str = ...,
+        organization_id: builtins.int = ...,
+        amount_cents: builtins.int = ...,
+        reason: builtins.str | None = ...,
+        date_added_st: builtins.int = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_reason", b"_reason", "reason", b"reason"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_reason", b"_reason", "amount_cents", b"amount_cents", "date_added_st", b"date_added_st", "organization_id", b"organization_id", "reason", b"reason", "stripe_id", b"stripe_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_reason", b"_reason"]) -> typing.Literal["reason"] | None: ...
+
+global___PlatformRefund = PlatformRefund

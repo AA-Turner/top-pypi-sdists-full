@@ -7,7 +7,7 @@ from warnings import warn
 
 from _pytest.config import Config
 from _pytest.mark import Mark
-from _pytest.python import Function
+from pytest import Function, UsageError
 
 from .item import Item, ItemList, ItemGroup, filter_marks, move_item, RelativeMark
 from .settings import Settings, Scope
@@ -39,7 +39,7 @@ class Sorter:
 
     def __init__(self, config: Config, items: list[Function]) -> None:
         self.settings: Settings = Settings(config)
-        self.items: list[Item] = [Item(item) for item in items]
+        self.items: list[Item] = [Item(item, idx) for idx, item in enumerate(items)]
         self.node_ids: dict[str, Item] = OrderedDict()
         self.node_id_last: dict[str, list[str]] = {}
         for item in self.items:
@@ -270,15 +270,15 @@ class Sorter:
         return has_relative_marks
 
     def warn_about_unknown_test(self, item: Item, rel_mark: str) -> None:
+        msg = f"cannot execute '{item.item.name}' relative to others: '{rel_mark}'"
+        if self.settings.fail_all_on_failed_ordering:
+            raise UsageError(f"pytest-order: {msg}")
         if self.settings.error_on_failed_ordering:
             item.item.fixturenames.insert(0, "fail_after_cannot_order")
             ignore_msg = ""
         else:
             ignore_msg = " - ignoring the marker"
-        sys.stdout.write(
-            f"\nWARNING: cannot execute '{item.item.name}' relative to others: "
-            f"'{rel_mark}'{ignore_msg}."
-        )
+        sys.stdout.write(f"\nWARNING: {msg}{ignore_msg}.")
 
     def collect_markers(self) -> None:
         aliases: dict[str, list[Item]] = {}
@@ -458,14 +458,7 @@ class ScopeSorter:
 
         sorted_list = item_list.sort_numbered_items()
 
-        still_left = 0
-        length = item_list.number_of_rel_groups()
-        while length and still_left != length:
-            still_left = length
-            item_list.handle_rel_marks(sorted_list)
-            item_list.handle_dep_marks(sorted_list)
-            length = item_list.number_of_rel_groups()
-        if length:
+        if not item_list.apply_relative_constraints(sorted_list):
             item_list.print_unhandled_items()
         return ItemGroup(sorted_list, item_list.group_order())
 

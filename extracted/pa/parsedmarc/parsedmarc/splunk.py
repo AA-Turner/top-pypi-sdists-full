@@ -63,10 +63,12 @@ class HECClient(object):
             host=self.host, source=self.source, index=self.index
         )
 
-        self.session.headers = {
-            "User-Agent": USER_AGENT,
-            "Authorization": "Splunk {0}".format(self.access_token),
-        }
+        self.session.headers.update(
+            {
+                "User-Agent": USER_AGENT,
+                "Authorization": "Splunk {0}".format(self.access_token),
+            }
+        )
 
     def save_aggregate_reports_to_splunk(
         self,
@@ -221,6 +223,5 @@ class HECClient(object):
         """Close the underlying HTTP session."""
         self.session.close()
 
-
-# Backward-compatible aliases
-HECClient.save_forensic_reports_to_splunk = HECClient.save_failure_reports_to_splunk
+    # Backward-compatible alias
+    save_forensic_reports_to_splunk = save_failure_reports_to_splunk

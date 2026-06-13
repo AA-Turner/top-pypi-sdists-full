@@ -1,5 +1,4 @@
-import { g as getHeatmapLevel, j as jsxRuntimeExports, S as SectionLabel, E as EvidenceInsightsShareButton, G as GuardStatMetric, H as HomeInsightsMetrics, a as EvidenceActivityHeatmapMini, r as reactExports, f as fetchReceiptAnalytics, h as harnessDisplayName, i as isDisplayableHarness, b as EmptyState, A as ActionButton, c as EvidenceInsightsShareModal, d as HiMiniCheckCircle, e as GuardHero, k as formatNumber, l as HiMiniShieldCheck, m as formatRelativeTime, n as HiMiniSparkles, o as HiMiniXMark, p as HiMiniChevronUp, q as HiMiniChevronDown, s as HiMiniCloud, t as HiMiniQuestionMarkCircle, u as useFocusTrap, v as HiMiniExclamationTriangle, w as HiMiniBolt, B as Badge, x as HiMiniChevronRight, y as HiMiniMinusCircle } from "../guard-dashboard.js";
-import { D as DeviceProofCard, r as resolveCloudIntelCopy } from "./runtime-overview.js";
+import { g as getHeatmapLevel, j as jsxRuntimeExports, S as SectionLabel, E as EvidenceInsightsShareButton, G as GuardStatMetric, H as HomeInsightsMetrics, a as EvidenceActivityHeatmapMini, r as reactExports, f as fetchReceiptAnalytics, h as harnessDisplayName, i as isDisplayableHarness, b as EmptyState, A as ActionButton, c as EvidenceInsightsShareModal, d as HiMiniCheckCircle, e as GuardHero, k as formatNumber, l as HiMiniShieldCheck, D as DeviceProofCard, m as formatRelativeTime, n as HiMiniSparkles, o as HiMiniXMark, p as HiMiniChevronUp, q as HiMiniChevronDown, s as resolveCloudIntelCopy, t as HiMiniCloud, u as HiMiniQuestionMarkCircle, v as useFocusTrap, w as HiMiniExclamationTriangle, x as HiMiniBolt, B as Badge, y as HiMiniChevronRight, z as HiMiniMinusCircle } from "../guard-dashboard.js";
 import { H as HomeProtectionModule } from "./home-protection-module.js";
 function HomeInsightsSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -144,7 +143,7 @@ function resolveCloudUpsellVisible(pendingCount, cloudState) {
 function buildEmptyStateCopy() {
   return {
     title: "No apps connected",
-    body: "Connect an AI app so Guard can start protecting it. Guard works with Codex, Claude Code, Cursor, Hermes, and more.",
+    body: "Connect an AI app so Guard can start protecting it. Guard works with Codex, Claude Code, Cursor, Grok, Hermes, Kimi, and more.",
     installHint: "hol-guard apps connect <app>"
   };
 }
@@ -177,6 +176,12 @@ function HomeWorkspace(props) {
   const [clearError, setClearError] = reactExports.useState(null);
   const [clearSubmitting, setClearSubmitting] = reactExports.useState(false);
   const [shareOpen, setShareOpen] = reactExports.useState(false);
+  const handleShareOpen = reactExports.useCallback(() => {
+    setShareOpen(true);
+  }, []);
+  const handleShareClose = reactExports.useCallback(() => {
+    setShareOpen(false);
+  }, []);
   const toastTimerRef = reactExports.useRef(null);
   const analyticsEnabled = props.runtime.kind === "ready" && (props.runtime.snapshot?.receipt_count ?? 0) > 0;
   const analyticsState = useReceiptAnalytics(analyticsEnabled);
@@ -260,7 +265,7 @@ function HomeWorkspace(props) {
     () => snapshot ? resolveCloudUpsellVisible(queuedCount, snapshot.cloud_state) : false,
     [snapshot, queuedCount]
   );
-  const ctaAction = state.ctaTarget === "inbox" ? props.onOpenInbox : state.ctaTarget === "fleet" ? props.onOpenFleet : props.onOpenEvidence;
+  const ctaAction = state.ctaTarget === "inbox" ? props.onOpenInbox : state.ctaTarget === "protect" ? props.onOpenFleet : props.onOpenEvidence;
   if (props.runtime.kind === "loading" || props.requests.kind === "loading") {
     return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-36 w-full" }),
@@ -289,7 +294,7 @@ function HomeWorkspace(props) {
       {
         analytics: analyticsState.data,
         runtime: snapshot,
-        onClose: () => setShareOpen(false)
+        onClose: handleShareClose
       }
     ) : null,
     toastMessage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "guard-fade-in fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border border-brand-green/25 bg-brand-green-bg/90 px-4 py-3 shadow-lg backdrop-blur", children: [
@@ -317,7 +322,7 @@ function HomeWorkspace(props) {
         analyticsLoading: analyticsState.kind === "loading" && analyticsEnabled,
         runtime: snapshot,
         onOpenInsights: props.onOpenInsights,
-        onShare: () => setShareOpen(true)
+        onShare: handleShareOpen
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx(StreakMilestoneBanner, { streak }),
@@ -509,7 +514,7 @@ function deriveHomeState(input) {
       headline: "Guard is ready",
       subheadline: "Connect your first AI app so Guard can start protecting it.",
       ctaLabel: "Open Protect",
-      ctaTarget: "fleet"
+      ctaTarget: "protect"
     };
   }
   if (!hasActiveInstalls && hasObservedHarnesses) {
@@ -518,7 +523,7 @@ function deriveHomeState(input) {
       headline: "Finish setup",
       subheadline: "Guard detected apps but they need setup to be fully protected.",
       ctaLabel: "Open Protect",
-      ctaTarget: "fleet"
+      ctaTarget: "protect"
     };
   }
   return {

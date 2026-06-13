@@ -6,7 +6,7 @@ import flask_sock
 from abstra_internals.contracts_generated import AbstraLibApiEditorLintersFixResponse
 from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
-from abstra_internals.logger import AbstraLogger
+from abstra_internals.server.socket_listener import serve_listener_websocket
 from abstra_internals.usage import editor_usage
 
 
@@ -21,24 +21,18 @@ def get_editor_bp(controller: MainController):
 
     @sock.route("/events")
     def _linter_events_websocket(ws: flask_sock.Server):
-        try:
-            ws.thread.name = "LinterEventsWebSocket"
-            LinterEventController.register(ws)
+        def _send_initial_checks(ws: flask_sock.Server) -> None:
             # Send cached checks immediately (no expensive recomputation)
             cached_checks = controller.linter_repository.checks
             payload = {"checks": [c.to_dict() for c in cached_checks]}
             ws.send(json.dumps(payload))
-            while True:
-                try:
-                    msg = ws.receive(timeout=40)
-                    if msg is None:
-                        break
-                except Exception:
-                    break
-        except Exception as e:
-            AbstraLogger.capture_exception(e)
-        finally:
-            LinterEventController.unregister(ws)
+
+        serve_listener_websocket(
+            ws,
+            thread_name="LinterEventsWebSocket",
+            registry=LinterEventController,
+            on_registered=_send_initial_checks,
+        )
 
     @bp.post("/fix/<rule_name>/<fix_name>")
     @editor_usage

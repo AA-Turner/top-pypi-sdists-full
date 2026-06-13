@@ -416,13 +416,20 @@ impl LatentMeasureKind {
         )
     }
 
+    /// Per-row empirical latent grid, borrowed where possible. This sits in
+    /// the innermost per-row loops of every criterion/gradient/Hessian
+    /// evaluation, so the global grid MUST come back as a borrow — the old
+    /// `grid.clone()` here allocated two `grid_size`-length vectors per row
+    /// per evaluation across the whole fit. Only the local-mixture path,
+    /// which genuinely synthesizes a new grid per row, returns an owned
+    /// value.
     fn empirical_grid_for_training_row(
         &self,
         row: usize,
-    ) -> Result<Option<EmpiricalZGrid>, String> {
+    ) -> Result<Option<std::borrow::Cow<'_, EmpiricalZGrid>>, String> {
         match self {
             Self::StandardNormal => Ok(None),
-            Self::GlobalEmpirical { grid } => Ok(Some(grid.clone())),
+            Self::GlobalEmpirical { grid } => Ok(Some(std::borrow::Cow::Borrowed(grid))),
             Self::LocalEmpirical {
                 grids,
                 train_row_mixtures,
@@ -433,7 +440,9 @@ impl LatentMeasureKind {
                         "local empirical latent measure is missing training mixture for row {row}"
                     )
                 })?;
-                Ok(Some(combine_empirical_grids(grids, mixture)?))
+                Ok(Some(std::borrow::Cow::Owned(combine_empirical_grids(
+                    grids, mixture,
+                )?)))
             }
         }
     }
@@ -856,6 +865,19 @@ pub struct LatentZConditionalCalibration {
     pub post_mean: f64,
     /// Weighted SD of the calibrated training sample (sanity-check, ≈ 1).
     pub post_sd: f64,
+    /// First-stage (generated-regressor) sandwich covariance of `mean_coeffs`,
+    /// `V₁ᵐ = M⁻¹ (Σ_i w_i² û_i² A_i A_iᵀ) M⁻¹` with `A = [1 | a(C)]`,
+    /// `M = AᵀWA + λR` (the same weighted-ridge normal matrix that produced
+    /// `mean_coeffs`), `û_i = z_i − m̂(C_i)` the HC0 mean residual, and
+    /// `W = diag(w_i)`. Shape `(1+basis_ncols) × (1+basis_ncols)`. This is the
+    /// closed-form estimation uncertainty of `m(C)` that the second stage
+    /// (Murphy–Topel) needs; see [`Self::generated_regressor_term`].
+    pub mean_cov: Array2<f64>,
+    /// First-stage sandwich covariance of `var_coeffs`, computed identically on
+    /// the squared-mean-residual response. Empty (`0 × 0`) exactly when
+    /// `var_coeffs` is empty (mean-only correction; `v(C) ≡ global_var` is a
+    /// constant carrying no first-stage slope uncertainty).
+    pub var_cov: Array2<f64>,
 }
 
 impl LatentZConditionalCalibration {
@@ -935,6 +957,205 @@ impl LatentZConditionalCalibration {
         }
         Ok(out)
     }
+
+    /// Dimension of the first-stage parameter vector `θ₁ = (mean_coeffs,
+    /// var_coeffs)` whose estimation uncertainty the generated-regressor
+    /// correction propagates. Equals `len(mean_coeffs)` when the variance block
+    /// is inactive, otherwise `len(mean_coeffs) + len(var_coeffs)`.
+    pub fn theta1_dim(&self) -> usize {
+        self.mean_coeffs.len() + self.var_coeffs.len()
+    }
+
+    /// Per-row sensitivity `∂ζ_i/∂θ₁` of the calibrated score to the first-stage
+    /// calibration coefficients, stacked as `[∂ζ/∂mean_coeffs | ∂ζ/∂var_coeffs]`
+    /// (length [`Self::theta1_dim`]). With `ζ = (z − m(C))/√v(C)`,
+    /// `A_i = [1 | a(C_i)]`, `m = A_iᵀ·mean_coeffs`, `v = A_iᵀ·var_coeffs`:
+    ///
+    ///   `∂ζ/∂m = −1/√v`,  `∂ζ/∂v = −(z − m)/(2 v^{3/2}) = −ζ/(2v)`,
+    ///
+    /// and by the chain rule through the affine basis
+    /// `∂ζ/∂mean_coeffs = (∂ζ/∂m)·A_i`, `∂ζ/∂var_coeffs = (∂ζ/∂v)·A_i`. The
+    /// variance block contributes only when `var_coeffs` is active AND the
+    /// fitted `v(C_i)` is above the floor (a floored row has `∂v/∂var_coeffs = 0`
+    /// in the applied map). `z` is the (normalized) raw latent score at this row.
+    pub fn zeta_theta1_jacobian_row(&self, z: f64, a_row: ArrayView1<'_, f64>) -> Vec<f64> {
+        let m = self.conditional_mean(a_row);
+        let v = self.conditional_var(a_row);
+        let inv_sqrt_v = 1.0 / v.sqrt();
+        // Intercept-augmented basis row A_i = [1 | a(C_i)].
+        let mut out = Vec::with_capacity(self.theta1_dim());
+        let dzeta_dm = -inv_sqrt_v;
+        out.push(dzeta_dm); // intercept column of A
+        for &x in a_row.iter() {
+            out.push(dzeta_dm * x);
+        }
+        if !self.var_coeffs.is_empty() {
+            // ∂ζ/∂v active only off the floor; on the floor the applied v(C) is
+            // constant in var_coeffs, so the variance sensitivity is exactly 0.
+            let raw_v = Self::affine(&self.var_coeffs, a_row);
+            let dzeta_dv = if raw_v > self.var_floor {
+                let zeta = (z - m) * inv_sqrt_v;
+                -zeta / (2.0 * v)
+            } else {
+                0.0
+            };
+            out.push(dzeta_dv);
+            for &x in a_row.iter() {
+                out.push(dzeta_dv * x);
+            }
+        }
+        out
+    }
+
+    /// Block-diagonal first-stage covariance `V₁ = blkdiag(mean_cov, var_cov)`
+    /// of `θ₁`, ordered to match [`Self::zeta_theta1_jacobian_row`]. The two
+    /// stages are fit on (asymptotically) uncorrelated estimating equations
+    /// (the mean score `Σ w û A` and the Breusch–Pagan variance score
+    /// `Σ w (û² − v) A` are orthogonal under the Gaussian working model), so the
+    /// joint first-stage covariance is block-diagonal to first order — the same
+    /// approximation the Rao gate above uses.
+    pub fn theta1_covariance(&self) -> Array2<f64> {
+        let dm = self.mean_coeffs.len();
+        let dv = self.var_coeffs.len();
+        let mut v1 = Array2::<f64>::zeros((dm + dv, dm + dv));
+        v1.slice_mut(s![..dm, ..dm]).assign(&self.mean_cov);
+        if dv > 0 {
+            v1.slice_mut(s![dm.., dm..]).assign(&self.var_cov);
+        }
+        v1
+    }
+
+    /// Murphy–Topel generated-regressor correction term for the second-stage
+    /// slope covariance. Given the second-stage information `H_β` (the penalized
+    /// joint Hessian of the slope fit, whose inverse is the naive `V_β`) and the
+    /// cross-derivative `G = ∂(score_β)/∂θ₁` (`p_β × dim θ₁`), the corrected
+    /// covariance is
+    ///
+    ///   `V_β = V_β^naive + (H_β⁻¹ G) V₁ (H_β⁻¹ G)ᵀ`.
+    ///
+    /// This returns the additive rank-`dim θ₁` term `(H_β⁻¹ G) V₁ (H_β⁻¹ G)ᵀ`
+    /// given the already-formed `hbeta_inv_g = H_β⁻¹ G` (`p_β × dim θ₁`). The
+    /// caller forms `G` by accumulating the per-row slope-score sensitivity to
+    /// `ζ_i` times [`Self::zeta_theta1_jacobian_row`] (chain rule
+    /// `∂score_β/∂θ₁ = Σ_i (∂score_β/∂ζ_i) (∂ζ_i/∂θ₁)`).
+    pub fn generated_regressor_term(&self, hbeta_inv_g: ArrayView2<'_, f64>) -> Array2<f64> {
+        let v1 = self.theta1_covariance();
+        hbeta_inv_g.dot(&v1).dot(&hbeta_inv_g.t())
+    }
+}
+
+/// First-stage robust (HC0) sandwich covariance of a weighted-ridge coefficient
+/// vector: `V₁ = M⁺ (Σ_i w_i² û_i² A_i A_iᵀ) M⁺` with `M = AᵀWA + λR` the
+/// ridge normal matrix that produced the coefficients, `W = diag(weights)`,
+/// `û_i` the per-row residual, and `A` the regression basis (here `[1 | a(C)]`).
+/// `M⁺` is the Moore–Penrose pseudo-inverse via eigendecomposition with a
+/// relative tolerance: identifiable directions get the usual `(λ_eff)⁻¹` weight,
+/// and rank-deficient directions (where some θ₁ components are not identified
+/// by `A`) are zeroed — they carry no asymptotic distribution, so V₁ in those
+/// directions is zero, and the Murphy–Topel propagation through identifiable
+/// functionals of β remains finite and consistent. Using the ordinary inverse
+/// here let the unregularized direction's `1/ε` blow `M⁻¹·meat·M⁻¹` through
+/// the f64 range whenever the wide marginal-index span had a near-null
+/// direction (the bug behind "conditional latent calibration sandwich
+/// covariance is non-finite" on wide rank-deficient duchon/spline conditioning).
+/// The meat is formed as `BᵀB` with `B_i = w_i û_i A_iᵀ` (signed) so the
+/// fused-multiply GEMM is the same SIMD path used everywhere else in the
+/// codebase, instead of a hand-rolled triple loop whose partial sums could
+/// overflow on a single pathological row of the basis.
+fn weighted_ridge_sandwich_cov(
+    basis: ArrayView2<'_, f64>,
+    residuals: &[f64],
+    weights: ArrayView1<'_, f64>,
+    normal_matrix: &Array2<f64>,
+) -> Result<Array2<f64>, String> {
+    let n = basis.nrows();
+    let p = basis.ncols();
+    if residuals.len() != n || weights.len() != n {
+        return Err(format!(
+            "weighted ridge sandwich length mismatch: rows={n}, residuals={}, weights={}",
+            residuals.len(),
+            weights.len()
+        ));
+    }
+    if normal_matrix.nrows() != p || normal_matrix.ncols() != p {
+        return Err(format!(
+            "weighted ridge sandwich normal-matrix shape mismatch: basis cols={p}, normal {}x{}",
+            normal_matrix.nrows(),
+            normal_matrix.ncols()
+        ));
+    }
+    // Robust HC0 meat as a Gram: build `B` with `B_i = (w_i û_i) A_iᵀ` (rows of
+    // basis scaled by `w_i û_i`, sign carried), so `meat = BᵀB = Σ_i w_i² û_i²
+    // A_i A_iᵀ` from one BLAS Gramian. Identical math to the per-row outer-
+    // product accumulation, but the GEMM path keeps partial sums vectorized
+    // and is less sensitive to a single pathological row producing an
+    // intermediate that overflows f64 before the column-wise reduction cancels.
+    let mut b = basis.to_owned();
+    for i in 0..n {
+        let wi = weights[i];
+        let ri = residuals[i];
+        let scale = wi * ri;
+        if scale == 0.0 {
+            b.row_mut(i).fill(0.0);
+            continue;
+        }
+        b.row_mut(i).iter_mut().for_each(|value| *value *= scale);
+    }
+    let meat = crate::linalg::faer_ndarray::fast_ata(&b);
+    // SPD pseudo-inverse of `M = AᵀWA + λR` via eigendecomposition with a
+    // relative tolerance; symmetrize first to absorb floating-point asymmetry
+    // accumulated in the AᵀWA assembly.
+    let mut m_sym = normal_matrix.clone();
+    crate::linalg::matrix::symmetrize_in_place(&mut m_sym);
+    // Jacobi (symmetric diagonal) preconditioning. When the conditioning basis
+    // spans many orders of magnitude — a power-9 Duchon RBF over 16 standardized
+    // PCs produces columns differing by ~30 decades — `M` and `meat` live on
+    // wildly different per-column scales, and the eigendecomposition behind
+    // `M⁺ meat M⁺` loses all accuracy: the relative truncation tolerance is set
+    // by `λ_max(M)` (dominated by the largest-scale column), so a genuinely
+    // identified small-scale direction can be dropped while a near-null one is
+    // kept, and the surviving `1/λ` then multiplies the huge `meat` straight
+    // through the f64 range. Precondition by `D = diag(√M_jj)`. Because the ridge
+    // penalty diagonal is built as the weighted Gram diagonal itself
+    // (`penalty_jj = Σ_i w_i a_ij² = (AᵀWA)_jj`), `M_jj = (1+ρ)(AᵀWA)_jj`, so
+    // `M̃ = D⁻¹ M D⁻¹` has EXACT unit diagonal and `M̃ = C + (ρ/(1+ρ))·I` with
+    // `C` the basis correlation matrix (PSD). Hence `λ_min(M̃) ≥ ρ/(1+ρ) ≈ 1e-8`
+    // even for a fully collinear basis, which clears the pseudo-inverse's
+    // relative tolerance `≈ 1e-10·λ_max(M̃)` for the conditioning widths that
+    // occur here: no direction is spuriously dropped, so `M̃⁺ = M̃⁻¹ = D M⁻¹ D`
+    // and `cov = D⁻¹ (M̃⁻¹ meat̃ M̃⁻¹) D⁻¹ = M⁻¹ meat M⁻¹` EXACTLY — the scaling
+    // cancels, this is the same sandwich, only computed on a well-conditioned
+    // matrix. (Should a pure-ridge direction ever fall under tolerance at very
+    // large width, dropping it is the correct scale-invariant identifiability
+    // call.) `meat̃ = D⁻¹ meat D⁻¹`; `M_jj > 0` (Gram diagonal floored positive)
+    // so `D` is always finite and invertible.
+    let scale: Vec<f64> = (0..p)
+        .map(|j| 1.0 / m_sym[[j, j]].max(f64::MIN_POSITIVE).sqrt())
+        .collect();
+    let mut m_scaled = m_sym;
+    let mut meat_scaled = meat;
+    for i in 0..p {
+        for j in 0..p {
+            let s = scale[i] * scale[j];
+            m_scaled[[i, j]] *= s;
+            meat_scaled[[i, j]] *= s;
+        }
+    }
+    let (_rank, m_pinv) =
+        crate::linalg::utils::block_penalty_rank_and_pinv(&m_scaled).map_err(|e| {
+            format!("conditional latent calibration sandwich pseudo-inverse failed: {e}")
+        })?;
+    let mut cov = m_pinv.dot(&meat_scaled).dot(&m_pinv);
+    // Undo the symmetric scaling: cov_raw = D⁻¹ cov_scaled D⁻¹.
+    for i in 0..p {
+        for j in 0..p {
+            cov[[i, j]] *= scale[i] * scale[j];
+        }
+    }
+    if cov.iter().any(|v| !v.is_finite()) {
+        return Err("conditional latent calibration sandwich covariance is non-finite".to_string());
+    }
+    Ok(cov)
 }
 
 /// Weighted mean of a slice of values.
@@ -1140,26 +1361,64 @@ fn fit_conditional_latent_calibration_if_needed(
     )?;
     let mean_coeffs: Vec<f64> = mean_coeffs_mat.column(0).to_vec();
 
+    // First-stage (generated-regressor) normal matrix `M = AᵀWA + λR`, the same
+    // weighted-ridge system `gaussian_weighted_ridge` factorizes internally;
+    // rebuilt here so its inverse can form the closed-form coefficient sandwich
+    // `V₁` that the second-stage Murphy–Topel correction consumes. `p` is the
+    // marginal-index width (small), so this is a cheap dense `(p+1)²` form.
+    let normal_matrix = {
+        let mut wa = basis.to_owned();
+        for i in 0..wa.nrows() {
+            let wi = weights[i];
+            wa.row_mut(i).iter_mut().for_each(|value| *value *= wi);
+        }
+        let mut m = basis.t().dot(&wa);
+        m += &(penalty.to_owned() * AUTO_Z_CONDITIONAL_RIDGE_REL);
+        m
+    };
+    let mean_residuals: Vec<f64> = z
+        .iter()
+        .zip(mean_fitted.column(0).iter())
+        .map(|(&zi, &mi)| zi - mi)
+        .collect();
+    let mean_cov = weighted_ridge_sandwich_cov(
+        basis.view(),
+        &mean_residuals,
+        weights.view(),
+        &normal_matrix,
+    )?;
+
     let var_floor = (AUTO_Z_CONDITIONAL_VAR_FLOOR_FRAC * global_var).max(f64::MIN_POSITIVE);
-    let var_coeffs: Vec<f64> = if var_fires {
+    let (var_coeffs, var_cov): (Vec<f64>, Array2<f64>) = if var_fires {
         // Conditional-variance correction: regress the squared mean-residual on
         // the same basis. Fitted values are floored at `var_floor` when applied.
-        let resid_sq: Array1<f64> = z
-            .iter()
-            .zip(mean_fitted.column(0).iter())
-            .map(|(&zi, &mi)| (zi - mi) * (zi - mi))
-            .collect();
+        let resid_sq: Array1<f64> = mean_residuals.iter().map(|&e| e * e).collect();
         let resid_col = resid_sq.view().insert_axis(ndarray::Axis(1));
-        let (var_coeffs_mat, _) = crate::linalg::utils::gaussian_weighted_ridge(
+        let (var_coeffs_mat, var_fitted) = crate::linalg::utils::gaussian_weighted_ridge(
             basis.view(),
             resid_col,
             penalty.view(),
             weights.view(),
             AUTO_Z_CONDITIONAL_RIDGE_REL,
         )?;
-        var_coeffs_mat.column(0).to_vec()
+        // First-stage sandwich for the variance coefficients on the same ridge
+        // normal matrix `M` (the basis and weights are identical; only the
+        // response — and hence the residual — differs). `û_i = (z−m̂)²_i − v̂_i`
+        // is the Breusch–Pagan residual.
+        let var_residuals: Vec<f64> = resid_sq
+            .iter()
+            .zip(var_fitted.column(0).iter())
+            .map(|(&si, &vi)| si - vi)
+            .collect();
+        let cov = weighted_ridge_sandwich_cov(
+            basis.view(),
+            &var_residuals,
+            weights.view(),
+            &normal_matrix,
+        )?;
+        (var_coeffs_mat.column(0).to_vec(), cov)
     } else {
-        Vec::new()
+        (Vec::new(), Array2::<f64>::zeros((0, 0)))
     };
 
     let mut calibration = LatentZConditionalCalibration {
@@ -1170,6 +1429,8 @@ fn fit_conditional_latent_calibration_if_needed(
         global_var,
         post_mean: 0.0,
         post_sd: 1.0,
+        mean_cov,
+        var_cov,
     };
 
     // Sanity-check post-correction moments on the training sample.

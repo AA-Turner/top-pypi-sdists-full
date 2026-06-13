@@ -21,13 +21,13 @@ export type HistoricalFormat = (typeof HISTORICAL_FORMATS)[number];
 export interface ReferenceCallOptions {
   readonly overrides?: PrimitiveMap;
   readonly kwargs?: PrimitiveMap;
-  readonly format?: ReferenceFormat;
   readonly validateFields?: boolean;
 }
 
 export interface BdpInput extends ReferenceCallOptions {
   readonly securities: readonly string[];
   readonly fields: readonly string[];
+  readonly format?: ReferenceFormat;
   readonly includeSecurityErrors?: boolean;
 }
 
@@ -78,14 +78,12 @@ export interface BdtickInput {
 export interface BqlInput {
   readonly query: string;
   readonly kwargs?: PrimitiveMap;
-  readonly format?: ReferenceFormat;
 }
 
 export interface BsrchInput {
   readonly searchSpec: string;
   readonly overrides?: PrimitiveMap;
   readonly kwargs?: PrimitiveMap;
-  readonly format?: ReferenceFormat;
 }
 
 export interface BqrInput {
@@ -100,7 +98,6 @@ export interface BfldsInput {
   readonly fields?: readonly string[];
   readonly searchSpec?: string;
   readonly kwargs?: PrimitiveMap;
-  readonly format?: ReferenceFormat;
 }
 
 export interface BeqsInput {
@@ -110,7 +107,6 @@ export interface BeqsInput {
   readonly group?: string;
   readonly overrides?: PrimitiveMap;
   readonly kwargs?: PrimitiveMap;
-  readonly format?: ReferenceFormat;
 }
 
 export interface YasInput {
@@ -203,6 +199,12 @@ const AMBIGUOUS_DATE_RE = /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}([T \D]|$)/u;
 const ISO_DATE_TIME_RE =
   /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/u;
 
+/** Integers in this range are YYYYMMDD calendar dates, never epoch milliseconds. */
+const MIN_NUMERIC_BBG_DATE = 19_000_101;
+const MAX_NUMERIC_BBG_DATE = 29_991_231;
+/** Smallest numeric value interpreted as epoch milliseconds (~1973-03-03). */
+const MIN_EPOCH_MS = 100_000_000_000;
+
 const primitiveSchema = z.union([
   z.string().transform((value) => value.trim()),
   z.number(),
@@ -234,9 +236,33 @@ function dateToBbg(value: Date | number): string {
   return `${year}${month}${day}`;
 }
 
-function normalizeDate(value: string | Date | number): string {
-  if (value instanceof Date || typeof value === "number") {
-    return dateToBbg(value);
+/**
+ * Disambiguates numeric date inputs: models routinely send YYYYMMDD as an
+ * integer, which `new Date(number)` would silently read as epoch milliseconds
+ * near 1970-01-01. Integers in the YYYYMMDD range parse as calendar dates;
+ * large values parse as epoch milliseconds; everything between is rejected.
+ */
+function numericDateToBbg(value: number, unit: "date" | "datetime"): Date {
+  if (Number.isFinite(value) && value >= MIN_EPOCH_MS) {
+    return new Date(value);
+  }
+  throw new TypeError(
+    `Ambiguous numeric ${unit} ${String(value)}; use "YYYY-MM-DD" text or epoch milliseconds`,
+  );
+}
+
+/**
+ * JSON tool calls can only carry strings and numbers, and `z.date()` is
+ * unrepresentable in JSON Schema (zod v4's toJSONSchema throws on it), so the
+ * wire contract is string | number only.
+ */
+function normalizeDate(value: string | number): string {
+  if (typeof value === "number") {
+    if (Number.isInteger(value) && value >= MIN_NUMERIC_BBG_DATE && value <= MAX_NUMERIC_BBG_DATE) {
+      const text = String(value);
+      return dateFromParts(text.slice(0, 4), text.slice(4, 6), text.slice(6, 8));
+    }
+    return dateToBbg(numericDateToBbg(value, "date"));
   }
   const text = value.trim();
   if (text.length === 0) {
@@ -254,13 +280,14 @@ function normalizeDate(value: string | Date | number): string {
   throw new TypeError(`Invalid date ${JSON.stringify(text)}; use YYYY-MM-DD or YYYYMMDD`);
 }
 
-function normalizeDateTime(value: string | Date | number): string {
-  if (value instanceof Date || typeof value === "number") {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      throw new TypeError("Invalid datetime value; expected ISO 8601 datetime, Date, or epoch ms");
+function normalizeDateTime(value: string | number): string {
+  if (typeof value === "number") {
+    if (Number.isInteger(value) && value >= MIN_NUMERIC_BBG_DATE && value <= MAX_NUMERIC_BBG_DATE) {
+      throw new TypeError(
+        `Invalid numeric datetime ${String(value)}; include an explicit time component such as "2024-01-02T09:30:00"`,
+      );
     }
-    return date.toISOString();
+    return numericDateToBbg(value, "datetime").toISOString();
   }
   const text = value.trim();
   if (text.length === 0) {
@@ -313,11 +340,30 @@ function stringArray(
     .max(maxItems, `${tool}: ${field} can contain at most ${maxItems} values`);
 }
 
+/**
+ * Reports a normalization failure as a zod issue. Errors *thrown* from
+ * transforms reach LangChain as bare exceptions, which it masks with a
+ * generic "did not match expected schema" message; zod issues keep the
+ * actionable text visible to the model.
+ */
+function normalizationIssue(
+  context: z.RefinementCtx,
+  tool: string,
+  field: string,
+  error: unknown,
+): typeof z.NEVER {
+  context.addIssue({
+    code: "custom",
+    message: `${tool}: ${field}: ${error instanceof Error ? error.message : String(error)}`,
+  });
+  return z.NEVER;
+}
+
 function primitiveMap(tool: string, field: string): ZodOutput<PrimitiveMap | undefined> {
   return z
     .record(z.string().min(1), primitiveSchema)
     .optional()
-    .transform((value) => {
+    .transform((value, context) => {
       if (value === undefined) {
         return undefined;
       }
@@ -325,10 +371,15 @@ function primitiveMap(tool: string, field: string): ZodOutput<PrimitiveMap | und
       for (const [key, entry] of Object.entries(value)) {
         const normalizedKey = key.trim();
         if (normalizedKey.length === 0) {
-          throw new TypeError(`${tool}: ${field} contains an empty key`);
+          return normalizationIssue(context, tool, field, new TypeError("contains an empty key"));
         }
         if (typeof entry === "string" && entry.length === 0) {
-          throw new TypeError(`${tool}: ${field}.${normalizedKey} must not be an empty string`);
+          return normalizationIssue(
+            context,
+            tool,
+            field,
+            new TypeError(`${normalizedKey} must not be an empty string`),
+          );
         }
         normalized[normalizedKey] = entry;
       }
@@ -338,8 +389,14 @@ function primitiveMap(tool: string, field: string): ZodOutput<PrimitiveMap | und
 
 function dateField(tool: string, field: string): ZodOutput<string> {
   return z
-    .union([z.string(), z.date(), z.number()])
-    .transform((value) => normalizeDate(value))
+    .union([z.string(), z.number()])
+    .transform((value, context) => {
+      try {
+        return normalizeDate(value);
+      } catch (error) {
+        return normalizationIssue(context, tool, field, error);
+      }
+    })
     .describe(
       `${field} date. Use YYYY-MM-DD or Bloomberg-native YYYYMMDD, never ambiguous MM/DD/YYYY.`,
     );
@@ -347,7 +404,7 @@ function dateField(tool: string, field: string): ZodOutput<string> {
 
 function dateTimeField(tool: string, field: string): ZodOutput<string> {
   return z
-    .union([z.string(), z.date(), z.number()])
+    .union([z.string(), z.number()])
     .superRefine((value, context) => {
       if (typeof value !== "string") {
         return;
@@ -360,7 +417,13 @@ function dateTimeField(tool: string, field: string): ZodOutput<string> {
         });
       }
     })
-    .transform((value) => normalizeDateTime(value))
+    .transform((value, context) => {
+      try {
+        return normalizeDateTime(value);
+      } catch (error) {
+        return normalizationIssue(context, tool, field, error);
+      }
+    })
     .describe(`${field} datetime. Use ISO 8601 with an explicit time component.`);
 }
 
@@ -414,7 +477,7 @@ export function createBdpSchema(options: NormalizedBloombergToolsOptions): ZodOu
       options.maxStringChars,
       '["<TICKER> <MARKET_SECTOR>"]',
     ).describe(
-      "Fully qualified Bloomberg securities supplied by the user; use /isin/<ISIN> for ISINs and /cusip/<CUSIP> for CUSIPs. Do not invent tickers.",
+      "Securities exactly as the user supplied them: '<TICKER> <MARKET_SECTOR>' for Bloomberg tickers, '/isin/<ISIN>' for raw ISINs, '/cusip/<CUSIP>' for raw CUSIPs. Never invent, guess, or convert identifiers into tickers.",
     ),
     validateFields: z.boolean().optional().describe("Override field validation for this request."),
   });
@@ -448,7 +511,7 @@ export function createBdhSchema(options: NormalizedBloombergToolsOptions): ZodOu
         options.maxStringChars,
         '["<TICKER> <MARKET_SECTOR>"]',
       ).describe(
-        "Fully qualified Bloomberg securities supplied by the user; use /isin/<ISIN> for ISINs and /cusip/<CUSIP> for CUSIPs.",
+        "Securities exactly as the user supplied them: '<TICKER> <MARKET_SECTOR>' for Bloomberg tickers, '/isin/<ISIN>' for raw ISINs, '/cusip/<CUSIP>' for raw CUSIPs. Never invent, guess, or convert identifiers into tickers.",
       ),
       start: dateField(tool, "start").describe("Required start date. Use YYYY-MM-DD or YYYYMMDD."),
       validateFields: z
@@ -473,7 +536,6 @@ export function createBdsSchema(options: NormalizedBloombergToolsOptions): ZodOu
     field: nonEmptyString(tool, "field", options.maxStringChars, "<BULK_FIELD>").describe(
       "Exactly one Bloomberg bulk/table field supplied by the user.",
     ),
-    format: referenceFormat(tool).describe("JSON output shape. Usually omit."),
     kwargs: primitiveMap(tool, "kwargs").describe(
       "Advanced Bloomberg request kwargs as flat string/number/boolean values only.",
     ),
@@ -487,7 +549,7 @@ export function createBdsSchema(options: NormalizedBloombergToolsOptions): ZodOu
       options.maxStringChars,
       '["<INDEX_TICKER> <MARKET_SECTOR>"]',
     ).describe(
-      "Fully qualified Bloomberg securities supplied by the user; use /isin/<ISIN> for ISINs and /cusip/<CUSIP> for CUSIPs.",
+      "Securities exactly as the user supplied them: '<TICKER> <MARKET_SECTOR>' for Bloomberg tickers, '/isin/<ISIN>' for raw ISINs, '/cusip/<CUSIP>' for raw CUSIPs. Never invent, guess, or convert identifiers into tickers.",
     ),
     validateFields: z.boolean().optional().describe("Override field validation for this request."),
   });
@@ -525,7 +587,7 @@ export function createBdibSchema(options: NormalizedBloombergToolsOptions): ZodO
       options.maxStringChars,
       "<TICKER> <MARKET_SECTOR>",
     ).describe(
-      "One fully qualified Bloomberg security supplied by the user; use /isin/<ISIN> for ISINs and /cusip/<CUSIP> for CUSIPs.",
+      "One security exactly as the user supplied it: '<TICKER> <MARKET_SECTOR>', '/isin/<ISIN>', or '/cusip/<CUSIP>'. Never invent, guess, or convert identifiers into tickers.",
     ),
   });
 }
@@ -573,7 +635,7 @@ export function createBdtickSchema(
       options.maxStringChars,
       "<TICKER> <MARKET_SECTOR>",
     ).describe(
-      "One fully qualified Bloomberg security supplied by the user; use /isin/<ISIN> for ISINs and /cusip/<CUSIP> for CUSIPs.",
+      "One security exactly as the user supplied it: '<TICKER> <MARKET_SECTOR>', '/isin/<ISIN>', or '/cusip/<CUSIP>'. Never invent, guess, or convert identifiers into tickers.",
     ),
   });
 }
@@ -581,7 +643,6 @@ export function createBdtickSchema(
 export function createBqlSchema(options: NormalizedBloombergToolsOptions): ZodOutput<BqlInput> {
   const tool = "xbbg_bql";
   return z.object({
-    format: referenceFormat(tool).describe("JSON output shape. Usually omit."),
     kwargs: primitiveMap(tool, "kwargs").describe(
       "Advanced Bloomberg request kwargs as flat string/number/boolean values only.",
     ),
@@ -627,7 +688,6 @@ export function createBqrSchema(options: NormalizedBloombergToolsOptions): ZodOu
 export function createBsrchSchema(options: NormalizedBloombergToolsOptions): ZodOutput<BsrchInput> {
   const tool = "xbbg_bsrch";
   return z.object({
-    format: referenceFormat(tool).describe("JSON output shape. Usually omit."),
     kwargs: primitiveMap(tool, "kwargs").describe(
       "Search-grid kwargs as flat string/number/boolean values only.",
     ),
@@ -654,7 +714,6 @@ export function createBfldsSchema(options: NormalizedBloombergToolsOptions): Zod
         .describe(
           "Specific field mnemonics to inspect. Provide either fields or searchSpec, not both.",
         ),
-      format: referenceFormat(tool).describe("JSON output shape. Usually omit."),
       kwargs: primitiveMap(tool, "kwargs").describe(
         "Advanced Bloomberg request kwargs as flat string/number/boolean values only.",
       ),
@@ -686,7 +745,6 @@ export function createBeqsSchema(options: NormalizedBloombergToolsOptions): ZodO
   const tool = "xbbg_beqs";
   return z.object({
     asof: dateField(tool, "asof").optional().describe("Optional as-of date for the screen."),
-    format: referenceFormat(tool).describe("JSON output shape. Usually omit."),
     group: nonEmptyString(tool, "group", options.maxStringChars, "<BEQS_GROUP>")
       .optional()
       .describe("Bloomberg BEQS group when required by the screen."),
@@ -727,7 +785,9 @@ export function createYasSchema(options: NormalizedBloombergToolsOptions): ZodOu
       options.maxSecurities,
       options.maxStringChars,
       '["/isin/<ISIN> <MARKET_SECTOR>"]',
-    ).describe("Fully qualified fixed-income Bloomberg securities supplied by the user."),
+    ).describe(
+      "Fixed-income securities exactly as the user supplied them: '<TICKER> <MARKET_SECTOR>' or identifier syntax such as '/isin/<ISIN> <MARKET_SECTOR>'. Never invent or guess tickers.",
+    ),
     yieldType: z.number().int().optional().describe("Optional YAS yield type."),
     yieldVal: z.number().optional().describe("Optional YAS yield value input."),
   });
@@ -743,7 +803,9 @@ export function createPreferredsSchema(
       "equityTicker",
       options.maxStringChars,
       "<ISSUER_TICKER> <MARKET_SECTOR>",
-    ).describe("One fully qualified issuer equity ticker supplied by the user."),
+    ).describe(
+      "The issuer's common equity ticker as '<TICKER> <MARKET_SECTOR>', never a preferred ('Pfd') ticker and never a guessed one. Resolve a supplied ISIN/CUSIP with xbbg_resolve_isins first.",
+    ),
     fields: stringArray(tool, "fields", options.maxFields, options.maxStringChars, '["<FIELD>"]')
       .optional()
       .describe("Optional fields to include in the preferreds recipe result."),
@@ -770,7 +832,9 @@ export function createCorporateBondsSchema(
       "ticker",
       options.maxStringChars,
       "<ISSUER_TICKER> <MARKET_SECTOR>",
-    ).describe("One fully qualified issuer/company ticker supplied by the user."),
+    ).describe(
+      "The issuer/company equity ticker as '<TICKER> <MARKET_SECTOR>' supplied by the user. Resolve a supplied ISIN/CUSIP with xbbg_resolve_isins first; never guess tickers.",
+    ),
   });
 }
 
@@ -789,7 +853,9 @@ export function createIndexMembersSchema(
       "index",
       options.maxStringChars,
       "<INDEX_TICKER> <MARKET_SECTOR>",
-    ).describe("One fully qualified Bloomberg index ticker supplied by the user."),
+    ).describe(
+      "One Bloomberg index ticker as '<INDEX_TICKER> <MARKET_SECTOR>' supplied by the user; never guess index tickers.",
+    ),
   });
 }
 
@@ -833,7 +899,9 @@ export function createEtfHoldingsSchema(
       "etfTicker",
       options.maxStringChars,
       "<ETF_TICKER> <MARKET_SECTOR>",
-    ).describe("One fully qualified Bloomberg ETF ticker supplied by the user."),
+    ).describe(
+      "One Bloomberg ETF ticker as '<ETF_TICKER> <MARKET_SECTOR>' supplied by the user. Resolve a supplied ISIN/CUSIP with xbbg_resolve_isins first; never guess tickers.",
+    ),
     fields: stringArray(tool, "fields", options.maxFields, options.maxStringChars, '["<FIELD>"]')
       .optional()
       .describe("Optional fields to include in the ETF holdings recipe result."),
@@ -866,7 +934,7 @@ function snapshotControlFields(
       .boolean()
       .optional()
       .describe(
-        "Pass drain=true to unsubscribe. Defaults to false; collected output remains bounded.",
+        "Flush buffered backlog while closing the subscription. The subscription always closes; collected output stays bounded either way. Defaults to false.",
       ),
     flushThreshold: z
       .number()
@@ -925,7 +993,9 @@ export function createStreamSnapshotSchema(
       options.maxSecurities,
       options.maxStringChars,
       '["<TICKER> <MARKET_SECTOR>"]',
-    ).describe("Fully qualified Bloomberg securities supplied by the user to observe."),
+    ).describe(
+      "Securities to observe, exactly as the user supplied them: '<TICKER> <MARKET_SECTOR>', '/isin/<ISIN>', or '/cusip/<CUSIP>'. Never invent or guess tickers.",
+    ),
     ...snapshotControlFields(tool, options),
   });
 }
@@ -943,7 +1013,9 @@ export function createMktbarSnapshotSchema(
       "ticker",
       options.maxStringChars,
       "<TICKER> <MARKET_SECTOR>",
-    ).describe("One fully qualified Bloomberg security supplied by the user to observe."),
+    ).describe(
+      "One security to observe, exactly as the user supplied it: '<TICKER> <MARKET_SECTOR>', '/isin/<ISIN>', or '/cusip/<CUSIP>'. Never invent or guess tickers.",
+    ),
     ...snapshotControlFields(tool, options),
   });
 }
@@ -961,7 +1033,9 @@ export function createDepthSnapshotSchema(
       "ticker",
       options.maxStringChars,
       "<TICKER> <MARKET_SECTOR>",
-    ).describe("One fully qualified Bloomberg security supplied by the user to observe."),
+    ).describe(
+      "One security to observe, exactly as the user supplied it: '<TICKER> <MARKET_SECTOR>', '/isin/<ISIN>', or '/cusip/<CUSIP>'. Never invent or guess tickers.",
+    ),
     ...snapshotControlFields(tool, options),
   });
 }

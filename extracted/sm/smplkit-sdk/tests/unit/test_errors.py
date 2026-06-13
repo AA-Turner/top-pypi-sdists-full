@@ -1,6 +1,6 @@
 """Tests for SDK error types."""
 
-from smplkit._errors import (
+from smplkit.errors import (
     ConflictError,
     ConnectionError,
     Error,

@@ -1,6 +1,6 @@
 [package]
 name = "ty-types"
-version = "0.0.44"
+version = "0.0.49"
 edition = "2024"
 rust-version = "1.94"
 readme = "README.md"

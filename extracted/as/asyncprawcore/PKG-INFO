@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: asyncprawcore
-Version: 3.1.0
-Dynamic: Summary
+Version: 4.0.0
+Summary: Low-level asynchronous communication layer for Async PRAW 7+.
 Project-URL: Documentation, https://asyncprawcore.readthedocs.io/
 Project-URL: Issue Tracker, https://github.com/praw-dev/asyncprawcore/issues
 Project-URL: Source Code, https://github.com/praw-dev/asyncprawcore
 Author-email: Joel Payne <lilspazjoekp@gmail.com>
-Maintainer-email: Joel Payne <lilspazjoekp@gmail.com>
+Maintainer-email: Joel Payne <lilspazjoekp@gmail.com>, Bryce Boe <bbzbryce@gmail.com>
 License: Copyright (c) 2020, Joel Payne
         All rights reserved.
         
@@ -121,15 +121,17 @@ appropriate values for your application.
 
     async def main():
         authenticator = asyncprawcore.TrustedAuthenticator(
-            asyncprawcore.Requestor("YOUR_VALID_USER_AGENT"),
-            os.environ["PRAWCORE_CLIENT_ID"],
-            os.environ["PRAWCORE_CLIENT_SECRET"],
+            client_id=os.environ["PRAWCORE_CLIENT_ID"],
+            client_secret=os.environ["PRAWCORE_CLIENT_SECRET"],
+            requestor=asyncprawcore.Requestor(user_agent="YOUR_VALID_USER_AGENT"),
         )
-        authorizer = asyncprawcore.ReadOnlyAuthorizer(authenticator)
+        authorizer = asyncprawcore.ReadOnlyAuthorizer(authenticator=authenticator)
         await authorizer.refresh()
 
-        async with asyncprawcore.session(authorizer) as session:
-            pprint.pprint(await session.request("GET", "/api/v1/user/bboe/trophies"))
+        async with asyncprawcore.session(authorizer=authorizer) as session:
+            pprint.pprint(
+                await session.request(method="GET", path="/api/v1/user/bboe/trophies")
+            )
 
 
     if __name__ == "__main__":

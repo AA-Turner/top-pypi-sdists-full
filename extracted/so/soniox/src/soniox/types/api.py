@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, TypeAlias, cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing_extensions import Self
+from typing_extensions import Self, deprecated
 
 from .common import Token
 
@@ -16,6 +16,9 @@ TranscriptionMode = Literal["real_time", "async"]
 
 TranslationType = Literal["one_way", "two_way"]
 """Supported translation configuration types."""
+
+LanguageCode: TypeAlias = Annotated[str, Field(min_length=2, max_length=2)]
+"""ISO 639-1 two-letter language code (e.g. ``"en"``, ``"fr"``)."""
 
 TemporaryApiKeyUsageType = Literal["transcribe_websocket", "tts_rt"]
 """Intended usage for temporary API keys."""
@@ -259,13 +262,13 @@ class TranslationConfig(BaseModel):
     type: TranslationType
     """Translation type."""
 
-    target_language: str | None = Field(default=None, min_length=2, max_length=2)
+    target_language: LanguageCode | None = None
     """Target language code for translation (e.g., "fr", "es", "de") (one_way)."""
 
-    language_a: str | None = Field(default=None, min_length=2, max_length=2)
+    language_a: LanguageCode | None = None
     """First language code (two_way)."""
 
-    language_b: str | None = Field(default=None, min_length=2, max_length=2)
+    language_b: LanguageCode | None = None
     """Second language code (two_way)."""
 
     @model_validator(mode="after")
@@ -292,7 +295,7 @@ TranslationConfigInput: TypeAlias = TranslationConfig | dict[str, Any]
 class CreateTranscriptionPayload(BaseModel):
     """Payload sent to create an asynchronous transcription job."""
 
-    model: str = "stt-async-v4"
+    model: str = "stt-async-v5"
     """Speech-to-text model to use."""
 
     audio_url: str | None = None
@@ -301,7 +304,7 @@ class CreateTranscriptionPayload(BaseModel):
     file_id: str | None = None
     """ID of a previously uploaded file (UUID)."""
 
-    language_hints: list[str] | None = None
+    language_hints: list[LanguageCode] | None = None
     """Array of expected ISO language codes to bias recognition."""
 
     language_hints_strict: bool | None = None
@@ -334,7 +337,8 @@ class CreateTranscriptionPayload(BaseModel):
     @model_validator(mode="after")
     def _validate_audio_source(self) -> Self:
         if self.audio_url and self.file_id:
-            raise ValueError("Only one of audio_url or file_id can be provided.")
+            raise ValueError(
+                "Only one of audio_url or file_id can be provided.")
         if not self.audio_url and not self.file_id:
             raise ValueError("Either audio_url or file_id must be provided.")
         return self
@@ -346,7 +350,7 @@ class CreateTranscriptionConfig(BaseModel):
     model: str | None = None
     """Speech-to-text model to use."""
 
-    language_hints: list[str] | None = None
+    language_hints: list[LanguageCode] | None = None
     """Array of expected ISO language codes to bias recognition."""
 
     language_hints_strict: bool | None = None
@@ -453,7 +457,7 @@ class CreateTemporaryApiKeyResponse(BaseModel):
     """UTC timestamp indicating when generated temporary API key will expire"""
 
 
-class Language(BaseModel):
+class SupportedLanguage(BaseModel):
     """Represents a supported language for transcription or translation."""
 
     code: str
@@ -461,6 +465,11 @@ class Language(BaseModel):
 
     name: str
     """Language name."""
+
+
+@deprecated("`Language` has been renamed to `SupportedLanguage`.")
+class Language(SupportedLanguage):
+    """Deprecated alias for :class:`SupportedLanguage`."""
 
 
 class TranslationTarget(BaseModel):
@@ -489,7 +498,7 @@ class Model(BaseModel):
     transcription_mode: TranscriptionMode
     """Transcription mode of the model."""
 
-    languages: list[Language]
+    languages: list[SupportedLanguage]
     """List of languages supported by the model."""
 
     supports_language_hints_strict: bool
@@ -546,7 +555,7 @@ class TtsModel(BaseModel):
     voices: list[TtsVoice]
     """Voices supported by this model."""
 
-    languages: list[Language] = []
+    languages: list[SupportedLanguage] = []
     """Languages supported by this model."""
 
 

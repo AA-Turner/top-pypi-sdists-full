@@ -399,6 +399,7 @@ class AuthClient:
         expires_seconds: int,
         organization_id: t.Optional[str] = None,
         workspace_id: t.Optional[str] = None,
+        roles: t.Optional[t.Sequence[str]] = None,
     ) -> t.Union[
         JWTResponseSuccess,
         JWTResponseAllowedFailure,
@@ -407,9 +408,12 @@ class AuthClient:
         """
         Take a look at PEP 76: Auth Cache Router for details on this logic.
 
-        ``organization_id`` / ``workspace_id`` forward as query params to
-        ``/access-token`` so the auth server mints a scope-narrowed JWT.
-        Omit both for an unscoped mint (backwards-compatible default).
+        ``organization_id`` / ``workspace_id`` / ``roles`` forward as
+        query params to ``/access-token`` so the auth server mints a
+        scope-narrowed JWT. ``roles`` is sent as a repeated query param
+        (``?roles=a&roles=b``) and subsets the mint to the named roles.
+        Omit all of them for an unscoped mint (backwards-compatible
+        default).
         """
         # PEP-295 prefix is for *customer* hop accounting. The internal
         # access-token exchange is not a hop — the prefix would only
@@ -427,6 +431,8 @@ class AuthClient:
             params["organization_id"] = organization_id
         if workspace_id is not None:
             params["workspace_id"] = workspace_id
+        if roles is not None:
+            params["roles"] = list(roles)
         try:
             res = requests.post(
                 self.access_token_url,

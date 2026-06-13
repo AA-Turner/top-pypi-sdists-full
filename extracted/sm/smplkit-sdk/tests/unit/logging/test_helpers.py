@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from smplkit._errors import (
+from smplkit.errors import (
     ConflictError,
     ConnectionError,
     NotFoundError,
@@ -19,7 +19,7 @@ from smplkit._errors import (
 from smplkit._generated.logging.models.log_group_environments_type_0 import LogGroupEnvironmentsType0
 from smplkit._generated.logging.models.logger_environments_type_0 import LoggerEnvironmentsType0
 from smplkit._generated.logging.types import UNSET
-from smplkit.logging._client import (
+from smplkit.logging.clients import (
     AsyncSmplLogGroup,
     AsyncSmplLogger,
     SmplLogGroup,

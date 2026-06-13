@@ -3,7 +3,7 @@ use itertools::Either;
 use std::convert::Infallible;
 
 use crate::place::{
-    DefinedPlace, Definedness, Place, PlaceAndQualifiers, PublicTypePolicy, TypeOrigin,
+    DefinedPlace, Definedness, Place, PlaceAndQualifiers, Provenance, PublicTypePolicy, TypeOrigin,
 };
 use crate::types::class::KnownClass;
 use crate::types::enums::EnumComplement;
@@ -247,6 +247,7 @@ impl<'db> UnionType<'db> {
         let mut all_unbound = true;
         let mut possibly_unbound = false;
         let mut origin = TypeOrigin::Declared;
+        let mut provenance = Provenance::Unknown;
         for ty in self.elements(db) {
             let ty_member = transform_fn(ty);
             match ty_member {
@@ -257,12 +258,14 @@ impl<'db> UnionType<'db> {
                     ty: ty_member,
                     origin: member_origin,
                     definedness: member_boundness,
+                    provenance: member_provenance,
                     ..
                 }) => {
                     origin = origin.merge(member_origin);
                     if member_boundness == Definedness::PossiblyUndefined {
                         possibly_unbound = true;
                     }
+                    provenance = provenance.or(member_provenance);
 
                     all_unbound = false;
                     builder = builder.add(ty_member);
@@ -284,6 +287,7 @@ impl<'db> UnionType<'db> {
                     Definedness::AlwaysDefined
                 },
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance,
             })
         }
     }
@@ -299,6 +303,7 @@ impl<'db> UnionType<'db> {
         let mut all_unbound = true;
         let mut possibly_unbound = false;
         let mut origin = TypeOrigin::Declared;
+        let mut provenance = Provenance::Unknown;
         for ty in self.elements(db) {
             let PlaceAndQualifiers {
                 place: ty_member,
@@ -313,12 +318,14 @@ impl<'db> UnionType<'db> {
                     ty: ty_member,
                     origin: member_origin,
                     definedness: member_boundness,
+                    provenance: member_provenance,
                     ..
                 }) => {
                     origin = origin.merge(member_origin);
                     if member_boundness == Definedness::PossiblyUndefined {
                         possibly_unbound = true;
                     }
+                    provenance = provenance.or(member_provenance);
 
                     all_unbound = false;
                     builder = builder.add(ty_member);
@@ -340,6 +347,7 @@ impl<'db> UnionType<'db> {
                         Definedness::AlwaysDefined
                     },
                     public_type_policy: PublicTypePolicy::Raw,
+                    provenance,
                 })
             },
             qualifiers,
@@ -819,6 +827,7 @@ impl<'db> IntersectionType<'db> {
         let mut all_unbound = true;
         let mut any_definitely_bound = false;
         let mut origin = TypeOrigin::Declared;
+        let mut provenance = Provenance::Unknown;
         for ty in self.positive_elements_or_object(db) {
             let ty_member = transform_fn(&ty);
             match ty_member {
@@ -827,6 +836,7 @@ impl<'db> IntersectionType<'db> {
                     ty: ty_member,
                     origin: member_origin,
                     definedness: member_boundness,
+                    provenance: member_provenance,
                     ..
                 }) => {
                     origin = origin.merge(member_origin);
@@ -834,6 +844,7 @@ impl<'db> IntersectionType<'db> {
                     if member_boundness == Definedness::AlwaysDefined {
                         any_definitely_bound = true;
                     }
+                    provenance = provenance.or(member_provenance);
 
                     builder = builder.add_positive(ty_member);
                 }
@@ -852,6 +863,7 @@ impl<'db> IntersectionType<'db> {
                     Definedness::PossiblyUndefined
                 },
                 public_type_policy: PublicTypePolicy::Raw,
+                provenance,
             })
         }
     }
@@ -867,6 +879,7 @@ impl<'db> IntersectionType<'db> {
         let mut all_unbound = true;
         let mut any_definitely_bound = false;
         let mut origin = TypeOrigin::Declared;
+        let mut provenance = Provenance::Unknown;
         for ty in self.positive_elements_or_object(db) {
             let PlaceAndQualifiers {
                 place: member,
@@ -879,6 +892,7 @@ impl<'db> IntersectionType<'db> {
                     ty: ty_member,
                     origin: member_origin,
                     definedness: member_boundness,
+                    provenance: member_provenance,
                     ..
                 }) => {
                     origin = origin.merge(member_origin);
@@ -886,6 +900,7 @@ impl<'db> IntersectionType<'db> {
                     if member_boundness == Definedness::AlwaysDefined {
                         any_definitely_bound = true;
                     }
+                    provenance = provenance.or(member_provenance);
 
                     builder = builder.add_positive(ty_member);
                 }
@@ -905,6 +920,7 @@ impl<'db> IntersectionType<'db> {
                         Definedness::PossiblyUndefined
                     },
                     public_type_policy: PublicTypePolicy::Raw,
+                    provenance,
                 })
             },
             qualifiers,

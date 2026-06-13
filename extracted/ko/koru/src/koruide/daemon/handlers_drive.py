@@ -42,27 +42,23 @@ def _prefer_keyboard_drive() -> bool:
     )
 
 
-def handle_drive(daemon: Any, client: _Client, msg: Message) -> None:
-    """Handle a drive request from CLI client."""
-    if client.role == "unknown":
-        client.role = "cli"
-    text = msg.data.get("text")
-    if not isinstance(text, str) or not text:
-        daemon._send(client, error(msg.id, "missing 'text'").encode())
-        return
-    raw_ide = msg.data.get("ide") if isinstance(msg.data.get("ide"), str) else None
-    normalized_ide = normalize_ide_id(raw_ide)
-    ide_pref = normalized_ide if normalized_ide not in (None, "auto") else None
-    submit = bool(msg.data.get("submit", True))
-    require_plugin = bool(msg.data.get("require_plugin", False))
-    strategy_hint = msg.data.get("strategy_hint")
-    if strategy_hint is not None and not isinstance(strategy_hint, str):
-        strategy_hint = None
+def _log_drive_request(
+    daemon: Any,
+    raw_ide: str | None,
+    text: str,
+    submit: bool,
+    require_plugin: bool,
+) -> None:
     daemon.log(
         "drive request: "
         f"ide={raw_ide or 'auto'}, chars={len(text)}, submit={submit}, "
         f"require_plugin={require_plugin}"
     )
+
+
+def _select_drive_plugin(
+    daemon: Any, ide_pref: str | None
+) -> Any:
     plugin = daemon._plugin_for(ide_pref)
     if plugin is not None:
         daemon.log(
@@ -72,6 +68,20 @@ def handle_drive(daemon: Any, client: _Client, msg: Message) -> None:
         )
     else:
         daemon.log(f"drive: no plugin found for ide={ide_pref}")
+    return plugin
+
+
+def _route_drive(
+    daemon: Any,
+    client: _Client,
+    msg: Message,
+    plugin: Any,
+    ide_pref: str | None,
+    text: str,
+    submit: bool,
+    require_plugin: bool,
+    strategy_hint: str | None,
+) -> None:
     if plugin is not None and not _prefer_keyboard_drive():
         daemon.log(f"drive: routing via plugin (ide={plugin.ide})")
         _drive_via_plugin(
@@ -84,6 +94,22 @@ def handle_drive(daemon: Any, client: _Client, msg: Message) -> None:
             require_plugin,
             strategy_hint=strategy_hint,
         )
+        return
+    if _prefer_keyboard_drive():
+        blocker = _blind_keyboard_fallback_blocker(ide_pref)
+        if blocker:
+            _reject_blind_keyboard_fallback(
+                daemon=daemon,
+                client=client,
+                msg=msg,
+                ide=ide_pref or "auto",
+                text=text,
+                submit=submit,
+                message=blocker,
+            )
+            return
+        daemon.log("drive: visible typing requested; routing via keyboard/os_injector")
+        _drive_via_keyboard(daemon, client, msg, ide_pref, text, submit)
         return
     if require_plugin:
         label = ide_pref or "auto"
@@ -100,7 +126,16 @@ def handle_drive(daemon: Any, client: _Client, msg: Message) -> None:
             error=message,
         )
         return
-    daemon.log("drive: routing via keyboard/os_injector fallback")
+    daemon.log("drive: routing via semantic fallback (vdisplay → imgl → keyboard/os_injector)")
+    if _drive_via_vdisplay_backend(
+        daemon=daemon,
+        client=client,
+        msg=msg,
+        ide_pref=ide_pref,
+        text=text,
+        submit=submit,
+    ):
+        return
     if _drive_via_imgl_backend(
         daemon=daemon,
         client=client,
@@ -110,7 +145,109 @@ def handle_drive(daemon: Any, client: _Client, msg: Message) -> None:
         submit=submit,
     ):
         return
+    blocker = _blind_keyboard_fallback_blocker(ide_pref)
+    if blocker:
+        _reject_blind_keyboard_fallback(
+            daemon=daemon,
+            client=client,
+            msg=msg,
+            ide=ide_pref or "auto",
+            text=text,
+            submit=submit,
+            message=blocker,
+        )
+        return
     _drive_via_keyboard(daemon, client, msg, ide_pref, text, submit)
+
+
+def _reject_blind_keyboard_fallback(
+    *,
+    daemon: Any,
+    client: _Client,
+    msg: Message,
+    ide: str,
+    text: str,
+    submit: bool,
+    message: str,
+) -> None:
+    daemon._send(client, error(msg.id, message).encode())
+    daemon.log(f"drive blocked: {message}")
+    daemon.audit.record(
+        "drive",
+        ide=ide,
+        backend="semantic_required",
+        chars=len(text),
+        submit=submit,
+        ok=False,
+        error=message,
+    )
+
+
+def _blind_keyboard_fallback_blocker(ide_pref: str | None) -> str | None:
+    from koru.integrations.vdisplay_client import _canonical_ide, _session_type
+
+    canon = _canonical_ide(ide_pref or "auto")
+    if _session_type() != "wayland":
+        return None
+    if canon not in {"jetbrains", "pycharm", "idea"}:
+        return None
+    if os.environ.get("KORU_ALLOW_BLIND_KEYBOARD_FALLBACK", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return None
+    message = (
+        "refusing blind keyboard/OS-injector fallback on Wayland for JetBrains after "
+        "vdisplay/imgl did not confirm the target; focus PyCharm chat and refresh "
+        "photo-VQL, or set KORU_ALLOW_BLIND_KEYBOARD_FALLBACK=1 to override"
+    )
+    detail = os.environ.pop("KORU_LAST_SEMANTIC_DRIVE_DECLINE", "").strip()
+    if detail:
+        message += f"; last semantic refusal: {detail[:900]}"
+    return message
+
+
+def _remember_semantic_drive_decline(reason: str | None, *, hint: str | None = None) -> None:
+    detail = str(reason or "").strip()
+    extra = str(hint or "").strip()
+    if extra and extra not in detail:
+        detail = f"{detail}; hint: {extra}" if detail else f"hint: {extra}"
+    if detail:
+        os.environ["KORU_LAST_SEMANTIC_DRIVE_DECLINE"] = detail[:1200]
+
+
+def handle_drive(daemon: Any, client: _Client, msg: Message) -> None:
+    """Handle a drive request from CLI client."""
+    os.environ.pop("KORU_LAST_SEMANTIC_DRIVE_DECLINE", None)
+    if client.role == "unknown":
+        client.role = "cli"
+    text = msg.data.get("text")
+    if not isinstance(text, str) or not text:
+        daemon._send(client, error(msg.id, "missing 'text'").encode())
+        return
+    raw_ide = msg.data.get("ide") if isinstance(msg.data.get("ide"), str) else None
+    normalized_ide = normalize_ide_id(raw_ide)
+    ide_pref = normalized_ide if normalized_ide not in (None, "auto") else None
+    submit = bool(msg.data.get("submit", True))
+    require_plugin = bool(msg.data.get("require_plugin", False))
+    strategy_hint = msg.data.get("strategy_hint")
+    if strategy_hint is not None and not isinstance(strategy_hint, str):
+        strategy_hint = None
+    _log_drive_request(daemon, raw_ide, text, submit, require_plugin)
+    plugin = _select_drive_plugin(daemon, ide_pref)
+    _route_drive(
+        daemon,
+        client,
+        msg,
+        plugin,
+        ide_pref,
+        text,
+        submit,
+        require_plugin,
+        strategy_hint,
+    )
 
 
 def _check_and_block_plugin_version(
@@ -572,6 +709,90 @@ def _try_os_injector_drive(
     return result
 
 
+def _drive_via_vdisplay_backend(
+    *,
+    daemon: Any,
+    client: _Client,
+    msg: Message,
+    ide_pref: str | None,
+    text: str,
+    submit: bool,
+) -> bool:
+    """Photo-VQL / semantic chat drive via vdisplay before blind keyboard coords."""
+    from koru.autonomous_vdisplay_defaults import apply_vdisplay_drive_defaults
+    from koru.integrations.photo_vql_drive import PhotoVqlDrive
+    from koru.integrations.vdisplay_client import vdisplay_fallback_enabled, vdisplay_missing_message
+
+    target_id = (ide_pref or "auto").strip().lower()
+    apply_vdisplay_drive_defaults(ide=target_id)
+    if getattr(daemon, "project", None) is not None:
+        meta = Path(daemon.project).resolve() / ".vdisplay"
+        os.environ.setdefault("VDISPLAY_METADATA_DIR", str(meta))
+        os.environ.setdefault("KORU_PROJECT_ROOT", str(Path(daemon.project).resolve()))
+    if not vdisplay_fallback_enabled(ide=target_id, plugin_connected=False):
+        decline = vdisplay_missing_message() or "vdisplay fallback disabled or agent unavailable"
+        _remember_semantic_drive_decline(decline)
+        daemon.log(f"drive → vdisplay/{target_id} skipped: {decline}")
+        return False
+    os.environ.setdefault("VDISPLAY_SESSION", "1")
+    preview = text.replace("\n", " ")[:100]
+    daemon.log(
+        f"drive → vdisplay/{target_id}: photo-vql semantic chat "
+        f"({len(text)} zn) «{preview}» submit={submit}"
+    )
+    try:
+        result = PhotoVqlDrive(ide=target_id).run(
+            text,
+            submit=submit,
+            reuse_prepare=True,
+        )
+    except Exception as exc:
+        _remember_semantic_drive_decline(str(exc))
+        daemon.log(f"drive → vdisplay/{target_id} failed: {exc}; falling back to imgl/keyboard")
+        return False
+    if not result.get("ok"):
+        prepare = result.get("photo_vql_observe") or {}
+        reason = result.get("message") or result.get("error") or prepare.get("error") or "unknown"
+        hint = result.get("hint") or prepare.get("hint")
+        _remember_semantic_drive_decline(str(reason), hint=str(hint) if hint else None)
+        log_detail = str(reason)
+        if hint and str(hint) not in log_detail:
+            log_detail = f"{log_detail}; hint: {hint}"
+        daemon.log(
+            f"drive → vdisplay/{target_id} declined: "
+            f"{log_detail}; "
+            "falling back to imgl/keyboard"
+        )
+        return False
+    backend = str(result.get("backend") or "vdisplay")
+    info: dict[str, Any] = {
+        "backend": backend,
+        "submitted": bool(result.get("submitted", submit)),
+        "verification": result.get("verification") or "photo_vql",
+        "tool_id": target_id,
+    }
+    for key in (
+        "photo_vql_observe",
+        "vql_context",
+        "vql_note",
+        "desktop_preflight",
+        "click_center",
+    ):
+        if key in result:
+            info[key] = result[key]
+    daemon._send(client, ack(msg.id or "", info=info).encode())
+    daemon.log(f"drive → {target_id} via {backend} ({len(text)} chars, submit={submit})")
+    daemon.audit.record(
+        "drive",
+        ide=target_id,
+        backend=backend,
+        chars=len(text),
+        submit=submit,
+        ok=True,
+    )
+    return True
+
+
 def _drive_via_imgl_backend(
     *,
     daemon: Any,
@@ -707,6 +928,14 @@ def _drive_via_os_injector_backend(
     preview: str,
     target: Any,
 ) -> bool:
+    from koru.integrations.vdisplay_client import _send_chat_os_injector_enabled
+
+    if not _send_chat_os_injector_enabled(ide=profile_id):
+        daemon.log(
+            f"drive → os_injector/{profile_id} skipped on Wayland "
+            "(blind coords hit the focused terminal; use vdisplay/photo-VQL)"
+        )
+        return False
     try:
         # Call via the AutopilotDaemon instance method (which proxies back
         # to ``_try_os_injector_drive`` here) so tests can

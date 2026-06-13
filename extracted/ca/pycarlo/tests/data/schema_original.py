@@ -72747,9 +72747,7 @@ class Query(sgqlc.types.Type):
                 (
                     "transforms",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(
-                            sgqlc.types.list_of(sgqlc.types.non_null(TransformInput))
-                        ),
+                        sgqlc.types.list_of(sgqlc.types.non_null(TransformInput)),
                         graphql_name="transforms",
                         default=None,
                     ),
@@ -72768,9 +72766,11 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Sample conversation-grain agent eval data: one row
-    per conversation (packed transcript + conversation-level columns)
-    scored by the supplied conversation eval transforms.
+    """(experimental) Sample conversation-grain agent data: one row per
+    conversation (packed transcript + conversation-level columns).
+    When conversation eval transforms are supplied, each conversation
+    is scored by them; when omitted, the raw conversation rows are
+    returned without scoring.
 
     Arguments:
 
@@ -72781,8 +72781,9 @@ class Query(sgqlc.types.Type):
       one agent filter (agent, optionally scoped to a workflow).
     * `filters` (`FilterGroupInput`): Conversation-level filtering
       conditions (turn_count, duration_seconds, status).
-    * `transforms` (`[TransformInput!]!`): Conversation eval
-      transforms used to score each sampled conversation.
+    * `transforms` (`[TransformInput!]`): Conversation eval transforms
+      used to score each sampled conversation. Omit to fetch the raw
+      conversation rows without any LLM scoring.
     * `limit` (`Int`): Number of sample conversations to return (max
       100) (default: `10`)
     * `offset` (`Int`): Number of conversations to skip before

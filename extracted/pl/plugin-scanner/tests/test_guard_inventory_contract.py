@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from codex_plugin_scanner.guard.inventory_cisco import CiscoInventoryRun
 from codex_plugin_scanner.guard.inventory_contract import (
@@ -71,7 +72,7 @@ def test_inventory_snapshot_serialization_redacts_raw_secrets(tmp_path: Path) ->
         redaction_report={"raw_secret_values": False, "redacted_fields": ("headers.authorization", "url.token")},
     )
 
-    payload = serialize_inventory_snapshot(snapshot)
+    payload = cast(dict[str, Any], serialize_inventory_snapshot(snapshot))
     encoded = json.dumps(payload, sort_keys=True)
 
     assert payload["agentId"] == "agent-hermes"
@@ -106,7 +107,7 @@ def test_inventory_snapshot_omits_null_optional_finding_summary() -> None:
         ),
     )
 
-    payload = serialize_inventory_snapshot(snapshot)
+    payload = cast(dict[str, Any], serialize_inventory_snapshot(snapshot))
 
     assert "summary" not in payload["findings"][0]
 
@@ -137,7 +138,7 @@ def test_inventory_snapshot_serialization_preserves_free_form_metadata_keys() ->
         ),
     )
 
-    payload = serialize_inventory_snapshot(snapshot)
+    payload = cast(dict[str, Any], serialize_inventory_snapshot(snapshot))
     schema = payload["items"][0]["metadata"]["tool_schemas"][0]["input_schema"]
 
     assert schema["properties"]["file_path"]["type"] == "string"
@@ -272,6 +273,182 @@ def test_inventory_snapshot_extracts_mcp_tool_items(tmp_path: Path) -> None:
     assert "writes_files" in items["hermes:mcp:json:tools:tool:delete_file"].capability_categories
     assert items["hermes:mcp:json:tools:tool:delete_file"].risk_level == "high"
 
+
+def test_inventory_snapshot_attaches_cisco_skill_trust_layer(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    skill_dir = workspace / "skills" / "demo-skill"
+    skill_dir.mkdir(parents=True)
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text("---\nname: demo-skill\ndescription: Demo\n---\n", encoding="utf-8")
+
+    detection = HarnessDetection(
+        harness="codex",
+        installed=True,
+        command_available=True,
+        config_paths=(str(skill_file),),
+        artifacts=(
+            GuardArtifact(
+                artifact_id="codex:project:skill:demo-skill",
+                name="demo-skill",
+                harness="codex",
+                artifact_type="skill",
+                source_scope="project",
+                config_path=str(skill_file),
+            ),
+        ),
+    )
+    cisco_run = CiscoInventoryRun(
+        source="cisco-skill-scanner",
+        status="enabled",
+        message="Cisco skill scan completed.",
+        findings=(
+            Finding(
+                rule_id="cisco.high",
+                severity=Severity.HIGH,
+                category="security",
+                title="High finding",
+                description="Review shell access.",
+                file_path=str(skill_file),
+            ),
+        ),
+        duration_ms=42,
+        metadata={
+            "target": str(skill_dir),
+            "skillsScanned": 1,
+            "skillsSkipped": [],
+            "totalFindings": 1,
+            "findingsBySeverity": {"critical": 0, "high": 1, "medium": 0, "low": 0},
+            "analyzersUsed": ["owasp"],
+            "policyName": "balanced",
+            "mode": "auto",
+        },
+    )
+
+    snapshot = inventory_snapshot_from_detection(
+        detection,
+        generated_at="2026-06-10T00:00:00Z",
+        home_dir=tmp_path,
+        workspace_dir=workspace,
+        cisco_runs=(cisco_run,),
+    )
+    skill_item = next(item for item in snapshot.items if item.item_kind == "skill")
+    trust_layers = skill_item.metadata.get("trustLayers")
+    encoded = json.dumps(serialize_inventory_snapshot(snapshot), sort_keys=True)
+
+    assert isinstance(trust_layers, list)
+    cisco_layer = next(
+        layer for layer in trust_layers if isinstance(layer, dict) and layer.get("layerType") == "cisco_skill_scanner"
+    )
+    assert cisco_layer.get("trustScore") == 88
+    assert str(skill_dir) not in encoded
+
+
+def test_inventory_snapshot_attaches_cisco_mcp_trust_layer_to_server_and_tool(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    mcp_file = workspace / ".mcp.json"
+    mcp_file.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "local-demo": {
+                        "command": "python",
+                        "args": ["-m", "demo_server"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    detection = HarnessDetection(
+        harness="codex",
+        installed=True,
+        command_available=True,
+        config_paths=(str(mcp_file),),
+        artifacts=(
+            GuardArtifact(
+                artifact_id="codex:project:mcp:local-demo",
+                name="local-demo",
+                harness="codex",
+                artifact_type="mcp_server",
+                source_scope="project",
+                config_path=str(mcp_file),
+                transport="stdio",
+                metadata={
+                    "tools": [
+                        {
+                            "name": "search_docs",
+                            "title": "Search docs",
+                            "description": "Read-only search over project documentation.",
+                            "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}},
+                            "annotations": {"readOnlyHint": True},
+                        }
+                    ]
+                },
+            ),
+        ),
+    )
+    cisco_run = CiscoInventoryRun(
+        source="cisco-mcp-scanner",
+        status="enabled",
+        message="Cisco MCP scan completed.",
+        findings=(
+            Finding(
+                rule_id="cisco.mcp.critical",
+                severity=Severity.CRITICAL,
+                category="transport",
+                title="Critical transport finding",
+                description="Remote unauthenticated endpoint.",
+                file_path=str(mcp_file),
+            ),
+        ),
+        duration_ms=21,
+        metadata={
+            "target": str(workspace),
+            "targetsScanned": 1,
+            "totalFindings": 1,
+            "findingsBySeverity": {"critical": 1, "high": 0, "medium": 0, "low": 0},
+            "analyzersUsed": ["owasp"],
+            "scanMode": "static",
+            "mode": "auto",
+        },
+    )
+
+    snapshot = inventory_snapshot_from_detection(
+        detection,
+        generated_at="2026-06-10T00:00:00Z",
+        home_dir=tmp_path,
+        workspace_dir=workspace,
+        cisco_runs=(cisco_run,),
+    )
+    server_item = next(item for item in snapshot.items if item.item_kind == "mcp_server")
+    tool_item = next(item for item in snapshot.items if item.item_kind == "mcp_tool")
+    encoded = json.dumps(serialize_inventory_snapshot(snapshot), sort_keys=True)
+
+    server_layers = server_item.metadata.get("trustLayers")
+    tool_layers = tool_item.metadata.get("trustLayers")
+    assert isinstance(server_layers, list)
+    assert any(
+        isinstance(layer, dict)
+        and layer.get("layerType") == "cisco_mcp_scanner"
+        and layer.get("trustScore") == 70
+        and isinstance(layer.get("metadata"), dict)
+        and layer["metadata"].get("attestationStatus") == "unsigned"
+        and isinstance(layer["metadata"].get("evidenceHash"), str)
+        for layer in server_layers
+    )
+    assert isinstance(tool_layers, list)
+    assert any(
+        isinstance(layer, dict)
+        and layer.get("layerType") == "cisco_mcp_scanner"
+        and isinstance(layer.get("metadata"), dict)
+        and layer["metadata"].get("attestationStatus") == "unsigned"
+        and layer["metadata"].get("attestation") is None
+        and layer["metadata"].get("inheritedFromServerItemId") == server_item.item_id
+        for layer in tool_layers
+    )
+    assert str(workspace) not in encoded
 
 def test_inventory_snapshot_handles_missing_mcp_tool_schema_and_scale(tmp_path: Path) -> None:
     tools = [{"name": f"tool_{index}", "description": "No schema available."} for index in range(500)]
@@ -517,7 +694,7 @@ def test_inventory_snapshot_maps_cisco_findings_to_redacted_inventory_evidence(t
         home_dir=tmp_path,
         cisco_runs=(cisco_run,),
     )
-    payload = serialize_inventory_snapshot(snapshot)
+    payload = cast(dict[str, Any], serialize_inventory_snapshot(snapshot))
     encoded = json.dumps(payload, sort_keys=True)
 
     assert len(payload["findings"]) == 1

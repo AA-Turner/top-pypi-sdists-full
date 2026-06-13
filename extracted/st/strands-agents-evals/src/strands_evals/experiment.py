@@ -19,10 +19,28 @@ from typing_extensions import Any, Generic
 from .case import Case
 from .detectors.diagnosis import diagnose_session
 from .evaluation_data_store import EvaluationDataStore
+from .evaluators.coherence_evaluator import CoherenceEvaluator
+from .evaluators.conciseness_evaluator import ConcisenessEvaluator
+from .evaluators.correctness_evaluator import CorrectnessEvaluator
 from .evaluators.deterministic import Contains, Equals, StartsWith, StateEquals, ToolCalled
 from .evaluators.evaluator import Evaluator
+from .evaluators.faithfulness_evaluator import FaithfulnessEvaluator
+from .evaluators.goal_success_rate_evaluator import GoalSuccessRateEvaluator
+from .evaluators.harmfulness_evaluator import HarmfulnessEvaluator
+from .evaluators.helpfulness_evaluator import HelpfulnessEvaluator
+from .evaluators.instruction_following_evaluator import InstructionFollowingEvaluator
 from .evaluators.interactions_evaluator import InteractionsEvaluator
+from .evaluators.multimodal_correctness_evaluator import MultimodalCorrectnessEvaluator
+from .evaluators.multimodal_faithfulness_evaluator import MultimodalFaithfulnessEvaluator
+from .evaluators.multimodal_instruction_following_evaluator import MultimodalInstructionFollowingEvaluator
+from .evaluators.multimodal_output_evaluator import MultimodalOutputEvaluator
+from .evaluators.multimodal_overall_quality_evaluator import MultimodalOverallQualityEvaluator
 from .evaluators.output_evaluator import OutputEvaluator
+from .evaluators.refusal_evaluator import RefusalEvaluator
+from .evaluators.response_relevance_evaluator import ResponseRelevanceEvaluator
+from .evaluators.stereotyping_evaluator import StereotypingEvaluator
+from .evaluators.tool_parameter_accuracy_evaluator import ToolParameterAccuracyEvaluator
+from .evaluators.tool_selection_accuracy_evaluator import ToolSelectionAccuracyEvaluator
 from .evaluators.trajectory_evaluator import TrajectoryEvaluator
 from .telemetry import get_tracer, serialize
 from .telemetry._cloudwatch_logger import _send_to_cloudwatch
@@ -155,6 +173,24 @@ class Experiment(Generic[InputT, OutputT]):
             new_evaluators: List of Evaluator instances to use for evaluating test cases
         """
         self._evaluators = new_evaluators
+
+    def _validate_evaluator_names(self) -> None:
+        """Validate that all evaluators expose unique names.
+
+        Two instances of the same Evaluator subclass collide on the default
+        class-name fallback; pass `name="..."` to disambiguate.
+
+        Raises:
+            ValueError: If two evaluators resolve to the same `get_name()`.
+        """
+        names = [evaluator.get_name() for evaluator in self._evaluators]
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        if duplicates:
+            raise ValueError(
+                f"Evaluator names must be unique within an experiment. "
+                f"Duplicates: {duplicates}. Pass `name=...` when constructing "
+                f"multiple instances of the same Evaluator subclass."
+            )
 
     def _validate_case_names(self) -> None:
         """Validate that all cases have unique, non-None names.
@@ -316,9 +352,9 @@ class Experiment(Generic[InputT, OutputT]):
 
         try:
             with self._tracer.start_as_current_span(
-                f"evaluator {evaluator.get_type_name()}",
+                f"evaluator {evaluator.get_name()}",
                 attributes={
-                    "gen_ai.evaluation.name": evaluator.get_type_name(),
+                    "gen_ai.evaluation.name": evaluator.get_name(),
                     "gen_ai.evaluation.case.name": case_name,
                 },
             ) as eval_span:
@@ -345,7 +381,7 @@ class Experiment(Generic[InputT, OutputT]):
 
                 # CloudWatch logging for this evaluator
                 try:
-                    evaluator_full_name = f"Custom.{evaluator.get_type_name()}"
+                    evaluator_full_name = f"Custom.{evaluator.get_name()}"
                     region = os.environ.get("AWS_REGION", "us-east-1")
                     _config_arn = f"arn:aws:strands:{region}::strands-evaluation-empty-config/{self._config_id}"
                     _evaluator_arn = f"arn:aws:strands-evals:::evaluator/{evaluator_full_name}"
@@ -380,7 +416,8 @@ class Experiment(Generic[InputT, OutputT]):
                     logger.debug(f"Skipping CloudWatch logging: {str(e)}")
 
                 return {
-                    "evaluator_name": evaluator.get_type_name(),
+                    "evaluator_name": evaluator.get_name(),
+                    "evaluator_type": evaluator.get_type_name(),
                     "test_pass": aggregate_pass,
                     "score": aggregate_score,
                     "reason": aggregate_reason or "",
@@ -392,15 +429,16 @@ class Experiment(Generic[InputT, OutputT]):
             original_exception = e.last_attempt.exception()
             if original_exception is None:
                 original_exception = Exception(
-                    f"Evaluator {evaluator.get_type_name()} failed after {_MAX_RETRY_ATTEMPTS} retries"
+                    f"Evaluator {evaluator.get_name()} failed after {_MAX_RETRY_ATTEMPTS} retries"
                 )
             logger.error(
                 f"Max retry attempts ({_MAX_RETRY_ATTEMPTS}) exceeded for evaluator "
-                f"{evaluator.get_type_name()} on case {case_name}. "
+                f"{evaluator.get_name()} on case {case_name}. "
                 f"Last error: {str(original_exception)}"
             )
             return {
-                "evaluator_name": evaluator.get_type_name(),
+                "evaluator_name": evaluator.get_name(),
+                "evaluator_type": evaluator.get_type_name(),
                 "test_pass": False,
                 "score": 0,
                 "reason": f"Evaluator error: {str(original_exception)}",
@@ -409,7 +447,8 @@ class Experiment(Generic[InputT, OutputT]):
         except Exception as e:
             # Catch non-throttling errors and record as failure (error isolation)
             return {
-                "evaluator_name": evaluator.get_type_name(),
+                "evaluator_name": evaluator.get_name(),
+                "evaluator_type": evaluator.get_type_name(),
                 "test_pass": False,
                 "score": 0,
                 "reason": f"Evaluator error: {str(e)}",
@@ -524,7 +563,8 @@ class Experiment(Generic[InputT, OutputT]):
                         for evaluator in self._evaluators:
                             evaluator_results.append(
                                 {
-                                    "evaluator_name": evaluator.get_type_name(),
+                                    "evaluator_name": evaluator.get_name(),
+                                    "evaluator_type": evaluator.get_type_name(),
                                     "test_pass": False,
                                     "score": 0,
                                     "reason": f"An error occurred: {str(e)}",
@@ -544,7 +584,7 @@ class Experiment(Generic[InputT, OutputT]):
         self,
         task: Callable[[Case[InputT, OutputT]], OutputT | dict[str, Any]],
         evaluation_data_store: EvaluationDataStore | None = None,
-    ) -> list[EvaluationReport]:
+    ) -> EvaluationReport:
         """
         Run the evaluations for all of the test cases with all evaluators.
 
@@ -557,8 +597,8 @@ class Experiment(Generic[InputT, OutputT]):
                 results are loaded instead of running the task, and new results are saved after task execution.
 
         Return:
-            A list of EvaluationReport objects, one for each evaluator, containing the overall score,
-            individual case results, and basic feedback for each test case.
+            A single EvaluationReport containing every (case, evaluator) result. Each case row is
+            tagged with its evaluator via the `evaluator` field on `cases`.
         """
         if asyncio.iscoroutinefunction(task):
             raise ValueError("Async task is not supported. Please use run_evaluations_async instead.")
@@ -570,7 +610,7 @@ class Experiment(Generic[InputT, OutputT]):
         task: Callable,
         max_workers: int = 10,
         evaluation_data_store: EvaluationDataStore | None = None,
-    ) -> list[EvaluationReport]:
+    ) -> EvaluationReport:
         """
         Run evaluations asynchronously using a queue for parallel processing.
 
@@ -583,8 +623,11 @@ class Experiment(Generic[InputT, OutputT]):
                 results are loaded instead of running the task, and new results are saved after task execution.
 
         Returns:
-            List of EvaluationReport objects, one for each evaluator, containing evaluation results
+            A single EvaluationReport flattened across every evaluator. Each row in `cases` carries
+            an `evaluator` key naming which evaluator produced it.
         """
+        self._validate_evaluator_names()
+
         if evaluation_data_store is not None:
             self._validate_case_names()
 
@@ -605,9 +648,10 @@ class Experiment(Generic[InputT, OutputT]):
             worker.cancel()
         await asyncio.gather(*workers, return_exceptions=True)
 
-        # Organize results by evaluator
+        # Organize results by evaluator (keyed on instance name so two instances
+        # of the same class with distinct `name=` kwargs do not collide).
         evaluator_data: dict[str, dict[str, list]] = {
-            evaluator.get_type_name(): {
+            evaluator.get_name(): {
                 "scores": [],
                 "test_passes": [],
                 "cases": [],
@@ -625,7 +669,9 @@ class Experiment(Generic[InputT, OutputT]):
             recommendation = result.get("recommendation")
             for eval_result in result["evaluator_results"]:
                 eval_name = eval_result["evaluator_name"]
-                evaluator_data[eval_name]["cases"].append(case_data)
+                evaluator_data[eval_name]["cases"].append(
+                    {**case_data, "evaluator": eval_name, "evaluator_type": eval_result["evaluator_type"]}
+                )
                 evaluator_data[eval_name]["scores"].append(eval_result["score"])
                 evaluator_data[eval_name]["test_passes"].append(eval_result["test_pass"])
                 evaluator_data[eval_name]["reasons"].append(eval_result["reason"])
@@ -635,11 +681,10 @@ class Experiment(Generic[InputT, OutputT]):
 
         reports = []
         for evaluator in self._evaluators:
-            eval_name = evaluator.get_type_name()
+            eval_name = evaluator.get_name()
             data = evaluator_data[eval_name]
             scores = data["scores"]
             report = EvaluationReport(
-                evaluator_name=eval_name,
                 overall_score=sum(scores) / len(scores) if scores else 0,
                 scores=scores,
                 test_passes=data["test_passes"],
@@ -651,7 +696,11 @@ class Experiment(Generic[InputT, OutputT]):
             )
             reports.append(report)
 
-        return reports
+        # Each case row already carries its evaluator tag (see worker aggregation above), so
+        # single-evaluator runs return as-is and multi-evaluator runs simply concatenate.
+        if len(reports) == 1:
+            return reports[0]
+        return EvaluationReport.flatten(reports)
 
     def to_dict(self) -> dict:
         """
@@ -716,6 +765,24 @@ class Experiment(Generic[InputT, OutputT]):
             "OutputEvaluator": OutputEvaluator,
             "TrajectoryEvaluator": TrajectoryEvaluator,
             "InteractionsEvaluator": InteractionsEvaluator,
+            "CoherenceEvaluator": CoherenceEvaluator,
+            "ConcisenessEvaluator": ConcisenessEvaluator,
+            "CorrectnessEvaluator": CorrectnessEvaluator,
+            "FaithfulnessEvaluator": FaithfulnessEvaluator,
+            "GoalSuccessRateEvaluator": GoalSuccessRateEvaluator,
+            "HarmfulnessEvaluator": HarmfulnessEvaluator,
+            "HelpfulnessEvaluator": HelpfulnessEvaluator,
+            "InstructionFollowingEvaluator": InstructionFollowingEvaluator,
+            "RefusalEvaluator": RefusalEvaluator,
+            "ResponseRelevanceEvaluator": ResponseRelevanceEvaluator,
+            "StereotypingEvaluator": StereotypingEvaluator,
+            "ToolParameterAccuracyEvaluator": ToolParameterAccuracyEvaluator,
+            "ToolSelectionAccuracyEvaluator": ToolSelectionAccuracyEvaluator,
+            "MultimodalCorrectnessEvaluator": MultimodalCorrectnessEvaluator,
+            "MultimodalFaithfulnessEvaluator": MultimodalFaithfulnessEvaluator,
+            "MultimodalInstructionFollowingEvaluator": MultimodalInstructionFollowingEvaluator,
+            "MultimodalOutputEvaluator": MultimodalOutputEvaluator,
+            "MultimodalOverallQualityEvaluator": MultimodalOverallQualityEvaluator,
             "Equals": Equals,
             "Contains": Contains,
             "StartsWith": StartsWith,

@@ -85,11 +85,18 @@ def _hash_prompt(system: str, messages: list[LLMMessage]) -> str:
     return h.hexdigest()
 
 
-_DEFAULT_TIMEOUT_SECONDS = 300.0
+# v0.1.227: raised 300 -> 600. The 2026-06-11 onboarding run showed a fresh
+# Sonnet gap-batch call on the subscription with time-to-first-token past
+# 300s (the call was progressing, not hung) — the timeout killed the whole
+# pipeline and the operator's empirical fix was exactly 600. Matches the
+# Bedrock client's read_timeout=600 precedent (v0.1.3). A timeout exists to
+# catch genuine hangs, not to police slow-but-progressing subscription
+# calls. EFTERLEV_LLM_TIMEOUT still overrides in either direction.
+_DEFAULT_TIMEOUT_SECONDS = 600.0
 
 
 def _timeout_from_env() -> float:
-    """Per-call timeout from EFTERLEV_LLM_TIMEOUT (seconds), default 300.
+    """Per-call timeout from EFTERLEV_LLM_TIMEOUT (seconds), default 600.
 
     Invalid / non-positive values fall back to the default rather than
     raising — a typo in an env var shouldn't crash the agent pipeline.
@@ -123,7 +130,8 @@ class ClaudeCodeClient:
     # Per-call timeout in seconds. v0.1.175 / #381: configurable via
     # EFTERLEV_LLM_TIMEOUT (seconds) so a slow subscription backend or an
     # unusually large prompt can be given more headroom without a code
-    # change. Default 300s. Gap-agent calls on Sonnet/Haiku typically take
+    # change. Default 600s (v0.1.227; was 300 — see _DEFAULT_TIMEOUT_SECONDS
+    # rationale). Gap-agent calls on Sonnet/Haiku typically take
     # 30-90s; the default catches genuine hangs without truncating a
     # legitimate long classification. (The real fix for the Opus-on-
     # subscription latency trap is the Sonnet default in `efterlev init`;

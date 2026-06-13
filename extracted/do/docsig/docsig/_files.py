@@ -20,18 +20,8 @@ FILE_INFO = "%s: %s"
 
 
 class _Gitignore(_PathSpec):
-    def _get_repo_relative_to(self, path: _Path) -> _Path | None:
-        if (path / ".git" / "HEAD").is_file():
-            return path
-
-        if str(path) == _os.path.abspath(_os.sep):
-            return None
-
-        return self._get_repo_relative_to(path.parent)
-
-    def __init__(self) -> None:
+    def __init__(self, repo: _Path | None = None) -> None:
         patterns = []
-        repo = self._get_repo_relative_to(_Path.cwd())
         # only consider gitignore patterns valid if inside a git repo
         # there might be stray gitignore files lying about
         if repo is not None:
@@ -73,16 +63,18 @@ class Files(list[_Path]):
 
     :param paths: Path(s) to collect (files or directories).
     :param filters: Filters object.
+    :param repo: Path to the repo root.
     """
 
     def __init__(
         self,
         paths: tuple[str | _Path, ...],
         filters: _Filters,
+        repo: _Path | None = None,
     ) -> None:
         super().__init__()
         self._include_ignored = filters.include_ignored
-        self._gitignore = _Gitignore()
+        self._gitignore = _Gitignore(repo)
         logger = _logging.getLogger(__package__)
         for path in paths:
             self._populate(_Path(path))

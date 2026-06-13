@@ -207,7 +207,7 @@ def _recommend_mode_by_suitability(text: str, score: float, has_heavy: bool) -> 
     if has_heavy:
         return "lightweight", "检测到重度信号 → 建议 lightweight 模式（含完整评审和质量门）"
     if score < 0.35:
-        return "quick", "检测到简单/轻量信号 → 建议 quick 模式（KB+plan+人工审核，3次LLM）"
+        return "quick", "检测到简单/轻量信号 → 建议 quick 模式（KB+plan+人工审核）"
     return "lightweight", f"标准复杂度 → 默认 lightweight 模式"
 
 

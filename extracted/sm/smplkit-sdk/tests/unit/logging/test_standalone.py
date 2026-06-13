@@ -61,10 +61,10 @@ class TestStandaloneConstruction:
         assert client._standalone_api_key is not None
         client.close()
 
-    @patch("smplkit.logging._client.list_log_groups.sync_detailed")
-    @patch("smplkit.logging._client.list_loggers.sync_detailed")
-    @patch("smplkit.logging._client.bulk_register_loggers.sync_detailed")
-    @patch("smplkit.logging._client._auto_load_adapters")
+    @patch("smplkit.logging.clients.list_log_groups.sync_detailed")
+    @patch("smplkit.logging.clients.list_loggers.sync_detailed")
+    @patch("smplkit.logging.clients.bulk_register_loggers.sync_detailed")
+    @patch("smplkit.logging.clients._auto_load_adapters")
     def test_install_opens_own_ws(self, mock_auto_load, mock_bulk, mock_loggers, mock_groups):
         mock_auto_load.return_value = []
         mock_bulk.return_value = _ok_response()
@@ -73,7 +73,7 @@ class TestStandaloneConstruction:
 
         client = LoggingClient(api_key="sk_test", base_domain="example.test")
         fake_ws = MagicMock()
-        with patch("smplkit.logging._client.SharedWebSocket", return_value=fake_ws) as ws_cls:
+        with patch("smplkit.logging.clients.SharedWebSocket", return_value=fake_ws) as ws_cls:
             client.install()
         ws_cls.assert_called_once()
         assert client._owns_ws is True
@@ -155,8 +155,8 @@ class TestStandaloneAsyncConstruction:
             client = AsyncLoggingClient(api_key="sk_test", base_domain="example.test")
             fake_ws = MagicMock()
             with (
-                patch("smplkit.logging._client.SharedWebSocket", return_value=fake_ws) as ws_cls,
-                patch("smplkit.logging._client._auto_load_adapters", return_value=[]),
+                patch("smplkit.logging.clients.SharedWebSocket", return_value=fake_ws) as ws_cls,
+                patch("smplkit.logging.clients._auto_load_adapters", return_value=[]),
                 patch.object(client, "_flush_bulk_async", new_callable=AsyncMock),
                 patch.object(client, "_fetch_and_apply", new_callable=AsyncMock),
             ):

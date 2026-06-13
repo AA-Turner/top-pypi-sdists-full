@@ -72,12 +72,27 @@ pub fn split_runs(text: &str) -> Vec<Run> {
 }
 
 /// Raw TrueType bytes for a bundled fallback font.
-#[cfg(feature = "cjk-form-fonts")]
+///
+/// Available to the form-flatten path (`cjk-form-fonts`) and to the page
+/// renderer's CJK substitution path (`cjk-render-fallback`); both bundle the
+/// same Droid Sans Fallback asset.
+#[cfg(any(feature = "cjk-form-fonts", feature = "cjk-render-fallback"))]
 pub fn font_bytes(kind: Fallback) -> &'static [u8] {
     match kind {
         Fallback::Cjk => include_bytes!("assets/DroidSansFallbackFull.ttf"),
         Fallback::Emoji => include_bytes!("assets/NotoEmoji-Regular.ttf"),
     }
+}
+
+/// Raw TrueType bytes for the bundled CJK fallback font, exposed for the
+/// page-render substitution path (ISO 32000-2 §9.7.5.2 — predefined CIDFont
+/// glyph supply). Gated on `cjk-render-fallback`; the form-flatten path uses
+/// the sibling `font_bytes(Fallback::Cjk)` accessor under `cjk-form-fonts` and
+/// the two paths are intentionally independent so enabling one does not
+/// activate the other.
+#[cfg(feature = "cjk-render-fallback")]
+pub fn render_cjk_fallback_bytes() -> &'static [u8] {
+    include_bytes!("assets/DroidSansFallbackFull.ttf")
 }
 
 #[cfg(test)]

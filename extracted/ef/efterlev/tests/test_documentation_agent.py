@@ -26,7 +26,6 @@ from efterlev.agents import (
     KsiClassification,
     reconstruct_classifications_from_store,
 )
-from efterlev.errors import AgentError
 from efterlev.llm import StubLLMClient
 from efterlev.models import Evidence, Indicator, SourceRef
 from efterlev.provenance import ProvenanceStore, active_store
@@ -260,7 +259,15 @@ def test_documentation_agent_skips_classification_with_unknown_ksi(tmp_path: Pat
 # -- defensive --------------------------------------------------------------
 
 
-def test_documentation_agent_rejects_fabricated_evidence_citation(tmp_path: Path) -> None:
+def test_documentation_agent_guard_fallback_on_persistent_fabrication(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """v0.1.226: a deterministically-fabricating model (the KSI-IAM-ELP /
+    Haiku case from the 2026-06-11 onboarding run) no longer kills the
+    stage. The agent retries once with feedback, then emits a clearly-
+    marked deterministic-template fallback — the invariant that NO
+    fabricated citation reaches the artifact is preserved; the stage and
+    every downstream pipeline stage now complete."""
     ev = _ev()
     bogus = json.dumps(
         {
@@ -268,22 +275,68 @@ def test_documentation_agent_rejects_fabricated_evidence_citation(tmp_path: Path
             "cited_evidence_ids": ["sha256:0000000000000000000000000000000000000000"],
         }
     )
-    stub = StubLLMClient(response_text=bogus)
-    with (
-        ProvenanceStore(tmp_path) as store,
-        active_store(store),
-        pytest.raises(AgentError, match="cites evidence IDs not present"),
-    ):
+    stub = StubLLMClient(response_text=bogus)  # same fabrication on every call
+    with ProvenanceStore(tmp_path) as store, active_store(store):
+        _persist_evidence(store, [ev])
         agent = DocumentationAgent(client=stub)
-        agent.run(
+        report = agent.run(
             DocumentationAgentInput(
                 indicators={"KSI-SVC-VRI": _ind()},
                 evidence=[ev],
-                classifications=[_clf()],
+                classifications=[_clf(evidence_ids=[ev.evidence_id])],
                 baseline_id="fedramp-20x-moderate",
                 frmr_version="0.9.43-beta",
             )
         )
+    assert len(report.attestations) == 1
+    draft = report.attestations[0].draft
+    # Deterministic fallback, honestly labeled — never agent_drafted.
+    assert draft.mode == "deterministic_template"
+    # The fabricated id appears NOWHERE in the artifact.
+    assert "sha256:0000" not in draft.narrative
+    assert all("0000000000" not in c.evidence_id for c in draft.citations)
+    # The narrative says what happened and how to re-draft.
+    assert "citation-integrity guard" in draft.narrative
+    assert "efterlev agent document --ksi KSI-SVC-VRI" in draft.narrative
+    assert draft.narrative.startswith("DRAFT")
+    # Exactly 2 LLM calls: initial + one feedback retry.
+    assert stub.call_count == 2
+    # Operator-visible warning on stderr.
+    err = capsys.readouterr().err
+    assert "citation-integrity guard" in err
+    assert "KSI-SVC-VRI" in err
+
+
+def test_documentation_agent_retry_recovers_transient_fabrication(tmp_path: Path) -> None:
+    """v0.1.226: a transient fabrication (first call bad, retry good) recovers
+    to a normal agent_drafted narrative — no fallback, no stage death."""
+    ev = _ev()
+    bogus = json.dumps(
+        {
+            "narrative": "Encryption is implemented perfectly.",
+            "cited_evidence_ids": ["sha256:0000000000000000000000000000000000000000"],
+        }
+    )
+    stub = StubLLMClient(
+        response_text=_canned_narrative(ev.evidence_id),
+        response_texts=[bogus, _canned_narrative(ev.evidence_id)],
+    )
+    with ProvenanceStore(tmp_path) as store, active_store(store):
+        _persist_evidence(store, [ev])
+        agent = DocumentationAgent(client=stub)
+        report = agent.run(
+            DocumentationAgentInput(
+                indicators={"KSI-SVC-VRI": _ind()},
+                evidence=[ev],
+                classifications=[_clf(evidence_ids=[ev.evidence_id])],
+                baseline_id="fedramp-20x-moderate",
+                frmr_version="0.9.43-beta",
+            )
+        )
+    assert len(report.attestations) == 1
+    draft = report.attestations[0].draft
+    assert draft.mode == "agent_drafted"
+    assert stub.call_count == 2
 
 
 def test_documentation_agent_rejects_empty_citations_when_gap_cited_evidence(
@@ -303,14 +356,11 @@ def test_documentation_agent_rejects_empty_citations_when_gap_cited_evidence(
             "cited_evidence_ids": [],
         }
     )
-    stub = StubLLMClient(response_text=bogus)
-    with (
-        ProvenanceStore(tmp_path) as store,
-        active_store(store),
-        pytest.raises(AgentError, match="empty cited_evidence_ids"),
-    ):
+    stub = StubLLMClient(response_text=bogus)  # empty cites on every call
+    with ProvenanceStore(tmp_path) as store, active_store(store):
+        _persist_evidence(store, [ev])
         agent = DocumentationAgent(client=stub)
-        agent.run(
+        report = agent.run(
             DocumentationAgentInput(
                 indicators={"KSI-SVC-VRI": _ind()},
                 evidence=[ev],
@@ -319,6 +369,15 @@ def test_documentation_agent_rejects_empty_citations_when_gap_cited_evidence(
                 frmr_version="0.9.43-beta",
             )
         )
+    # v0.1.226: decitation no longer kills the stage either — same
+    # retry-then-fallback path as fabrication. The confidently-worded
+    # uncited narrative is REPLACED by the deterministic fallback, so
+    # the provenance graph stays intact.
+    assert len(report.attestations) == 1
+    draft = report.attestations[0].draft
+    assert draft.mode == "deterministic_template"
+    assert "citation-integrity guard" in draft.narrative
+    assert stub.call_count == 2
 
 
 def test_documentation_agent_includes_scan_coverage_note_when_recommended(

@@ -36,7 +36,6 @@ use crate::{
         spec_types::{Spec, SpecsResponseFull},
         specs_hash_map::{SpecPointer, SpecsHashMap},
     },
-    statsig_metadata::SDK_VERSION,
     DynamicReturnable, StatsigErr, StatsigOptions,
 };
 
@@ -50,10 +49,54 @@ lazy_static! {
     static ref MUTABLE_DATA: Mutex<MutableData> = Mutex::new(MutableData::default());
 }
 
-#[derive(Default, Archive, RkyvDeserialize, RkyvSerialize)]
-struct MmapData {
+#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+pub(crate) struct MmapDataV1 {
+    format_version: u32,
     strings: std::collections::HashMap<u64, String>,
     returnables: std::collections::HashMap<u64, HashMap<String, RkyvValue>>,
+}
+
+impl MmapDataV1 {
+    // Create MmapDataV2 and increment this when the archived layout or
+    // serialization semantics change.
+    pub(crate) const FORMAT_VERSION: u32 = 1;
+
+    #[cfg(test)]
+    pub(crate) fn empty_with_format_version(format_version: u32) -> Self {
+        Self {
+            format_version,
+            strings: HashMap::new(),
+            returnables: HashMap::new(),
+        }
+    }
+}
+
+impl ArchivedMmapDataV1 {
+    pub(crate) fn format_version(&self) -> u32 {
+        self.format_version.to_native()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn string_for_test(&self, hash: u64) -> Option<&str> {
+        let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
+        self.strings.get(&archived_hash).map(|value| value.as_str())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn returnable_for_test(&self, hash: u64, key: &str) -> Option<&ArchivedRkyvValue> {
+        let archived_hash = rkyv::primitive::ArchivedU64::from_native(hash);
+        self.returnables.get(&archived_hash)?.get(key)
+    }
+}
+
+impl Default for MmapDataV1 {
+    fn default() -> Self {
+        Self {
+            format_version: Self::FORMAT_VERSION,
+            strings: HashMap::new(),
+            returnables: HashMap::new(),
+        }
+    }
 }
 
 #[self_referencing]
@@ -62,7 +105,7 @@ struct LoadedMmapData {
     mmap: Mmap,
 
     #[borrows(mmap)]
-    archived: &'this ArchivedMmapData,
+    archived: &'this ArchivedMmapDataV1,
 }
 
 /// Immortal vs Mutable Data
@@ -211,7 +254,7 @@ fn preload_mmap_from_path(path: &Path) -> Result<(), StatsigErr> {
     let loaded_result = LoadedMmapDataTryBuilder {
         file,
         mmap,
-        archived_builder: |mmap| rkyv::access::<ArchivedMmapData, rkyv::rancor::Error>(mmap),
+        archived_builder: |mmap| rkyv::access::<ArchivedMmapDataV1, rkyv::rancor::Error>(mmap),
     }
     .try_build();
 
@@ -222,6 +265,14 @@ fn preload_mmap_from_path(path: &Path) -> Result<(), StatsigErr> {
         }
     };
 
+    let format_version = loaded.borrow_archived().format_version();
+    if format_version != MmapDataV1::FORMAT_VERSION {
+        return Err(StatsigErr::SerializationError(format!(
+            "Unsupported interned mmap format version {format_version}; expected {}",
+            MmapDataV1::FORMAT_VERSION
+        )));
+    }
+
     MMAP_DATA
         .set(loaded)
         .map_err(|_| StatsigErr::LockFailure("Failed to set MMAP_DATA".to_string()))
@@ -229,9 +280,9 @@ fn preload_mmap_from_path(path: &Path) -> Result<(), StatsigErr> {
 
 pub(crate) fn mmap_path_for_sdk_key(sdk_key: &str) -> PathBuf {
     std::env::temp_dir().join(MMAP_DIRECTORY).join(format!(
-        "{}_{}_interned_store.mmap",
+        "{}_v{}_interned_store.mmap",
         hashing::djb2(sdk_key),
-        SDK_VERSION
+        MmapDataV1::FORMAT_VERSION
     ))
 }
 
@@ -635,12 +686,12 @@ fn mutable_to_immortal(
     Ok(immortal)
 }
 
-fn mutable_to_mmap_data(specs_responses: Vec<SpecsResponseFull>) -> Result<MmapData, StatsigErr> {
+fn mutable_to_mmap_data(specs_responses: Vec<SpecsResponseFull>) -> Result<MmapDataV1, StatsigErr> {
     let mutable_data: MutableData = {
         let mut mutable_data_lock = MUTABLE_DATA.lock();
         std::mem::take(&mut *mutable_data_lock)
     };
-    let mut mmap_data = MmapData::default();
+    let mut mmap_data = MmapDataV1::default();
 
     for (hash, arc) in mutable_data.strings.into_iter() {
         let taken = arc.to_string();

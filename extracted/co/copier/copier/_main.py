@@ -30,6 +30,7 @@ from typing import (
 )
 from unicodedata import normalize
 
+from jinja2.exceptions import TemplateError
 from jinja2.loaders import FileSystemLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jinja2.utils import import_string
@@ -42,6 +43,7 @@ from pydantic.dataclasses import dataclass
 from pydantic_core import to_jsonable_python
 from questionary import confirm, unsafe_prompt
 
+from ._deprecation import deprecate_answers_file_template_path
 from ._jinja_ext import YieldExtension, get_yield_context
 from ._settings import Settings, SettingsModel, is_trusted_repository
 from ._subproject import Subproject
@@ -420,7 +422,7 @@ class Worker:
 
             extra_env = {k[1:].upper(): str(v) for k, v in extra_context.items()}
             with local.cwd(working_directory), local.env(**extra_env):
-                process = subprocess.run(task_cmd, shell=use_shell, env=local.env)
+                process = subprocess.run(task_cmd, shell=use_shell, env=dict(local.env))
                 if process.returncode:
                     raise TaskError.from_process(process)
 
@@ -1040,27 +1042,13 @@ class Worker:
             dst_abspath = self.subproject.local_abspath / dst_relpath
             dst_abspath.mkdir(parents=True, exist_ok=True)
 
-    def _adjust_rendered_part(self, rendered_part: str) -> str:
-        """Adjust the rendered part if necessary.
-
-        If `{{ _copier_conf.answers_file }}` becomes the full path,
-        restore part to be just the end leaf.
-
-        Args:
-            rendered_part:
-                The rendered part of the path to adjust.
-
-        """
-        if str(self.answers_relpath) == rendered_part:
-            return Path(rendered_part).name
-        return rendered_part
-
-    def _render_parts(
+    def _render_parts(  # noqa: C901
         self,
         parts: tuple[str, ...],
         rendered_parts: tuple[str, ...] | None = None,
         extra_context: AnyByStrDict | None = None,
         is_template: bool = False,
+        source_parts: tuple[str, ...] = (),
     ) -> Iterable[tuple[Path, AnyByStrDict | None]]:
         """Render a set of parts into path and context pairs.
 
@@ -1084,28 +1072,48 @@ class Worker:
 
         part = parts[0]
         parts = parts[1:]
+        source_parts = source_parts + (part,)
+        source_path = Path(*source_parts)
 
         if not extra_context:
             extra_context = {}
 
         # If the `part` has a yield tag, `self.jinja_env` will be set with the yield
         # name and iterable
-        rendered_part = self._render_string(part, extra_context=extra_context)
+        try:
+            rendered_part = self._render_string(part, extra_context=extra_context)
+        except TemplateError as error:
+            raise UserMessageError(
+                f"Error rendering template path {source_path}: {error}"
+            ) from error
 
         ctx = get_yield_context(self.jinja_env)
         yield_name = ctx.yield_name
         if yield_name:
             for value in ctx.yield_iterable or ():
                 new_context = {**extra_context, yield_name: value}
-                rendered_part = self._render_string(part, extra_context=new_context)
-                rendered_part = self._adjust_rendered_part(rendered_part)
+                try:
+                    rendered_part = self._render_string(part, extra_context=new_context)
+                except TemplateError as error:
+                    raise UserMessageError(
+                        f"Error rendering template path {source_path}: {error}"
+                    ) from error
+                if str(self.answers_relpath) == rendered_part:
+                    if rendered_parts:
+                        deprecate_answers_file_template_path()
+                    yield self.answers_relpath, new_context
+                    continue
 
                 # Skip if any part is rendered as an empty string
                 if not rendered_part:
                     continue
 
                 yield from self._render_parts(
-                    parts, rendered_parts + (rendered_part,), new_context, is_template
+                    parts,
+                    rendered_parts + (rendered_part,),
+                    new_context,
+                    is_template,
+                    source_parts,
                 )
 
             return
@@ -1114,10 +1122,18 @@ class Worker:
         if not rendered_part:
             return
 
-        rendered_part = self._adjust_rendered_part(rendered_part)
+        if str(self.answers_relpath) == rendered_part:
+            if rendered_parts:
+                deprecate_answers_file_template_path()
+            yield (self.answers_relpath, extra_context)
+            return
 
         yield from self._render_parts(
-            parts, rendered_parts + (rendered_part,), extra_context, is_template
+            parts,
+            rendered_parts + (rendered_part,),
+            extra_context,
+            is_template,
+            source_parts,
         )
 
     def _render_path(self, relpath: Path) -> Iterable[tuple[Path, AnyByStrDict | None]]:
@@ -1529,12 +1545,16 @@ class Worker:
                     conflicted = []
                     old_path = Path(old_copy)
                     new_path = Path(new_copy)
-                    status = git("status", "--porcelain").strip().splitlines()
+                    # `--ignored` so we still find .rej files when the
+                    # destination has a `*.rej` ignore rule.
+                    status = (
+                        git("status", "--porcelain", "--ignored").strip().splitlines()
+                    )
                     for line in status:
                         # Filter merge rejections (part 1/2)
-                        if not line.startswith("?? "):
+                        if not line.startswith(("?? ", "!! ")):
                             continue
-                        # Remove "?? " prefix
+                        # Remove prefix
                         fname = line[3:]
                         # Normalize name
                         fname = normalize_git_path(fname)

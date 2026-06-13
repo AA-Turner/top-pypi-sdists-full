@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: frappe-bench
-Version: 5.29.1
+Version: 5.30.0
 Summary: CLI to manage Multi-tenant deployments for Frappe apps
 Project-URL: Changelog, https://github.com/frappe/bench/releases
 Project-URL: Documentation, https://frappeframework.com/docs/user/en/bench
@@ -24,11 +24,11 @@ Requires-Dist: gitpython~=3.1.30
 Requires-Dist: honcho
 Requires-Dist: jinja2~=3.1.3
 Requires-Dist: python-crontab~=2.6.0
-Requires-Dist: requests~=2.32.5
+Requires-Dist: requests~=2.33.0
 Requires-Dist: semantic-version~=2.10.0
 Requires-Dist: setuptools<82.0.0,>=71.0.0
 Requires-Dist: tomli; python_version < '3.11'
-Requires-Dist: uv~=0.9.0
+Requires-Dist: uv~=0.11.6
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -328,6 +328,27 @@ In case the setup fails, the log file is saved under `$HOME/easy-install.log`. Y
 	```sh
 	$ bench --help
 	```
+
+## Shell Completion
+
+Bench supports tab completion for bash and zsh.
+
+Run interactively to pick a shell and install location:
+
+```sh
+bench completions
+```
+
+Or pass flags to skip the prompts:
+
+```sh
+bench completions --zsh
+bench completions --bash
+```
+
+> **Note:** Run this from your frappe-bench directory. The command detects the bench root from the current working directory to include your installed apps' commands in the completion script.
+
+This writes a completion script to `~/.config/bench/` and appends a `source` line to your shell rc file. Re-run it after installing new apps or upgrading bench, since the script is generated from the current command tree.
 
 
 For more in-depth information on commands and their usage, follow [Commands and Usage](https://github.com/frappe/bench/blob/develop/docs/commands_and_usage.md). As for a consolidated list of bench commands, check out [Bench Usage](https://github.com/frappe/bench/blob/develop/docs/bench_usage.md).

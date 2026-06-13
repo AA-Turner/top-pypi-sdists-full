@@ -41,7 +41,8 @@ use crate::member::MemberExprBuilder;
 use crate::place::{PlaceExpr, PlaceTableBuilder, PossiblyNarrowedPlacesBuilder, ScopedPlaceId};
 use crate::predicate::{
     CallableAndCallExpr, ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate,
-    PredicateNode, PredicateOrLiteral, ScopedPredicateId, StarImportPlaceholderPredicate,
+    PredicateNode, PredicateOrLiteral, ScopedPredicateId, SequencePatternPredicateKind,
+    StarImportPlaceholderPredicate,
 };
 use crate::program::Program;
 use crate::re_exports::exported_names;
@@ -645,6 +646,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         if !symbol.is_reassigned() {
             return;
         }
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "each matching snapshot is updated independently"
+        )]
         for (key, snapshot_id) in &self.enclosing_snapshots {
             if let Some(enclosing_symbol) = key.enclosing_place.as_symbol() {
                 let name = self.place_tables[key.enclosing_scope]
@@ -736,6 +741,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
         let mut snapshots_to_mark = Vec::new();
 
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "snapshot resolution is independent and marking bindings is idempotent"
+        )]
         for (&key, &snapshot_id) in &self.enclosing_snapshots {
             let ScopedPlaceId::Symbol(enclosing_symbol_id) = key.enclosing_place else {
                 continue;
@@ -902,6 +911,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     .is_module(),
                 "the last remaining scope should be the module scope",
             );
+            #[expect(
+                clippy::iter_over_hash_type,
+                reason = "iteration order does not affect the semantic errors produced"
+            )]
             for (name, nested_declarations) in &nested_global_or_nonlocal_declarations {
                 for declaration in nested_declarations {
                     if matches!(declaration.kind, GlobalOrNonlocal::Nonlocal) {
@@ -922,6 +935,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         // only respect the bindings within the popped scope, rather than in all the nested scopes
         // they've encountered so far.
         if !popped_scope_kind.is_module() {
+            #[expect(
+                clippy::iter_over_hash_type,
+                reason = "declarations for distinct names are merged independently"
+            )]
             for (name, declarations) in &nested_global_or_nonlocal_declarations {
                 self.current_scope_info_mut()
                     .nested_global_or_nonlocal_declarations
@@ -1584,6 +1601,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         // Collect all the bindings within the loop that reached a loop back edge. Use the minimum
         // definition ID to filter out all the pre-loop bindings. The loop header doesn't shadow
         // them, so there's no need to duplicate them.
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "bindings for distinct places are collected independently"
+        )]
         for place_id in loop_header_places {
             for live_binding in use_def.loop_back_bindings(*place_id) {
                 if live_binding.binding() >= loop_min_definition_id {
@@ -1592,13 +1613,17 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             }
         }
         // Mark the reachability and narrowing constraints as used.
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "marking reachability constraints as used is idempotent"
+        )]
         for place_id in loop_header_places {
             for live_binding in loop_header.bindings_for_place(*place_id) {
                 use_def
                     .reachability_constraints
                     .mark_used(live_binding.reachability_constraint());
                 use_def
-                    .reachability_constraints
+                    .narrowing_constraints
                     .mark_used(live_binding.narrowing_constraint());
             }
         }
@@ -1613,6 +1638,9 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         &mut self,
         nested_bindings: NestedGlobalOrNonlocalDeclarations,
     ) {
+        let mut nested_bindings = nested_bindings.into_iter().collect::<Vec<_>>();
+        nested_bindings.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+
         for (name, mut declarations) in nested_bindings {
             // Filter down to only the declarations with `is_bound: true`. If there are none left,
             // skip synthesizing a definition for this symbol. (The reason we track these at all is
@@ -1745,7 +1773,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
     /// Adds and records a narrowing constraint for only the places that could possibly be narrowed.
     ///
     /// Returns the `ScopedPredicateId` for the positive predicate, which can later be passed to
-    /// `record_negated_narrowing_constraint` for TDD-level negation.
+    /// `record_negated_narrowing_constraint` to record the opposite result of the same check.
     fn record_narrowing_constraint(
         &mut self,
         predicate: PredicateOrLiteral<'db>,
@@ -1796,9 +1824,9 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
     /// Negates the given predicate and then adds it as a narrowing constraint to the places
     /// that could possibly be narrowed.
     ///
-    /// Takes the `ScopedPredicateId` from the positive recording so that TDD-level negation
-    /// (`add_not_constraint`) uses the same atom. This ensures `atom(P) OR NOT(atom(P))`
-    /// simplifies to `ALWAYS_TRUE`, correctly cancelling narrowing after complete if/else blocks.
+    /// Takes the `ScopedPredicateId` from the positive recording so that both constraints refer to
+    /// the same check. This lets the positive and negative cases cancel after a complete
+    /// `if`/`else`.
     fn record_negated_narrowing_constraint(
         &mut self,
         predicate: PredicateOrLiteral<'db>,
@@ -1907,6 +1935,11 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             ast::Pattern::MatchClass(pattern) => {
                 let cls = self.add_standalone_expression(&pattern.cls);
 
+                // TODO: A class pattern with only irrefutable subpatterns can still fail if
+                // extracting an attribute named by `__match_args__` or a keyword fails. We retain
+                // this existing approximation because treating all class patterns with arguments
+                // as refutable caused a large ecosystem change. Follow-up work should determine
+                // irrefutability by analyzing the class's attributes and `__match_args__`.
                 PatternPredicateKind::Class(
                     cls,
                     if pattern
@@ -1936,15 +1969,18 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 })
             }
             ast::Pattern::MatchSequence(pattern) => {
-                // `case [*rest]` matches every sequence, while all other sequence patterns
-                // are refutable because they impose a minimum and/or exact length.
-                PatternPredicateKind::Sequence(
-                    if matches!(pattern.patterns.as_slice(), [ast::Pattern::MatchStar(_)]) {
-                        ClassPatternKind::Irrefutable
-                    } else {
-                        ClassPatternKind::Refutable
-                    },
-                )
+                let mut has_star = false;
+                let patterns = pattern
+                    .patterns
+                    .iter()
+                    .map(|pattern| {
+                        if matches!(pattern, ast::Pattern::MatchStar(_)) {
+                            has_star = true;
+                        }
+                        self.predicate_kind(pattern)
+                    })
+                    .collect();
+                PatternPredicateKind::Sequence(SequencePatternPredicateKind { patterns, has_star })
             }
             ast::Pattern::MatchOr(pattern) => {
                 let predicates = pattern
@@ -1961,7 +1997,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     .map(|p| Box::new(self.predicate_kind(p))),
                 pattern.name.as_ref().map(|name| name.id.clone()),
             ),
-            ast::Pattern::MatchStar(_) => PatternPredicateKind::Unsupported,
+            ast::Pattern::MatchStar(_) => PatternPredicateKind::MatchStar,
         }
     }
 
@@ -3386,8 +3422,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                             node: PredicateNode::Expression(guard_expr),
                             is_positive: true,
                         });
-                        // Add the predicate once, then use TDD-level negation for the failure
-                        // path. This ensures the positive and negative atoms share the same ID.
+                        // Use the same predicate ID for the successful and failed checks.
                         let guard_predicate_id = self.add_predicate(predicate);
                         let possibly_narrowed = self.compute_possibly_narrowed_places(&predicate);
                         self.flow_restore(condition_flow_snapshot.falsy());
@@ -3821,10 +3856,15 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                             is_positive: true,
                         };
 
+                        let predicate_id =
+                            self.add_predicate(PredicateOrLiteral::Predicate(predicate));
+                        let narrowing_constraint = self
+                            .current_use_def_map_mut()
+                            .narrowing_constraints
+                            .add_atom(predicate_id);
+
                         if self.in_function_scope() {
-                            let constraint = self.record_reachability_constraint(
-                                PredicateOrLiteral::Predicate(predicate),
-                            );
+                            self.record_reachability_constraint_id(predicate_id);
 
                             // Also gate narrowing by this constraint: if the call returns
                             // `Never`, any narrowing in the current branch should be
@@ -3832,19 +3872,14 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                             // narrowing to be preserved after if-statements where one branch
                             // calls a `NoReturn` function like `sys.exit()`.
                             self.current_use_def_map_mut()
-                                .record_narrowing_constraint_for_all_places(constraint);
+                                .record_narrowing_constraint_for_all_places(narrowing_constraint);
                         } else {
                             // In non-function scopes, we only record a narrowing constraint
                             // (not a reachability constraint). Recording reachability for
                             // calls in module scope is simply too expensive, and it's not
                             // too important of a use case.
-                            let predicate_id =
-                                self.add_predicate(PredicateOrLiteral::Predicate(predicate));
-                            let constraint = self
-                                .current_reachability_constraints_mut()
-                                .add_atom(predicate_id);
                             self.current_use_def_map_mut()
-                                .record_narrowing_constraint_for_all_places(constraint);
+                                .record_narrowing_constraint_for_all_places(narrowing_constraint);
                         }
                     }
                 }

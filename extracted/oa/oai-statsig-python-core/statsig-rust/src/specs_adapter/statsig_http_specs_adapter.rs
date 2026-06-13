@@ -109,6 +109,8 @@ impl StatsigHttpSpecsAdapter {
         );
         let enable_dcs_deltas = options_ref.enable_dcs_deltas.unwrap_or(false);
 
+        let sdk_instance_id = options_ref.get_sdk_instance_id(sdk_key);
+
         Self {
             listener: RwLock::new(None),
             network: NetworkClient::new(sdk_key, Some(headers), Some(options_ref)),
@@ -121,7 +123,7 @@ impl StatsigHttpSpecsAdapter {
                     .specs_sync_interval_ms
                     .unwrap_or(DEFAULT_SYNC_INTERVAL_MS),
             )),
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             shutdown_notify: Arc::new(Notify::new()),
             allow_dcs_deltas: enable_dcs_deltas,
             use_deltas_next_request: AtomicBool::new(enable_dcs_deltas),

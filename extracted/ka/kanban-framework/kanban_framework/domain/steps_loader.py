@@ -37,7 +37,7 @@ def _parse_phases_to_steps(phases_config: list[dict]) -> dict[str, list[StepDef]
                 agent_type=s.get("agent_type"),
                 parallel=s.get("parallel", False),
                 user_action=s.get("user_action", False),
-                spawn_prompt=s.get("spawn_prompt"),
+                spawn_prompt=s.get("spawn_prompt") or ("\n".join(a for a in s.get("actions", []) if a and a.strip()) or None),
                 interactive=s.get("interactive", False),
                 required_artifacts=s.get("required_artifacts", []),
                 after=s.get("after", []),

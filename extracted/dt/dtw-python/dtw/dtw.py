@@ -93,13 +93,13 @@ Methods for plotting dynamic time warp alignment objects returned by
 Various plotting styles are available, passing strings to the ``type``
 argument (may be abbreviated):
 
--  ``alignment`` plots the warping curve in ``d``;
--  ``twoway`` plots a point-by-point comparison, with matching lines;
-   see [dtwPlotTwoWay()];
--  ``threeway`` vis-a-vis inspection of the timeseries and their warping
-   curve; see [dtwPlotThreeWay()];
--  ``density`` displays the cumulative cost landscape with the warping
-   path overimposed; see [dtwPlotDensity()]
+- ``alignment`` plots the warping curve in ``d``;
+- ``twoway`` plots a point-by-point comparison, with matching lines; see
+  [dtwPlotTwoWay()];
+- ``threeway`` vis-a-vis inspection of the timeseries and their warping
+  curve; see [dtwPlotThreeWay()];
+- ``density`` displays the cumulative cost landscape with the warping
+  path overimposed; see [dtwPlotDensity()]
 
 Additional parameters are passed to the plotting functions: use with
 care.
@@ -178,13 +178,13 @@ on user-defined windowing, and a discussion of the (mis)naming of the
 “Itakura” parallelogram as a global constraint. Some windowing functions
 may require parameters, such as the ``window_size`` argument.
 
-Open-ended alignment, i_e. semi-unconstrained alignment, can be selected
+Open-ended alignment, i.e. semi-unconstrained alignment, can be selected
 via the ``open_end`` switch. Open-end DTW computes the alignment which
 best matches all of the query with a *leading part* of the reference.
-This is proposed e_g. by Mori (2006), Sakoe (1979) and others.
+This is proposed e.g. by Mori (2006), Sakoe (1979) and others.
 Similarly, open-begin is enabled via ``open_begin``; it makes sense when
 ``open_end`` is also enabled (subsequence finding). Subsequence
-alignments are similar e_g. to UE2-1 algorithm by Rabiner (1978) and
+alignments are similar e.g. to UE2-1 algorithm by Rabiner (1978) and
 others. Please find a review in Tormene et al. (2009).
 
 If the warping function is not required, computation can be sped up
@@ -230,7 +230,7 @@ Cost matrices (both input and output) have query elements arranged
 row-wise (first index), and reference elements column-wise (second
 index). They print according to the usual convention, with indexes
 increasing down- and rightwards. Many DTW papers and tutorials show
-matrices according to plot-like conventions, i_e. reference index
+matrices according to plot-like conventions, i.e. reference index
 growing upwards. This may be confusing.
 
 A fast compiled version of the function is normally used. Should it be
@@ -319,9 +319,16 @@ Plot the (unwarped) query and the inverse-warped reference
 
 
 
+Contour plots of the cumulative cost matrix
+similar to: ``alignment.plot(type="density")``
+or ``dtwPlotDensity(alignment)``. 
 
+``keep_internals=True`` so we can look into the cost matrix
 
+>>> alignment = dtw(query, reference, keep_internals=True)
 
+>>> plt.contour(alignment.costMatrix.T, origin="lower")	# doctest: +SKIP
+>>> plt.plot(alignment.index1, alignment.index2, 'r-')	# doctest: +SKIP
 
 
 A hand-checkable example
@@ -346,6 +353,33 @@ Asymmetric: visiting 1 is required twice
 2.0
 >>> float(da.distance)
 2.0
+
+
+Multivariate alignment example
+
+>>> t_ref = np.linspace(0, 2*np.pi, num=100)
+>>> reference = np.column_stack([np.cos(t_ref), np.sin(t_ref)])
+
+>>> u = np.linspace(0, 1, num=70)
+>>> t_query = 2*np.pi*(u**1.5)
+>>> query = np.column_stack([np.cos(t_query), np.sin(t_query)])
+
+Explicitly choose the local distance for the multivariate samples
+
+>>> alignment_mv = dtw(query, reference,
+...                    dist_method="euclidean",
+...                    keep_internals=True)
+
+Equivalent precomputed local cost matrix:
+
+>>> # local_cost = scipy.spatial.distance.cdist(query, reference,
+>>> #                                          metric="euclidean")
+>>> # alignment_mv = dtw(local_cost, keep_internals=True)
+
+>>> plt.plot(reference[:, 0], reference[:, 1])		# doctest: +SKIP
+>>> plt.plot(query[:, 0], query[:, 1])			# doctest: +SKIP
+
+>>> plt.plot(alignment_mv.index1, alignment_mv.index2)	# doctest: +SKIP
 
 """
 

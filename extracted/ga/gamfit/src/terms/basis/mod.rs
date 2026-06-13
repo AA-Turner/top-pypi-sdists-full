@@ -22,7 +22,7 @@ use ndarray::{
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -30,12 +30,34 @@ use std::ops::Range;
 use std::sync::Arc;
 use thiserror::Error;
 
+mod constant_curvature_smooth;
 mod cyclic;
+mod measure_jet_moments;
+mod measure_jet_predict;
+mod measure_jet_smooth;
 mod polylog;
 mod sphere_kernels;
 mod sphere_spec;
 mod sphere_spectral;
 
+pub use constant_curvature_smooth::{
+    ConstantCurvatureBasisSpec, ConstantCurvatureIdentifiability, build_constant_curvature_basis,
+    constant_curvature_kernel_kappa_jets, constant_curvature_kernel_matrix,
+    realized_constant_curvature_length_scale,
+};
+pub use measure_jet_moments::{
+    MeasureJetJetStats, MeasureJetMomentTable, accumulate_moment_table, jet_sufficient_stats,
+    merge_moment_tables, recenter_moment_table,
+};
+pub use measure_jet_predict::measure_jet_extrapolation_variance;
+pub use measure_jet_smooth::{
+    MeasureJetBand, MeasureJetBasisSpec, MeasureJetEnergyJets, MeasureJetFrozenQuadrature,
+    MeasureJetIdentifiability, build_measure_jet_basis, build_measure_jet_basis_psi_derivatives,
+    measure_jet_band, measure_jet_center_masses, measure_jet_design_matrix,
+    measure_jet_energy_form, measure_jet_energy_form_with_jets, measure_jet_energy_forms_per_scale,
+    measure_jet_quadrature_nodes, measure_jet_scale_spectrum, measure_jet_support_curve,
+    realized_measure_jet_length_scale,
+};
 pub use sphere_spec::{
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
 };
@@ -2521,6 +2543,36 @@ pub enum BasisMetadata {
         wahba_kernel: SphereWahbaKernel,
         constraint_transform: Option<Array2<f64>>,
     },
+    /// Constant-curvature (`M_κ`) geodesic-kernel smooth (#944). `kappa` and
+    /// the realized `length_scale` are persisted so predict-time (and the
+    /// future ψ-channel per-trial) rebuilds replay the exact fit-time
+    /// geometry; `constraint_transform` is the composed `z · z_parametric`
+    /// frozen by the global identifiability pipeline (#532 pattern).
+    ConstantCurvature {
+        centers: Array2<f64>,
+        kappa: f64,
+        length_scale: f64,
+        constraint_transform: Option<Array2<f64>>,
+    },
+    /// Measure-jet spline smooth: multiscale local-jet-residual energy of the
+    /// empirical measure, quadratured on the center set. The penalty depends
+    /// on the FIT data through `masses` and the realized `eps_band`, so both
+    /// are persisted and replayed verbatim by predict-time (and future
+    /// per-ψ-trial) rebuilds — recomputing either from predict rows would
+    /// change the penalty the coefficients were estimated under.
+    /// `constraint_transform` is the composed `z · z_parametric` frozen by
+    /// the global identifiability pipeline (#532 pattern).
+    MeasureJet {
+        centers: Array2<f64>,
+        input_scales: Option<Vec<f64>>,
+        length_scale: f64,
+        eps_band: Vec<f64>,
+        order_s: f64,
+        alpha: f64,
+        tau0: f64,
+        masses: Array1<f64>,
+        constraint_transform: Option<Array2<f64>>,
+    },
     Matern {
         centers: Array2<f64>,
         length_scale: f64,
@@ -4288,20 +4340,60 @@ impl StreamingRadialState {
         // global rayon pool — every outer worker blocks on the OnceLock
         // while the one that won the race tries to schedule child tasks no
         // worker is free to pick up (see `feedback_oncelock_rayon_deadlock`).
-        // The serial sweep is ~100 ms at large-scale shapes (n ≈ 2e5,
-        // n_knots ≈ 10), amortized once over many subsequent O(1) reads.
+        //
+        // The serial sweep is only affordable when the per-pair radial
+        // evaluation is cheap. For the 16-D power-9 hybrid Duchon kernel a
+        // single exact `eval_design_triplet` costs tens of microseconds
+        // across its partial-fraction blocks, and at the large-scale
+        // conditional-PGS shape (n·k ≈ 480k pairs) this loop was ~15–20 s
+        // of single-threaded work per κ-trial — the dominant cost of the
+        // whole CTN stage-1 fit (#979; the cost model in the previous
+        // version of this comment assumed a cheap kernel). For large sweeps
+        // we therefore build a certified 1-D Chebyshev radial profile once
+        // (a few hundred exact evaluations, see `radial_profile`) from a
+        // distance-only pre-pass over the radius range, and answer per-pair
+        // queries with a Clenshaw contraction; out-of-range or uncertified
+        // cases fall back to the exact evaluator per pair.
+        let pair_radius = |i: usize, j: usize| -> f64 {
+            let mut r2 = 0.0_f64;
+            for a in 0..dim {
+                // Streaming constructors set n=data.nrows(), n_knots=centers.nrows(),
+                // and require dim=data.ncols()=centers.ncols(); the loop ranges
+                // therefore keep both uget reads in-bounds.
+                let h = unsafe { self.data.uget((i, a)) - self.centers.uget((j, a)) }; // SAFETY: bounds per the comment immediately above
+                r2 += metric_weights[a] * h * h;
+            }
+            r2.sqrt()
+        };
+        let profile = if total >= RADIAL_PROFILE_MIN_PAIRS {
+            let mut r_lo = f64::INFINITY;
+            let mut r_hi = 0.0_f64;
+            for i in 0..n {
+                for j in 0..n_knots {
+                    let r = pair_radius(i, j);
+                    if r > 0.0 {
+                        r_lo = r_lo.min(r);
+                        r_hi = r_hi.max(r);
+                    }
+                }
+            }
+            if r_lo.is_finite() && r_hi > r_lo {
+                radial_profile::RadialProfile::build(&self.radial_kind, r_lo, r_hi)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         for i in 0..n {
             let row_off = i * n_knots;
             for j in 0..n_knots {
-                let mut r2 = 0.0_f64;
-                for a in 0..dim {
-                    // Streaming constructors set n=data.nrows(), n_knots=centers.nrows(),
-                    // and require dim=data.ncols()=centers.ncols(); the loop ranges
-                    // therefore keep both uget reads in-bounds.
-                    let h = unsafe { self.data.uget((i, a)) - self.centers.uget((j, a)) }; // SAFETY: bounds per the comment immediately above
-                    r2 += metric_weights[a] * h * h;
-                }
-                match self.radial_kind.eval_design_triplet(r2.sqrt()) {
+                let r = pair_radius(i, j);
+                let triplet = match profile.as_ref() {
+                    Some(profile) => profile.eval_or_exact(&self.radial_kind, r),
+                    None => self.radial_kind.eval_design_triplet(r),
+                };
+                match triplet {
                     Ok((pv, qv, tv)) => {
                         phi[row_off + j] = pv;
                         q[row_off + j] = qv;
@@ -7014,12 +7106,49 @@ fn build_aniso_design_psi_derivatives_shared(
     // as "radial scalar evaluation failed" hid both the cause and the
     // recoverability.
     let first_err: std::sync::Mutex<Option<BasisError>> = std::sync::Mutex::new(None);
+    // For large sweeps, replace per-pair exact radial evaluation with a
+    // certified 1-D Chebyshev profile built once from a distance-only
+    // pre-pass over the radius range (see `radial_profile`): at the 16-D
+    // power-9 hybrid Duchon configuration a single exact triplet costs tens
+    // of microseconds across its partial-fraction blocks, and this n·k
+    // sweep was the dominant per-κ-trial cost of large-scale fits (#979).
+    // Out-of-range radii and uncertified builds fall back to the exact
+    // evaluator per pair.
+    let profile = if nk >= RADIAL_PROFILE_MIN_PAIRS {
+        let mut r_lo = f64::INFINITY;
+        let mut r_hi = 0.0_f64;
+        let mut drb = vec![0.0; dim];
+        let mut cb = vec![0.0; dim];
+        for i in 0..n {
+            for a in 0..dim {
+                drb[a] = data[[i, a]];
+            }
+            for j in 0..k {
+                for a in 0..dim {
+                    cb[a] = centers[[j, a]];
+                }
+                let (r, _) = aniso_distance_and_components(&drb, &cb, eta);
+                if r > 0.0 {
+                    r_lo = r_lo.min(r);
+                    r_hi = r_hi.max(r);
+                }
+            }
+        }
+        if r_lo.is_finite() && r_hi > r_lo {
+            radial_profile::RadialProfile::build(&radial_kind, r_lo, r_hi)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     {
         let pp = SendPtr(phi_values.as_mut_ptr());
         let qp = SendPtr(q_values.as_mut_ptr());
         let tp = SendPtr(t_values.as_mut_ptr());
         let ap = SendPtr(axis_components.as_mut_ptr());
         let ferr = &first_err;
+        let profile_ref = profile.as_ref();
         (0..nc).into_par_iter().for_each(move |ci| {
             let start = ci * cs;
             let end = start.saturating_add(cs).min(n);
@@ -7034,7 +7163,11 @@ fn build_aniso_design_psi_derivatives_shared(
                         cb[a] = centers[[j, a]];
                     }
                     let (r, sv) = aniso_distance_and_components(&drb, &cb, eta);
-                    let (phi, q, t) = match radial_kind.eval_design_triplet(r) {
+                    let triplet = match profile_ref {
+                        Some(profile) => profile.eval_or_exact(&radial_kind, r),
+                        None => radial_kind.eval_design_triplet(r),
+                    };
+                    let (phi, q, t) = match triplet {
                         Ok(p) => p,
                         Err(e) => {
                             let mut slot = ferr.lock().unwrap_or_else(|p| p.into_inner());
@@ -7183,12 +7316,49 @@ fn build_scalar_design_psi_derivatives_shared(
     let cs = IMPLICIT_MATVEC_CHUNK_SIZE;
     let nc = n.div_ceil(cs);
     let first_err: std::sync::Mutex<Option<BasisError>> = std::sync::Mutex::new(None);
+    // Same certified radial-profile amortization as the per-axis sweep
+    // above: one distance-only pre-pass for the radius range, one profile
+    // build, Clenshaw per pair, exact fallback out of range (#979).
+    let pair_r = |i: usize, j: usize, drb: &mut [f64], cb: &mut [f64]| -> f64 {
+        if let Some(eta) = fixed_eta {
+            for a in 0..dim {
+                drb[a] = data[[i, a]];
+                cb[a] = centers[[j, a]];
+            }
+            aniso_distance_and_components(drb, cb, eta).0
+        } else {
+            stable_euclidean_norm((0..dim).map(|a| data[[i, a]] - centers[[j, a]]))
+        }
+    };
+    let profile = if nk >= RADIAL_PROFILE_MIN_PAIRS {
+        let mut r_lo = f64::INFINITY;
+        let mut r_hi = 0.0_f64;
+        let mut drb = vec![0.0; dim];
+        let mut cb = vec![0.0; dim];
+        for i in 0..n {
+            for j in 0..k {
+                let r = pair_r(i, j, &mut drb, &mut cb);
+                if r > 0.0 {
+                    r_lo = r_lo.min(r);
+                    r_hi = r_hi.max(r);
+                }
+            }
+        }
+        if r_lo.is_finite() && r_hi > r_lo {
+            radial_profile::RadialProfile::build(&radial_kind, r_lo, r_hi)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     {
         let pp = SendPtr(phi_values.as_mut_ptr());
         let qp = SendPtr(q_values.as_mut_ptr());
         let tp = SendPtr(t_values.as_mut_ptr());
         let ap = SendPtr(axis_components.as_mut_ptr());
         let ferr = &first_err;
+        let profile_ref = profile.as_ref();
         (0..nc).into_par_iter().for_each(move |ci| {
             let start = ci * cs;
             let end = start.saturating_add(cs).min(n);
@@ -7211,7 +7381,11 @@ fn build_scalar_design_psi_derivatives_shared(
                             stable_euclidean_norm((0..dim).map(|a| data[[i, a]] - centers[[j, a]]));
                         (r, r * r)
                     };
-                    let (phi, q, t) = match radial_kind.eval_design_triplet(r) {
+                    let triplet = match profile_ref {
+                        Some(profile) => profile.eval_or_exact(&radial_kind, r),
+                        None => radial_kind.eval_design_triplet(r),
+                    };
+                    let (phi, q, t) = match triplet {
                         Ok(p) => p,
                         Err(e) => {
                             let mut slot = ferr.lock().unwrap_or_else(|p| p.into_inner());
@@ -8294,19 +8468,6 @@ pub fn build_bspline_basis_1d(
     })
 }
 
-fn project_bspline_penalties(
-    penalties: Vec<Array2<f64>>,
-    transform: &Array2<f64>,
-) -> Vec<Array2<f64>> {
-    penalties
-        .into_iter()
-        .map(|s| {
-            let zt_s = fast_atb(transform, &s);
-            fast_ab(&zt_s, transform)
-        })
-        .collect()
-}
-
 fn compose_bspline_transform(
     existing: Option<Array2<f64>>,
     next: Array2<f64>,
@@ -8485,12 +8646,18 @@ fn build_streaming_bspline_design_and_candidates(
                 chunk,
             )?;
             let z = bspline_sum_to_zero_transform_from_cross(&cross)?;
-            penalty_mats = project_bspline_penalties(penalty_mats, &z);
+            penalty_mats = penalty_mats
+                .into_iter()
+                .map(|s| project_penalty_matrix(&s, Some(&z)))
+                .collect();
             transform_opt = Some(compose_bspline_transform(transform_opt, z)?);
         }
         BSplineIdentifiability::RemoveLinearTrend => {
             let (z, _) = compute_geometric_constraint_transform(knots, degree, 2)?;
-            penalty_mats = project_bspline_penalties(penalty_mats, &z);
+            penalty_mats = penalty_mats
+                .into_iter()
+                .map(|s| project_penalty_matrix(&s, Some(&z)))
+                .collect();
             transform_opt = Some(compose_bspline_transform(transform_opt, z)?);
         }
         BSplineIdentifiability::OrthogonalToDesignColumns { columns, weights } => {
@@ -8504,7 +8671,10 @@ fn build_streaming_bspline_design_and_candidates(
                 weights.as_ref().map(|w| w.view()),
                 chunk,
             )?;
-            penalty_mats = project_bspline_penalties(penalty_mats, &z);
+            penalty_mats = penalty_mats
+                .into_iter()
+                .map(|s| project_penalty_matrix(&s, Some(&z)))
+                .collect();
             transform_opt = Some(compose_bspline_transform(transform_opt, z)?);
         }
         BSplineIdentifiability::FrozenTransform { transform } => {
@@ -8520,7 +8690,10 @@ fn build_streaming_bspline_design_and_candidates(
                 );
             }
             let z = transform.clone();
-            penalty_mats = project_bspline_penalties(penalty_mats, &z);
+            penalty_mats = penalty_mats
+                .into_iter()
+                .map(|s| project_penalty_matrix(&s, Some(&z)))
+                .collect();
             transform_opt = Some(compose_bspline_transform(transform_opt, z)?);
         }
     }
@@ -12955,6 +13128,14 @@ fn bessel_k1_small_series(x: f64) -> f64 {
 const DUCHON_DERIVATIVE_R_FLOOR_REL: f64 = 1e-5;
 const DUCHON_COLLISION_TAYLOR_REL: f64 = 1e-4;
 
+/// Minimum `(row, center)` pair count before a radial design sweep builds a
+/// certified [`radial_profile::RadialProfile`] instead of evaluating every
+/// pair exactly. The profile build costs a few hundred exact jet
+/// evaluations, so it only pays for itself when the sweep reuses it well
+/// beyond that; below the threshold the exact path keeps small fits
+/// bit-identical to the pre-profile behavior.
+const RADIAL_PROFILE_MIN_PAIRS: usize = 16_384;
+
 #[inline(always)]
 fn duchon_p_from_nullspace_order(order: DuchonNullspaceOrder) -> usize {
     match order {
@@ -13429,133 +13610,196 @@ fn duchon_polyharmonic_operator_block_jets(
     Ok((q, t, t_r, t_rr))
 }
 
-/// Unified radial jet for one scaled Matérn/Bessel-K family
-///   coeff * r^mu * K_|mu|(kappa r).
+/// Shared Bessel-K ladder for one evaluation point `z = κ·r`.
 ///
-/// Returns (g, g', g'', g''', g'''') from a single consistent evaluation.
-/// The actual Duchon block jet and the stable operator jets for q/t reuse this
-/// same helper with different `(coeff, mu)` pairs, so they share the exact same
-/// Bessel evaluations and recurrence algebra.
+/// Every Matérn partial-fraction block and every term of its radial
+/// derivative lattice consumes `K_ν(z)` at orders from ONE parity class
+/// (integer when the covariate dimension is even, half-integer when odd),
+/// differing by integers — and all at the SAME `z`. The previous code
+/// restarted the `K₀/K₁` (or closed-form half-integer) seed evaluation and
+/// the upward recurrence inside every per-term Bessel call: hundreds of
+/// redundant seed+recurrence runs per `(row, center)` pair, which the #979
+/// CTN stage-1 stack profile showed to be the dominant cost of every Duchon
+/// κ-trial at scale. One ladder per point replaces all of them: two seed
+/// evaluations plus the standard upward recurrence
+/// `K_{ν+1}(z) = K_{ν−1}(z) + (2ν/z)·K_ν(z)`, which is the numerically
+/// STABLE direction for `K` (it grows with ν). For integer orders this is
+/// arithmetic-identical to the old per-call `bessel_k_integer_order`, which
+/// ran the same seeds and recurrence internally; for half-integer orders the
+/// recurrence is exact and replaces the per-order closed-form sum.
+struct BesselKLadder {
+    /// `values[i] = K_{base + i}(z)` with `base ∈ {0, ½}`.
+    values: SmallVec<[f64; 16]>,
+    half_integer: bool,
+}
+
+impl BesselKLadder {
+    fn build(z: f64, half_integer: bool, max_order_steps: usize) -> Self {
+        let zz = z.max(1e-300);
+        let mut values: SmallVec<[f64; 16]> = SmallVec::with_capacity(max_order_steps + 2);
+        if half_integer {
+            // K_{1/2}(z) = √(π/(2z))·e^{−z};  K_{3/2}(z) = K_{1/2}(z)·(1 + 1/z).
+            let k_half = (std::f64::consts::PI / (2.0 * zz)).sqrt() * (-zz).exp();
+            values.push(k_half);
+            values.push(k_half * (1.0 + 1.0 / zz));
+        } else {
+            values.push(bessel_k0_stable(zz));
+            values.push(bessel_k1_stable(zz));
+        }
+        let base = if half_integer { 0.5 } else { 0.0 };
+        for i in 1..max_order_steps {
+            let nu = base + i as f64;
+            let next = values[i - 1] + 2.0 * nu * values[i] / zz;
+            values.push(next);
+        }
+        Self {
+            values,
+            half_integer,
+        }
+    }
+
+    /// `K_{|order|}(z)` from the ladder (`K_{−ν} = K_ν`).
+    #[inline]
+    fn k_abs(&self, order_abs: f64) -> f64 {
+        let base = if self.half_integer { 0.5 } else { 0.0 };
+        let idx = (order_abs - base).round() as usize;
+        self.values[idx]
+    }
+}
+
+/// Radial-derivative jets of the Matérn family `coeff·r^μ·K_μ(κr)` up to
+/// order `max_j ≤ 4`, evaluated against a shared [`BesselKLadder`].
 ///
-/// Uses the exact recurrence derived from d/dr[r^ν K_ν(κr)] and the
-/// Bessel identity dK_ν/dz = −K_{ν−1}(z) − (ν/z)K_ν(z), which gives
-/// the cancellation pattern:
+/// Exact recurrence derived from `d/dr[r^ν K_ν(κr)]` and the Bessel identity
+/// `dK_ν/dz = −K_{ν−1}(z) − (ν/z)K_ν(z)`:
 ///
-///   g^(0) = c · r^ν · K_ν(z)
-///   g^(1) = −c · κ · r^ν · K_{ν−1}(z)
-///   g^(2) = c·κ² r^ν K_{ν−2} − c·κ r^{ν−1} K_{ν−1}
-///   g^(3) = 3c·κ² r^{ν−1} K_{ν−2} − c·κ³ r^ν K_{ν−3}
-///   g^(4) = 3c·κ² r^{ν−2} K_{ν−2} − 6c·κ³ r^{ν−1} K_{ν−3} + c·κ⁴ r^ν K_{ν−4}
-#[inline(always)]
-fn duchon_matern_family_radial_derivative(
+///   g⁽⁰⁾ = c · r^ν · K_ν(z)
+///   g⁽¹⁾ = −c · κ · r^ν · K_{ν−1}(z)
+///   g⁽²⁾ = c·κ² r^ν K_{ν−2} − c·κ r^{ν−1} K_{ν−1}, ...
+///
+/// Same derivative lattice as the per-order reference implementation
+/// `duchon_matern_family_radial_derivative_reference` (kept in the test
+/// module as the equivalence oracle)
+/// (term-for-term, in the same order), but: (a) the lattice is expanded
+/// incrementally once instead of rebuilt from scratch per derivative order,
+/// (b) terms live in a fixed-capacity stack buffer instead of per-call heap
+/// `Vec`s (≤ 2^max_j ≤ 16 terms), and (c) every Bessel factor is an indexed
+/// ladder read instead of a fresh seed+recurrence evaluation. Only orders
+/// `0..=max_j` are computed — the q-family consumes order 0 only and the
+/// t-family orders ≤ 2, where the old path always expanded to order 4 and
+/// discarded the tail.
+fn duchon_matern_family_jets_with_ladder(
     r: f64,
     kappa: f64,
     coeff: f64,
     mu: f64,
-    derivative_order: usize,
-) -> Result<f64, BasisError> {
-    if !r.is_finite() || r < 0.0 {
-        crate::bail_invalid_basis!("Duchon Matérn-family distance must be finite and non-negative");
-    }
-    if !kappa.is_finite() || kappa <= 0.0 {
-        crate::bail_invalid_basis!("Duchon Matérn-family kappa must be finite and positive");
-    }
-    if r <= 0.0 && derivative_order == 0 && mu > 0.0 {
-        return Ok(coeff * 2.0_f64.powf(mu - 1.0) * gamma_lanczos(mu) * kappa.powf(-mu));
+    max_j: usize,
+    ladder: &BesselKLadder,
+    out: &mut [f64],
+) -> Result<(), BasisError> {
+    if max_j > 4 || out.len() <= max_j {
+        crate::bail_invalid_basis!(
+            "Duchon Matérn-family ladder jets support derivative orders 0..=4 with an output slot per order"
+        );
     }
     if r <= 0.0 {
-        return Ok(0.0);
+        out[..=max_j].fill(0.0);
+        if mu > 0.0 {
+            out[0] = coeff * 2.0_f64.powf(mu - 1.0) * gamma_lanczos(mu) * kappa.powf(-mu);
+        }
+        return Ok(());
     }
-
-    let z = (kappa * r).max(1e-300);
-    let mut terms = vec![DuchonMaternDerivativeTerm {
-        coeff,
-        kappa_power: 0,
-        r_power: mu,
-        bessel_order: mu,
-    }];
-
-    for _ in 0..derivative_order {
-        let mut next_terms = Vec::with_capacity(terms.len() * 2);
-        for term in terms {
-            let stay_coeff = term.coeff * (term.r_power - term.bessel_order);
-            if stay_coeff != 0.0 {
-                next_terms.push(DuchonMaternDerivativeTerm {
-                    coeff: stay_coeff,
-                    kappa_power: term.kappa_power,
-                    r_power: term.r_power - 1.0,
-                    bessel_order: term.bessel_order,
+    let mut terms: SmallVec<[DuchonMaternDerivativeTerm; 16]> =
+        smallvec![DuchonMaternDerivativeTerm {
+            coeff,
+            kappa_power: 0,
+            r_power: mu,
+            bessel_order: mu,
+        }];
+    for (j, slot) in out.iter_mut().enumerate().take(max_j + 1) {
+        if j > 0 {
+            let mut next: SmallVec<[DuchonMaternDerivativeTerm; 16]> =
+                SmallVec::with_capacity(terms.len() * 2);
+            for term in &terms {
+                let stay_coeff = term.coeff * (term.r_power - term.bessel_order);
+                if stay_coeff != 0.0 {
+                    next.push(DuchonMaternDerivativeTerm {
+                        coeff: stay_coeff,
+                        kappa_power: term.kappa_power,
+                        r_power: term.r_power - 1.0,
+                        bessel_order: term.bessel_order,
+                    });
+                }
+                next.push(DuchonMaternDerivativeTerm {
+                    coeff: -term.coeff,
+                    kappa_power: term.kappa_power + 1,
+                    r_power: term.r_power,
+                    bessel_order: term.bessel_order - 1.0,
                 });
             }
-            next_terms.push(DuchonMaternDerivativeTerm {
-                coeff: -term.coeff,
-                kappa_power: term.kappa_power + 1,
-                r_power: term.r_power,
-                bessel_order: term.bessel_order - 1.0,
-            });
+            terms = next;
         }
-        terms = next_terms;
-    }
-
-    let mut value = KahanSum::default();
-    for term in terms {
-        if term.coeff == 0.0 {
-            continue;
+        let mut value = KahanSum::default();
+        for term in &terms {
+            if term.coeff == 0.0 {
+                continue;
+            }
+            value.add(
+                term.coeff
+                    * kappa.powi(term.kappa_power as i32)
+                    * r.powf(term.r_power)
+                    * ladder.k_abs(term.bessel_order.abs()),
+            );
         }
-        let k_term = bessel_k_real_half_integer_or_integer(term.bessel_order.abs(), z)?;
-        value.add(term.coeff * kappa.powi(term.kappa_power as i32) * r.powf(term.r_power) * k_term);
+        *slot = value.sum();
     }
-    Ok(value.sum())
+    Ok(())
 }
 
-#[inline(always)]
-fn duchon_matern_family_jet4(
-    r: f64,
-    kappa: f64,
-    coeff: f64,
-    mu: f64,
-) -> Result<(f64, f64, f64, f64, f64), BasisError> {
-    if !r.is_finite() || r < 0.0 {
-        crate::bail_invalid_basis!("Duchon Matérn-family distance must be finite and non-negative");
-    }
-    if !kappa.is_finite() || kappa <= 0.0 {
-        crate::bail_invalid_basis!("Duchon Matérn-family kappa must be finite and positive");
-    }
-    Ok((
-        duchon_matern_family_radial_derivative(r, kappa, coeff, mu, 0)?,
-        duchon_matern_family_radial_derivative(r, kappa, coeff, mu, 1)?,
-        duchon_matern_family_radial_derivative(r, kappa, coeff, mu, 2)?,
-        duchon_matern_family_radial_derivative(r, kappa, coeff, mu, 3)?,
-        duchon_matern_family_radial_derivative(r, kappa, coeff, mu, 4)?,
-    ))
+/// Maximum ladder steps (`K_base ..= K_{base+steps}`) needed by the q/t
+/// operator families of Matérn block `n` in dimension `k_dim`: the q-family
+/// reads `K_{|ν−1|}` and the t-family `K_{|ν−2−j|}` for `j ≤ 2`, ν = n − d/2.
+fn duchon_matern_block_max_ladder_steps(n_order: usize, k_dim: usize) -> usize {
+    let nu = n_order as f64 - 0.5 * k_dim as f64;
+    let candidates = [
+        (nu - 1.0).abs(),
+        (nu - 2.0).abs(),
+        (nu - 3.0).abs(),
+        (nu - 4.0).abs(),
+    ];
+    let max_abs = candidates.iter().copied().fold(0.0_f64, f64::max);
+    max_abs.floor() as usize + 1
 }
 
-#[inline(always)]
-fn duchon_matern_operator_block_jets(
+fn duchon_matern_operator_block_jets_with_ladder(
     r: f64,
     kappa: f64,
     n_order: usize,
     k_dim: usize,
+    ladder: &BesselKLadder,
 ) -> Result<(f64, f64, f64, f64), BasisError> {
-    if !r.is_finite() || r < 0.0 {
-        crate::bail_invalid_basis!("Duchon Matérn-block distance must be finite and non-negative");
-    }
-    if !kappa.is_finite() || kappa <= 0.0 {
-        crate::bail_invalid_basis!("Duchon Matérn-block kappa must be finite and positive");
-    }
     if r <= 0.0 {
         return Ok((0.0, 0.0, 0.0, 0.0));
     }
-
     let n = n_order as f64;
     let k_half = 0.5 * k_dim as f64;
     let nu = n - k_half;
     let c = kappa.powf(k_half - n)
         / ((2.0 * std::f64::consts::PI).powf(k_half) * 2.0_f64.powf(n - 1.0) * gamma_lanczos(n));
 
-    let (q, _, _, _, _) = duchon_matern_family_jet4(r, kappa, -c * kappa, nu - 1.0)?;
-    let (t, t_r, t_rr, _, _) = duchon_matern_family_jet4(r, kappa, c * kappa * kappa, nu - 2.0)?;
-    Ok((q, t, t_r, t_rr))
+    let mut q_out = [0.0_f64; 1];
+    duchon_matern_family_jets_with_ladder(r, kappa, -c * kappa, nu - 1.0, 0, ladder, &mut q_out)?;
+    let mut t_out = [0.0_f64; 3];
+    duchon_matern_family_jets_with_ladder(
+        r,
+        kappa,
+        c * kappa * kappa,
+        nu - 2.0,
+        2,
+        ladder,
+        &mut t_out,
+    )?;
+    Ok((q_out[0], t_out[0], t_out[1], t_out[2]))
 }
 
 #[inline(always)]
@@ -17973,15 +18217,32 @@ fn duchon_regularized_operator_core(
         t_r_sum.add(coeff * t_r);
         t_rr_sum.add(coeff * t_rr);
     }
-    for (n, coeff) in coeffs.b.iter().enumerate().skip(1) {
-        if *coeff == 0.0 {
-            continue;
+    // One Bessel-K ladder at z = κ·r serves every Matérn block and every
+    // term of their derivative lattices (see [`BesselKLadder`]); the old
+    // per-term Bessel calls restarted the seed+recurrence hundreds of times
+    // per evaluation point.
+    let max_ladder_steps = coeffs
+        .b
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter(|(_, coeff)| **coeff != 0.0)
+        .map(|(n, _)| duchon_matern_block_max_ladder_steps(n, k_dim))
+        .max();
+    if let Some(max_ladder_steps) = max_ladder_steps {
+        let ladder =
+            BesselKLadder::build(kappa * r_eval, !k_dim.is_multiple_of(2), max_ladder_steps);
+        for (n, coeff) in coeffs.b.iter().enumerate().skip(1) {
+            if *coeff == 0.0 {
+                continue;
+            }
+            let (q, t, t_r, t_rr) =
+                duchon_matern_operator_block_jets_with_ladder(r_eval, kappa, n, k_dim, &ladder)?;
+            q_sum.add(coeff * q);
+            t_sum.add(coeff * t);
+            t_r_sum.add(coeff * t_r);
+            t_rr_sum.add(coeff * t_rr);
         }
-        let (q, t, t_r, t_rr) = duchon_matern_operator_block_jets(r_eval, kappa, n, k_dim)?;
-        q_sum.add(coeff * q);
-        t_sum.add(coeff * t);
-        t_r_sum.add(coeff * t_r);
-        t_rr_sum.add(coeff * t_rr);
     }
     Ok(DuchonRegularizedOperatorCore {
         q: q_sum.sum(),
@@ -19271,6 +19532,57 @@ fn build_duchon_basis_designwithworkspace(
         coeffs.as_ref(),
         pure_poly_coeff.as_ref(),
     );
+    // Certified radial value profile for the hybrid path (#979): one exact
+    // hybrid-Duchon kernel value costs microseconds across its
+    // partial-fraction blocks, and this n·k materialization loop runs on
+    // every design rebuild of every κ-trial. For large sweeps, profile φ
+    // once over the observed radius range (distance-only pre-pass) and
+    // answer per-pair queries by Clenshaw; out-of-range radii and
+    // uncertified builds fall back to the exact evaluator (the profile's
+    // exact fallback IS `duchon_radial_jets`, whose value channel is the
+    // same `duchon_matern_kernel_general_from_distance` evaluated below).
+    let hybrid_kind = match (length_scale, coeffs.as_ref()) {
+        (Some(ls), Some(c)) if pure_poly_coeff.is_none() => Some(RadialScalarKind::Duchon {
+            length_scale: ls,
+            p_order,
+            s_order: duchon_power_to_usize(s_order),
+            dim: d,
+            coeffs: c.clone(),
+        }),
+        _ => None,
+    };
+    let value_profile = hybrid_kind.as_ref().and_then(|kind| {
+        if n.saturating_mul(k) < RADIAL_PROFILE_MIN_PAIRS {
+            return None;
+        }
+        let (r_lo, r_hi) = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let mut lo = f64::INFINITY;
+                let mut hi = 0.0_f64;
+                for j in 0..k {
+                    let r = if let Some(scales) = axis_scales.as_deref() {
+                        aniso_distance_rows_with_scales(data, i, centers, j, scales)
+                    } else {
+                        euclidean_distance_rows(data, i, centers, j)
+                    };
+                    if r > 0.0 {
+                        lo = lo.min(r);
+                        hi = hi.max(r);
+                    }
+                }
+                (lo, hi)
+            })
+            .reduce(
+                || (f64::INFINITY, 0.0_f64),
+                |a, b| (a.0.min(b.0), a.1.max(b.1)),
+            );
+        if r_lo.is_finite() && r_hi > r_lo {
+            radial_profile::RadialProfile::build(kind, r_lo, r_hi)
+        } else {
+            None
+        }
+    });
     let mut basis = Array2::<f64>::zeros((n, total_cols));
     // Process rows in chunks to amortize thread-local allocation across many rows.
     // Use larger chunks (1024) for better cache utilization at large scale.
@@ -19293,6 +19605,10 @@ fn build_duchon_basis_designwithworkspace(
                     let raw = if let Some(ref ppc) = pure_poly_coeff {
                         // Pure Duchon: use precomputed coefficient, skip gamma calls.
                         ppc.eval(r)
+                    } else if let (Some(profile), Some(kind)) =
+                        (value_profile.as_ref(), hybrid_kind.as_ref())
+                    {
+                        profile.eval_or_exact(kind, r)?.0
                     } else {
                         duchon_matern_kernel_general_from_distance(
                             r,
@@ -26302,6 +26618,7 @@ pub fn evaluate_bspline_fourth_derivative_scalar(
 /// Riesz kernel:  R_j^d(r) = F^{-1}{|ρ|^{-2j}}(r).
 /// Matérn block:  M_ℓ^d(r; κ) = F^{-1}{(|ρ|² + κ²)^{-ℓ}}(r).
 pub mod closed_form_penalty;
+pub mod radial_profile;
 
 // Unit tests are crucial for a mathematical library like this.
 #[cfg(test)]
@@ -26311,6 +26628,99 @@ mod tests {
     use ndarray::{Array1, Array2, array};
     use num_dual::{DualNum, second_derivative};
     use std::sync::Arc;
+
+    /// Per-order reference for the Matérn-family radial derivatives — the
+    /// readable one-term-lattice-per-call form the shared-ladder production
+    /// path (`duchon_matern_family_jets_with_ladder`) replaced. Kept as the
+    /// equivalence oracle: identical lattice expansion, but every Bessel
+    /// factor is an independent fresh evaluation.
+    fn duchon_matern_family_radial_derivative_reference(
+        r: f64,
+        kappa: f64,
+        coeff: f64,
+        mu: f64,
+        derivative_order: usize,
+    ) -> Result<f64, BasisError> {
+        if r <= 0.0 && derivative_order == 0 && mu > 0.0 {
+            return Ok(coeff * 2.0_f64.powf(mu - 1.0) * gamma_lanczos(mu) * kappa.powf(-mu));
+        }
+        if r <= 0.0 {
+            return Ok(0.0);
+        }
+        let z = (kappa * r).max(1e-300);
+        let mut terms = vec![DuchonMaternDerivativeTerm {
+            coeff,
+            kappa_power: 0,
+            r_power: mu,
+            bessel_order: mu,
+        }];
+        for _ in 0..derivative_order {
+            let mut next_terms = Vec::with_capacity(terms.len() * 2);
+            for term in terms {
+                let stay_coeff = term.coeff * (term.r_power - term.bessel_order);
+                if stay_coeff != 0.0 {
+                    next_terms.push(DuchonMaternDerivativeTerm {
+                        coeff: stay_coeff,
+                        kappa_power: term.kappa_power,
+                        r_power: term.r_power - 1.0,
+                        bessel_order: term.bessel_order,
+                    });
+                }
+                next_terms.push(DuchonMaternDerivativeTerm {
+                    coeff: -term.coeff,
+                    kappa_power: term.kappa_power + 1,
+                    r_power: term.r_power,
+                    bessel_order: term.bessel_order - 1.0,
+                });
+            }
+            terms = next_terms;
+        }
+        let mut value = KahanSum::default();
+        for term in terms {
+            if term.coeff == 0.0 {
+                continue;
+            }
+            let k_term = bessel_k_real_half_integer_or_integer(term.bessel_order.abs(), z)?;
+            value.add(
+                term.coeff * kappa.powi(term.kappa_power as i32) * r.powf(term.r_power) * k_term,
+            );
+        }
+        Ok(value.sum())
+    }
+
+    #[test]
+    fn shared_ladder_matern_jets_match_per_order_reference() {
+        // Integer (even d) and half-integer (odd d) parity classes, across
+        // representative (r, κ, μ) values including large-|ν| orders.
+        for &half_integer in &[false, true] {
+            let base = if half_integer { 0.5 } else { 0.0 };
+            for &mu_steps in &[1.0_f64, -2.0, -6.5_f64.floor()] {
+                let mu = mu_steps + base - 1.0;
+                for &r in &[1e-4_f64, 0.03, 0.7, 2.5, 9.0] {
+                    for &kappa in &[0.2_f64, 1.0, 7.0] {
+                        let max_steps = (mu.abs() + 5.0).ceil() as usize + 1;
+                        let ladder = BesselKLadder::build(kappa * r, half_integer, max_steps);
+                        let mut out = [0.0_f64; 5];
+                        duchon_matern_family_jets_with_ladder(
+                            r, kappa, 1.37, mu, 4, &ladder, &mut out,
+                        )
+                        .expect("ladder jets");
+                        for (j, &ladder_value) in out.iter().enumerate() {
+                            let reference = duchon_matern_family_radial_derivative_reference(
+                                r, kappa, 1.37, mu, j,
+                            )
+                            .expect("reference jets");
+                            let scale = reference.abs().max(ladder_value.abs()).max(1e-280);
+                            assert!(
+                                (ladder_value - reference).abs() <= 1e-11 * scale,
+                                "ladder vs reference mismatch: half_int={half_integer} mu={mu} r={r} kappa={kappa} j={j}: {ladder_value:e} vs {reference:e}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     /// Test helper that aborts the run with an "expected Duchon metadata"
     /// message. Defined once so the test bodies do not have to spell out
@@ -33572,8 +33982,14 @@ mod tests {
 
         let jets =
             duchon_radial_jets(r, length_scale, p_order, s_order, k_dim, &coeffs).expect("jets");
+        let block_ladder = BesselKLadder::build(
+            kappa * r,
+            !k_dim.is_multiple_of(2),
+            duchon_matern_block_max_ladder_steps(1, k_dim),
+        );
         let (q_expected, t_expected, t_r_expected, t_rr_expected) =
-            duchon_matern_operator_block_jets(r, kappa, 1, k_dim).expect("block operator jets");
+            duchon_matern_operator_block_jets_with_ladder(r, kappa, 1, k_dim, &block_ladder)
+                .expect("block operator jets");
 
         assert!((jets.q - q_expected).abs() <= 1e-12 * q_expected.abs().max(1.0));
         assert!((jets.t - t_expected).abs() <= 1e-12 * t_expected.abs().max(1.0));

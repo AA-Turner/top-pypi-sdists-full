@@ -19,6 +19,7 @@ from pdfminer.layout import LTPage, LTTextBox
 from pikepdf import Name, Page, Pdf
 
 from ocrmypdf._concurrent import Executor, SerialExecutor
+from ocrmypdf._pageboxes import coerce_box
 from ocrmypdf.exceptions import EncryptedPdfError
 from ocrmypdf.helpers import Resolution
 from ocrmypdf.pdfinfo._contentstream import TextboxInfo, TextMarker, VectorMarker
@@ -32,6 +33,12 @@ from ocrmypdf.pdfinfo.layout import (
 )
 
 logger = logging.getLogger()
+
+
+def _box_rect(values: Iterable) -> FloatRect:
+    """Coerce a page box to a normalized ``FloatRect`` (4-tuple)."""
+    b = coerce_box(values)
+    return (b[0], b[1], b[2], b[3])
 
 
 def _page_has_text(text_blocks: Iterable[FloatRect], page_width, page_height) -> bool:
@@ -140,15 +147,15 @@ class PageInfo:
         miner_state: PdfMinerState | None,
     ):
         page: Page = pdf.pages[pageno]
-        mediabox = [Decimal(d) for d in page.mediabox.as_list()]
+        mediabox = [Decimal(str(d)) for d in coerce_box(page.mediabox.as_list())]
         width_pt = mediabox[2] - mediabox[0]
         height_pt = mediabox[3] - mediabox[1]
 
-        self._artbox = [float(d) for d in page.artbox.as_list()]
-        self._bleedbox = [float(d) for d in page.bleedbox.as_list()]
-        self._cropbox = [float(d) for d in page.cropbox.as_list()]
-        self._mediabox = [float(d) for d in page.mediabox.as_list()]
-        self._trimbox = [float(d) for d in page.trimbox.as_list()]
+        self._artbox = _box_rect(page.artbox.as_list())
+        self._bleedbox = _box_rect(page.bleedbox.as_list())
+        self._cropbox = _box_rect(page.cropbox.as_list())
+        self._mediabox = _box_rect(page.mediabox.as_list())
+        self._trimbox = _box_rect(page.trimbox.as_list())
 
         check_this_page = pageno in check_pages
 
@@ -398,6 +405,7 @@ class PdfInfo:
     _has_acroform: bool = False
     _has_signature: bool = False
     _needs_rendering: bool = False
+    _has_structure_tree: bool = False
 
     def __init__(
         self,
@@ -449,6 +457,7 @@ class PdfInfo:
             self._is_tagged = bool(
                 pdf.Root.get(Name.MarkInfo, {}).get(Name.Marked, False)
             )
+            self._has_structure_tree = Name.StructTreeRoot in pdf.Root
 
     @property
     def pages(self) -> list[PageInfo | None]:
@@ -480,6 +489,11 @@ class PdfInfo:
     def is_tagged(self) -> bool:
         """Return True if the document catalog indicates this is a Tagged PDF."""
         return self._is_tagged
+
+    @property
+    def has_structure_tree(self) -> bool:
+        """Return True if the document catalog has a logical structure tree."""
+        return self._has_structure_tree
 
     @property
     def filename(self) -> str | Path:

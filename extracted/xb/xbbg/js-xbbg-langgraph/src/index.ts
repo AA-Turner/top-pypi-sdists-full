@@ -22,8 +22,11 @@ export {
   createExtTickerTool,
   createExtYasOverridesTool,
 } from "./ext-tools";
+export type { ToolInvocationConfig } from "./langchain-tool";
+export { toolParameterJsonSchema } from "./langchain-tool";
 export {
   BLOOMBERG_TOOL_NAMES,
+  DEFAULT_ENGINE_REQUEST_TIMEOUT_MS,
   type BloombergToolName,
   type BloombergToolsOptions,
   type NormalizedBloombergToolsOptions,

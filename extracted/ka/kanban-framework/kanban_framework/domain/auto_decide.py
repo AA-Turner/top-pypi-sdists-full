@@ -15,10 +15,12 @@ from kanban_framework.types import Task, Phase
 _CONFIDENCE_THRESHOLD = 0.7
 
 # Step ID prefixes that map to auto_mode flags
+# NOTE: user_decision intentionally NOT in auto-decide — human must always
+# review before archive. Auto-mode advances through plan/execute/evaluate
+# but stops at user_decision for human verification.
 _STEP_FLAG_MAP = {
     "plan": "auto_brainstorm",
     "evaluate": "auto_iteration",
-    "user_decision": "auto_archive",
 }
 
 # Valid decisions per phase

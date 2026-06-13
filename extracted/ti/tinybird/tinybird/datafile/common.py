@@ -277,6 +277,13 @@ VALID_BLOB_STORAGE_CRON_VALUES = {
     "@auto",
 }
 
+REQUIRED_DYNAMODB_PARAMS = {
+    "import_connection_name",
+    "import_table_arn",
+    "import_export_bucket",
+}
+DYNAMODB_PARAMS = REQUIRED_DYNAMODB_PARAMS
+
 
 def extract_column_names_from_sorting_key_part(part: str) -> List[str]:
     """
@@ -575,8 +582,15 @@ class Datafile:
                 )
             if "kafka_group_id" in node and not str(node["kafka_group_id"]).strip():
                 raise DatafileValidationError("KAFKA_GROUP_ID cannot be empty")
+            # Validate DynamoDB params first since import_connection_name is shared with blob storage.
+            is_dynamodb = any(param in node for param in ("import_table_arn", "import_export_bucket"))
+            if is_dynamodb:
+                if missing := [param for param in REQUIRED_DYNAMODB_PARAMS if param not in node]:
+                    raise DatafileValidationError(
+                        f"Some DynamoDB params have been provided, but the following required ones are missing: {missing}"
+                    )
             # Validate S3 params
-            if any(param in node for param in BLOB_STORAGE_PARAMS):
+            elif any(param in node for param in BLOB_STORAGE_PARAMS):
                 if missing := [param for param in REQUIRED_BLOB_STORAGE_PARAMS if param not in node]:
                     raise DatafileValidationError(
                         f"Some connection params have been provided, but the following required ones are missing: {missing}"
@@ -2097,6 +2111,8 @@ def parse(
             "s3_arn": assign_var("s3_arn"),
             "s3_access_key": assign_var("s3_access_key"),
             "s3_secret": assign_var("s3_secret"),
+            "dynamodb_arn": assign_var("dynamodb_arn"),
+            "dynamodb_region": assign_var("dynamodb_region"),
             "gcs_service_account_credentials_json": assign_var_json("gcs_service_account_credentials_json"),
             "gcs_access_id": assign_var("gcs_hmac_access_id"),
             "gcs_secret": assign_var("gcs_hmac_secret"),

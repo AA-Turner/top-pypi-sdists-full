@@ -43,363 +43,116 @@ For a full list of options See `NagPackProps` in the [API.md](./API.md#struct-na
 <summary>Including in an application</summary>
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from ...lib.cdk_test_stack import CdkTestStack
-from cdk_nag import AwsSolutionsChecks
+from aws_cdk import App, Validations
+from cdk_nag import AwsSolutionsChecks, NIST80053R5Checks
 
+# CdkTestStack: Any
 
 app = App()
 CdkTestStack(app, "CdkNagDemo")
 # Simple rule informational messages using the AWS Solutions Rule pack
-Aspects.of(app).add(AwsSolutionsChecks())
+Validations.of(app).add_plugins(AwsSolutionsChecks(app))
 # Multiple rule packs can be run against the same app
-Aspects.of(app).add(NIST80053R5Checks())
+Validations.of(app).add_plugins(NIST80053R5Checks(app))
 ```
 
 </details>
 
-## Suppressing a Rule
+## Acknowledging a Rule
+
+Use CDK's native `Validations.of()` API to acknowledge (suppress) rule violations on specific constructs.
 
 <details>
-  <summary>Example 1) Default Construct</summary>
+  <summary>Example 1) Acknowledging a rule on a construct</summary>
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
-from aws_cdk import Stack, StackProps
+from aws_cdk import Stack, StackProps, Validations
 from constructs import Construct
-from cdk_nag import NagSuppressions
-
 
 class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors)
         test = SecurityGroup(self, "test",
             vpc=Vpc(self, "vpc")
         )
         test.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
-        NagSuppressions.add_resource_suppressions(test, [id="AwsSolutions-EC23", reason="lorem ipsum"
-        ])
-```
-
-</details><details>
-  <summary>Example 2) On Multiple Constructs</summary>
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
-from aws_cdk import Stack, StackProps
-from constructs import Construct
-from cdk_nag import NagSuppressions
-
-
-class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        vpc = Vpc(self, "vpc")
-        test1 = SecurityGroup(self, "test", vpc=vpc)
-        test1.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
-        test2 = SecurityGroup(self, "test", vpc=vpc)
-        test2.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
-        NagSuppressions.add_resource_suppressions([test1, test2], [id="AwsSolutions-EC23", reason="lorem ipsum"])
-```
-
-</details><details>
-  <summary>Example 3) Child Constructs</summary>
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from cdk_nag import NagPackSuppression
-from aws_cdk.aws_iam import User, PolicyStatement
-from aws_cdk import Stack, StackProps
-from constructs import Construct
-from cdk_nag import NagSuppressions
-
-
-class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        user = User(self, "rUser")
-        user.add_to_policy(
-            PolicyStatement(
-                actions=["s3:PutObject"],
-                resources=["arn:aws:s3:::bucket_name/*"]
-            ))
-        # Enable adding suppressions to child constructs
-        NagSuppressions.add_resource_suppressions(user, [NagPackSuppression(
-            id="AwsSolutions-IAM5",
-            reason="lorem ipsum",
-            applies_to=["Resource::arn:aws:s3:::bucket_name/*"]
+        Validations.of(test).acknowledge(
+            id="AwsSolutions-EC23",
+            reason="This security group is used for internal testing only."
         )
-        ], True)
 ```
 
 </details><details>
-  <summary>Example 4) Stack Level </summary>
+  <summary>Example 2) Acknowledging a rule on a stack</summary>
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from ...lib.cdk_test_stack import CdkTestStack
-from cdk_nag import AwsSolutionsChecks, NagSuppressions
+from aws_cdk import App, Validations
+from cdk_nag import AwsSolutionsChecks
 
+# CdkTestStack: Any
 
 app = App()
 stack = CdkTestStack(app, "CdkNagDemo")
-Aspects.of(app).add(AwsSolutionsChecks())
-NagSuppressions.add_stack_suppressions(stack, [id="AwsSolutions-EC23", reason="lorem ipsum"
-])
+Validations.of(app).add_plugins(AwsSolutionsChecks(app))
+Validations.of(stack).acknowledge(
+    id="AwsSolutions-EC23",
+    reason="All security groups in this stack are internal only."
+)
 ```
 
 </details><details>
-  <summary>Example 5) Construct path</summary>
+  <summary>Example 3) Acknowledging a specific finding</summary>
 
-If you received the following error on synth/deploy
+Certain rules report multiple findings per resource (e.g., IAM wildcard permissions). Each finding has its own ID in the format `RuleId[FindingId]`.
 
-```bash
-[Error at /StackName/Custom::CDKBucketDeployment8675309/ServiceRole/Resource] AwsSolutions-IAM4: The IAM user, role, or group uses AWS managed policies
-```
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk.aws_s3 import Bucket
-from aws_cdk.aws_s3_deployment import BucketDeployment
-from aws_cdk import Stack, StackProps
-from constructs import Construct
-from cdk_nag import NagSuppressions
-
-
-class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        BucketDeployment(self, "rDeployment",
-            sources=[],
-            destination_bucket=Bucket.from_bucket_name(self, "rBucket", "foo")
-        )
-        NagSuppressions.add_resource_suppressions_by_path(self, "/StackName/Custom::CDKBucketDeployment8675309/ServiceRole/Resource", [id="AwsSolutions-IAM4", reason="at least 10 characters"])
-```
-
-</details><details>
-  <summary>Example 6) Granular Suppressions of findings</summary>
-
-Certain rules support granular suppressions of `findings`. If you received the following errors on synth/deploy
+If you received the following errors on synth/deploy:
 
 ```bash
-[Error at /StackName/rFirstUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Action::s3:*]: The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission.
-[Error at /StackName/rFirstUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Resource::*]: The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission.
-[Error at /StackName/rSecondUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Action::s3:*]: The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission.
-[Error at /StackName/rSecondUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Resource::*]: The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission.
+[Error at /StackName/rUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Action::s3:*]: The IAM entity contains wildcard permissions.
+[Error at /StackName/rUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Resource::*]: The IAM entity contains wildcard permissions.
 ```
 
-By applying the following suppressions
+You can acknowledge a specific finding:
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-from cdk_nag import NagPackSuppression, NagPackSuppression, NagPackSuppression, RegexAppliesTo
-from aws_cdk.aws_iam import User
-from aws_cdk import Stack, StackProps
+from aws_cdk.aws_iam import User, PolicyStatement
+from aws_cdk import Stack, StackProps, Validations
 from constructs import Construct
-from cdk_nag import NagSuppressions
-
 
 class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        first_user = User(self, "rFirstUser")
-        first_user.add_to_policy(
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors)
+        user = User(self, "rUser")
+        user.add_to_policy(
             PolicyStatement(
                 actions=["s3:*"],
                 resources=["*"]
             ))
-        second_user = User(self, "rSecondUser")
-        second_user.add_to_policy(
-            PolicyStatement(
-                actions=["s3:*"],
-                resources=["*"]
-            ))
-        third_user = User(self, "rSecondUser")
-        third_user.add_to_policy(
-            PolicyStatement(
-                actions=["sqs:CreateQueue"],
-                resources=[f"arn:aws:sqs:{this.region}:{this.account}:*"]
-            ))
-        NagSuppressions.add_resource_suppressions(first_user, [NagPackSuppression(
-            id="AwsSolutions-IAM5",
-            reason="Only suppress AwsSolutions-IAM5 's3:*' finding on First User.",
-            applies_to=["Action::s3:*"]
+        # Only acknowledge the s3:* action — Resource::* still triggers
+        Validations.of(user).acknowledge(
+            id="AwsSolutions-IAM5[Action::s3:*]",
+            reason="Need s3:* for cross-account replication."
         )
-        ], True)
-        NagSuppressions.add_resource_suppressions(second_user, [NagPackSuppression(
-            id="AwsSolutions-IAM5",
-            reason="Suppress all AwsSolutions-IAM5 findings on Second User."
-        )
-        ], True)
-        NagSuppressions.add_resource_suppressions(third_user, [NagPackSuppression(
-            id="AwsSolutions-IAM5",
-            reason="Suppress AwsSolutions-IAM5 on the SQS resource.",
-            applies_to=[RegexAppliesTo(
-                regex="/^Resource::arn:aws:sqs:(.*):\\*$/g"
-            )
-            ]
-        )
-        ], True)
-```
-
-You would see the following error on synth/deploy
-
-```bash
-[Error at /StackName/rFirstUser/DefaultPolicy/Resource] AwsSolutions-IAM5[Resource::*]: The IAM entity contains wildcard permissions and does not have a cdk-nag rule suppression with evidence for those permission.
-```
-
-</details>
-
-## Suppressing Rule Validation Failures
-
-When a rule validation fails it is handled similarly to a rule violation, and can be suppressed in the same manner. The `ID` for a rule failure is `CdkNagValidationFailure`.
-
-If a rule is suppressed in a non-granular manner (i.e. `appliesTo` is not set, see example 1 above) then validation failures on that rule are also suppressed.
-
-Validation failure suppression respects any applied [Suppression Ignore Conditions](#conditionally-ignoring-suppressions)
-
-<details>
-  <summary>Example 1) Suppress all Validation Failures on a Resource</summary>
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
-from aws_cdk import Stack, StackProps
-from constructs import Construct
-from cdk_nag import NagSuppressions
-
-
-class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        test = SecurityGroup(self, "test",
-            vpc=Vpc(self, "vpc")
-        )
-        test.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
-        NagSuppressions.add_resource_suppressions(test, [id="CdkNagValidationFailure", reason="lorem ipsum"
-        ])
-```
-
-</details><details>
-  <summary>Example 2) Granular Suppression of Validation Failures</summary>
-Validation failures can be suppressed for individual rules by using `appliesTo` to list the desired rules
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk.aws_ec2 import SecurityGroup, Vpc, Peer, Port
-from aws_cdk import Stack, StackProps
-from constructs import Construct
-from cdk_nag import NagSuppressions
-
-
-class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        test = SecurityGroup(self, "test",
-            vpc=Vpc(self, "vpc")
-        )
-        test.add_ingress_rule(Peer.any_ipv4(), Port.all_traffic())
-        NagSuppressions.add_resource_suppressions(test, [
-            id="CdkNagValidationFailure",
-            reason="lorem ipsum",
-            applies_to=["AwsSolutions-L1"]
-
-        ])
-```
-
-</details>
-
-## Suppressing `aws-cdk-lib/pipelines` Violations
-
-The [aws-cdk-lib/pipelines.CodePipeline](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.pipelines.CodePipeline.html) construct and its child constructs are not guaranteed to be "Visited" by `Aspects`, as they are not added during the "Construction" phase of the [cdk lifecycle](https://docs.aws.amazon.com/cdk/v2/guide/apps.html#lifecycle). Because of this behavior, you may experience problems such as rule violations not appearing or the inability to suppress violations on these constructs.
-
-You can remediate these rule violation and suppression problems by forcing the pipeline construct creation forward by calling `.buildPipeline()` on your `CodePipeline` object. Otherwise you may see errors such as:
-
-```
-Error: Suppression path "/this/construct/path" did not match any resource. This can occur when a resource does not exist or if a suppression is applied before a resource is created.
-```
-
-See [this issue](https://github.com/aws/aws-cdk/issues/18440) for more information.
-
-<details>
-  <summary>Example) Suppressing Violations in Pipelines</summary>
-
-`example-app.ts`
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from cdk_nag import AwsSolutionsChecks
-from ...lib.example_pipeline import ExamplePipeline
-
-
-app = App()
-ExamplePipeline(app, "example-cdk-pipeline")
-Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
-app.synth()
-```
-
-`example-pipeline.ts`
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import Stack, StackProps
-from aws_cdk.aws_codecommit import Repository
-from aws_cdk.pipelines import CodePipeline, CodePipelineSource, ShellStep
-from cdk_nag import NagSuppressions
-from constructs import Construct
-
-
-class ExamplePipeline(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-
-        example_synth = ShellStep("ExampleSynth",
-            commands=["yarn build --frozen-lockfile"],
-            input=CodePipelineSource.code_commit(
-                Repository(self, "ExampleRepo", repository_name="ExampleRepo"), "main")
-        )
-
-        ExamplePipeline = CodePipeline(self, "ExamplePipeline",
-            synth=example_synth
-        )
-
-        # Force the pipeline construct creation forward before applying suppressions.
-        # @See https://github.com/aws/aws-cdk/issues/18440
-        ExamplePipeline.build_pipeline()
-
-        # The path suppression will error if you comment out "ExamplePipeline.buildPipeline();""
-        NagSuppressions.add_resource_suppressions_by_path(self, "/example-cdk-pipeline/ExamplePipeline/Pipeline/ArtifactsBucket/Resource", [
-            id="AwsSolutions-S1",
-            reason="Because I said so"
-
-        ])
 ```
 
 </details>
 
 ## Rules and Property Overrides
 
-In some cases L2 Constructs do not have a native option to remediate an issue and must be fixed via [Raw Overrides](https://docs.aws.amazon.com/cdk/latest/guide/cfn_layer.html#cfn_layer_raw). Since raw overrides take place after template synthesis these fixes are not caught by cdk-nag. In this case you should remediate the issue and suppress the issue like in the following example.
+In some cases L2 Constructs do not have a native option to remediate an issue and must be fixed via [Raw Overrides](https://docs.aws.amazon.com/cdk/latest/guide/cfn_layer.html#cfn_layer_raw). Since raw overrides take place after template synthesis these fixes are not caught by cdk-nag. In this case you should remediate the issue and acknowledge the rule.
 
 <details>
   <summary>Example) Property Overrides</summary>
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 from aws_cdk.aws_ec2 import Instance, InstanceType, InstanceClass, MachineImage, Vpc, CfnInstance
-from aws_cdk import Stack, StackProps
+from aws_cdk import Stack, StackProps, Validations
 from constructs import Construct
-from cdk_nag import NagSuppressions
-
 
 class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors)
         instance = Instance(self, "rInstance",
             vpc=Vpc(self, "rVpc"),
             instance_type=InstanceType(InstanceClass.T3),
@@ -407,224 +160,93 @@ class CdkTestStack(Stack):
         )
         cfn_ins = instance.node.default_child
         cfn_ins.add_property_override("DisableApiTermination", True)
-        NagSuppressions.add_resource_suppressions(instance, [
+        Validations.of(instance).acknowledge(
             id="AwsSolutions-EC29",
             reason="Remediated through property override."
-
-        ])
+        )
 ```
 
 </details>
 
-## Conditionally Ignoring Suppressions
+## Audit Trail: CloudFormation Metadata
 
-You can optionally create a condition that prevents certain rules from being suppressed. You can create conditions for any variety of reasons. Examples include a condition that always ignores a suppression, a condition that ignores a suppression based on the date, a condition that ignores a suppression based on the reason. You can read [the developer docs](./docs/IgnoreSuppressionConditions.md) for more information on creating your own conditions.
-
-<details>
-  <summary>Example) Using the pre-built `SuppressionIgnoreErrors` class to ignore suppressions on any `Error` level rules.</summary>
+By default, cdk-nag writes violations to CDK's `policy-validation-report.json` in the cloud assembly. If you need the v2-compatible `cdk_nag` metadata block in your synthesized CloudFormation templates (for existing compliance tooling), enable `writeSuppressionsToCloudFormation`:
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from ...lib.cdk_test_stack import CdkTestStack
-from cdk_nag import AwsSolutionsChecks, SuppressionIgnoreErrors
-
-
-app = App()
-CdkTestStack(app, "CdkNagDemo")
-# Ignore Suppressions on any errors
-Aspects.of(app).add(
-    AwsSolutionsChecks(
-        suppression_ignore_condition=SuppressionIgnoreErrors()
-    ))
-```
-
-</details>
-
-## Customizing Logging
-
-`NagLogger`s give `NagPack` authors and users the ability to create their own custom reporting mechanisms. All pre-built `NagPacks`come with the `AnnotationsLogger`and the `NagReportLogger` (with CSV reports) enabled by default.
-
-See the [NagLogger](./docs/NagLogger.md) developer docs for more information.
-
-<details>
-  <summary>Example) Adding the `ExtremelyHelpfulConsoleLogger` example from the NagLogger docs</summary>
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from ...lib.cdk_test_stack import CdkTestStack
-from ..docs.NagLogger import ExtremelyHelpfulConsoleLogger
+from aws_cdk import App, Validations
 from cdk_nag import AwsSolutionsChecks
 
-
 app = App()
-CdkTestStack(app, "CdkNagDemo")
-Aspects.of(app).add(
-    AwsSolutionsChecks(
-        additional_loggers=[ExtremelyHelpfulConsoleLogger()]
-    ))
+# Writes acknowledged rules into CfnResource Metadata as cdk_nag: { rules_to_suppress: [...] }
+Validations.of(app).add_plugins(AwsSolutionsChecks(app, write_suppressions_to_cloud_formation=True))
 ```
 
-</details>
+This registers a `WriteNagSuppressionsToCloudFormationAspect` that runs during synthesis and copies `Validations.of().acknowledge()` data into the CloudFormation template Metadata section, preserving the same format as cdk-nag v2.
 
 ## Using on CloudFormation templates
 
 You can use cdk-nag on existing CloudFormation templates by using the [cloudformation-include](https://docs.aws.amazon.com/cdk/latest/guide/use-cfn-template.html#use-cfn-template-import) module.
 
 <details>
-  <summary>Example 1) CloudFormation template with suppression</summary>
-
-Sample CloudFormation template with suppression
-
-```json
-{
-  "Resources": {
-    "rBucket": {
-      "Type": "AWS::S3::Bucket",
-      "Properties": {
-        "BucketName": "some-bucket-name"
-      },
-      "Metadata": {
-        "cdk_nag": {
-          "rules_to_suppress": [
-            {
-              "id": "AwsSolutions-S1",
-              "reason": "at least 10 characters"
-            }
-          ]
-        }
-      }
-    }
-  }
-}
-```
+  <summary>Example) CloudFormation template</summary>
 
 Sample App
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from ...lib.cdk_test_stack import CdkTestStack
+from aws_cdk import App, Validations
 from cdk_nag import AwsSolutionsChecks
 
+# CdkTestStack: Any
 
 app = App()
 CdkTestStack(app, "CdkNagDemo")
-Aspects.of(app).add(AwsSolutionsChecks())
+Validations.of(app).add_plugins(AwsSolutionsChecks(app))
 ```
 
 Sample Stack with imported template
 
 ```python
-# Example automatically generated from non-compiling source. May contain errors.
 from aws_cdk.cloudformation_include import CfnInclude
-from cdk_nag import NagSuppressions
-from aws_cdk import Stack, StackProps
+from aws_cdk import Stack, StackProps, Validations
 from constructs import Construct
 
-
 class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        CfnInclude(self, "Template",
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors)
+        template = CfnInclude(self, "Template",
             template_file="my-template.json"
         )
-        # Add any additional suppressions
-        NagSuppressions.add_resource_suppressions_by_path(self, "/CdkNagDemo/Template/rBucket", [
-            id="AwsSolutions-S2",
-            reason="at least 10 characters"
-
-        ])
-```
-
-</details><details>
-  <summary>Example 2) CloudFormation template with granular suppressions</summary>
-
-Sample CloudFormation template with suppression
-
-```json
-{
-  "Resources": {
-    "myPolicy": {
-      "Type": "AWS::IAM::Policy",
-      "Properties": {
-        "PolicyDocument": {
-          "Statement": [
-            {
-              "Action": [
-                "kms:Decrypt",
-                "kms:DescribeKey",
-                "kms:Encrypt",
-                "kms:ReEncrypt*",
-                "kms:GenerateDataKey*"
-              ],
-              "Effect": "Allow",
-              "Resource": ["some-key-arn"]
-            }
-          ],
-          "Version": "2012-10-17"
-        }
-      },
-      "Metadata": {
-        "cdk_nag": {
-          "rules_to_suppress": [
-            {
-              "id": "AwsSolutions-IAM5",
-              "reason": "Allow key data access",
-              "applies_to": [
-                "Action::kms:ReEncrypt*",
-                "Action::kms:GenerateDataKey*"
-              ]
-            }
-          ]
-        }
-      }
-    }
-  }
-}
-```
-
-Sample App
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk import App, Aspects
-from ...lib.cdk_test_stack import CdkTestStack
-from cdk_nag import AwsSolutionsChecks
-
-
-app = App()
-CdkTestStack(app, "CdkNagDemo")
-Aspects.of(app).add(AwsSolutionsChecks())
-```
-
-Sample Stack with imported template
-
-```python
-# Example automatically generated from non-compiling source. May contain errors.
-from aws_cdk.cloudformation_include import CfnInclude
-from cdk_nag import NagSuppressions
-from aws_cdk import Stack, StackProps
-from constructs import Construct
-
-
-class CdkTestStack(Stack):
-    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None):
-        super().__init__(scope, id, description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation)
-        CfnInclude(self, "Template",
-            template_file="my-template.json"
+        # Acknowledge rules on imported resources
+        bucket = template.get_resource("rBucket")
+        Validations.of(bucket).acknowledge(
+            id="AwsSolutions-S1",
+            reason="Logging not required for this bucket."
         )
-        # Add any additional suppressions
-        NagSuppressions.add_resource_suppressions_by_path(self, "/CdkNagDemo/Template/myPolicy", [
-            id="AwsSolutions-IAM5",
-            reason="Allow key data access",
-            applies_to=["Action::kms:ReEncrypt*", "Action::kms:GenerateDataKey*"]
-
-        ])
 ```
 
 </details>
+
+## Migrating from v2
+
+cdk-nag v3 replaces the custom `NagSuppressions` API with CDK's native `Validations.of().acknowledge()` mechanism.
+
+| v2 | v3 |
+|---|---|
+| `NagSuppressions.addResourceSuppressions(construct, [{ id, reason }])` | `Validations.of(construct).acknowledge({ id, reason })` |
+| `NagSuppressions.addStackSuppressions(stack, [{ id, reason }])` | `Validations.of(stack).acknowledge({ id, reason })` |
+| `NagSuppressions.addResourceSuppressionsByPath(stack, path, [...])` | `Validations.of(construct).acknowledge({ id, reason })` |
+| `appliesTo: ['Action::s3:*']` | `id: 'AwsSolutions-IAM5[Action::s3:*]'` |
+| `{ id: 'CdkNagValidationFailure', reason: '...' }` | `Validations.of(construct).acknowledge({ id: 'RuleId', reason: '...' })` |
+
+**Note on bulk suppression:** In v2, suppressing a rule without `appliesTo` would suppress all findings for that rule on the construct. In v3, each finding must be acknowledged individually (e.g., `AwsSolutions-IAM5[Action::s3:*]` and `AwsSolutions-IAM5[Resource::*]` are separate acknowledgments). Prefix matching (acknowledging `AwsSolutions-IAM5` to suppress all findings) is not yet supported — tracked via [issue link].
+
+**Removed APIs:**
+
+* `NagSuppressions` (use `Validations.of().acknowledge()`)
+* `INagSuppressionIgnore` and all condition classes
+* `NagPackSuppression` interface
+* `CdkNagValidationFailure` concept
+* `logIgnores` and `suppressionIgnoreCondition` props
 
 ## Contributing
 
@@ -647,86 +269,13 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
 import aws_cdk as _aws_cdk_ceddda9d
 import constructs as _constructs_77d1e7e8
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.AnnotationLoggerProps",
-    jsii_struct_bases=[],
-    name_mapping={"log_ignores": "logIgnores", "verbose": "verbose"},
-)
-class AnnotationLoggerProps:
-    def __init__(
-        self,
-        *,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        verbose: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Props for the AnnotationLogger.
-
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages.
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c76f4bc63138756cb580801c06df1ac3a9c0be1a809e326eddd3933e8ccf222c)
-            check_type(argname="argument log_ignores", value=log_ignores, expected_type=type_hints["log_ignores"])
-            check_type(argname="argument verbose", value=verbose, expected_type=type_hints["verbose"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if log_ignores is not None:
-            self._values["log_ignores"] = log_ignores
-        if verbose is not None:
-            self._values["verbose"] = verbose
-
-    @builtins.property
-    def log_ignores(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-
-        :stability: experimental
-        '''
-        result = self._values.get("log_ignores")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def verbose(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages.
-
-        :stability: experimental
-        '''
-        result = self._values.get("verbose")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AnnotationLoggerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.interface(jsii_type="cdk-nag.IApplyRule")
@@ -787,22 +336,6 @@ class IApplyRule(typing_extensions.Protocol):
 
     @node.setter
     def node(self, value: "_aws_cdk_ceddda9d.CfnResource") -> None:
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="ignoreSuppressionCondition")
-    def ignore_suppression_condition(self) -> typing.Optional["INagSuppressionIgnore"]:
-        '''(experimental) A condition in which a suppression should be ignored.
-
-        :stability: experimental
-        '''
-        ...
-
-    @ignore_suppression_condition.setter
-    def ignore_suppression_condition(
-        self,
-        value: typing.Optional["INagSuppressionIgnore"],
-    ) -> None:
         ...
 
     @builtins.property
@@ -906,25 +439,6 @@ class _IApplyRuleProxy:
         jsii.set(self, "node", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="ignoreSuppressionCondition")
-    def ignore_suppression_condition(self) -> typing.Optional["INagSuppressionIgnore"]:
-        '''(experimental) A condition in which a suppression should be ignored.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional["INagSuppressionIgnore"], jsii.get(self, "ignoreSuppressionCondition"))
-
-    @ignore_suppression_condition.setter
-    def ignore_suppression_condition(
-        self,
-        value: typing.Optional["INagSuppressionIgnore"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9288306b38b954b918c055805151abe90063414817d3bb4674cc5456cd6e6619)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ignoreSuppressionCondition", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="ruleSuffixOverride")
     def rule_suffix_override(self) -> typing.Optional[builtins.str]:
         '''(experimental) Override for the suffix of the Rule ID for this rule.
@@ -960,1497 +474,49 @@ class _IApplyRuleProxy:
 typing.cast(typing.Any, IApplyRule).__jsii_proxy_class__ = lambda : _IApplyRuleProxy
 
 
-@jsii.interface(jsii_type="cdk-nag.INagLogger")
-class INagLogger(typing_extensions.Protocol):
-    '''(experimental) Interface for creating NagSuppression Ignores.
+@jsii.interface(jsii_type="cdk-nag.INagValidationContext")
+class INagValidationContext(
+    _aws_cdk_ceddda9d.IPolicyValidationContext,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Extended validation context that includes the construct tree.
+
+    Requires CDK core change to populate ``appConstruct`` during plugin validation.
 
     :stability: experimental
     '''
 
-    @jsii.member(jsii_name="onCompliance")
-    def on_compliance(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource passes the compliance check for a given rule.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
+    @builtins.property
+    @jsii.member(jsii_name="appConstruct")
+    def app_construct(self) -> "_constructs_77d1e7e8.IConstruct":
         '''
-        ...
-
-    @jsii.member(jsii_name="onError")
-    def on_error(
-        self,
-        *,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance.
-
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        ...
-
-    @jsii.member(jsii_name="onNonCompliance")
-    def on_non_compliance(
-        self,
-        *,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the the rule violation is not suppressed by the user.
-
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        ...
-
-    @jsii.member(jsii_name="onNotApplicable")
-    def on_not_applicable(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule does not apply to the given CfnResource.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        ...
-
-    @jsii.member(jsii_name="onSuppressed")
-    def on_suppressed(
-        self,
-        *,
-        suppression_reason: builtins.str,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the rule violation is suppressed by the user.
-
-        :param suppression_reason: 
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        ...
-
-    @jsii.member(jsii_name="onSuppressedError")
-    def on_suppressed_error(
-        self,
-        *,
-        error_suppression_reason: builtins.str,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance and the error is suppressed.
-
-        :param error_suppression_reason: 
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
         :stability: experimental
         '''
         ...
 
 
-class _INagLoggerProxy:
-    '''(experimental) Interface for creating NagSuppression Ignores.
+class _INagValidationContextProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IPolicyValidationContext), # type: ignore[misc]
+):
+    '''(experimental) Extended validation context that includes the construct tree.
+
+    Requires CDK core change to populate ``appConstruct`` during plugin validation.
 
     :stability: experimental
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "cdk-nag.INagLogger"
+    __jsii_type__: typing.ClassVar[str] = "cdk-nag.INagValidationContext"
 
-    @jsii.member(jsii_name="onCompliance")
-    def on_compliance(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource passes the compliance check for a given rule.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
+    @builtins.property
+    @jsii.member(jsii_name="appConstruct")
+    def app_construct(self) -> "_constructs_77d1e7e8.IConstruct":
+        '''
         :stability: experimental
         '''
-        data = NagLoggerComplianceData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onCompliance", [data]))
-
-    @jsii.member(jsii_name="onError")
-    def on_error(
-        self,
-        *,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance.
-
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerErrorData(
-            error_message=error_message,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onError", [data]))
-
-    @jsii.member(jsii_name="onNonCompliance")
-    def on_non_compliance(
-        self,
-        *,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the the rule violation is not suppressed by the user.
-
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerNonComplianceData(
-            finding_id=finding_id,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onNonCompliance", [data]))
-
-    @jsii.member(jsii_name="onNotApplicable")
-    def on_not_applicable(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule does not apply to the given CfnResource.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerNotApplicableData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onNotApplicable", [data]))
-
-    @jsii.member(jsii_name="onSuppressed")
-    def on_suppressed(
-        self,
-        *,
-        suppression_reason: builtins.str,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the rule violation is suppressed by the user.
-
-        :param suppression_reason: 
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerSuppressedData(
-            suppression_reason=suppression_reason,
-            finding_id=finding_id,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onSuppressed", [data]))
-
-    @jsii.member(jsii_name="onSuppressedError")
-    def on_suppressed_error(
-        self,
-        *,
-        error_suppression_reason: builtins.str,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance and the error is suppressed.
-
-        :param error_suppression_reason: 
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerSuppressedErrorData(
-            error_suppression_reason=error_suppression_reason,
-            error_message=error_message,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onSuppressedError", [data]))
+        return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.get(self, "appConstruct"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INagLogger).__jsii_proxy_class__ = lambda : _INagLoggerProxy
-
-
-@jsii.interface(jsii_type="cdk-nag.INagSuppressionIgnore")
-class INagSuppressionIgnore(typing_extensions.Protocol):
-    '''(experimental) Interface for creating NagSuppression Ignores.
-
-    :stability: experimental
-    '''
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _INagSuppressionIgnoreProxy:
-    '''(experimental) Interface for creating NagSuppression Ignores.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "cdk-nag.INagSuppressionIgnore"
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        input = SuppressionIgnoreInput(
-            finding_id=finding_id,
-            reason=reason,
-            resource=resource,
-            rule_id=rule_id,
-            rule_level=rule_level,
-        )
-
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [input]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INagSuppressionIgnore).__jsii_proxy_class__ = lambda : _INagSuppressionIgnoreProxy
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerBaseData",
-    jsii_struct_bases=[],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-    },
-)
-class NagLoggerBaseData:
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Shared data for all INagLogger methods.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b54447c69d32d2c5b63c99983239ae73b9f19d8fdbd1d5f8046701d890f7f5bb)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerBaseData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerComplianceData",
-    jsii_struct_bases=[NagLoggerBaseData],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-    },
-)
-class NagLoggerComplianceData(NagLoggerBaseData):
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Data for onCompliance method of an INagLogger.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b2369c97135e6d99b99884b93a52da46d2eaa508b33dd68cf3b232b4c254d8c)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerComplianceData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerErrorData",
-    jsii_struct_bases=[NagLoggerBaseData],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-        "error_message": "errorMessage",
-    },
-)
-class NagLoggerErrorData(NagLoggerBaseData):
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-        error_message: builtins.str,
-    ) -> None:
-        '''(experimental) Data for onError method of an INagLogger.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-        :param error_message: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2cdb757482fd16d0bdc5aec491ea46481898e09304e4cafb215196f81de28c0)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-            check_type(argname="argument error_message", value=error_message, expected_type=type_hints["error_message"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-            "error_message": error_message,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def error_message(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("error_message")
-        assert result is not None, "Required property 'error_message' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerErrorData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerNonComplianceData",
-    jsii_struct_bases=[NagLoggerBaseData],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-        "finding_id": "findingId",
-    },
-)
-class NagLoggerNonComplianceData(NagLoggerBaseData):
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-        finding_id: builtins.str,
-    ) -> None:
-        '''(experimental) Data for onNonCompliance method of an INagLogger.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-        :param finding_id: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bab29e75d71ea1830fa944b3a77c3025e3a4f8a0742c89c76fbbabc2da83ebf4)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-            check_type(argname="argument finding_id", value=finding_id, expected_type=type_hints["finding_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-            "finding_id": finding_id,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def finding_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("finding_id")
-        assert result is not None, "Required property 'finding_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerNonComplianceData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerNotApplicableData",
-    jsii_struct_bases=[NagLoggerBaseData],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-    },
-)
-class NagLoggerNotApplicableData(NagLoggerBaseData):
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Data for onNotApplicable method of an INagLogger.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1c26e4f355c915b68201704e8b383af3e0cea31e8f757660937a73d0473f6e8)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerNotApplicableData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerSuppressedData",
-    jsii_struct_bases=[NagLoggerNonComplianceData],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-        "finding_id": "findingId",
-        "suppression_reason": "suppressionReason",
-    },
-)
-class NagLoggerSuppressedData(NagLoggerNonComplianceData):
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-        finding_id: builtins.str,
-        suppression_reason: builtins.str,
-    ) -> None:
-        '''(experimental) Data for onSuppressed method of an INagLogger.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-        :param finding_id: 
-        :param suppression_reason: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee145b58e321092c41a8ca75ccb9b50bd4d7b06c5b5f303b04fde0fc5335c992)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-            check_type(argname="argument finding_id", value=finding_id, expected_type=type_hints["finding_id"])
-            check_type(argname="argument suppression_reason", value=suppression_reason, expected_type=type_hints["suppression_reason"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-            "finding_id": finding_id,
-            "suppression_reason": suppression_reason,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def finding_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("finding_id")
-        assert result is not None, "Required property 'finding_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def suppression_reason(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("suppression_reason")
-        assert result is not None, "Required property 'suppression_reason' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerSuppressedData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagLoggerSuppressedErrorData",
-    jsii_struct_bases=[NagLoggerErrorData],
-    name_mapping={
-        "nag_pack_name": "nagPackName",
-        "resource": "resource",
-        "rule_explanation": "ruleExplanation",
-        "rule_id": "ruleId",
-        "rule_info": "ruleInfo",
-        "rule_level": "ruleLevel",
-        "rule_original_name": "ruleOriginalName",
-        "error_message": "errorMessage",
-        "error_suppression_reason": "errorSuppressionReason",
-    },
-)
-class NagLoggerSuppressedErrorData(NagLoggerErrorData):
-    def __init__(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-        error_message: builtins.str,
-        error_suppression_reason: builtins.str,
-    ) -> None:
-        '''(experimental) Data for onSuppressedError method of an INagLogger.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-        :param error_message: 
-        :param error_suppression_reason: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b97d7febc4da1597477e573081bfba668d6db013a81a05c0c6f6bcd4e5d15e37)
-            check_type(argname="argument nag_pack_name", value=nag_pack_name, expected_type=type_hints["nag_pack_name"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-            check_type(argname="argument rule_original_name", value=rule_original_name, expected_type=type_hints["rule_original_name"])
-            check_type(argname="argument error_message", value=error_message, expected_type=type_hints["error_message"])
-            check_type(argname="argument error_suppression_reason", value=error_suppression_reason, expected_type=type_hints["error_suppression_reason"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "nag_pack_name": nag_pack_name,
-            "resource": resource,
-            "rule_explanation": rule_explanation,
-            "rule_id": rule_id,
-            "rule_info": rule_info,
-            "rule_level": rule_level,
-            "rule_original_name": rule_original_name,
-            "error_message": error_message,
-            "error_suppression_reason": error_suppression_reason,
-        }
-
-    @builtins.property
-    def nag_pack_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("nag_pack_name")
-        assert result is not None, "Required property 'nag_pack_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_explanation(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_explanation")
-        assert result is not None, "Required property 'rule_explanation' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_info(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_info")
-        assert result is not None, "Required property 'rule_info' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    @builtins.property
-    def rule_original_name(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_original_name")
-        assert result is not None, "Required property 'rule_original_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def error_message(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("error_message")
-        assert result is not None, "Required property 'error_message' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def error_suppression_reason(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("error_suppression_reason")
-        assert result is not None, "Required property 'error_suppression_reason' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagLoggerSuppressedErrorData(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+typing.cast(typing.Any, INagValidationContext).__jsii_proxy_class__ = lambda : _INagValidationContextProxy
 
 
 @jsii.enum(jsii_type="cdk-nag.NagMessageLevel")
@@ -2474,43 +540,40 @@ class NagMessageLevel(enum.Enum):
     '''
 
 
-@jsii.implements(_aws_cdk_ceddda9d.IAspect)
+@jsii.implements(_aws_cdk_ceddda9d.IPolicyValidationPlugin)
 class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
     '''(experimental) Base class for all rule packs.
+
+    Implements IPolicyValidationPlugin so that
+    packs are registered via ``Validations.of(app).addPlugins(new MyPack(app))``
+    instead of ``Aspects.of(app).add(...)``.
 
     :stability: experimental
     '''
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3017bec3b325642a7f017efcaa8f3e15a21609195066e1d9d84ad8398f1774dd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
 
     @jsii.member(jsii_name="applyRule")
     def _apply_rule(self, params: "IApplyRule") -> None:
@@ -2526,48 +589,61 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
             check_type(argname="argument params", value=params, expected_type=type_hints["params"])
         return typing.cast(None, jsii.invoke(self, "applyRule", [params]))
 
-    @jsii.member(jsii_name="ignoreRule")
-    def _ignore_rule(
+    @jsii.member(jsii_name="checkResource")
+    @abc.abstractmethod
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
+
+        :param node: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="validate")
+    def validate(
         self,
-        suppressions: typing.Sequence[typing.Union["NagPackSuppression", typing.Dict[builtins.str, typing.Any]]],
-        rule_id: builtins.str,
-        finding_id: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        level: "NagMessageLevel",
-        ignore_suppression_condition: typing.Optional["INagSuppressionIgnore"] = None,
-        validation_failure: typing.Optional[builtins.bool] = None,
-    ) -> builtins.str:
-        '''(experimental) Check whether a specific rule should be ignored.
+        context: "_aws_cdk_ceddda9d.IPolicyValidationContext",
+    ) -> "_aws_cdk_ceddda9d.PolicyValidationPluginReport":
+        '''(experimental) Entry point called by the CDK validation framework.
 
-        :param suppressions: The suppressions listed in the cdk-nag metadata.
-        :param rule_id: The id of the rule to ignore.
-        :param finding_id: The id of the finding that is being checked.
-        :param resource: The resource being evaluated.
-        :param level: -
-        :param ignore_suppression_condition: -
-        :param validation_failure: Whether the rule is being checked due to a validation failure.
+        Requires ``appConstruct`` to be present on the context (CDK core change).
+        For testing or direct invocation, use ``validateScope(scope)``.
 
-        :return: The reason the rule was ignored, or an empty string.
+        :param context: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba5c64d28918f6c81ac27ddb1b8fd172dcc8d60b93422df8be15366fbee92a3a)
-            check_type(argname="argument suppressions", value=suppressions, expected_type=type_hints["suppressions"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument finding_id", value=finding_id, expected_type=type_hints["finding_id"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
-            check_type(argname="argument ignore_suppression_condition", value=ignore_suppression_condition, expected_type=type_hints["ignore_suppression_condition"])
-            check_type(argname="argument validation_failure", value=validation_failure, expected_type=type_hints["validation_failure"])
-        return typing.cast(builtins.str, jsii.invoke(self, "ignoreRule", [suppressions, rule_id, finding_id, resource, level, ignore_suppression_condition, validation_failure]))
+            type_hints = typing.get_type_hints(_typecheckingstub__0e2d68c6332428b542b671a5db7d792e33667aab3e08db3145e98ebce4d22528)
+            check_type(argname="argument context", value=context, expected_type=type_hints["context"])
+        return typing.cast("_aws_cdk_ceddda9d.PolicyValidationPluginReport", jsii.invoke(self, "validate", [context]))
 
-    @jsii.member(jsii_name="visit")
+    @jsii.member(jsii_name="validateScope")
+    def validate_scope(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+    ) -> "_aws_cdk_ceddda9d.PolicyValidationPluginReport":
+        '''(experimental) Validate a construct tree directly.
+
+        This is the primary entry point
+        for testing and for CDK versions that do not yet provide ``appConstruct`` on
+        ``IPolicyValidationContext``.
+
+        :param scope: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec1e978998b866e1f0cf9b5507693090d004d680485682bafc3b9491680ab041)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast("_aws_cdk_ceddda9d.PolicyValidationPluginReport", jsii.invoke(self, "validateScope", [scope]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
     @abc.abstractmethod
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
-
-        :param node: -
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
 
         :stability: experimental
         '''
@@ -2582,19 +658,25 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
         return typing.cast(builtins.str, jsii.get(self, "readPackName"))
 
     @builtins.property
-    @jsii.member(jsii_name="loggers")
-    def _loggers(self) -> typing.List["INagLogger"]:
-        '''
+    @jsii.member(jsii_name="ruleIds")
+    def rule_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The list of rule IDs that the plugin will evaluate.
+
+        Used for analytics
+        purposes.
+
         :stability: experimental
         '''
-        return typing.cast(typing.List["INagLogger"], jsii.get(self, "loggers"))
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ruleIds"))
 
-    @_loggers.setter
-    def _loggers(self, value: typing.List["INagLogger"]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d5c6b891fc439b6ba962aebfd2ac3f291fad706fc0a6199ca5e2ef180a35b9a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggers", value) # pyright: ignore[reportArgumentType]
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The version of the plugin, following the Semantic Versioning specification (see https://semver.org/). This version is used for analytics purposes, to measure the usage of different plugins and different versions. The value of this property should be kept in sync with the actual version of the software package. If the version is not provided or is not a valid semantic version, it will be reported as ``0.0.0``.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "version"))
 
     @builtins.property
     @jsii.member(jsii_name="packName")
@@ -2611,60 +693,29 @@ class NagPack(metaclass=jsii.JSIIAbstractClass, jsii_type="cdk-nag.NagPack"):
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "packName", value) # pyright: ignore[reportArgumentType]
 
-    @builtins.property
-    @jsii.member(jsii_name="packGlobalSuppressionIgnore")
-    def _pack_global_suppression_ignore(
-        self,
-    ) -> typing.Optional["INagSuppressionIgnore"]:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional["INagSuppressionIgnore"], jsii.get(self, "packGlobalSuppressionIgnore"))
-
-    @_pack_global_suppression_ignore.setter
-    def _pack_global_suppression_ignore(
-        self,
-        value: typing.Optional["INagSuppressionIgnore"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__750990594a653bc50228a510fc9a05a0b77520235ef9cb34eb1dfb6e7f47b9e7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "packGlobalSuppressionIgnore", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="userGlobalSuppressionIgnore")
-    def _user_global_suppression_ignore(
-        self,
-    ) -> typing.Optional["INagSuppressionIgnore"]:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional["INagSuppressionIgnore"], jsii.get(self, "userGlobalSuppressionIgnore"))
-
-    @_user_global_suppression_ignore.setter
-    def _user_global_suppression_ignore(
-        self,
-        value: typing.Optional["INagSuppressionIgnore"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__499426647076f5f9b25fa3802115f4b0187bef15fcfb86478ee847c35a15b0af)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userGlobalSuppressionIgnore", value) # pyright: ignore[reportArgumentType]
-
 
 class _NagPackProxy(NagPack):
-    @jsii.member(jsii_name="visit")
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
 
         :param node: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__818a0da55c5cbe0337f1efd54ed9153e54658d7d5a9a1a3d8f93e06baea87360)
+            type_hints = typing.get_type_hints(_typecheckingstub__f430411ab22d637c2bb7899d2fa75de3d7035a2affe70f9e393e020a84d1dd36)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
-        return typing.cast(None, jsii.invoke(self, "visit", [node]))
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, NagPack).__jsii_proxy_class__ = lambda : _NagPackProxy
@@ -2674,102 +725,33 @@ typing.cast(typing.Any, NagPack).__jsii_proxy_class__ = lambda : _NagPackProxy
     jsii_type="cdk-nag.NagPackProps",
     jsii_struct_bases=[],
     name_mapping={
-        "additional_loggers": "additionalLoggers",
-        "log_ignores": "logIgnores",
-        "report_formats": "reportFormats",
-        "reports": "reports",
-        "suppression_ignore_condition": "suppressionIgnoreCondition",
         "verbose": "verbose",
+        "write_suppressions_to_cloud_formation": "writeSuppressionsToCloudFormation",
     },
 )
 class NagPackProps:
     def __init__(
         self,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Interface for creating a NagPack.
 
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83a83ce3fdb1cb0ca96a59694799f0ed3b0090f7d4e437681d969d4c74e7ddab)
-            check_type(argname="argument additional_loggers", value=additional_loggers, expected_type=type_hints["additional_loggers"])
-            check_type(argname="argument log_ignores", value=log_ignores, expected_type=type_hints["log_ignores"])
-            check_type(argname="argument report_formats", value=report_formats, expected_type=type_hints["report_formats"])
-            check_type(argname="argument reports", value=reports, expected_type=type_hints["reports"])
-            check_type(argname="argument suppression_ignore_condition", value=suppression_ignore_condition, expected_type=type_hints["suppression_ignore_condition"])
             check_type(argname="argument verbose", value=verbose, expected_type=type_hints["verbose"])
+            check_type(argname="argument write_suppressions_to_cloud_formation", value=write_suppressions_to_cloud_formation, expected_type=type_hints["write_suppressions_to_cloud_formation"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if additional_loggers is not None:
-            self._values["additional_loggers"] = additional_loggers
-        if log_ignores is not None:
-            self._values["log_ignores"] = log_ignores
-        if report_formats is not None:
-            self._values["report_formats"] = report_formats
-        if reports is not None:
-            self._values["reports"] = reports
-        if suppression_ignore_condition is not None:
-            self._values["suppression_ignore_condition"] = suppression_ignore_condition
         if verbose is not None:
             self._values["verbose"] = verbose
-
-    @builtins.property
-    def additional_loggers(self) -> typing.Optional[typing.List["INagLogger"]]:
-        '''(experimental) Additional NagLoggers for logging rule validation outputs.
-
-        :stability: experimental
-        '''
-        result = self._values.get("additional_loggers")
-        return typing.cast(typing.Optional[typing.List["INagLogger"]], result)
-
-    @builtins.property
-    def log_ignores(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-
-        :stability: experimental
-        '''
-        result = self._values.get("log_ignores")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def report_formats(self) -> typing.Optional[typing.List["NagReportFormat"]]:
-        '''(experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-
-        :stability: experimental
-        '''
-        result = self._values.get("report_formats")
-        return typing.cast(typing.Optional[typing.List["NagReportFormat"]], result)
-
-    @builtins.property
-    def reports(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-
-        :stability: experimental
-        '''
-        result = self._values.get("reports")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def suppression_ignore_condition(self) -> typing.Optional["INagSuppressionIgnore"]:
-        '''(experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
-
-        :stability: experimental
-        '''
-        result = self._values.get("suppression_ignore_condition")
-        return typing.cast(typing.Optional["INagSuppressionIgnore"], result)
+        if write_suppressions_to_cloud_formation is not None:
+            self._values["write_suppressions_to_cloud_formation"] = write_suppressions_to_cloud_formation
 
     @builtins.property
     def verbose(self) -> typing.Optional[builtins.bool]:
@@ -2780,6 +762,15 @@ class NagPackProps:
         result = self._values.get("verbose")
         return typing.cast(typing.Optional[builtins.bool], result)
 
+    @builtins.property
+    def write_suppressions_to_cloud_formation(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
+
+        :stability: experimental
+        '''
+        result = self._values.get("write_suppressions_to_cloud_formation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2788,82 +779,6 @@ class NagPackProps:
 
     def __repr__(self) -> str:
         return "NagPackProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagPackSuppression",
-    jsii_struct_bases=[],
-    name_mapping={"id": "id", "reason": "reason", "applies_to": "appliesTo"},
-)
-class NagPackSuppression:
-    def __init__(
-        self,
-        *,
-        id: builtins.str,
-        reason: builtins.str,
-        applies_to: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["RegexAppliesTo", typing.Dict[builtins.str, typing.Any]]]]] = None,
-    ) -> None:
-        '''(experimental) Interface for creating a rule suppression.
-
-        :param id: (experimental) The id of the rule to ignore.
-        :param reason: (experimental) The reason to ignore the rule (minimum 10 characters).
-        :param applies_to: (experimental) Rule specific granular suppressions.
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e488b05b5f3f444467d9eb46090b6726b68fa30596c2566a59974e3b5ccc5f54)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
-            check_type(argname="argument applies_to", value=applies_to, expected_type=type_hints["applies_to"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "id": id,
-            "reason": reason,
-        }
-        if applies_to is not None:
-            self._values["applies_to"] = applies_to
-
-    @builtins.property
-    def id(self) -> builtins.str:
-        '''(experimental) The id of the rule to ignore.
-
-        :stability: experimental
-        '''
-        result = self._values.get("id")
-        assert result is not None, "Required property 'id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def reason(self) -> builtins.str:
-        '''(experimental) The reason to ignore the rule (minimum 10 characters).
-
-        :stability: experimental
-        '''
-        result = self._values.get("reason")
-        assert result is not None, "Required property 'reason' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def applies_to(
-        self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "RegexAppliesTo"]]]:
-        '''(experimental) Rule specific granular suppressions.
-
-        :stability: experimental
-        '''
-        result = self._values.get("applies_to")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "RegexAppliesTo"]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagPackSuppression(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2890,7 +805,6 @@ class NagReportFormat(enum.Enum):
     jsii_struct_bases=[],
     name_mapping={
         "compliance": "compliance",
-        "exception_reason": "exceptionReason",
         "resource_id": "resourceId",
         "rule_id": "ruleId",
         "rule_info": "ruleInfo",
@@ -2902,15 +816,14 @@ class NagReportLine:
         self,
         *,
         compliance: builtins.str,
-        exception_reason: builtins.str,
         resource_id: builtins.str,
         rule_id: builtins.str,
         rule_info: builtins.str,
         rule_level: builtins.str,
     ) -> None:
-        '''
+        '''(experimental) A single line in a NagReport.
+
         :param compliance: 
-        :param exception_reason: 
         :param resource_id: 
         :param rule_id: 
         :param rule_info: 
@@ -2921,14 +834,12 @@ class NagReportLine:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c6b6029bff770690f88c877bee0f2885b7bc043157258be4815d22b42c13364)
             check_type(argname="argument compliance", value=compliance, expected_type=type_hints["compliance"])
-            check_type(argname="argument exception_reason", value=exception_reason, expected_type=type_hints["exception_reason"])
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
             check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
             check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
             check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "compliance": compliance,
-            "exception_reason": exception_reason,
             "resource_id": resource_id,
             "rule_id": rule_id,
             "rule_info": rule_info,
@@ -2942,15 +853,6 @@ class NagReportLine:
         '''
         result = self._values.get("compliance")
         assert result is not None, "Required property 'compliance' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def exception_reason(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("exception_reason")
-        assert result is not None, "Required property 'exception_reason' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
@@ -3001,373 +903,6 @@ class NagReportLine:
         )
 
 
-@jsii.implements(INagLogger)
-class NagReportLogger(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.NagReportLogger"):
-    '''(experimental) A NagLogger that creates compliance reports.
-
-    :stability: experimental
-    '''
-
-    def __init__(self, *, formats: typing.Sequence["NagReportFormat"]) -> None:
-        '''
-        :param formats: 
-
-        :stability: experimental
-        '''
-        props = NagReportLoggerProps(formats=formats)
-
-        jsii.create(self.__class__, self, [props])
-
-    @jsii.member(jsii_name="getFormatStacks")
-    def get_format_stacks(self, format: "NagReportFormat") -> typing.List[builtins.str]:
-        '''
-        :param format: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5258c45d7b5e7a57921e27dd5a7c53e00452a977e1d40530500b345f84a31167)
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "getFormatStacks", [format]))
-
-    @jsii.member(jsii_name="initializeStackReport")
-    def _initialize_stack_report(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Initialize the report for the rule pack's compliance report for the resource's Stack if it doesn't exist.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerBaseData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "initializeStackReport", [data]))
-
-    @jsii.member(jsii_name="onCompliance")
-    def on_compliance(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource passes the compliance check for a given rule.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerComplianceData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onCompliance", [data]))
-
-    @jsii.member(jsii_name="onError")
-    def on_error(
-        self,
-        *,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance.
-
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerErrorData(
-            error_message=error_message,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onError", [data]))
-
-    @jsii.member(jsii_name="onNonCompliance")
-    def on_non_compliance(
-        self,
-        *,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the the rule violation is not suppressed by the user.
-
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerNonComplianceData(
-            finding_id=finding_id,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onNonCompliance", [data]))
-
-    @jsii.member(jsii_name="onNotApplicable")
-    def on_not_applicable(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule does not apply to the given CfnResource.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerNotApplicableData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onNotApplicable", [data]))
-
-    @jsii.member(jsii_name="onSuppressed")
-    def on_suppressed(
-        self,
-        *,
-        suppression_reason: builtins.str,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the rule violation is suppressed by the user.
-
-        :param suppression_reason: 
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerSuppressedData(
-            suppression_reason=suppression_reason,
-            finding_id=finding_id,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onSuppressed", [data]))
-
-    @jsii.member(jsii_name="onSuppressedError")
-    def on_suppressed_error(
-        self,
-        *,
-        error_suppression_reason: builtins.str,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance and the error is suppressed.
-
-        :param error_suppression_reason: 
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerSuppressedErrorData(
-            error_suppression_reason=error_suppression_reason,
-            error_message=error_message,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onSuppressedError", [data]))
-
-    @jsii.member(jsii_name="writeToStackComplianceReport")
-    def _write_to_stack_compliance_report(
-        self,
-        data: typing.Union["NagLoggerBaseData", typing.Dict[builtins.str, typing.Any]],
-        compliance: typing.Union["NagRuleCompliance", "NagRulePostValidationStates"],
-    ) -> None:
-        '''
-        :param data: -
-        :param compliance: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d05cd61c8369866bc8b8765401ea1dfa7ebede0fc2130608a36bb42a8b9448ae)
-            check_type(argname="argument data", value=data, expected_type=type_hints["data"])
-            check_type(argname="argument compliance", value=compliance, expected_type=type_hints["compliance"])
-        return typing.cast(None, jsii.invoke(self, "writeToStackComplianceReport", [data, compliance]))
-
-    @builtins.property
-    @jsii.member(jsii_name="formats")
-    def formats(self) -> typing.List["NagReportFormat"]:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(typing.List["NagReportFormat"], jsii.get(self, "formats"))
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.NagReportLoggerProps",
-    jsii_struct_bases=[],
-    name_mapping={"formats": "formats"},
-)
-class NagReportLoggerProps:
-    def __init__(self, *, formats: typing.Sequence["NagReportFormat"]) -> None:
-        '''(experimental) Props for the NagReportLogger.
-
-        :param formats: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08e3f9aa1b2e641a8748b597a0deb88e437aae2a4f34f10501ac44b0524902a1)
-            check_type(argname="argument formats", value=formats, expected_type=type_hints["formats"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "formats": formats,
-        }
-
-    @builtins.property
-    def formats(self) -> typing.List["NagReportFormat"]:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("formats")
-        assert result is not None, "Required property 'formats' is missing"
-        return typing.cast(typing.List["NagReportFormat"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NagReportLoggerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.data_type(
     jsii_type="cdk-nag.NagReportSchema",
     jsii_struct_bases=[],
@@ -3379,7 +914,8 @@ class NagReportSchema:
         *,
         lines: typing.Sequence[typing.Union["NagReportLine", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''
+        '''(experimental) Schema for the NagReport output.
+
         :param lines: 
 
         :stability: experimental
@@ -3440,10 +976,6 @@ class NagRulePostValidationStates(enum.Enum):
     :stability: experimental
     '''
 
-    SUPPRESSED = "SUPPRESSED"
-    '''
-    :stability: experimental
-    '''
     UNKNOWN = "UNKNOWN"
     '''
     :stability: experimental
@@ -3536,91 +1068,6 @@ class NagRules(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.NagRules"):
         return typing.cast(typing.Any, jsii.sinvoke(cls, "resolveResourceFromIntrinsic", [node, parameter]))
 
 
-class NagSuppressions(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.NagSuppressions"):
-    '''(experimental) Helper class with methods to add cdk-nag suppressions to cdk resources.
-
-    :stability: experimental
-    '''
-
-    def __init__(self) -> None:
-        '''
-        :stability: experimental
-        '''
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="addResourceSuppressions")
-    @builtins.classmethod
-    def add_resource_suppressions(
-        cls,
-        construct: typing.Union["_constructs_77d1e7e8.IConstruct", typing.Sequence["_constructs_77d1e7e8.IConstruct"]],
-        suppressions: typing.Sequence[typing.Union["NagPackSuppression", typing.Dict[builtins.str, typing.Any]]],
-        apply_to_children: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Add cdk-nag suppressions to a CfnResource and optionally its children.
-
-        :param construct: The IConstruct(s) to apply the suppression to.
-        :param suppressions: A list of suppressions to apply to the resource.
-        :param apply_to_children: Apply the suppressions to children CfnResources (default:false).
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a019ccc6d0325c092e9799383fe39f9bffd3785f51142f30e692e0947937f98e)
-            check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
-            check_type(argname="argument suppressions", value=suppressions, expected_type=type_hints["suppressions"])
-            check_type(argname="argument apply_to_children", value=apply_to_children, expected_type=type_hints["apply_to_children"])
-        return typing.cast(None, jsii.sinvoke(cls, "addResourceSuppressions", [construct, suppressions, apply_to_children]))
-
-    @jsii.member(jsii_name="addResourceSuppressionsByPath")
-    @builtins.classmethod
-    def add_resource_suppressions_by_path(
-        cls,
-        stack: "_aws_cdk_ceddda9d.Stack",
-        path: typing.Union[builtins.str, typing.Sequence[builtins.str]],
-        suppressions: typing.Sequence[typing.Union["NagPackSuppression", typing.Dict[builtins.str, typing.Any]]],
-        apply_to_children: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Add cdk-nag suppressions to a CfnResource and optionally its children via its path.
-
-        :param stack: The Stack the construct belongs to.
-        :param path: The path(s) to the construct in the provided stack.
-        :param suppressions: A list of suppressions to apply to the resource.
-        :param apply_to_children: Apply the suppressions to children CfnResources (default:false).
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f8e93f68ef8607b6e5a16388f0f7c757ce99057d7e42d5fa1c22db00da355de)
-            check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-            check_type(argname="argument suppressions", value=suppressions, expected_type=type_hints["suppressions"])
-            check_type(argname="argument apply_to_children", value=apply_to_children, expected_type=type_hints["apply_to_children"])
-        return typing.cast(None, jsii.sinvoke(cls, "addResourceSuppressionsByPath", [stack, path, suppressions, apply_to_children]))
-
-    @jsii.member(jsii_name="addStackSuppressions")
-    @builtins.classmethod
-    def add_stack_suppressions(
-        cls,
-        stack: "_aws_cdk_ceddda9d.Stack",
-        suppressions: typing.Sequence[typing.Union["NagPackSuppression", typing.Dict[builtins.str, typing.Any]]],
-        apply_to_nested_stacks: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Apply cdk-nag suppressions to a Stack and optionally nested stacks.
-
-        :param stack: The Stack to apply the suppression to.
-        :param suppressions: A list of suppressions to apply to the stack.
-        :param apply_to_nested_stacks: Apply the suppressions to children stacks (default:false).
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f5c648cedc28d10ee481b251de2f85cde16e2daf0dc2addd3e4c7860c0e5768)
-            check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
-            check_type(argname="argument suppressions", value=suppressions, expected_type=type_hints["suppressions"])
-            check_type(argname="argument apply_to_nested_stacks", value=apply_to_nested_stacks, expected_type=type_hints["apply_to_nested_stacks"])
-        return typing.cast(None, jsii.sinvoke(cls, "addStackSuppressions", [stack, suppressions, apply_to_nested_stacks]))
-
-
 class PCIDSS321Checks(
     NagPack,
     metaclass=jsii.JSIIMeta,
@@ -3633,89 +1080,49 @@ class PCIDSS321Checks(
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cc46ecacf7df9181e9567c7b72fb36ba1959bfc351922f773f88c7525850fd5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
 
-    @jsii.member(jsii_name="visit")
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
 
         :param node: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__813d53d45e9db3648743d0e260e058579163527ffb805ee4e7511408478be1f6)
+            type_hints = typing.get_type_hints(_typecheckingstub__71a8dce28af0aa91d1a25f141fdb97110a125246cb08236c3343190a9f176e8c)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
-        return typing.cast(None, jsii.invoke(self, "visit", [node]))
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.RegexAppliesTo",
-    jsii_struct_bases=[],
-    name_mapping={"regex": "regex"},
-)
-class RegexAppliesTo:
-    def __init__(self, *, regex: builtins.str) -> None:
-        '''(experimental) A regular expression to apply to matching findings.
-
-        :param regex: (experimental) An ECMA-262 regex string.
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8453471acfa85ba5ddf5a90e23aaf4fd9026a9d972c7f9445fcd249f7a656da)
-            check_type(argname="argument regex", value=regex, expected_type=type_hints["regex"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "regex": regex,
-        }
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
 
     @builtins.property
-    def regex(self) -> builtins.str:
-        '''(experimental) An ECMA-262 regex string.
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
 
         :stability: experimental
         '''
-        result = self._values.get("regex")
-        assert result is not None, "Required property 'regex' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RegexAppliesTo(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
 
 class ServerlessChecks(
@@ -3730,34 +1137,69 @@ class ServerlessChecks(
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f31b6fe87b5ee4f0b0ce0058a22fe72920f64a122756a75b670ced8ac39c82c7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
+
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
+
+        :param node: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b782b306305e1d03c2a388cfcc90b66e8c5e5551fbc2060cede17ff43a8e7049)
+            check_type(argname="argument node", value=node, expected_type=type_hints["node"])
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+
+@jsii.implements(_aws_cdk_ceddda9d.IAspect)
+class WriteNagSuppressionsToCloudFormationAspect(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="cdk-nag.WriteNagSuppressionsToCloudFormationAspect",
+):
+    '''(experimental) An IAspect that reads acknowledged rules from construct metadata and writes them into the CfnResource's CloudFormation Metadata for audit trail persistence in the synthesized template.
+
+    Preserves the v2 ``cdk_nag``
+    metadata format.
+
+    :stability: experimental
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="visit")
     def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
@@ -3768,673 +1210,9 @@ class ServerlessChecks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45822d91dde0925f0c42dd49aa5abb9d5fd6391e1a4d49074f95718261fd8ff8)
+            type_hints = typing.get_type_hints(_typecheckingstub__32b5cbcbfb40ab453835409abb88c9f37fe966b387077de2bc63ec203bdd8590)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
         return typing.cast(None, jsii.invoke(self, "visit", [node]))
-
-
-@jsii.implements(INagSuppressionIgnore)
-class SuppressionIgnoreAlways(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-nag.SuppressionIgnoreAlways",
-):
-    '''(experimental) Always ignore the suppression.
-
-    :stability: experimental
-    '''
-
-    def __init__(self, trigger_message: builtins.str) -> None:
-        '''
-        :param trigger_message: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa33f04446bcf1cb8a24a2c7daab296b89d9593c017b8c38f99d9a0d452fa725)
-            check_type(argname="argument trigger_message", value=trigger_message, expected_type=type_hints["trigger_message"])
-        jsii.create(self.__class__, self, [trigger_message])
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        _input = SuppressionIgnoreInput(
-            finding_id=finding_id,
-            reason=reason,
-            resource=resource,
-            rule_id=rule_id,
-            rule_level=rule_level,
-        )
-
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [_input]))
-
-
-@jsii.implements(INagSuppressionIgnore)
-class SuppressionIgnoreAnd(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-nag.SuppressionIgnoreAnd",
-):
-    '''(experimental) Ignore the suppression if all of the given INagSuppressionIgnore return a non-empty message.
-
-    :stability: experimental
-    '''
-
-    def __init__(self, *suppression_ignore_ands: "INagSuppressionIgnore") -> None:
-        '''
-        :param suppression_ignore_ands: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d484956c8730c75e4cf6533596839557423fe7f5ea32dfb4bcbdbb05e4a2d593)
-            check_type(argname="argument suppression_ignore_ands", value=suppression_ignore_ands, expected_type=typing.Tuple[type_hints["suppression_ignore_ands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        jsii.create(self.__class__, self, [*suppression_ignore_ands])
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        input = SuppressionIgnoreInput(
-            finding_id=finding_id,
-            reason=reason,
-            resource=resource,
-            rule_id=rule_id,
-            rule_level=rule_level,
-        )
-
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [input]))
-
-
-@jsii.implements(INagSuppressionIgnore)
-class SuppressionIgnoreErrors(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-nag.SuppressionIgnoreErrors",
-):
-    '''(experimental) Ignore Suppressions for Rules with a NagMessageLevel.ERROR.
-
-    :stability: experimental
-    '''
-
-    def __init__(self) -> None:
-        '''
-        :stability: experimental
-        '''
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        input = SuppressionIgnoreInput(
-            finding_id=finding_id,
-            reason=reason,
-            resource=resource,
-            rule_id=rule_id,
-            rule_level=rule_level,
-        )
-
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [input]))
-
-
-@jsii.data_type(
-    jsii_type="cdk-nag.SuppressionIgnoreInput",
-    jsii_struct_bases=[],
-    name_mapping={
-        "finding_id": "findingId",
-        "reason": "reason",
-        "resource": "resource",
-        "rule_id": "ruleId",
-        "rule_level": "ruleLevel",
-    },
-)
-class SuppressionIgnoreInput:
-    def __init__(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> None:
-        '''(experimental) Information about the NagRule and the relevant NagSuppression for the INagSuppressionIgnore.
-
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__375fa67002e6963901e2f6603cdb52e9d08e6110fab8ac88ea8031b4f8ca472a)
-            check_type(argname="argument finding_id", value=finding_id, expected_type=type_hints["finding_id"])
-            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument rule_level", value=rule_level, expected_type=type_hints["rule_level"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "finding_id": finding_id,
-            "reason": reason,
-            "resource": resource,
-            "rule_id": rule_id,
-            "rule_level": rule_level,
-        }
-
-    @builtins.property
-    def finding_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("finding_id")
-        assert result is not None, "Required property 'finding_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def reason(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("reason")
-        assert result is not None, "Required property 'reason' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource(self) -> "_aws_cdk_ceddda9d.CfnResource":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("resource")
-        assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("_aws_cdk_ceddda9d.CfnResource", result)
-
-    @builtins.property
-    def rule_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_id")
-        assert result is not None, "Required property 'rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_level(self) -> "NagMessageLevel":
-        '''
-        :stability: experimental
-        '''
-        result = self._values.get("rule_level")
-        assert result is not None, "Required property 'rule_level' is missing"
-        return typing.cast("NagMessageLevel", result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SuppressionIgnoreInput(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(INagSuppressionIgnore)
-class SuppressionIgnoreNever(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-nag.SuppressionIgnoreNever",
-):
-    '''(experimental) Don't ignore the suppression.
-
-    :stability: experimental
-    '''
-
-    def __init__(self) -> None:
-        '''
-        :stability: experimental
-        '''
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        _input = SuppressionIgnoreInput(
-            finding_id=finding_id,
-            reason=reason,
-            resource=resource,
-            rule_id=rule_id,
-            rule_level=rule_level,
-        )
-
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [_input]))
-
-
-@jsii.implements(INagSuppressionIgnore)
-class SuppressionIgnoreOr(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="cdk-nag.SuppressionIgnoreOr",
-):
-    '''(experimental) Ignore the suppression if any of the given INagSuppressionIgnore return a non-empty message.
-
-    :stability: experimental
-    '''
-
-    def __init__(self, *or_suppression_ignores: "INagSuppressionIgnore") -> None:
-        '''
-        :param or_suppression_ignores: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec5cc605f87aed5b6dd3b4116e98aa83f86df7e8e4504b2181f2e21b03a184d2)
-            check_type(argname="argument or_suppression_ignores", value=or_suppression_ignores, expected_type=typing.Tuple[type_hints["or_suppression_ignores"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        jsii.create(self.__class__, self, [*or_suppression_ignores])
-
-    @jsii.member(jsii_name="createMessage")
-    def create_message(
-        self,
-        *,
-        finding_id: builtins.str,
-        reason: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_id: builtins.str,
-        rule_level: "NagMessageLevel",
-    ) -> builtins.str:
-        '''
-        :param finding_id: 
-        :param reason: 
-        :param resource: 
-        :param rule_id: 
-        :param rule_level: 
-
-        :stability: experimental
-        '''
-        input = SuppressionIgnoreInput(
-            finding_id=finding_id,
-            reason=reason,
-            resource=resource,
-            rule_id=rule_id,
-            rule_level=rule_level,
-        )
-
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [input]))
-
-
-@jsii.implements(INagLogger)
-class AnnotationLogger(metaclass=jsii.JSIIMeta, jsii_type="cdk-nag.AnnotationLogger"):
-    '''(experimental) A NagLogger that outputs to the CDK Annotations system.
-
-    :stability: experimental
-    '''
-
-    def __init__(
-        self,
-        *,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        verbose: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages.
-
-        :stability: experimental
-        '''
-        props = AnnotationLoggerProps(log_ignores=log_ignores, verbose=verbose)
-
-        jsii.create(self.__class__, self, [props])
-
-    @jsii.member(jsii_name="createMessage")
-    def _create_message(
-        self,
-        rule_id: builtins.str,
-        finding_id: builtins.str,
-        rule_info: builtins.str,
-        rule_explanation: builtins.str,
-        verbose: builtins.bool,
-    ) -> builtins.str:
-        '''
-        :param rule_id: -
-        :param finding_id: -
-        :param rule_info: -
-        :param rule_explanation: -
-        :param verbose: -
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d27003a8b41ff976c7c6fb69915342dff77d036f488f01f27608ce64fb6fc49)
-            check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
-            check_type(argname="argument finding_id", value=finding_id, expected_type=type_hints["finding_id"])
-            check_type(argname="argument rule_info", value=rule_info, expected_type=type_hints["rule_info"])
-            check_type(argname="argument rule_explanation", value=rule_explanation, expected_type=type_hints["rule_explanation"])
-            check_type(argname="argument verbose", value=verbose, expected_type=type_hints["verbose"])
-        return typing.cast(builtins.str, jsii.invoke(self, "createMessage", [rule_id, finding_id, rule_info, rule_explanation, verbose]))
-
-    @jsii.member(jsii_name="onCompliance")
-    def on_compliance(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource passes the compliance check for a given rule.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        _data = NagLoggerComplianceData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onCompliance", [_data]))
-
-    @jsii.member(jsii_name="onError")
-    def on_error(
-        self,
-        *,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance.
-
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerErrorData(
-            error_message=error_message,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onError", [data]))
-
-    @jsii.member(jsii_name="onNonCompliance")
-    def on_non_compliance(
-        self,
-        *,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the the rule violation is not suppressed by the user.
-
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerNonComplianceData(
-            finding_id=finding_id,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onNonCompliance", [data]))
-
-    @jsii.member(jsii_name="onNotApplicable")
-    def on_not_applicable(
-        self,
-        *,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule does not apply to the given CfnResource.
-
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        _data = NagLoggerNotApplicableData(
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onNotApplicable", [_data]))
-
-    @jsii.member(jsii_name="onSuppressed")
-    def on_suppressed(
-        self,
-        *,
-        suppression_reason: builtins.str,
-        finding_id: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a CfnResource does not pass the compliance check for a given rule and the rule violation is suppressed by the user.
-
-        :param suppression_reason: 
-        :param finding_id: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerSuppressedData(
-            suppression_reason=suppression_reason,
-            finding_id=finding_id,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onSuppressed", [data]))
-
-    @jsii.member(jsii_name="onSuppressedError")
-    def on_suppressed_error(
-        self,
-        *,
-        error_suppression_reason: builtins.str,
-        error_message: builtins.str,
-        nag_pack_name: builtins.str,
-        resource: "_aws_cdk_ceddda9d.CfnResource",
-        rule_explanation: builtins.str,
-        rule_id: builtins.str,
-        rule_info: builtins.str,
-        rule_level: "NagMessageLevel",
-        rule_original_name: builtins.str,
-    ) -> None:
-        '''(experimental) Called when a rule throws an error during while validating a CfnResource for compliance and the error is suppressed.
-
-        :param error_suppression_reason: 
-        :param error_message: 
-        :param nag_pack_name: 
-        :param resource: 
-        :param rule_explanation: 
-        :param rule_id: 
-        :param rule_info: 
-        :param rule_level: 
-        :param rule_original_name: 
-
-        :stability: experimental
-        '''
-        data = NagLoggerSuppressedErrorData(
-            error_suppression_reason=error_suppression_reason,
-            error_message=error_message,
-            nag_pack_name=nag_pack_name,
-            resource=resource,
-            rule_explanation=rule_explanation,
-            rule_id=rule_id,
-            rule_info=rule_info,
-            rule_level=rule_level,
-            rule_original_name=rule_original_name,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "onSuppressedError", [data]))
-
-    @builtins.property
-    @jsii.member(jsii_name="logIgnores")
-    def log_ignores(self) -> builtins.bool:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(builtins.bool, jsii.get(self, "logIgnores"))
-
-    @builtins.property
-    @jsii.member(jsii_name="verbose")
-    def verbose(self) -> builtins.bool:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(builtins.bool, jsii.get(self, "verbose"))
-
-    @builtins.property
-    @jsii.member(jsii_name="suppressionId")
-    def suppression_id(self) -> builtins.str:
-        '''
-        :stability: experimental
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "suppressionId"))
-
-    @suppression_id.setter
-    def suppression_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e731712efd090983cf7e5c1378ce4a7f327773edbf8f7354ece70984365f5be)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "suppressionId", value) # pyright: ignore[reportArgumentType]
 
 
 class AwsSolutionsChecks(
@@ -4449,47 +1227,49 @@ class AwsSolutionsChecks(
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed3fdd64fd69f6c1132c8a1cba92e2661a89ce0f017c503e0bca7f221e3d1b38)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
 
-    @jsii.member(jsii_name="visit")
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
 
         :param node: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f96eb46c46eba3538cc66dd2f6fd176af6e483161c98c271e2da09d609cf6f32)
+            type_hints = typing.get_type_hints(_typecheckingstub__d147812c742450618f7becf9ad71174cbebb6b13704701c3691b5de11d29f110)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
-        return typing.cast(None, jsii.invoke(self, "visit", [node]))
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
 
 class HIPAASecurityChecks(
@@ -4506,47 +1286,49 @@ class HIPAASecurityChecks(
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c8d54058510ca74dacc7d9eace3b0662165082781c44ddd1376dfa8493a5591)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
 
-    @jsii.member(jsii_name="visit")
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
 
         :param node: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7befba4c0338ce825c8858ca449ed8639199c568303515244a7e215f1c28061)
+            type_hints = typing.get_type_hints(_typecheckingstub__96bd49c3468e34d61bd11381266e3b72071a66df475891ab572c446cb5dd8df6)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
-        return typing.cast(None, jsii.invoke(self, "visit", [node]))
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
 
 class NIST80053R4Checks(
@@ -4563,47 +1345,49 @@ class NIST80053R4Checks(
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62fcbcacb1da6c78228604ef0803b448884fe3a3036295b1f48263e44334e07e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
 
-    @jsii.member(jsii_name="visit")
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
 
         :param node: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12d900825e618c777e4d14e3b2c5357c960a024c352b9c0e3080bf762e9bef6b)
+            type_hints = typing.get_type_hints(_typecheckingstub__50ead95dfab8dd5759ca4e395f7da0761c36dad5d3a38e455542554fe5b1030c)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
-        return typing.cast(None, jsii.invoke(self, "visit", [node]))
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
 
 class NIST80053R5Checks(
@@ -4620,99 +1404,73 @@ class NIST80053R5Checks(
 
     def __init__(
         self,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         *,
-        additional_loggers: typing.Optional[typing.Sequence["INagLogger"]] = None,
-        log_ignores: typing.Optional[builtins.bool] = None,
-        report_formats: typing.Optional[typing.Sequence["NagReportFormat"]] = None,
-        reports: typing.Optional[builtins.bool] = None,
-        suppression_ignore_condition: typing.Optional["INagSuppressionIgnore"] = None,
         verbose: typing.Optional[builtins.bool] = None,
+        write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param additional_loggers: (experimental) Additional NagLoggers for logging rule validation outputs.
-        :param log_ignores: (experimental) Whether or not to log suppressed rule violations as informational messages (default: false).
-        :param report_formats: (experimental) If reports are enabled, the output formats of compliance reports in the App's output directory (default: only CSV).
-        :param reports: (experimental) Whether or not to generate compliance reports for applied Stacks in the App's output directory (default: true).
-        :param suppression_ignore_condition: (experimental) Conditionally prevent rules from being suppressed (default: no user provided condition).
+        :param scope: -
         :param verbose: (experimental) Whether or not to enable extended explanatory descriptions on warning, error, and logged ignore messages (default: false).
+        :param write_suppressions_to_cloud_formation: (experimental) Whether to write acknowledged rules into CfnResource CloudFormation Metadata as ``cdk_nag: { rules_to_suppress: [...] }`` for backwards compatibility with v2 audit trail tooling (default: false).
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3836ef55144e761b4b39324b693b0a70aa6270333ba84be0c748d88290d8f534)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = NagPackProps(
-            additional_loggers=additional_loggers,
-            log_ignores=log_ignores,
-            report_formats=report_formats,
-            reports=reports,
-            suppression_ignore_condition=suppression_ignore_condition,
             verbose=verbose,
+            write_suppressions_to_cloud_formation=write_suppressions_to_cloud_formation,
         )
 
-        jsii.create(self.__class__, self, [props])
+        jsii.create(self.__class__, self, [scope, props])
 
-    @jsii.member(jsii_name="visit")
-    def visit(self, node: "_constructs_77d1e7e8.IConstruct") -> None:
-        '''(experimental) All aspects can visit an IConstruct.
+    @jsii.member(jsii_name="checkResource")
+    def _check_resource(self, node: "_aws_cdk_ceddda9d.CfnResource") -> None:
+        '''(experimental) Subclasses implement this to apply rules to each CfnResource.
 
         :param node: -
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d2e84fa7d4ba03aa7bf298104f9e6a7521c3facd75b8d248d072c42722ecd14)
+            type_hints = typing.get_type_hints(_typecheckingstub__48341372ba0221aae88ec766b1ef50ee63dca3abf31a5ccb00eb1494ea8584c0)
             check_type(argname="argument node", value=node, expected_type=type_hints["node"])
-        return typing.cast(None, jsii.invoke(self, "visit", [node]))
+        return typing.cast(None, jsii.invoke(self, "checkResource", [node]))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the plugin that will be displayed in the validation report.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
 
 
 __all__ = [
-    "AnnotationLogger",
-    "AnnotationLoggerProps",
     "AwsSolutionsChecks",
     "HIPAASecurityChecks",
     "IApplyRule",
-    "INagLogger",
-    "INagSuppressionIgnore",
+    "INagValidationContext",
     "NIST80053R4Checks",
     "NIST80053R5Checks",
-    "NagLoggerBaseData",
-    "NagLoggerComplianceData",
-    "NagLoggerErrorData",
-    "NagLoggerNonComplianceData",
-    "NagLoggerNotApplicableData",
-    "NagLoggerSuppressedData",
-    "NagLoggerSuppressedErrorData",
     "NagMessageLevel",
     "NagPack",
     "NagPackProps",
-    "NagPackSuppression",
     "NagReportFormat",
     "NagReportLine",
-    "NagReportLogger",
-    "NagReportLoggerProps",
     "NagReportSchema",
     "NagRuleCompliance",
     "NagRulePostValidationStates",
     "NagRules",
-    "NagSuppressions",
     "PCIDSS321Checks",
-    "RegexAppliesTo",
     "ServerlessChecks",
-    "SuppressionIgnoreAlways",
-    "SuppressionIgnoreAnd",
-    "SuppressionIgnoreErrors",
-    "SuppressionIgnoreInput",
-    "SuppressionIgnoreNever",
-    "SuppressionIgnoreOr",
+    "WriteNagSuppressionsToCloudFormationAspect",
 ]
 
 publication.publish()
-
-def _typecheckingstub__c76f4bc63138756cb580801c06df1ac3a9c0be1a809e326eddd3933e8ccf222c(
-    *,
-    log_ignores: typing.Optional[builtins.bool] = None,
-    verbose: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__6a23651ea44768b1af733a2b9cef46eced1602c3bca3849419b685c2c8fcba15(
     value: builtins.str,
@@ -4738,12 +1496,6 @@ def _typecheckingstub__123173a6ce5be62d3f85f1d78609032a82004c4807c1cc883736375df
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9288306b38b954b918c055805151abe90063414817d3bb4674cc5456cd6e6619(
-    value: typing.Optional[INagSuppressionIgnore],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__333cce877f5798931df373ac5d819b402e92f9ac723cf0184c1db35694ca67a9(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -4756,99 +1508,11 @@ def _typecheckingstub__735fc03a45b618e514165f2e218d73e8b7084a45ea15b931267f19e67
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b54447c69d32d2c5b63c99983239ae73b9f19d8fdbd1d5f8046701d890f7f5bb(
+def _typecheckingstub__3017bec3b325642a7f017efcaa8f3e15a21609195066e1d9d84ad8398f1774dd(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
     *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b2369c97135e6d99b99884b93a52da46d2eaa508b33dd68cf3b232b4c254d8c(
-    *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2cdb757482fd16d0bdc5aec491ea46481898e09304e4cafb215196f81de28c0(
-    *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-    error_message: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bab29e75d71ea1830fa944b3a77c3025e3a4f8a0742c89c76fbbabc2da83ebf4(
-    *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-    finding_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c1c26e4f355c915b68201704e8b383af3e0cea31e8f757660937a73d0473f6e8(
-    *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ee145b58e321092c41a8ca75ccb9b50bd4d7b06c5b5f303b04fde0fc5335c992(
-    *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-    finding_id: builtins.str,
-    suppression_reason: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b97d7febc4da1597477e573081bfba668d6db013a81a05c0c6f6bcd4e5d15e37(
-    *,
-    nag_pack_name: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_explanation: builtins.str,
-    rule_id: builtins.str,
-    rule_info: builtins.str,
-    rule_level: NagMessageLevel,
-    rule_original_name: builtins.str,
-    error_message: builtins.str,
-    error_suppression_reason: builtins.str,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4859,20 +1523,14 @@ def _typecheckingstub__f3628e5213d5585ace3e16109c26f8af64546c343c9014c7c1f61edad
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ba5c64d28918f6c81ac27ddb1b8fd172dcc8d60b93422df8be15366fbee92a3a(
-    suppressions: typing.Sequence[typing.Union[NagPackSuppression, typing.Dict[builtins.str, typing.Any]]],
-    rule_id: builtins.str,
-    finding_id: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    level: NagMessageLevel,
-    ignore_suppression_condition: typing.Optional[INagSuppressionIgnore] = None,
-    validation_failure: typing.Optional[builtins.bool] = None,
+def _typecheckingstub__0e2d68c6332428b542b671a5db7d792e33667aab3e08db3145e98ebce4d22528(
+    context: _aws_cdk_ceddda9d.IPolicyValidationContext,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0d5c6b891fc439b6ba962aebfd2ac3f291fad706fc0a6199ca5e2ef180a35b9a(
-    value: typing.List[INagLogger],
+def _typecheckingstub__ec1e978998b866e1f0cf9b5507693090d004d680485682bafc3b9491680ab041(
+    scope: _constructs_77d1e7e8.IConstruct,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4883,41 +1541,16 @@ def _typecheckingstub__18633cd3423c88500a3be3035af0c083c9c2a61e7358e09d541efac11
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__750990594a653bc50228a510fc9a05a0b77520235ef9cb34eb1dfb6e7f47b9e7(
-    value: typing.Optional[INagSuppressionIgnore],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__499426647076f5f9b25fa3802115f4b0187bef15fcfb86478ee847c35a15b0af(
-    value: typing.Optional[INagSuppressionIgnore],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__818a0da55c5cbe0337f1efd54ed9153e54658d7d5a9a1a3d8f93e06baea87360(
-    node: _constructs_77d1e7e8.IConstruct,
+def _typecheckingstub__f430411ab22d637c2bb7899d2fa75de3d7035a2affe70f9e393e020a84d1dd36(
+    node: _aws_cdk_ceddda9d.CfnResource,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__83a83ce3fdb1cb0ca96a59694799f0ed3b0090f7d4e437681d969d4c74e7ddab(
     *,
-    additional_loggers: typing.Optional[typing.Sequence[INagLogger]] = None,
-    log_ignores: typing.Optional[builtins.bool] = None,
-    report_formats: typing.Optional[typing.Sequence[NagReportFormat]] = None,
-    reports: typing.Optional[builtins.bool] = None,
-    suppression_ignore_condition: typing.Optional[INagSuppressionIgnore] = None,
     verbose: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e488b05b5f3f444467d9eb46090b6726b68fa30596c2566a59974e3b5ccc5f54(
-    *,
-    id: builtins.str,
-    reason: builtins.str,
-    applies_to: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[RegexAppliesTo, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4925,31 +1558,10 @@ def _typecheckingstub__e488b05b5f3f444467d9eb46090b6726b68fa30596c2566a59974e3b5
 def _typecheckingstub__4c6b6029bff770690f88c877bee0f2885b7bc043157258be4815d22b42c13364(
     *,
     compliance: builtins.str,
-    exception_reason: builtins.str,
     resource_id: builtins.str,
     rule_id: builtins.str,
     rule_info: builtins.str,
     rule_level: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5258c45d7b5e7a57921e27dd5a7c53e00452a977e1d40530500b345f84a31167(
-    format: NagReportFormat,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d05cd61c8369866bc8b8765401ea1dfa7ebede0fc2130608a36bb42a8b9448ae(
-    data: typing.Union[NagLoggerBaseData, typing.Dict[builtins.str, typing.Any]],
-    compliance: typing.Union[NagRuleCompliance, NagRulePostValidationStates],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08e3f9aa1b2e641a8748b597a0deb88e437aae2a4f34f10501ac44b0524902a1(
-    *,
-    formats: typing.Sequence[NagReportFormat],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4982,118 +1594,101 @@ def _typecheckingstub__31cd67cca34b4963ea5b427552d0ed8190cf2265f4659708bb7d899d8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a019ccc6d0325c092e9799383fe39f9bffd3785f51142f30e692e0947937f98e(
-    construct: typing.Union[_constructs_77d1e7e8.IConstruct, typing.Sequence[_constructs_77d1e7e8.IConstruct]],
-    suppressions: typing.Sequence[typing.Union[NagPackSuppression, typing.Dict[builtins.str, typing.Any]]],
-    apply_to_children: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f8e93f68ef8607b6e5a16388f0f7c757ce99057d7e42d5fa1c22db00da355de(
-    stack: _aws_cdk_ceddda9d.Stack,
-    path: typing.Union[builtins.str, typing.Sequence[builtins.str]],
-    suppressions: typing.Sequence[typing.Union[NagPackSuppression, typing.Dict[builtins.str, typing.Any]]],
-    apply_to_children: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f5c648cedc28d10ee481b251de2f85cde16e2daf0dc2addd3e4c7860c0e5768(
-    stack: _aws_cdk_ceddda9d.Stack,
-    suppressions: typing.Sequence[typing.Union[NagPackSuppression, typing.Dict[builtins.str, typing.Any]]],
-    apply_to_nested_stacks: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__813d53d45e9db3648743d0e260e058579163527ffb805ee4e7511408478be1f6(
-    node: _constructs_77d1e7e8.IConstruct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b8453471acfa85ba5ddf5a90e23aaf4fd9026a9d972c7f9445fcd249f7a656da(
+def _typecheckingstub__0cc46ecacf7df9181e9567c7b72fb36ba1959bfc351922f773f88c7525850fd5(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
     *,
-    regex: builtins.str,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__45822d91dde0925f0c42dd49aa5abb9d5fd6391e1a4d49074f95718261fd8ff8(
-    node: _constructs_77d1e7e8.IConstruct,
+def _typecheckingstub__71a8dce28af0aa91d1a25f141fdb97110a125246cb08236c3343190a9f176e8c(
+    node: _aws_cdk_ceddda9d.CfnResource,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__aa33f04446bcf1cb8a24a2c7daab296b89d9593c017b8c38f99d9a0d452fa725(
-    trigger_message: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d484956c8730c75e4cf6533596839557423fe7f5ea32dfb4bcbdbb05e4a2d593(
-    *suppression_ignore_ands: INagSuppressionIgnore,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__375fa67002e6963901e2f6603cdb52e9d08e6110fab8ac88ea8031b4f8ca472a(
+def _typecheckingstub__f31b6fe87b5ee4f0b0ce0058a22fe72920f64a122756a75b670ced8ac39c82c7(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
     *,
-    finding_id: builtins.str,
-    reason: builtins.str,
-    resource: _aws_cdk_ceddda9d.CfnResource,
-    rule_id: builtins.str,
-    rule_level: NagMessageLevel,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ec5cc605f87aed5b6dd3b4116e98aa83f86df7e8e4504b2181f2e21b03a184d2(
-    *or_suppression_ignores: INagSuppressionIgnore,
+def _typecheckingstub__b782b306305e1d03c2a388cfcc90b66e8c5e5551fbc2060cede17ff43a8e7049(
+    node: _aws_cdk_ceddda9d.CfnResource,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4d27003a8b41ff976c7c6fb69915342dff77d036f488f01f27608ce64fb6fc49(
-    rule_id: builtins.str,
-    finding_id: builtins.str,
-    rule_info: builtins.str,
-    rule_explanation: builtins.str,
-    verbose: builtins.bool,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6e731712efd090983cf7e5c1378ce4a7f327773edbf8f7354ece70984365f5be(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f96eb46c46eba3538cc66dd2f6fd176af6e483161c98c271e2da09d609cf6f32(
+def _typecheckingstub__32b5cbcbfb40ab453835409abb88c9f37fe966b387077de2bc63ec203bdd8590(
     node: _constructs_77d1e7e8.IConstruct,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c7befba4c0338ce825c8858ca449ed8639199c568303515244a7e215f1c28061(
-    node: _constructs_77d1e7e8.IConstruct,
+def _typecheckingstub__ed3fdd64fd69f6c1132c8a1cba92e2661a89ce0f017c503e0bca7f221e3d1b38(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+    *,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__12d900825e618c777e4d14e3b2c5357c960a024c352b9c0e3080bf762e9bef6b(
-    node: _constructs_77d1e7e8.IConstruct,
+def _typecheckingstub__d147812c742450618f7becf9ad71174cbebb6b13704701c3691b5de11d29f110(
+    node: _aws_cdk_ceddda9d.CfnResource,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1d2e84fa7d4ba03aa7bf298104f9e6a7521c3facd75b8d248d072c42722ecd14(
-    node: _constructs_77d1e7e8.IConstruct,
+def _typecheckingstub__6c8d54058510ca74dacc7d9eace3b0662165082781c44ddd1376dfa8493a5591(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+    *,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-for cls in [IApplyRule, INagLogger, INagSuppressionIgnore]:
+def _typecheckingstub__96bd49c3468e34d61bd11381266e3b72071a66df475891ab572c446cb5dd8df6(
+    node: _aws_cdk_ceddda9d.CfnResource,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62fcbcacb1da6c78228604ef0803b448884fe3a3036295b1f48263e44334e07e(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+    *,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50ead95dfab8dd5759ca4e395f7da0761c36dad5d3a38e455542554fe5b1030c(
+    node: _aws_cdk_ceddda9d.CfnResource,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3836ef55144e761b4b39324b693b0a70aa6270333ba84be0c748d88290d8f534(
+    scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+    *,
+    verbose: typing.Optional[builtins.bool] = None,
+    write_suppressions_to_cloud_formation: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48341372ba0221aae88ec766b1ef50ee63dca3abf31a5ccb00eb1494ea8584c0(
+    node: _aws_cdk_ceddda9d.CfnResource,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IApplyRule, INagValidationContext]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

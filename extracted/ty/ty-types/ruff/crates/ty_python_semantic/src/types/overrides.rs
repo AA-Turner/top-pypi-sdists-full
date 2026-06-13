@@ -73,6 +73,10 @@ pub fn check_class<'db>(context: &InferContext<'db, '_>, class: StaticClassLiter
     let own_class_members: FxHashSet<_> = all_end_of_scope_members(db, scope).collect();
     let enum_info = enum_metadata(db, class.into());
 
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "each class member is checked independently"
+    )]
     for member in own_class_members {
         check_class_declaration(
             context,
@@ -99,8 +103,7 @@ fn conflicting_named_tuple_field_in_mro<'db>(
         let (superclass_literal, superclass_specialization) =
             superclass.class_literal_and_specialization(db);
 
-        if CodeGeneratorKind::NamedTuple.matches(db, superclass_literal, superclass_specialization)
-        {
+        if CodeGeneratorKind::NamedTuple.matches(db, superclass_literal) {
             match superclass_literal {
                 ClassLiteral::Static(superclass_literal) => {
                     if let Some(field) = superclass_literal
@@ -151,10 +154,10 @@ fn check_class_declaration<'db>(
         return;
     };
 
-    let Some((literal, specialization)) = class.static_class_literal(db) else {
+    let Some((literal, _)) = class.static_class_literal(db) else {
         return;
     };
-    let class_kind = CodeGeneratorKind::from_class(db, literal.into(), specialization);
+    let class_kind = CodeGeneratorKind::from_class(db, literal.into());
 
     // Check for prohibited `NamedTuple` attribute overrides.
     //
@@ -360,13 +363,9 @@ fn check_class_declaration<'db>(
                 {
                     continue;
                 }
-                method_kind = CodeGeneratorKind::from_class(
-                    db,
-                    superclass_literal.into(),
-                    superclass_specialization,
-                )
-                .map(MethodKind::Synthesized)
-                .unwrap_or_default();
+                method_kind = CodeGeneratorKind::from_class(db, superclass_literal.into())
+                    .map(MethodKind::Synthesized)
+                    .unwrap_or_default();
             }
 
             let superclass_instance_member =

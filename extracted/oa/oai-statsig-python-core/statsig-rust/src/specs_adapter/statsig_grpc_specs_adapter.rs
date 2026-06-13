@@ -179,6 +179,9 @@ impl StatsigGrpcSpecsAdapter {
         options: Option<&StatsigOptions>,
     ) -> Self {
         let fallback_adapter = StatsigHttpSpecsAdapter::new(sdk_key, options, None);
+        let default_options = StatsigOptions::default();
+        let options_ref = options.unwrap_or(&default_options);
+        let sdk_instance_id = options_ref.get_sdk_instance_id(sdk_key);
         let (init_tx, _) = broadcast::channel(1);
         Self {
             listener: RwLock::new(None),
@@ -200,7 +203,7 @@ impl StatsigGrpcSpecsAdapter {
                 is_retrying: false.into(),
             },
             init_timeout: Duration::from_millis(config.init_timeout_ms),
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             http_specs_adapter: Arc::new(fallback_adapter),
             cancel_poll_notify: Arc::new(Notify::new()),
         }

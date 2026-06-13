@@ -25,7 +25,7 @@ The shared dataclasses (``Event``, ``Forwarder``, ``AsyncForwarder``,
 re-exported here for convenience.
 """
 
-from smplkit.audit._client import (
+from smplkit.audit.clients import (
     AsyncCategoriesClient,
     AsyncEventsClient,
     AsyncEventTypesClient,
@@ -39,7 +39,7 @@ from smplkit.audit._client import (
     ResourceTypeListPage,
     ResourceTypesClient,
 )
-from smplkit.audit._forwarders import (
+from smplkit.audit.forwarders import (
     AsyncForwardersClient,
     ForwarderListPage,
     ForwardersClient,

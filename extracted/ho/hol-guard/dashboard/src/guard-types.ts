@@ -147,6 +147,7 @@ export type GuardApprovalPageFilters = {
   search?: string;
   cursor?: string;
   limit?: number;
+  includeTotals?: boolean;
 };
 
 export type GuardApprovalPage = {
@@ -692,6 +693,13 @@ export type PackageFirewallConnectFlow = {
   browser_opened: boolean | null;
   request_id: string | null;
   poll_after_ms: number | null;
+};
+
+export type GuardCloudConnectFlow = PackageFirewallConnectFlow;
+
+export type GuardCloudConnectStatusResponse = {
+  connect_required: boolean;
+  connect_flow: GuardCloudConnectFlow | null;
 };
 
 export type PackageFirewallStatusResponse = {

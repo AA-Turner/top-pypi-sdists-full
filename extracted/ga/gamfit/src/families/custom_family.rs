@@ -517,6 +517,20 @@ pub struct FamilyLinearizationState<'a> {
 /// - `jacobian_callback = None` → `design.clone()`.
 /// - `jacobian_callback = Some(cb)` → delegates to `cb.effective_jacobian_at`.
 pub trait BlockEffectiveJacobian: Send + Sync {
+    /// Stacked multi-output Jacobian for a contiguous observation row range.
+    ///
+    /// Shape: `(rows.len() * n_outputs, p_block)`, with the same channel-major
+    /// layout as [`Self::effective_jacobian_at`]: row
+    /// `channel * rows.len() + local_row` is `rows.start + local_row` in that
+    /// output channel. Implementations should keep this as the single source of
+    /// row math so large construction-time audits can stream chunks instead of
+    /// materialising all `n * p * K` entries at once.
+    fn effective_jacobian_rows(
+        &self,
+        state: &FamilyLinearizationState<'_>,
+        rows: Range<usize>,
+    ) -> Result<Array2<f64>, String>;
+
     /// Stacked multi-output Jacobian at the current β.
     ///
     /// Shape: `(n_rows * n_outputs, p_block)`, **channel-major**: rows
@@ -530,7 +544,10 @@ pub trait BlockEffectiveJacobian: Send + Sync {
     fn effective_jacobian_at(
         &self,
         state: &FamilyLinearizationState<'_>,
-    ) -> Result<Array2<f64>, String>;
+    ) -> Result<Array2<f64>, String> {
+        let full = self.effective_jacobian_rows(state, 0..usize::MAX)?;
+        Ok(full)
+    }
 
     /// Number of stacked output channels. 1 for most blocks.
     fn n_outputs(&self) -> usize {
@@ -564,12 +581,14 @@ pub struct AdditiveBlockJacobian {
 }
 
 impl BlockEffectiveJacobian for AdditiveBlockJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &FamilyLinearizationState<'_>,
+        rows: Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design.nrows();
         let p = self.design.ncols();
+        let rows = clamp_jacobian_rows(rows, n);
         // Additive (linear) block: Jacobian is β-independent — design does
         // not depend on state.beta. Verify beta contains no NaN when provided.
         if !state.beta.is_empty() && state.beta.iter().any(|v| v.is_nan()) {
@@ -577,11 +596,12 @@ impl BlockEffectiveJacobian for AdditiveBlockJacobian {
                 "AdditiveBlockJacobian::effective_jacobian_at: beta contains NaN".to_string(),
             );
         }
-        let total_rows = self.n_family_outputs * n;
+        let chunk = rows.end - rows.start;
+        let total_rows = self.n_family_outputs * chunk;
         let mut jac = Array2::<f64>::zeros((total_rows, p));
-        let row_start = self.own_output * n;
-        jac.slice_mut(ndarray::s![row_start..row_start + n, ..])
-            .assign(&self.design);
+        let row_start = self.own_output * chunk;
+        jac.slice_mut(ndarray::s![row_start..row_start + chunk, ..])
+            .assign(&self.design.slice(ndarray::s![rows.start..rows.end, ..]));
         Ok(jac)
     }
 
@@ -603,11 +623,13 @@ pub struct RowScaledJacobian {
 }
 
 impl BlockEffectiveJacobian for RowScaledJacobian {
-    fn effective_jacobian_at(
+    fn effective_jacobian_rows(
         &self,
         state: &FamilyLinearizationState<'_>,
+        rows: Range<usize>,
     ) -> Result<Array2<f64>, String> {
         let n = self.design.nrows();
+        let rows = clamp_jacobian_rows(rows, n);
         if self.eta_scaling.len() != n {
             return Err(format!(
                 "RowScaledJacobian: eta_scaling length {} != design nrows {}",
@@ -622,11 +644,14 @@ impl BlockEffectiveJacobian for RowScaledJacobian {
                 "RowScaledJacobian::effective_jacobian_at: state.beta contains NaN".to_string(),
             );
         }
-        let mut scaled = self.design.as_ref().clone();
-        for i in 0..n {
-            let s = self.eta_scaling[i];
+        let mut scaled = self
+            .design
+            .slice(ndarray::s![rows.start..rows.end, ..])
+            .to_owned();
+        for local_i in 0..scaled.nrows() {
+            let s = self.eta_scaling[rows.start + local_i];
             for j in 0..scaled.ncols() {
-                scaled[[i, j]] *= s;
+                scaled[[local_i, j]] *= s;
             }
         }
         Ok(scaled)
@@ -635,6 +660,12 @@ impl BlockEffectiveJacobian for RowScaledJacobian {
     fn eta_row_scaling_for_skewness(&self) -> Option<Arc<[f64]>> {
         Some(Arc::clone(&self.eta_scaling))
     }
+}
+
+fn clamp_jacobian_rows(rows: Range<usize>, n: usize) -> Range<usize> {
+    let start = rows.start.min(n);
+    let end = rows.end.min(n);
+    start..end.max(start)
 }
 
 /// Static specification for one parameter block in a custom family.
@@ -1614,6 +1645,9 @@ impl OuterDerivativePolicy {
     ) -> crate::solver::outer_strategy::OuterEvalOrder {
         use crate::solver::outer_strategy::OuterEvalOrder;
         match requested {
+            // Value-only is universal: every policy can evaluate the bare
+            // objective, so the request passes through unclamped.
+            OuterEvalOrder::Value => OuterEvalOrder::Value,
             OuterEvalOrder::ValueAndGradient => OuterEvalOrder::ValueAndGradient,
             OuterEvalOrder::ValueGradientHessian => {
                 if matches!(
@@ -2845,6 +2879,146 @@ pub trait CustomFamily {
     /// long before the inner Newton converges, while contributing
     /// essentially zero to the converged gradient and curvature.
     fn joint_jeffreys_term_required(&self) -> bool {
+        true
+    }
+
+    /// Optional Tier-B Jeffreys information matrix.
+    ///
+    /// Defaults to the exact joint Newton Hessian for existing families.
+    /// Non-canonical Bernoulli/binomial families should override this with the
+    /// expected Fisher information: Jeffreys' prior is defined from expected
+    /// information, while observed information can grow in saturated
+    /// misclassified tails and create an artificial prior-reward valley.
+    fn joint_jeffreys_information_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.exact_newton_joint_hessian_with_specs(block_states, specs)
+    }
+
+    /// First beta-directional derivative of
+    /// [`Self::joint_jeffreys_information_with_specs`].
+    fn joint_jeffreys_information_directional_derivative_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.exact_newton_joint_hessian_directional_derivative_with_specs(
+            block_states,
+            specs,
+            d_beta_flat,
+        )
+    }
+
+    /// Second beta-directional derivative of
+    /// [`Self::joint_jeffreys_information_with_specs`].
+    fn joint_jeffreys_information_second_directional_derivative_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.exact_newton_joint_hessian_second_directional_derivative_with_specs(
+            block_states,
+            specs,
+            d_beta_u_flat,
+            d_betav_flat,
+        )
+    }
+
+    /// Optional contracted second beta-derivative of the observed joint
+    /// Newton information:
+    ///
+    ///   ∇²_β tr(W H(β))
+    ///
+    /// for a fixed full-joint trace weight `W`.
+    ///
+    /// This is the wide-p route for Jeffreys' omitted second-directional
+    /// completion. The default returns `None`, so callers fall back to the
+    /// existing p(p+1)/2 pairwise `H''[e_a,e_b]` path.
+    fn exact_newton_joint_contracted_trace_hessian(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        weight: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        if block_states.len() != specs.len() {
+            return Err(format!(
+                "exact_newton_joint_contracted_trace_hessian default: block state count {} != spec count {}",
+                block_states.len(),
+                specs.len()
+            ));
+        }
+        let total = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
+        if weight.dim() != (total, total) {
+            return Err(format!(
+                "exact_newton_joint_contracted_trace_hessian default: weight shape {:?} != ({total}, {total})",
+                weight.dim()
+            ));
+        }
+        for (block_idx, (state, spec)) in block_states.iter().zip(specs.iter()).enumerate() {
+            let p_block = spec.design.ncols();
+            if state.beta.len() != p_block {
+                return Err(format!(
+                    "exact_newton_joint_contracted_trace_hessian default: block {block_idx} beta length {} != design cols {p_block}",
+                    state.beta.len()
+                ));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Contracted second beta-derivative matching
+    /// [`Self::joint_jeffreys_information_with_specs`]:
+    ///
+    ///   ∇²_β tr(W I_J(β)).
+    ///
+    /// Defaults to the observed-information contract above. Families that
+    /// override the Jeffreys information with expected/Fisher information
+    /// should override this too when they can compute the contraction in one
+    /// pass; otherwise the default `None` preserves the pairwise `H''`
+    /// fallback through
+    /// [`Self::joint_jeffreys_information_second_directional_derivative_with_specs`].
+    fn joint_jeffreys_information_contracted_trace_hessian_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        weight: &Array2<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.exact_newton_joint_contracted_trace_hessian(block_states, specs, weight)
+    }
+
+    /// Whether
+    /// [`Self::joint_jeffreys_information_contracted_trace_hessian_with_specs`]
+    /// can supply the wide-p Jeffreys completion without the pairwise `H''`
+    /// fallback. Default `false` preserves the historical width cap exactly.
+    fn joint_jeffreys_information_contracted_trace_hessian_available(&self) -> bool {
+        false
+    }
+
+    /// Whether [`Self::joint_jeffreys_information_with_specs`] is the SAME
+    /// object as the observed joint Newton Hessian
+    /// (`exact_newton_joint_hessian_with_specs`).
+    ///
+    /// Default `true`: the trait defaults delegate the Jeffreys information
+    /// to the observed quantities, so conditioning certificates obtained from
+    /// observed-Hessian matvecs transfer to the Jeffreys gate exactly.
+    ///
+    /// Families that override the Jeffreys information with the EXPECTED
+    /// Fisher information must override this to `false`. Every matrix-free
+    /// "Jeffreys provably skippable" pre-check
+    /// (`jeffreys_term_skippable_via_matvec`) certifies conditioning from
+    /// OBSERVED Hessian matvecs; that certificate does NOT transfer when the
+    /// two informations diverge. For probit-class likelihoods the observed
+    /// information GROWS (~η²) on saturated misclassified rows while the
+    /// expected information DECAYS, so an observed-conditioning skip would
+    /// zero the Jeffreys term exactly in the saturation regime it must police
+    /// (gam#1020). When this returns `false` the pre-checks are bypassed and
+    /// the exact expected-information gate always runs.
+    fn joint_jeffreys_information_matches_observed_hessian(&self) -> bool {
         true
     }
 
@@ -4574,6 +4748,7 @@ pub fn blockwise_fit_from_parts(
             beta_standard_errors_corrected: None,
             beta_covariance_frequentist: None,
             coefficient_influence: None,
+            weighted_gram: None,
             bias_correction_beta: None,
         }),
         _ => None,
@@ -11926,7 +12101,14 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
     // LAML logdet consistent with the inner solve (which also gated the term off
     // on the same well-conditioned geometry) while preserving the matrix-free path
     // at outer-eval scale. Returns `false`/unsure ⇒ exact formation below.
+    //
+    // EXPECTED-INFORMATION GUARD (gam#1020): the matvec certifies the
+    // OBSERVED Hessian's conditioning; when the family overrides the Jeffreys
+    // information with the expected Fisher information the certificate does
+    // not transfer (observed grows on saturated rows where expected decays),
+    // so the pre-check is bypassed and the exact gate always runs.
     let outer_precheck_eligible = include_logdet_h
+        && family.joint_jeffreys_information_matches_observed_hessian()
         && total >= crate::estimate::reml::jeffreys_subspace::CHEAP_CONDITIONING_PRECHECK_MIN_DIM;
     let outer_jeffreys_precheck_skips = match preferred_workspace.as_ref() {
         Some(ws) if outer_precheck_eligible && ws.hessian_matvec_available() => {
@@ -12718,15 +12900,39 @@ fn shrink_active_joint_block_trust_radii(
                 joint_block_step_hit_trust_boundary(**step_norm, **radius)
             })
             .all(|(radius, _)| *radius <= RADIUS_FLOOR * (1.0 + 1.0e-12));
+    // Snapshot the joint max BEFORE the shrink loop so the max-holding
+    // block(s) — boundary OR interior — always participate. The
+    // Moré–Sorensen inner step uses the SCALAR
+    // `joint_trust_radius = max(block_radii)` as its trust constraint
+    // (`spectrum.trust_region_step(joint_trust_radius)`); if the max-holder
+    // is an interior block whose step came in well below its per-block
+    // radius, the original boundary-only rule left the joint max held, the
+    // MS solve re-computed a byte-identical rejected step, and the inner
+    // loop stalled at `inner_loop_hard_ceiling`. Surfaced as the ~2-hour
+    // Rust CI test hang where cycles 117..305+ all logged
+    // `r=1.562e-2 (held) decision=shrink_reject |δ|=1.562e-2 |δ|∞=1.052e-4`
+    // identically: the boundary block's per-block radius collapsed toward
+    // the floor without ever changing the scalar joint radius, and the
+    // existing `all_boundary_blocks_at_floor` carve-out was unreachable
+    // because the boundary block kept getting deeper than the interior
+    // max-holder. Forcing the max-holder to participate makes the scalar
+    // `max(block_radii)` strictly decrease on every rejected attempt until
+    // the floor, after which the fully-rejected stall guard
+    // (`FULLY_REJECTED_STALL_MAX_CYCLES`) takes over and bails the cycle
+    // cleanly.
+    let max_radius_before = block_radii.iter().copied().fold(0.0_f64, f64::max);
     for (radius, step_norm) in block_radii.iter_mut().zip(block_step_norms) {
         let at_boundary = joint_block_step_hit_trust_boundary(*step_norm, *radius);
+        let holds_max = max_radius_before > 0.0
+            && max_radius_before.is_finite()
+            && *radius >= max_radius_before * (1.0 - 1.0e-12);
         let participates = if all_boundary_blocks_at_floor {
             // Boundary-at-floor stall: the boundary blocks cannot shrink any
             // further, so participate every block (including interior ones)
             // so the joint step magnitude actually changes.
             true
         } else if any_boundary_block {
-            at_boundary
+            at_boundary || holds_max
         } else {
             true
         };
@@ -12930,6 +13136,20 @@ impl KktRefusalDiagnosis {
 /// nullity of `H_pen`. Matches the threshold the surrounding REML
 /// penalty-rank machinery uses for "structurally zero".
 const KKT_REFUSAL_RANK_TOL: f64 = 1e-10;
+
+/// Joint width above which the pairwise Jeffreys second-order endgame
+/// completion fallback (`p(p+1)/2` exact second-directional joint-Hessian
+/// calls per endgame cycle, gam#979) is not attempted. Wide systems may still
+/// get the exact completion from a family-provided contracted trace hook.
+const JEFFREYS_COMPLETION_MAX_P: usize = 64;
+
+/// Residual band (as a multiple of the KKT residual tolerance) inside which
+/// the inner joint Newton is considered to be in its convergence ENDGAME and
+/// the exact Jeffreys second-order completion is added to the step model
+/// (gam#979). Far from the mode the trust region globalizes any model, so
+/// exactness buys nothing there; in the endgame it converts the
+/// divided-difference model's linear sawtooth into quadratic convergence.
+const JEFFREYS_COMPLETION_RESIDUAL_BAND: f64 = 300.0;
 
 /// Self-vanishing Levenberg–Marquardt damping factor for the range-restricted
 /// spectral Newton step (`solve_joint_newton_step_on_spectral_range`). The
@@ -14953,6 +15173,11 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         // per-block + spectrum breakdown without re-materializing H_pen.
         let mut last_kkt_refusal_report: Option<KktRefusalReport> = None;
         let mut prev_kkt_norm: Option<f64> = None;
+        // Convergence-endgame flag for the Jeffreys second-order completion
+        // (gam#979): set once the post-step KKT residual enters
+        // `JEFFREYS_COMPLETION_RESIDUAL_BAND × residual_tol`, consumed by the
+        // next cycle's dense-spectral step assembly.
+        let mut jeffreys_completion_endgame = false;
         // Plateau streak on |Δobj| ≤ objective_tol. The scale-aware
         // flatness predicate stays local to this loop; the streak/window
         // discipline (grow on flat, reset on recovery) is the shared
@@ -15160,7 +15385,16 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 // is dropped here (gam#729/#808).
                 true
             } else if joint_jeffreys_subspace.is_some() {
-                jeffreys_term_skippable_for_source(&joint_hessian_source, total_p).unwrap_or(false)
+                // EXPECTED-INFORMATION GUARD (gam#1020): the skippable
+                // certificate probes the OBSERVED Hessian source; it only
+                // transfers to the Jeffreys gate when the family's Jeffreys
+                // information IS the observed Hessian. Expected-information
+                // families (probit-class) bypass the pre-check — observed
+                // information grows on saturated rows exactly where the
+                // expected information collapses and the gate must arm.
+                family.joint_jeffreys_information_matches_observed_hessian()
+                    && jeffreys_term_skippable_for_source(&joint_hessian_source, total_p)
+                        .unwrap_or(false)
             } else {
                 false
             };
@@ -15394,8 +15628,27 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     // falls back to the damped path conservatively.
                     let hpen_nullity = symmetric_penalized_hessian_nullity(&lhs);
                     let apply_constrained_floor = hpen_nullity.map(|n| n > 0).unwrap_or(true);
+                    // Self-vanishing scale = the PROJECTED stationarity residual
+                    // (`current_kkt_norm`), NOT the raw ‖∇ℓ − Sβ + ∇Φ‖∞. At a
+                    // CONSTRAINED optimum the raw RHS converges to the active-set
+                    // multiplier mass ‖Aᵀλ‖∞ — an O(1) quantity that never
+                    // vanishes — so a floor scaled by it never lifts, throttling
+                    // every weakly-curved identified direction to a geometric
+                    // H/(H+μ) contraction and exhausting the inner budget with the
+                    // projected residual stalled just above tolerance (#1025: the
+                    // competing-risks twin time-basis fit, per_block_resid stuck at
+                    // 1.457 for the full budget). The projected residual is the
+                    // honest distance-from-KKT measure: it equals the raw RHS on
+                    // unconstrained fits (no behavior change there) and → 0 at a
+                    // constrained optimum, so the floor vanishes exactly where the
+                    // comment above promises it does.
                     let rhs_inf = rhs_step.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-                    let constrained_levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * rhs_inf;
+                    let floor_scale = if current_kkt_norm.is_finite() {
+                        current_kkt_norm.min(rhs_inf)
+                    } else {
+                        rhs_inf
+                    };
+                    let constrained_levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * floor_scale;
                     if apply_constrained_floor
                         && constrained_levenberg_mu > 0.0
                         && constrained_levenberg_mu.is_finite()
@@ -15630,6 +15883,23 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                             Ok(matrix) => matrix,
                             Err(_) => break,
                         };
+                        // Snapshot the Jeffreys information matrix for the
+                        // second-order completion below. For canonical families
+                        // this is the joint Newton Hessian; non-canonical
+                        // Bernoulli/binomial families override it with expected
+                        // Fisher information, which is the object Jeffreys'
+                        // prior is defined on.
+                        let jeffreys_completion_pairwise_fallback =
+                            total_p <= JEFFREYS_COMPLETION_MAX_P;
+                        let jeffreys_completion_requested = jeffreys_completion_pairwise_fallback
+                            || family
+                                .joint_jeffreys_information_contracted_trace_hessian_available();
+                        let h_info_for_completion = (jeffreys_completion_endgame
+                            && inner_jeffreys_term.is_some()
+                            && jeffreys_completion_requested)
+                            .then(|| family.joint_jeffreys_information_with_specs(&states, specs))
+                            .transpose()?
+                            .flatten();
                         add_joint_penalty_to_matrix(
                             &mut lhs_true,
                             &ranges,
@@ -15654,6 +15924,36 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         let spectral_rhs = rhs.clone();
                         if let Some((_grad_phi, hphi)) = inner_jeffreys_term.as_ref() {
                             lhs_true += hphi;
+                            // ENDGAME EXACTNESS (gam#979). The divided-difference
+                            // H_Φ omits the second-directional-Hessian remainder
+                            // `½ tr(K · D_ab)`; near a Firth-active mode that
+                            // remainder is comparable to the kept curvature, so
+                            // Newton converges only linearly (a residual sawtooth
+                            // plateauing just above the certificate tolerance —
+                            // enough mode noise to swamp outer finite differences
+                            // and feed the IFT near-flat-kernel amplification).
+                            // Once the residual enters the convergence band, add
+                            // the exact completion so the model is the true
+                            // Hessian of the Φ-augmented objective and the endgame
+                            // is quadratic. A family contracted trace hook can
+                            // supply it at any width; the pairwise `p(p+1)/2`
+                            // fallback remains limited to moderate p. `None`
+                            // degrades safely to the divided-difference model.
+                            if let (Some(h_info), Some(z_joint)) = (
+                                h_info_for_completion.as_ref(),
+                                joint_jeffreys_subspace.as_ref(),
+                            ) && let Some(completion) =
+                                custom_family_joint_jeffreys_second_order_completion(
+                                    family,
+                                    &states,
+                                    specs,
+                                    h_info,
+                                    z_joint,
+                                    jeffreys_completion_pairwise_fallback,
+                                )?
+                            {
+                                lhs_true += &completion;
+                            }
                         }
                         // Single metric-whitened eigendecomposition drives BOTH the
                         // seed step and every trust-region re-solve this cycle
@@ -16893,6 +17193,14 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 .map(|(grad_phi, _hphi)| grad_phi.iter().map(|v| v.abs()).fold(0.0_f64, f64::max))
                 .unwrap_or(0.0);
             let residual_tol = inner_tol * (1.0 + grad_inf.max(pen_inf).max(firth_score_inf));
+            // Arm the Jeffreys second-order endgame completion (gam#979) once
+            // the residual enters the convergence band; latched (never
+            // un-armed) so the endgame model cannot oscillate between the
+            // divided-difference and exact Hessians across cycles.
+            if residual.is_finite() && residual <= JEFFREYS_COMPLETION_RESIDUAL_BAND * residual_tol
+            {
+                jeffreys_completion_endgame = true;
+            }
             let block_stationarity_tolerances = block_gradient_norms
                 .iter()
                 .zip(&block_penalty_norms)
@@ -20627,11 +20935,14 @@ fn joint_outer_evaluate(
     // no active Jeffreys curvature (empty system, unavailable exact derivatives,
     // or the conditioning gate proved the term zero), not a user-selected
     // robustness-off mode.
-    // Gated Jeffreys VALUE `Φ(β̂)` paired with the curvature `H_Φ` from the same
-    // term evaluation. The value is folded into the LAML cost (`cost −= Φ`) so
-    // the outer criterion is the Laplace approximation of the SAME
-    // Firth-augmented objective the inner Newton converged on (gam#979).
-    robust_jeffreys_phi_hphi: Option<(f64, Array2<f64>)>,
+    // Gated Jeffreys VALUE `Φ(β̂)` paired with the divided-difference curvature
+    // `H_Φ` and its (optional) second-order completion, all from the same term
+    // evaluation. The value is folded into the LAML cost (`cost −= Φ`) so the
+    // outer criterion is the Laplace approximation of the SAME Firth-augmented
+    // objective the inner Newton converged on; the completion is folded into
+    // the mode-response OPERATOR only (see
+    // `custom_family_outer_jeffreys_hphi` for the chain-rule split) (gam#979).
+    robust_jeffreys_phi_hphi: Option<(f64, Array2<f64>, Option<Array2<f64>>)>,
     // Companion mode-response drift `D_β H_Φ[δβ]` for the outer gradient's trace
     // identity. `Some` exactly when `robust_jeffreys_phi_hphi` is `Some` (same
     // under-identified span); installing it wraps the derivative provider so the
@@ -20643,11 +20954,35 @@ fn joint_outer_evaluate(
     let joint_trace_diagonal_ridge = moderidge + if !strict_spd { extra_logdet_ridge } else { 0.0 };
     let scaled_joint_trace_diagonal_ridge = rho_curvature_scale * joint_trace_diagonal_ridge;
 
-    let (robust_jeffreys_phi, robust_jeffreys_hphi): (Option<f64>, Option<Array2<f64>>) =
-        match robust_jeffreys_phi_hphi {
-            Some((phi, hphi)) => (Some(phi), Some(hphi)),
-            None => (None, None),
-        };
+    let (robust_jeffreys_phi, robust_jeffreys_hphi, robust_jeffreys_completion): (
+        Option<f64>,
+        Option<Array2<f64>>,
+        Option<Array2<f64>>,
+    ) = match robust_jeffreys_phi_hphi {
+        Some((phi, hphi, completion)) => (Some(phi), Some(hphi), completion),
+        None => (None, None, None),
+    };
+    // Mode-response operator curvature: the divided-difference `H_Φ` PLUS its
+    // second-order completion when available — the TRUE Hessian of the
+    // Φ-augmented inner objective, which is what `v_k = ∂β̂/∂ρ_k` solves
+    // against. The logdet VALUE and its trace kernel keep the bare `H_Φ`
+    // (value↔drift consistency); see `custom_family_outer_jeffreys_hphi`.
+    // Folded ONLY when the projected kernel will own the value and the
+    // first-order traces (the same precondition as the kernel install below);
+    // on the unprojected route the operator IS the value/trace object and
+    // must stay on the divided-difference pair.
+    let completion_in_operator = project_hessian_logdet
+        && include_logdet_h
+        && include_logdet_s
+        && pseudo_logdet_mode == PseudoLogdetMode::Smooth;
+    let robust_jeffreys_hphi_for_operator: Option<Array2<f64>> = match (
+        robust_jeffreys_hphi.as_ref(),
+        robust_jeffreys_completion.filter(|_| completion_in_operator),
+    ) {
+        (Some(hphi), Some(completion)) => Some(hphi + &completion),
+        (Some(hphi), None) => Some(hphi.clone()),
+        (None, _) => None,
+    };
     // Pre-scale the outer-REML Jeffreys curvature into the same rescaled space as
     // the penalties so the projected-logdet path and the operator agree. `None`
     // (flag OFF / no under-identified span) keeps the released outer REML exact.
@@ -20714,7 +21049,7 @@ fn joint_outer_evaluate(
                     let apply_h = Arc::clone(&h_joint);
                     let apply_ranges = ranges_vec.clone();
                     let apply_s = Arc::clone(&s_lambdas);
-                    let apply_hphi = robust_jeffreys_hphi.clone();
+                    let apply_hphi = robust_jeffreys_hphi_for_operator.clone();
                     let hphi_scale = rho_curvature_scale;
                     Arc::new(MatrixFreeSpdOperator::new_with_mode(
                         total,
@@ -20741,7 +21076,7 @@ fn joint_outer_evaluate(
                     let apply_h = Arc::clone(apply);
                     let apply_ranges = ranges_vec.clone();
                     let apply_s = Arc::clone(&s_lambdas);
-                    let apply_hphi = robust_jeffreys_hphi.clone();
+                    let apply_hphi = robust_jeffreys_hphi_for_operator.clone();
                     let hphi_scale = rho_curvature_scale;
                     Arc::new(MatrixFreeSpdOperator::new_with_mode(
                         total,
@@ -20786,7 +21121,7 @@ fn joint_outer_evaluate(
                 scaled_joint_trace_diagonal_ridge,
                 None,
             );
-            if let Some(hphi) = robust_jeffreys_hphi.as_ref() {
+            if let Some(hphi) = robust_jeffreys_hphi_for_operator.as_ref() {
                 j_for_traces.scaled_add(rho_curvature_scale, hphi);
             }
             Arc::new(
@@ -21848,7 +22183,7 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
     {
         match (
             build_joint_jeffreys_subspace(specs, &ranges)?,
-            family.exact_newton_joint_hessian_with_specs(synced_states, specs)?,
+            family.joint_jeffreys_information_with_specs(synced_states, specs)?,
         ) {
             (Some(z), Some(h))
                 if z.nrows() == total && h.nrows() == total && h.ncols() == total =>
@@ -21945,7 +22280,7 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
                             z_j.view(),
                             &dense_b,
                             |dir: &Array1<f64>| {
-                                family.exact_newton_joint_hessian_directional_derivative_with_specs(
+                                family.joint_jeffreys_information_directional_derivative_with_specs(
                                     synced_states,
                                     specs,
                                     dir,
@@ -23091,7 +23426,9 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
     let robust_jeffreys_hphi =
         custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?;
     let batched_gradient_contract_allows_override = batched_outer_gradient_contract_allows_override(
-        robust_jeffreys_hphi.as_ref().map(|(_phi, hphi)| hphi),
+        robust_jeffreys_hphi
+            .as_ref()
+            .map(|(_phi, hphi, _completion)| hphi),
     );
     let mut batched_gradient_override: Option<Array1<f64>> = None;
     if !has_configured_rho_prior
@@ -24282,15 +24619,24 @@ fn jeffreys_term_skippable_for_source(
     if total_p < crate::estimate::reml::jeffreys_subspace::CHEAP_CONDITIONING_PRECHECK_MIN_DIM {
         return Ok(false);
     }
-    // Matrix-free Hessian-vector product against the SAME observed information the
-    // exact gate sees. `joint_jeffreys_term`'s reduced information is `Z_JᵀHZ_J`
-    // with `Z_J = I`, i.e. exactly the UNRIDGED likelihood joint Hessian `H` that
+    // Matrix-free Hessian-vector product against the OBSERVED joint information.
+    // For families whose Jeffreys information IS the observed Hessian (the trait
+    // default), `joint_jeffreys_term`'s reduced information is `Z_JᵀHZ_J` with
+    // `Z_J = I`, i.e. exactly the UNRIDGED likelihood joint Hessian `H` that
     // `exact_newton_joint_hessian_with_specs` materializes; the `Operator::apply`
     // / `Dense` here is that SAME `H` (the workspace's `hessian_matvec`, which the
     // dense source also reconstructs). So the pre-check estimates the spectrum of
     // precisely the matrix the dense path eigendecomposes — the skip decision and
     // the exact gate are consistent by construction, with no ridge discrepancy
     // (the solver's separate ridged solve operator is not involved here).
+    //
+    // EXPECTED-INFORMATION CAVEAT (gam#1020): when the family overrides
+    // `joint_jeffreys_information_with_specs` with the expected Fisher
+    // information, the gate eigendecomposes a DIFFERENT matrix than this matvec
+    // probes, and the certificate does not transfer (observed information grows
+    // on saturated misclassified rows where the expected information decays).
+    // Callers must gate this pre-check on
+    // `family.joint_jeffreys_information_matches_observed_hessian()`.
     let hv = |v: &Array1<f64>| -> Result<Array1<f64>, String> {
         match source {
             JointHessianSource::Dense(matrix) => Ok(matrix.dot(v)),
@@ -24319,7 +24665,7 @@ fn custom_family_joint_jeffreys_value<F: CustomFamily + Clone + Send + Sync + 's
     if total_p == 0 || z_joint.ncols() == 0 {
         return 0.0;
     }
-    let h_joint = match family.exact_newton_joint_hessian_with_specs(states, specs) {
+    let h_joint = match family.joint_jeffreys_information_with_specs(states, specs) {
         Ok(Some(h)) if h.nrows() == total_p && h.ncols() == total_p => h,
         _ => return 0.0,
     };
@@ -24349,7 +24695,7 @@ fn custom_family_joint_jeffreys_term<F: CustomFamily + Clone + Send + Sync + 'st
     if total_p == 0 || z_joint.ncols() == 0 {
         return Ok(None);
     }
-    let h_joint = match family.exact_newton_joint_hessian_with_specs(states, specs)? {
+    let h_joint = match family.joint_jeffreys_information_with_specs(states, specs)? {
         Some(h) => h,
         None => return Ok(None),
     };
@@ -24360,12 +24706,180 @@ fn custom_family_joint_jeffreys_term<F: CustomFamily + Clone + Send + Sync + 'st
         h_joint.view(),
         z_joint.view(),
         |direction: &Array1<f64>| {
-            family.exact_newton_joint_hessian_directional_derivative_with_specs(
+            family.joint_jeffreys_information_directional_derivative_with_specs(
                 states, specs, direction,
             )
         },
     )?;
     Ok(Some(term))
+}
+
+const JEFFREYS_REDUCED_INFO_RELATIVE_FLOOR: f64 = 1e-10;
+const JEFFREYS_REDUCED_INFO_ABSOLUTE_FLOOR: f64 = 1e-12;
+const JEFFREYS_CONDITIONING_GATE_RELATIVE: f64 = 1e-8;
+const JEFFREYS_CONDITIONING_GATE_ABSOLUTE: f64 = 1.0;
+const JEFFREYS_CONDITIONING_GATE_ABSOLUTE_CLEAR: f64 = 16.0;
+const JEFFREYS_CONDITIONING_GATE_RELATIVE_CLEAR: f64 = 1e-6;
+
+#[inline]
+fn custom_family_jeffreys_cap(floor: f64) -> f64 {
+    JEFFREYS_CONDITIONING_GATE_ABSOLUTE_CLEAR.max(floor)
+}
+
+#[inline]
+fn custom_family_jeffreys_floored_inverse(lam: f64, floor: f64) -> f64 {
+    let cap = custom_family_jeffreys_cap(floor);
+    if lam >= cap {
+        cap / (lam * lam)
+    } else if lam >= floor {
+        1.0 / lam
+    } else if lam >= 0.0 {
+        1.0 / floor
+    } else {
+        let denom = floor - lam;
+        floor / (denom * denom)
+    }
+}
+
+#[inline]
+fn custom_family_jeffreys_conditioning_gate_weight(lambda_min: f64, lambda_max: f64) -> f64 {
+    if lambda_max <= 0.0 || !lambda_min.is_finite() {
+        return 1.0;
+    }
+    #[inline]
+    fn ramp_down(x: f64, under: f64, clear: f64) -> f64 {
+        if x <= under {
+            return 1.0;
+        }
+        if x >= clear {
+            return 0.0;
+        }
+        let t = (x - under) / (clear - under);
+        1.0 - t * t * (3.0 - 2.0 * t)
+    }
+    let w_abs = ramp_down(
+        lambda_min,
+        JEFFREYS_CONDITIONING_GATE_ABSOLUTE,
+        JEFFREYS_CONDITIONING_GATE_ABSOLUTE_CLEAR,
+    );
+    let ratio = (lambda_min / lambda_max).max(f64::MIN_POSITIVE);
+    let w_rel = ramp_down(
+        ratio.log10(),
+        JEFFREYS_CONDITIONING_GATE_RELATIVE.log10(),
+        JEFFREYS_CONDITIONING_GATE_RELATIVE_CLEAR.log10(),
+    );
+    w_abs.max(w_rel)
+}
+
+fn custom_family_joint_jeffreys_contract_weight(
+    h_joint: ndarray::ArrayView2<'_, f64>,
+    z_joint: ndarray::ArrayView2<'_, f64>,
+) -> Result<Option<(f64, Array2<f64>)>, String> {
+    let p = h_joint.nrows();
+    if h_joint.ncols() != p {
+        return Err(format!(
+            "custom_family_joint_jeffreys_contract_weight: H must be square, got {}x{}",
+            h_joint.nrows(),
+            h_joint.ncols()
+        ));
+    }
+    if z_joint.nrows() != p {
+        return Err(format!(
+            "custom_family_joint_jeffreys_contract_weight: Z_J has {} rows, expected {p}",
+            z_joint.nrows()
+        ));
+    }
+    let m = z_joint.ncols();
+    if m == 0 {
+        return Ok(None);
+    }
+
+    let hz = h_joint.dot(&z_joint);
+    let h_id = z_joint.t().dot(&hz);
+    let mut h_id_sym = Array2::<f64>::zeros((m, m));
+    for i in 0..m {
+        for j in 0..m {
+            h_id_sym[[i, j]] = 0.5 * (h_id[[i, j]] + h_id[[j, i]]);
+        }
+    }
+    let (evals, evecs) = h_id_sym.eigh(Side::Lower).map_err(|e| {
+        format!(
+            "custom_family_joint_jeffreys_contract_weight: reduced-information eigendecomposition failed: {e}"
+        )
+    })?;
+    let lambda_max = evals.iter().copied().fold(0.0_f64, f64::max);
+    let lambda_min = evals.iter().copied().fold(f64::INFINITY, f64::min);
+    let gate_weight = custom_family_jeffreys_conditioning_gate_weight(lambda_min, lambda_max);
+    if gate_weight == 0.0 {
+        return Ok(None);
+    }
+    let floor = (JEFFREYS_REDUCED_INFO_RELATIVE_FLOOR * lambda_max)
+        .max(JEFFREYS_REDUCED_INFO_ABSOLUTE_FLOOR);
+    let mut k_reduced = Array2::<f64>::zeros((m, m));
+    for eig in 0..m {
+        let weight = custom_family_jeffreys_floored_inverse(evals[eig], floor);
+        if weight == 0.0 {
+            continue;
+        }
+        for row in 0..m {
+            let wr = weight * evecs[[row, eig]];
+            for col in 0..m {
+                k_reduced[[row, col]] += wr * evecs[[col, eig]];
+            }
+        }
+    }
+    let weight_full = z_joint.dot(&k_reduced).dot(&z_joint.t());
+    Ok(Some((gate_weight, weight_full)))
+}
+
+fn custom_family_joint_jeffreys_second_order_completion<
+    F: CustomFamily + Clone + Send + Sync + 'static,
+>(
+    family: &F,
+    states: &[ParameterBlockState],
+    specs: &[ParameterBlockSpec],
+    h_joint: &Array2<f64>,
+    z_joint: &Array2<f64>,
+    allow_pairwise_fallback: bool,
+) -> Result<Option<Array2<f64>>, String> {
+    let p = h_joint.nrows();
+    let Some((gate_weight, trace_weight)) =
+        custom_family_joint_jeffreys_contract_weight(h_joint.view(), z_joint.view())?
+    else {
+        return if allow_pairwise_fallback {
+            Ok(Some(Array2::zeros((p, p))))
+        } else {
+            Ok(None)
+        };
+    };
+    match family.joint_jeffreys_information_contracted_trace_hessian_with_specs(
+        states,
+        specs,
+        &trace_weight,
+    )? {
+        Some(mut contracted) => {
+            if contracted.dim() != (p, p) {
+                return Err(format!(
+                    "custom_family_joint_jeffreys_second_order_completion: contracted shape {:?} != ({p}, {p})",
+                    contracted.dim()
+                ));
+            }
+            contracted.mapv_inplace(|value| -0.5 * gate_weight * value);
+            Ok(Some(contracted))
+        }
+        None if allow_pairwise_fallback => {
+            crate::estimate::reml::jeffreys_subspace::joint_jeffreys_second_order_completion(
+                h_joint.view(),
+                z_joint.view(),
+                |u: &Array1<f64>, v: &Array1<f64>| {
+                    family.joint_jeffreys_information_second_directional_derivative_with_specs(
+                        states, specs, u, v,
+                    )
+                },
+            )
+        }
+        None => Ok(None),
+    }
 }
 
 /// Outer-REML full-span Jeffreys curvature `H_Φ` for the coupled joint Hessian.
@@ -24392,7 +24906,7 @@ fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send + Sync + 'st
     states: &[ParameterBlockState],
     specs: &[ParameterBlockSpec],
     ranges: &[(usize, usize)],
-) -> Result<Option<(f64, Array2<f64>)>, String> {
+) -> Result<Option<(f64, Array2<f64>, Option<Array2<f64>>)>, String> {
     if !family.joint_jeffreys_term_required() {
         return Ok(None);
     }
@@ -24406,7 +24920,48 @@ fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send + Sync + 'st
     // value/curvature must come from the SAME term evaluation.
     let phi_and_hphi = custom_family_joint_jeffreys_term(family, states, specs, ranges, &z_joint)?
         .map(|(phi, _grad, hphi)| (phi, hphi));
-    Ok(phi_and_hphi)
+    let Some((phi, hphi)) = phi_and_hphi else {
+        return Ok(None);
+    };
+    // SECOND-ORDER COMPLETION AT THE MODE (gam#979), returned SEPARATELY. The
+    // divided-difference `H_Φ` omits the second-directional-Hessian remainder
+    // `½ tr(K·D_ab)`, so the TRUE Hessian of the Φ-augmented inner objective
+    // is `M_true = H + S_λ + H_Φ + completion`. The chain rule fixes where
+    // each belongs in the outer gradient of `V = f(β̂) + ½log|M_DD|₊ − ½log|S|₊`:
+    //   * the logdet VALUE and its trace kernel must share ONE object
+    //     (`M_DD = H + S_λ + H_Φ`), whose drift `D_β H_Φ[v]` the wrapper
+    //     supplies exactly — folding the completion THERE would desync value
+    //     from drift (the completion's own β-motion needs third directional
+    //     derivatives no family exposes; measured: ~38% gradient / ~70%
+    //     Hessian FD bias when tried);
+    //   * the mode response `v_k = ∂β̂/∂ρ_k = −(∇²f)⁻¹ Ṡ_k β̂` must be solved
+    //     on `M_true` — it is a property of the inner stationarity system,
+    //     not of the criterion (measured: ~10% uniform FD bias when solved
+    //     on `M_DD`).
+    // Callers therefore fold this term into the mode-response OPERATOR only.
+    // The contracted trace hook may supply it at any width; the pairwise
+    // `p(p+1)/2` fallback stays capped. `None` degrades safely to the
+    // divided-difference solve.
+    let total_p = ranges.last().map(|(_, e)| *e).unwrap_or(0);
+    let mut completion: Option<Array2<f64>> = None;
+    let completion_pairwise_fallback = total_p <= JEFFREYS_COMPLETION_MAX_P;
+    let completion_requested = completion_pairwise_fallback
+        || family.joint_jeffreys_information_contracted_trace_hessian_available();
+    if completion_requested
+        && let Some(h_joint) = family.joint_jeffreys_information_with_specs(states, specs)?
+        && h_joint.nrows() == total_p
+        && h_joint.ncols() == total_p
+    {
+        completion = custom_family_joint_jeffreys_second_order_completion(
+            family,
+            states,
+            specs,
+            &h_joint,
+            &z_joint,
+            completion_pairwise_fallback,
+        )?;
+    }
+    Ok(Some((phi, hphi, completion)))
 }
 
 fn batched_outer_gradient_contract_allows_override(
@@ -24458,7 +25013,7 @@ fn custom_family_outer_jeffreys_hphi_drift<F: CustomFamily + Clone + Send + Sync
     // Snapshot the joint Hessian H(β̂) at the current outer point. If the family
     // exposes no exact joint Hessian the Jeffreys term is inapplicable (matching
     // `custom_family_joint_jeffreys_term`), so no drift is installed.
-    let h_joint = match family.exact_newton_joint_hessian_with_specs(states, specs)? {
+    let h_joint = match family.joint_jeffreys_information_with_specs(states, specs)? {
         Some(h) => h,
         None => return Ok(None),
     };
@@ -24479,14 +25034,14 @@ fn custom_family_outer_jeffreys_hphi_drift<F: CustomFamily + Clone + Send + Sync
             z_columns.view(),
             delta,
             |direction: &Array1<f64>| {
-                family_owned.exact_newton_joint_hessian_directional_derivative_with_specs(
+                family_owned.joint_jeffreys_information_directional_derivative_with_specs(
                     &states_owned,
                     &specs_owned,
                     direction,
                 )
             },
             |u: &Array1<f64>, v: &Array1<f64>| {
-                family_owned.exact_newton_joint_hessian_second_directional_derivative_with_specs(
+                family_owned.joint_jeffreys_information_second_directional_derivative_with_specs(
                     &states_owned,
                     &specs_owned,
                     u,
@@ -25377,15 +25932,27 @@ fn exact_newton_joint_projected_stationarity_vector_from_gradient(
             let block_active_hint = block_active_sets
                 .and_then(|sets| sets.get(b))
                 .and_then(|opt| opt.as_deref());
-            block = projected_linear_constraint_stationarity_vector(
+            match projected_linear_constraint_stationarity_vector(
                 &block,
                 &states[b].beta,
                 constraints,
                 block_active_hint,
-            )
-            .ok_or_else(|| {
-                format!("exact-newton projected stationarity vector: failed to project block {b}")
-            })?;
+            ) {
+                Some(projected) => block = projected,
+                None => {
+                    // Cone projection can only SHRINK the residual (it removes
+                    // nonnegative multiplier mass on active rows), so a failed
+                    // projection degrades to the conservative unprojected
+                    // residual — the convergence test gets harder, never
+                    // easier — instead of rejecting the whole seed (#1025:
+                    // 'failed to project block 0' killed an otherwise-healthy
+                    // competing-risks seed outright).
+                    log::warn!(
+                        "exact-newton projected stationarity vector: cone projection failed \
+                         for block {b}; using the conservative unprojected residual"
+                    );
+                }
+            }
         }
         residual.slice_mut(ndarray::s![start..end]).assign(&block);
         offset = end;
@@ -28050,12 +28617,6 @@ mod tests {
                       _v: &Array1<f64>|
          -> Result<Option<DriftDerivResult>, String> { Ok(None) };
 
-        eprintln!("\n=== large-scale rho-scan: unprojected vs projected outer gradient ===");
-        eprintln!(
-            "{:>5}  {:>10}  {:>16}  {:>16}  {:>10}",
-            "rho", "lambda", "g_unprojected", "g_projected", "ratio"
-        );
-
         let mut g_un_at_10 = 0.0_f64;
         let mut g_pr_at_10 = 0.0_f64;
 
@@ -28184,14 +28745,6 @@ mod tests {
 
             let g_un = unprojected.gradient[0];
             let g_pr = projected.gradient[0];
-            eprintln!(
-                "{:>5.1}  {:>10.3e}  {:>16.6e}  {:>16.6e}  {:>10.3e}",
-                rho_val,
-                lam,
-                g_un,
-                g_pr,
-                g_un.abs() / (g_pr.abs() + 1e-30)
-            );
             if rho_val == 10.0 {
                 g_un_at_10 = g_un.abs();
                 g_pr_at_10 = g_pr.abs();
@@ -28525,16 +29078,6 @@ mod tests {
             None,
         )
         .expect("large-scale projected eval");
-
-        eprintln!("\n=== large-scale multi-block reproducer with realistic Ḣ ===");
-        eprintln!("ρ = {:?}", rho.as_slice().unwrap());
-        eprintln!("λ = {:?}", lams.as_slice().unwrap());
-        eprintln!(
-            "|β|∞ = {:.3}",
-            beta_flat.iter().fold(0.0_f64, |a, &b| a.max(b.abs()))
-        );
-        eprintln!("objective = {:.6e}", projected.objective);
-        eprintln!("gradient = {:?}", projected.gradient.as_slice().unwrap());
 
         // Physical-bound check: ½λ_k β'_k S_k β_k is the dominant explicit
         // term per coord. For large-scale shape this is ~10⁸ at ρ=10 with
@@ -29902,6 +30445,328 @@ mod tests {
         );
     }
 
+    fn jeffreys_seam_spec(p: usize) -> ParameterBlockSpec {
+        ParameterBlockSpec {
+            name: "jeffreys-seam".to_string(),
+            design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Array2::eye(p))),
+            offset: Array1::zeros(p),
+            penalties: vec![],
+            nullspace_dims: vec![],
+            initial_log_lambdas: Array1::zeros(0),
+            initial_beta: None,
+            gauge_priority: 100,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        }
+    }
+
+    fn jeffreys_seam_state(beta: Array1<f64>) -> ParameterBlockState {
+        let eta = beta.clone();
+        ParameterBlockState { beta, eta }
+    }
+
+    /// Observed-default family for the gam#1020 seam contract: implements only
+    /// the observed joint Newton Hessian (and its directional derivatives) and
+    /// relies on the trait defaults for the Jeffreys information hooks.
+    #[derive(Clone)]
+    struct ObservedJeffreysSeamFamily;
+
+    impl CustomFamily for ObservedJeffreysSeamFamily {
+        fn evaluate(
+            &self,
+            block_states: &[ParameterBlockState],
+        ) -> Result<FamilyEvaluation, String> {
+            let n = block_states
+                .first()
+                .ok_or_else(|| "missing block 0".to_string())?
+                .eta
+                .len();
+            Ok(FamilyEvaluation {
+                log_likelihood: 0.0,
+                blockworking_sets: vec![BlockWorkingSet::Diagonal {
+                    working_response: Array1::zeros(n),
+                    working_weights: Array1::ones(n),
+                }],
+            })
+        }
+
+        fn exact_newton_joint_hessian_with_specs(
+            &self,
+            block_states: &[ParameterBlockState],
+            specs: &[ParameterBlockSpec],
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(block_states.len(), specs.len());
+            let beta = &block_states[0].beta;
+            Ok(Some(array![
+                [2.0 + beta[0] * beta[0], 0.3],
+                [0.3, 1.5 + beta[1] * beta[1]]
+            ]))
+        }
+
+        fn exact_newton_joint_hessian_directional_derivative_with_specs(
+            &self,
+            block_states: &[ParameterBlockState],
+            specs: &[ParameterBlockSpec],
+            d_beta_flat: &Array1<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(block_states.len(), specs.len());
+            let beta = &block_states[0].beta;
+            Ok(Some(array![
+                [2.0 * beta[0] * d_beta_flat[0], 0.0],
+                [0.0, 2.0 * beta[1] * d_beta_flat[1]]
+            ]))
+        }
+
+        fn exact_newton_joint_hessian_second_directional_derivative_with_specs(
+            &self,
+            block_states: &[ParameterBlockState],
+            specs: &[ParameterBlockSpec],
+            d_beta_u_flat: &Array1<f64>,
+            d_betav_flat: &Array1<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(block_states.len(), specs.len());
+            Ok(Some(array![
+                [2.0 * d_beta_u_flat[0] * d_betav_flat[0], 0.0],
+                [0.0, 2.0 * d_beta_u_flat[1] * d_betav_flat[1]]
+            ]))
+        }
+    }
+
+    /// gam#1020 acceptance: families that do NOT override the Jeffreys
+    /// information hooks get the OBSERVED joint Newton quantities — the seam
+    /// defaults are exact delegations, so behavior is unchanged.
+    #[test]
+    fn joint_jeffreys_information_defaults_delegate_to_observed_hessian() {
+        let family = ObservedJeffreysSeamFamily;
+        let specs = vec![jeffreys_seam_spec(2)];
+        let states = vec![jeffreys_seam_state(array![0.4, -0.7])];
+        let u = array![0.3, -0.2];
+        let v = array![-0.1, 0.5];
+
+        let observed = family
+            .exact_newton_joint_hessian_with_specs(&states, &specs)
+            .expect("observed H")
+            .expect("observed H present");
+        let info = family
+            .joint_jeffreys_information_with_specs(&states, &specs)
+            .expect("jeffreys info")
+            .expect("jeffreys info present");
+        assert_eq!(info, observed, "default Jeffreys info must be observed H");
+
+        let observed_dot = family
+            .exact_newton_joint_hessian_directional_derivative_with_specs(&states, &specs, &u)
+            .expect("observed Hdot")
+            .expect("observed Hdot present");
+        let info_dot = family
+            .joint_jeffreys_information_directional_derivative_with_specs(&states, &specs, &u)
+            .expect("jeffreys dI")
+            .expect("jeffreys dI present");
+        assert_eq!(
+            info_dot, observed_dot,
+            "default Jeffreys dI must be observed Hdot"
+        );
+
+        let observed_ddot = family
+            .exact_newton_joint_hessian_second_directional_derivative_with_specs(
+                &states, &specs, &u, &v,
+            )
+            .expect("observed H2dot")
+            .expect("observed H2dot present");
+        let info_ddot = family
+            .joint_jeffreys_information_second_directional_derivative_with_specs(
+                &states, &specs, &u, &v,
+            )
+            .expect("jeffreys d2I")
+            .expect("jeffreys d2I present");
+        assert_eq!(
+            info_ddot, observed_ddot,
+            "default Jeffreys d2I must be observed H2dot"
+        );
+
+        // Contracted hook defaults: declared unavailable and returns None, so
+        // the completion keeps the pairwise H2dot fallback.
+        assert!(!family.joint_jeffreys_information_contracted_trace_hessian_available());
+        let weight = Array2::<f64>::eye(2);
+        let contracted = family
+            .joint_jeffreys_information_contracted_trace_hessian_with_specs(
+                &states, &specs, &weight,
+            )
+            .expect("contracted default");
+        assert!(
+            contracted.is_none(),
+            "default contracted trace hook must be None"
+        );
+
+        // Observed-default families keep the matvec skip pre-checks armed.
+        assert!(family.joint_jeffreys_information_matches_observed_hessian());
+    }
+
+    /// gam#1020: family supplying the contracted trace Hessian. The pairwise
+    /// second-directional path returns wildly different values so the test
+    /// detects which path the completion dispatched to.
+    #[derive(Clone)]
+    struct ContractedJeffreysSeamFamily;
+
+    impl CustomFamily for ContractedJeffreysSeamFamily {
+        fn evaluate(
+            &self,
+            block_states: &[ParameterBlockState],
+        ) -> Result<FamilyEvaluation, String> {
+            let n = block_states
+                .first()
+                .ok_or_else(|| "missing block 0".to_string())?
+                .eta
+                .len();
+            Ok(FamilyEvaluation {
+                log_likelihood: 0.0,
+                blockworking_sets: vec![BlockWorkingSet::Diagonal {
+                    working_response: Array1::zeros(n),
+                    working_weights: Array1::ones(n),
+                }],
+            })
+        }
+
+        fn joint_jeffreys_information_second_directional_derivative_with_specs(
+            &self,
+            block_states: &[ParameterBlockState],
+            specs: &[ParameterBlockSpec],
+            d_beta_u_flat: &Array1<f64>,
+            d_betav_flat: &Array1<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(block_states.len(), specs.len());
+            let scale = 1.0e6 * d_beta_u_flat.dot(d_betav_flat);
+            Ok(Some(scale * Array2::<f64>::eye(2)))
+        }
+
+        fn joint_jeffreys_information_contracted_trace_hessian_with_specs(
+            &self,
+            block_states: &[ParameterBlockState],
+            specs: &[ParameterBlockSpec],
+            weight: &Array2<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(block_states.len(), specs.len());
+            assert_eq!(weight.dim(), (2, 2));
+            Ok(Some(7.0 * Array2::<f64>::eye(2)))
+        }
+
+        fn joint_jeffreys_information_contracted_trace_hessian_available(&self) -> bool {
+            true
+        }
+    }
+
+    /// gam#1020 acceptance: the second-order completion takes the contracted
+    /// trace hook when the family provides one (the wide-p route), scaling it
+    /// by `−½·gate`; the pairwise H2dot path is not consulted.
+    #[test]
+    fn jeffreys_second_order_completion_prefers_contracted_hook() {
+        let family = ContractedJeffreysSeamFamily;
+        let specs = vec![jeffreys_seam_spec(2)];
+        let states = vec![jeffreys_seam_state(Array1::zeros(2))];
+        // λ_min = 1e-4 is far below the absolute conditioning gate, so the
+        // gate weight is exactly 1 and the completion is −½ · contracted.
+        let h_joint = array![[1.0e-4, 0.0], [0.0, 1.0]];
+        let z_joint = Array2::<f64>::eye(2);
+        let completion = custom_family_joint_jeffreys_second_order_completion(
+            &family, &states, &specs, &h_joint, &z_joint, true,
+        )
+        .expect("completion")
+        .expect("completion present");
+        let expected = -3.5 * Array2::<f64>::eye(2);
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!(
+                    (completion[[i, j]] - expected[[i, j]]).abs() < 1e-12,
+                    "contracted completion mismatch at ({i},{j}): {} vs {}",
+                    completion[[i, j]],
+                    expected[[i, j]]
+                );
+            }
+        }
+    }
+
+    /// gam#1020: family without a contracted hook — the completion must fall
+    /// back to the exact pairwise second-directional path, and must return
+    /// `None` when the pairwise fallback is not allowed (width cap exceeded).
+    #[derive(Clone)]
+    struct PairwiseJeffreysSeamFamily;
+
+    impl CustomFamily for PairwiseJeffreysSeamFamily {
+        fn evaluate(
+            &self,
+            block_states: &[ParameterBlockState],
+        ) -> Result<FamilyEvaluation, String> {
+            let n = block_states
+                .first()
+                .ok_or_else(|| "missing block 0".to_string())?
+                .eta
+                .len();
+            Ok(FamilyEvaluation {
+                log_likelihood: 0.0,
+                blockworking_sets: vec![BlockWorkingSet::Diagonal {
+                    working_response: Array1::zeros(n),
+                    working_weights: Array1::ones(n),
+                }],
+            })
+        }
+
+        fn joint_jeffreys_information_second_directional_derivative_with_specs(
+            &self,
+            block_states: &[ParameterBlockState],
+            specs: &[ParameterBlockSpec],
+            d_beta_u_flat: &Array1<f64>,
+            d_betav_flat: &Array1<f64>,
+        ) -> Result<Option<Array2<f64>>, String> {
+            assert_eq!(block_states.len(), specs.len());
+            let scale = d_beta_u_flat.dot(d_betav_flat);
+            Ok(Some(scale * array![[2.0, 1.0], [1.0, 3.0]]))
+        }
+    }
+
+    #[test]
+    fn jeffreys_second_order_completion_pairwise_fallback_when_hook_absent() {
+        let family = PairwiseJeffreysSeamFamily;
+        let specs = vec![jeffreys_seam_spec(2)];
+        let states = vec![jeffreys_seam_state(Array1::zeros(2))];
+        let h_joint = array![[1.0e-4, 0.0], [0.0, 1.0]];
+        let z_joint = Array2::<f64>::eye(2);
+
+        let completion = custom_family_joint_jeffreys_second_order_completion(
+            &family, &states, &specs, &h_joint, &z_joint, true,
+        )
+        .expect("completion")
+        .expect("completion present");
+        let direct =
+            crate::estimate::reml::jeffreys_subspace::joint_jeffreys_second_order_completion(
+                h_joint.view(),
+                z_joint.view(),
+                |u: &Array1<f64>, v: &Array1<f64>| {
+                    family.joint_jeffreys_information_second_directional_derivative_with_specs(
+                        &states, &specs, u, v,
+                    )
+                },
+            )
+            .expect("direct pairwise completion")
+            .expect("direct pairwise completion present");
+        assert_eq!(
+            completion, direct,
+            "fallback must be the exact pairwise completion"
+        );
+        assert!(
+            completion.iter().any(|value| value.abs() > 0.0),
+            "pairwise completion should be nonzero on this gated fixture"
+        );
+
+        let blocked = custom_family_joint_jeffreys_second_order_completion(
+            &family, &states, &specs, &h_joint, &z_joint, false,
+        )
+        .expect("blocked completion");
+        assert!(
+            blocked.is_none(),
+            "completion must decline (None) when the pairwise fallback is disallowed and no hook exists"
+        );
+    }
+
     #[test]
     fn custom_family_outer_derivatives_keeps_second_order_for_large_inner_problem() {
         // Inner (n, p) scale does not block the analytic outer Hessian: the
@@ -31266,11 +32131,6 @@ mod tests {
         let actual = rhs.dot(&delta) - 0.5 * delta.dot(&h_true_delta);
 
         let rho = actual / predicted;
-        eprintln!(
-            "[rho-2 proof] Δ = {big_delta:.6e}, rhs·δ = {rd:.6e}, Δ·‖δ‖² = {dn:.6e}, predicted = {predicted:.6e}, actual = {actual:.6e}, ρ = {rho:.10}",
-            rd = rhs.dot(&delta),
-            dn = big_delta * delta.dot(&delta),
-        );
 
         // ρ must be EXACTLY 2 to floating-point precision (not just "close to 2").
         // This is the structural fingerprint of the SOLVE/APPLY-vs-OBJECTIVE
@@ -31648,7 +32508,6 @@ mod tests {
 
     #[test]
     fn outer_lamlgradient_matches_finite_differencewhen_joint_exact_path_is_active() {
-        crate::solver::visualizer::init_logging();
         let BinomialLocationScaleWiggleOuterFixture {
             family,
             specs,
@@ -34555,6 +35414,43 @@ mod tests {
             "interior block radius must drop below its step norm to force a strictly smaller next step (radius {:.3e}, step {:.3e})",
             block_radii[0],
             block_step_norms[0]
+        );
+    }
+
+    #[test]
+    fn shrink_active_joint_block_trust_radii_decreases_max_when_max_held_by_interior_block() {
+        // Production stall (Rust CI Test job ~2-hour hang, cycles
+        // 117..305+ all logging
+        // `r=1.562e-2 (held) decision=shrink_reject |δ|=1.562e-2`
+        // identically): the Moré–Sorensen inner trust-region step
+        // (`spectrum.trust_region_step(joint_trust_radius)`) uses the
+        // SCALAR `joint_trust_radius = max(block_radii)` as its trust
+        // constraint. When a boundary block hits its per-block radius
+        // (and shrinks) while an interior block holds the joint MAX
+        // radius — but the boundary block is NOT yet at the floor, so
+        // the `all_boundary_blocks_at_floor` carve-out doesn't fire —
+        // only the boundary block participates, the interior max-holder
+        // keeps its radius, `max(block_radii)` is held, MS re-computes
+        // the byte-identical rejected step, and the inner Newton loop
+        // stalls at `inner_loop_hard_ceiling`. The fix makes the
+        // max-holder participate even when it's an interior block, so
+        // the scalar joint radius strictly decreases on every rejected
+        // attempt until the floor (where the `FULLY_REJECTED_STALL_MAX_CYCLES`
+        // guard bails cleanly).
+        let mut block_radii = vec![1.562e-2, 1.562e-2];
+        // Block 0: step at per-block boundary (the boundary block).
+        // Block 1: interior step well below its radius.
+        // Both blocks share the joint max radius 1.562e-2 — the MS step
+        // is constrained by that scalar value.
+        let block_step_norms = vec![1.562e-2, 1.0e-6];
+        let old_max = block_radii.iter().copied().fold(0.0_f64, f64::max);
+        let new_max =
+            shrink_active_joint_block_trust_radii(&mut block_radii, &block_step_norms, 0.25);
+        assert!(
+            new_max < old_max,
+            "joint trust radius (= scalar Moré–Sorensen constraint) must \
+             strictly decrease on rejection even when the max is held by \
+             an interior block (was {old_max:.3e}, now {new_max:.3e})"
         );
     }
 

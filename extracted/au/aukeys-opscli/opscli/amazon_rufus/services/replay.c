@@ -1992,6 +1992,9 @@ static CYTHON_INLINE void __Pyx_ExceptionSwap(PyObject **type, PyObject **value,
 static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *args, size_t nargsf);
 #endif
 
+/* PyUnicode_Unicode.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj);
+
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
@@ -2435,7 +2438,7 @@ int __pyx_module_is_main_opscli__amazon_rufus__services__replay = 0;
 static const char __pyx_k_Rufus[] = "Rufus \350\257\267\346\261\202\351\207\215\346\224\276\346\234\215\345\212\241\343\200\202";
 /* #### Code section: decls ### */
 static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_parser); /* proto */
-static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_seed_body, PyObject *__pyx_v_question, PyObject *__pyx_v_thread_id, PyObject *__pyx_v_asin); /* proto */
+static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_seed_body, PyObject *__pyx_v_question, PyObject *__pyx_v_thread_id, PyObject *__pyx_v_asin, PyObject *__pyx_v_origin_url); /* proto */
 static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_4build_replay_url(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_seed); /* proto */
 static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_6replay(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_seed, CYTHON_UNUSED PyObject *__pyx_v_questions); /* proto */
 static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_8replay_with_page(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_page, PyObject *__pyx_v_seed, PyObject *__pyx_v_questions); /* proto */
@@ -2467,7 +2470,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_tuple[2];
   PyObject *__pyx_codeobj_tab[7];
-  PyObject *__pyx_string_tab[155];
+  PyObject *__pyx_string_tab[165];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2510,159 +2513,169 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_ __pyx_string_tab[0]
 #define __pyx_kp_u_NILE_CLASSIC_desktop_cl __pyx_string_tab[1]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[2]
-#define __pyx_kp_u_RufusParserService_None __pyx_string_tab[3]
-#define __pyx_kp_u__2 __pyx_string_tab[4]
-#define __pyx_kp_u__3 __pyx_string_tab[5]
-#define __pyx_kp_u__4 __pyx_string_tab[6]
-#define __pyx_kp_u_add_note __pyx_string_tab[7]
-#define __pyx_kp_u_anti_csrftoken_a2z __pyx_string_tab[8]
-#define __pyx_kp_u_application_json __pyx_string_tab[9]
-#define __pyx_kp_u_async_url_body_headers_const_re __pyx_string_tab[10]
-#define __pyx_kp_u_content_type __pyx_string_tab[11]
-#define __pyx_kp_u_dict_str_str __pyx_string_tab[12]
-#define __pyx_kp_u_list_AnswerData __pyx_string_tab[13]
-#define __pyx_kp_u_list_str __pyx_string_tab[14]
-#define __pyx_kp_u_opscli_amazon_rufus_services_rep_2 __pyx_string_tab[15]
-#define __pyx_kp_u_seed_request_Rufus __pyx_string_tab[16]
-#define __pyx_kp_u_seed_request_body_JSON __pyx_string_tab[17]
-#define __pyx_kp_u_str_None __pyx_string_tab[18]
-#define __pyx_kp_u_x_amz_is_papyrus __pyx_string_tab[19]
-#define __pyx_n_u_ASIN __pyx_string_tab[20]
-#define __pyx_n_u_AnswerData __pyx_string_tab[21]
-#define __pyx_n_u_DETAIL_PAGE __pyx_string_tab[22]
-#define __pyx_n_u_FIRST_TIME_USER_MESSAGE_SEEN_STA __pyx_string_tab[23]
-#define __pyx_n_u_JSONDecodeError __pyx_string_tab[24]
-#define __pyx_n_u_NileCLTextInput __pyx_string_tab[25]
-#define __pyx_n_u_None __pyx_string_tab[26]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[27]
-#define __pyx_n_u_REPLAY_HEADER_ALLOWLIST __pyx_string_tab[28]
-#define __pyx_n_u_RufusParserService __pyx_string_tab[29]
-#define __pyx_n_u_RufusReplayError __pyx_string_tab[30]
-#define __pyx_n_u_RufusReplayService __pyx_string_tab[31]
-#define __pyx_n_u_RufusReplayService___init __pyx_string_tab[32]
-#define __pyx_n_u_RufusReplayService__build_replay __pyx_string_tab[33]
-#define __pyx_n_u_RufusReplayService__upsert_asin __pyx_string_tab[34]
-#define __pyx_n_u_RufusReplayService_build_payload __pyx_string_tab[35]
-#define __pyx_n_u_RufusReplayService_build_replay __pyx_string_tab[36]
-#define __pyx_n_u_RufusReplayService_replay __pyx_string_tab[37]
-#define __pyx_n_u_RufusReplayService_replay_with_p __pyx_string_tab[38]
-#define __pyx_n_u_SEARCH __pyx_string_tab[39]
-#define __pyx_n_u_SEEN __pyx_string_tab[40]
-#define __pyx_n_u_SeedRequestRecord __pyx_string_tab[41]
-#define __pyx_n_u_THREAD_STATE_UNKNOWN __pyx_string_tab[42]
-#define __pyx_n_u_actionType __pyx_string_tab[43]
-#define __pyx_n_u_answer __pyx_string_tab[44]
-#define __pyx_n_u_answers __pyx_string_tab[45]
-#define __pyx_n_u_append __pyx_string_tab[46]
-#define __pyx_n_u_asin __pyx_string_tab[47]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[48]
-#define __pyx_n_u_body __pyx_string_tab[49]
-#define __pyx_n_u_bottomSheetContext __pyx_string_tab[50]
-#define __pyx_n_u_bottom_sheet_context __pyx_string_tab[51]
-#define __pyx_n_u_build_payload __pyx_string_tab[52]
-#define __pyx_n_u_build_replay_headers __pyx_string_tab[53]
-#define __pyx_n_u_build_replay_url __pyx_string_tab[54]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[55]
-#define __pyx_n_u_dict __pyx_string_tab[56]
-#define __pyx_n_u_doc __pyx_string_tab[57]
-#define __pyx_n_u_evaluate __pyx_string_tab[58]
-#define __pyx_n_u_exc __pyx_string_tab[59]
-#define __pyx_n_u_expanded __pyx_string_tab[60]
-#define __pyx_n_u_fragment __pyx_string_tab[61]
-#define __pyx_n_u_func __pyx_string_tab[62]
-#define __pyx_n_u_get __pyx_string_tab[63]
-#define __pyx_n_u_headers __pyx_string_tab[64]
-#define __pyx_n_u_historyThreadContext __pyx_string_tab[65]
-#define __pyx_n_u_history_context __pyx_string_tab[66]
-#define __pyx_n_u_impressionsContext __pyx_string_tab[67]
-#define __pyx_n_u_impressions_context __pyx_string_tab[68]
-#define __pyx_n_u_init __pyx_string_tab[69]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[70]
-#define __pyx_n_u_item __pyx_string_tab[71]
-#define __pyx_n_u_items __pyx_string_tab[72]
-#define __pyx_n_u_json __pyx_string_tab[73]
-#define __pyx_n_u_keep_blank_values __pyx_string_tab[74]
-#define __pyx_n_u_key __pyx_string_tab[75]
-#define __pyx_n_u_loads __pyx_string_tab[76]
-#define __pyx_n_u_lower __pyx_string_tab[77]
-#define __pyx_n_u_main __pyx_string_tab[78]
-#define __pyx_n_u_metaclass __pyx_string_tab[79]
-#define __pyx_n_u_metadata __pyx_string_tab[80]
-#define __pyx_n_u_module __pyx_string_tab[81]
-#define __pyx_n_u_name __pyx_string_tab[82]
-#define __pyx_n_u_netloc __pyx_string_tab[83]
-#define __pyx_n_u_nl_cl_dsk_csq __pyx_string_tab[84]
-#define __pyx_n_u_normalized __pyx_string_tab[85]
-#define __pyx_n_u_normalized_asin __pyx_string_tab[86]
-#define __pyx_n_u_opscli_amazon_rufus_domain_excep __pyx_string_tab[87]
-#define __pyx_n_u_opscli_amazon_rufus_domain_model __pyx_string_tab[88]
-#define __pyx_n_u_opscli_amazon_rufus_services_par __pyx_string_tab[89]
-#define __pyx_n_u_opscli_amazon_rufus_services_rep __pyx_string_tab[90]
-#define __pyx_n_u_originPageMetadata __pyx_string_tab[91]
-#define __pyx_n_u_originPageType __pyx_string_tab[92]
-#define __pyx_n_u_page __pyx_string_tab[93]
-#define __pyx_n_u_pageContext __pyx_string_tab[94]
-#define __pyx_n_u_page_context __pyx_string_tab[95]
-#define __pyx_n_u_parse __pyx_string_tab[96]
-#define __pyx_n_u_parse_qsl __pyx_string_tab[97]
-#define __pyx_n_u_parser __pyx_string_tab[98]
-#define __pyx_n_u_parts __pyx_string_tab[99]
-#define __pyx_n_u_path __pyx_string_tab[100]
-#define __pyx_n_u_payload __pyx_string_tab[101]
-#define __pyx_n_u_pop __pyx_string_tab[102]
-#define __pyx_n_u_prepare __pyx_string_tab[103]
-#define __pyx_n_u_previousTurnsBottomSheetSize __pyx_string_tab[104]
-#define __pyx_n_u_programId __pyx_string_tab[105]
-#define __pyx_n_u_qis __pyx_string_tab[106]
-#define __pyx_n_u_qualname __pyx_string_tab[107]
-#define __pyx_n_u_query __pyx_string_tab[108]
-#define __pyx_n_u_queryContext __pyx_string_tab[109]
-#define __pyx_n_u_query_context __pyx_string_tab[110]
-#define __pyx_n_u_query_pairs __pyx_string_tab[111]
-#define __pyx_n_u_question __pyx_string_tab[112]
-#define __pyx_n_u_questions __pyx_string_tab[113]
-#define __pyx_n_u_raw_text __pyx_string_tab[114]
-#define __pyx_n_u_ref __pyx_string_tab[115]
-#define __pyx_n_u_replay __pyx_string_tab[116]
-#define __pyx_n_u_replay_url __pyx_string_tab[117]
-#define __pyx_n_u_replay_with_page __pyx_string_tab[118]
-#define __pyx_n_u_request_body __pyx_string_tab[119]
-#define __pyx_n_u_request_headers __pyx_string_tab[120]
-#define __pyx_n_u_request_url __pyx_string_tab[121]
-#define __pyx_n_u_return __pyx_string_tab[122]
-#define __pyx_n_u_scheme __pyx_string_tab[123]
-#define __pyx_n_u_seed __pyx_string_tab[124]
-#define __pyx_n_u_seed_body __pyx_string_tab[125]
-#define __pyx_n_u_self __pyx_string_tab[126]
-#define __pyx_n_u_set_name __pyx_string_tab[127]
-#define __pyx_n_u_setdefault __pyx_string_tab[128]
-#define __pyx_n_u_str __pyx_string_tab[129]
-#define __pyx_n_u_strip __pyx_string_tab[130]
-#define __pyx_n_u_tabId __pyx_string_tab[131]
-#define __pyx_n_u_tab_id __pyx_string_tab[132]
-#define __pyx_n_u_targetPageMetadata __pyx_string_tab[133]
-#define __pyx_n_u_test __pyx_string_tab[134]
-#define __pyx_n_u_threadId __pyx_string_tab[135]
-#define __pyx_n_u_threadState __pyx_string_tab[136]
-#define __pyx_n_u_thread_id __pyx_string_tab[137]
-#define __pyx_n_u_type __pyx_string_tab[138]
-#define __pyx_n_u_upper __pyx_string_tab[139]
-#define __pyx_n_u_upsert_asin_metadata __pyx_string_tab[140]
-#define __pyx_n_u_url __pyx_string_tab[141]
-#define __pyx_n_u_urlencode __pyx_string_tab[142]
-#define __pyx_n_u_urllib_parse __pyx_string_tab[143]
-#define __pyx_n_u_urlsplit __pyx_string_tab[144]
-#define __pyx_n_u_urlunsplit __pyx_string_tab[145]
-#define __pyx_n_u_value __pyx_string_tab[146]
-#define __pyx_n_u_values __pyx_string_tab[147]
-#define __pyx_kp_b_iso88591_1_Q_iq_X_q_AQ_4q_T_a_z_5_iuG9AX __pyx_string_tab[148]
-#define __pyx_kp_b_iso88591_2_PQ_t1A_4z_A_q_HA_z_d_d_83a_A __pyx_string_tab[149]
-#define __pyx_kp_b_iso88591_55H_E_q_F_T_q_a_1_q __pyx_string_tab[150]
-#define __pyx_kp_b_iso88591_9_q_q __pyx_string_tab[151]
-#define __pyx_kp_b_iso88591_A_1_a_d_3a_t_q_Gq_4z_1_a_1_4z_A __pyx_string_tab[152]
-#define __pyx_kp_b_iso88591_I_WX_A_AT_T_1_L_d__JkQUUV_t9A_H __pyx_string_tab[153]
-#define __pyx_kp_b_iso88591_x_DA_JgS_2 __pyx_string_tab[154]
+#define __pyx_kp_u_None __pyx_string_tab[2]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[3]
+#define __pyx_kp_u_RufusParserService_None __pyx_string_tab[4]
+#define __pyx_kp_u__2 __pyx_string_tab[5]
+#define __pyx_kp_u__3 __pyx_string_tab[6]
+#define __pyx_kp_u__4 __pyx_string_tab[7]
+#define __pyx_kp_u_add_note __pyx_string_tab[8]
+#define __pyx_kp_u_anti_csrftoken_a2z __pyx_string_tab[9]
+#define __pyx_kp_u_application_json __pyx_string_tab[10]
+#define __pyx_kp_u_async_url_body_headers_const_re __pyx_string_tab[11]
+#define __pyx_kp_u_content_type __pyx_string_tab[12]
+#define __pyx_kp_u_dict_str_str __pyx_string_tab[13]
+#define __pyx_kp_u_list_AnswerData __pyx_string_tab[14]
+#define __pyx_kp_u_list_str __pyx_string_tab[15]
+#define __pyx_kp_u_opscli_amazon_rufus_services_rep_2 __pyx_string_tab[16]
+#define __pyx_kp_u_seed_request_Rufus __pyx_string_tab[17]
+#define __pyx_kp_u_seed_request_body_JSON __pyx_string_tab[18]
+#define __pyx_kp_u_str_None __pyx_string_tab[19]
+#define __pyx_kp_u_x_amz_is_papyrus __pyx_string_tab[20]
+#define __pyx_n_u_ASIN __pyx_string_tab[21]
+#define __pyx_n_u_AnswerData __pyx_string_tab[22]
+#define __pyx_n_u_DETAIL_PAGE __pyx_string_tab[23]
+#define __pyx_n_u_FIRST_TIME_USER_MESSAGE_SEEN_STA __pyx_string_tab[24]
+#define __pyx_n_u_JSONDecodeError __pyx_string_tab[25]
+#define __pyx_n_u_NileCLTextInput __pyx_string_tab[26]
+#define __pyx_n_u_None __pyx_string_tab[27]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[28]
+#define __pyx_n_u_REPLAY_HEADER_ALLOWLIST __pyx_string_tab[29]
+#define __pyx_n_u_RufusParserService __pyx_string_tab[30]
+#define __pyx_n_u_RufusReplayError __pyx_string_tab[31]
+#define __pyx_n_u_RufusReplayService __pyx_string_tab[32]
+#define __pyx_n_u_RufusReplayService___init __pyx_string_tab[33]
+#define __pyx_n_u_RufusReplayService__build_replay __pyx_string_tab[34]
+#define __pyx_n_u_RufusReplayService__upsert_asin __pyx_string_tab[35]
+#define __pyx_n_u_RufusReplayService_build_payload __pyx_string_tab[36]
+#define __pyx_n_u_RufusReplayService_build_replay __pyx_string_tab[37]
+#define __pyx_n_u_RufusReplayService_replay __pyx_string_tab[38]
+#define __pyx_n_u_RufusReplayService_replay_with_p __pyx_string_tab[39]
+#define __pyx_n_u_SEARCH __pyx_string_tab[40]
+#define __pyx_n_u_SEEN __pyx_string_tab[41]
+#define __pyx_n_u_SeedRequestRecord __pyx_string_tab[42]
+#define __pyx_n_u_THREAD_STATE_UNKNOWN __pyx_string_tab[43]
+#define __pyx_n_u_actionType __pyx_string_tab[44]
+#define __pyx_n_u_answer __pyx_string_tab[45]
+#define __pyx_n_u_answers __pyx_string_tab[46]
+#define __pyx_n_u_append __pyx_string_tab[47]
+#define __pyx_n_u_asin __pyx_string_tab[48]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[49]
+#define __pyx_n_u_body __pyx_string_tab[50]
+#define __pyx_n_u_bottomSheetContext __pyx_string_tab[51]
+#define __pyx_n_u_bottom_sheet_context __pyx_string_tab[52]
+#define __pyx_n_u_build_payload __pyx_string_tab[53]
+#define __pyx_n_u_build_replay_headers __pyx_string_tab[54]
+#define __pyx_n_u_build_replay_url __pyx_string_tab[55]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[56]
+#define __pyx_n_u_copy __pyx_string_tab[57]
+#define __pyx_n_u_deepcopy __pyx_string_tab[58]
+#define __pyx_n_u_dict __pyx_string_tab[59]
+#define __pyx_n_u_doc __pyx_string_tab[60]
+#define __pyx_n_u_evaluate __pyx_string_tab[61]
+#define __pyx_n_u_exc __pyx_string_tab[62]
+#define __pyx_n_u_expanded __pyx_string_tab[63]
+#define __pyx_n_u_fragment __pyx_string_tab[64]
+#define __pyx_n_u_func __pyx_string_tab[65]
+#define __pyx_n_u_get __pyx_string_tab[66]
+#define __pyx_n_u_headers __pyx_string_tab[67]
+#define __pyx_n_u_historyThreadContext __pyx_string_tab[68]
+#define __pyx_n_u_history_context __pyx_string_tab[69]
+#define __pyx_n_u_impressionsContext __pyx_string_tab[70]
+#define __pyx_n_u_impressions_context __pyx_string_tab[71]
+#define __pyx_n_u_init __pyx_string_tab[72]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[73]
+#define __pyx_n_u_item __pyx_string_tab[74]
+#define __pyx_n_u_items __pyx_string_tab[75]
+#define __pyx_n_u_json __pyx_string_tab[76]
+#define __pyx_n_u_keep_blank_values __pyx_string_tab[77]
+#define __pyx_n_u_key __pyx_string_tab[78]
+#define __pyx_n_u_loads __pyx_string_tab[79]
+#define __pyx_n_u_lower __pyx_string_tab[80]
+#define __pyx_n_u_main __pyx_string_tab[81]
+#define __pyx_n_u_metaclass __pyx_string_tab[82]
+#define __pyx_n_u_metadata __pyx_string_tab[83]
+#define __pyx_n_u_module __pyx_string_tab[84]
+#define __pyx_n_u_name __pyx_string_tab[85]
+#define __pyx_n_u_netloc __pyx_string_tab[86]
+#define __pyx_n_u_nl_cl_dsk_csq __pyx_string_tab[87]
+#define __pyx_n_u_normalized __pyx_string_tab[88]
+#define __pyx_n_u_normalized_asin __pyx_string_tab[89]
+#define __pyx_n_u_opscli_amazon_rufus_domain_excep __pyx_string_tab[90]
+#define __pyx_n_u_opscli_amazon_rufus_domain_model __pyx_string_tab[91]
+#define __pyx_n_u_opscli_amazon_rufus_services_par __pyx_string_tab[92]
+#define __pyx_n_u_opscli_amazon_rufus_services_rep __pyx_string_tab[93]
+#define __pyx_n_u_originPageMetadata __pyx_string_tab[94]
+#define __pyx_n_u_originPageType __pyx_string_tab[95]
+#define __pyx_n_u_originUrl __pyx_string_tab[96]
+#define __pyx_n_u_origin_url __pyx_string_tab[97]
+#define __pyx_n_u_page __pyx_string_tab[98]
+#define __pyx_n_u_pageContext __pyx_string_tab[99]
+#define __pyx_n_u_pageMetadata __pyx_string_tab[100]
+#define __pyx_n_u_pageType __pyx_string_tab[101]
+#define __pyx_n_u_page_context __pyx_string_tab[102]
+#define __pyx_n_u_parse __pyx_string_tab[103]
+#define __pyx_n_u_parse_qsl __pyx_string_tab[104]
+#define __pyx_n_u_parsed __pyx_string_tab[105]
+#define __pyx_n_u_parser __pyx_string_tab[106]
+#define __pyx_n_u_parts __pyx_string_tab[107]
+#define __pyx_n_u_path __pyx_string_tab[108]
+#define __pyx_n_u_payload __pyx_string_tab[109]
+#define __pyx_n_u_pop __pyx_string_tab[110]
+#define __pyx_n_u_prepare __pyx_string_tab[111]
+#define __pyx_n_u_previousTurnsBottomSheetSize __pyx_string_tab[112]
+#define __pyx_n_u_programId __pyx_string_tab[113]
+#define __pyx_n_u_qis __pyx_string_tab[114]
+#define __pyx_n_u_qualname __pyx_string_tab[115]
+#define __pyx_n_u_query __pyx_string_tab[116]
+#define __pyx_n_u_queryContext __pyx_string_tab[117]
+#define __pyx_n_u_query_context __pyx_string_tab[118]
+#define __pyx_n_u_query_pairs __pyx_string_tab[119]
+#define __pyx_n_u_question __pyx_string_tab[120]
+#define __pyx_n_u_questions __pyx_string_tab[121]
+#define __pyx_n_u_raw_text __pyx_string_tab[122]
+#define __pyx_n_u_ref __pyx_string_tab[123]
+#define __pyx_n_u_replay __pyx_string_tab[124]
+#define __pyx_n_u_replay_url __pyx_string_tab[125]
+#define __pyx_n_u_replay_with_page __pyx_string_tab[126]
+#define __pyx_n_u_request_body __pyx_string_tab[127]
+#define __pyx_n_u_request_headers __pyx_string_tab[128]
+#define __pyx_n_u_request_url __pyx_string_tab[129]
+#define __pyx_n_u_return __pyx_string_tab[130]
+#define __pyx_n_u_scheme __pyx_string_tab[131]
+#define __pyx_n_u_seed __pyx_string_tab[132]
+#define __pyx_n_u_seed_body __pyx_string_tab[133]
+#define __pyx_n_u_self __pyx_string_tab[134]
+#define __pyx_n_u_set_name __pyx_string_tab[135]
+#define __pyx_n_u_setdefault __pyx_string_tab[136]
+#define __pyx_n_u_str __pyx_string_tab[137]
+#define __pyx_n_u_strip __pyx_string_tab[138]
+#define __pyx_n_u_tabId __pyx_string_tab[139]
+#define __pyx_n_u_tab_id __pyx_string_tab[140]
+#define __pyx_n_u_targetPageMetadata __pyx_string_tab[141]
+#define __pyx_n_u_targetPageType __pyx_string_tab[142]
+#define __pyx_n_u_targetUrl __pyx_string_tab[143]
+#define __pyx_n_u_test __pyx_string_tab[144]
+#define __pyx_n_u_threadId __pyx_string_tab[145]
+#define __pyx_n_u_threadState __pyx_string_tab[146]
+#define __pyx_n_u_thread_id __pyx_string_tab[147]
+#define __pyx_n_u_type __pyx_string_tab[148]
+#define __pyx_n_u_upper __pyx_string_tab[149]
+#define __pyx_n_u_upsert_asin_metadata __pyx_string_tab[150]
+#define __pyx_n_u_url __pyx_string_tab[151]
+#define __pyx_n_u_urlencode __pyx_string_tab[152]
+#define __pyx_n_u_urllib_parse __pyx_string_tab[153]
+#define __pyx_n_u_urlsplit __pyx_string_tab[154]
+#define __pyx_n_u_urlunsplit __pyx_string_tab[155]
+#define __pyx_n_u_value __pyx_string_tab[156]
+#define __pyx_n_u_values __pyx_string_tab[157]
+#define __pyx_kp_b_iso88591_1_Q_iq_X_q_AQ_4q_T_a_z_5_iuG9AX __pyx_string_tab[158]
+#define __pyx_kp_b_iso88591_2_PQ_t1A_4z_A_q_HA_z_d_d_83a_A __pyx_string_tab[159]
+#define __pyx_kp_b_iso88591_55H_E_q_F_T_q_a_1_q __pyx_string_tab[160]
+#define __pyx_kp_b_iso88591_9_q_q __pyx_string_tab[161]
+#define __pyx_kp_b_iso88591_A_1_a_A_T_q_Q_t_q_Gq_iq_Qhk_1_4z __pyx_string_tab[162]
+#define __pyx_kp_b_iso88591_I_WX_A_AT_T_1_L_d__JkQUUV_t9A_H __pyx_string_tab[163]
+#define __pyx_kp_b_iso88591_x_DA_JgS_2 __pyx_string_tab[164]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2679,7 +2692,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<7; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<155; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<165; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -2704,7 +2717,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<7; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<155; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<165; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -2718,7 +2731,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "opscli/amazon_rufus/services/replay.py":22
+/* "opscli/amazon_rufus/services/replay.py":23
  *     }
  * 
  *     def __init__(self, parser: RufusParserService | None = None) -> None:             # <<<<<<<<<<<<<<
@@ -2766,35 +2779,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_parser,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 22, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 23, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 22, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 23, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 22, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 23, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 22, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 23, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, i); __PYX_ERR(0, 22, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, i); __PYX_ERR(0, 23, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 22, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 23, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 22, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 23, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -2805,7 +2818,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 22, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 23, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2840,14 +2853,14 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":23
+  /* "opscli/amazon_rufus/services/replay.py":24
  * 
  *     def __init__(self, parser: RufusParserService | None = None) -> None:
  *         self.parser = parser or RufusParserService()             # <<<<<<<<<<<<<<
  * 
  *     def build_payload(
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_parser); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_parser); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 24, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_parser);
@@ -2855,7 +2868,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     goto __pyx_L3_bool_binop_done;
   }
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_RufusParserService); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_RufusParserService); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -2874,17 +2887,17 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 23, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 24, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = __pyx_t_3;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_L3_bool_binop_done:;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_parser, __pyx_t_1) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_parser, __pyx_t_1) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":22
+  /* "opscli/amazon_rufus/services/replay.py":23
  *     }
  * 
  *     def __init__(self, parser: RufusParserService | None = None) -> None:             # <<<<<<<<<<<<<<
@@ -2908,7 +2921,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   return __pyx_r;
 }
 
-/* "opscli/amazon_rufus/services/replay.py":25
+/* "opscli/amazon_rufus/services/replay.py":26
  *         self.parser = parser or RufusParserService()
  * 
  *     def build_payload(             # <<<<<<<<<<<<<<
@@ -2924,7 +2937,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload, "\345\237\272\344\272\216 seed body \345\244\215\345\210\273\346\211\251\345\261\225\347\253\257 Rufus \350\257\267\346\261\202\344\270\212\344\270\213\346\226\207\343\200\202");
+PyDoc_STRVAR(__pyx_doc_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload, "\345\237\272\344\272\216 curl payload_template \345\244\215\345\210\273 Rufus \350\257\267\346\261\202\344\270\212\344\270\213\346\226\207\343\200\202");
 static PyMethodDef __pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_3build_payload = {"build_payload", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_3build_payload, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload};
 static PyObject *__pyx_pw_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_3build_payload(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
@@ -2938,11 +2951,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   PyObject *__pyx_v_question = 0;
   PyObject *__pyx_v_thread_id = 0;
   PyObject *__pyx_v_asin = 0;
+  PyObject *__pyx_v_origin_url = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[5] = {0,0,0,0,0};
+  PyObject* values[6] = {0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -2958,105 +2972,132 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_seed_body,&__pyx_mstate_global->__pyx_n_u_question,&__pyx_mstate_global->__pyx_n_u_thread_id,&__pyx_mstate_global->__pyx_n_u_asin,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_seed_body,&__pyx_mstate_global->__pyx_n_u_question,&__pyx_mstate_global->__pyx_n_u_thread_id,&__pyx_mstate_global->__pyx_n_u_asin,&__pyx_mstate_global->__pyx_n_u_origin_url,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 25, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 26, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 26, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_payload", 0) < (0)) __PYX_ERR(0, 25, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_payload", 0) < (0)) __PYX_ERR(0, 26, __pyx_L3_error)
 
-      /* "opscli/amazon_rufus/services/replay.py":29
+      /* "opscli/amazon_rufus/services/replay.py":30
  *         seed_body: str,
  *         question: str,
  *         thread_id: str | None = None,             # <<<<<<<<<<<<<<
  *         asin: str | None = None,
- *     ) -> dict:
+ *         origin_url: str | None = None,
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "opscli/amazon_rufus/services/replay.py":30
+      /* "opscli/amazon_rufus/services/replay.py":31
  *         question: str,
  *         thread_id: str | None = None,
  *         asin: str | None = None,             # <<<<<<<<<<<<<<
+ *         origin_url: str | None = None,
  *     ) -> dict:
- *         """ seed body  Rufus """
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)Py_None));
+
+      /* "opscli/amazon_rufus/services/replay.py":32
+ *         thread_id: str | None = None,
+ *         asin: str | None = None,
+ *         origin_url: str | None = None,             # <<<<<<<<<<<<<<
+ *     ) -> dict:
+ *         """ curl payload_template  Rufus """
+*/
+      if (!values[5]) values[5] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_payload", 0, 3, 5, i); __PYX_ERR(0, 25, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_payload", 0, 3, 6, i); __PYX_ERR(0, 26, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 26, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 26, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 26, __pyx_L3_error)
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 26, __pyx_L3_error)
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 25, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 26, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
 
-      /* "opscli/amazon_rufus/services/replay.py":29
+      /* "opscli/amazon_rufus/services/replay.py":30
  *         seed_body: str,
  *         question: str,
  *         thread_id: str | None = None,             # <<<<<<<<<<<<<<
  *         asin: str | None = None,
- *     ) -> dict:
+ *         origin_url: str | None = None,
 */
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "opscli/amazon_rufus/services/replay.py":30
+      /* "opscli/amazon_rufus/services/replay.py":31
  *         question: str,
  *         thread_id: str | None = None,
  *         asin: str | None = None,             # <<<<<<<<<<<<<<
+ *         origin_url: str | None = None,
  *     ) -> dict:
- *         """ seed body  Rufus """
 */
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)Py_None));
+
+      /* "opscli/amazon_rufus/services/replay.py":32
+ *         thread_id: str | None = None,
+ *         asin: str | None = None,
+ *         origin_url: str | None = None,             # <<<<<<<<<<<<<<
+ *     ) -> dict:
+ *         """ curl payload_template  Rufus """
+*/
+      if (!values[5]) values[5] = __Pyx_NewRef(((PyObject*)Py_None));
     }
     __pyx_v_self = values[0];
     __pyx_v_seed_body = ((PyObject*)values[1]);
     __pyx_v_question = ((PyObject*)values[2]);
     __pyx_v_thread_id = ((PyObject*)values[3]);
     __pyx_v_asin = ((PyObject*)values[4]);
+    __pyx_v_origin_url = ((PyObject*)values[5]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("build_payload", 0, 3, 5, __pyx_nargs); __PYX_ERR(0, 25, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("build_payload", 0, 3, 6, __pyx_nargs); __PYX_ERR(0, 26, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3067,13 +3108,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_seed_body), (&PyUnicode_Type), 0, "seed_body", 2))) __PYX_ERR(0, 27, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_question), (&PyUnicode_Type), 0, "question", 2))) __PYX_ERR(0, 28, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_thread_id), (&PyUnicode_Type), 1, "thread_id", 2))) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_asin), (&PyUnicode_Type), 1, "asin", 2))) __PYX_ERR(0, 30, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload(__pyx_self, __pyx_v_self, __pyx_v_seed_body, __pyx_v_question, __pyx_v_thread_id, __pyx_v_asin);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_seed_body), (&PyUnicode_Type), 0, "seed_body", 2))) __PYX_ERR(0, 28, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_question), (&PyUnicode_Type), 0, "question", 2))) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_thread_id), (&PyUnicode_Type), 1, "thread_id", 2))) __PYX_ERR(0, 30, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_asin), (&PyUnicode_Type), 1, "asin", 2))) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_origin_url), (&PyUnicode_Type), 1, "origin_url", 2))) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload(__pyx_self, __pyx_v_self, __pyx_v_seed_body, __pyx_v_question, __pyx_v_thread_id, __pyx_v_asin, __pyx_v_origin_url);
 
-  /* "opscli/amazon_rufus/services/replay.py":25
+  /* "opscli/amazon_rufus/services/replay.py":26
  *         self.parser = parser or RufusParserService()
  * 
  *     def build_payload(             # <<<<<<<<<<<<<<
@@ -3098,9 +3140,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_seed_body, PyObject *__pyx_v_question, PyObject *__pyx_v_thread_id, PyObject *__pyx_v_asin) {
-  PyObject *__pyx_v_payload = NULL;
+static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_2build_payload(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_seed_body, PyObject *__pyx_v_question, PyObject *__pyx_v_thread_id, PyObject *__pyx_v_asin, PyObject *__pyx_v_origin_url) {
+  PyObject *__pyx_v_parsed = NULL;
   PyObject *__pyx_v_exc = NULL;
+  PyObject *__pyx_v_payload = NULL;
   PyObject *__pyx_v_query_context = NULL;
   PyObject *__pyx_v_page_context = NULL;
   PyObject *__pyx_v_normalized_asin = NULL;
@@ -3135,11 +3178,11 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("build_payload", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":33
+  /* "opscli/amazon_rufus/services/replay.py":35
  *     ) -> dict:
- *         """ seed body  Rufus """
+ *         """ curl payload_template  Rufus """
  *         try:             # <<<<<<<<<<<<<<
- *             payload = json.loads(seed_body or "{}")
+ *             parsed = json.loads(seed_body or "{}")
  *         except json.JSONDecodeError as exc:
 */
   {
@@ -3151,20 +3194,20 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "opscli/amazon_rufus/services/replay.py":34
- *         """ seed body  Rufus """
+      /* "opscli/amazon_rufus/services/replay.py":36
+ *         """ curl payload_template  Rufus """
  *         try:
- *             payload = json.loads(seed_body or "{}")             # <<<<<<<<<<<<<<
+ *             parsed = json.loads(seed_body or "{}")             # <<<<<<<<<<<<<<
  *         except json.JSONDecodeError as exc:
  *             raise RufusReplayError("seed request body  JSON") from exc
 */
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 34, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 36, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 34, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_seed_body); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 34, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_seed_body); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 36, __pyx_L3_error)
       if (!__pyx_t_8) {
       } else {
         __Pyx_INCREF(__pyx_v_seed_body);
@@ -3192,17 +3235,17 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_v_payload = __pyx_t_4;
+      __pyx_v_parsed = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "opscli/amazon_rufus/services/replay.py":33
+      /* "opscli/amazon_rufus/services/replay.py":35
  *     ) -> dict:
- *         """ seed body  Rufus """
+ *         """ curl payload_template  Rufus """
  *         try:             # <<<<<<<<<<<<<<
- *             payload = json.loads(seed_body or "{}")
+ *             parsed = json.loads(seed_body or "{}")
  *         except json.JSONDecodeError as exc:
 */
     }
@@ -3216,17 +3259,17 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":35
+    /* "opscli/amazon_rufus/services/replay.py":37
  *         try:
- *             payload = json.loads(seed_body or "{}")
+ *             parsed = json.loads(seed_body or "{}")
  *         except json.JSONDecodeError as exc:             # <<<<<<<<<<<<<<
  *             raise RufusReplayError("seed request body  JSON") from exc
- *         if not isinstance(payload, dict):
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}
 */
     __Pyx_ErrFetch(&__pyx_t_4, &__pyx_t_7, &__pyx_t_6);
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 35, __pyx_L5_except_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 37, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 35, __pyx_L5_except_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 37, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_11 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_4, __pyx_t_10);
@@ -3235,7 +3278,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_t_4 = 0; __pyx_t_7 = 0; __pyx_t_6 = 0;
     if (__pyx_t_11) {
       __Pyx_AddTraceback("opscli.amazon_rufus.services.replay.RufusReplayService.build_payload", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_4) < 0) __PYX_ERR(0, 35, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_7, &__pyx_t_4) < 0) __PYX_ERR(0, 37, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_4);
@@ -3243,15 +3286,15 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
       __pyx_v_exc = __pyx_t_7;
       /*try:*/ {
 
-        /* "opscli/amazon_rufus/services/replay.py":36
- *             payload = json.loads(seed_body or "{}")
+        /* "opscli/amazon_rufus/services/replay.py":38
+ *             parsed = json.loads(seed_body or "{}")
  *         except json.JSONDecodeError as exc:
  *             raise RufusReplayError("seed request body  JSON") from exc             # <<<<<<<<<<<<<<
- *         if not isinstance(payload, dict):
- *             payload = {}
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}
+ *         query_context = payload.setdefault("queryContext", {})
 */
         __pyx_t_5 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_RufusReplayError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 36, __pyx_L16_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_RufusReplayError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 38, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_12);
         __pyx_t_9 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -3270,20 +3313,20 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
           __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 36, __pyx_L16_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 38, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __Pyx_Raise(__pyx_t_10, 0, 0, __pyx_v_exc);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 36, __pyx_L16_error)
+        __PYX_ERR(0, 38, __pyx_L16_error)
       }
 
-      /* "opscli/amazon_rufus/services/replay.py":35
+      /* "opscli/amazon_rufus/services/replay.py":37
  *         try:
- *             payload = json.loads(seed_body or "{}")
+ *             parsed = json.loads(seed_body or "{}")
  *         except json.JSONDecodeError as exc:             # <<<<<<<<<<<<<<
  *             raise RufusReplayError("seed request body  JSON") from exc
- *         if not isinstance(payload, dict):
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}
 */
       /*finally:*/ {
         __pyx_L16_error:;
@@ -3322,11 +3365,11 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/amazon_rufus/services/replay.py":33
+    /* "opscli/amazon_rufus/services/replay.py":35
  *     ) -> dict:
- *         """ seed body  Rufus """
+ *         """ curl payload_template  Rufus """
  *         try:             # <<<<<<<<<<<<<<
- *             payload = json.loads(seed_body or "{}")
+ *             parsed = json.loads(seed_body or "{}")
  *         except json.JSONDecodeError as exc:
 */
     __pyx_L5_except_error:;
@@ -3338,95 +3381,109 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_L8_try_end:;
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":37
+  /* "opscli/amazon_rufus/services/replay.py":39
  *         except json.JSONDecodeError as exc:
  *             raise RufusReplayError("seed request body  JSON") from exc
- *         if not isinstance(payload, dict):             # <<<<<<<<<<<<<<
- *             payload = {}
- *         query_context = payload.setdefault("queryContext", {})
-*/
-  __pyx_t_8 = PyDict_Check(__pyx_v_payload); 
-  __pyx_t_21 = (!__pyx_t_8);
-  if (__pyx_t_21) {
-
-    /* "opscli/amazon_rufus/services/replay.py":38
- *             raise RufusReplayError("seed request body  JSON") from exc
- *         if not isinstance(payload, dict):
- *             payload = {}             # <<<<<<<<<<<<<<
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}             # <<<<<<<<<<<<<<
  *         query_context = payload.setdefault("queryContext", {})
  *         if not isinstance(query_context, dict):
 */
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF_SET(__pyx_v_payload, __pyx_t_4);
-    __pyx_t_4 = 0;
-
-    /* "opscli/amazon_rufus/services/replay.py":37
- *         except json.JSONDecodeError as exc:
- *             raise RufusReplayError("seed request body  JSON") from exc
- *         if not isinstance(payload, dict):             # <<<<<<<<<<<<<<
- *             payload = {}
- *         query_context = payload.setdefault("queryContext", {})
-*/
+  __pyx_t_8 = PyDict_Check(__pyx_v_parsed); 
+  if (__pyx_t_8) {
+    __pyx_t_6 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_copy); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_deepcopy); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_12);
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __pyx_t_9 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_12))) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_12);
+      assert(__pyx_t_6);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_12);
+      __Pyx_INCREF(__pyx_t_6);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_12, __pyx__function);
+      __pyx_t_9 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_parsed};
+      __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 39, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+    }
+    __pyx_t_4 = __pyx_t_7;
+    __pyx_t_7 = 0;
+  } else {
+    __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_4 = __pyx_t_7;
+    __pyx_t_7 = 0;
   }
+  __pyx_v_payload = __pyx_t_4;
+  __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":39
- *         if not isinstance(payload, dict):
- *             payload = {}
+  /* "opscli/amazon_rufus/services/replay.py":40
+ *             raise RufusReplayError("seed request body  JSON") from exc
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}
  *         query_context = payload.setdefault("queryContext", {})             # <<<<<<<<<<<<<<
  *         if not isinstance(query_context, dict):
  *             query_context = {}
 */
   __pyx_t_7 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_7);
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 39, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_12 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_12);
   __pyx_t_9 = 0;
   {
-    PyObject *__pyx_callargs[3] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_queryContext, __pyx_t_6};
+    PyObject *__pyx_callargs[3] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_queryContext, __pyx_t_12};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_setdefault, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_query_context = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":40
- *             payload = {}
+  /* "opscli/amazon_rufus/services/replay.py":41
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}
  *         query_context = payload.setdefault("queryContext", {})
  *         if not isinstance(query_context, dict):             # <<<<<<<<<<<<<<
  *             query_context = {}
  *             payload["queryContext"] = query_context
 */
-  __pyx_t_21 = PyDict_Check(__pyx_v_query_context); 
-  __pyx_t_8 = (!__pyx_t_21);
-  if (__pyx_t_8) {
+  __pyx_t_8 = PyDict_Check(__pyx_v_query_context); 
+  __pyx_t_21 = (!__pyx_t_8);
+  if (__pyx_t_21) {
 
-    /* "opscli/amazon_rufus/services/replay.py":41
+    /* "opscli/amazon_rufus/services/replay.py":42
  *         query_context = payload.setdefault("queryContext", {})
  *         if not isinstance(query_context, dict):
  *             query_context = {}             # <<<<<<<<<<<<<<
  *             payload["queryContext"] = query_context
  *         query_context["query"] = question
 */
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_query_context, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":42
+    /* "opscli/amazon_rufus/services/replay.py":43
  *         if not isinstance(query_context, dict):
  *             query_context = {}
  *             payload["queryContext"] = query_context             # <<<<<<<<<<<<<<
  *         query_context["query"] = question
  *         query_context["actionType"] = "SEARCH"
 */
-    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_queryContext, __pyx_v_query_context) < 0))) __PYX_ERR(0, 42, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_queryContext, __pyx_v_query_context) < 0))) __PYX_ERR(0, 43, __pyx_L1_error)
 
-    /* "opscli/amazon_rufus/services/replay.py":40
- *             payload = {}
+    /* "opscli/amazon_rufus/services/replay.py":41
+ *         payload = copy.deepcopy(parsed) if isinstance(parsed, dict) else {}
  *         query_context = payload.setdefault("queryContext", {})
  *         if not isinstance(query_context, dict):             # <<<<<<<<<<<<<<
  *             query_context = {}
@@ -3434,89 +3491,89 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":43
+  /* "opscli/amazon_rufus/services/replay.py":44
  *             query_context = {}
  *             payload["queryContext"] = query_context
  *         query_context["query"] = question             # <<<<<<<<<<<<<<
  *         query_context["actionType"] = "SEARCH"
  *         query_context["qis"] = "NileCLTextInput"
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_query_context, __pyx_mstate_global->__pyx_n_u_query, __pyx_v_question) < 0))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_query_context, __pyx_mstate_global->__pyx_n_u_query, __pyx_v_question) < 0))) __PYX_ERR(0, 44, __pyx_L1_error)
 
-  /* "opscli/amazon_rufus/services/replay.py":44
+  /* "opscli/amazon_rufus/services/replay.py":45
  *             payload["queryContext"] = query_context
  *         query_context["query"] = question
  *         query_context["actionType"] = "SEARCH"             # <<<<<<<<<<<<<<
  *         query_context["qis"] = "NileCLTextInput"
  * 
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_query_context, __pyx_mstate_global->__pyx_n_u_actionType, __pyx_mstate_global->__pyx_n_u_SEARCH) < 0))) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_query_context, __pyx_mstate_global->__pyx_n_u_actionType, __pyx_mstate_global->__pyx_n_u_SEARCH) < 0))) __PYX_ERR(0, 45, __pyx_L1_error)
 
-  /* "opscli/amazon_rufus/services/replay.py":45
+  /* "opscli/amazon_rufus/services/replay.py":46
  *         query_context["query"] = question
  *         query_context["actionType"] = "SEARCH"
  *         query_context["qis"] = "NileCLTextInput"             # <<<<<<<<<<<<<<
  * 
  *         page_context = payload.setdefault("pageContext", {})
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_query_context, __pyx_mstate_global->__pyx_n_u_qis, __pyx_mstate_global->__pyx_n_u_NileCLTextInput) < 0))) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_query_context, __pyx_mstate_global->__pyx_n_u_qis, __pyx_mstate_global->__pyx_n_u_NileCLTextInput) < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
 
-  /* "opscli/amazon_rufus/services/replay.py":47
+  /* "opscli/amazon_rufus/services/replay.py":48
  *         query_context["qis"] = "NileCLTextInput"
  * 
  *         page_context = payload.setdefault("pageContext", {})             # <<<<<<<<<<<<<<
  *         if not isinstance(page_context, dict):
  *             page_context = {}
 */
-  __pyx_t_6 = __pyx_v_payload;
-  __Pyx_INCREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_12 = __pyx_v_payload;
+  __Pyx_INCREF(__pyx_t_12);
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_9 = 0;
   {
-    PyObject *__pyx_callargs[3] = {__pyx_t_6, __pyx_mstate_global->__pyx_n_u_pageContext, __pyx_t_7};
+    PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_pageContext, __pyx_t_7};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_setdefault, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_page_context = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":48
+  /* "opscli/amazon_rufus/services/replay.py":49
  * 
  *         page_context = payload.setdefault("pageContext", {})
  *         if not isinstance(page_context, dict):             # <<<<<<<<<<<<<<
  *             page_context = {}
  *             payload["pageContext"] = page_context
 */
-  __pyx_t_8 = PyDict_Check(__pyx_v_page_context); 
-  __pyx_t_21 = (!__pyx_t_8);
-  if (__pyx_t_21) {
+  __pyx_t_21 = PyDict_Check(__pyx_v_page_context); 
+  __pyx_t_8 = (!__pyx_t_21);
+  if (__pyx_t_8) {
 
-    /* "opscli/amazon_rufus/services/replay.py":49
+    /* "opscli/amazon_rufus/services/replay.py":50
  *         page_context = payload.setdefault("pageContext", {})
  *         if not isinstance(page_context, dict):
  *             page_context = {}             # <<<<<<<<<<<<<<
  *             payload["pageContext"] = page_context
- *         page_context["originPageType"] = "DETAIL_PAGE"
+ *         page_context["pageType"] = "DETAIL_PAGE"
 */
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 49, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_page_context, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":50
+    /* "opscli/amazon_rufus/services/replay.py":51
  *         if not isinstance(page_context, dict):
  *             page_context = {}
  *             payload["pageContext"] = page_context             # <<<<<<<<<<<<<<
- *         page_context["originPageType"] = "DETAIL_PAGE"
- *         normalized_asin = (asin or "").strip().upper()
+ *         page_context["pageType"] = "DETAIL_PAGE"
+ *         page_context["targetPageType"] = "DETAIL_PAGE"
 */
-    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pageContext, __pyx_v_page_context) < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pageContext, __pyx_v_page_context) < 0))) __PYX_ERR(0, 51, __pyx_L1_error)
 
-    /* "opscli/amazon_rufus/services/replay.py":48
+    /* "opscli/amazon_rufus/services/replay.py":49
  * 
  *         page_context = payload.setdefault("pageContext", {})
  *         if not isinstance(page_context, dict):             # <<<<<<<<<<<<<<
@@ -3525,175 +3582,262 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":51
+  /* "opscli/amazon_rufus/services/replay.py":52
  *             page_context = {}
  *             payload["pageContext"] = page_context
+ *         page_context["pageType"] = "DETAIL_PAGE"             # <<<<<<<<<<<<<<
+ *         page_context["targetPageType"] = "DETAIL_PAGE"
+ *         page_context["originPageType"] = "DETAIL_PAGE"
+*/
+  if (unlikely((PyObject_SetItem(__pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_pageType, __pyx_mstate_global->__pyx_n_u_DETAIL_PAGE) < 0))) __PYX_ERR(0, 52, __pyx_L1_error)
+
+  /* "opscli/amazon_rufus/services/replay.py":53
+ *             payload["pageContext"] = page_context
+ *         page_context["pageType"] = "DETAIL_PAGE"
+ *         page_context["targetPageType"] = "DETAIL_PAGE"             # <<<<<<<<<<<<<<
+ *         page_context["originPageType"] = "DETAIL_PAGE"
+ *         normalized_asin = (asin or "").strip().upper()
+*/
+  if (unlikely((PyObject_SetItem(__pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_targetPageType, __pyx_mstate_global->__pyx_n_u_DETAIL_PAGE) < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
+
+  /* "opscli/amazon_rufus/services/replay.py":54
+ *         page_context["pageType"] = "DETAIL_PAGE"
+ *         page_context["targetPageType"] = "DETAIL_PAGE"
  *         page_context["originPageType"] = "DETAIL_PAGE"             # <<<<<<<<<<<<<<
  *         normalized_asin = (asin or "").strip().upper()
  *         if normalized_asin:
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_originPageType, __pyx_mstate_global->__pyx_n_u_DETAIL_PAGE) < 0))) __PYX_ERR(0, 51, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_originPageType, __pyx_mstate_global->__pyx_n_u_DETAIL_PAGE) < 0))) __PYX_ERR(0, 54, __pyx_L1_error)
 
-  /* "opscli/amazon_rufus/services/replay.py":52
- *             payload["pageContext"] = page_context
+  /* "opscli/amazon_rufus/services/replay.py":55
+ *         page_context["targetPageType"] = "DETAIL_PAGE"
  *         page_context["originPageType"] = "DETAIL_PAGE"
  *         normalized_asin = (asin or "").strip().upper()             # <<<<<<<<<<<<<<
  *         if normalized_asin:
- *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
+ *             if origin_url:
 */
-  __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_v_asin); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 52, __pyx_L1_error)
-  if (!__pyx_t_21) {
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_v_asin); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (!__pyx_t_8) {
   } else {
     __Pyx_INCREF(__pyx_v_asin);
-    __pyx_t_12 = __pyx_v_asin;
-    goto __pyx_L25_bool_binop_done;
+    __pyx_t_10 = __pyx_v_asin;
+    goto __pyx_L24_bool_binop_done;
   }
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
-  __pyx_t_12 = __pyx_mstate_global->__pyx_kp_u__2;
-  __pyx_L25_bool_binop_done:;
-  __pyx_t_10 = __pyx_t_12;
-  __Pyx_INCREF(__pyx_t_10);
+  __pyx_t_10 = __pyx_mstate_global->__pyx_kp_u__2;
+  __pyx_L24_bool_binop_done:;
+  __pyx_t_6 = __pyx_t_10;
+  __Pyx_INCREF(__pyx_t_6);
   __pyx_t_9 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_10, NULL};
-    __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 52, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
+    __pyx_t_12 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 55, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_12);
   }
-  __pyx_t_7 = __pyx_t_6;
+  __pyx_t_7 = __pyx_t_12;
   __Pyx_INCREF(__pyx_t_7);
   __pyx_t_9 = 0;
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_upper, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_normalized_asin = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":53
+  /* "opscli/amazon_rufus/services/replay.py":56
  *         page_context["originPageType"] = "DETAIL_PAGE"
  *         normalized_asin = (asin or "").strip().upper()
  *         if normalized_asin:             # <<<<<<<<<<<<<<
- *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
- *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)
+ *             if origin_url:
+ *                 page_context["targetUrl"] = str(origin_url)
 */
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_normalized_asin);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 53, __pyx_L1_error)
-    __pyx_t_21 = (__pyx_temp != 0);
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 56, __pyx_L1_error)
+    __pyx_t_8 = (__pyx_temp != 0);
   }
 
-  if (__pyx_t_21) {
+  if (__pyx_t_8) {
 
-    /* "opscli/amazon_rufus/services/replay.py":54
+    /* "opscli/amazon_rufus/services/replay.py":57
  *         normalized_asin = (asin or "").strip().upper()
  *         if normalized_asin:
- *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)             # <<<<<<<<<<<<<<
- *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)
- * 
+ *             if origin_url:             # <<<<<<<<<<<<<<
+ *                 page_context["targetUrl"] = str(origin_url)
+ *                 page_context["originUrl"] = str(origin_url)
 */
-    __pyx_t_6 = __pyx_v_self;
-    __Pyx_INCREF(__pyx_t_6);
+    if (__pyx_v_origin_url == Py_None) __pyx_t_8 = 0;
+    else
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_origin_url);
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
+      __pyx_t_8 = (__pyx_temp != 0);
+    }
+
+    if (__pyx_t_8) {
+
+      /* "opscli/amazon_rufus/services/replay.py":58
+ *         if normalized_asin:
+ *             if origin_url:
+ *                 page_context["targetUrl"] = str(origin_url)             # <<<<<<<<<<<<<<
+ *                 page_context["originUrl"] = str(origin_url)
+ *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
+*/
+      __pyx_t_4 = __Pyx_PyUnicode_Unicode(__pyx_v_origin_url); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 58, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (unlikely((PyObject_SetItem(__pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_targetUrl, __pyx_t_4) < 0))) __PYX_ERR(0, 58, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+      /* "opscli/amazon_rufus/services/replay.py":59
+ *             if origin_url:
+ *                 page_context["targetUrl"] = str(origin_url)
+ *                 page_context["originUrl"] = str(origin_url)             # <<<<<<<<<<<<<<
+ *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
+ *             self._upsert_asin_metadata(page_context, "pageMetadata", normalized_asin)
+*/
+      __pyx_t_4 = __Pyx_PyUnicode_Unicode(__pyx_v_origin_url); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (unlikely((PyObject_SetItem(__pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_originUrl, __pyx_t_4) < 0))) __PYX_ERR(0, 59, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+      /* "opscli/amazon_rufus/services/replay.py":57
+ *         normalized_asin = (asin or "").strip().upper()
+ *         if normalized_asin:
+ *             if origin_url:             # <<<<<<<<<<<<<<
+ *                 page_context["targetUrl"] = str(origin_url)
+ *                 page_context["originUrl"] = str(origin_url)
+*/
+    }
+
+    /* "opscli/amazon_rufus/services/replay.py":60
+ *                 page_context["targetUrl"] = str(origin_url)
+ *                 page_context["originUrl"] = str(origin_url)
+ *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)             # <<<<<<<<<<<<<<
+ *             self._upsert_asin_metadata(page_context, "pageMetadata", normalized_asin)
+ *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)
+*/
+    __pyx_t_12 = __pyx_v_self;
+    __Pyx_INCREF(__pyx_t_12);
     __pyx_t_9 = 0;
     {
-      PyObject *__pyx_callargs[4] = {__pyx_t_6, __pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_targetPageMetadata, __pyx_v_normalized_asin};
+      PyObject *__pyx_callargs[4] = {__pyx_t_12, __pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_targetPageMetadata, __pyx_v_normalized_asin};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_upsert_asin_metadata, __pyx_callargs+__pyx_t_9, (4-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 60, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":55
- *         if normalized_asin:
+    /* "opscli/amazon_rufus/services/replay.py":61
+ *                 page_context["originUrl"] = str(origin_url)
  *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
+ *             self._upsert_asin_metadata(page_context, "pageMetadata", normalized_asin)             # <<<<<<<<<<<<<<
+ *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)
+ * 
+*/
+    __pyx_t_12 = __pyx_v_self;
+    __Pyx_INCREF(__pyx_t_12);
+    __pyx_t_9 = 0;
+    {
+      PyObject *__pyx_callargs[4] = {__pyx_t_12, __pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_pageMetadata, __pyx_v_normalized_asin};
+      __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_upsert_asin_metadata, __pyx_callargs+__pyx_t_9, (4-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 61, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+    }
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+    /* "opscli/amazon_rufus/services/replay.py":62
+ *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
+ *             self._upsert_asin_metadata(page_context, "pageMetadata", normalized_asin)
  *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)             # <<<<<<<<<<<<<<
  * 
  *         bottom_sheet_context = payload.setdefault("bottomSheetContext", {})
 */
-    __pyx_t_6 = __pyx_v_self;
-    __Pyx_INCREF(__pyx_t_6);
+    __pyx_t_12 = __pyx_v_self;
+    __Pyx_INCREF(__pyx_t_12);
     __pyx_t_9 = 0;
     {
-      PyObject *__pyx_callargs[4] = {__pyx_t_6, __pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_originPageMetadata, __pyx_v_normalized_asin};
+      PyObject *__pyx_callargs[4] = {__pyx_t_12, __pyx_v_page_context, __pyx_mstate_global->__pyx_n_u_originPageMetadata, __pyx_v_normalized_asin};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_upsert_asin_metadata, __pyx_callargs+__pyx_t_9, (4-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":53
+    /* "opscli/amazon_rufus/services/replay.py":56
  *         page_context["originPageType"] = "DETAIL_PAGE"
  *         normalized_asin = (asin or "").strip().upper()
  *         if normalized_asin:             # <<<<<<<<<<<<<<
- *             self._upsert_asin_metadata(page_context, "targetPageMetadata", normalized_asin)
- *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)
+ *             if origin_url:
+ *                 page_context["targetUrl"] = str(origin_url)
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":57
+  /* "opscli/amazon_rufus/services/replay.py":64
  *             self._upsert_asin_metadata(page_context, "originPageMetadata", normalized_asin)
  * 
  *         bottom_sheet_context = payload.setdefault("bottomSheetContext", {})             # <<<<<<<<<<<<<<
  *         if not isinstance(bottom_sheet_context, dict):
  *             bottom_sheet_context = {}
 */
-  __pyx_t_6 = __pyx_v_payload;
-  __Pyx_INCREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_12 = __pyx_v_payload;
+  __Pyx_INCREF(__pyx_t_12);
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_9 = 0;
   {
-    PyObject *__pyx_callargs[3] = {__pyx_t_6, __pyx_mstate_global->__pyx_n_u_bottomSheetContext, __pyx_t_7};
+    PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_bottomSheetContext, __pyx_t_7};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_setdefault, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_bottom_sheet_context = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":58
+  /* "opscli/amazon_rufus/services/replay.py":65
  * 
  *         bottom_sheet_context = payload.setdefault("bottomSheetContext", {})
  *         if not isinstance(bottom_sheet_context, dict):             # <<<<<<<<<<<<<<
  *             bottom_sheet_context = {}
  *             payload["bottomSheetContext"] = bottom_sheet_context
 */
-  __pyx_t_21 = PyDict_Check(__pyx_v_bottom_sheet_context); 
-  __pyx_t_8 = (!__pyx_t_21);
-  if (__pyx_t_8) {
+  __pyx_t_8 = PyDict_Check(__pyx_v_bottom_sheet_context); 
+  __pyx_t_21 = (!__pyx_t_8);
+  if (__pyx_t_21) {
 
-    /* "opscli/amazon_rufus/services/replay.py":59
+    /* "opscli/amazon_rufus/services/replay.py":66
  *         bottom_sheet_context = payload.setdefault("bottomSheetContext", {})
  *         if not isinstance(bottom_sheet_context, dict):
  *             bottom_sheet_context = {}             # <<<<<<<<<<<<<<
  *             payload["bottomSheetContext"] = bottom_sheet_context
  *         bottom_sheet_context["previousTurnsBottomSheetSize"] = "expanded"
 */
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_bottom_sheet_context, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":60
+    /* "opscli/amazon_rufus/services/replay.py":67
  *         if not isinstance(bottom_sheet_context, dict):
  *             bottom_sheet_context = {}
  *             payload["bottomSheetContext"] = bottom_sheet_context             # <<<<<<<<<<<<<<
  *         bottom_sheet_context["previousTurnsBottomSheetSize"] = "expanded"
  * 
 */
-    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_bottomSheetContext, __pyx_v_bottom_sheet_context) < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_bottomSheetContext, __pyx_v_bottom_sheet_context) < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
 
-    /* "opscli/amazon_rufus/services/replay.py":58
+    /* "opscli/amazon_rufus/services/replay.py":65
  * 
  *         bottom_sheet_context = payload.setdefault("bottomSheetContext", {})
  *         if not isinstance(bottom_sheet_context, dict):             # <<<<<<<<<<<<<<
@@ -3702,16 +3846,16 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":61
+  /* "opscli/amazon_rufus/services/replay.py":68
  *             bottom_sheet_context = {}
  *             payload["bottomSheetContext"] = bottom_sheet_context
  *         bottom_sheet_context["previousTurnsBottomSheetSize"] = "expanded"             # <<<<<<<<<<<<<<
  * 
  *         impressions_context = payload.setdefault("impressionsContext", {})
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_bottom_sheet_context, __pyx_mstate_global->__pyx_n_u_previousTurnsBottomSheetSize, __pyx_mstate_global->__pyx_n_u_expanded) < 0))) __PYX_ERR(0, 61, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_bottom_sheet_context, __pyx_mstate_global->__pyx_n_u_previousTurnsBottomSheetSize, __pyx_mstate_global->__pyx_n_u_expanded) < 0))) __PYX_ERR(0, 68, __pyx_L1_error)
 
-  /* "opscli/amazon_rufus/services/replay.py":63
+  /* "opscli/amazon_rufus/services/replay.py":70
  *         bottom_sheet_context["previousTurnsBottomSheetSize"] = "expanded"
  * 
  *         impressions_context = payload.setdefault("impressionsContext", {})             # <<<<<<<<<<<<<<
@@ -3720,53 +3864,53 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   __pyx_t_7 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_7);
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 63, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_12 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_12);
   __pyx_t_9 = 0;
   {
-    PyObject *__pyx_callargs[3] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_impressionsContext, __pyx_t_6};
+    PyObject *__pyx_callargs[3] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_impressionsContext, __pyx_t_12};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_setdefault, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 63, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_v_impressions_context = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":64
+  /* "opscli/amazon_rufus/services/replay.py":71
  * 
  *         impressions_context = payload.setdefault("impressionsContext", {})
  *         if not isinstance(impressions_context, dict):             # <<<<<<<<<<<<<<
  *             impressions_context = {}
  *             payload["impressionsContext"] = impressions_context
 */
-  __pyx_t_8 = PyDict_Check(__pyx_v_impressions_context); 
-  __pyx_t_21 = (!__pyx_t_8);
-  if (__pyx_t_21) {
+  __pyx_t_21 = PyDict_Check(__pyx_v_impressions_context); 
+  __pyx_t_8 = (!__pyx_t_21);
+  if (__pyx_t_8) {
 
-    /* "opscli/amazon_rufus/services/replay.py":65
+    /* "opscli/amazon_rufus/services/replay.py":72
  *         impressions_context = payload.setdefault("impressionsContext", {})
  *         if not isinstance(impressions_context, dict):
  *             impressions_context = {}             # <<<<<<<<<<<<<<
  *             payload["impressionsContext"] = impressions_context
  *         impressions_context["FIRST_TIME_USER_MESSAGE_SEEN_STATUS"] = "SEEN"
 */
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF_SET(__pyx_v_impressions_context, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":66
+    /* "opscli/amazon_rufus/services/replay.py":73
  *         if not isinstance(impressions_context, dict):
  *             impressions_context = {}
  *             payload["impressionsContext"] = impressions_context             # <<<<<<<<<<<<<<
  *         impressions_context["FIRST_TIME_USER_MESSAGE_SEEN_STATUS"] = "SEEN"
  * 
 */
-    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_impressionsContext, __pyx_v_impressions_context) < 0))) __PYX_ERR(0, 66, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_impressionsContext, __pyx_v_impressions_context) < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
 
-    /* "opscli/amazon_rufus/services/replay.py":64
+    /* "opscli/amazon_rufus/services/replay.py":71
  * 
  *         impressions_context = payload.setdefault("impressionsContext", {})
  *         if not isinstance(impressions_context, dict):             # <<<<<<<<<<<<<<
@@ -3775,149 +3919,123 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":67
+  /* "opscli/amazon_rufus/services/replay.py":74
  *             impressions_context = {}
  *             payload["impressionsContext"] = impressions_context
  *         impressions_context["FIRST_TIME_USER_MESSAGE_SEEN_STATUS"] = "SEEN"             # <<<<<<<<<<<<<<
  * 
- *         if thread_id:
+ *         history_context = payload.get("historyThreadContext")
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_impressions_context, __pyx_mstate_global->__pyx_n_u_FIRST_TIME_USER_MESSAGE_SEEN_STA, __pyx_mstate_global->__pyx_n_u_SEEN) < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_impressions_context, __pyx_mstate_global->__pyx_n_u_FIRST_TIME_USER_MESSAGE_SEEN_STA, __pyx_mstate_global->__pyx_n_u_SEEN) < 0))) __PYX_ERR(0, 74, __pyx_L1_error)
 
-  /* "opscli/amazon_rufus/services/replay.py":69
+  /* "opscli/amazon_rufus/services/replay.py":76
  *         impressions_context["FIRST_TIME_USER_MESSAGE_SEEN_STATUS"] = "SEEN"
  * 
- *         if thread_id:             # <<<<<<<<<<<<<<
- *             history_context = payload.get("historyThreadContext")
- *             if not isinstance(history_context, dict):
+ *         history_context = payload.get("historyThreadContext")             # <<<<<<<<<<<<<<
+ *         if not isinstance(history_context, dict):
+ *             history_context = {}
 */
-  if (__pyx_v_thread_id == Py_None) __pyx_t_21 = 0;
-  else
+  __pyx_t_12 = __pyx_v_payload;
+  __Pyx_INCREF(__pyx_t_12);
+  __pyx_t_9 = 0;
   {
-    Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_thread_id);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 69, __pyx_L1_error)
-    __pyx_t_21 = (__pyx_temp != 0);
-  }
-
-  if (__pyx_t_21) {
-
-    /* "opscli/amazon_rufus/services/replay.py":70
- * 
- *         if thread_id:
- *             history_context = payload.get("historyThreadContext")             # <<<<<<<<<<<<<<
- *             if not isinstance(history_context, dict):
- *                 history_context = {}
-*/
-    __pyx_t_6 = __pyx_v_payload;
-    __Pyx_INCREF(__pyx_t_6);
-    __pyx_t_9 = 0;
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_n_u_historyThreadContext};
-      __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-    }
-    __pyx_v_history_context = __pyx_t_4;
-    __pyx_t_4 = 0;
-
-    /* "opscli/amazon_rufus/services/replay.py":71
- *         if thread_id:
- *             history_context = payload.get("historyThreadContext")
- *             if not isinstance(history_context, dict):             # <<<<<<<<<<<<<<
- *                 history_context = {}
- *             payload["historyThreadContext"] = {
-*/
-    __pyx_t_21 = PyDict_Check(__pyx_v_history_context); 
-    __pyx_t_8 = (!__pyx_t_21);
-    if (__pyx_t_8) {
-
-      /* "opscli/amazon_rufus/services/replay.py":72
- *             history_context = payload.get("historyThreadContext")
- *             if not isinstance(history_context, dict):
- *                 history_context = {}             # <<<<<<<<<<<<<<
- *             payload["historyThreadContext"] = {
- *                 "threadId": thread_id,
-*/
-      __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 72, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF_SET(__pyx_v_history_context, __pyx_t_4);
-      __pyx_t_4 = 0;
-
-      /* "opscli/amazon_rufus/services/replay.py":71
- *         if thread_id:
- *             history_context = payload.get("historyThreadContext")
- *             if not isinstance(history_context, dict):             # <<<<<<<<<<<<<<
- *                 history_context = {}
- *             payload["historyThreadContext"] = {
-*/
-    }
-
-    /* "opscli/amazon_rufus/services/replay.py":74
- *                 history_context = {}
- *             payload["historyThreadContext"] = {
- *                 "threadId": thread_id,             # <<<<<<<<<<<<<<
- *                 "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",
- *             }
-*/
-    __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 74, __pyx_L1_error)
+    PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_historyThreadContext};
+    __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 76, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threadId, __pyx_v_thread_id) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
-
-    /* "opscli/amazon_rufus/services/replay.py":75
- *             payload["historyThreadContext"] = {
- *                 "threadId": thread_id,
- *                 "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",             # <<<<<<<<<<<<<<
- *             }
- *         return payload
-*/
-    __pyx_t_12 = __pyx_v_history_context;
-    __Pyx_INCREF(__pyx_t_12);
-    __pyx_t_9 = 0;
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_threadState};
-      __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 75, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_7);
-    }
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
-    if (!__pyx_t_8) {
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    } else {
-      __Pyx_INCREF(__pyx_t_7);
-      __pyx_t_6 = __pyx_t_7;
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      goto __pyx_L32_bool_binop_done;
-    }
-    __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_THREAD_STATE_UNKNOWN);
-    __pyx_t_6 = __pyx_mstate_global->__pyx_n_u_THREAD_STATE_UNKNOWN;
-    __pyx_L32_bool_binop_done:;
-    if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threadState, __pyx_t_6) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-
-    /* "opscli/amazon_rufus/services/replay.py":73
- *             if not isinstance(history_context, dict):
- *                 history_context = {}
- *             payload["historyThreadContext"] = {             # <<<<<<<<<<<<<<
- *                 "threadId": thread_id,
- *                 "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",
-*/
-    if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_historyThreadContext, __pyx_t_4) < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-    /* "opscli/amazon_rufus/services/replay.py":69
- *         impressions_context["FIRST_TIME_USER_MESSAGE_SEEN_STATUS"] = "SEEN"
- * 
- *         if thread_id:             # <<<<<<<<<<<<<<
- *             history_context = payload.get("historyThreadContext")
- *             if not isinstance(history_context, dict):
-*/
   }
+  __pyx_v_history_context = __pyx_t_4;
+  __pyx_t_4 = 0;
 
   /* "opscli/amazon_rufus/services/replay.py":77
- *                 "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",
- *             }
+ * 
+ *         history_context = payload.get("historyThreadContext")
+ *         if not isinstance(history_context, dict):             # <<<<<<<<<<<<<<
+ *             history_context = {}
+ *         payload["historyThreadContext"] = {
+*/
+  __pyx_t_8 = PyDict_Check(__pyx_v_history_context); 
+  __pyx_t_21 = (!__pyx_t_8);
+  if (__pyx_t_21) {
+
+    /* "opscli/amazon_rufus/services/replay.py":78
+ *         history_context = payload.get("historyThreadContext")
+ *         if not isinstance(history_context, dict):
+ *             history_context = {}             # <<<<<<<<<<<<<<
+ *         payload["historyThreadContext"] = {
+ *             "threadId": thread_id,
+*/
+    __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 78, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF_SET(__pyx_v_history_context, __pyx_t_4);
+    __pyx_t_4 = 0;
+
+    /* "opscli/amazon_rufus/services/replay.py":77
+ * 
+ *         history_context = payload.get("historyThreadContext")
+ *         if not isinstance(history_context, dict):             # <<<<<<<<<<<<<<
+ *             history_context = {}
+ *         payload["historyThreadContext"] = {
+*/
+  }
+
+  /* "opscli/amazon_rufus/services/replay.py":80
+ *             history_context = {}
+ *         payload["historyThreadContext"] = {
+ *             "threadId": thread_id,             # <<<<<<<<<<<<<<
+ *             "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",
+ *         }
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threadId, __pyx_v_thread_id) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
+
+  /* "opscli/amazon_rufus/services/replay.py":81
+ *         payload["historyThreadContext"] = {
+ *             "threadId": thread_id,
+ *             "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",             # <<<<<<<<<<<<<<
+ *         }
+ *         return payload
+*/
+  __pyx_t_10 = __pyx_v_history_context;
+  __Pyx_INCREF(__pyx_t_10);
+  __pyx_t_9 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_mstate_global->__pyx_n_u_threadState};
+    __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
+  __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (!__pyx_t_21) {
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  } else {
+    __Pyx_INCREF(__pyx_t_7);
+    __pyx_t_12 = __pyx_t_7;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    goto __pyx_L31_bool_binop_done;
+  }
+  __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_THREAD_STATE_UNKNOWN);
+  __pyx_t_12 = __pyx_mstate_global->__pyx_n_u_THREAD_STATE_UNKNOWN;
+  __pyx_L31_bool_binop_done:;
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_threadState, __pyx_t_12) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+
+  /* "opscli/amazon_rufus/services/replay.py":79
+ *         if not isinstance(history_context, dict):
+ *             history_context = {}
+ *         payload["historyThreadContext"] = {             # <<<<<<<<<<<<<<
+ *             "threadId": thread_id,
+ *             "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",
+*/
+  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_historyThreadContext, __pyx_t_4) < 0))) __PYX_ERR(0, 79, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/amazon_rufus/services/replay.py":83
+ *             "threadState": history_context.get("threadState") or "THREAD_STATE_UNKNOWN",
+ *         }
  *         return payload             # <<<<<<<<<<<<<<
  * 
  *     def build_replay_url(self, seed: SeedRequestRecord) -> str:
@@ -3925,12 +4043,12 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_4);
-  if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 77, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 83, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "opscli/amazon_rufus/services/replay.py":25
+  /* "opscli/amazon_rufus/services/replay.py":26
  *         self.parser = parser or RufusParserService()
  * 
  *     def build_payload(             # <<<<<<<<<<<<<<
@@ -3949,8 +4067,9 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   __Pyx_AddTraceback("opscli.amazon_rufus.services.replay.RufusReplayService.build_payload", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_payload);
+  __Pyx_XDECREF(__pyx_v_parsed);
   __Pyx_XDECREF(__pyx_v_exc);
+  __Pyx_XDECREF(__pyx_v_payload);
   __Pyx_XDECREF(__pyx_v_query_context);
   __Pyx_XDECREF(__pyx_v_page_context);
   __Pyx_XDECREF(__pyx_v_normalized_asin);
@@ -3962,7 +4081,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   return __pyx_r;
 }
 
-/* "opscli/amazon_rufus/services/replay.py":79
+/* "opscli/amazon_rufus/services/replay.py":85
  *         return payload
  * 
  *     def build_replay_url(self, seed: SeedRequestRecord) -> str:             # <<<<<<<<<<<<<<
@@ -4011,39 +4130,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_seed,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 79, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 85, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 79, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 85, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 79, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 85, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_replay_url", 0) < (0)) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "build_replay_url", 0) < (0)) __PYX_ERR(0, 85, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_replay_url", 1, 2, 2, i); __PYX_ERR(0, 79, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("build_replay_url", 1, 2, 2, i); __PYX_ERR(0, 85, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 85, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 85, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_seed = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("build_replay_url", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 79, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("build_replay_url", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 85, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4086,7 +4205,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("build_replay_url", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":81
+  /* "opscli/amazon_rufus/services/replay.py":87
  *     def build_replay_url(self, seed: SeedRequestRecord) -> str:
  *         """ Rufus replay URL """
  *         parts = urlsplit(seed.request_url)             # <<<<<<<<<<<<<<
@@ -4094,9 +4213,9 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
  *         query: dict[str, str] = dict(query_pairs)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_urlsplit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_urlsplit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_request_url); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_request_url); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4116,13 +4235,13 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_parts = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":82
+  /* "opscli/amazon_rufus/services/replay.py":88
  *         """ Rufus replay URL """
  *         parts = urlsplit(seed.request_url)
  *         query_pairs = parse_qsl(parts.query, keep_blank_values=True)             # <<<<<<<<<<<<<<
@@ -4130,9 +4249,9 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
  *         if seed.tab_id:
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_parse_qsl); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_parse_qsl); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_query); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_query); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4148,21 +4267,21 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, __pyx_t_2};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_keep_blank_values, Py_True, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_keep_blank_values, Py_True, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 88, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_query_pairs = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":83
+  /* "opscli/amazon_rufus/services/replay.py":89
  *         parts = urlsplit(seed.request_url)
  *         query_pairs = parse_qsl(parts.query, keep_blank_values=True)
  *         query: dict[str, str] = dict(query_pairs)             # <<<<<<<<<<<<<<
@@ -4175,38 +4294,38 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_query_pairs};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyDict_Type), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_query = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":84
+  /* "opscli/amazon_rufus/services/replay.py":90
  *         query_pairs = parse_qsl(parts.query, keep_blank_values=True)
  *         query: dict[str, str] = dict(query_pairs)
  *         if seed.tab_id:             # <<<<<<<<<<<<<<
  *             query["tabId"] = seed.tab_id
  *         query.setdefault("programId", "NILE_CLASSIC:desktop-cl")
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_tab_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_tab_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_7) {
 
-    /* "opscli/amazon_rufus/services/replay.py":85
+    /* "opscli/amazon_rufus/services/replay.py":91
  *         query: dict[str, str] = dict(query_pairs)
  *         if seed.tab_id:
  *             query["tabId"] = seed.tab_id             # <<<<<<<<<<<<<<
  *         query.setdefault("programId", "NILE_CLASSIC:desktop-cl")
  *         query.setdefault("ref", "nl_cl_dsk_csq")
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_tab_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_tab_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((PyDict_SetItem(__pyx_v_query, __pyx_mstate_global->__pyx_n_u_tabId, __pyx_t_1) < 0))) __PYX_ERR(0, 85, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_query, __pyx_mstate_global->__pyx_n_u_tabId, __pyx_t_1) < 0))) __PYX_ERR(0, 91, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":84
+    /* "opscli/amazon_rufus/services/replay.py":90
  *         query_pairs = parse_qsl(parts.query, keep_blank_values=True)
  *         query: dict[str, str] = dict(query_pairs)
  *         if seed.tab_id:             # <<<<<<<<<<<<<<
@@ -4215,29 +4334,29 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":86
+  /* "opscli/amazon_rufus/services/replay.py":92
  *         if seed.tab_id:
  *             query["tabId"] = seed.tab_id
  *         query.setdefault("programId", "NILE_CLASSIC:desktop-cl")             # <<<<<<<<<<<<<<
  *         query.setdefault("ref", "nl_cl_dsk_csq")
  *         return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 */
-  __pyx_t_1 = __Pyx_PyDict_SetDefault(__pyx_v_query, __pyx_mstate_global->__pyx_n_u_programId, __pyx_mstate_global->__pyx_kp_u_NILE_CLASSIC_desktop_cl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 86, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_SetDefault(__pyx_v_query, __pyx_mstate_global->__pyx_n_u_programId, __pyx_mstate_global->__pyx_kp_u_NILE_CLASSIC_desktop_cl); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":87
+  /* "opscli/amazon_rufus/services/replay.py":93
  *             query["tabId"] = seed.tab_id
  *         query.setdefault("programId", "NILE_CLASSIC:desktop-cl")
  *         query.setdefault("ref", "nl_cl_dsk_csq")             # <<<<<<<<<<<<<<
  *         return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
  * 
 */
-  __pyx_t_1 = __Pyx_PyDict_SetDefault(__pyx_v_query, __pyx_mstate_global->__pyx_n_u_ref, __pyx_mstate_global->__pyx_n_u_nl_cl_dsk_csq); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_SetDefault(__pyx_v_query, __pyx_mstate_global->__pyx_n_u_ref, __pyx_mstate_global->__pyx_n_u_nl_cl_dsk_csq); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":88
+  /* "opscli/amazon_rufus/services/replay.py":94
  *         query.setdefault("programId", "NILE_CLASSIC:desktop-cl")
  *         query.setdefault("ref", "nl_cl_dsk_csq")
  *         return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))             # <<<<<<<<<<<<<<
@@ -4246,16 +4365,16 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_urlunsplit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_urlunsplit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_scheme); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_scheme); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_netloc); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_netloc); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_path); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_path); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_10 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_urlencode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_urlencode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4274,23 +4393,23 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 88, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_fragment); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_parts, __pyx_mstate_global->__pyx_n_u_fragment); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
-  __pyx_t_10 = PyTuple_New(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_t_10 = PyTuple_New(5); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 88, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 94, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 88, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 94, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_t_8) != (0)) __PYX_ERR(0, 88, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, __pyx_t_8) != (0)) __PYX_ERR(0, 94, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 3, __pyx_t_9) != (0)) __PYX_ERR(0, 88, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 3, __pyx_t_9) != (0)) __PYX_ERR(0, 94, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_11);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_t_11) != (0)) __PYX_ERR(0, 88, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 4, __pyx_t_11) != (0)) __PYX_ERR(0, 94, __pyx_L1_error);
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
   __pyx_t_8 = 0;
@@ -4314,15 +4433,15 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 88, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 88, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 94, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/amazon_rufus/services/replay.py":79
+  /* "opscli/amazon_rufus/services/replay.py":85
  *         return payload
  * 
  *     def build_replay_url(self, seed: SeedRequestRecord) -> str:             # <<<<<<<<<<<<<<
@@ -4352,7 +4471,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   return __pyx_r;
 }
 
-/* "opscli/amazon_rufus/services/replay.py":90
+/* "opscli/amazon_rufus/services/replay.py":96
  *         return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
  * 
  *     def replay(self, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:             # <<<<<<<<<<<<<<
@@ -4402,38 +4521,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_seed,&__pyx_mstate_global->__pyx_n_u_questions,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 90, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 96, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 96, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 96, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 90, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 96, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "replay", 0) < (0)) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "replay", 0) < (0)) __PYX_ERR(0, 96, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("replay", 1, 3, 3, i); __PYX_ERR(0, 90, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("replay", 1, 3, 3, i); __PYX_ERR(0, 96, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 96, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 96, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 90, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 96, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_seed = values[1];
@@ -4441,7 +4560,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("replay", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 90, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("replay", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 96, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4452,7 +4571,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_questions), (&PyList_Type), 0, "questions", 2))) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_questions), (&PyList_Type), 0, "questions", 2))) __PYX_ERR(0, 96, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_6replay(__pyx_self, __pyx_v_self, __pyx_v_seed, __pyx_v_questions);
 
   /* function exit code */
@@ -4481,7 +4600,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("replay", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":92
+  /* "opscli/amazon_rufus/services/replay.py":98
  *     def replay(self, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:
  *         """"""
  *         return []             # <<<<<<<<<<<<<<
@@ -4489,13 +4608,13 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
  *     def replay_with_page(self, page, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/amazon_rufus/services/replay.py":90
+  /* "opscli/amazon_rufus/services/replay.py":96
  *         return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
  * 
  *     def replay(self, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:             # <<<<<<<<<<<<<<
@@ -4514,7 +4633,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   return __pyx_r;
 }
 
-/* "opscli/amazon_rufus/services/replay.py":94
+/* "opscli/amazon_rufus/services/replay.py":100
  *         return []
  * 
  *     def replay_with_page(self, page, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:             # <<<<<<<<<<<<<<
@@ -4565,44 +4684,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_page,&__pyx_mstate_global->__pyx_n_u_seed,&__pyx_mstate_global->__pyx_n_u_questions,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 94, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 100, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 94, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 94, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 94, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 94, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "replay_with_page", 0) < (0)) __PYX_ERR(0, 94, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "replay_with_page", 0) < (0)) __PYX_ERR(0, 100, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("replay_with_page", 1, 4, 4, i); __PYX_ERR(0, 94, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("replay_with_page", 1, 4, 4, i); __PYX_ERR(0, 100, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 94, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 94, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 94, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 100, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 94, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 100, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_page = values[1];
@@ -4611,7 +4730,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("replay_with_page", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 94, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("replay_with_page", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 100, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4622,7 +4741,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_questions), (&PyList_Type), 0, "questions", 2))) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_questions), (&PyList_Type), 0, "questions", 2))) __PYX_ERR(0, 100, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_8replay_with_page(__pyx_self, __pyx_v_self, __pyx_v_page, __pyx_v_seed, __pyx_v_questions);
 
   /* function exit code */
@@ -4667,19 +4786,19 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("replay_with_page", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":96
+  /* "opscli/amazon_rufus/services/replay.py":102
  *     def replay_with_page(self, page, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:
  *         """ fetch Rufus"""
  *         answers: list[AnswerData] = []             # <<<<<<<<<<<<<<
  *         thread_id: str | None = None
  *         headers = self._build_replay_headers(seed.request_headers)
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_answers = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":97
+  /* "opscli/amazon_rufus/services/replay.py":103
  *         """ fetch Rufus"""
  *         answers: list[AnswerData] = []
  *         thread_id: str | None = None             # <<<<<<<<<<<<<<
@@ -4689,7 +4808,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   __Pyx_INCREF(Py_None);
   __pyx_v_thread_id = ((PyObject*)Py_None);
 
-  /* "opscli/amazon_rufus/services/replay.py":98
+  /* "opscli/amazon_rufus/services/replay.py":104
  *         answers: list[AnswerData] = []
  *         thread_id: str | None = None
  *         headers = self._build_replay_headers(seed.request_headers)             # <<<<<<<<<<<<<<
@@ -4698,7 +4817,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   __pyx_t_2 = __pyx_v_self;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_request_headers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_request_headers); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 0;
   {
@@ -4706,13 +4825,13 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_build_replay_headers, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_headers = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":99
+  /* "opscli/amazon_rufus/services/replay.py":105
  *         thread_id: str | None = None
  *         headers = self._build_replay_headers(seed.request_headers)
  *         replay_url = self.build_replay_url(seed)             # <<<<<<<<<<<<<<
@@ -4726,13 +4845,13 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_seed};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_build_replay_url, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_replay_url = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":100
+  /* "opscli/amazon_rufus/services/replay.py":106
  *         headers = self._build_replay_headers(seed.request_headers)
  *         replay_url = self.build_replay_url(seed)
  *         for question in questions:             # <<<<<<<<<<<<<<
@@ -4745,18 +4864,18 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 100, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
       #endif
       if (__pyx_t_5 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_5, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_5;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 106, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF_SET(__pyx_v_question, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":101
+    /* "opscli/amazon_rufus/services/replay.py":107
  *         replay_url = self.build_replay_url(seed)
  *         for question in questions:
  *             payload = self.build_payload(seed.request_body, question, thread_id, seed.asin)             # <<<<<<<<<<<<<<
@@ -4765,9 +4884,9 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
     __pyx_t_2 = __pyx_v_self;
     __Pyx_INCREF(__pyx_t_2);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_request_body); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_request_body); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_asin); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 101, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_seed, __pyx_mstate_global->__pyx_n_u_asin); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_4 = 0;
     {
@@ -4776,13 +4895,13 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 101, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_XDECREF_SET(__pyx_v_payload, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":102
+    /* "opscli/amazon_rufus/services/replay.py":108
  *         for question in questions:
  *             payload = self.build_payload(seed.request_body, question, thread_id, seed.asin)
  *             raw_text = page.evaluate(             # <<<<<<<<<<<<<<
@@ -4792,38 +4911,38 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_t_7 = __pyx_v_page;
     __Pyx_INCREF(__pyx_t_7);
 
-    /* "opscli/amazon_rufus/services/replay.py":113
+    /* "opscli/amazon_rufus/services/replay.py":119
  *                 }
  *                 """,
  *                 {"url": replay_url, "body": payload, "headers": headers},             # <<<<<<<<<<<<<<
  *             )
  *             answer = self.parser.parse(raw_text)
 */
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_url, __pyx_v_replay_url) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_body, __pyx_v_payload) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_headers, __pyx_v_headers) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_url, __pyx_v_replay_url) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_body, __pyx_v_payload) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_headers, __pyx_v_headers) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
     __pyx_t_4 = 0;
     {
       PyObject *__pyx_callargs[3] = {__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_async_url_body_headers_const_re, __pyx_t_6};
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_evaluate, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 102, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 108, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_XDECREF_SET(__pyx_v_raw_text, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":115
+    /* "opscli/amazon_rufus/services/replay.py":121
  *                 {"url": replay_url, "body": payload, "headers": headers},
  *             )
  *             answer = self.parser.parse(raw_text)             # <<<<<<<<<<<<<<
  *             thread_id = answer.thread_id or thread_id
  *             answers.append(answer)
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_parser); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_parser); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_6 = __pyx_t_7;
     __Pyx_INCREF(__pyx_t_6);
@@ -4833,28 +4952,28 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
       __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_parse, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 115, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_XDECREF_SET(__pyx_v_answer, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":116
+    /* "opscli/amazon_rufus/services/replay.py":122
  *             )
  *             answer = self.parser.parse(raw_text)
  *             thread_id = answer.thread_id or thread_id             # <<<<<<<<<<<<<<
  *             answers.append(answer)
  *         return answers
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_answer, __pyx_mstate_global->__pyx_n_u_thread_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_answer, __pyx_mstate_global->__pyx_n_u_thread_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 122, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
     if (!__pyx_t_8) {
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     } else {
       __pyx_t_6 = __pyx_t_7;
       __Pyx_INCREF(__pyx_t_6);
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_6))) __PYX_ERR(0, 116, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_6))) __PYX_ERR(0, 122, __pyx_L1_error)
       __pyx_t_3 = __pyx_t_6;
       __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -4866,16 +4985,16 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_DECREF_SET(__pyx_v_thread_id, ((PyObject*)__pyx_t_3));
     __pyx_t_3 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":117
+    /* "opscli/amazon_rufus/services/replay.py":123
  *             answer = self.parser.parse(raw_text)
  *             thread_id = answer.thread_id or thread_id
  *             answers.append(answer)             # <<<<<<<<<<<<<<
  *         return answers
  * 
 */
-    __pyx_t_9 = __Pyx_PyList_Append(__pyx_v_answers, __pyx_v_answer); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyList_Append(__pyx_v_answers, __pyx_v_answer); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 123, __pyx_L1_error)
 
-    /* "opscli/amazon_rufus/services/replay.py":100
+    /* "opscli/amazon_rufus/services/replay.py":106
  *         headers = self._build_replay_headers(seed.request_headers)
  *         replay_url = self.build_replay_url(seed)
  *         for question in questions:             # <<<<<<<<<<<<<<
@@ -4885,7 +5004,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":118
+  /* "opscli/amazon_rufus/services/replay.py":124
  *             thread_id = answer.thread_id or thread_id
  *             answers.append(answer)
  *         return answers             # <<<<<<<<<<<<<<
@@ -4897,7 +5016,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   __pyx_r = __pyx_v_answers;
   goto __pyx_L0;
 
-  /* "opscli/amazon_rufus/services/replay.py":94
+  /* "opscli/amazon_rufus/services/replay.py":100
  *         return []
  * 
  *     def replay_with_page(self, page, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:             # <<<<<<<<<<<<<<
@@ -4928,7 +5047,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   return __pyx_r;
 }
 
-/* "opscli/amazon_rufus/services/replay.py":120
+/* "opscli/amazon_rufus/services/replay.py":126
  *         return answers
  * 
  *     def _build_replay_headers(self, request_headers: dict[str, str]) -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -4977,39 +5096,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_request_headers,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 120, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 126, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 120, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 126, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 126, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_build_replay_headers", 0) < (0)) __PYX_ERR(0, 120, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_build_replay_headers", 0) < (0)) __PYX_ERR(0, 126, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_build_replay_headers", 1, 2, 2, i); __PYX_ERR(0, 120, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_build_replay_headers", 1, 2, 2, i); __PYX_ERR(0, 126, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 126, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 120, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 126, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_request_headers = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_build_replay_headers", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 120, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_build_replay_headers", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 126, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5020,7 +5139,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_request_headers), (&PyDict_Type), 0, "request_headers", 2))) __PYX_ERR(0, 120, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_request_headers), (&PyDict_Type), 0, "request_headers", 2))) __PYX_ERR(0, 126, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_10_build_replay_headers(__pyx_self, __pyx_v_self, __pyx_v_request_headers);
 
   /* function exit code */
@@ -5061,19 +5180,19 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_build_replay_headers", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":122
+  /* "opscli/amazon_rufus/services/replay.py":128
  *     def _build_replay_headers(self, request_headers: dict[str, str]) -> dict[str, str]:
  *         """ Rufus """
  *         headers: dict[str, str] = {}             # <<<<<<<<<<<<<<
  *         for key, value in request_headers.items():
  *             normalized = key.lower()
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_headers = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":123
+  /* "opscli/amazon_rufus/services/replay.py":129
  *         """ Rufus """
  *         headers: dict[str, str] = {}
  *         for key, value in request_headers.items():             # <<<<<<<<<<<<<<
@@ -5081,7 +5200,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
  *             if normalized in self.REPLAY_HEADER_ALLOWLIST:
 */
   __pyx_t_2 = 0;
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_request_headers, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 123, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_request_headers, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -5089,7 +5208,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 123, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 129, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_5);
@@ -5097,7 +5216,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":124
+    /* "opscli/amazon_rufus/services/replay.py":130
  *         headers: dict[str, str] = {}
  *         for key, value in request_headers.items():
  *             normalized = key.lower()             # <<<<<<<<<<<<<<
@@ -5111,35 +5230,35 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
     __Pyx_XDECREF_SET(__pyx_v_normalized, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":125
+    /* "opscli/amazon_rufus/services/replay.py":131
  *         for key, value in request_headers.items():
  *             normalized = key.lower()
  *             if normalized in self.REPLAY_HEADER_ALLOWLIST:             # <<<<<<<<<<<<<<
  *                 headers[normalized] = value
  *         headers.setdefault("content-type", "application/json")
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_REPLAY_HEADER_ALLOWLIST); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_REPLAY_HEADER_ALLOWLIST); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_v_normalized, __pyx_t_6, Py_EQ)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 125, __pyx_L1_error)
+    __pyx_t_9 = (__Pyx_PySequence_ContainsTF(__pyx_v_normalized, __pyx_t_6, Py_EQ)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     if (__pyx_t_9) {
 
-      /* "opscli/amazon_rufus/services/replay.py":126
+      /* "opscli/amazon_rufus/services/replay.py":132
  *             normalized = key.lower()
  *             if normalized in self.REPLAY_HEADER_ALLOWLIST:
  *                 headers[normalized] = value             # <<<<<<<<<<<<<<
  *         headers.setdefault("content-type", "application/json")
  *         return headers
 */
-      if (unlikely((PyDict_SetItem(__pyx_v_headers, __pyx_v_normalized, __pyx_v_value) < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_headers, __pyx_v_normalized, __pyx_v_value) < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
 
-      /* "opscli/amazon_rufus/services/replay.py":125
+      /* "opscli/amazon_rufus/services/replay.py":131
  *         for key, value in request_headers.items():
  *             normalized = key.lower()
  *             if normalized in self.REPLAY_HEADER_ALLOWLIST:             # <<<<<<<<<<<<<<
@@ -5150,18 +5269,18 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":127
+  /* "opscli/amazon_rufus/services/replay.py":133
  *             if normalized in self.REPLAY_HEADER_ALLOWLIST:
  *                 headers[normalized] = value
  *         headers.setdefault("content-type", "application/json")             # <<<<<<<<<<<<<<
  *         return headers
  * 
 */
-  __pyx_t_1 = __Pyx_PyDict_SetDefault(__pyx_v_headers, __pyx_mstate_global->__pyx_kp_u_content_type, __pyx_mstate_global->__pyx_kp_u_application_json); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_SetDefault(__pyx_v_headers, __pyx_mstate_global->__pyx_kp_u_content_type, __pyx_mstate_global->__pyx_kp_u_application_json); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":128
+  /* "opscli/amazon_rufus/services/replay.py":134
  *                 headers[normalized] = value
  *         headers.setdefault("content-type", "application/json")
  *         return headers             # <<<<<<<<<<<<<<
@@ -5173,7 +5292,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   __pyx_r = __pyx_v_headers;
   goto __pyx_L0;
 
-  /* "opscli/amazon_rufus/services/replay.py":120
+  /* "opscli/amazon_rufus/services/replay.py":126
  *         return answers
  * 
  *     def _build_replay_headers(self, request_headers: dict[str, str]) -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -5198,7 +5317,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   return __pyx_r;
 }
 
-/* "opscli/amazon_rufus/services/replay.py":130
+/* "opscli/amazon_rufus/services/replay.py":136
  *         return headers
  * 
  *     def _upsert_asin_metadata(self, page_context: dict, key: str, asin: str) -> None:             # <<<<<<<<<<<<<<
@@ -5249,44 +5368,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_page_context,&__pyx_mstate_global->__pyx_n_u_key,&__pyx_mstate_global->__pyx_n_u_asin,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 130, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 136, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 136, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 136, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 136, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 136, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_upsert_asin_metadata", 0) < (0)) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_upsert_asin_metadata", 0) < (0)) __PYX_ERR(0, 136, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_upsert_asin_metadata", 1, 4, 4, i); __PYX_ERR(0, 130, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_upsert_asin_metadata", 1, 4, 4, i); __PYX_ERR(0, 136, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 136, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 136, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 136, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 130, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 136, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_page_context = ((PyObject*)values[1]);
@@ -5295,7 +5414,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_upsert_asin_metadata", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 130, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_upsert_asin_metadata", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 136, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5306,9 +5425,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_page_context), (&PyDict_Type), 0, "page_context", 2))) __PYX_ERR(0, 130, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_key), (&PyUnicode_Type), 0, "key", 2))) __PYX_ERR(0, 130, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_asin), (&PyUnicode_Type), 0, "asin", 2))) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_page_context), (&PyDict_Type), 0, "page_context", 2))) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_key), (&PyUnicode_Type), 0, "key", 2))) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_asin), (&PyUnicode_Type), 0, "asin", 2))) __PYX_ERR(0, 136, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_12_upsert_asin_metadata(__pyx_self, __pyx_v_self, __pyx_v_page_context, __pyx_v_key, __pyx_v_asin);
 
   /* function exit code */
@@ -5347,19 +5466,19 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_upsert_asin_metadata", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":132
+  /* "opscli/amazon_rufus/services/replay.py":138
  *     def _upsert_asin_metadata(self, page_context: dict, key: str, asin: str) -> None:
  *         """ metadata  ASIN"""
  *         metadata = page_context.get(key)             # <<<<<<<<<<<<<<
  *         if not isinstance(metadata, list):
  *             metadata = []
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_page_context, __pyx_v_key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_page_context, __pyx_v_key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_metadata = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":133
+  /* "opscli/amazon_rufus/services/replay.py":139
  *         """ metadata  ASIN"""
  *         metadata = page_context.get(key)
  *         if not isinstance(metadata, list):             # <<<<<<<<<<<<<<
@@ -5370,28 +5489,28 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   __pyx_t_3 = (!__pyx_t_2);
   if (__pyx_t_3) {
 
-    /* "opscli/amazon_rufus/services/replay.py":134
+    /* "opscli/amazon_rufus/services/replay.py":140
  *         metadata = page_context.get(key)
  *         if not isinstance(metadata, list):
  *             metadata = []             # <<<<<<<<<<<<<<
  *             page_context[key] = metadata
  *         for item in metadata:
 */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF_SET(__pyx_v_metadata, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":135
+    /* "opscli/amazon_rufus/services/replay.py":141
  *         if not isinstance(metadata, list):
  *             metadata = []
  *             page_context[key] = metadata             # <<<<<<<<<<<<<<
  *         for item in metadata:
  *             if isinstance(item, dict) and item.get("type") == "ASIN":
 */
-    if (unlikely((PyDict_SetItem(__pyx_v_page_context, __pyx_v_key, __pyx_v_metadata) < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_page_context, __pyx_v_key, __pyx_v_metadata) < 0))) __PYX_ERR(0, 141, __pyx_L1_error)
 
-    /* "opscli/amazon_rufus/services/replay.py":133
+    /* "opscli/amazon_rufus/services/replay.py":139
  *         """ metadata  ASIN"""
  *         metadata = page_context.get(key)
  *         if not isinstance(metadata, list):             # <<<<<<<<<<<<<<
@@ -5400,7 +5519,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
   }
 
-  /* "opscli/amazon_rufus/services/replay.py":136
+  /* "opscli/amazon_rufus/services/replay.py":142
  *             metadata = []
  *             page_context[key] = metadata
  *         for item in metadata:             # <<<<<<<<<<<<<<
@@ -5412,9 +5531,9 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __pyx_t_4 = 0;
     __pyx_t_5 = NULL;
   } else {
-    __pyx_t_4 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_metadata); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_4 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_metadata); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 142, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_5)) {
@@ -5422,7 +5541,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
           #endif
           if (__pyx_t_4 >= __pyx_temp) break;
         }
@@ -5432,7 +5551,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
           #endif
           if (__pyx_t_4 >= __pyx_temp) break;
         }
@@ -5443,13 +5562,13 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
         #endif
         ++__pyx_t_4;
       }
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 142, __pyx_L1_error)
     } else {
       __pyx_t_6 = __pyx_t_5(__pyx_t_1);
       if (unlikely(!__pyx_t_6)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 142, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -5459,7 +5578,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
     __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "opscli/amazon_rufus/services/replay.py":137
+    /* "opscli/amazon_rufus/services/replay.py":143
  *             page_context[key] = metadata
  *         for item in metadata:
  *             if isinstance(item, dict) and item.get("type") == "ASIN":             # <<<<<<<<<<<<<<
@@ -5479,25 +5598,25 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_type};
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 137, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ASIN, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 137, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ASIN, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_3 = __pyx_t_2;
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_3) {
 
-      /* "opscli/amazon_rufus/services/replay.py":138
+      /* "opscli/amazon_rufus/services/replay.py":144
  *         for item in metadata:
  *             if isinstance(item, dict) and item.get("type") == "ASIN":
  *                 item["value"] = asin             # <<<<<<<<<<<<<<
  *                 return
  *         metadata.append({"type": "ASIN", "value": asin})
 */
-      if (unlikely((PyObject_SetItem(__pyx_v_item, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_asin) < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
+      if (unlikely((PyObject_SetItem(__pyx_v_item, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_asin) < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
 
-      /* "opscli/amazon_rufus/services/replay.py":139
+      /* "opscli/amazon_rufus/services/replay.py":145
  *             if isinstance(item, dict) and item.get("type") == "ASIN":
  *                 item["value"] = asin
  *                 return             # <<<<<<<<<<<<<<
@@ -5509,7 +5628,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       goto __pyx_L0;
 
-      /* "opscli/amazon_rufus/services/replay.py":137
+      /* "opscli/amazon_rufus/services/replay.py":143
  *             page_context[key] = metadata
  *         for item in metadata:
  *             if isinstance(item, dict) and item.get("type") == "ASIN":             # <<<<<<<<<<<<<<
@@ -5518,7 +5637,7 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
 */
     }
 
-    /* "opscli/amazon_rufus/services/replay.py":136
+    /* "opscli/amazon_rufus/services/replay.py":142
  *             metadata = []
  *             page_context[key] = metadata
  *         for item in metadata:             # <<<<<<<<<<<<<<
@@ -5528,20 +5647,20 @@ static PyObject *__pyx_pf_6opscli_12amazon_rufus_8services_6replay_18RufusReplay
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":140
+  /* "opscli/amazon_rufus/services/replay.py":146
  *                 item["value"] = asin
  *                 return
  *         metadata.append({"type": "ASIN", "value": asin})             # <<<<<<<<<<<<<<
  * 
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_type, __pyx_mstate_global->__pyx_n_u_ASIN) < (0)) __PYX_ERR(0, 140, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_asin) < (0)) __PYX_ERR(0, 140, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_PyObject_Append(__pyx_v_metadata, __pyx_t_1); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 140, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_type, __pyx_mstate_global->__pyx_n_u_ASIN) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_value, __pyx_v_asin) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_Append(__pyx_v_metadata, __pyx_t_1); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 146, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":130
+  /* "opscli/amazon_rufus/services/replay.py":136
  *         return headers
  * 
  *     def _upsert_asin_metadata(self, page_context: dict, key: str, asin: str) -> None:             # <<<<<<<<<<<<<<
@@ -5920,18 +6039,31 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
   /* "opscli/amazon_rufus/services/replay.py":5
  * from __future__ import annotations
  * 
- * import json             # <<<<<<<<<<<<<<
+ * import copy             # <<<<<<<<<<<<<<
+ * import json
  * from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
- * 
 */
-  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_json, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 5, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_copy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 5, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_json, __pyx_t_2) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_copy, __pyx_t_2) < (0)) __PYX_ERR(0, 5, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/amazon_rufus/services/replay.py":6
  * 
+ * import copy
+ * import json             # <<<<<<<<<<<<<<
+ * from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+ * 
+*/
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_json, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_json, __pyx_t_2) < (0)) __PYX_ERR(0, 6, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/amazon_rufus/services/replay.py":7
+ * import copy
  * import json
  * from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit             # <<<<<<<<<<<<<<
  * 
@@ -5939,22 +6071,22 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_parse_qsl,__pyx_mstate_global->__pyx_n_u_urlencode,__pyx_mstate_global->__pyx_n_u_urlsplit,__pyx_mstate_global->__pyx_n_u_urlunsplit};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_urllib_parse, __pyx_imported_names, 4, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_urllib_parse, __pyx_imported_names, 4, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_parse_qsl,__pyx_mstate_global->__pyx_n_u_urlencode,__pyx_mstate_global->__pyx_n_u_urlsplit,__pyx_mstate_global->__pyx_n_u_urlunsplit};
     for (__pyx_t_3=0; __pyx_t_3 < 4; __pyx_t_3++) {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 6, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 7, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 6, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 7, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":8
+  /* "opscli/amazon_rufus/services/replay.py":9
  * from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
  * 
  * from opscli.amazon_rufus.domain.exceptions import RufusReplayError             # <<<<<<<<<<<<<<
@@ -5963,37 +6095,13 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RufusReplayError};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_domain_excep, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 8, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_domain_excep, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 9, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RufusReplayError};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 8, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    }
-  }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "opscli/amazon_rufus/services/replay.py":9
- * 
- * from opscli.amazon_rufus.domain.exceptions import RufusReplayError
- * from opscli.amazon_rufus.domain.models import AnswerData, SeedRequestRecord             # <<<<<<<<<<<<<<
- * from opscli.amazon_rufus.services.parser import RufusParserService
- * 
-*/
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_AnswerData,__pyx_mstate_global->__pyx_n_u_SeedRequestRecord};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_domain_model, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 9, __pyx_L1_error)
-  }
-  __pyx_t_2 = __pyx_t_1;
-  __Pyx_GOTREF(__pyx_t_2);
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_AnswerData,__pyx_mstate_global->__pyx_n_u_SeedRequestRecord};
-    for (__pyx_t_3=0; __pyx_t_3 < 2; __pyx_t_3++) {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 9, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
@@ -6003,21 +6111,21 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/amazon_rufus/services/replay.py":10
- * from opscli.amazon_rufus.domain.exceptions import RufusReplayError
- * from opscli.amazon_rufus.domain.models import AnswerData, SeedRequestRecord
- * from opscli.amazon_rufus.services.parser import RufusParserService             # <<<<<<<<<<<<<<
  * 
+ * from opscli.amazon_rufus.domain.exceptions import RufusReplayError
+ * from opscli.amazon_rufus.domain.models import AnswerData, SeedRequestRecord             # <<<<<<<<<<<<<<
+ * from opscli.amazon_rufus.services.parser import RufusParserService
  * 
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RufusParserService};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_par, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 10, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_AnswerData,__pyx_mstate_global->__pyx_n_u_SeedRequestRecord};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_domain_model, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 10, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RufusParserService};
-    __pyx_t_3 = 0; {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_AnswerData,__pyx_mstate_global->__pyx_n_u_SeedRequestRecord};
+    for (__pyx_t_3=0; __pyx_t_3 < 2; __pyx_t_3++) {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 10, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
@@ -6026,43 +6134,67 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":13
+  /* "opscli/amazon_rufus/services/replay.py":11
+ * from opscli.amazon_rufus.domain.exceptions import RufusReplayError
+ * from opscli.amazon_rufus.domain.models import AnswerData, SeedRequestRecord
+ * from opscli.amazon_rufus.services.parser import RufusParserService             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RufusParserService};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_par, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 11, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_RufusParserService};
+    __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 11, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/amazon_rufus/services/replay.py":14
  * 
  * 
  * class RufusReplayService:             # <<<<<<<<<<<<<<
  *     """ seed request  Rufus"""
  * 
 */
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_RufusReplayService, __pyx_mstate_global->__pyx_n_u_RufusReplayService, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_kp_u_seed_request_Rufus); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_RufusReplayService, __pyx_mstate_global->__pyx_n_u_RufusReplayService, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_kp_u_seed_request_Rufus); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "opscli/amazon_rufus/services/replay.py":17
+  /* "opscli/amazon_rufus/services/replay.py":18
  * 
  *     REPLAY_HEADER_ALLOWLIST = {
  *         "anti-csrftoken-a2z",             # <<<<<<<<<<<<<<
  *         "content-type",
  *         "x-amz-is-papyrus",
 */
-  __pyx_t_4 = PySet_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 17, __pyx_L1_error)
+  __pyx_t_4 = PySet_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PySet_Add(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_anti_csrftoken_a2z) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
-  if (PySet_Add(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_content_type) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
-  if (PySet_Add(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_x_amz_is_papyrus) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_REPLAY_HEADER_ALLOWLIST, __pyx_t_4) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
+  if (PySet_Add(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_anti_csrftoken_a2z) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (PySet_Add(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_content_type) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (PySet_Add(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_x_amz_is_papyrus) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_REPLAY_HEADER_ALLOWLIST, __pyx_t_4) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":22
+  /* "opscli/amazon_rufus/services/replay.py":23
  *     }
  * 
  *     def __init__(self, parser: RufusParserService | None = None) -> None:             # <<<<<<<<<<<<<<
  *         self.parser = parser or RufusParserService()
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_parser, __pyx_mstate_global->__pyx_kp_u_RufusParserService_None) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_1__init__, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService___init, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_parser, __pyx_mstate_global->__pyx_kp_u_RufusParserService_None) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_1__init__, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService___init, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -6070,24 +6202,25 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_5) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_5) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":25
+  /* "opscli/amazon_rufus/services/replay.py":26
  *         self.parser = parser or RufusParserService()
  * 
  *     def build_payload(             # <<<<<<<<<<<<<<
  *         self,
  *         seed_body: str,
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_seed_body, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_question, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_thread_id, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asin, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_3build_payload, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_build_payload, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_seed_body, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_question, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_thread_id, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asin, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_origin_url, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_3build_payload, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_build_payload, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -6095,131 +6228,131 @@ __Pyx_RefNannySetupContext("PyInit_replay", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_build_payload, __pyx_t_4) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_build_payload, __pyx_t_4) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":79
+  /* "opscli/amazon_rufus/services/replay.py":85
  *         return payload
  * 
  *     def build_replay_url(self, seed: SeedRequestRecord) -> str:             # <<<<<<<<<<<<<<
  *         """ Rufus replay URL """
  *         parts = urlsplit(seed.request_url)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_seed, __pyx_mstate_global->__pyx_n_u_SeedRequestRecord) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_5build_replay_url, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_build_replay, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_seed, __pyx_mstate_global->__pyx_n_u_SeedRequestRecord) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_5build_replay_url, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_build_replay, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_build_replay_url, __pyx_t_5) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_build_replay_url, __pyx_t_5) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":90
+  /* "opscli/amazon_rufus/services/replay.py":96
  *         return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
  * 
  *     def replay(self, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:             # <<<<<<<<<<<<<<
  *         """"""
  *         return []
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_seed, __pyx_mstate_global->__pyx_n_u_SeedRequestRecord) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_questions, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_AnswerData) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_7replay, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_replay, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_seed, __pyx_mstate_global->__pyx_n_u_SeedRequestRecord) < (0)) __PYX_ERR(0, 96, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_questions, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 96, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_AnswerData) < (0)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_7replay, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_replay, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_replay, __pyx_t_4) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_replay, __pyx_t_4) < (0)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":94
+  /* "opscli/amazon_rufus/services/replay.py":100
  *         return []
  * 
  *     def replay_with_page(self, page, seed: SeedRequestRecord, questions: list[str]) -> list[AnswerData]:             # <<<<<<<<<<<<<<
  *         """ fetch Rufus"""
  *         answers: list[AnswerData] = []
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_seed, __pyx_mstate_global->__pyx_n_u_SeedRequestRecord) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_questions, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_AnswerData) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_9replay_with_page, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_replay_with_p, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_seed, __pyx_mstate_global->__pyx_n_u_SeedRequestRecord) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_questions, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_AnswerData) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_9replay_with_page, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService_replay_with_p, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_replay_with_page, __pyx_t_5) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_replay_with_page, __pyx_t_5) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":120
+  /* "opscli/amazon_rufus/services/replay.py":126
  *         return answers
  * 
  *     def _build_replay_headers(self, request_headers: dict[str, str]) -> dict[str, str]:             # <<<<<<<<<<<<<<
  *         """ Rufus """
  *         headers: dict[str, str] = {}
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_request_headers, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_11_build_replay_headers, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService__build_replay, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_request_headers, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 126, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_11_build_replay_headers, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService__build_replay, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_build_replay_headers, __pyx_t_4) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_build_replay_headers, __pyx_t_4) < (0)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":130
+  /* "opscli/amazon_rufus/services/replay.py":136
  *         return headers
  * 
  *     def _upsert_asin_metadata(self, page_context: dict, key: str, asin: str) -> None:             # <<<<<<<<<<<<<<
  *         """ metadata  ASIN"""
  *         metadata = page_context.get(key)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_page_context, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_asin, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_13_upsert_asin_metadata, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService__upsert_asin, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_page_context, __pyx_mstate_global->__pyx_n_u_dict) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_key, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_asin, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_12amazon_rufus_8services_6replay_18RufusReplayService_13_upsert_asin_metadata, 0, __pyx_mstate_global->__pyx_n_u_RufusReplayService__upsert_asin, NULL, __pyx_mstate_global->__pyx_n_u_opscli_amazon_rufus_services_rep, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_upsert_asin_metadata, __pyx_t_5) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_upsert_asin_metadata, __pyx_t_5) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/amazon_rufus/services/replay.py":13
+  /* "opscli/amazon_rufus/services/replay.py":14
  * 
  * 
  * class RufusReplayService:             # <<<<<<<<<<<<<<
  *     """ seed request  Rufus"""
  * 
 */
-  __pyx_t_5 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_RufusReplayService, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_RufusReplayService, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_RufusReplayService, __pyx_t_5) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_RufusReplayService, __pyx_t_5) < (0)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
@@ -6290,25 +6423,25 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/amazon_rufus/services/replay.py":22
+  /* "opscli/amazon_rufus/services/replay.py":23
  *     }
  * 
  *     def __init__(self, parser: RufusParserService | None = None) -> None:             # <<<<<<<<<<<<<<
  *         self.parser = parser or RufusParserService()
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/amazon_rufus/services/replay.py":25
+  /* "opscli/amazon_rufus/services/replay.py":26
  *         self.parser = parser or RufusParserService()
  * 
  *     def build_payload(             # <<<<<<<<<<<<<<
  *         self,
  *         seed_body: str,
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -6341,34 +6474,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{2},{23},{179},{25},{0},{1},{1},{8},{18},{16},{323},{12},{14},{16},{9},{38},{41},{35},{10},{16},{4},{10},{11},{35},{15},{15},{4},{20},{23},{18},{16},{18},{27},{40},{40},{32},{35},{25},{35},{6},{4},{17},{20},{10},{6},{7},{6},{4},{18},{4},{18},{20},{13},{21},{16},{18},{4},{7},{8},{3},{8},{8},{8},{3},{7},{20},{15},{18},{19},{8},{13},{4},{5},{4},{17},{3},{5},{5},{8},{13},{8},{10},{8},{6},{13},{10},{15},{37},{33},{35},{35},{18},{14},{4},{11},{12},{5},{9},{6},{5},{4},{7},{3},{11},{28},{9},{3},{12},{5},{12},{13},{11},{8},{9},{8},{3},{6},{10},{16},{12},{15},{11},{6},{6},{4},{9},{4},{12},{10},{3},{5},{5},{6},{18},{8},{8},{11},{9},{4},{5},{21},{3},{9},{12},{8},{10},{5},{6},{115},{109},{72},{15},{426},{142},{24}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2017 bytes) */
-const char* const cstring = "BZh91AY&SY\263\232O*\000\005G\377\377\357\377\377\377\377\377\376\377\277\377\377\372\277\377\377\377\320\303F@\320@\310Q@@@@O @\000`\006\276=\252\234\031}\275\243\262\356\027cZx\016\rM\010\321&\223jzj{T\362e<4\232 \323L\231<\221\264M1\224\321\246\232i\221\3521\250\r\r4\362F54\323\320\021\210\300#L\322\rA\002`O@\206\324\304\320\246A\246\232~\2506\246M\0004\000\000\000\000\000\006\200\364\206\201\240\000\002\014\001\030&#L\230FC\020\3020\230\001\030FC&\231\r\031\030\203C\00110&#F\0022d\3004\010!OI\2222= \304~\221\243H\320\032\006A\240\000\000\000\000\000\000\000i\243@\000\006\202SP\214\214\246\0212h\nz\236\221\3524\003A\240\320\000\000\000\000\032\000\000\000\000\017P\014\232\000%\0224\021\232T~\200\247\232P\323\324\323\324=@\0004\000\000\000\000\000\000\000h\000\000\000\000f\361O\264>\375\377\313\214\366\204 \370q\235\307\031\025\243}\334\216BC2B@\220\220\311\002\020\207\305\365f\367>\276\307\352]\037L?^,\0260\324L7<\317\013\220\346NA\266\222\024\031\260*h\020l+c0\214\334|\274\004\372\207>zi;'\222\016b\006m%l\207\201+\336\373\3071D\331B\222\253\324.f\004\241RxJ\352r0q\2108\230A\320\312\031$%\323\344\241wf04S\001}Bz\216\377G\355v\255\355q\027\212\377\t\014\267\235\251-)v+\251x\t\343\350\370c\300cd\340\251\030X\237\211+\344\216\\M5\213\252\020\222\20532\273\205\325\027\020=\212\314W/e^\300dJO\337\347\321\035Gut\222{L\022stW\216\2076[\352\267\361\365*`\235\353\321\226\3466\3067\247\333=S\240\203\000b\302\210\203\305\246\340\245\335L\250\214\034\024n7t%;{\323\001\370OT\037vR\027\010]*\326\215\320S*\310\234\340\306d\325\001\2072b\245\276\255\253\354\246.G\243\035\017\005\275\323\271\265S\305~\205\257\2011(\244\024}Z\250p\342\242\263\230\263\365\301\326Y\010\010F\333\225\250\322u\322\260\204\244B\254\372W\225\250\211^fS\211&U\221*\236\005|f\231y\324Cx]\006\340L\003E\323\354\245\314&\250\355w\"\221\266\017\341\217\331\215D\026\356\342\036\241j\304\353\301\371\363\236x\020\252\225#4\243\314b\344\345\337\2346\306u\370\313\262f\">\210Ze\203d\352Z\326\0140\270S\020\230\027Ata""\324\341\357\344x:\034 \026\357`\314\020\255+I\241\263]5*\263:\217\232\371\020y\226\020S3\216\220\205.|F\374\2178P\342\215\234\345\265R9\341\231\2416x\355\004\332\031v+\203\261\213u\365\026\210\230!\2661t\031\211\270T\t\254\346\031\264\355V\013^\242\271\302\201,\030Y9\307,\247]\035J\342\2346\246\247|m\002\241\350\222\035\364Z\210\232\343\331<\311\203\364Q\213\200\26337\033o\004\020(y\204\001\344\020^\237\274\324OR%,\350+\3421\023\251&R\220\333\231\232\220\364\230\020\342\032AJR0\202\031\000\303\225\217\232\002\317\201~\022\"\266\235\273\027\220\311`N\365pr\225\005\013e\n\312I\303\231\327aU\n\316\247\036\0030\025\371\311\004\010\021K(_\014b\225\376r\377{v*\323\013m?\010\370\271f\027\231+\223P\214\373z\016R!=\204#\222\016u\324\251\\9\215[q\227\275\271c\020W\251\334\024\250\222k\0369\033\016\034m\320j\3365n\277\027\300Nk\"/\265\222\270\207F\373\357<\345X\200\266Qp\273^l\215\331\337b\"\324\342VQ\361J\241\273\252\210B0\013F\340N\316W\205^\376\250pU\366=\363)\324\270\331\271\256\245\264\222\213\312\253B\2164\2064\306\026\332\250\220\t\202\354\\=5\234\341X\242\267l\201{A3\214F\023r\300\210\315\262\337Th\016j!\245}\020\350\267l.e\365>6\330Rq\235\265V\264\343\254\351)1\010+OB\366\013r\251\234y\342\000-\321C\367\000\013\256u\202\216\\\325\210_Bk\364\207\226\341f\007\330\241aB\250\030(%l\025\236\221q\205q-,iPh\262\020\2556\224F\321\256h0RV\311\036&\367\272\224\206@\200\305\024cn\220\016R\305\242\3444\300\031\204\262\234/(\237_X0V\r\200RH\001\002\224\020\222\231\325H\020e\217\232\014#\013\027\000\013Z\201\203E&\231\200P\311hB\253\005\000\\;\256\342\241o\026P\260\220\344EcC\220\223&\022\2261\205\324Q\261)\025n\"/pA\331\\\376OsDw\245z\022l\210\352\213L\203\331\207g)\200d[\267\356\245\256\315\226\353\002F\231ZsL-\346\203\233`E\033\263I!%d4VOi\025\353e\254y!\323X~\n9,3j\031\315i\271\307A\313\274\206\334T\264\346\260\325\310gI5\240\303\252\r9\366\024\265\305\034X\250\312\266\260\263\222Y\005\225@\221\004\321\301\255Y\n\201\202\227n:\344\347\276I\201\213@a\001\203\300\256\361+g\260""\025b\263g%b\260We\265\232\021\315s\304fv&>\351&\024\264\2100Tm\273$\007q\004\304Y\226*H~\014\\\361\232\"mh\2724u\244\035A\010H\330\0231\005UPP\251?#\n\344\377\323\035\250\335S\0225\014\364%\211ZYB\006\334\346.c\242/\3032uf\364\336\2350\203A\031\20427\273\374\022\313d\336H,\022[%I\214\331+=Q\350\312\2119\233\301\275\315(7\231\234HZ\3320%L\013u\211P\361\344\313g\242\030@a\365\027\264\225\216\323*\351\tVjbF\213\014\023\345Ck2g )\202\203\230\300\212\254\265\022y\005\275,\364\357b\361\354\216\212n\030\014P\024\225\016\0307\005\232z3\327\215\305\375+\210A\302\321\025\303Rb\211\230\275iq\326J\305\035\022a\237ke$\210\231\363\327\262\230\007\337\226\364Z\247\304x\303\231\t0\364\321\230\354\316\335\021\031IS\262\3538Dl\007\206Q\203\360\003\220\326\232\0079\"Qt\362l\302\320\277\334\263J\221\200p\006\210q\244\007\250\214@\304h{\362x\373\203V\333,\364\014f\313(y\247P0\231<\330\305\2145\206\261\032\234\016Zy\333\022\3061\305\032\337\030\000\377\203I\222}\333\001m\004\304AY\266d!\303\236h\223\242\341\374\247\347\211\3332\206\376db\211\311\033r8\270\215\232v\322\262b\342\025k{c\342B\013Z\033T\25577x.\344i\267\274Q\036\215;\323\204pV\347`\233\277\220 Ak$\360w\221\t\2512$\224\213/\316\271\273\030\363!H|\337\026e\367u\340\304\264\341\177\003\316\320\273;B\256\215\315\275M\217\010\375P\367\302}\2429E:m'kRm\304\324\213\370\341\207\277\260\362\272`\312%\340b\214)w\2001\213a\036\3143\206\245*\216z\363\n\037\035\275F\007 \307\262\331T\035\227N\237\036\241\332*j\211d\336\256rF5L(\260`\210\3651\025\212\234C\004EDC\304\221\177\257%\213\325C\242\344\r\251\375L\247\023@\221\2638\\\3609\331\036\034\201\333v\263\253S\376.\344\212p\241!g4\236T";
-    PyObject *data = __Pyx_DecompressString(cstring, 2017, 2);
+    const struct { const unsigned int length: 9; } index[] = {{2},{23},{4},{179},{25},{0},{1},{1},{8},{18},{16},{323},{12},{14},{16},{9},{38},{41},{35},{10},{16},{4},{10},{11},{35},{15},{15},{4},{20},{23},{18},{16},{18},{27},{40},{40},{32},{35},{25},{35},{6},{4},{17},{20},{10},{6},{7},{6},{4},{18},{4},{18},{20},{13},{21},{16},{18},{4},{8},{4},{7},{8},{3},{8},{8},{8},{3},{7},{20},{15},{18},{19},{8},{13},{4},{5},{4},{17},{3},{5},{5},{8},{13},{8},{10},{8},{6},{13},{10},{15},{37},{33},{35},{35},{18},{14},{9},{10},{4},{11},{12},{8},{12},{5},{9},{6},{6},{5},{4},{7},{3},{11},{28},{9},{3},{12},{5},{12},{13},{11},{8},{9},{8},{3},{6},{10},{16},{12},{15},{11},{6},{6},{4},{9},{4},{12},{10},{3},{5},{5},{6},{18},{14},{9},{8},{8},{11},{9},{4},{5},{21},{3},{9},{12},{8},{10},{5},{6},{115},{109},{72},{15},{494},{142},{24}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2105 bytes) */
+const char* const cstring = "BZh91AY&SYI\020{^\000\005\204\177\377\357\377\377\377\377\377\376\377\277\377\377\373\277\377\377\377\320\303F@\320@\310Q@@@@O @\000`\007\034\335\271\364x=\355\351\272gV\325hwu\331\340\363\341\252a\032I\210h\320\323\000e=\024\323\322\036\243\324\362\236\021\r4\364\206\324\032\r\031\033B\032\014\232f\243\332\211\352zFOQ\210z\233S\3244m \320\211\241\240\320L\232\236\206\2155S\321\352\236I\352i\265\032~\250\323M\001\240\003# \310\000\031\000\000=!\241\240\000\000\032\236\204\322\023Sj\2004\365\003@\320\003M\000\000\000\000\000h\310\003\020\006\200\000\003@\000\036\240\224\322\023\020\246\324\362T\375)\233I4\036\246\323P\000=A\240\000\001\220\000\000\000\000\006\232\r\000\001\243@\0202`\214\230\021\246!\246\021\210i\200\010\300\214\004\0314\310h\310h\014L\004\3040\023\021\246\230\230\023\000\224D\322h\323)\251\372\231=&\243\324yG\352\236\202=@\320\0324\000\000\000\000\000\006@\000\006\324\000\000\000\317\342\237X}\377\217\033\360g\217\333'\204T\270\320\375\306D\2217\343\361\331\231&H\022d\230\022I\220\204Bp\226\177w\351\354\270\253s\247!=z\000\365\031\257L7<\321\014\310!\032\031\013\214\314\032\301LO\022\302\300\231\200ReO\355\026\017\"\361(*\247\244\262Y\005kJ\231\000bZ\214\265\227\002\207\001\351\226]\304a8,\241U\332L\033!\030,\025\351;e\225b\323B\212T\205H\306\025xe\214\241\235\230nU\203\265\366}\213\037O\313\361\365\363\375w\002\334\024;fh\273;s\316t\376I\333\354$\240\260\2427P>nPb\252\210\315\363-\224h\253\300\325\254h+\024\025\203\021&\020\263\365\n\243\t\224\0258\361\021\021,3\325\326\212\024\343\270\272\331L\262;D\350\205q\256C\211\363\357\351\326\265\217\035vK)\326\212o_\243\037\331\025e\231\007\201L\303H\005\271I\303S\264\313\322\t\316\032^\254K\210\216\300Nb\2061O\2774\346:\207Ee\237!M\032-RIP\032\2046\223\010\360\372R\035i\335\342\014\354\326\316D\336\203{\276\376\240\211RE\003\301d\340\230\033w\001\260\202\346\031\301\336&\355@T\302f0\256\330\314\325\271\343F\200\203@x\320R\212I\002\361M\r{w\211k\275\017\216\312u\n\375\020\017t\3325-\026\367\217\234\216V""\256\226iz\210\357\366e\252\330\340W\301_K\256\323N\032x*\204\346\252W\n3\354\374\324\316\362\341\2553\027\312\207\307\350og\021\301\252\216\337\032G\025ED\370\243\212\004\343\366\034h\314\367\003\341|\021\207\t\022\343\337\360\246<\335O\205\232p\340\342\003\rz\255\024\275\272\314\273\227[\232\031\233z\350M\342\235Z\030)\335\321$\244F{b\272-t\206$\\jQ\351\206\273\361\026q\020\316\215\026\336\035\007B\314a\353\372\335\232V\310KP\222\r\235\276\216L\r\224\013\262\364R<\235\323\0035\337\260\240\261\226\004\026\251C\3123\324\217;<\357\367f\243\332=\250\013e\210\2156\223edW\333K\2300}\024\323D\n\2111-\277\022@\241\310@\036\001\006d\373\314\rLhA[\250\346\331\267\327Hi\340\373\254\016\341%\001\270\2564\r\035\nI$\232\231\022P\020y<O\270\006b\003z\242\236\316\034v\353\235\247H\313\310|(\214\251\006\006Q\230\321\245\314\272\216i\312\251=J\221\266~U\226U\351\n\"\003\350\245T-\206QK\013\232R\336\356\321{H*\271<C\361\362,o\351\320j\010\266[\323\033H\204\233hG\013\357={SPx\2066\317\007\271\242\022\033Y\030\251\316I\200\225\341\\HQ\254!\214\250\020gp&(\211\211U5-\340^\202BY'\315\200\363\340<a\014\022\240\035\006\306\367gw\206\336\316Qve\237\306\320\232R\034\036;<\211\014\322`(\020\261Z{{\227\301\305\201\2325N\265\230\212u\210-\245^\025\351Zf2Q\027\"\2367\307\027\277\027\266\330\275\351\000\2303b\344\023W\235&*-\233b`\321L\346#\t\267\340\211\334\331a)\336\016\327\241\251\205\342I\346\335\273+\271\250\331\032]h\374O\347\215\346h\222V\365{\250D1\347\275\375\203\302d\221\316 \006\233\357\243\002 \371>\246\000\2710\334\305A\007p\032\024y\205\214Z\030\030\314\265\235@\r\361\002\257|t\304.@1\202\310p\2451\310\261\023\232\310\\W\236\370\353\247\003\005\"u\032\022`\373\250Q/\207\312\305{3\017\221\230\263!\\\376\355!\270\216\345\007\356\0328\035\255\202\023\020\246\243,\200\020^\004W#\236!B1\276\321\204\243\353l/\033\"\252\217@\310ax\032<\313\264+<4\013\016\305rZn\003m!:\252\274\"\220\350H\023\t*c8f\275N\251Q\245\312\"pp\213\320\212\323}o\352\201\306\014\312C\034`\321 Q\020J\204s\001!\340""\354\014\355\"\242X@\241\272\245\2478\302\332\010\273i\021{v\211$$\253\035k\013\267\226\016-\336\\\206z\022\r\t!\321\3228]\020\206\241\020n\304\212yC\254\351\326\026\313\261\233l\304\321d.\025\2303\001\301\207\220W6\225MqO\026$e\r\021'\205m\251~\250\365\0325\3347\333\346\337\215L\271i\227\317\253\206\271\367\347\302)HQ\202\213\234\277i\023\244\224)\301V\256\004\265\002\361\232V\0233K4\n\235%\0369\232\374\001\032\355\326&Hh\t\254\273xD~\244LP\005\222\252!\213\030@f\230\233L\336z\217i\027\274B\0226\004\314EJQQ\222\206\243\013\005\003\363\313\222\236i1CA\255yLK\022\310\"on\270\\\316\341\206\256t\366\033WA=\301\026\2123\210dmw\332\251e[\240P*WY\361\271(\275\273\252:\006T\thK\202\361j\001rL\300bp\315\010(B\206\342\302L\030(P\2106*\3272\301\005<\034P\034)d\014\215p0b\234?\031\3151\252\010\305\324\227\r\202\020P\215\214\010)\305v\222Q\026\376)!\2575\251\371(c\030\014P\024\211\r\030&\t\024U\324\311\345\016\342 Z\320\216\267\317Y\300B3\"\016;\020k\202\023~\270\010\022\232T\024D\315\032,\330L\0040\313\004Z\256\340@a\331\t1\rQ\332\227\217\237,P\252\244\017A\002\347h6m\2754\234\205`(\222\371ZTx\323\256g\243\204\230V?_\356\n\370@\240\036\"\207\215\016R\242\210\251g\351\207\373\213Xy\260\372\2431\221:hp\261\204\330\030\274E\364\361K\205\305J\323\336+T\3671\306iRe\327t\000Z\322\310\t\316/\3420y\260I\204\n\263\314 \2038\272\240C\207\225\251\353Xo\014\355\354F\010,San\026\"\014<\017iW=s\230/\224M(\265\307\250\220?n\353\374jH\337\263\214\274=\253\014,\351){S\314\017f-\376H\031\036`\376\260\323,\333\006\204\352m\177|\351\323e\014\235\324\246g\371\006F\n\313\304\024\350g\216}\363\374\311rl\222\004\252.\361\312\356\367g\335\311\351\342\270\223d}i@Z?\005H\243\210Z\264\365\232\365\250\212&\035\314 \210N\376\342\373\tq\254DB\320K/\257\326\001P\264|\031I4\313B*UN\201\026\377b\333p\367\2109\326=\022\307\340\325\2104at\366+\341\013\306.\210D\242\255%\327E\342\360!L\211\02213$\317\020\261\212&\325\323\372\352A\023:\250\214\361V\327\354\321\245YIG\250\317mu}g\305dI\004\266 \234b\356H\247\n\022""\t\"\017k\300";
+    PyObject *data = __Pyx_DecompressString(cstring, 2105, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1862 bytes) */
-const char* const cstring = "x\332}V\315o\033\307\025\257P\305\241\0355\241>,[Vb\217b;\262\"\211\252\374\201\306NS\203\221h\213\016MS\\*v#\024\203\321\356P\334p\271\273\334\231\265D\251n\215^\252K\212=\264\300\336\272\350io%\220\013\221C\241\243\216{\344\221@\023\003\276\365O\350\233\331\245\245\330L\004q\371\346\315\233\367\361{\277y\313\375g\305|!\207W\nYE\311\257\334\321(\253s\313^T\215\242\305)\3425\302\321J\213\327,\023\351\014i\324\320\267\250C85Z\210qGW9u\204\221\211J\271\322\342\315On\"bj\310\241_S\2253\304\334-\325 \214Q\206\254*\332ru\203\353&\342-\233\262\014\312WQ\313r\221I\251\206\270\205l\260;y\200\327\250\211\030\345B@\263\3044-N\270n\231\030\216\353\346\366,\322t\007\202\350O\2518}\217\030\214f\312n\325e%\3420\352(\324y\252\253\024\375\021\025-\223f\356\022M\303\340\202\022\223\353\213*s\252\334\252Ss\221\\\337#\266m\350\252\364\275\3645\263\3143\350\265?\302Z\246\212\256\355#\3271\026\320\226\245\265\026P\215\022\215:\014=\233C\237\375\016\355\277q\006!\3252\031\007$\230\r\002E\237!\262Ct\216\252\224\253\265k\322\323\240S\0105(\200\255\335A\263\245GJeva\240M\022}\360\246H\360\016z\240<*fD\207\314m\275\332\272&\224s\003\314\237\315}:@\353P\356:f\222q\277\204\014\247\273\374\332\000\373gg\006\324\316\251\311\027E\2475\340\310&$\262 \370\362\007Cg|3k\262\035\352\254\022N\342\265\330\260l\246\032\372\022i\220=\350\261#\032\271\304\342\036\262%\207\332\006ie\354\326\017\377\374\356\373\357\376\006\264\240\202dM\227\002\304/\237{/\377\345\277\374\3537/\376\376\037$\031\360\337\347\177\371\221\205(\036}\337\371\346\205\377\357\037\274\203\027\337\376C\242\003Q\023v\354.\222\306\336\242\316\026mb\267\034\227e\225|\3618\307\325\\%\233/\340R\366~\356^\276\254Tp%\3770\2077\224\\\031?\314)\n\250\261\222\313\025\261R\311V6\024\341y\225\252\226Fs\216c9E\335\240+\205\n \2277m\227\213h\030\227Z\273\360Y\005`p\021v\312\264Z\316\225\n\331\337\343\265\\v\025\334f\013\205G\217\013y\245\362&\237\245\246,\341\220\376O\254\337\264H4\031\214uS\347\030\017\332\022\227R\3031\3008\341\325 ;\327\206$8&L71""P\224h\200\314\000\273\330\235MZ\206E\264\237\334O\302\301-\030`\022o\376\344\006\336\321y\r\"lS%\227-\257\254\t\354\025\350v9nv\031\260w\264\312Z\031\240\224-\201V\025\277(>z\\$\252\270\342\025\240$\221\275\215\237\014\256?55Q\227\274\347\272\225\001\007\226\013\203\2122A\234-\213s\253\241\324(\345+\202\326\273<\326`&TXMt'\353\036\010\352\353\225\003\333\201\013\200&w\210J\267\210Z\0277\005c\315R1\246O\211\341\302\224\245\273*\335\265a\244R\255\352\220\355\006\\*\214\253\256\t&\3330'b\3175\270C\226\323\252\324\034X'9&\272~zz\303\206k\314\240~\266\362\206\246o\324\247\t\326\205*\301@\347\264!>L\214\306:\2456\3362\210Y\307\"AxUPY03,\200\022\343\006\201z\340O\020D\316q\374\212+ Y\232kP\261m\222\006|\233\224\033\226j\032X5\260\306\352XeM\323r\032\304\320\367\250v,I\312\305\323!sr:d4K\204\313\010\210l\321Y\3663F\020\233\032\003\r\3723&c\313k\366\263&q\363,G\337\326\315\022\020\360aR\333\261F\260KPS|\022\240\205\330GX\306\220\017\334dF\034\021\236\234\331\204\327\022\362\330\226\2151\364\006\364T\nOu\313e\025\230\307\354\363c**\000\215\355X\333\016i\344\265&4\0147]b\304\300\302=pZ\362\221\244 \345~\016\361\302&\272\303\344\205\001\344\372\337\314!;X\3308\264\032\327zL\327\327/_2[\261\270\"}9\341c\177)O\211\027\tSk\264A\305H\026\037y\204Q\243\2121\274\336\0232\200\244\321*q\r\016cY\274\266lN\266\362\032<\260\016O\007\330~\022q\014iB\004\314%\347\301N~+\360\013\201\306\2428\005\275p\341r;\003g\027$\007\377\324\024\223\032\004\370Y\0233\000d\006\277\007\270\3307\245$\231\036\323=\032\276\032]\375\264\263\334K\245\275\224?\344O\370\353\335\324\244\247\373\315\340\255\340I\264x\267\323\354\246P0\034d\003\330x\347\340\346A\263;2\352\215z\363~%\030\355\246~u\260\t\247>\010H_<\027\014uS\357\035\354\371c\376\255\340tx6\324\333n\347\376\341\355\243\354\321\223h\343\253\350\253\315h\370z{\276\263y\224\212J\353\275\324\270\367[\237\007\313A6\366\276\347\217\372\037\303b\344\234\007\201\316\367\035\216\034\254y\240|O\356\177\024\234\n\264\360J\250\265g\332\237tntH7=\341e\275M0LCJi""\357m\317\361\317\007\347\303\251\366L4|+\272\265v4\324K}\030\314\010?9o\312_\n'C\360>\345\217\373\367@\013n\367\375\313\262\2364\204\365\337\025\325\010\335L4=\037.\013\271\031\rOG\323\267;\027\017\233=\261|\236\355\215Ot\307\306\273\220?\030\274{@\272\247\317\364R\247\273#\223\236\006\t\016\005\027\302\033\241t\303\243\361\331\000\242\215Ec\220Bt\371\376a\363\270\324\271`Y\034\001\303\363\376\333\376~8\023\315C3\216\367\227\302\321\356\310\373>\224\016q\242\211\217Dfg\275u\257.\260\007!\232|\245\202\226\365R\347\274\035\277\036\216\206K\235\321c'\231p\250;2\355/'N\256\212N\002`\321\3319\360\236\232\206>\3752\270\021T\303\317\303j[\266\001,\323Q\032<\007\177\212n}q\364\372\262\227\272\344\357\004\365\366ht\035\220}\025'\272\360\3536\004\272\034\364\003-\204\340\r\222\217>\000\026\365R\027\375\355`\263=\024-\237D \272\260$Z!\232s\342\020$\033\275\237;\004z\310d\304\311\nT%[\305\275;\376ztQ\034K\367\217\0017\322\002\245\364%\377\317\222\026w\017/\213\323\262q\363\321|\376\350b\364\370I/uE\320\014\tB\215yW\242I\210\025V\332\022\311J4\365q8#\232=rP\360\207\342>\002p\341D\210;\017\016\353\321\372F\264\361\245\240%\367o\203\227\364\350\377&~16\345\217\004ka\276\275y8\324\033\001'@\326S\000\223d\356)h\304x(;\367\033\177\306\357\323\350\234\267\033]Z=\314\212@\017\274m_\211\320\365\366\314\377\001E\021\331\342";
-    PyObject *data = __Pyx_DecompressString(cstring, 1862, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1929 bytes) */
+const char* const cstring = "x\332}V\317o\033\307\025\256P%\241\0356!%Y\262\242\304\031\305vdG\022U96\032;M\rF\242-:2-q\251\332\211\220\014F\273Cq\303\345\356rg\326\022\245\2725z\251.\t\366\320\002{\353\242\247\275\205@/D\016\205\216:\356\221G\002M\014\370\326?\241of\227\222b3\021\304\3357o\336\257y\337\367\206\334\177R*\256\026\360\322j^Q\212K\2674\312\352\334\262\347U\243d\231\264dq\212x\215p\264\324\3425\313D:C\0325\364-\352\020N\215\026b\334\321UN\035ad\242\265\302\332\374\365\217\256#bj\310\241_S\2253\304\334-\325 \214Q\206\254*\332ru\203\353&\342-\233\262\034*VQ\313r\221I\251\206\270\205l\260;\355\300k\324D\214r!\240\031b\232\026'\\\267L\014\356\272\271=\2034\335\201$\372c*\274\357\020\203\321\\\331\255\272l\2158\214:\nu\036\353*E\177B\342,\271\333D\3230\204\240\304\344\372\274\312\234*\267\352\324\234'\327\366\210m\033\272*c/|\315,\363,z\341\217\260\226\251\242+\373\310u\2149\264ei\2559T\243D\243\016CO\256\242O\376\200\366_\362AH\265L\306\241\023\314\006\201\242O\020\331!:GU\312\325\332\025\031i\220\027B\r\n\315\326n\241\231\265\007Jefn\240M\222}\360\246(\360\026\272\247<(\345\004B\346\266^m]\021\312\253\003\314\237\\\375x\200\326\241\334u\314\244\342\376\021r\234\356\362+\003\354\237\234\035pvNM>/\220\326\200#\233P\310\234\340\313\227\206\316\370f\336d;\324Y&\234\304k\261a\331L5\364\005\322 {\200\261#\200\\`1\206l\301\241\266AZ9\273\365\343?\277\377\341\373o\201\026T\220\254\351Rh\361\363\247\336\363\177\371\317\377\366\315\263\277\377\007I\006\374\367\351_\177b!\016\217~\350|\363\314\377\356G\357\340\331\277\377!\273\003Y\023v\354\316\223\306\336\274\316\346mb\267\034\227\345\225b\351\244\306\345B%_\\\305k\371\273\205;\305\262R\301\225\342\375\002\336P\ne|\277\240(\240\306J\241P\302J%_\331PD\344e\252Z\032-8\216\345\224t\203.\255V\240sE\323v\271\310\206\361Zk\027>\313\320\030\\\202\2352\255\226\013k\253\371\317\361J!\277\014a\363\253\253\017\036\256\026\225\312\313|\226\232\262l\207\214\177j\375\262E\242\311a\254\233:\307x\320\226\030J\r\307\r\306\t\257\006\331\2716\024\3011a\272\211""\201\242D\203\316\014\260\213\303\331\244eXD\373\331\375$\035L\301\000\223x\363g7\360\216\316k\220a\233*\205|yiE\364^\001\264\3131\330e\350\275\243UV\312\320J\t\t@U\372\254\364\340a\211\250b\304+@I\"\261\215\237\014\306\237\232\2328\227\234s\335\312A\000\313\205\213\2122A\234-\213s\253\241\324(\345K\202\326\273<\326`&TXMt\247\317=\260\251/\236\034\330\016\\\200nr\207\250t\213\250u\325\262[\032\245\266|\013r`\315R1\246\217\211\341\302\215KwU\272k\303\365J\265\252C\266\0330`\030W]\023L\266\341\316\210\263\324`\236,\247U\2519\260N\352Mt\375R\365\206\r#\315\240\027l\351%M\337\250O\031\254\013U\322\017\235\323\206\3700qM\326\241R\274e\020\263\216E\201\360\325A\345\341\231aA[1n\0208\033\374\t\262\310;\035\037\363\006$Ks\r*\266M\322\200\267I\271a\251\246\201U\003k\254\216U\3264-\247A\014}\217j'\222\244_|S\344N\337\0249\315\022\351r\242E\266@\231\375\202\021\344\246\306@\203\376}\223\263\345\310\375\242I\014\244\345\350\333\272\271\006d\274\237\234\355D#\230\026\2576\034#\026\004\356\202\271\342\223\364\336>\345k'^\342\335\007B\226\"\037\270\311\014)hqy\360\344\314&\274\226\260\316\266l\214\001H\320S)<\326-\227U\340\"g\237\236pX\201>\332\216\265\355\220FQk\002\272\270\351\022#F\001\006\310i\311GR\234\224\373\225\304\013\233\350\016\223\223\006m\356\277\231Cv\260\260qh5n\314\t\317_\234\332\344R\306b\266\372rB\336\376Rz\211o \246\326h\203\212\273\\|\244\013\243F\025c\370]\2200\007$\215V\211kp\270\317\305\367\235\315\311VQ\203\007\326\341\351\300h\234\206\347D#\032\035\257\000\036\014\325Cb\314\345\334\200\273|+`OcQ\004\003\007\027.\013g\340]\0105\303?5\305\315\017\002\374L\212Y\0042\203\337\027\\\354\233R\222\323\022\217L4|9\272\374qg\261\227\312x)\177\310\037\363\327\273\251qO\367\233\301+\301\243h\376v\247\331M\241`8\310\007\260\361\372\301\365\203f7\235\365\262\336\254_\t\262\335\324o\0166\301\353\235\200\364\305\211`\250\233z\363`\317\037\361o\004g\302s\241\336v;w\017o\036\345\217\036E\033_D_lF\303\327\332\263\235\315\243T\264\266\336K\215z\277\367y\260\030\344\343\350{~""\326\377\000\026\351\t\017\022\235\357\007L\037\254x\240|S\356\277\037\274\032h\341\245PkO\267?\352|\330!\335\314\230\227\3676\3010\003%e\274\327<\307?\037\234\017'\333\323\321\360\215\350\306\312\321P/\365^0-\342\024\274I\177!\034\017!\372\244?\352\337\001-\204\335\367/\312\363d \255\377\2068\215\320MGS\263\341\242\220\233\321\360T4u\263s\341\260\331\023\313\247\371\336\350Xwd\264\013\365\203\301\033\007\340\0015t\317\234\355\245\316t\323\347\274\212?\016-<\033^\014\327\205?\217Fg\002H9\022\215@\035\321\305\273\207\320\326\021\357\222l\364\353\341\255\366z\273\326\251\037A\365\347\375\327\374\375p:\232\005PNZ\262\020f\273\351\267}h\001\344\213\306\336\027\025\236\363\326\275\272\300\000\204h\374X\005\021{\251\to\307\257\207\331p\241\223=\t\222\013\207\272\351)\1771\trY *\032\367U\260(\205\350\334UHsJ\232\002\010\177\035|\030T\303O\303j[\"\264(\272\325\354f\240\026\037\207Ka\263=\364\323E:\023e\240\226\340\317\321\215\317\216\026O/\013\207\353/\354\366R\357\372;A\275\235\215\256\001D\307\205Fo\375V\004\272\030\364+\235\013!7$\211\336\001:\366R\027\374\355`\263=\024-\312.\036;-\010L\005\312\247\234\340\264\321\333\220\270\227z\313\237\t\306\202u\321\245c\017\001n\372\202/\321nzC\222o\242C\267\201\\$\374KG=\314\366b\360g\243\331\342\321\205\350\341\243^\352\222\240*\022\244\004\374\242qH\023V\332\022\205J4\371A8-\010\223>X\025\221\306=M4=\034\013q\347\336a=Z\337\2106\376(\250\315\375\233\020%\223\375\337\330\257F&\375t\260\022\026\333\233\207C=I\234\t\2407\t$\373_\005\020GC\211\372\357\374i\277O\305\to7zw\3710/\022\335\363\266}%B\327\332\323\377\007\256(\030\243";
+    PyObject *data = __Pyx_DecompressString(cstring, 1929, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3251 bytes) */
-const char* const bytes = "{}NILE_CLASSIC:desktop-clNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.RufusParserService | None.?add_noteanti-csrftoken-a2zapplication/json\n                async ({ url, body, headers }) => {\n                  const response = await fetch(url, {\n                    method: 'POST',\n                    headers,\n                    body: JSON.stringify(body)\n                  });\n                  return await response.text();\n                }\n                content-typedict[str, str]list[AnswerData]list[str]opscli/amazon_rufus/services/replay.py\345\237\272\344\272\216 seed request \351\200\220\351\242\230\351\207\215\346\224\276 Rufus\343\200\202seed request body \344\270\215\346\230\257\345\220\210\346\263\225 JSONstr | Nonex-amz-is-papyrusASINAnswerDataDETAIL_PAGEFIRST_TIME_USER_MESSAGE_SEEN_STATUSJSONDecodeErrorNileCLTextInputNone__Pyx_PyDict_NextRefREPLAY_HEADER_ALLOWLISTRufusParserServiceRufusReplayErrorRufusReplayServiceRufusReplayService.__init__RufusReplayService._build_replay_headersRufusReplayService._upsert_asin_metadataRufusReplayService.build_payloadRufusReplayService.build_replay_urlRufusReplayService.replayRufusReplayService.replay_with_pageSEARCHSEENSeedRequestRecordTHREAD_STATE_UNKNOWNactionTypeansweranswersappendasinasyncio.coroutinesbodybottomSheetContextbottom_sheet_contextbuild_payload_build_replay_headersbuild_replay_urlcline_in_tracebackdict__doc__evaluateexcexpandedfragment__func__getheadershistoryThreadContexthistory_contextimpressionsContextimpressions_context__init___is_coroutineitemitemsjsonkeep_blank_valueskeyloadslower__main____metaclass__metadata__module____name__netlocnl_cl_dsk_csqnormalizednormalized_asinopscli.amazon_rufus.domain.exceptionsopscli.amazon_rufus.domain.modelsopscli.amazon_rufus.services.parseropscli.amazon_rufus.services.replayoriginPageMetadataoriginPageTypepagepageContextpage""_contextparseparse_qslparserpartspathpayloadpop__prepare__previousTurnsBottomSheetSizeprogramIdqis__qualname__queryqueryContextquery_contextquery_pairsquestionquestionsraw_textrefreplayreplay_urlreplay_with_pagerequest_bodyrequest_headersrequest_urlreturnschemeseedseed_bodyself__set_name__setdefaultstrstriptabIdtab_idtargetPageMetadata__test__threadIdthreadStatethread_idtypeupper_upsert_asin_metadataurlurlencodeurllib.parseurlspliturlunsplitvaluevalues\320\004%\320%;\2701\340\010\020\220\010\230\001\230\024\230Q\330\010\026\220i\230q\240\005\240X\320-?\270q\330\010 \240\004\240A\240Q\330\010\013\2104\210q\330\014\021\220\021\220+\230T\240\021\330\010\r\210[\230\001\230\035\240a\330\010\r\210[\230\001\230\027\240\001\330\010\017\210z\230\022\2305\240\t\250\025\250i\260u\270G\3009\310A\310X\320UZ\320Z[\320\0042\260+\270[\310\010\320PQ\340\010\023\220<\230t\2401\240A\330\010\013\2104\210z\230\021\230*\240A\330\014\027\220q\330\014\030\230\001\230\027\240\001\330\010\014\210H\220A\330\014\017\210z\230\021\230&\240\006\240d\250$\250d\260!\2608\2703\270a\330\020\024\220A\220[\240\001\330\020\021\330\010\020\220\007\220r\230\030\240\030\250\031\260!\320\0045\3205H\310\001\340\010\"\240!\330\010\014\210E\220\031\230/\250\026\250q\330\014\031\230\023\230F\240!\330\014\017\210{\230#\230T\240\021\330\020\027\220q\230\016\240a\330\010\017\210{\230!\320\033+\2501\330\010\017\210q\320\004\033\320\0339\270\036\300q\340\010\017\210q\200A\340\023\024\330\022\023\330\010\023\2201\330\010\016\210a\330\t\n\340\010\t\330\014\026\220d\230&\240\001\240\032\2503\250a\330\010\017\210t\320\023'\240q\330\014\022\320\022\"\240!\320#G\300q\330\010\013\2104\210z\230\021\230)\2401\330\014\026\220a\330\010\030\230\007\230{\250!\320+;\2701\330\010\013\2104\210z\230\021\230/\250\021\330\014\034\230A\330\014\023\2201\320\024&\240a\330\010\025\220Q\220k\240\021\330\010\025\220Q\320\026&\240a\330\010\025\220Q\220i\230q\340\010\027\220w\230k\250\021\250/\270\021\330\010\013\2104\210z\230\021\230.\250""\001\330\014\033\2301\330\014\023\2201\320\024%\240Q\330\010\024\220A\320\025)\250\021\330\010\033\2305\240\003\2403\240f\250B\250f\260A\330\010\013\2101\330\014\020\320\020&\240a\240~\3205K\3101\330\014\020\320\020&\240a\240~\3205K\3101\340\010\037\230w\240k\260\021\3202H\310\001\330\010\013\2104\210z\230\021\320\0320\260\001\330\014#\2401\330\014\023\2201\320\024,\250A\330\010\034\230A\320\035?\270q\340\010\036\230g\240[\260\001\3201G\300q\330\010\013\2104\210z\230\021\320\032/\250q\330\014\"\240!\330\014\023\2201\320\024,\250A\330\010\033\2301\320\034E\300Q\340\010\013\2101\330\014\036\230g\240T\250\021\250!\330\014\017\210t\220:\230Q\320\036/\250q\330\020\"\240!\330\014\023\2201\220A\330\020\034\230A\330\020\037\230\177\250d\260!\260?\300#\300Q\340\010\017\210q\320\004+\320+I\310\036\320WX\340\010$\240A\330\010 \240\001\330\010\022\220$\320\026,\250A\250T\260\021\330\010\025\220T\320\031*\250!\2501\330\010\014\210L\230\001\330\014\026\220d\230.\250\001\250\024\250_\270J\300k\320QU\320UV\330\014\027\220t\2309\240A\330\020\021\360\024\000\022\031\230\014\240H\250I\260[\300\001\340\014\025\220T\230\027\240\006\240a\240q\330\014\030\230\006\230k\250\023\250A\330\014\023\2207\230!\2301\330\010\017\210q\320\004\027\220x\320\037D\300A\330\010\014\210J\220g\230S\320 2\260!";
+    #else /* compression: none (3403 bytes) */
+const char* const bytes = "{}NILE_CLASSIC:desktop-clNoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.RufusParserService | None.?add_noteanti-csrftoken-a2zapplication/json\n                async ({ url, body, headers }) => {\n                  const response = await fetch(url, {\n                    method: 'POST',\n                    headers,\n                    body: JSON.stringify(body)\n                  });\n                  return await response.text();\n                }\n                content-typedict[str, str]list[AnswerData]list[str]opscli/amazon_rufus/services/replay.py\345\237\272\344\272\216 seed request \351\200\220\351\242\230\351\207\215\346\224\276 Rufus\343\200\202seed request body \344\270\215\346\230\257\345\220\210\346\263\225 JSONstr | Nonex-amz-is-papyrusASINAnswerDataDETAIL_PAGEFIRST_TIME_USER_MESSAGE_SEEN_STATUSJSONDecodeErrorNileCLTextInputNone__Pyx_PyDict_NextRefREPLAY_HEADER_ALLOWLISTRufusParserServiceRufusReplayErrorRufusReplayServiceRufusReplayService.__init__RufusReplayService._build_replay_headersRufusReplayService._upsert_asin_metadataRufusReplayService.build_payloadRufusReplayService.build_replay_urlRufusReplayService.replayRufusReplayService.replay_with_pageSEARCHSEENSeedRequestRecordTHREAD_STATE_UNKNOWNactionTypeansweranswersappendasinasyncio.coroutinesbodybottomSheetContextbottom_sheet_contextbuild_payload_build_replay_headersbuild_replay_urlcline_in_tracebackcopydeepcopydict__doc__evaluateexcexpandedfragment__func__getheadershistoryThreadContexthistory_contextimpressionsContextimpressions_context__init___is_coroutineitemitemsjsonkeep_blank_valueskeyloadslower__main____metaclass__metadata__module____name__netlocnl_cl_dsk_csqnormalizednormalized_asinopscli.amazon_rufus.domain.exceptionsopscli.amazon_rufus.domain.modelsopscli.amazon_rufus.services.parseropscli.amazon_rufus.services.replayoriginPageMetadataoriginPageTypeori""ginUrlorigin_urlpagepageContextpageMetadatapageTypepage_contextparseparse_qslparsedparserpartspathpayloadpop__prepare__previousTurnsBottomSheetSizeprogramIdqis__qualname__queryqueryContextquery_contextquery_pairsquestionquestionsraw_textrefreplayreplay_urlreplay_with_pagerequest_bodyrequest_headersrequest_urlreturnschemeseedseed_bodyself__set_name__setdefaultstrstriptabIdtab_idtargetPageMetadatatargetPageTypetargetUrl__test__threadIdthreadStatethread_idtypeupper_upsert_asin_metadataurlurlencodeurllib.parseurlspliturlunsplitvaluevalues\320\004%\320%;\2701\340\010\020\220\010\230\001\230\024\230Q\330\010\026\220i\230q\240\005\240X\320-?\270q\330\010 \240\004\240A\240Q\330\010\013\2104\210q\330\014\021\220\021\220+\230T\240\021\330\010\r\210[\230\001\230\035\240a\330\010\r\210[\230\001\230\027\240\001\330\010\017\210z\230\022\2305\240\t\250\025\250i\260u\270G\3009\310A\310X\320UZ\320Z[\320\0042\260+\270[\310\010\320PQ\340\010\023\220<\230t\2401\240A\330\010\013\2104\210z\230\021\230*\240A\330\014\027\220q\330\014\030\230\001\230\027\240\001\330\010\014\210H\220A\330\014\017\210z\230\021\230&\240\006\240d\250$\250d\260!\2608\2703\270a\330\020\024\220A\220[\240\001\330\020\021\330\010\020\220\007\220r\230\030\240\030\250\031\260!\320\0045\3205H\310\001\340\010\"\240!\330\010\014\210E\220\031\230/\250\026\250q\330\014\031\230\023\230F\240!\330\014\017\210{\230#\230T\240\021\330\020\027\220q\230\016\240a\330\010\017\210{\230!\320\033+\2501\330\010\017\210q\320\004\033\320\0339\270\036\300q\340\010\017\210q\200A\340\023\024\330\022\023\330\010\023\2201\330\010\016\210a\330\010\024\220A\330\t\n\340\010\t\330\014\025\220T\230\026\230q\240\n\250#\250Q\330\010\017\210t\320\023'\240q\330\014\022\320\022\"\240!\320#G\300q\330\010\022\220$\220i\230q\240\013\250:\260Q\260h\270k\310\021\330\010\030\230\007\230{\250!\320+;\2701\330\010\013\2104\210z\230\021\230/\250\021\330\014\034\230A\330\014\023\2201\320\024&\240a\330\010\025\220Q\220k\240\021\330\010\025\220Q\320\026&\240a\330""\010\025\220Q\220i\230q\340\010\027\220w\230k\250\021\250/\270\021\330\010\013\2104\210z\230\021\230.\250\001\330\014\033\2301\330\014\023\2201\320\024%\240Q\330\010\024\220A\220^\2401\330\010\024\220A\320\025)\250\021\330\010\024\220A\320\025)\250\021\330\010\033\2305\240\003\2403\240f\250B\250f\260A\330\010\013\2101\330\014\017\210q\330\020\034\230A\230_\250C\250q\260\001\330\020\034\230A\230_\250C\250q\260\001\330\014\020\320\020&\240a\240~\3205K\3101\330\014\020\320\020&\240a\240~\3205E\300Q\330\014\020\320\020&\240a\240~\3205K\3101\340\010\037\230w\240k\260\021\3202H\310\001\330\010\013\2104\210z\230\021\320\0320\260\001\330\014#\2401\330\014\023\2201\320\024,\250A\330\010\034\230A\320\035?\270q\340\010\036\230g\240[\260\001\3201G\300q\330\010\013\2104\210z\230\021\320\032/\250q\330\014\"\240!\330\014\023\2201\320\024,\250A\330\010\033\2301\320\034E\300Q\340\010\032\230'\240\024\240Q\240a\330\010\013\2104\210z\230\021\320\032+\2501\330\014\036\230a\330\010\017\210q\220\001\330\014\030\230\001\330\014\033\230?\250$\250a\250\177\270c\300\021\340\010\017\210q\320\004+\320+I\310\036\320WX\340\010$\240A\330\010 \240\001\330\010\022\220$\320\026,\250A\250T\260\021\330\010\025\220T\320\031*\250!\2501\330\010\014\210L\230\001\330\014\026\220d\230.\250\001\250\024\250_\270J\300k\320QU\320UV\330\014\027\220t\2309\240A\330\020\021\360\024\000\022\031\230\014\240H\250I\260[\300\001\340\014\025\220T\230\027\240\006\240a\240q\330\014\030\230\006\230k\250\023\250A\330\014\023\2207\230!\2301\330\010\017\210q\320\004\027\220x\320\037D\300A\330\010\014\210J\220g\230S\320 2\260!";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 148; i++) {
+    for (int i = 0; i < 158; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 20) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 21) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -6376,7 +6509,7 @@ const char* const bytes = "{}NILE_CLASSIC:desktop-clNote that Cython is delibera
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 148; i < 155; i++) {
+    for (int i = 158; i < 165; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -6387,14 +6520,14 @@ const char* const bytes = "{}NILE_CLASSIC:desktop-clNote that Cython is delibera
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 155; i++) {
+    for (Py_ssize_t i = 0; i < 165; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 148;
+      PyObject **table = stringtab + 158;
       for (Py_ssize_t i=0; i<7; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -6440,37 +6573,37 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 22};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 23};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_parser};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_init, __pyx_mstate->__pyx_kp_b_iso88591_x_DA_JgS_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {5, 0, 0, 13, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 25};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_seed_body, __pyx_mstate->__pyx_n_u_question, __pyx_mstate->__pyx_n_u_thread_id, __pyx_mstate->__pyx_n_u_asin, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_query_context, __pyx_mstate->__pyx_n_u_page_context, __pyx_mstate->__pyx_n_u_normalized_asin, __pyx_mstate->__pyx_n_u_bottom_sheet_context, __pyx_mstate->__pyx_n_u_impressions_context, __pyx_mstate->__pyx_n_u_history_context};
-    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_build_payload, __pyx_mstate->__pyx_kp_b_iso88591_A_1_a_d_3a_t_q_Gq_4z_1_a_1_4z_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {6, 0, 0, 15, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 26};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_seed_body, __pyx_mstate->__pyx_n_u_question, __pyx_mstate->__pyx_n_u_thread_id, __pyx_mstate->__pyx_n_u_asin, __pyx_mstate->__pyx_n_u_origin_url, __pyx_mstate->__pyx_n_u_parsed, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_query_context, __pyx_mstate->__pyx_n_u_page_context, __pyx_mstate->__pyx_n_u_normalized_asin, __pyx_mstate->__pyx_n_u_bottom_sheet_context, __pyx_mstate->__pyx_n_u_impressions_context, __pyx_mstate->__pyx_n_u_history_context};
+    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_build_payload, __pyx_mstate->__pyx_kp_b_iso88591_A_1_a_A_T_q_Q_t_q_Gq_iq_Qhk_1_4z, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 79};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 85};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_seed, __pyx_mstate->__pyx_n_u_parts, __pyx_mstate->__pyx_n_u_query_pairs, __pyx_mstate->__pyx_n_u_query};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_build_replay_url, __pyx_mstate->__pyx_kp_b_iso88591_1_Q_iq_X_q_AQ_4q_T_a_z_5_iuG9AX, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 90};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 96};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_seed, __pyx_mstate->__pyx_n_u_questions};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_replay, __pyx_mstate->__pyx_kp_b_iso88591_9_q_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 94};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 12, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 100};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_page, __pyx_mstate->__pyx_n_u_seed, __pyx_mstate->__pyx_n_u_questions, __pyx_mstate->__pyx_n_u_answers, __pyx_mstate->__pyx_n_u_thread_id, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_replay_url, __pyx_mstate->__pyx_n_u_question, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_raw_text, __pyx_mstate->__pyx_n_u_answer};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_replay_with_page, __pyx_mstate->__pyx_kp_b_iso88591_I_WX_A_AT_T_1_L_d__JkQUUV_t9A_H, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 120};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 126};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_request_headers, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_normalized};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_build_replay_headers, __pyx_mstate->__pyx_kp_b_iso88591_55H_E_q_F_T_q_a_1_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 130};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 136};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_page_context, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_asin, __pyx_mstate->__pyx_n_u_metadata, __pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_amazon_rufus_services_rep_2, __pyx_mstate->__pyx_n_u_upsert_asin_metadata, __pyx_mstate->__pyx_kp_b_iso88591_2_PQ_t1A_4z_A_q_HA_z_d_d_83a_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
@@ -8295,6 +8428,13 @@ static PyObject *__Pyx_PyObject_FastCallMethod(PyObject *name, PyObject *const *
     return result;
 }
 #endif
+
+/* PyUnicode_Unicode */
+static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj) {
+    if (unlikely(obj == Py_None))
+        obj = __pyx_mstate_global->__pyx_kp_u_None;
+    return __Pyx_NewRef(obj);
+}
 
 /* RaiseUnexpectedTypeError */
 static int

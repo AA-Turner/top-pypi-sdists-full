@@ -1,4 +1,5 @@
 """Plot loo pit."""
+
 import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
@@ -197,7 +198,7 @@ def plot_loo_pit(
         )
 
     pareto_pit = method in ["pot_c", "piet_c"]
-    lpv = loo_pit(dt, pareto_pit=pareto_pit)
+    lpv = loo_pit(dt, pareto_pit=pareto_pit, var_names=var_names)
     new_dt = convert_to_datatree(lpv, group="loo_pit")
 
     visuals.setdefault("ylabel", {})

@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+__lazy_modules__ = {
+    "cibuildwheel.util.file",
+    "cibuildwheel.util.resources",
+    "filelock",
+    "fnmatch",
+    "hashlib",
+    "json",
+    "platform",
+    "subprocess",
+}
+
 import fnmatch
 import functools
 import hashlib
@@ -143,7 +154,8 @@ def _download_or_get_from_cache(
         asset_cache_path = cache_dir / asset_filename
         if asset_cache_path.is_file():
             if sha256:
-                computed = hashlib.sha256(asset_cache_path.read_bytes()).hexdigest()
+                with asset_cache_path.open("rb") as f:
+                    computed = hashlib.file_digest(f, "sha256").hexdigest()
                 if computed != sha256:
                     print(
                         f"Cached python_build_standalone SHA256 mismatch for {asset_cache_path}; redownloading."
@@ -218,9 +230,7 @@ def create_python_build_standalone_environment(
     )
 
     python_base_dir = temp_dir / "pbs"
-    if python_base_dir.exists():
-        msg = f"python-build-standalone directory already exists: {python_base_dir}"
-        raise PythonBuildStandaloneError(msg)
+    assert not python_base_dir.exists()
     extract_tar(archive_path, python_base_dir)
 
     return _find_python_executable(python_base_dir)

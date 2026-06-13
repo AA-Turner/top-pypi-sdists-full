@@ -558,7 +558,7 @@ def _build_project_principal_inner(
     if plan.stack.backend in {"fastapi", "django", "flask"}:
         emit_python_dep_files(deps, out_dir / "backend", project_name=slug + "-backend")
         log(f"      backend deps: {len(deps.python_runtime)}")
-    if plan.stack.frontend:
+    if plan.stack.frontend and plan.stack.frontend in {"react", "react-native-web", "nextjs", "vue", "svelte"}:
         emit_node_package_json(
             deps, out_dir / "frontend",
             framework=plan.stack.frontend, project_name=slug + "-frontend",
@@ -615,6 +615,11 @@ def _build_project_principal_inner(
     to_generate: list[FileSlot] = []
     _skipped_existing = 0
     for slot in all_slots:
+        if slot.template is not None:
+            target_path = out_dir / slot.path
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(slot.template, encoding="utf-8")
+            continue
         target_path = out_dir / slot.path
         # RESUME: if the file already has substantial content, skip regeneration.
         # Empty/stub files (< 50 bytes) get regenerated; real files are kept.

@@ -120,6 +120,16 @@ from pydantic_deep.capabilities.hooks import (
 )
 from pydantic_deep.deps import DEFAULT_USAGE_LIMITS as DEFAULT_USAGE_LIMITS
 from pydantic_deep.deps import DeepAgentDeps
+from pydantic_deep.goal import (
+    DEFAULT_GOAL_MODEL,
+    GoalEvaluation,
+    GoalEvaluator,
+    GoalState,
+    build_goal_transcript,
+    format_goal_status,
+    goal_continue_directive,
+    parse_goal_command,
+)
 from pydantic_deep.mcp import (
     BUILTIN_MCP_NAMES,
     MCPAuth,
@@ -292,6 +302,15 @@ __all__ = [
     "DeepAgentDeps",
     "DeepAgent",
     "DeepAgentSpec",
+    # Goal-completion loop engine
+    "DEFAULT_GOAL_MODEL",
+    "GoalEvaluation",
+    "GoalEvaluator",
+    "GoalState",
+    "build_goal_transcript",
+    "format_goal_status",
+    "goal_continue_directive",
+    "parse_goal_command",
     # MCP (Model Context Protocol) client support
     "MCPServerConfig",
     "MCPAuth",

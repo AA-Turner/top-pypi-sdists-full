@@ -23,6 +23,7 @@ Usage::
         ListGoalsPaginator,
         ListJournalRecordsPaginator,
         ListServicesPaginator,
+        ListTriggersPaginator,
     )
 
     session = Session()
@@ -39,6 +40,7 @@ Usage::
     list_goals_paginator: ListGoalsPaginator = client.get_paginator("list_goals")
     list_journal_records_paginator: ListJournalRecordsPaginator = client.get_paginator("list_journal_records")
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
+    list_triggers_paginator: ListTriggersPaginator = client.get_paginator("list_triggers")
     ```
 """
 
@@ -55,6 +57,7 @@ from .paginator import (
     ListGoalsPaginator,
     ListJournalRecordsPaginator,
     ListServicesPaginator,
+    ListTriggersPaginator,
 )
 
 Client = DevOpsAgentServiceClient
@@ -74,4 +77,5 @@ __all__ = (
     "ListGoalsPaginator",
     "ListJournalRecordsPaginator",
     "ListServicesPaginator",
+    "ListTriggersPaginator",
 )

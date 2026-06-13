@@ -1,0 +1,14 @@
+jobs:
+  pre-commit_autoupdate:
+    name: Update pre-commit hooks
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+    uses: praw-dev/.github/.github/workflows/pre-commit_autoupdate.yml@20f00d1404e64813b40e0cff3a70dc9cd8b8b34e # v1.3.3
+name: Update pre-commit hooks
+on:
+  schedule:
+    - cron: 0 15 * * 1
+  workflow_dispatch:
+permissions:
+  contents: read

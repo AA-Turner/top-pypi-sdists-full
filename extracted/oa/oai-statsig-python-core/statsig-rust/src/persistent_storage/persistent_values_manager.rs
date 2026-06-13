@@ -552,6 +552,7 @@ fn sticky_value_to_experiment_evaluation(
 
             rule_id: sticky_rule_id,
             secondary_exposures: sticky_value.secondary_exposures.clone(),
+            version: sticky_value.config_version,
             exposure_info: curr_experiment
                 .__evaluation
                 .as_ref()
@@ -653,6 +654,7 @@ fn sticky_value_to_layer_evaluation(
 
             rule_id: sticky_rule_id,
             secondary_exposures: sticky_value.secondary_exposures.clone(),
+            version: sticky_value.config_version,
             exposure_info: get_current_layer_exposure_info(curr_layer),
         },
         value: sticky_value

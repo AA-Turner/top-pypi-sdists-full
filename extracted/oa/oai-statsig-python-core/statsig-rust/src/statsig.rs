@@ -187,6 +187,7 @@ impl Statsig {
         );
 
         let hashing = Arc::new(HashUtil::new());
+        let sdk_instance_id = options.get_sdk_instance_id(sdk_key).to_string();
 
         let data_store_key =
             get_data_store_key(RequestPath::RulesetsV2, sdk_key, &hashing, &options);
@@ -202,7 +203,10 @@ impl Statsig {
         let event_logger =
             EventLogger::new(sdk_key, &options, &event_logging_adapter, &statsig_runtime);
 
-        let diagnostics = Arc::new(Diagnostics::new(event_logger.clone(), sdk_key));
+        let diagnostics = Arc::new(Diagnostics::new(
+            event_logger.clone(),
+            sdk_instance_id.as_str(),
+        ));
         let diagnostics_observer: Arc<dyn OpsStatsEventObserver> =
             Arc::new(DiagnosticsObserver::new(diagnostics));
         let error_observer: Arc<dyn OpsStatsEventObserver> =
@@ -212,7 +216,7 @@ impl Statsig {
             Arc::new(ConsoleCaptureObserver::new(console_capture));
 
         let ops_stats = setup_ops_stats(
-            sdk_key,
+            sdk_instance_id.as_str(),
             statsig_runtime.clone(),
             &error_observer,
             &diagnostics_observer,
@@ -350,6 +354,11 @@ impl Statsig {
             Some(details) => details.init_success,
             None => false,
         }
+    }
+
+    pub fn is_config_spec_ready(&self) -> bool {
+        let specs_info = self.spec_store.get_current_specs_info();
+        matches!(specs_info.lcut, Some(lcut) if lcut != 0)
     }
 
     pub async fn shutdown(&self) -> Result<(), StatsigErr> {
@@ -3360,8 +3369,6 @@ impl Statsig {
     ) {
         let is_store_populated = specs_info.source != SpecsSource::NoValues;
         let source_str = specs_info.source.to_string();
-        let metadata = StatsigMetadata::get_metadata();
-
         let event = ObservabilityEvent::new_event(
             MetricType::Dist,
             "initialization".to_string(),
@@ -3374,8 +3381,6 @@ impl Statsig {
                     "sdk_key".to_owned(),
                     get_loggable_sdk_key(self.sdk_key.as_str()),
                 ),
-                ("sdk_type".to_owned(), metadata.sdk_type),
-                ("sdk_version".to_owned(), metadata.sdk_version),
                 (
                     "init_source_api".to_owned(),
                     specs_info.source_api.clone().unwrap_or_default(),
@@ -3501,14 +3506,14 @@ struct SpecsAdapterHousing {
 }
 
 fn setup_ops_stats(
-    sdk_key: &str,
+    sdk_instance_id: &str,
     statsig_runtime: Arc<StatsigRuntime>,
     error_observer: &Arc<dyn OpsStatsEventObserver>,
     diagnostics_observer: &Arc<dyn OpsStatsEventObserver>,
     console_capture_observer: &Arc<dyn OpsStatsEventObserver>,
     external_observer: &Option<Weak<dyn ObservabilityClient>>,
 ) -> Arc<OpsStatsForInstance> {
-    let ops_stat = OPS_STATS.get_for_instance(sdk_key);
+    let ops_stat = OPS_STATS.get_for_instance(sdk_instance_id);
     ops_stat.subscribe(statsig_runtime.clone(), Arc::downgrade(error_observer));
     ops_stat.subscribe(
         statsig_runtime.clone(),

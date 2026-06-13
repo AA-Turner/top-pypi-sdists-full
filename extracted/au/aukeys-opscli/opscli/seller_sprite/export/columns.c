@@ -8165,7 +8165,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("BSR", "avgBsr"),
  *     ExportColumn("", "avgSellers"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "sellerTypes"),
- *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 192, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
@@ -8177,8 +8177,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("BSR", "avgBsr"),
  *     ExportColumn("", "avgSellers"),
  *     ExportColumn("", "sellerTypes"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "productConcentration"),
- *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
@@ -8189,132 +8189,152 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   /* "opscli/seller_sprite/export/columns.py":194
  *     ExportColumn("", "avgSellers"),
  *     ExportColumn("", "sellerTypes"),
- *     ExportColumn("", "productConcentration"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "brandConcentration"),
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 194, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_63 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[144], NULL); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_63 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 194, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_63);
+  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __pyx_t_64 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[144], __pyx_t_63); if (unlikely(!__pyx_t_64)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_64);
   __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":195
  *     ExportColumn("", "sellerTypes"),
- *     ExportColumn("", "productConcentration"),
- *     ExportColumn("", "brandConcentration"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
  *     ExportColumn("", "totalProducts"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_59 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_64 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[145], NULL); if (unlikely(!__pyx_t_64)) __PYX_ERR(0, 195, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_64);
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __pyx_t_58 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[145], __pyx_t_59); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_58);
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
   __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":196
- *     ExportColumn("", "productConcentration"),
- *     ExportColumn("", "brandConcentration"),
- *     ExportColumn("", "sellerConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "totalProducts"),
  *     ExportColumn("", "avgWeight"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_58 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[146], NULL); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 196, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_58);
+  __pyx_t_63 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_t_65 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[146], __pyx_t_63); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_65);
   __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":197
- *     ExportColumn("", "brandConcentration"),
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
  *     ExportColumn("", "totalProducts"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgWeight"),
  *     ExportColumn("", "avgVolume"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[147], NULL); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_65 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[147], NULL); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 197, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_65);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":198
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
  *     ExportColumn("", "totalProducts"),
  *     ExportColumn("", "avgWeight"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgVolume"),
- *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 198, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[148], NULL); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 198, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 198, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[148], NULL); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 198, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_49);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":199
  *     ExportColumn("", "totalProducts"),
  *     ExportColumn("", "avgWeight"),
  *     ExportColumn("", "avgVolume"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "avgProfit"),
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 199, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[149], NULL); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[149], NULL); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_47);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":200
  *     ExportColumn("", "avgWeight"),
  *     ExportColumn("", "avgVolume"),
- *     ExportColumn("", "avgProfit"),             # <<<<<<<<<<<<<<
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
  *     ExportColumn("", "sellerNation"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 200, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[150], NULL); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_60 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_60);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  if (PyDict_SetItem(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[150], __pyx_t_60); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_46);
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":201
  *     ExportColumn("", "avgVolume"),
- *     ExportColumn("", "avgProfit"),
- *     ExportColumn("A+", "ebcRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "sellerNation"),
  *     ExportColumn("Listing", "headListingAvgSales"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 201, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[151], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 201, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_46);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_63 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[151], __pyx_t_63); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_44);
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":202
- *     ExportColumn("", "avgProfit"),
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
  *     ExportColumn("", "sellerNation"),             # <<<<<<<<<<<<<<
  *     ExportColumn("Listing", "headListingAvgSales"),
  *     ExportColumn("", "monopoly"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 202, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[41], NULL); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 202, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_44);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 202, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[41], NULL); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 202, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":203
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
  *     ExportColumn("", "sellerNation"),
  *     ExportColumn("Listing", "headListingAvgSales"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "monopoly"),
  *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 203, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[152], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[152], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 203, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":204
  *     ExportColumn("", "sellerNation"),
@@ -8323,11 +8343,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 204, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[153], NULL); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[153], NULL); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_43);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":205
  *     ExportColumn("Listing", "headListingAvgSales"),
@@ -8336,76 +8356,80 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),
  *     ExportColumn("", "newCount"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 205, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[154], NULL); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[154], NULL); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 205, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_40);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":206
  *     ExportColumn("", "monopoly"),
  *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "newCount"),
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 206, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[155], NULL); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[155], NULL); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 206, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_42);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":207
  *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),
  *     ExportColumn("", "newCount"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
  *     ExportColumn("", "newAvgSales"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 207, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[156], NULL); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[156], NULL); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_41);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":208
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),
  *     ExportColumn("", "newCount"),
- *     ExportColumn("", "newRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "newAvgSales"),
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 208, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_35 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[157], NULL); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_35 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_35);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[157], __pyx_t_35); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_39);
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":209
  *     ExportColumn("", "newCount"),
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
  *     ExportColumn("", "newAvgSales"),             # <<<<<<<<<<<<<<
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
  *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 209, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[158], NULL); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 209, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_63 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[158], NULL); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":210
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
  *     ExportColumn("", "newAvgSales"),
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),             # <<<<<<<<<<<<<<
  *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
  *     ExportColumn("", "newAvgReviews"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 210, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_36 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[159], NULL); if (unlikely(!__pyx_t_36)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_36 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[159], NULL); if (unlikely(!__pyx_t_36)) __PYX_ERR(0, 210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_36);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":211
  *     ExportColumn("", "newAvgSales"),
@@ -8414,11 +8438,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "newAvgReviews"),
  *     ExportColumn("", "newAvgRating"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 211, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_34 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[160], NULL); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_34 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[160], NULL); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_34);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":212
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
@@ -8427,11 +8451,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "newAvgRating"),
  *     ExportColumn("", "returnRate"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 212, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[161], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[161], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_55);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":213
  *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
@@ -8440,11 +8464,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "returnRate"),
  *     ExportColumn("", "categoryReturnRate"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 213, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_67 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[162], NULL); if (unlikely(!__pyx_t_67)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_67 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[162], NULL); if (unlikely(!__pyx_t_67)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_67);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":214
  *     ExportColumn("", "newAvgReviews"),
@@ -8453,11 +8477,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "categoryReturnRate"),
  *     ExportColumn("", "searchPurchaseRatio"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 214, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_68 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[163], NULL); if (unlikely(!__pyx_t_68)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_68 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[163], NULL); if (unlikely(!__pyx_t_68)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_68);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":215
  *     ExportColumn("", "newAvgRating"),
@@ -8466,11 +8490,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "searchPurchaseRatio"),
  *     ExportColumn("", "categorySearchPurchaseRatio"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_45 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[164], NULL); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_45 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[164], NULL); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_45);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":216
  *     ExportColumn("", "returnRate"),
@@ -8479,11 +8503,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "categorySearchPurchaseRatio"),
  * ]
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 216, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_33 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[165], NULL); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 216, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 216, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_33 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[165], NULL); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_33);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":217
  *     ExportColumn("", "categoryReturnRate"),
@@ -8492,11 +8516,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  * ]
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 217, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  __pyx_t_32 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[166], NULL); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __pyx_t_32 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[166], NULL); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_32);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":180
  * 
@@ -8505,8 +8529,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "market"),
  *     ExportColumn("()", "marketCn"),
 */
-  __pyx_t_59 = __Pyx_PyList_Pack(37, __pyx_t_50, __pyx_t_37, __pyx_t_51, __pyx_t_52, __pyx_t_53, __pyx_t_54, __pyx_t_56, __pyx_t_28, __pyx_t_61, __pyx_t_57, __pyx_t_66, __pyx_t_38, __pyx_t_62, __pyx_t_63, __pyx_t_64, __pyx_t_58, __pyx_t_65, __pyx_t_49, __pyx_t_47, __pyx_t_60, __pyx_t_46, __pyx_t_44, __pyx_t_48, __pyx_t_43, __pyx_t_40, __pyx_t_42, __pyx_t_41, __pyx_t_35, __pyx_t_39, __pyx_t_36, __pyx_t_34, __pyx_t_55, __pyx_t_67, __pyx_t_68, __pyx_t_45, __pyx_t_33, __pyx_t_32); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 180, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_35 = __Pyx_PyList_Pack(37, __pyx_t_50, __pyx_t_37, __pyx_t_51, __pyx_t_52, __pyx_t_53, __pyx_t_54, __pyx_t_56, __pyx_t_28, __pyx_t_61, __pyx_t_57, __pyx_t_66, __pyx_t_38, __pyx_t_62, __pyx_t_64, __pyx_t_58, __pyx_t_65, __pyx_t_59, __pyx_t_49, __pyx_t_47, __pyx_t_46, __pyx_t_44, __pyx_t_60, __pyx_t_48, __pyx_t_43, __pyx_t_40, __pyx_t_42, __pyx_t_41, __pyx_t_39, __pyx_t_63, __pyx_t_36, __pyx_t_34, __pyx_t_55, __pyx_t_67, __pyx_t_68, __pyx_t_45, __pyx_t_33, __pyx_t_32); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
   __Pyx_DECREF(__pyx_t_50); __pyx_t_50 = 0;
   __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
   __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
@@ -8520,22 +8544,22 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
   __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_62); __pyx_t_62 = 0;
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
   __Pyx_DECREF(__pyx_t_64); __pyx_t_64 = 0;
   __Pyx_DECREF(__pyx_t_58); __pyx_t_58 = 0;
   __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
   __Pyx_DECREF(__pyx_t_49); __pyx_t_49 = 0;
   __Pyx_DECREF(__pyx_t_47); __pyx_t_47 = 0;
-  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
   __Pyx_DECREF(__pyx_t_46); __pyx_t_46 = 0;
   __Pyx_DECREF(__pyx_t_44); __pyx_t_44 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
   __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
   __Pyx_DECREF(__pyx_t_43); __pyx_t_43 = 0;
   __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
   __Pyx_DECREF(__pyx_t_42); __pyx_t_42 = 0;
   __Pyx_DECREF(__pyx_t_41); __pyx_t_41 = 0;
-  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
   __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
   __Pyx_DECREF(__pyx_t_36); __pyx_t_36 = 0;
   __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
   __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
@@ -8544,8 +8568,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_45); __pyx_t_45 = 0;
   __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MARKET_RESEARCH_COLUMNS, __pyx_t_59) < (0)) __PYX_ERR(0, 180, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MARKET_RESEARCH_COLUMNS, __pyx_t_35) < (0)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":221
  * 
@@ -8554,18 +8578,18 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     """"""
  *     currency = currency_label(site)
 */
-  __pyx_t_59 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 221, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_35 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
   __pyx_t_32 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_1columns_for_scenario, 0, __pyx_mstate_global->__pyx_n_u_columns_for_scenario, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_32);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_32);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_32, __pyx_t_59);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_32, __pyx_t_35);
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_columns_for_scenario, __pyx_t_32) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
 
@@ -8580,15 +8604,15 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_GOTREF(__pyx_t_32);
   if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __pyx_t_59 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_3currency_label, 0, __pyx_mstate_global->__pyx_n_u_currency_label, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_35 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_3currency_label, 0, __pyx_mstate_global->__pyx_n_u_currency_label, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_59);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_35);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_59, __pyx_t_32);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_35, __pyx_t_32);
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_currency_label, __pyx_t_59) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_currency_label, __pyx_t_35) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":275
  * 
@@ -8597,8 +8621,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     currency: str,
  *     *,
 */
-  __pyx_t_59 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_35 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
 
   /* "opscli/seller_sprite/export/columns.py":278
  *     currency: str,
@@ -8609,9 +8633,9 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __pyx_t_32 = __Pyx_PyBool_FromLong(((int)0)); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_32);
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_swap_unit_columns, __pyx_t_32) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_swap_unit_columns, __pyx_t_32) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_reviews_delta_source, ((PyObject*)__pyx_mstate_global->__pyx_n_u_reviewsDelta)) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_reviews_delta_source, ((PyObject*)__pyx_mstate_global->__pyx_n_u_reviewsDelta)) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
 
   /* "opscli/seller_sprite/export/columns.py":280
  *     swap_unit_columns: bool = False,
@@ -8620,8 +8644,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     seller_nation_source: str = "sellerNation",
  * ) -> list[ExportColumn]:
 */
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_percent_suffix_titles, Py_None) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_seller_nation_source, ((PyObject*)__pyx_mstate_global->__pyx_n_u_sellerNation)) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_percent_suffix_titles, Py_None) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_seller_nation_source, ((PyObject*)__pyx_mstate_global->__pyx_n_u_sellerNation)) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
 
   /* "opscli/seller_sprite/export/columns.py":275
  * 
@@ -8643,9 +8667,9 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_33);
   #endif
-  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_33, __pyx_t_59);
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_33, __pyx_t_35);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_33, __pyx_t_32);
-  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_product_columns, __pyx_t_33) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
@@ -10392,7 +10416,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("BSR", "avgBsr"),
  *     ExportColumn("", "avgSellers"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "sellerTypes"),
- *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
 */
   __pyx_mstate_global->__pyx_tuple[142] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__104, __pyx_mstate_global->__pyx_n_u_avgSellers); if (unlikely(!__pyx_mstate_global->__pyx_tuple[142])) __PYX_ERR(0, 192, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[142]);
@@ -10402,8 +10426,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("BSR", "avgBsr"),
  *     ExportColumn("", "avgSellers"),
  *     ExportColumn("", "sellerTypes"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "productConcentration"),
- *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
 */
   __pyx_mstate_global->__pyx_tuple[143] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__105, __pyx_mstate_global->__pyx_n_u_sellerTypes); if (unlikely(!__pyx_mstate_global->__pyx_tuple[143])) __PYX_ERR(0, 193, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[143]);
@@ -10412,9 +10436,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   /* "opscli/seller_sprite/export/columns.py":194
  *     ExportColumn("", "avgSellers"),
  *     ExportColumn("", "sellerTypes"),
- *     ExportColumn("", "productConcentration"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "brandConcentration"),
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
 */
   __pyx_mstate_global->__pyx_tuple[144] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__106, __pyx_mstate_global->__pyx_n_u_productConcentration); if (unlikely(!__pyx_mstate_global->__pyx_tuple[144])) __PYX_ERR(0, 194, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[144]);
@@ -10422,9 +10446,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 
   /* "opscli/seller_sprite/export/columns.py":195
  *     ExportColumn("", "sellerTypes"),
- *     ExportColumn("", "productConcentration"),
- *     ExportColumn("", "brandConcentration"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
  *     ExportColumn("", "totalProducts"),
 */
   __pyx_mstate_global->__pyx_tuple[145] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__107, __pyx_mstate_global->__pyx_n_u_brandConcentration); if (unlikely(!__pyx_mstate_global->__pyx_tuple[145])) __PYX_ERR(0, 195, __pyx_L1_error)
@@ -10432,9 +10456,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[145]);
 
   /* "opscli/seller_sprite/export/columns.py":196
- *     ExportColumn("", "productConcentration"),
- *     ExportColumn("", "brandConcentration"),
- *     ExportColumn("", "sellerConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "productConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "totalProducts"),
  *     ExportColumn("", "avgWeight"),
 */
@@ -10443,8 +10467,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[146]);
 
   /* "opscli/seller_sprite/export/columns.py":197
- *     ExportColumn("", "brandConcentration"),
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "brandConcentration", transform="percentSuffix"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
  *     ExportColumn("", "totalProducts"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgWeight"),
  *     ExportColumn("", "avgVolume"),
@@ -10454,11 +10478,11 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[147]);
 
   /* "opscli/seller_sprite/export/columns.py":198
- *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "sellerConcentration", transform="percentSuffix"),
  *     ExportColumn("", "totalProducts"),
  *     ExportColumn("", "avgWeight"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgVolume"),
- *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
 */
   __pyx_mstate_global->__pyx_tuple[148] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__110, __pyx_mstate_global->__pyx_n_u_avgWeight); if (unlikely(!__pyx_mstate_global->__pyx_tuple[148])) __PYX_ERR(0, 198, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[148]);
@@ -10468,8 +10492,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "totalProducts"),
  *     ExportColumn("", "avgWeight"),
  *     ExportColumn("", "avgVolume"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "avgProfit"),
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
 */
   __pyx_mstate_global->__pyx_tuple[149] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__111, __pyx_mstate_global->__pyx_n_u_avgVolume); if (unlikely(!__pyx_mstate_global->__pyx_tuple[149])) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[149]);
@@ -10478,8 +10502,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   /* "opscli/seller_sprite/export/columns.py":200
  *     ExportColumn("", "avgWeight"),
  *     ExportColumn("", "avgVolume"),
- *     ExportColumn("", "avgProfit"),             # <<<<<<<<<<<<<<
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
  *     ExportColumn("", "sellerNation"),
 */
   __pyx_mstate_global->__pyx_tuple[150] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__112, __pyx_mstate_global->__pyx_n_u_avgProfit); if (unlikely(!__pyx_mstate_global->__pyx_tuple[150])) __PYX_ERR(0, 200, __pyx_L1_error)
@@ -10488,8 +10512,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 
   /* "opscli/seller_sprite/export/columns.py":201
  *     ExportColumn("", "avgVolume"),
- *     ExportColumn("", "avgProfit"),
- *     ExportColumn("A+", "ebcRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgProfit", transform="percentSuffix"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "sellerNation"),
  *     ExportColumn("Listing", "headListingAvgSales"),
 */
@@ -10498,7 +10522,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[151]);
 
   /* "opscli/seller_sprite/export/columns.py":203
- *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("A+", "ebcRatio", transform="percentSuffix"),
  *     ExportColumn("", "sellerNation"),
  *     ExportColumn("Listing", "headListingAvgSales"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "monopoly"),
@@ -10535,7 +10559,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "newCount"),
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
 */
   __pyx_mstate_global->__pyx_tuple[155] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_ListingBSR, __pyx_mstate_global->__pyx_n_u_headListingAvgBsr); if (unlikely(!__pyx_mstate_global->__pyx_tuple[155])) __PYX_ERR(0, 206, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[155]);
@@ -10545,7 +10569,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),
  *     ExportColumn("", "newCount"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
  *     ExportColumn("", "newAvgSales"),
 */
   __pyx_mstate_global->__pyx_tuple[156] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__114, __pyx_mstate_global->__pyx_n_u_newCount); if (unlikely(!__pyx_mstate_global->__pyx_tuple[156])) __PYX_ERR(0, 207, __pyx_L1_error)
@@ -10555,7 +10579,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   /* "opscli/seller_sprite/export/columns.py":208
  *     ExportColumn("ListingBSR", "headListingAvgBsr"),
  *     ExportColumn("", "newCount"),
- *     ExportColumn("", "newRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "newAvgSales"),
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
 */
@@ -10565,7 +10589,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 
   /* "opscli/seller_sprite/export/columns.py":209
  *     ExportColumn("", "newCount"),
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
  *     ExportColumn("", "newAvgSales"),             # <<<<<<<<<<<<<<
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
  *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
@@ -10575,7 +10599,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[158]);
 
   /* "opscli/seller_sprite/export/columns.py":210
- *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newRatio", transform="percentSuffix"),
  *     ExportColumn("", "newAvgSales"),
  *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),             # <<<<<<<<<<<<<<
  *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),

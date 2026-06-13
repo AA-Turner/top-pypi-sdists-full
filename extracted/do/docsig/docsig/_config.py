@@ -6,7 +6,6 @@ Config dataclasses, pyproject.toml loader, and commandline.
 """
 
 import argparse as _argparse
-import os as _os
 import re as _re
 import typing as _t
 from dataclasses import dataclass as _dataclass
@@ -15,6 +14,7 @@ from pathlib import Path as _Path
 
 import tomli as _tomli
 
+from ._utils import get_parent_that_has as _get_parent_that_has
 from ._version import __version__
 from .messages import Messages as _Messages
 
@@ -26,31 +26,18 @@ def _split_comma(value: str) -> list[str]:
     return [i.replace("\\,", ",") for i in _re.split(r"(?<!\\),", value)]
 
 
-# attempt to locate a pyproject.toml file if one exists in parents
-def _find_pyproject_toml(path: _Path | None = None) -> _Path | None:
-    if not path:
-        path = _Path.cwd()
-
-    pyproject_toml = path / PYPROJECT_TOML
-    if pyproject_toml.is_file():
-        return pyproject_toml
-
-    if str(path) == _os.path.abspath(_os.sep):
-        return None
-
-    return _find_pyproject_toml(path.parent)
-
-
 def get_config(prog: str) -> dict[str, _t.Any]:
     """Return the program's tool-section config from pyproject.toml.
 
     :param prog: Program name.
     :return: Config dict, or empty dict if no config is found.
     """
-    pyproject_file = _find_pyproject_toml()
+    # attempt to locate a pyproject.toml file if one exists in parents
+    pyproject_file = _get_parent_that_has(PYPROJECT_TOML)
     if pyproject_file is None:
         return {}
 
+    pyproject_file /= PYPROJECT_TOML
     return {
         k.replace("-", "_"): v
         for k, v in _tomli.loads(pyproject_file.read_text())
@@ -221,16 +208,9 @@ def build_parser() -> _ArgumentParser:
         help="ignore kwargs prefixed with two asterisks",
     )
     parser.add_argument(
-        "-i",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="ignore_no_params",
-    )
-    parser.add_argument(
         "--ignore-no-params",
         action="store_true",
         help="ignore docstrings where parameters are not documented",
-        dest="ignore_no_params",
     )
     parser.add_argument(
         "--ignore-typechecker",

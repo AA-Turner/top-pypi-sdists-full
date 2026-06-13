@@ -642,13 +642,13 @@ def get_use_aws_creds() -> dict[str, str]:
         else:
             click.echo(
                 FeedbackManager.warning(
-                    message="△ No AWS credentials found. S3 operations will not work in Tinybird Local."
+                    message="△ No AWS credentials found. AWS related operations will not work in Tinybird Local."
                 )
             )
     except Exception as e:
         click.echo(
             FeedbackManager.warning(
-                message=f"△ Error retrieving AWS credentials: {str(e)}. S3 operations will not work in Tinybird Local."
+                message=f"△ Error retrieving AWS credentials: {str(e)}. AWS related operations will not work in Tinybird Local."
             )
         )
 

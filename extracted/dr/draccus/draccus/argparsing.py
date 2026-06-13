@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2025-2026 The Board of Trustees of the Leland Stanford Junior University
+# Copyright 2019 Fabrice Normandin
+# Copyright 2021 Elad Richardson
+
 """Simple, Elegant Argument parsing.
 @author: Fabrice Normandin
 """
@@ -43,6 +48,7 @@ class ArgumentParser(Generic[T]):
         """Creates an ArgumentParser instance."""
         kwargs = kwargs.copy()
         kwargs["formatter_class"] = formatter_class
+        kwargs["allow_abbrev"] = False
         if "exit_on_error" in kwargs:
             # only available in python 3.9+, remove arg if not supported
             if sys.version_info < (3, 9):

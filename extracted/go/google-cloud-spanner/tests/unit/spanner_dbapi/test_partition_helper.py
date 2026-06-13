@@ -1,5 +1,4 @@
-# Copyright 2024 Google LLC All rights reserved.
-#
+# Copyright 2026 Google LLC All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -193,7 +192,7 @@ class TestPartitionHelper(unittest.TestCase):
 
         registered_classes = set(partition_helper._PROTO_CLASS_MAP.values())
         for cls in discovered_protobuf_classes:
-            with self.subTest(cls=cls):
+            with self.subTest(cls_name=cls.__name__):
                 self.assertIn(
                     cls,
                     registered_classes,

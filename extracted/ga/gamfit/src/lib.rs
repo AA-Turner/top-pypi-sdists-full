@@ -63,6 +63,7 @@ pub fn init_parallelism() {
 }
 
 pub mod cache;
+pub mod config_resolve;
 pub mod families;
 pub mod geometry;
 pub mod gpu;
@@ -94,7 +95,7 @@ pub use geometry::{
 pub use gpu::GpuPolicy;
 pub use inference::{
     alo, conformal, data, generative, higher_order, hmc, model_comparison, polya_gamma, predict,
-    probability, psis, quadrature, rho_posterior, sample, smooth_test,
+    probability, psis, quadrature, rho_posterior, rho_uncertainty, sample, smooth_test,
 };
 pub use linalg::{faer_ndarray, matrix, utils};
 // #931-#935 criterion calculus: the profiled-criterion abstraction
@@ -143,11 +144,11 @@ pub use solver::workflow::{
     CtnStage1Recipe, DispersionLocationScaleFitRequest, DispersionLocationScaleFitResult,
     FitConfig, FitRequest, FitResult, GaussianLocationScaleFitRequest, LatentBinaryFitRequest,
     LatentSurvivalFitRequest, LinkWiggleConfig, MaterializedModel, PreparedSurvivalTimeStack,
-    StandardBinomialWiggleConfig, StandardFitRequest, StandardFitResult,
+    SplineScanInputs, StandardBinomialWiggleConfig, StandardFitRequest, StandardFitResult,
     SurvivalLocationScaleFitRequest, SurvivalLocationScaleFitResult,
     SurvivalMarginalSlopeFitRequest, SurvivalTransformationFitRequest,
     SurvivalTransformationFitResult, SurvivalTransformationTermSpec,
-    TransformationNormalFitRequest, WorkflowError, fit_from_formula, fit_model, is_binary_response,
-    materialize, prepare_survival_time_stack, resolve_family, resolve_offset_column,
-    resolve_weight_column,
+    TransformationNormalFitRequest, WorkflowError, fit_from_formula, fit_model,
+    fit_spline_scan_from_formula, is_binary_response, materialize, prepare_survival_time_stack,
+    resolve_family, resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
 };

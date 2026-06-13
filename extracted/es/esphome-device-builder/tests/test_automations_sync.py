@@ -214,6 +214,104 @@ def test_build_automations_strips_then_from_control_flow_action_params(
     assert "condition" not in cfg_keys
 
 
+def test_build_automations_promotes_inline_trigger_keys_to_action_list(
+    tmp_path: Path,
+) -> None:
+    """Inline ``on_*`` triggers on an action surface on ``accepts_action_list``."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "wifi.json",
+        {
+            "wifi": {
+                "action": {
+                    "configure": {
+                        "schema": {
+                            "config_vars": {
+                                "ssid": {"key": "Required", "type": "string"},
+                                "on_connect": {
+                                    "key": "Optional",
+                                    "type": "trigger",
+                                    "docs": "Run on connect.",
+                                },
+                                "on_error": {
+                                    "key": "Optional",
+                                    "type": "trigger",
+                                    "docs": "Run on error.",
+                                },
+                            },
+                        },
+                        "type": "schema",
+                        "docs": "Reconfigure WiFi.",
+                    },
+                },
+                "schemas": {},
+            },
+        },
+    )
+    result = sync_components.build_automations(schema_dir=schema_dir, component_ids=set())
+    action = next(a for a in result["actions"] if a["id"] == "wifi.configure")
+    assert action["accepts_action_list"] == ["on_connect", "on_error"]
+    # A triggered action is not control flow; it keeps its normal form fields.
+    assert action["is_control_flow"] is False
+    assert action["has_else_branch"] is False
+    cfg_keys = {e["key"] for e in action["config_entries"]}
+    assert "ssid" in cfg_keys
+    assert "on_connect" not in cfg_keys
+    assert "on_error" not in cfg_keys
+
+
+def test_build_automations_promotes_extends_inherited_trigger_keys(
+    tmp_path: Path,
+) -> None:
+    """``on_*`` triggers inherited through ``extends`` reach ``accepts_action_list``."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "http_request.json",
+        {
+            "http_request": {
+                "action": {
+                    "get": {
+                        "schema": {
+                            "config_vars": {"method": {"key": "Optional", "type": "string"}},
+                            "extends": ["http_request.HTTP_REQUEST_ACTION_SCHEMA"],
+                        },
+                        "type": "schema",
+                        "docs": "Send a GET request.",
+                    },
+                },
+                "schemas": {
+                    "HTTP_REQUEST_ACTION_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "url": {"key": "Required", "type": "string"},
+                                "on_response": {
+                                    "key": "Optional",
+                                    "type": "trigger",
+                                    "docs": "Run on response.",
+                                },
+                                "on_error": {
+                                    "key": "Optional",
+                                    "type": "trigger",
+                                    "docs": "Run on error.",
+                                },
+                            },
+                        },
+                        "type": "schema",
+                    },
+                },
+            },
+        },
+    )
+    result = sync_components.build_automations(schema_dir=schema_dir, component_ids=set())
+    action = next(a for a in result["actions"] if a["id"] == "http_request.get")
+    assert action["accepts_action_list"] == ["on_error", "on_response"]
+    assert action["is_control_flow"] is False
+    cfg_keys = {e["key"] for e in action["config_entries"]}
+    assert "url" in cfg_keys  # inherited form field survives
+    assert "on_response" not in cfg_keys
+    assert "on_error" not in cfg_keys
+
+
 def test_build_automations_extracts_condition_combinator(tmp_path: Path) -> None:
     """A boolean combinator (``and``) declares ``accepts_condition_list=True``."""
     schema_dir = _write_schema(
@@ -661,3 +759,175 @@ def test_core_lambda_condition_synthesizes_lambda_field() -> None:
     assert [e["type"] for e in condition["config_entries"]] == ["lambda"]
     assert condition["config_entries"][0]["key"] == "lambda"
     assert condition["config_entries"][0]["required"] is True
+
+
+def test_build_automations_extracts_extends_inherited_hub_triggers(tmp_path: Path) -> None:
+    """A hub CONFIG_SCHEMA's extends-inherited ``on_*`` keys emit hub-qualified triggers."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "fakehub.json",
+        {
+            "fakehub": {
+                "schemas": {
+                    "FAKEHUB_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "on_tag": {
+                                    "key": "Optional",
+                                    "type": "trigger",
+                                    "docs": "Fires when a tag is read.",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
+    _write_schema(
+        tmp_path,
+        "fakehub_i2c.json",
+        {
+            "fakehub_i2c": {
+                "schemas": {
+                    "CONFIG_SCHEMA": {
+                        "schema": {
+                            "extends": ["fakehub.FAKEHUB_SCHEMA"],
+                            "config_vars": {"address": {"key": "Optional"}},
+                        },
+                    },
+                },
+            },
+        },
+    )
+    result = sync_components.build_automations(schema_dir=schema_dir, component_ids=set())
+    triggers = {t["id"]: t for t in result["triggers"]}
+    assert "fakehub.on_tag" in triggers
+    inherited = triggers["fakehub_i2c.on_tag"]
+    assert inherited["applies_to"] == ["fakehub_i2c"]
+    assert inherited["is_device_level"] is False
+
+
+def test_build_automations_does_not_merge_extends_outside_hub_config_schema(
+    tmp_path: Path,
+) -> None:
+    """Platform schemas and non-CONFIG_SCHEMA hub schemas keep the own-vars scan."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "switch.json",
+        {
+            "switch": {
+                "schemas": {
+                    "SWITCH_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "on_turn_on": {"key": "Optional", "type": "trigger"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
+    _write_schema(
+        tmp_path,
+        "template.switch.json",
+        {
+            "template.switch": {
+                "schemas": {
+                    "CONFIG_SCHEMA": {
+                        "schema": {"extends": ["switch.SWITCH_SCHEMA"]},
+                    },
+                },
+            },
+        },
+    )
+    _write_schema(
+        tmp_path,
+        "fakeled.json",
+        {
+            "fakeled": {
+                "schemas": {
+                    "BASE_SCHEMA": {
+                        "schema": {"extends": ["switch.SWITCH_SCHEMA"]},
+                    },
+                },
+            },
+        },
+    )
+    ids = {
+        t["id"]
+        for t in sync_components.build_automations(
+            schema_dir=schema_dir, component_ids={"switch.template"}
+        )["triggers"]
+    }
+    assert "switch.on_turn_on" in ids
+    assert "template.switch.on_turn_on" not in ids
+    assert "fakeled.on_turn_on" not in ids
+
+
+def test_build_automations_skips_action_schema_response_handlers(tmp_path: Path) -> None:
+    """``*_ACTION_SCHEMA`` on_success/on_error are action-nested, not component triggers."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "api.json",
+        {
+            "api": {
+                "schemas": {
+                    "CONFIG_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "on_client_connected": {"key": "Optional", "type": "trigger"},
+                            },
+                        },
+                    },
+                    "HOMEASSISTANT_ACTION_ACTION_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "on_success": {"key": "Optional", "type": "trigger"},
+                                "on_error": {"key": "Optional", "type": "trigger"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
+    ids = {
+        t["id"]
+        for t in sync_components.build_automations(schema_dir=schema_dir, component_ids=set())[
+            "triggers"
+        ]
+    }
+    # The component's own CONFIG_SCHEMA trigger survives.
+    assert "api.on_client_connected" in ids
+    # The action's nested response handlers must not leak as component triggers.
+    assert "api.on_success" not in ids
+    assert "api.on_error" not in ids
+
+
+def test_build_automations_merged_hub_trigger_dedupes_against_base(tmp_path: Path) -> None:
+    """A CONFIG_SCHEMA extending a same-file base yields one entry per trigger id."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "fakehub.json",
+        {
+            "fakehub": {
+                "schemas": {
+                    "FAKEHUB_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "on_tag": {"key": "Optional", "type": "trigger"},
+                            },
+                        },
+                    },
+                    "CONFIG_SCHEMA": {
+                        "schema": {"extends": ["fakehub.FAKEHUB_SCHEMA"]},
+                    },
+                },
+            },
+        },
+    )
+    result = sync_components.build_automations(schema_dir=schema_dir, component_ids=set())
+    matching = [t for t in result["triggers"] if t["id"] == "fakehub.on_tag"]
+    assert len(matching) == 1

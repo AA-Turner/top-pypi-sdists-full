@@ -12,7 +12,7 @@ The shared dataclasses (:class:`Job`, :class:`AsyncJob`, :class:`Run`,
 :class:`Usage`, :class:`HttpConfig`) are re-exported here.
 """
 
-from smplkit.jobs._client import (
+from smplkit.jobs.clients import (
     AsyncJob,
     AsyncRunsClient,
     HttpConfig,

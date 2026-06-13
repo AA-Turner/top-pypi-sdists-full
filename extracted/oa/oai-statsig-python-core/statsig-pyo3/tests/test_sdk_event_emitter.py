@@ -1,6 +1,9 @@
 import gc
 import json
+import subprocess
+import sys
 from threading import Event
+from pathlib import Path
 from time import monotonic, sleep
 from weakref import ref
 
@@ -9,6 +12,9 @@ from statsig_python_core import Statsig, StatsigOptions, StatsigUser
 from werkzeug import Response
 
 from utils import get_test_data_resource
+
+
+TESTS_DIR = Path(__file__).parent
 
 
 def test_subscribe_receives_gate_event():
@@ -228,6 +234,14 @@ def test_unsubscribe_by_id_stops_callback_delivery():
         assert received_events == []
     finally:
         statsig.shutdown().wait()
+
+
+def test_listener_can_unsubscribe_from_callback_without_deadlocking():
+    subprocess.run(
+        [sys.executable, TESTS_DIR / "event_listener_reentrancy_subprocess.py"],
+        check=True,
+        timeout=2,
+    )
 
 
 def test_unsubscribe_by_event_stops_callback_delivery():

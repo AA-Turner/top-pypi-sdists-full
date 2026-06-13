@@ -22,14 +22,6 @@ fn main() {
         }
     }
 
-    // BoringSSL and AWS-LC use const X509 (OpenSSL does not)
-    let use_const_x509 =
-        if env::var("DEP_OPENSSL_BORINGSSL").is_ok() || env::var("DEP_OPENSSL_AWSLC").is_ok() {
-            "1"
-        } else {
-            ""
-        };
-
     let out_dir = env::var("OUT_DIR").unwrap();
     // FIXME: maybe pyo3-build-config should provide a way to do this?
     let python = env::var("PYO3_PYTHON").unwrap_or_else(|_| "python3".to_string());
@@ -38,7 +30,6 @@ fn main() {
     println!("cargo:rerun-if-changed=../../cryptography/__about__.py");
     let output = Command::new(&python)
         .env("OUT_DIR", &out_dir)
-        .env("USE_CONST_X509", use_const_x509)
         .arg("../../_cffi_src/build_openssl.py")
         .output()
         .expect("failed to execute build_openssl.py");
@@ -56,16 +47,40 @@ fn main() {
     )
     .unwrap();
     println!("cargo:rustc-cfg=python_implementation=\"{python_impl}\"");
-    let python_includes = run_python_script(
-        &python,
-        "import os; \
-         import setuptools.dist; \
-         import setuptools.command.build_ext; \
-         b = setuptools.command.build_ext.build_ext(setuptools.dist.Distribution()); \
-         b.finalize_options(); \
-         print(os.pathsep.join(b.include_dirs), end='')",
-    )
-    .unwrap();
+    println!("cargo:rerun-if-env-changed=PYO3_CROSS_LIB_DIR");
+    // When cross-compiling, PyO3 expects the build system to point
+    // PYO3_CROSS_LIB_DIR at the target's libpython directory. Derive the
+    // matching include dir from it instead of querying the host
+    // interpreter's setuptools, which returns host headers (e.g.
+    // /usr/include/python3.x) and breaks the cross build whenever the host
+    // happens to have same-version Python development headers installed.
+    let python_includes = if let Ok(lib_dir) = env::var("PYO3_CROSS_LIB_DIR") {
+        let lib = Path::new(&lib_dir);
+        let py_ver = lib
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("python3");
+        let prefix = lib
+            .parent()
+            .and_then(|p| p.parent())
+            .expect("PYO3_CROSS_LIB_DIR has unexpected layout");
+        prefix
+            .join("include")
+            .join(py_ver)
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        run_python_script(
+            &python,
+            "import os; \
+             import setuptools.dist; \
+             import setuptools.command.build_ext; \
+             b = setuptools.command.build_ext.build_ext(setuptools.dist.Distribution()); \
+             b.finalize_options(); \
+             print(os.pathsep.join(b.include_dirs), end='')",
+        )
+        .unwrap()
+    };
     let openssl_c = Path::new(&out_dir).join("_openssl.c");
 
     let mut build = cc::Build::new();
@@ -107,6 +122,17 @@ fn main() {
         if is_free_threaded {
             build.define("Py_GIL_DISABLED", "1");
         }
+
+        // The C code we build auto-links the Python import library via
+        // `#pragma comment(lib, ...)` in pyconfig.h. pyo3 0.29+ links
+        // libpython with raw-dylib and no longer emits Python's libs
+        // directory as a link search path, so we have to do it ourselves.
+        let libs_dir = run_python_script(
+            &python,
+            "import os, sys; print(os.path.join(sys.base_prefix, 'libs'), end='')",
+        )
+        .unwrap();
+        println!("cargo:rustc-link-search=native={libs_dir}");
     }
 
     build.compile("_openssl.a");

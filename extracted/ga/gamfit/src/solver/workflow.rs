@@ -1,5 +1,6 @@
 use crate::custom_family::{
-    BlockwiseFitOptions, ParameterBlockSpec, PenaltyMatrix, fit_custom_family_with_rho_prior,
+    AdditiveBlockJacobian, BlockwiseFitOptions, ParameterBlockSpec, PenaltyMatrix,
+    fit_custom_family_with_rho_prior,
 };
 use crate::estimate::{
     AdaptiveRegularizationOptions, EstimationError, FitOptions, FittedLinkState, UnifiedFitResult,
@@ -2251,6 +2252,7 @@ fn survival_unified_fit_result(
         beta_standard_errors_corrected: None,
         beta_covariance_frequentist: None,
         coefficient_influence: None,
+        weighted_gram: None,
         bias_correction_beta: None,
     };
 
@@ -2436,6 +2438,38 @@ fn fit_cause_specific_survival_transformation_custom(
             initial_log_lambdas[penalty_idx] = block.lambda.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln();
         }
         let beta_start = beta0_flat.slice(s![cause * p..(cause + 1) * p]).to_owned();
+        // Cause-specific blocks share the same time-basis design `x_exit`
+        // (the same I-spline evaluated at the same observed event times), so
+        // the joint design carries K block-pairs of (near-)identical
+        // columns. The model is identifiable because the cause-specific
+        // likelihood routes each cause to disjoint risk sets and
+        // event-indicator masks
+        // (`CauseSpecificRoystonParmarFamily::likelihood_blocks_uncoupled =
+        // true`), but the identifiability audit operates on the unweighted
+        // joint design. With every cause carrying the same `gauge_priority`
+        // and no Jacobian callback to declare channel ownership, the audit's
+        // `hard_alias_pair` gate fires on the strongest cross-block pair and
+        // refuses the full-rank fit even when `joint_rank == p_total`.
+        //
+        // Mirror the multinomial-class block convention: assign descending
+        // priorities (cause 0 highest, cause K-1 lowest) so the audit's
+        // `pa != pb` filter on cross-block alias pairs always succeeds, and
+        // attach an `AdditiveBlockJacobian` with `own_output = cause` so the
+        // channel-aware audit treats each cause's contribution as occupying
+        // its own output-channel rows. The Jacobian callback also takes the
+        // canonical-gauge orthogonalisation pass out of play (the
+        // family-owned-geometry guard defers when any block exposes a
+        // callback), so the shared near-aliased column is not residualised
+        // into a degenerate near-zero column behind the family's back; the
+        // penalty + line search at solve time still resolves any residual
+        // near-collinearity.
+        let cause_priority =
+            100u8.saturating_add(u8::try_from(cause_count - cause).unwrap_or(u8::MAX));
+        let cause_jacobian = std::sync::Arc::new(AdditiveBlockJacobian {
+            design: x_exit.clone(),
+            own_output: cause,
+            n_family_outputs: cause_count,
+        });
         block_specs.push(ParameterBlockSpec {
             name: format!("time_cause_{}", cause + 1),
             design: crate::matrix::DesignMatrix::from(x_exit.clone()),
@@ -2444,8 +2478,8 @@ fn fit_cause_specific_survival_transformation_custom(
             nullspace_dims,
             initial_log_lambdas,
             initial_beta: Some(beta_start),
-            gauge_priority: 100,
-            jacobian_callback: None,
+            gauge_priority: cause_priority,
+            jacobian_callback: Some(cause_jacobian),
             stacked_design: None,
             stacked_offset: None,
         });
@@ -4235,6 +4269,176 @@ pub fn fit_from_formula(
     // `fit_model` already returns `WorkflowError` end-to-end; propagate it
     // directly instead of stringifying then re-wrapping.
     fit_model(mat.request)
+}
+
+/// Inputs extracted by [`spline_scan_fast_path`] for the exact O(n)
+/// state-space cubic-smoothing-spline scan
+/// ([`crate::solver::spline_scan::fit_cubic_spline_scan`]).
+pub struct SplineScanInputs {
+    /// Abscissae of the single 1-D smooth (training rows of its feature column).
+    pub x: Vec<f64>,
+    /// Gaussian response.
+    pub y: Vec<f64>,
+    /// Observation weights (variance is `σ²/w`).
+    pub w: Vec<f64>,
+}
+
+/// Detection seam for the exact O(n) cubic-smoothing-spline fast path.
+///
+/// This is the EARLIEST point in the standard workflow where a materialized
+/// fit request carries everything needed to prove the model is exactly the
+/// problem the scan solves: a Gaussian likelihood with identity link over
+/// `intercept + one 1-D cubic-class penalized smooth` — i.e. the penalized
+/// least-squares problem `min Σ w_i (y_i − f(x_i))² + λ∫f″²` with an
+/// unpenalized `{1, x}` null space. The Kalman/RTS scan computes that
+/// posterior (mean, pointwise variance, exact diffuse REML for λ) in O(n) per
+/// λ-trial instead of the dense design/Gram O(n·k²) + O(k³) route.
+///
+/// Returns `Some` only when ALL of the following hold; everything else falls
+/// through to the dense path:
+/// - family is Gaussian + identity link;
+/// - no link wiggle, no latent coordinates, no coefficient groups, no penalty
+///   hyperpriors, no linear/box constraints, no Firth, no adaptive
+///   regularization, no Kronecker systems, no externally injected null-space
+///   dims;
+/// - the term collection is exactly one smooth term — no linear terms, no
+///   random effects, no by-variables / factor interactions;
+/// - that smooth is a plain 1-D cubic (degree 3) B-spline with a single
+///   order-2 penalty (`double_penalty=false` — the default `s(x)` adds a
+///   second null-space shrinkage penalty, which the scan's diffuse `{1, x}`
+///   null space deliberately does NOT shrink, so it is not the same
+///   posterior and is excluded), open (non-cyclic) boundary, free endpoint
+///   conditions, and no shape constraint;
+/// - the offset is identically zero and every weight is finite and positive;
+/// - at least 3 distinct finite abscissae (the scan's diffuse rank plus one).
+///
+/// λ-mapping note: the scan's penalty is exactly `λ∫f″²` (state-space
+/// `q = 1/λ` at unit σ²). The dense 1-D B-spline path penalizes the same
+/// cubic class through a reduced-rank discrete-difference Gram whose
+/// normalization differs by a basis-dependent constant, so a λ selected by
+/// one parameterization does not transfer numerically to the other. The scan
+/// therefore always re-selects λ by its own exact diffuse REML criterion
+/// (the optimizer of the same restricted likelihood, expressed in the scan's
+/// parameterization); user-pinned smoothing parameters are not representable
+/// at this seam (the formula DSL exposes none for this term class), so no
+/// pinned-λ mapping arises.
+///
+/// Identifiability transforms on the smooth (centering / linear-trend
+/// removal / orthogonality-to-intercept) are accepted as eligible: they only
+/// re-coordinate the unpenalized null space against the implicit intercept
+/// and do not change the fitted posterior of `E[y|x]`, which is what the
+/// scan returns directly.
+pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineScanInputs> {
+    if !request.family.is_gaussian_identity() {
+        return None;
+    }
+    if request.wiggle.is_some()
+        || request.latent_coord.is_some()
+        || !request.coefficient_groups.is_empty()
+        || !request.penalty_block_gamma_priors.is_empty()
+    {
+        return None;
+    }
+    let options = &request.options;
+    if options.latent_cloglog.is_some()
+        || options.mixture_link.is_some()
+        || options.sas_link.is_some()
+        || options.linear_constraints.is_some()
+        || options.adaptive_regularization.is_some()
+        || options.kronecker_penalty_system.is_some()
+        || options.kronecker_factored.is_some()
+        || options.firth_bias_reduction
+        || !options.nullspace_dims.is_empty()
+    {
+        return None;
+    }
+    let spec = &request.spec;
+    if !spec.linear_terms.is_empty()
+        || !spec.random_effect_terms.is_empty()
+        || spec.smooth_terms.len() != 1
+    {
+        return None;
+    }
+    let term = &spec.smooth_terms[0];
+    if !matches!(term.shape, crate::smooth::ShapeConstraint::None)
+        || term.joint_null_rotation.is_some()
+    {
+        return None;
+    }
+    let crate::smooth::SmoothBasisSpec::BSpline1D {
+        feature_col,
+        spec: bspec,
+    } = &term.basis
+    else {
+        return None;
+    };
+    if bspec.degree != 3
+        || bspec.penalty_order != 2
+        || bspec.double_penalty
+        || !bspec.boundary_conditions.is_free()
+        || !matches!(bspec.boundary, crate::basis::OneDimensionalBoundary::Open)
+        || matches!(
+            bspec.knotspec,
+            crate::basis::BSplineKnotSpec::PeriodicUniform { .. }
+        )
+    {
+        return None;
+    }
+    if request.offset.iter().any(|&v| v != 0.0) {
+        return None;
+    }
+    if request.weights.iter().any(|&v| !(v.is_finite() && v > 0.0)) {
+        return None;
+    }
+    if *feature_col >= request.data.ncols() || request.y.len() != request.data.nrows() {
+        return None;
+    }
+    let x: Vec<f64> = request.data.column(*feature_col).iter().copied().collect();
+    let y: Vec<f64> = request.y.iter().copied().collect();
+    let w: Vec<f64> = request.weights.iter().copied().collect();
+    if x.iter().any(|v| !v.is_finite()) || y.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    // The diffuse `{1, x}` null space consumes two innovations; the scan
+    // needs at least one proper innovation to profile σ².
+    let mut sorted = x.clone();
+    sorted.sort_by(f64::total_cmp);
+    sorted.dedup();
+    if sorted.len() < 3 {
+        return None;
+    }
+    Some(SplineScanInputs { x, y, w })
+}
+
+/// Formula-level entry for the exact O(n) cubic-smoothing-spline fast path.
+///
+/// Materializes the formula exactly like [`fit_from_formula`], then runs the
+/// [`spline_scan_fast_path`] detection on the resulting standard request.
+/// When detection fires the fit is routed through
+/// [`crate::solver::spline_scan::fit_cubic_spline_scan`] — the exact diffuse
+/// REML Kalman/RTS scan — and the full in-memory posterior
+/// ([`crate::solver::spline_scan::CubicSplineScanFit`]: knots, smoothed
+/// states, pointwise variances, lag-one gains, σ², log λ, exact EDF, and an
+/// exact `predict`) is returned. `Ok(None)` means the model is not the
+/// scan-eligible shape and the caller should use the dense
+/// [`fit_from_formula`] path; this keeps every persistence-bearing consumer
+/// (model save, CLI, FFI) transparently on the dense fit, whose saved payload
+/// the scan does not yet have a schema for.
+pub fn fit_spline_scan_from_formula(
+    formula: &str,
+    data: &Dataset,
+    config: &FitConfig,
+) -> Result<Option<crate::solver::spline_scan::CubicSplineScanFit>, WorkflowError> {
+    let mat = materialize(formula, data, config)?;
+    let FitRequest::Standard(request) = mat.request else {
+        return Ok(None);
+    };
+    let Some(inputs) = spline_scan_fast_path(&request) else {
+        return Ok(None);
+    };
+    crate::solver::spline_scan::fit_cubic_spline_scan(&inputs.x, &inputs.y, &inputs.w)
+        .map(Some)
+        .map_err(|reason| WorkflowError::IntegrationFailed { reason })
 }
 
 /// Parse a formula, resolve it against a dataset, and produce a ready-to-fit `FitRequest`.
@@ -6197,7 +6401,9 @@ fn smooth_basis_feature_cols_for_latent(
         crate::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => Some(vec![*feature_col]),
         crate::smooth::SmoothBasisSpec::ThinPlate { feature_cols, .. }
         | crate::smooth::SmoothBasisSpec::Sphere { feature_cols, .. }
+        | crate::smooth::SmoothBasisSpec::ConstantCurvature { feature_cols, .. }
         | crate::smooth::SmoothBasisSpec::Matern { feature_cols, .. }
+        | crate::smooth::SmoothBasisSpec::MeasureJet { feature_cols, .. }
         | crate::smooth::SmoothBasisSpec::Duchon { feature_cols, .. }
         | crate::smooth::SmoothBasisSpec::Pca { feature_cols, .. }
         | crate::smooth::SmoothBasisSpec::TensorBSpline { feature_cols, .. } => {
@@ -6271,7 +6477,13 @@ fn natural_latent_manifold_for_basis(
             natural_latent_manifold_for_basis(inner, d)
         }
         crate::smooth::SmoothBasisSpec::ThinPlate { .. }
+        // ConstantCurvature: the chart coordinates are Euclidean-valued (any
+        // finite point for κ ≥ 0; the latent optimizer's chart-validity is the
+        // term's own concern), so the latent retraction stays Euclidean. A
+        // κ-aware latent seed/retraction is part of the later ψ-channel stage.
+        | crate::smooth::SmoothBasisSpec::ConstantCurvature { .. }
         | crate::smooth::SmoothBasisSpec::Matern { .. }
+        | crate::smooth::SmoothBasisSpec::MeasureJet { .. }
         | crate::smooth::SmoothBasisSpec::Duchon { .. }
         | crate::smooth::SmoothBasisSpec::Pca { .. }
         | crate::smooth::SmoothBasisSpec::FactorSmooth { .. } => LatentManifold::Euclidean,
@@ -8569,22 +8781,18 @@ mod tests {
     }
 
     fn workflow_test_outer_result(converged: bool, rho: Array1<f64>) -> OuterResult {
-        OuterResult {
+        let mut result = OuterResult::new(
             rho,
-            final_value: 1.25,
-            iterations: 7,
-            final_grad_norm: Some(0.5),
-            final_gradient: None,
-            final_hessian: None,
+            1.25,
+            7,
             converged,
-            plan_used: OuterPlan {
+            OuterPlan {
                 solver: Solver::Bfgs,
                 hessian_source: HessianSource::BfgsApprox,
             },
-            operator_trust_radius: None,
-            operator_stop_reason: None,
-            criterion_certificate: None,
-        }
+        );
+        result.final_grad_norm = Some(0.5);
+        result
     }
 
     fn duchon_workflow_dataset() -> Dataset {

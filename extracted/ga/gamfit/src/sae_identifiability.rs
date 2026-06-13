@@ -856,6 +856,19 @@ pub struct FittedAtom {
     /// claim a pin it cannot resolve, the same honesty contract as the
     /// `diffeomorphism-unpinned` escalation.
     pub lowering_error: f64,
+    /// #1019 stage 1: `true` when the atom's `d = 1` latent chart was pinned
+    /// post-fit to its arc-length (unit-speed) canonical representative. #1019
+    /// stage 2: `true` as well when a `d = 2` torus atom's chart was pinned
+    /// post-fit to the minimum-isometry-defect flow representative, in which
+    /// case the residual chart freedom is `Isom(T², flat) = U(1)² ⋊ D₄`. The
+    /// certificate then records that this atom's continuous chart
+    /// (reparameterization) freedom is **pinned by canonicalization** — a
+    /// provenance distinct from curvature/penalty pinning
+    /// ([`VerdictProvenance::PinnedByCanonicalization`]) — and that the
+    /// residual chart freedom is the finite isometry group of the reference
+    /// manifold for `d = 1` charts: rotation + reflection (`O(2)`) on the
+    /// circle, reflection + translation on the interval.
+    pub chart_canonicalized: bool,
 }
 
 /// The fitted SAE-manifold model the certificate consumes.
@@ -915,6 +928,15 @@ pub enum GeneratorFamily {
     /// An exchange of two topology-identical atoms (`Sym(F)` permutation, built
     /// as the antisymmetric transposition direction).
     AtomPermutation,
+    /// The continuous chart (reparameterization) freedom `Diff(M_k)` of one
+    /// `d = 1` atom (arc-length canonicalization) or `d = 2` torus atom
+    /// (isometry-flow canonicalization, #1019 stage 2). Always reported
+    /// **pinned** with
+    /// [`VerdictProvenance::PinnedByCanonicalization`]; the verdict's
+    /// description names the surviving residual group (rotation + reflection
+    /// on `S¹`, reflection + translation on the interval, or `Isom(T², flat) =
+    /// U(1)² ⋊ D₄` for a `d = 2` torus).
+    ChartReparameterization,
 }
 
 impl GeneratorFamily {
@@ -924,8 +946,30 @@ impl GeneratorFamily {
             GeneratorFamily::EqualArdRotation => "equal-ARD rotation",
             GeneratorFamily::FrameRotation => "frame rotation O(output_dim)",
             GeneratorFamily::AtomPermutation => "Sym(F) atom permutation",
+            GeneratorFamily::ChartReparameterization => "Diff(M_k) chart reparameterization",
         }
     }
+}
+
+/// How a generator's pinned/unpinned verdict was decided. Carried
+/// per-generator so the report distinguishes a chart fixed **by convention**
+/// (the #1019 post-fit arc-length canonicalization — an exact, image-frozen
+/// representative choice) from a direction pinned **by curvature** (data or
+/// the isometry penalty giving the orbit genuine objective cost).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerdictProvenance {
+    /// Decided by the relative-curvature flatness test against the stacked
+    /// pinning root (data + isometry penalty, in the fit's metric) — the
+    /// historical path for every enumerated generator.
+    CurvatureTest,
+    /// Pinned by the post-fit arc-length chart canonicalization (#1019) or the
+    /// `d = 2` torus isometry-flow canonicalization (#1019 stage 2): the atom's
+    /// chart is the selected representative of its `Diff(M)` orbit, so the
+    /// continuous reparameterization freedom is fixed by construction — no
+    /// curvature was (or needed to be) measured. Distinct from penalty-pinning
+    /// on purpose: the certificate must not claim the objective resists chart
+    /// motion when it is the canonicalization that removed it.
+    PinnedByCanonicalization,
 }
 
 /// Noise floor for the per-generator flatness verdict: a generator is
@@ -981,6 +1025,10 @@ pub struct GeneratorVerdict {
     /// mean-frame compression cannot distinguish from gauge motion is never
     /// read as a pin.
     pub lowering_error_scale: f64,
+    /// How this verdict was decided: by the curvature flatness test, or
+    /// pinned by the #1019 post-fit arc-length chart canonicalization
+    /// (see [`VerdictProvenance`]).
+    pub provenance: VerdictProvenance,
 }
 
 /// The #972 decoder-frame **inner-rotation gauge**, enumerated for the
@@ -1759,6 +1807,7 @@ fn exact_orbit_verdicts(
                 generator_norm: 0.0,
                 pinned_energy_fraction: 1.0,
                 lowering_error_scale: 0.0,
+                provenance: VerdictProvenance::CurvatureTest,
             });
             continue;
         }
@@ -1797,6 +1846,7 @@ fn exact_orbit_verdicts(
             generator_norm: raw.sqrt(),
             pinned_energy_fraction,
             lowering_error_scale: 0.0,
+            provenance: VerdictProvenance::CurvatureTest,
         });
     }
     Ok(out)
@@ -2198,6 +2248,7 @@ fn residual_gauge_inner(
                 generator_norm: 0.0,
                 pinned_energy_fraction: 1.0,
                 lowering_error_scale: *lowering_error_scale,
+                provenance: VerdictProvenance::CurvatureTest,
             });
             continue;
         }
@@ -2226,6 +2277,7 @@ fn residual_gauge_inner(
             generator_norm: norm,
             pinned_energy_fraction,
             lowering_error_scale: *lowering_error_scale,
+            provenance: VerdictProvenance::CurvatureTest,
         });
     }
 
@@ -2233,6 +2285,64 @@ fn residual_gauge_inner(
     // group signature, residual dimension, and Sym(F) check all range over
     // the union.
     verdicts.extend(exact_verdicts);
+
+    // #1019 — post-fit arc-length chart canonicalization records: for every
+    // canonicalized d = 1 atom the continuous chart (reparameterization)
+    // freedom is pinned BY CONSTRUCTION (the unit-speed representative of the
+    // Diff(M) orbit was selected post-fit, image-frozen), so the certificate
+    // records it pinned with the PinnedByCanonicalization provenance —
+    // distinct from curvature/penalty pinning, since no objective resistance
+    // was measured — and names the surviving FINITE isometry group of the
+    // reference manifold. The group's continuous part (the circle's U(1)
+    // shift) is still enumerated and curvature-tested above; this record is
+    // the chart-freedom downgrade itself.
+    let mut canonicalized_charts = 0usize;
+    let mut canonicalized_torus_charts = 0usize;
+    for atom in &model.atoms {
+        if !atom.chart_canonicalized {
+            continue;
+        }
+        let (pinned_to, residual_group) = match &atom.topology {
+            AtomTopology::Circle | AtomTopology::Torus { latent_dim: 1 } => {
+                canonicalized_charts += 1;
+                ("arc length", "O(2) on S¹ (rotation + reflection)")
+            }
+            AtomTopology::EuclideanPatch { latent_dim: 1 } => {
+                canonicalized_charts += 1;
+                (
+                    "arc length",
+                    "reflection + translation of the unit interval",
+                )
+            }
+            // #1019 stage 2: d = 2 torus charts are pinned post-fit to the
+            // minimum-isometry-defect flow representative; the surviving chart
+            // freedom is the isometry group of the flat square torus.
+            AtomTopology::Torus { latent_dim: 2 } => {
+                canonicalized_torus_charts += 1;
+                (
+                    "the isometry-flow canonical chart",
+                    "Isom(T², flat) = U(1)² ⋊ D₄ (axis translations + axis swap/reflections)",
+                )
+            }
+            // Canonicalization only ever applies to d = 1 charts and d = 2
+            // torus charts; a flag on any other topology is structurally
+            // inconsistent and must not fabricate a record.
+            _ => continue,
+        };
+        verdicts.push(GeneratorVerdict {
+            family: GeneratorFamily::ChartReparameterization,
+            description: format!(
+                "{}: chart pinned to {pinned_to} by post-fit canonicalization; \
+                 residual chart freedom = {residual_group}",
+                atom.name
+            ),
+            unpinned: false,
+            generator_norm: 0.0,
+            pinned_energy_fraction: 1.0,
+            lowering_error_scale: 0.0,
+            provenance: VerdictProvenance::PinnedByCanonicalization,
+        });
+    }
 
     let residual_gauge_dim = verdicts.iter().filter(|v| v.unpinned).count();
 
@@ -2270,6 +2380,23 @@ fn residual_gauge_inner(
             ""
         },
     );
+    let summary = if canonicalized_charts > 0 {
+        format!(
+            "{summary}; {canonicalized_charts} chart(s) pinned to arc length by post-fit \
+             canonicalization (residual chart freedom = finite isometry group)"
+        )
+    } else {
+        summary
+    };
+    let summary = if canonicalized_torus_charts > 0 {
+        format!(
+            "{summary}; {canonicalized_torus_charts} torus chart(s) pinned to the \
+             isometry-flow canonical chart by post-fit canonicalization (residual chart \
+             freedom = Isom(T², flat))"
+        )
+    } else {
+        summary
+    };
 
     Ok(ResidualGaugeReport {
         metric_provenance,

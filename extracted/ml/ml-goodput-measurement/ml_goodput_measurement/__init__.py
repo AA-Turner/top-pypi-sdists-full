@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,5 +16,7 @@ from ml_goodput_measurement.src import checkpoint_badput_calculator
 from ml_goodput_measurement.src import gcp_metrics
 from ml_goodput_measurement.src import goodput
 from ml_goodput_measurement.src import goodput_cache
+from ml_goodput_measurement.src import goodput_elastic
 from ml_goodput_measurement.src import goodput_utils
 from ml_goodput_measurement.src import monitoring
+from ml_goodput_measurement.src import monitoring_elastic

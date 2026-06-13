@@ -109,6 +109,7 @@ from .scheduling import (
     restore_scheduled_tasks,
 )
 from .startup_errors import PermanentStartupError
+from .sync_restart_retry import SyncRestartRetryQueue
 from .turn_controller import TurnController, TurnControllerDeps
 from .turn_policy import IngressHookRunner, TurnPolicy, TurnPolicyDeps
 from .turn_store import TurnStore, TurnStoreDeps
@@ -318,6 +319,7 @@ class AgentBot:
         self.config_path = config_path
         self.logger = logger.bind(agent=self.agent_name)
         self.stop_manager = StopManager()
+        self._restart_retry_queue = SyncRestartRetryQueue()
         self.running = False
         self.last_sync_time = None
         self._last_sync_monotonic = None
@@ -376,7 +378,6 @@ class AgentBot:
         self._coalescing_gate = CoalescingGate(
             dispatch_batch=self._dispatch_coalesced_batch,
             debounce_seconds=lambda: self.config.defaults.coalescing.debounce_ms / 1000,
-            upload_grace_seconds=lambda: self.config.defaults.coalescing.upload_grace_ms / 1000,
             is_shutting_down=lambda: self._sync_shutting_down,
             wait_until_dispatch_allowed=self._wait_until_coalesced_dispatch_allowed,
             room_scope_is_single_conversation=self._room_scope_is_single_conversation,
@@ -540,6 +541,7 @@ class AgentBot:
                 coalescing_gate=self._coalescing_gate,
                 edit_regenerator=self._edit_regenerator,
                 ingress=self._ingress_validator,
+                restart_retry=self._restart_retry_queue,
             ),
         )
 
@@ -1194,6 +1196,15 @@ class AgentBot:
         if self._sync_shutting_down:
             return
 
+        if self._restart_retry_queue.has_pending:
+            # The sync loop is healthy again: re-dispatch turns whose responses
+            # were cancelled by stall recovery, once each.
+            create_background_task(
+                self._restart_retry_queue.flush(),
+                name=f"sync_restart_retry_{self.agent_name}",
+                owner=self._runtime_view,
+            )
+
         if isinstance(_response, nio.SyncResponse):
             restored_token_first_sync_response = (
                 first_sync_response and self._sync_trust_state is SyncTrustState.PENDING
@@ -1299,7 +1310,10 @@ class AgentBot:
             self._restore_saved_sync_token()
             await self._set_avatar_if_available()
             await self._set_presence_with_model_info()
-            interactive.init_persistence(self.runtime_paths.storage_root)
+            # Both load tracking state under advisory file locks; keep that
+            # off the event loop so per-bot startup never stalls dispatch.
+            await asyncio.to_thread(self._turn_store.warm)
+            await asyncio.to_thread(interactive.init_persistence, self.runtime_paths.storage_root)
             client = self.client
             assert client is not None
 
@@ -1799,6 +1813,10 @@ class AgentBot:
                 self.runtime_paths,
             )
             if result:
+                # The selection's response may wait behind this conversation's
+                # active turn; the sender's lane slot must settle now, not at
+                # response completion.
+                await reservation_owner.release()
                 await self._turn_controller.handle_interactive_selection(
                     room,
                     selection=result,

@@ -210,10 +210,13 @@ def test_empty_messages_rejected() -> None:
         client.complete(system="s", messages=[], model="m")
 
 
-def test_timeout_defaults_to_300(monkeypatch: pytest.MonkeyPatch) -> None:
-    """v0.1.175 / #381: default per-call timeout is 300s."""
+def test_timeout_defaults_to_600(monkeypatch: pytest.MonkeyPatch) -> None:
+    """v0.1.227: default per-call timeout is 600s — a fresh subscription
+    gap-batch call's TTFT exceeded the old 300s default and killed the
+    2026-06-11 onboarding pipeline; 600 was the operator's working value
+    and matches the Bedrock read_timeout precedent."""
     monkeypatch.delenv("EFTERLEV_LLM_TIMEOUT", raising=False)
-    assert ClaudeCodeClient().timeout_seconds == 300.0
+    assert ClaudeCodeClient().timeout_seconds == 600.0
 
 
 def test_timeout_configurable_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -226,11 +229,11 @@ def test_timeout_configurable_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_timeout_env_invalid_falls_back_to_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A typo'd or non-positive env value falls back to 300, never crashes."""
+    """A typo'd or non-positive env value falls back to 600, never crashes."""
     monkeypatch.setenv("EFTERLEV_LLM_TIMEOUT", "not-a-number")
-    assert ClaudeCodeClient().timeout_seconds == 300.0
+    assert ClaudeCodeClient().timeout_seconds == 600.0
     monkeypatch.setenv("EFTERLEV_LLM_TIMEOUT", "-5")
-    assert ClaudeCodeClient().timeout_seconds == 300.0
+    assert ClaudeCodeClient().timeout_seconds == 600.0
 
 
 def test_claude_cli_available_reflects_path(

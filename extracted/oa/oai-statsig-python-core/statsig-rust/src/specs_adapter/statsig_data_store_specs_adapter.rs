@@ -50,6 +50,8 @@ impl StatsigDataStoreSpecsAdapter {
         let default_options = StatsigOptions::default();
         let options_ref = options.unwrap_or(&default_options);
 
+        let sdk_instance_id = options_ref.get_sdk_instance_id(sdk_key);
+
         StatsigDataStoreSpecsAdapter {
             data_store,
             cache_keys: DataStoreCacheKeys::from_selected_key(data_store_key),
@@ -58,7 +60,7 @@ impl StatsigDataStoreSpecsAdapter {
                     .specs_sync_interval_ms
                     .unwrap_or(DEFAULT_SYNC_INTERVAL_MS),
             )),
-            ops_stats: OPS_STATS.get_for_instance(sdk_key),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             listener: RwLock::new(None),
             shutdown_notify: Arc::new(Notify::new()),
         }
