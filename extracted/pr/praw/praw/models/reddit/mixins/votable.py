@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
-from ....const import API_PATH
+from typing import TYPE_CHECKING
+
+from praw.const import API_PATH
+
+if TYPE_CHECKING:
+    import praw
 
 
 class VotableMixin:
     """Interface for :class:`.RedditBase` classes that can be voted on."""
 
-    def _vote(self, direction: int):
-        self._reddit.post(
-            API_PATH["vote"], data={"dir": str(direction), "id": self.fullname}
-        )
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: praw.Reddit
 
-    def clear_vote(self):
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    def _vote(self, direction: int) -> None:
+        self._reddit.post(API_PATH["vote"], data={"dir": str(direction), "id": self.fullname})
+
+    def clear_vote(self) -> None:
         """Clear the authenticated user's vote on the object.
 
         .. note::
@@ -37,7 +47,7 @@ class VotableMixin:
         """
         self._vote(direction=0)
 
-    def downvote(self):
+    def downvote(self) -> None:
         """Downvote the object.
 
         .. note::
@@ -65,7 +75,7 @@ class VotableMixin:
         """
         self._vote(direction=-1)
 
-    def upvote(self):
+    def upvote(self) -> None:
         """Upvote the object.
 
         .. note::

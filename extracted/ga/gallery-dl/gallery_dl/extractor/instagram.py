@@ -377,6 +377,7 @@ class InstagramExtractor(Extractor):
             try:
                 if audio := self._extract_audio(
                         post, data, metadata.get("music_info")):
+                    num += 1
                     audio["num"] = num
                     files.append(audio)
             except Exception as exc:
@@ -385,6 +386,7 @@ class InstagramExtractor(Extractor):
         if clips := post.get("clips_metadata"):
             try:
                 if audio := self._extract_audio(post, data, clips):
+                    num += 1
                     audio["num"] = num
                     files.append(audio)
             except Exception as exc:

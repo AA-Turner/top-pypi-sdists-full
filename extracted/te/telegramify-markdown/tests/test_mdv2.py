@@ -174,6 +174,35 @@ class CustomEmojiTest(unittest.TestCase):
         self.assertEqual(result, "![😀](tg://emoji?id=12345)")
 
 
+class DateTimeTest(unittest.TestCase):
+    def test_date_time(self):
+        text = "22:45 tomorrow"
+        entities = [
+            MessageEntity(
+                type="date_time",
+                offset=0,
+                length=utf16_len(text),
+                unix_time=1647531900,
+                date_time_format="wDT",
+            )
+        ]
+        result = entities_to_markdownv2(text, entities)
+        self.assertEqual(result, "![22:45 tomorrow](tg://time?unix=1647531900&format=wDT)")
+
+    def test_date_time_without_format(self):
+        text = "22:45 tomorrow"
+        entities = [
+            MessageEntity(
+                type="date_time",
+                offset=0,
+                length=utf16_len(text),
+                unix_time=1647531900,
+            )
+        ]
+        result = entities_to_markdownv2(text, entities)
+        self.assertEqual(result, "![22:45 tomorrow](tg://time?unix=1647531900)")
+
+
 class BlockquoteTest(unittest.TestCase):
     def test_blockquote_single_line(self):
         text = "quoted text"
@@ -194,6 +223,16 @@ class ExpandableBlockquoteTest(unittest.TestCase):
         entities = [MessageEntity(type="expandable_blockquote", offset=0, length=utf16_len(text))]
         result = entities_to_markdownv2(text, entities)
         self.assertEqual(result, "**>summary\n>details||")
+
+    def test_expandable_blockquote_with_same_range_bold(self):
+        """相同范围的 bold 应在 expandable blockquote 标记前闭合。"""
+        text = "line1\nline2"
+        entities = [
+            MessageEntity(type="bold", offset=0, length=utf16_len(text)),
+            MessageEntity(type="expandable_blockquote", offset=0, length=utf16_len(text)),
+        ]
+        result = entities_to_markdownv2(text, entities)
+        self.assertEqual(result, "**>*line1\n>line2*||")
 
 
 # ── 第三层：组合与边界 ──

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiodiscover
-Version: 3.3.1
+Version: 3.3.2
 Summary: Discover hosts by arp and ptr lookup
 License-Expression: Apache-2.0
 License-File: LICENSE

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-pysftp
-Version: 0.2.17.20260518
+Version: 0.2.17.20260613
 Summary: Typing stubs for pysftp
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -24,6 +24,9 @@ to check code that uses `pysftp`. This version of
 `types-pysftp` aims to provide accurate annotations for
 `pysftp==0.2.*`.
 
+*Note:* `types-pysftp` is unmaintained and won't be updated.
+
+
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
 See [the README](https://github.com/python/typeshed/blob/main/README.md)
@@ -33,7 +36,7 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`66e36172ad0407db1f854bdb170e6f8a60684275`](https://github.com/python/typeshed/commit/66e36172ad0407db1f854bdb170e6f8a60684275).

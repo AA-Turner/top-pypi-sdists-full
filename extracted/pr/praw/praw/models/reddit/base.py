@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from ...endpoints import API_PATH
-from ...exceptions import InvalidURL
-from ..base import PRAWBase
+from praw.endpoints import API_PATH
+from praw.exceptions import InvalidURL
+from praw.models.base import PRAWBase
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import praw
 
 
@@ -27,10 +27,7 @@ class RedditBase(PRAWBase):
         """Return whether the other instance equals the current."""
         if isinstance(other, str):
             return other.lower() == str(self).lower()
-        return (
-            isinstance(other, self.__class__)
-            and str(self).lower() == str(other).lower()
-        )
+        return isinstance(other, self.__class__) and str(self).lower() == str(other).lower()
 
     def __getattr__(self, attribute: str) -> Any:
         """Return the value of ``attribute``."""
@@ -48,10 +45,11 @@ class RedditBase(PRAWBase):
         self,
         reddit: praw.Reddit,
         _data: dict[str, Any] | None,
+        *,
         _extra_attribute_to_check: str | None = None,
         _fetched: bool = False,
         _str_field: bool = True,
-    ):
+    ) -> None:
         """Initialize a :class:`.RedditBase` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
@@ -60,10 +58,7 @@ class RedditBase(PRAWBase):
         super().__init__(reddit, _data=_data)
         self._fetched = _fetched
         if _str_field and self.STR_FIELD not in self.__dict__:
-            if (
-                _extra_attribute_to_check is not None
-                and _extra_attribute_to_check in self.__dict__
-            ):
+            if _extra_attribute_to_check is not None and _extra_attribute_to_check in self.__dict__:
                 return
             msg = f"An invalid value was specified for {self.STR_FIELD}. Check that the argument for the {self.STR_FIELD} parameter is not empty."
             raise ValueError(msg)
@@ -80,15 +75,15 @@ class RedditBase(PRAWBase):
         """Return a string representation of the instance."""
         return getattr(self, self.STR_FIELD)
 
-    def _fetch(self):
+    def _fetch(self) -> None:
         self._fetched = True
 
-    def _fetch_data(self):
+    def _fetch_data(self) -> Any:
         name, fields, params = self._fetch_info()
         path = API_PATH[name].format(**fields)
         return self._reddit.request(method="GET", params=params, path=path)
 
-    def _reset_attributes(self, *attributes: str):
+    def _reset_attributes(self, *attributes: str) -> None:
         for attribute in attributes:
             if attribute in self.__dict__:
                 del self.__dict__[attribute]

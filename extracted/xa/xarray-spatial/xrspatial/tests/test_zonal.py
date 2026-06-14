@@ -1276,10 +1276,12 @@ def test_stats_3d_timeseries_via_dataset_custom_stats(backend):
     check_results(backend, df_result, expected)
 
 
-@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy'])
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
 def test_count_crosstab_2d(backend, data_zones, data_values_2d, result_count_crosstab_2d):
     # copy input data to verify they're unchanged after running the function
 
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
     if 'dask' in backend and not dask_array_available():
         pytest.skip("Requires Dask")
 
@@ -1295,10 +1297,12 @@ def test_count_crosstab_2d(backend, data_zones, data_values_2d, result_count_cro
     assert_input_data_unmodified(data_values_2d, copied_data_values_2d)
 
 
-@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy'])
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
 def test_percentage_crosstab_2d(backend, data_zones, data_values_2d, result_percentage_crosstab_2d):
     # copy input data to verify they're unchanged after running the function
 
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
     if 'dask' in backend and not dask_array_available():
         pytest.skip("Requires Dask")
 
@@ -1862,6 +1866,123 @@ def test_regions_numpy_dask_match(backend):
     # 0-region is connected, 1-region, 2-region, and two separate 3-regions
     assert _count_unique(result) == 5
     assert result.shape == arr.shape
+
+
+def _regions_gpu_backends():
+    backends = []
+    if has_cuda_and_cupy():
+        backends.append('cupy')
+        if has_dask_array():
+            backends.append('dask+cupy')
+    return backends
+
+
+@pytest.mark.parametrize("backend", _regions_gpu_backends())
+def test_regions_gpu_matches_numpy(backend):
+    """The cupy and dask+cupy backends must match the numpy backend.
+
+    The ``_regions_cupy`` / ``_regions_dask_cupy`` paths (using
+    ``cupyx.scipy.ndimage.label``) had no test exercising them, so a
+    regression in either could ship undetected. This parametrizes the
+    same 4-connectivity case used by ``test_regions_numpy_dask_match``
+    over the GPU backends and asserts a cell-by-cell match against the
+    numpy reference.
+    """
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and not has_dask_array():
+        pytest.skip("Requires Dask")
+
+    arr = np.array([[1, 1, 0, 2],
+                    [1, 1, 0, 2],
+                    [0, 0, 0, 0],
+                    [3, 3, 0, 3]], dtype=np.float64)
+
+    numpy_result = regions(_make_regions_raster(arr, 'numpy'), neighborhood=4)
+
+    gpu_raster = _make_regions_raster(arr, backend)
+    gpu_result = regions(gpu_raster, neighborhood=4)
+
+    general_output_checks(gpu_raster, gpu_result)
+
+    gpu_data = gpu_result.data
+    if da is not None and isinstance(gpu_data, da.Array):
+        gpu_data = gpu_data.compute()
+    if hasattr(gpu_data, 'get'):
+        gpu_data = gpu_data.get()
+
+    np.testing.assert_allclose(
+        gpu_data, numpy_result.data, equal_nan=True
+    )
+
+
+def _regions_relabel_reference(data, neighborhood):
+    """Per-region relabel: the original O(n_regions * n_cells) semantics.
+
+    Kept here as the reference the vectorized backend remap must match
+    byte-for-byte (issue #3207).
+    """
+    from scipy.ndimage import label
+
+    structure = (
+        np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+        if neighborhood == 4 else np.ones((3, 3), dtype=int)
+    )
+    is_float = np.issubdtype(data.dtype, np.floating)
+    valid = ~np.isnan(data) if is_float else np.ones(data.shape, dtype=bool)
+    unique_vals = np.unique(data[valid])
+
+    out = np.full(data.shape, np.nan, dtype=np.float64)
+    uid = 1
+    for v in unique_vals:
+        mask = (data == v)
+        if is_float:
+            mask &= valid
+        labeled, n_features = label(mask, structure=structure)
+        for region_id in range(1, n_features + 1):
+            out[labeled == region_id] = uid
+            uid += 1
+    return out
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("neighborhood", [4, 8])
+def test_regions_many_regions_matches_reference_3207(backend, neighborhood):
+    """Vectorized relabel equals the per-region reference on a many-region input.
+
+    Random 0/1 noise yields thousands of tiny connected components, the case
+    the old per-region scan was slow on.  Every backend must produce the same
+    labeling the original loop did: identical unique count, identical id at
+    every cell, and distinct ids for distinct regions.
+    """
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("CUDA and cupy required")
+
+    rng = np.random.default_rng(3207)
+    arr = rng.integers(0, 2, size=(48, 48)).astype(np.float64)
+
+    expected = _regions_relabel_reference(arr, neighborhood)
+
+    raster = _make_regions_raster(arr, backend)
+    result = regions(raster, neighborhood=neighborhood)
+
+    data = result.data
+    if da is not None and isinstance(data, da.Array):
+        data = data.compute()
+    if not isinstance(data, np.ndarray):  # cupy
+        data = data.get()
+
+    # same id at every cell (NaN-aware) and same shape
+    np.testing.assert_array_equal(
+        np.nan_to_num(data, nan=-1.0), np.nan_to_num(expected, nan=-1.0)
+    )
+    assert result.shape == arr.shape
+
+    # distinct regions get distinct ids: the labeled cells number 1..N with no
+    # gaps, so the count of unique finite ids equals the max id.
+    finite = data[~np.isnan(data)]
+    assert finite.size > 1000  # this input really does produce many regions
+    assert len(np.unique(finite)) == int(finite.max())
 
 
 @pytest.mark.skipif(da is None, reason="dask not installed")

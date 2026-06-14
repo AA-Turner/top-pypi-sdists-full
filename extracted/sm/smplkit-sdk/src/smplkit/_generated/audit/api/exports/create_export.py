@@ -61,7 +61,10 @@ def sync_detailed(
      Mint a short-lived signed URL to stream an events download.
 
     The request body specifies `format` (`CSV` or `JSONL`) and any
-    subset of the event filters accepted by `GET /api/v1/events`. The
+    subset of the event filters accepted by `GET /api/v1/events`. An
+    export is scoped to a single environment: name it in the body's
+    `environment` field, or omit it and a single-environment credential
+    implies it (a multi-environment credential must name it). The
     response returns the signed URL plus its expiry (30 seconds from
     mint). Open the URL in a browser to stream the file to disk; no
     `Authorization` header is required at download time.
@@ -106,7 +109,10 @@ def sync(
      Mint a short-lived signed URL to stream an events download.
 
     The request body specifies `format` (`CSV` or `JSONL`) and any
-    subset of the event filters accepted by `GET /api/v1/events`. The
+    subset of the event filters accepted by `GET /api/v1/events`. An
+    export is scoped to a single environment: name it in the body's
+    `environment` field, or omit it and a single-environment credential
+    implies it (a multi-environment credential must name it). The
     response returns the signed URL plus its expiry (30 seconds from
     mint). Open the URL in a browser to stream the file to disk; no
     `Authorization` header is required at download time.
@@ -146,7 +152,10 @@ async def asyncio_detailed(
      Mint a short-lived signed URL to stream an events download.
 
     The request body specifies `format` (`CSV` or `JSONL`) and any
-    subset of the event filters accepted by `GET /api/v1/events`. The
+    subset of the event filters accepted by `GET /api/v1/events`. An
+    export is scoped to a single environment: name it in the body's
+    `environment` field, or omit it and a single-environment credential
+    implies it (a multi-environment credential must name it). The
     response returns the signed URL plus its expiry (30 seconds from
     mint). Open the URL in a browser to stream the file to disk; no
     `Authorization` header is required at download time.
@@ -189,7 +198,10 @@ async def asyncio(
      Mint a short-lived signed URL to stream an events download.
 
     The request body specifies `format` (`CSV` or `JSONL`) and any
-    subset of the event filters accepted by `GET /api/v1/events`. The
+    subset of the event filters accepted by `GET /api/v1/events`. An
+    export is scoped to a single environment: name it in the body's
+    `environment` field, or omit it and a single-environment credential
+    implies it (a multi-environment credential must name it). The
     response returns the signed URL plus its expiry (30 seconds from
     mint). Open the URL in a browser to stream the file to disk; no
     `Authorization` header is required at download time.

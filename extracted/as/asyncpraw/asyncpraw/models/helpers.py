@@ -3,17 +3,108 @@
 from __future__ import annotations
 
 from json import dumps
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any, overload
 
-from ..const import API_PATH
-from ..util import _deprecate_args
-from .base import AsyncPRAWBase
-from .reddit.draft import Draft
-from .reddit.live import LiveThread
-from .reddit.multi import Multireddit, Subreddit
+from asyncpraw.const import API_PATH
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.generator import ListingGenerator
+from asyncpraw.models.reddit.draft import Draft
+from asyncpraw.models.reddit.live import LiveThread
+from asyncpraw.models.reddit.multi import Multireddit, Subreddit
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
+
+
+class AnnouncementHelper(AsyncPRAWBase):
+    r"""Provide a set of functions to interact with :class:`.Announcement` instances.
+
+    .. note::
+
+        The methods provided by this class will only work on the currently authenticated
+        user's :class:`.Announcement`\ s.
+
+    """
+
+    def __call__(self, **generator_kwargs: Any) -> ListingGenerator:
+        """Return a :class:`.ListingGenerator` for the authenticated user's announcements.
+
+        Additional keyword arguments are passed in the initialization of
+        :class:`.ListingGenerator`.
+
+        Example usage:
+
+        .. code-block:: python
+
+            async for announcement in reddit.announcements():
+                print(announcement.subject)
+
+        """
+        return ListingGenerator(self._reddit, API_PATH["announcements"], **generator_kwargs)
+
+    async def hide(self, announcements: list[asyncpraw.models.Announcement]) -> None:
+        r"""Hide :class:`.Announcement`\ s.
+
+        :param announcements: A list of :class:`.Announcement` instances to hide.
+
+        Requests are batched at 100 items (Reddit limit).
+
+        For example, to hide every announcement:
+
+        .. code-block:: python
+
+            await reddit.announcements.hide([a async for a in reddit.announcements()])
+
+        .. seealso::
+
+            :meth:`.Announcement.hide` to hide a single announcement.
+
+        """
+        while announcements:
+            ids = ",".join(announcement.fullname for announcement in announcements[:100])
+            await self._reddit.post(API_PATH["hide_announcements"], data={"ids": ids})
+            announcements = announcements[100:]
+
+    async def mark_all_read(self) -> None:
+        """Mark all announcements as read with just one API call.
+
+        Example usage:
+
+        .. code-block:: python
+
+            await reddit.announcements.mark_all_read()
+
+        """
+        await self._reddit.post(API_PATH["read_all_announcements"])
+
+    async def mark_read(self, announcements: list[asyncpraw.models.Announcement]) -> None:
+        r"""Mark :class:`.Announcement`\ s as read.
+
+        :param announcements: A list of :class:`.Announcement` instances to mark as
+            read.
+
+        Requests are batched at 100 items (Reddit limit).
+
+        For example, to mark every unread announcement as read:
+
+        .. code-block:: python
+
+            unread = [a async for a in reddit.announcements() if a.read_at is None]
+            await reddit.announcements.mark_read(unread)
+
+        .. seealso::
+
+            - :meth:`.Announcement.mark_read` to mark a single announcement as read.
+            - :meth:`.AnnouncementHelper.mark_all_read` to mark all announcements as
+              read.
+
+        """
+        while announcements:
+            ids = ",".join(announcement.fullname for announcement in announcements[:100])
+            await self._reddit.post(API_PATH["read_announcements"], data={"ids": ids})
+            announcements = announcements[100:]
 
 
 class DraftHelper(AsyncPRAWBase):
@@ -26,7 +117,7 @@ class DraftHelper(AsyncPRAWBase):
 
     """
 
-    async def __aiter__(self):
+    async def __aiter__(self) -> AsyncIterator[asyncpraw.models.Draft]:
         r"""Iterate through all the :class:`.Draft`\ s.
 
         :returns: An asynchronous iterator containing all the currently authenticated
@@ -42,8 +133,14 @@ class DraftHelper(AsyncPRAWBase):
         for draft in drafts:
             yield draft
 
+    @overload
+    async def __call__(self, draft_id: None = None, *, fetch: bool = True) -> list[asyncpraw.models.Draft]: ...
+
+    @overload
+    async def __call__(self, draft_id: str, *, fetch: bool = True) -> asyncpraw.models.Draft: ...
+
     async def __call__(
-        self, draft_id: str | None = None, fetch: bool = True
+        self, draft_id: str | None = None, *, fetch: bool = True
     ) -> list[asyncpraw.models.Draft] | asyncpraw.models.Draft:
         """Return a list of :class:`.Draft` instances.
 
@@ -90,9 +187,7 @@ class DraftHelper(AsyncPRAWBase):
         selftext: str | None = None,
         send_replies: bool = True,
         spoiler: bool = False,
-        subreddit: (
-            str | asyncpraw.models.Subreddit | asyncpraw.models.UserSubreddit | None
-        ) = None,
+        subreddit: (str | asyncpraw.models.Subreddit | asyncpraw.models.UserSubreddit | None) = None,
         title: str | None = None,
         url: str | None = None,
         **draft_kwargs: Any,
@@ -155,9 +250,7 @@ class DraftHelper(AsyncPRAWBase):
 class LiveHelper(AsyncPRAWBase):
     r"""Provide a set of functions to interact with :class:`.LiveThread`\ s."""
 
-    async def __call__(
-        self, id: str, fetch: bool = False
-    ) -> asyncpraw.models.LiveThread:
+    async def __call__(self, id: str, *, fetch: bool = False) -> asyncpraw.models.LiveThread:
         """Return a new instance of :class:`.LiveThread`.
 
         This method is intended to be used as:
@@ -184,14 +277,13 @@ class LiveHelper(AsyncPRAWBase):
             await live_thread._fetch()
         return live_thread
 
-    @_deprecate_args("title", "description", "nsfw", "resources")
     async def create(
         self,
         title: str,
         *,
         description: str | None = None,
         nsfw: bool = False,
-        resources: str = None,
+        resources: str | None = None,
     ) -> asyncpraw.models.LiveThread:
         """Create a new :class:`.LiveThread`.
 
@@ -215,7 +307,7 @@ class LiveHelper(AsyncPRAWBase):
             },
         )
 
-    def info(self, ids: list[str]) -> AsyncGenerator[asyncpraw.models.LiveThread, None]:
+    def info(self, ids: list[str]) -> AsyncIterator[asyncpraw.models.LiveThread]:
         """Fetch information about each live thread in ``ids``.
 
         :param ids: A list of IDs for a live thread.
@@ -248,11 +340,11 @@ class LiveHelper(AsyncPRAWBase):
             msg = "ids must be a list"
             raise TypeError(msg)
 
-        async def generator():
+        async def generator() -> AsyncIterator[asyncpraw.models.LiveThread]:
             for position in range(0, len(ids), 100):
                 ids_chunk = ids[position : position + 100]
                 url = API_PATH["live_info"].format(ids=",".join(ids_chunk))
-                params = {"limit": 100}  # 25 is used if not specified
+                params: dict[str, str | int] = {"limit": 100}  # 25 is used if not specified
                 for result in await self._reddit.get(url, params=params):
                     yield result
 
@@ -277,7 +369,6 @@ class LiveHelper(AsyncPRAWBase):
 class MultiredditHelper(AsyncPRAWBase):
     """Provide a set of functions to interact with multireddits."""
 
-    @_deprecate_args("redditor", "name")
     async def __call__(
         self,
         *,
@@ -310,15 +401,6 @@ class MultiredditHelper(AsyncPRAWBase):
             await multireddit._fetch()
         return multireddit
 
-    @_deprecate_args(
-        "display_name",
-        "subreddits",
-        "description_md",
-        "icon_name",
-        "key_color",
-        "visibility",
-        "weighting_scheme",
-    )
     async def create(
         self,
         *,
@@ -326,7 +408,7 @@ class MultiredditHelper(AsyncPRAWBase):
         display_name: str,
         icon_name: str | None = None,
         key_color: str | None = None,
-        subreddits: str | asyncpraw.models.Subreddit,
+        subreddits: list[str | asyncpraw.models.Subreddit],
         visibility: str = "private",
         weighting_scheme: str = "classic",
     ) -> asyncpraw.models.Multireddit:
@@ -362,17 +444,13 @@ class MultiredditHelper(AsyncPRAWBase):
             "visibility": visibility,
             "weighting_scheme": weighting_scheme,
         }
-        return await self._reddit.post(
-            API_PATH["multireddit_base"], data={"model": dumps(model)}
-        )
+        return await self._reddit.post(API_PATH["multireddit_base"], data={"model": dumps(model)})
 
 
 class SubredditHelper(AsyncPRAWBase):
     """Provide a set of functions to interact with Subreddits."""
 
-    async def __call__(
-        self, display_name: str, fetch: bool = False
-    ) -> asyncpraw.models.Subreddit:
+    async def __call__(self, display_name: str, *, fetch: bool = False) -> asyncpraw.models.Subreddit:
         """Return an instance of :class:`.Subreddit`.
 
         :param display_name: The name of the subreddit.
@@ -388,18 +466,11 @@ class SubredditHelper(AsyncPRAWBase):
             print(subreddit.subscribers)
 
         """
-        lower_name = display_name.lower()
-
-        if lower_name == "random":
-            return await self._reddit.random_subreddit()
-        if lower_name == "randnsfw":
-            return await self._reddit.random_subreddit(nsfw=True)
         subreddit = Subreddit(self._reddit, display_name=display_name)
         if fetch:
             await subreddit._fetch()
         return subreddit
 
-    @_deprecate_args("name", "title", "link_type", "subreddit_type", "wikimode")
     async def create(
         self,
         name: str,
@@ -408,7 +479,7 @@ class SubredditHelper(AsyncPRAWBase):
         subreddit_type: str = "public",
         title: str | None = None,
         wikimode: str = "disabled",
-        **other_settings: str | None,
+        **other_settings: Any,
     ) -> asyncpraw.models.Subreddit:
         """Create a new :class:`.Subreddit`.
 

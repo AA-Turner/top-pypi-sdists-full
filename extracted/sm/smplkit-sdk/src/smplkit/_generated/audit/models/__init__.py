@@ -68,6 +68,7 @@ from .pagination_meta import PaginationMeta
 from .resource_type_attributes import ResourceTypeAttributes
 from .resource_type_list_response import ResourceTypeListResponse
 from .resource_type_resource import ResourceTypeResource
+from .retry_failed_deliveries_request import RetryFailedDeliveriesRequest
 from .retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
 from .severity import Severity
 from .test_forwarder_request import TestForwarderRequest
@@ -147,6 +148,7 @@ __all__ = (
     "ResourceTypeAttributes",
     "ResourceTypeListResponse",
     "ResourceTypeResource",
+    "RetryFailedDeliveriesRequest",
     "RetryFailedDeliveriesSummary",
     "Severity",
     "TestForwarderRequest",

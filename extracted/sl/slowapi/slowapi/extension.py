@@ -1,6 +1,7 @@
 """
 The starlette extension to rate-limit requests
 """
+
 import asyncio
 import functools
 import inspect
@@ -486,8 +487,12 @@ class Limiter:
         limit_for_header = None
         for lim in limits:
             limit_scope = lim.scope or endpoint
-            if lim.is_exempt:
+            if getattr(lim, "_exempt_when_takes_request", False):
+                if lim.is_exempt(request):
+                    continue
+            elif lim.is_exempt():
                 continue
+
             if lim.methods is not None and request.method.lower() not in lim.methods:
                 continue
             if lim.per_method:
@@ -632,7 +637,7 @@ class Limiter:
             if isinstance(e, RateLimitExceeded):
                 raise
             if self._in_memory_fallback_enabled and not self._storage_dead:
-                self.logger.warn(
+                self.logger.warning(
                     "Rate limit storage unreachable - falling back to"
                     " in-memory storage"
                 )
@@ -703,11 +708,9 @@ class Limiter:
             else:
                 self._route_limits.setdefault(name, []).extend(static_limits)
 
-            connection_type: Optional[str] = None
             sig = inspect.signature(func)
             for idx, parameter in enumerate(sig.parameters.values()):
                 if parameter.name == "request" or parameter.name == "websocket":
-                    connection_type = parameter.name
                     break
             else:
                 raise Exception(
@@ -736,7 +739,8 @@ class Limiter:
                         if not isinstance(response, Response):
                             # get the response object from the decorated endpoint function
                             self._inject_headers(
-                                kwargs.get("response"), request.state.view_rate_limit  # type: ignore
+                                kwargs.get("response"),  # type: ignore
+                                request.state.view_rate_limit,
                             )
                         else:
                             self._inject_headers(
@@ -768,7 +772,8 @@ class Limiter:
                         if not isinstance(response, Response):
                             # get the response object from the decorated endpoint function
                             self._inject_headers(
-                                kwargs.get("response"), request.state.view_rate_limit  # type: ignore
+                                kwargs.get("response"),
+                                request.state.view_rate_limit,  # type: ignore
                             )
                         else:
                             self._inject_headers(
@@ -805,7 +810,7 @@ class Limiter:
         * **error_message**: string (or callable that returns one) to override the
          error message used in the response.
         * **exempt_when**: function returning a boolean indicating whether to exempt
-        the route from the limit
+        the route from the limit. This function can optionally use a Request object.
         * **cost**: integer (or callable that returns one) which is the cost of a hit
         * **override_defaults**: whether to override the default limits (default: True)
         """

@@ -37,6 +37,7 @@ import copy
 import shutil
 import inspect
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -2812,6 +2813,7 @@ class ResponsesFunctionTool(BaseModel):
 class ResponsesCustomToolFormat(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    type: Optional[str] = None
     syntax: Optional[str] = None
     definition: Optional[str] = None
 
@@ -2880,10 +2882,24 @@ class ResponsesWebSearchTool(BaseModel):
     type: Literal["web_search"]
 
 
+class ResponsesNamespaceTool(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["namespace"]
+
+
+class ResponsesImageGenerationTool(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["image_generation"]
+
+
 ResponsesToolDefinition = Union[
     ResponsesFunctionTool,
     ResponsesCustomTool,
     ResponsesWebSearchTool,
+    ResponsesNamespaceTool,
+    ResponsesImageGenerationTool,
 ]
 
 
@@ -3207,8 +3223,10 @@ class ConfigFile(BaseModel):
         embedding_cache: Optional["ConfigFile.MTMDEmbeddingCacheOptions"] = None
         allowed_media_domains: Optional[List[str]] = None
         allowed_local_media_path: Optional[str] = None
+        batch_max_tokens: int = Field(default=1024, ge=1)
         image_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
         audio_max_bytes: int = Field(default=100 * 1024 * 1024, ge=1)
+        video_max_bytes: int = Field(default=512 * 1024 * 1024, ge=1)
         image_timeout_seconds: float = Field(default=10.0, gt=0.0)
 
         @model_validator(mode="after")
@@ -3335,7 +3353,7 @@ ConfigFile.model_rebuild()
 
 @dataclass(frozen=True)
 class MediaInput:
-    kind: Literal["image", "audio"]
+    kind: Literal["image", "audio", "video"]
     url: Optional[str] = None
     data: Optional[str] = None
     format: Optional[str] = None
@@ -3411,6 +3429,33 @@ class Jinja2ChatFormatter:
                         )
                     )
                     continue
+                if part_type in {"video_url", "input_video", "video"}:
+                    input_video = part.get("input_video")
+                    if isinstance(input_video, dict):
+                        data = input_video.get("data")
+                        video_url = input_video.get("video_url") or input_video.get("url")
+                        video_format = input_video.get("format")
+                    else:
+                        data = part.get("data")
+                        video_url = part.get("video_url") or part.get("url")
+                        video_format = part.get("format")
+                    if isinstance(video_url, dict):
+                        video_url = video_url.get("url")
+                    if isinstance(data, str):
+                        if video_format is not None and not isinstance(video_format, str):
+                            raise ValueError("input_video format must be a string")
+                        media_inputs.append(
+                            MediaInput(
+                                kind="video",
+                                data=data,
+                                format=cast(Optional[str], video_format),
+                            )
+                        )
+                    elif isinstance(video_url, str):
+                        media_inputs.append(MediaInput(kind="video", url=video_url))
+                    else:
+                        raise ValueError("video content part requires base64 data or a URL string")
+                    continue
         return media_inputs
 
     @staticmethod
@@ -3432,7 +3477,16 @@ class Jinja2ChatFormatter:
         if not isinstance(part, dict):
             raise ValueError("content parts must be strings or objects")
         part_type = part.get("type")
-        if part_type in {"image_url", "input_image", "image", "audio_url", "input_audio"}:
+        if part_type in {
+            "image_url",
+            "input_image",
+            "image",
+            "audio_url",
+            "input_audio",
+            "video_url",
+            "input_video",
+            "video",
+        }:
             if media_marker is None:
                 raise ValueError("multimodal content requires model.mtmd")
             return media_marker
@@ -3679,7 +3733,7 @@ class PromptSegment:
         positions: np.ndarray
         non_causal: bool = False
 
-    kind: Literal["text", "image", "audio"]
+    kind: Literal["text", "image", "audio", "video"]
     start_pos: int
     n_pos: int
     identity_tokens: List[int]
@@ -4336,6 +4390,9 @@ class ResponseParser:
             strings.append(match.group(1))
             return f"\x00{len(strings) - 1}\x00"
 
+        stripped = text.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            text = "{" + stripped[1:-1] + "}"
         text = re.sub(r'<\|"\|>(.*?)<\|"\|>', capture, text, flags=re.S)
         text = re.sub(r"(?<=[{,])(\w+):", r'"\1":', text)
         for index, value in enumerate(strings):
@@ -4344,6 +4401,11 @@ class ResponseParser:
 
     @staticmethod
     def _regex_literal_prefix(pattern: str) -> str:
+        literal, _ = ResponseParser._regex_literal_prefix_and_remainder(pattern)
+        return literal
+
+    @staticmethod
+    def _regex_literal_prefix_and_remainder(pattern: str) -> Tuple[str, str]:
         literal: List[str] = []
         index = 0
         while index < len(pattern):
@@ -4365,7 +4427,181 @@ class ResponseParser:
                 break
             literal.append(char)
             index += 1
-        return "".join(literal)
+        return "".join(literal), pattern[index:]
+
+    @staticmethod
+    def _find_regex_group_end(pattern: str, start: int) -> int:
+        depth = 0
+        escaped = False
+        in_character_class = False
+        for index in range(start, len(pattern)):
+            char = pattern[index]
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == "[":
+                in_character_class = True
+                continue
+            if char == "]" and in_character_class:
+                in_character_class = False
+                continue
+            if in_character_class:
+                continue
+            if char == "(":
+                depth += 1
+                continue
+            if char == ")":
+                depth -= 1
+                if depth == 0:
+                    return index
+        return -1
+
+    @classmethod
+    def _consume_optional_literal_prefix(
+        cls,
+        pattern: str,
+    ) -> Optional[Tuple[str, str]]:
+        if not pattern.startswith("(?:"):
+            return None
+        group_end = cls._find_regex_group_end(pattern, 0)
+        if group_end < 0 or group_end + 1 >= len(pattern) or pattern[group_end + 1] != "?":
+            return None
+        literal, remainder = cls._regex_literal_prefix_and_remainder(pattern[3:group_end])
+        if not literal or remainder:
+            return None
+        return literal, pattern[group_end + 2 :]
+
+    @staticmethod
+    def _split_regex_alternatives(pattern: str) -> List[str]:
+        alternatives: List[str] = []
+        start = 0
+        depth = 0
+        escaped = False
+        in_character_class = False
+        for index, char in enumerate(pattern):
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == "[":
+                in_character_class = True
+                continue
+            if char == "]" and in_character_class:
+                in_character_class = False
+                continue
+            if in_character_class:
+                continue
+            if char == "(":
+                depth += 1
+                continue
+            if char == ")":
+                depth -= 1
+                continue
+            if char == "|" and depth == 0:
+                alternatives.append(pattern[start:index])
+                start = index + 1
+        alternatives.append(pattern[start:])
+        return alternatives
+
+    @classmethod
+    def _regex_lookahead_literal_specs(cls, pattern: str) -> List[Tuple[str, bool]]:
+        if not pattern.startswith("(?="):
+            return []
+        group_end = cls._find_regex_group_end(pattern, 0)
+        if group_end < 0:
+            return []
+        literals: List[Tuple[str, bool]] = []
+        for alternative in cls._split_regex_alternatives(pattern[3:group_end]):
+            strip_leading_whitespace = False
+            while alternative.startswith(r"\s*"):
+                strip_leading_whitespace = True
+                alternative = alternative[3:]
+            if alternative == "$":
+                continue
+            if alternative.endswith("$"):
+                alternative = alternative[:-1]
+            literal, _ = cls._regex_literal_prefix_and_remainder(alternative)
+            if literal:
+                literals.append((literal, strip_leading_whitespace))
+        return literals
+
+    @classmethod
+    def _regex_capture_parts(
+        cls,
+        pattern: str,
+    ) -> Optional[Tuple[str, str]]:
+        normalized = pattern.lstrip("^")
+        captures = [
+            (index, token)
+            for token in ("(.*?)", "(.*)")
+            if (index := normalized.find(token)) >= 0
+        ]
+        if not captures:
+            return None
+        capture_index, capture_token = min(captures, key=lambda item: item[0])
+        return normalized[:capture_index], normalized[capture_index + len(capture_token) :]
+
+    @classmethod
+    def _regex_capture_end_literal_specs(cls, pattern: str) -> List[Tuple[str, bool]]:
+        capture_parts = cls._regex_capture_parts(pattern)
+        if capture_parts is None:
+            return []
+        _, suffix_pattern = capture_parts
+        literal_specs = cls._regex_lookahead_literal_specs(suffix_pattern)
+        if literal_specs:
+            return literal_specs
+        literal, _ = cls._regex_literal_prefix_and_remainder(suffix_pattern)
+        return [(literal, False)] if literal else []
+
+    @classmethod
+    def _regex_capture_end_literals(cls, pattern: str) -> List[str]:
+        return [literal for literal, _ in cls._regex_capture_end_literal_specs(pattern)]
+
+    @classmethod
+    def _regex_leading_capture(
+        cls,
+        *,
+        field_name: str,
+        field_regex: str,
+        content_regex: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        capture_parts = cls._regex_capture_parts(field_regex)
+        if capture_parts is None:
+            return None
+        prefix_pattern, _ = capture_parts
+        prefix_pattern = prefix_pattern.lstrip("^")
+        optional_prefix = cls._consume_optional_literal_prefix(prefix_pattern)
+        if optional_prefix is not None:
+            prefix_pattern = optional_prefix[1]
+        implicit_at_start = False
+        optional_capture_start = cls._consume_optional_literal_prefix(prefix_pattern)
+        if optional_capture_start is not None:
+            capture_start, prefix_pattern = optional_capture_start
+            implicit_at_start = True
+        else:
+            capture_start, prefix_pattern = cls._regex_literal_prefix_and_remainder(prefix_pattern)
+        if not capture_start or prefix_pattern:
+            return None
+        end_literals = cls._regex_capture_end_literals(field_regex)
+        if not end_literals:
+            return None
+        capture_end = end_literals[0]
+        strip_after = False
+        if isinstance(content_regex, str):
+            escaped_end = re.escape(capture_end)
+            strip_after = bool(re.search(escaped_end + r"\\s\*", content_regex))
+        return {
+            "field": field_name,
+            "start": capture_start,
+            "end": capture_end,
+            "strip_after": strip_after,
+            "implicit_at_start": implicit_at_start,
+        }
 
     @staticmethod
     def _literal_suffix_prefix_length(text: str, literal: str) -> int:
@@ -4702,7 +4938,14 @@ class ResponseParser:
             return None
         iterator = cls._compile_iterator_pattern(iterator_pattern)
         if iterator is None:
-            return None
+            iterator_capture = cls._compile_iterator_block_pattern(iterator_pattern)
+            if (
+                not isinstance(iterator_capture, dict)
+                or not iterator_capture["start"]
+                or iterator_capture["allow_eof"]
+            ):
+                return None
+            iterator = (iterator_capture["start"], iterator_capture["end"])
         items_schema = tool_calls_schema.get("items")
         if not isinstance(items_schema, dict):
             return None
@@ -4715,10 +4958,11 @@ class ResponseParser:
             if isinstance(content_schema, dict)
             else None
         )
-        object_regex = schema.get("x-regex") if isinstance(schema.get("x-regex"), str) else None
         assistant_prefix: Optional[str] = None
-        if isinstance(content_regex, str) and r"<\|im_start\|>assistant\n" in content_regex:
-            assistant_prefix = "<|im_start|>assistant\n"
+        if isinstance(content_regex, str):
+            optional_prefix = cls._consume_optional_literal_prefix(content_regex.lstrip("^"))
+            if optional_prefix is not None:
+                assistant_prefix = optional_prefix[0]
         leading_capture: Optional[Dict[str, Any]] = None
         for field_name, value_schema in properties.items():
             if not isinstance(value_schema, dict):
@@ -4726,43 +4970,31 @@ class ResponseParser:
             field_regex = value_schema.get("x-regex")
             if not isinstance(field_regex, str):
                 continue
-            if "<think>\\n" in field_regex and "</think>" in field_regex:
-                leading_capture = {
-                    "field": field_name,
-                    "start": "<think>\n",
-                    "end": "</think>",
-                    "strip_after": True,
-                    "implicit_at_start": "(?:<think>\\n)?" in field_regex,
-                }
+            if field_name == "content":
+                continue
+            capture = cls._regex_leading_capture(
+                field_name=field_name,
+                field_regex=field_regex,
+                content_regex=content_regex,
+            )
+            if capture is not None:
+                leading_capture = capture
                 break
-        if leading_capture is None and isinstance(object_regex, str):
-            if (
-                "(?P<thinking>" in object_regex
-                and r"<\|channel\>thought\n" in object_regex
-                and r"\<channel\|\>" in object_regex
-            ):
-                leading_capture = {
-                    "field": "thinking",
-                    "start": "<|channel>thought\n",
-                    "end": "<channel|>",
-                    "strip_after": False,
-                    "implicit_at_start": False,
-                }
         end_markers: List[str] = []
+        content_end_marker_specs: List[Tuple[str, bool]] = []
         iterator_start, iterator_end = iterator
         if "content" in properties:
             end_markers.append(iterator_start)
-        if isinstance(content_regex, str) and r"<\|im_end\|>" in content_regex:
-            end_markers.append("<|im_end|>")
-        if isinstance(object_regex, str) and r"<turn\|>" in object_regex:
-            end_markers.append("<turn|>")
+        if isinstance(content_regex, str):
+            content_end_marker_specs = cls._regex_capture_end_literal_specs(content_regex)
+            end_markers.extend(literal for literal, _ in content_end_marker_specs)
         if not end_markers and iterator_start:
             end_markers.append(iterator_start)
-        trim_before_iterator = (
-            isinstance(content_regex, str)
-            and r"\s*<tool_call>\n" in content_regex
+        deduped_end_markers = tuple(dict.fromkeys(end_markers))
+        trim_before_iterator = any(
+            literal == iterator_start and strip_leading_whitespace
+            for literal, strip_leading_whitespace in content_end_marker_specs
         )
-        end_marker_tuple = tuple(end_markers)
         direct_deltas = item_plan["kind"] == "tagged-parameters"
         direct_init = (
             (
@@ -4773,8 +5005,8 @@ class ResponseParser:
                 bool(leading_capture.get("strip_after")) if leading_capture is not None else False,
                 bool(leading_capture.get("implicit_at_start")) if leading_capture is not None else False,
                 trim_before_iterator,
-                end_marker_tuple,
-                tuple(marker for marker in end_marker_tuple if marker != iterator_start),
+                deduped_end_markers,
+                tuple(marker for marker in deduped_end_markers if marker != iterator_start),
                 iterator_start,
                 iterator_end,
                 item_plan["function_start"],
@@ -4793,9 +5025,9 @@ class ResponseParser:
             "assistant_prefix": assistant_prefix,
             "leading_capture": leading_capture,
             "content_field": "content" if "content" in properties else None,
-            "content_end_markers": end_marker_tuple,
+            "content_end_markers": deduped_end_markers,
             "trim_before_iterator": trim_before_iterator,
-            "stop_markers": tuple(marker for marker in end_marker_tuple if marker != iterator_start),
+            "stop_markers": tuple(marker for marker in deduped_end_markers if marker != iterator_start),
             "direct_init": direct_init,
             "iterator": {
                 "start": iterator_start,
@@ -4893,6 +5125,149 @@ class ResponseParser:
         if isinstance(content_type, str):
             return content_type
         return None
+
+    def _raw_string_tool_arguments(self, tool_name: str, value: str) -> Optional[Dict[str, str]]:
+        if self._tools is None:
+            return None
+        for tool in self._tools:
+            if tool.get("type") != "function":
+                continue
+            function = tool.get("function", {})
+            if function.get("name") != tool_name:
+                continue
+            parameters = function.get("parameters")
+            if not isinstance(parameters, dict):
+                return None
+            required = parameters.get("required")
+            if not isinstance(required, list) or len(required) != 1:
+                return None
+            argument_name = required[0]
+            if not isinstance(argument_name, str):
+                return None
+            properties = parameters.get("properties")
+            if not isinstance(properties, dict):
+                return None
+            argument_schema = properties.get(argument_name)
+            if not isinstance(argument_schema, dict):
+                return None
+            argument_type = argument_schema.get("type")
+            if argument_type == "string" or (
+                isinstance(argument_type, list) and "string" in argument_type
+            ):
+                return {argument_name: value}
+            return None
+        return None
+
+    def _single_string_tool_argument_name(self, tool_name: str) -> Optional[str]:
+        if self._tools is None:
+            return None
+        for tool in self._tools:
+            if tool.get("type") != "function":
+                continue
+            function = tool.get("function", {})
+            if function.get("name") != tool_name:
+                continue
+            parameters = function.get("parameters")
+            if not isinstance(parameters, dict):
+                return None
+            required = parameters.get("required")
+            if not isinstance(required, list) or len(required) != 1:
+                return None
+            argument_name = required[0]
+            if not isinstance(argument_name, str):
+                return None
+            properties = parameters.get("properties")
+            if not isinstance(properties, dict):
+                return None
+            argument_schema = properties.get(argument_name)
+            if not isinstance(argument_schema, dict):
+                return None
+            argument_type = argument_schema.get("type")
+            if argument_type == "string" or (
+                isinstance(argument_type, list) and "string" in argument_type
+            ):
+                return argument_name
+            return None
+        return None
+
+    def _text_tool_argument_from_object(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+    ) -> Optional[str]:
+        input_value = arguments.get("input")
+        if isinstance(input_value, str):
+            return input_value
+        argument_name = self._single_string_tool_argument_name(tool_name)
+        if argument_name is not None:
+            argument_value = arguments.get(argument_name)
+            if isinstance(argument_value, str):
+                return argument_value
+        if len(arguments) == 1:
+            argument_value = next(iter(arguments.values()))
+            if isinstance(argument_value, str):
+                return argument_value
+        return None
+
+    def _text_tool_arguments(
+        self,
+        tool_name: str,
+        arguments: Any,
+        *,
+        partial: bool,
+    ) -> Optional[str]:
+        if isinstance(arguments, str):
+            parsed_arguments = self._raw_object_tool_arguments(arguments)
+            if parsed_arguments is not None:
+                text = self._text_tool_argument_from_object(tool_name, parsed_arguments)
+                if text is not None:
+                    return text
+                if partial:
+                    return None
+                return json.dumps(parsed_arguments, ensure_ascii=False, separators=(",", ":"))
+            return arguments
+        if isinstance(arguments, ResponseParser.PartialJsonObject):
+            arguments = arguments.value
+        if isinstance(arguments, dict):
+            text = self._text_tool_argument_from_object(tool_name, arguments)
+            if text is not None:
+                return text
+            if partial:
+                return None
+            return json.dumps(arguments, ensure_ascii=False, separators=(",", ":"))
+        if partial:
+            return None
+        return str(arguments)
+
+    @classmethod
+    def _raw_object_tool_arguments(cls, value: str) -> Optional[Dict[str, Any]]:
+        candidates = [value]
+        stripped = value.strip()
+        if stripped.startswith("{{") and stripped.endswith("}}"):
+            candidates.append(stripped[1:-1])
+        for candidate in candidates:
+            normalized = cls._gemma4_tool_call_to_json(candidate)
+            for allow_partial in (False, True):
+                try:
+                    parsed = from_json(normalized, allow_partial=allow_partial)
+                except ValueError:
+                    continue
+                if isinstance(parsed, dict):
+                    return {
+                        key: cls._trim_partial_gemma_quote_marker(value)
+                        if isinstance(value, str)
+                        else value
+                        for key, value in parsed.items()
+                    }
+        return None
+
+    @staticmethod
+    def _trim_partial_gemma_quote_marker(value: str) -> str:
+        quote_marker = '<|"|>'
+        for prefix_length in range(len(quote_marker) - 1, 0, -1):
+            if value.endswith(quote_marker[:prefix_length]):
+                return value[:-prefix_length]
+        return value
 
     def _has_text_tools(self) -> bool:
         return any(
@@ -5462,6 +5837,18 @@ class ResponseParser:
                     self._direct.saw_tool_calls = saw_tool_calls
                     self._direct.done = done
                     return True, deltas
+                if leading_capture_field is not None:
+                    if buffer.startswith(leading_capture_start):
+                        buffer = buffer[len(leading_capture_start) :]
+                        mode = self.DIRECT_MODE_LEADING_CAPTURE
+                        continue
+                    if leading_capture_start.startswith(buffer):
+                        self._direct.pending = buffer
+                        self._direct.mode = mode
+                        self._direct.tool_call_count = tool_call_count
+                        self._direct.saw_tool_calls = saw_tool_calls
+                        self._direct.done = done
+                        return True, deltas
                 if buffer.startswith(iterator_start):
                     saw_tool_calls = True
                     self._start_direct_tool_call(tool_call_count)
@@ -6127,6 +6514,16 @@ class ResponseParser:
                 if not buffer:
                     state.pending = ""
                     return True, deltas
+                leading_capture = plan.get("leading_capture")
+                if leading_capture is not None:
+                    capture_start = leading_capture["start"]
+                    if buffer.startswith(capture_start):
+                        buffer = buffer[len(capture_start) :]
+                        state.mode = "leading-capture"
+                        continue
+                    if capture_start.startswith(buffer):
+                        state.pending = buffer
+                        return True, deltas
                 if buffer.startswith(iterator_start):
                     item_state = self._new_tool_call_state(plan["iterator"]["item"])
                     state.saw_tool_calls = True
@@ -6676,13 +7073,13 @@ class ResponseParser:
                 "tool_calls function name must be a non-empty string"
             )
         if self._tool_content_type(tool_name) == "text":
-            arguments = function.get("arguments", "")
-            if not isinstance(arguments, str):
-                if partial:
-                    return None
-                raise CompletionResponseParsingError(
-                    "tool_calls function arguments must be a string for text tools"
-                )
+            arguments = self._text_tool_arguments(
+                tool_name,
+                function.get("arguments", ""),
+                partial=partial,
+            )
+            if arguments is None:
+                return None
             return {
                 "type": tool_call.get("type", "function"),
                 "function": {
@@ -6691,6 +7088,10 @@ class ResponseParser:
                 },
             }
         arguments = function.get("arguments", {})
+        if isinstance(arguments, str):
+            arguments = self._raw_object_tool_arguments(arguments) or self._raw_string_tool_arguments(
+                tool_name, arguments
+            )
         if not isinstance(arguments, (dict, ResponseParser.PartialJsonObject)):
             if partial:
                 return None
@@ -6863,12 +7264,13 @@ class ResponseParser:
             for tool_call_index, tool_call in enumerate(tool_calls):
                 function = tool_call["function"]
                 if self._tool_content_type(function["name"]) == "text":
-                    raw_arguments = function["arguments"]
-                    arguments = (
-                        raw_arguments
-                        if isinstance(raw_arguments, str)
-                        else str(raw_arguments)
+                    arguments = self._text_tool_arguments(
+                        function["name"],
+                        function["arguments"],
+                        partial=partial,
                     )
+                    if arguments is None:
+                        continue
                 else:
                     arguments = self._serialize_tool_arguments(
                         function["arguments"],
@@ -7192,19 +7594,17 @@ class ResponseParser:
                             logprobs=logprobs,
                             leading_delta=role_delta,
                         )
-                    if self._stream_state_complete():
-                        return self._chunk_payloads(
-                            chunk_id=chunk_id,
-                            created=created,
-                            model=model,
-                            deltas=stream_deltas,
-                            finish_reason=(
-                                "tool_calls" if self._direct.saw_tool_calls else finish_reason
-                            ),
-                            logprobs=logprobs,
-                            leading_delta=role_delta,
-                        )
-                    self._stream_failed = True
+                    return self._chunk_payloads(
+                        chunk_id=chunk_id,
+                        created=created,
+                        model=model,
+                        deltas=stream_deltas,
+                        finish_reason=(
+                            "tool_calls" if self._direct.saw_tool_calls else finish_reason
+                        ),
+                        logprobs=logprobs,
+                        leading_delta=role_delta,
+                    )
                 elif self._stream_plan["kind"] == "segment-message":
                     if role_delta is not None:
                         stream_deltas = [role_delta, *stream_deltas]
@@ -7219,18 +7619,16 @@ class ResponseParser:
                             finish_reason=None,
                             logprobs=logprobs,
                         )
-                    if self._stream_state_complete():
-                        return self._chunk_payloads(
-                            chunk_id=chunk_id,
-                            created=created,
-                            model=model,
-                            deltas=stream_deltas,
-                            finish_reason=(
-                                "tool_calls" if self._message.get("tool_calls") else finish_reason
-                            ),
-                            logprobs=logprobs,
-                        )
-                    self._stream_failed = True
+                    return self._chunk_payloads(
+                        chunk_id=chunk_id,
+                        created=created,
+                        model=model,
+                        deltas=stream_deltas,
+                        finish_reason=(
+                            "tool_calls" if self._message.get("tool_calls") else finish_reason
+                        ),
+                        logprobs=logprobs,
+                    )
                 else:
                     previous_message = self._message
                     partial_deltas: List[Dict[str, Any]] = []
@@ -7238,7 +7636,7 @@ class ResponseParser:
                     parsed = cast(Dict[str, Any], self._stream_state.parsed)
                     message = self._parsed_chat_message(
                         parsed=parsed,
-                        partial=finish_reason is None,
+                        partial=finish_reason is None or not self._stream_state_complete(),
                     )
                     if finish_reason is None:
                         if role_delta is not None:
@@ -7253,22 +7651,20 @@ class ResponseParser:
                             finish_reason=None,
                             logprobs=logprobs,
                         )
-                    if self._stream_state_complete():
-                        if role_delta is not None:
-                            partial_deltas.append(role_delta)
-                        partial_deltas.extend(self._message_deltas(previous_message, message))
-                        self._message = message
-                        return self._chunk_payloads(
-                            chunk_id=chunk_id,
-                            created=created,
-                            model=model,
-                            deltas=partial_deltas,
-                            finish_reason=(
-                                "tool_calls" if message.get("tool_calls") else finish_reason
-                            ),
-                            logprobs=logprobs,
-                        )
-                    self._stream_failed = True
+                    if role_delta is not None:
+                        partial_deltas.append(role_delta)
+                    partial_deltas.extend(self._message_deltas(previous_message, message))
+                    self._message = message
+                    return self._chunk_payloads(
+                        chunk_id=chunk_id,
+                        created=created,
+                        model=model,
+                        deltas=partial_deltas,
+                        finish_reason=(
+                            "tool_calls" if message.get("tool_calls") else finish_reason
+                        ),
+                        logprobs=logprobs,
+                    )
             else:
                 self._stream_failed = True
 
@@ -7840,7 +8236,14 @@ class OpenAIFormatter:
             return None
         chat_tools: List[ChatTemplateTool] = []
         for tool in tools:
-            if isinstance(tool, ResponsesWebSearchTool):
+            if isinstance(
+                tool,
+                (
+                    ResponsesWebSearchTool,
+                    ResponsesNamespaceTool,
+                    ResponsesImageGenerationTool,
+                ),
+            ):
                 continue
             if isinstance(tool, ResponsesFunctionTool):
                 chat_tools.append(tool.to_chat_template_tool())
@@ -8695,7 +9098,7 @@ class OpenAIFormatter:
                 state,
                 "response.output_item.added",
                 output_index=item_state.output_index,
-                item=item,
+                item=copy.deepcopy(item),
             ),
             self._response_event(
                 state,
@@ -8703,7 +9106,7 @@ class OpenAIFormatter:
                 item_id=cast(str, item["id"]),
                 output_index=item_state.output_index,
                 content_index=0,
-                part=part,
+                part=copy.deepcopy(part),
             ),
         ], item_state
 
@@ -8727,7 +9130,7 @@ class OpenAIFormatter:
                 state,
                 "response.output_item.added",
                 output_index=item_state.output_index,
-                item=item,
+                item=copy.deepcopy(item),
             ),
             self._response_event(
                 state,
@@ -8735,7 +9138,7 @@ class OpenAIFormatter:
                 item_id=cast(str, item["id"]),
                 output_index=item_state.output_index,
                 content_index=0,
-                part=part,
+                part=copy.deepcopy(part),
             ),
         ], item_state
 
@@ -8777,7 +9180,7 @@ class OpenAIFormatter:
                 state,
                 "response.output_item.added",
                 output_index=item_state.output_index,
-                item=item,
+                item=copy.deepcopy(item),
             )
         ], item_state
 
@@ -9916,7 +10319,7 @@ class MTMDEmbeddingCache:
         *,
         model_fingerprint: str,
         mmproj_fingerprint: str,
-        kind: Literal["image", "audio"],
+        kind: Literal["image", "audio", "video"],
         media_bytes: bytes,
     ) -> str:
         digest = hashlib.sha256(f"{kind}:".encode("utf-8") + media_bytes).hexdigest()
@@ -9931,7 +10334,7 @@ class MTMDEmbeddingCache:
         )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def key_for_media(self, kind: Literal["image", "audio"], media_bytes: bytes) -> str:
+    def key_for_media(self, kind: Literal["image", "audio", "video"], media_bytes: bytes) -> str:
         return self._build_key(
             model_fingerprint=self.model_fingerprint,
             mmproj_fingerprint=self.mmproj_fingerprint,
@@ -9994,7 +10397,35 @@ class MTMDEmbeddingCache:
                 continue
 
 
+@dataclass
+class MTMDLoadedMedia:
+    media: MediaInput
+    media_bytes: bytes
+    key: str
+    bitmap: Any
+    video_ctx: Optional[Any] = None
+    video_temp_path: Optional[Path] = None
+    video_callback: Optional[Any] = None
+    video_frame_count: int = 0
+    video_frames_used: int = 0
+
+
 class MTMDProcessor:
+    @dataclass
+    class MediaChunk:
+        kind: Literal["image", "audio", "video"]
+        key: str
+        chunk: Any
+        n_tokens: int
+        decode_n_pos: int
+        non_causal: bool
+        embeddings: Optional[np.ndarray] = None
+
+    @dataclass
+    class ParsedChunk:
+        text_tokens: Optional[List[int]] = None
+        media: Optional["MTMDProcessor.MediaChunk"] = None
+
     def __init__(
         self,
         *,
@@ -10007,11 +10438,13 @@ class MTMDProcessor:
         n_ubatch: int,
         n_threads_batch: int,
         mmproj_path: str,
+        batch_max_tokens: int,
         embedding_cache: Optional[MTMDEmbeddingCache],
         allowed_media_domains: Optional[List[str]],
         allowed_local_media_path: Optional[str],
         image_max_bytes: int,
         audio_max_bytes: int,
+        video_max_bytes: int,
         image_timeout_seconds: float,
     ) -> None:
         self.chat_formatter = chat_formatter
@@ -10021,6 +10454,7 @@ class MTMDProcessor:
         self.n_ubatch = n_ubatch
         self.mmproj_path = mmproj_path
         self.embedding_cache = embedding_cache
+        self.batch_max_tokens = batch_max_tokens
         self.model_fingerprint = MTMDEmbeddingCache.fingerprint_file(model_path)
         self.mmproj_fingerprint = MTMDEmbeddingCache.fingerprint_file(mmproj_path)
         self.allowed_media_domains = (
@@ -10035,10 +10469,12 @@ class MTMDProcessor:
         )
         self.image_max_bytes = image_max_bytes
         self.audio_max_bytes = audio_max_bytes
+        self.video_max_bytes = video_max_bytes
         self.image_timeout_seconds = image_timeout_seconds
         self.lock = threading.Lock()
         params = mtmd_cpp.mtmd_context_params_default()
         params.n_threads = max(1, n_threads_batch)
+        params.batch_max_tokens = batch_max_tokens
         self.ctx = mtmd_cpp.mtmd_init_from_file(
             mmproj_path.encode("utf-8"),
             llama_model,
@@ -10048,23 +10484,33 @@ class MTMDProcessor:
             raise RuntimeError(f"failed to load MTMD context: {mmproj_path}")
         self.supports_vision = bool(mtmd_cpp.mtmd_support_vision(self.ctx))
         self.supports_audio = bool(mtmd_cpp.mtmd_support_audio(self.ctx))
+        self.supports_video = self.supports_vision and bool(
+            mtmd_cpp.mtmd_helper_support_video(self.ctx)
+        )
         if not self.supports_vision and not self.supports_audio:
             mtmd_cpp.mtmd_free(self.ctx)
             self.ctx = None
             raise RuntimeError(f"MTMD projector does not support image or audio input: {mmproj_path}")
-        self.media_marker = mtmd_cpp.mtmd_default_marker().decode("utf-8")
+        media_marker = mtmd_cpp.mtmd_get_marker(self.ctx)
+        if media_marker is None:
+            mtmd_cpp.mtmd_free(self.ctx)
+            self.ctx = None
+            raise RuntimeError(f"MTMD projector does not expose a media marker: {mmproj_path}")
+        self.media_marker = media_marker.decode("utf-8")
 
     def close(self) -> None:
         if self.ctx is not None:
             mtmd_cpp.mtmd_free(self.ctx)
             self.ctx = None
 
-    def _max_bytes_for_media(self, kind: Literal["image", "audio"]) -> int:
+    def _max_bytes_for_media(self, kind: Literal["image", "audio", "video"]) -> int:
         if kind == "image":
             return self.image_max_bytes
-        return self.audio_max_bytes
+        if kind == "audio":
+            return self.audio_max_bytes
+        return self.video_max_bytes
 
-    def _load_media_file(self, kind: Literal["image", "audio"], media_url: str) -> bytes:
+    def _load_media_file(self, kind: Literal["image", "audio", "video"], media_url: str) -> bytes:
         if self.allowed_local_media_path is None:
             raise CompletionRequestValidationError("local media path is not allowed")
         parsed = urllib.parse.urlsplit(media_url)
@@ -10112,7 +10558,7 @@ class MTMDProcessor:
         opener = urllib.request.build_opener(NoRedirectHandler)
         return opener.open(request, timeout=timeout)
 
-    def _load_media_url(self, kind: Literal["image", "audio"], media_url: str) -> bytes:
+    def _load_media_url(self, kind: Literal["image", "audio", "video"], media_url: str) -> bytes:
         max_bytes = self._max_bytes_for_media(kind)
         if media_url.startswith("data:"):
             try:
@@ -10144,66 +10590,225 @@ class MTMDProcessor:
     def load_media(self, media: MediaInput) -> bytes:
         if media.url is not None:
             return self._load_media_url(media.kind, media.url)
-        if media.kind != "audio" or media.data is None:
+        if media.kind not in {"audio", "video"} or media.data is None:
             raise CompletionRequestValidationError(f"{media.kind} input requires a URL")
         try:
             data = base64.b64decode(media.data, validate=False)
         except (ValueError, binascii.Error) as exc:
-            raise CompletionRequestValidationError("input_audio data must be valid base64") from exc
-        if len(data) > self.audio_max_bytes:
-            raise CompletionRequestValidationError("audio exceeds model.mtmd.audio_max_bytes")
+            raise CompletionRequestValidationError(f"input_{media.kind} data must be valid base64") from exc
+        max_bytes = self._max_bytes_for_media(media.kind)
+        if len(data) > max_bytes:
+            raise CompletionRequestValidationError(
+                f"{media.kind} exceeds model.mtmd.{media.kind}_max_bytes"
+            )
         return data
 
-    def _create_bitmap(self, media_bytes: bytes, kind: Literal["image", "audio"]) -> Any:
+    def _create_loaded_media(
+        self,
+        media: MediaInput,
+        media_bytes: bytes,
+    ) -> MTMDLoadedMedia:
+        key = (
+            self.embedding_cache.key_for_media(media.kind, media_bytes)
+            if self.embedding_cache is not None
+            else MTMDEmbeddingCache._build_key(
+                model_fingerprint=self.model_fingerprint,
+                mmproj_fingerprint=self.mmproj_fingerprint,
+                kind=media.kind,
+                media_bytes=media_bytes,
+            )
+        )
+        if media.kind == "video":
+            return self._create_loaded_video_media(media, media_bytes, key)
         buffer = (ctypes.c_uint8 * len(media_bytes)).from_buffer_copy(media_bytes)
-        bitmap = mtmd_cpp.mtmd_helper_bitmap_init_from_buf(
+        wrapper = mtmd_cpp.mtmd_helper_bitmap_init_from_buf_wrapper(
             self.ctx,
             buffer,
             len(media_bytes),
             False,
         )
+        bitmap = wrapper.bitmap
         if bitmap is None:
-            raise CompletionRequestValidationError(f"failed to create MTMD {kind} bitmap")
-        return bitmap
+            raise CompletionRequestValidationError(f"failed to create MTMD {media.kind} bitmap")
+        mtmd_cpp.mtmd_bitmap_set_id(bitmap, key.encode("utf-8"))
+        video_frame_count = 0
+        video_ctx = wrapper.video_ctx
+        if video_ctx:
+            video_info = mtmd_cpp.mtmd_helper_video_get_info(video_ctx)
+            video_frame_count = max(0, int(video_info.n_frames))
+        return MTMDLoadedMedia(
+            media=media,
+            media_bytes=media_bytes,
+            key=key,
+            bitmap=bitmap,
+            video_ctx=video_ctx,
+            video_frame_count=video_frame_count,
+        )
 
-    def _media_identity_tokens(self, kind: Literal["image", "audio"], key: str, n_pos: int) -> List[int]:
+    @staticmethod
+    def _video_temp_suffix(media: MediaInput) -> str:
+        extension = (media.format or "mp4").lstrip(".").lower()
+        if not extension or any(not char.isalnum() for char in extension):
+            extension = "video"
+        return f".{extension}"
+
+    def _create_loaded_video_media(
+        self,
+        media: MediaInput,
+        media_bytes: bytes,
+        key: str,
+    ) -> MTMDLoadedMedia:
+        temp_file = tempfile.NamedTemporaryFile(
+            prefix="llama-cpp-python-mtmd-",
+            suffix=self._video_temp_suffix(media),
+            delete=False,
+        )
+        temp_path = Path(temp_file.name)
+        try:
+            with temp_file:
+                temp_file.write(media_bytes)
+            params = mtmd_cpp.mtmd_helper_video_init_params_default()
+            video_ctx = mtmd_cpp.mtmd_helper_video_init(
+                self.ctx,
+                str(temp_path).encode("utf-8"),
+                params,
+            )
+            if video_ctx is None:
+                raise CompletionRequestValidationError("failed to create MTMD video context")
+
+            def read_next(
+                _chunk_index: int,
+                _user_data: Any,
+                out_bitmap: Any,
+                out_text: Any,
+            ) -> int:
+                return int(mtmd_cpp.mtmd_helper_video_read_next(video_ctx, out_bitmap, out_text))
+
+            callback = mtmd_cpp.mtmd_bitmap_lazy_callback(read_next)
+            bitmap = mtmd_cpp.mtmd_bitmap_init_lazy(
+                self.ctx,
+                key.encode("utf-8"),
+                ctypes.c_void_p(),
+                callback,
+            )
+            if bitmap is None:
+                mtmd_cpp.mtmd_helper_video_free(video_ctx)
+                raise CompletionRequestValidationError("failed to create MTMD video bitmap")
+            video_info = mtmd_cpp.mtmd_helper_video_get_info(video_ctx)
+            return MTMDLoadedMedia(
+                media=media,
+                media_bytes=media_bytes,
+                key=key,
+                bitmap=bitmap,
+                video_ctx=video_ctx,
+                video_temp_path=temp_path,
+                video_callback=callback,
+                video_frame_count=max(0, int(video_info.n_frames)),
+            )
+        except Exception:
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+            raise
+
+    def _media_identity_tokens(
+        self,
+        kind: Literal["image", "audio", "video"],
+        key: str,
+        n_pos: int,
+    ) -> List[int]:
         tokens: List[int] = []
         for index in range(n_pos):
             digest = hashlib.sha256(f"{kind}:{key}:{index}".encode("utf-8")).digest()
             tokens.append(-1 - (int.from_bytes(digest[:4], "little") & 0x3FFFFFFF))
         return tokens
 
-    def _encode_media_chunk(
-        self,
-        *,
-        kind: Literal["image", "audio"],
-        key: str,
-        chunk: Any,
-    ) -> np.ndarray:
-        n_tokens = int(mtmd_cpp.mtmd_input_chunk_get_n_tokens(chunk))
-        if self.embedding_cache is not None:
-            cached = self.embedding_cache.load(key)
-            if (
-                cached is not None
-                and cached.embeddings.shape == (n_tokens, self.n_embd_inp)
-            ):
-                return cached.embeddings
-        result = int(mtmd_cpp.mtmd_encode_chunk(self.ctx, chunk))
-        if result != 0:
-            raise CompletionRequestValidationError(
-                f"failed to encode {kind} chunk: error code {result}"
-            )
-        output = mtmd_cpp.mtmd_get_output_embd(self.ctx)
-        if output is None:
-            raise CompletionRequestValidationError(f"MTMD {kind} encoder returned no embeddings")
+    def _embeddings_from_pointer(self, output: Any, n_tokens: int) -> np.ndarray:
         flat = np.ctypeslib.as_array(output, shape=(n_tokens * self.n_embd_inp,))
-        embeddings = np.array(flat, dtype=np.float32, copy=True).reshape(
+        return np.array(flat, dtype=np.float32, copy=True).reshape(
             n_tokens,
             self.n_embd_inp,
         )
-        if self.embedding_cache is not None:
-            self.embedding_cache.save(key, embeddings)
-        return embeddings
+
+    def _load_cached_media_chunk(self, media_chunk: "MTMDProcessor.MediaChunk") -> bool:
+        if self.embedding_cache is None:
+            return False
+        cached = self.embedding_cache.load(media_chunk.key)
+        if cached is None or cached.embeddings.shape != (
+            media_chunk.n_tokens,
+            self.n_embd_inp,
+        ):
+            return False
+        media_chunk.embeddings = cached.embeddings
+        return True
+
+    def _save_media_chunk(self, media_chunk: "MTMDProcessor.MediaChunk") -> None:
+        if self.embedding_cache is None or media_chunk.embeddings is None:
+            return
+        self.embedding_cache.save(media_chunk.key, media_chunk.embeddings)
+
+    def _encode_media_batch(
+        self,
+        media_chunks: Sequence["MTMDProcessor.MediaChunk"],
+        start_index: int,
+    ) -> int:
+        batch = mtmd_cpp.mtmd_batch_init(self.ctx)
+        if batch is None:
+            raise CompletionRequestValidationError("failed to create MTMD media batch")
+        try:
+            first = media_chunks[start_index]
+            result = int(mtmd_cpp.mtmd_batch_add_chunk(batch, first.chunk))
+            if result != 0:
+                raise CompletionRequestValidationError(
+                    f"failed to add {first.kind} chunk to MTMD batch: error code {result}"
+                )
+            group = [first]
+            next_index = start_index + 1
+            while next_index < len(media_chunks):
+                candidate = media_chunks[next_index]
+                result = int(mtmd_cpp.mtmd_batch_add_chunk(batch, candidate.chunk))
+                if result == 0:
+                    group.append(candidate)
+                    next_index += 1
+                    continue
+                if result in {2, 3}:
+                    break
+                raise CompletionRequestValidationError(
+                    f"failed to add {candidate.kind} chunk to MTMD batch: error code {result}"
+                )
+            result = int(mtmd_cpp.mtmd_batch_encode(batch))
+            if result != 0:
+                raise CompletionRequestValidationError(
+                    f"failed to encode MTMD media batch: error code {result}"
+                )
+            for media_chunk in group:
+                output = mtmd_cpp.mtmd_batch_get_output_embd(batch, media_chunk.chunk)
+                if output is None:
+                    raise CompletionRequestValidationError(
+                        f"MTMD {media_chunk.kind} encoder returned no embeddings"
+                    )
+                media_chunk.embeddings = self._embeddings_from_pointer(
+                    output,
+                    media_chunk.n_tokens,
+                )
+                self._save_media_chunk(media_chunk)
+            return len(group)
+        finally:
+            mtmd_cpp.mtmd_batch_free(batch)
+
+    def _encode_media_chunks(
+        self,
+        media_chunks: Sequence["MTMDProcessor.MediaChunk"],
+    ) -> None:
+        uncached = [
+            media_chunk
+            for media_chunk in media_chunks
+            if not self._load_cached_media_chunk(media_chunk)
+        ]
+        index = 0
+        while index < len(uncached):
+            index += self._encode_media_batch(uncached, index)
 
     def _positions_for_chunk(self, chunk: Any, start_pos: int) -> np.ndarray:
         n_tokens = int(mtmd_cpp.mtmd_input_chunk_get_n_tokens(chunk))
@@ -10256,6 +10861,8 @@ class MTMDProcessor:
             raise CompletionRequestValidationError("MTMD projector does not support images")
         if any(media.kind == "audio" for media in media_inputs) and not self.supports_audio:
             raise CompletionRequestValidationError("MTMD projector does not support audio")
+        if any(media.kind == "video" for media in media_inputs) and not self.supports_video:
+            raise CompletionRequestValidationError("MTMD projector does not support video")
         with self.lock:
             return self._build_prompt_plan_locked(
                 messages=messages,
@@ -10288,13 +10895,19 @@ class MTMDProcessor:
             reasoning_effort=reasoning_effort,
         )
         media_bytes_by_index = [self.load_media(media) for media in media_inputs]
-        bitmaps: List[Any] = []
+        loaded_media: List[MTMDLoadedMedia] = []
         chunks: Optional[Any] = None
         try:
-            bitmaps = [
-                self._create_bitmap(media_bytes, media.kind)
+            loaded_media = [
+                self._create_loaded_media(media, media_bytes)
                 for media, media_bytes in zip(media_inputs, media_bytes_by_index)
             ]
+            loaded_media_by_key = {media.key: media for media in loaded_media}
+            video_media = [media for media in loaded_media if media.media.kind == "video"]
+            if len(video_media) > 1 and any(media.video_frame_count <= 0 for media in video_media):
+                raise CompletionRequestValidationError(
+                    "multiple videos require MTMD to report frame counts"
+                )
             input_text = mtmd_cpp.mtmd_input_text()
             input_text.text = prompt.encode("utf-8")
             input_text.add_special = False
@@ -10302,27 +10915,26 @@ class MTMDProcessor:
             chunks = mtmd_cpp.mtmd_input_chunks_init()
             if chunks is None:
                 raise CompletionRequestValidationError("failed to create MTMD input chunks")
-            bitmap_array = (mtmd_cpp.mtmd_bitmap_p_ctypes * len(bitmaps))(*bitmaps)
+            bitmap_array = (mtmd_cpp.mtmd_bitmap_p_ctypes * len(loaded_media))(
+                *(media.bitmap for media in loaded_media)
+            )
             result = int(
                 mtmd_cpp.mtmd_tokenize(
                     self.ctx,
                     chunks,
                     ctypes.byref(input_text),
                     bitmap_array,
-                    len(bitmaps),
+                    len(loaded_media),
                 )
             )
             if result != 0:
                 raise CompletionRequestValidationError(
                     f"failed to tokenize MTMD prompt: error code {result}"
                 )
-            segments: List[PromptSegment] = []
-            identity_tokens: List[int] = []
-            text_tokens: List[int] = []
-            text_token_index_by_pos: Dict[int, int] = {}
-            identity_pos = 0
-            decode_pos = 0
-            media_index = 0
+            parsed_chunks: List[MTMDProcessor.ParsedChunk] = []
+            media_chunks: List[MTMDProcessor.MediaChunk] = []
+            video_index = 0
+            used_media_keys = set()
             n_chunks = int(mtmd_cpp.mtmd_input_chunks_size(chunks))
             for chunk_index in range(n_chunks):
                 chunk = mtmd_cpp.mtmd_input_chunks_get(chunks, chunk_index)
@@ -10341,86 +10953,136 @@ class MTMDProcessor:
                         else []
                     )
                     if tokens:
-                        start_pos = identity_pos
-                        segments.append(
-                            PromptSegment(
-                                kind="text",
-                                start_pos=start_pos,
-                                n_pos=len(tokens),
-                                identity_tokens=list(tokens),
-                                decode_start_pos=decode_pos,
-                                decode_n_pos=len(tokens),
-                                text_tokens=list(tokens),
-                            )
+                        parsed_chunks.append(
+                            MTMDProcessor.ParsedChunk(text_tokens=tokens)
                         )
-                        for offset, token in enumerate(tokens):
-                            text_token_index_by_pos[start_pos + offset] = len(text_tokens)
-                            text_tokens.append(token)
-                        identity_tokens.extend(tokens)
-                        identity_pos += len(tokens)
-                        decode_pos += len(tokens)
                     continue
                 if chunk_type == mtmd_cpp.MTMD_INPUT_CHUNK_TYPE_IMAGE:
-                    kind: Literal["image", "audio"] = "image"
+                    chunk_kind: Literal["image", "audio"] = "image"
                     if not self.supports_vision:
                         raise CompletionRequestValidationError("MTMD projector does not support images")
                 elif chunk_type == mtmd_cpp.MTMD_INPUT_CHUNK_TYPE_AUDIO:
-                    kind = "audio"
+                    chunk_kind = "audio"
                     if not self.supports_audio:
                         raise CompletionRequestValidationError("MTMD projector does not support audio")
                 else:
                     raise CompletionRequestValidationError("unsupported MTMD input chunk type")
-                if media_index >= len(media_bytes_by_index):
-                    raise CompletionRequestValidationError("MTMD media chunk count mismatch")
-                media = media_inputs[media_index]
-                media_bytes = media_bytes_by_index[media_index]
-                media_index += 1
-                if media.kind != kind:
-                    raise CompletionRequestValidationError("MTMD media chunk modality mismatch")
-                key = (
-                    self.embedding_cache.key_for_media(kind, media_bytes)
-                    if self.embedding_cache is not None
-                    else MTMDEmbeddingCache._build_key(
-                        model_fingerprint=self.model_fingerprint,
-                        mmproj_fingerprint=self.mmproj_fingerprint,
-                        kind=kind,
-                        media_bytes=media_bytes,
-                    )
-                )
+                chunk_id_bytes = mtmd_cpp.mtmd_input_chunk_get_id(chunk)
+                chunk_id = chunk_id_bytes.decode("utf-8") if chunk_id_bytes else ""
+                media = loaded_media_by_key.get(chunk_id)
+                video_frame_index: Optional[int] = None
+                if media is None and chunk_kind == "image" and video_media:
+                    while (
+                        video_index < len(video_media)
+                        and video_media[video_index].video_frame_count > 0
+                        and video_media[video_index].video_frames_used
+                        >= video_media[video_index].video_frame_count
+                    ):
+                        video_index += 1
+                    if video_index >= len(video_media):
+                        raise CompletionRequestValidationError("MTMD video frame count mismatch")
+                    media = video_media[video_index]
+                    video_frame_index = media.video_frames_used
+                    media.video_frames_used += 1
+                if media is None:
+                    raise CompletionRequestValidationError("MTMD media chunk identity mismatch")
+                if media.media.kind == "video":
+                    if chunk_kind != "image":
+                        raise CompletionRequestValidationError("MTMD video chunk modality mismatch")
+                    kind: Literal["image", "audio", "video"] = "video"
+                    if video_frame_index is None:
+                        video_frame_index = media.video_frames_used
+                        media.video_frames_used += 1
+                    key = hashlib.sha256(
+                        f"{media.key}:frame:{video_frame_index}".encode("utf-8")
+                    ).hexdigest()
+                else:
+                    if media.media.kind != chunk_kind:
+                        raise CompletionRequestValidationError("MTMD media chunk modality mismatch")
+                    kind = media.media.kind
+                    key = media.key
+                used_media_keys.add(media.key)
                 decode_n_pos = int(mtmd_cpp.mtmd_input_chunk_get_n_pos(chunk))
                 if decode_n_pos <= 0:
                     raise CompletionRequestValidationError("MTMD media chunk has no decoder positions")
-                embeddings = self._encode_media_chunk(kind=kind, key=key, chunk=chunk)
-                n_tokens = int(embeddings.shape[0])
+                n_tokens = int(mtmd_cpp.mtmd_input_chunk_get_n_tokens(chunk))
                 if n_tokens <= 0:
-                    raise CompletionRequestValidationError("MTMD media chunk has no embeddings")
+                    raise CompletionRequestValidationError("MTMD media chunk has no embedding tokens")
                 non_causal = bool(mtmd_cpp.mtmd_decode_use_non_causal(self.ctx, chunk))
-                segment_identity = self._media_identity_tokens(kind, key, n_tokens)
-                positions = self._positions_for_chunk(chunk, decode_pos)
-                segment = PromptSegment(
+                media_chunk = MTMDProcessor.MediaChunk(
                     kind=kind,
-                    start_pos=identity_pos,
-                    n_pos=n_tokens,
-                    identity_tokens=segment_identity,
-                    decode_start_pos=decode_pos,
+                    key=key,
+                    chunk=chunk,
+                    n_tokens=n_tokens,
                     decode_n_pos=decode_n_pos,
-                    media=PromptSegment.Media(
-                        embeddings=embeddings,
-                        positions=positions,
-                        non_causal=non_causal,
-                    ),
+                    non_causal=non_causal,
                 )
-                if non_causal and embeddings.shape[0] > min(self.n_batch, self.n_ubatch):
+                parsed_chunks.append(MTMDProcessor.ParsedChunk(media=media_chunk))
+                media_chunks.append(media_chunk)
+            if used_media_keys != {media.key for media in loaded_media}:
+                raise CompletionRequestValidationError("not all media inputs were consumed by MTMD")
+            self._encode_media_chunks(media_chunks)
+            segments: List[PromptSegment] = []
+            identity_tokens: List[int] = []
+            text_tokens: List[int] = []
+            text_token_index_by_pos: Dict[int, int] = {}
+            identity_pos = 0
+            decode_pos = 0
+            for parsed_chunk in parsed_chunks:
+                if parsed_chunk.text_tokens is not None:
+                    tokens = parsed_chunk.text_tokens
+                    start_pos = identity_pos
+                    segments.append(
+                        PromptSegment(
+                            kind="text",
+                            start_pos=start_pos,
+                            n_pos=len(tokens),
+                            identity_tokens=list(tokens),
+                            decode_start_pos=decode_pos,
+                            decode_n_pos=len(tokens),
+                            text_tokens=list(tokens),
+                        )
+                    )
+                    for offset, token in enumerate(tokens):
+                        text_token_index_by_pos[start_pos + offset] = len(text_tokens)
+                        text_tokens.append(token)
+                    identity_tokens.extend(tokens)
+                    identity_pos += len(tokens)
+                    decode_pos += len(tokens)
+                    continue
+                media_chunk = parsed_chunk.media
+                if media_chunk is None or media_chunk.embeddings is None:
+                    raise CompletionRequestValidationError("MTMD media chunk has no embeddings")
+                embeddings = media_chunk.embeddings
+                if media_chunk.non_causal and embeddings.shape[0] > min(self.n_batch, self.n_ubatch):
                     raise CompletionRequestValidationError(
-                        f"non-causal {kind} embedding chunk exceeds model batch limits; "
+                        f"non-causal {media_chunk.kind} embedding chunk exceeds model batch limits; "
                         "increase n_batch and n_ubatch"
                     )
-                segments.append(segment)
+                segment_identity = self._media_identity_tokens(
+                    media_chunk.kind,
+                    media_chunk.key,
+                    media_chunk.n_tokens,
+                )
+                positions = self._positions_for_chunk(media_chunk.chunk, decode_pos)
+                segments.append(
+                    PromptSegment(
+                        kind=media_chunk.kind,
+                        start_pos=identity_pos,
+                        n_pos=media_chunk.n_tokens,
+                        identity_tokens=segment_identity,
+                        decode_start_pos=decode_pos,
+                        decode_n_pos=media_chunk.decode_n_pos,
+                        media=PromptSegment.Media(
+                            embeddings=embeddings,
+                            positions=positions,
+                            non_causal=media_chunk.non_causal,
+                        ),
+                    )
+                )
                 identity_tokens.extend(segment_identity)
-                identity_pos += n_tokens
-                decode_pos += decode_n_pos
-            if media_index != len(media_bytes_by_index):
-                raise CompletionRequestValidationError("not all media inputs were consumed by MTMD")
+                identity_pos += media_chunk.n_tokens
+                decode_pos += media_chunk.decode_n_pos
             return PromptPlan(
                 text=prompt,
                 generation_prompt=generation_prompt,
@@ -10432,8 +11094,15 @@ class MTMDProcessor:
         finally:
             if chunks is not None:
                 mtmd_cpp.mtmd_input_chunks_free(chunks)
-            for bitmap in bitmaps:
-                mtmd_cpp.mtmd_bitmap_free(bitmap)
+            for media in loaded_media:
+                mtmd_cpp.mtmd_bitmap_free(media.bitmap)
+                if media.video_ctx:
+                    mtmd_cpp.mtmd_helper_video_free(media.video_ctx)
+                if media.video_temp_path is not None:
+                    try:
+                        media.video_temp_path.unlink()
+                    except OSError:
+                        pass
 
 
 class Model:
@@ -15643,11 +16312,13 @@ def main() -> None:
             n_ubatch=model.n_ubatch,
             n_threads_batch=model.n_threads_batch,
             mmproj_path=mmproj_path,
+            batch_max_tokens=config.model.mtmd.batch_max_tokens,
             embedding_cache=embedding_cache,
             allowed_media_domains=config.model.mtmd.allowed_media_domains,
             allowed_local_media_path=config.model.mtmd.allowed_local_media_path,
             image_max_bytes=config.model.mtmd.image_max_bytes,
             audio_max_bytes=config.model.mtmd.audio_max_bytes,
+            video_max_bytes=config.model.mtmd.video_max_bytes,
             image_timeout_seconds=config.model.mtmd.image_timeout_seconds,
         )
     sequence_cache: Optional[SequenceCache] = None

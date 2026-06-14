@@ -15,6 +15,8 @@ pub(crate) mod latent_cache;
 pub mod latent_inner;
 pub mod logdet_bounds;
 pub mod loop_guard;
+pub mod measure_jet_glm_sufficient;
+pub mod measure_jet_gram_cache;
 pub mod mixture_link;
 pub mod orthogonal_reparam;
 pub mod outer_strategy;
@@ -22,9 +24,11 @@ pub(crate) mod persistent_warm_start;
 pub mod pirls;
 pub(crate) mod priority_selection;
 pub mod protocol;
+pub mod psi_gram_tensor;
 pub mod residual_cascade;
 pub(crate) mod riemannian_retraction;
 pub mod row_measure;
+pub mod scan_backfit;
 pub mod seeding;
 pub mod sensitivity;
 pub mod spline_scan;
@@ -54,8 +58,8 @@ pub use topology_selector::{
     TopologyAutoSelectorResult, TopologyRaceParallelCandidate, UnionRungFit, UnionRungResult,
     adjudicate_cross_class_race, build_cv_log_density_table, deterministic_cv_folds,
     fit_mixture_rung, fit_union_candidate, fit_union_rung, mixture_density_provider,
-    parse_union_name, run_topology_race_parallel, select_topology_with_fit, tk_normalized_score,
-    union_density_provider,
+    parse_union_name, run_topology_race_parallel, select_topology_with_fit,
+    select_topology_with_fit_parallel, tk_normalized_score, union_density_provider,
 };
 
 /// Process-wide counter of smoothing-corrections that took the sigma-cubature

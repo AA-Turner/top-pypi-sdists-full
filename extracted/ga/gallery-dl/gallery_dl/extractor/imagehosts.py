@@ -303,12 +303,12 @@ class ImgspiceImageExtractor(ImagehostImageExtractor):
 
 
 class PixhostImageExtractor(ImagehostImageExtractor):
-    """Extractor for single images from pixhost.to"""
+    """Extractor for single images from pixhost.cc"""
     category = "pixhost"
-    root = "https://pixhost.to"
-    pattern = (r"(?:https?://)?(?:www\.)?pixhost\.(?:to|org)"
+    root = "https://pixhost.cc"
+    pattern = (r"(?:https?://)?(?:www\.)?pixhost\.(?:cc|to|org)"
                r"(/show/\d+/(\d+)_[^/?#]+)")
-    example = "https://pixhost.to/show/123/12345_NAME.EXT"
+    example = "https://pixhost.cc/show/123/12345_NAME.EXT"
     _cookies = {"pixhostads": "1", "pixhosttest": "1"}
 
     def get_info(self, page):
@@ -319,13 +319,13 @@ class PixhostImageExtractor(ImagehostImageExtractor):
 
 
 class PixhostGalleryExtractor(ImagehostImageExtractor):
-    """Extractor for image galleries from pixhost.to"""
+    """Extractor for image galleries from pixhost.cc"""
     category = "pixhost"
     subcategory = "gallery"
-    root = "https://pixhost.to"
-    pattern = (r"(?:https?://)?(?:www\.)?pixhost\.(?:to|org)"
+    root = "https://pixhost.cc"
+    pattern = (r"(?:https?://)?(?:www\.)?pixhost\.(?:cc|to|org)"
                r"(/gallery/([^/?#]+))")
-    example = "https://pixhost.to/gallery/ID"
+    example = "https://pixhost.cc/gallery/ID"
 
     def items(self):
         page = text.extr(self.request(

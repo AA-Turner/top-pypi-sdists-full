@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: signxml
-Version: 4.4.0
+Version: 4.5.1
 Summary: Python XML Signature and XAdES library
 Project-URL: Homepage, https://github.com/XML-Security/signxml
 Project-URL: Documentation, https://xml-security.github.io/signxml/
@@ -161,6 +161,25 @@ Assuming ``metadata.xml`` contains SAML metadata for the assertion source:
  shown in *Verifying SAML assertions*), or ``cert_subject_name`` to specify a
  subject name that must be in the signing X.509 certificate given by the signature (verified as if it were a
  domain name), or ``ca_pem_file`` to give a custom CA.
+
+Requiring digital signature key usage extension for certificates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When verifying x.509 certificates, the default verification policy provided by Cryptography is used. To pass
+a custom policy to require the digital signature key extension to be set in the certificate, use:
+
+.. code-block:: python
+
+    def require_digital_signature_key_usage(_, _, key_usage):
+        assert key_usage.digital_signature
+
+    ee_policy = x509.verification.ExtensionPolicy.permit_all().require_present(
+        extension_type=x509.KeyUsage,
+        criticality=x509.verification.Criticality.AGNOSTIC,
+        validator_cb=require_digital_signature_key_usage
+    )
+
+    XMLVerifier(...).verify(..., ee_policy=ee_policy)
+
 
 XML signature construction methods: enveloped, detached, enveloping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -38,9 +38,9 @@ class CivitaiExtractor(Extractor):
             if not isinstance(quality, str):
                 quality = ",".join(quality)
             self._image_quality = quality
-            self._image_ext = ("png" if quality == "original=true" else "jpg")
+            self._image_ext = ("png" if quality == "original" else "jpg")
         else:
-            self._image_quality = "original=true"
+            self._image_quality = "original"
             self._image_ext = "png"
 
         if quality_video := self.config("quality-videos"):
@@ -53,7 +53,7 @@ class CivitaiExtractor(Extractor):
         elif quality_video is not None and quality:
             self._video_quality = self._image_quality
         else:
-            self._video_quality = "original=true,quality=100"
+            self._video_quality = "original"
         self._video_ext = "webm"
 
         if metadata := self.config("metadata"):
@@ -155,15 +155,8 @@ class CivitaiExtractor(Extractor):
             return "/".join(parts)
 
         image["uuid"] = url
-        name = image.get("name")
-        if not name:
-            if mime := image.get("mimeType"):
-                name = f"{image.get('id')}.{mime.rpartition('/')[2]}"
-            else:
-                ext = self._video_ext if video else self._image_ext
-                name = f"{image.get('id')}.{ext}"
-        return (f"https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA"
-                f"/{url}/{quality}/{name}")
+        return (f"https://image-b2.civitai.com/file/civitai-media-cache"
+                f"/{url}/{quality}")
 
     def _image_results(self, images):
         for num, file in enumerate(images, 1):

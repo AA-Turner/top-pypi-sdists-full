@@ -4,24 +4,65 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from ...exceptions import ClientException, InvalidURL
-from ...util.cache import cachedproperty
-from ..comment_forest import CommentForest
-from .base import RedditBase
-from .mixins import (
+from praw.const import API_PATH
+from praw.exceptions import ClientException, InvalidURL
+from praw.models.comment_forest import CommentForest
+from praw.models.reddit.base import RedditBase
+from praw.models.reddit.mixins import (
+    CreatedMixin,
     FullnameMixin,
     InboxableMixin,
     ThingModerationMixin,
     UserContentMixin,
 )
-from .redditor import Redditor
+from praw.models.reddit.redditor import Redditor
+from praw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    import praw
+    from praw import models
 
 
-class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
+class CommentModeration(ThingModerationMixin):
+    """Provide a set of functions pertaining to :class:`.Comment` moderation.
+
+    Example usage:
+
+    .. code-block:: python
+
+        comment = reddit.comment("dkk4qjd")
+        comment.mod.approve()
+
+    """
+
+    REMOVAL_MESSAGE_API = "removal_comment_message"
+
+    def __init__(self, comment: models.Comment) -> None:
+        """Initialize a :class:`.CommentModeration` instance.
+
+        :param comment: The comment to moderate.
+
+        """
+        self.thing = comment
+
+    def show(self) -> None:
+        """Uncollapse a :class:`.Comment` that has been collapsed by Crowd Control.
+
+        Example usage:
+
+        .. code-block:: python
+
+            # Uncollapse a comment:
+            comment = reddit.comment("dkk4qjd")
+            comment.mod.show()
+
+        """
+        url = API_PATH["show_comment"]
+
+        self.thing._reddit.post(url, data={"id": self.thing.fullname})
+
+
+class Comment(InboxableMixin, UserContentMixin, FullnameMixin, CreatedMixin, RedditBase):
     """A class that represents a Reddit comment.
 
     .. include:: ../../typical_attributes.rst
@@ -38,6 +79,9 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
     ``id``            The ID of the comment.
     ``is_submitter``  Whether or not the comment author is also the author of the
                       submission.
+    ``likes``         The user's current vote status on the comment: ``True`` if
+                      upvoted, ``False`` if downvoted, and ``None`` if not voted or not
+                      logged in.
     ``link_id``       The submission ID that the comment belongs to.
     ``parent_id``     The ID of the parent comment (prefixed with ``t1_``). If it is a
                       top-level comment, this returns the submission ID instead
@@ -76,7 +120,7 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
         return parts[-1]
 
     @cachedproperty
-    def mod(self) -> praw.models.reddit.comment.CommentModeration:
+    def mod(self) -> CommentModeration:
         """Provide an instance of :class:`.CommentModeration`.
 
         Example usage:
@@ -90,7 +134,7 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
         return CommentModeration(self)
 
     @property
-    def _kind(self):
+    def _kind(self) -> str:
         """Return the class's kind."""
         return self._reddit.config.kinds["comment"]
 
@@ -128,14 +172,14 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
         return self._replies
 
     @property
-    def submission(self) -> praw.models.Submission:
+    def submission(self) -> models.Submission:
         """Return the :class:`.Submission` object this comment belongs to."""
         if not self._submission:  # Comment not from submission
             self._submission = self._reddit.submission(self._extract_submission_id())
         return self._submission
 
     @submission.setter
-    def submission(self, submission: praw.models.Submission):
+    def submission(self, submission: models.Submission) -> None:
         """Update the :class:`.Submission` associated with the :class:`.Comment`."""
         submission._comments_by_id[self.fullname] = self
         self._submission = submission
@@ -148,9 +192,9 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
         id: str | None = None,
         url: str | None = None,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.Comment` instance."""
-        if (id, url, _data).count(None) != 2:
+        if sum(1 for value in (id, url, _data) if value is not None) != 1:
             msg = "Exactly one of 'id', 'url', or '_data' must be provided."
             raise TypeError(msg)
         fetched = False
@@ -167,27 +211,25 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
     def __setattr__(
         self,
         attribute: str,
-        value: str | Redditor | CommentForest | praw.models.Subreddit,
-    ):
+        value: Any,
+    ) -> None:
         """Objectify author, replies, and subreddit."""
         if attribute == "author":
             value = Redditor.from_data(self._reddit, value)
         elif attribute == "replies":
-            if value == "":
-                value = []
-            else:
-                value = self._reddit._objector.objectify(value).children
+            listing: Any = None if value == "" else self._reddit._objector.objectify(data=value)  # noqa: PLC1901
+            value = [] if listing is None else listing.children
             attribute = "_replies"
         elif attribute == "subreddit":
             value = self._reddit.subreddit(value)
         super().__setattr__(attribute, value)
 
-    def _extract_submission_id(self):
+    def _extract_submission_id(self) -> str:
         if "context" in self.__dict__:
             return self.context.rsplit("/", 4)[1]
         return self.link_id.split("_", 1)[1]
 
-    def _fetch(self):
+    def _fetch(self) -> None:
         data = self._fetch_data()
         data = data["data"]
 
@@ -200,12 +242,12 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
         self.__dict__.update(other.__dict__)
         super()._fetch()
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict, dict[str, str]]:
         return "info", {}, {"id": self.fullname}
 
     def parent(
         self,
-    ) -> Comment | praw.models.Submission:
+    ) -> Comment | models.Submission:
         """Return the parent of the comment.
 
         The returned parent will be an instance of either :class:`.Comment`, or
@@ -241,8 +283,7 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
 
         .. code-block:: python
 
-            comment = reddit.comment("dkk4qjd")
-            ancestor = comment
+            ancestor = reddit.comment("dkk4qjd")
             refresh_counter = 0
             while not ancestor.is_root:
                 ancestor = ancestor.parent()
@@ -287,7 +328,7 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
             comment_path = f"{path}_/{self.id}"
 
         # The context limit appears to be 8, but let's ask for more anyway.
-        params = {"context": 100}
+        params: dict[str, str | int] = {"context": 100}
         if "reply_limit" in self.__dict__:
             params["limit"] = self.reply_limit
         if "reply_sort" in self.__dict__:
@@ -304,7 +345,7 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
             if isinstance(comment, Comment):
                 queue.extend(comment._replies)
 
-        if comment.id != self.id:
+        if comment is None or comment.id != self.id:
             raise ClientException(self.MISSING_COMMENT_MESSAGE)
 
         if self._submission is not None:
@@ -314,42 +355,3 @@ class Comment(InboxableMixin, UserContentMixin, FullnameMixin, RedditBase):
         for reply in comment_list:
             reply.submission = self.submission
         return self
-
-
-class CommentModeration(ThingModerationMixin):
-    """Provide a set of functions pertaining to :class:`.Comment` moderation.
-
-    Example usage:
-
-    .. code-block:: python
-
-        comment = reddit.comment("dkk4qjd")
-        comment.mod.approve()
-
-    """
-
-    REMOVAL_MESSAGE_API = "removal_comment_message"
-
-    def __init__(self, comment: praw.models.Comment):
-        """Initialize a :class:`.CommentModeration` instance.
-
-        :param comment: The comment to moderate.
-
-        """
-        self.thing = comment
-
-    def show(self):
-        """Uncollapse a :class:`.Comment` that has been collapsed by Crowd Control.
-
-        Example usage:
-
-        .. code-block:: python
-
-            # Uncollapse a comment:
-            comment = reddit.comment("dkk4qjd")
-            comment.mod.show()
-
-        """
-        url = API_PATH["show_comment"]
-
-        self.thing._reddit.post(url, data={"id": self.thing.fullname})

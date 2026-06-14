@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
 
 
 class ModNoteMixin:
     """Interface for classes that can have a moderator note set on them."""
 
-    def author_notes(
-        self, **generator_kwargs: Any
-    ) -> AsyncGenerator[asyncpraw.models.ModNote, None]:
+    if TYPE_CHECKING:
+        # Provided by the host class (e.g. :class:`.ThingModerationMixin`).
+        thing: asyncpraw.models.Comment | asyncpraw.models.Submission
+
+    def author_notes(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.ModNote]:
         """Get the moderator notes for the author of this object in the subreddit it's posted in.
 
         :param generator_kwargs: Additional keyword arguments are passed in the
@@ -29,9 +33,7 @@ class ModNoteMixin:
                 print(f"{note.label}: {note.note}")
 
         """
-        return self.thing.subreddit.mod.notes.redditors(
-            self.thing.author, **generator_kwargs
-        )
+        return self.thing.subreddit.mod.notes.redditors(self.thing.author, **generator_kwargs)
 
     async def create_note(
         self, *, label: str | None = None, note: str, **other_settings: Any
@@ -57,6 +59,4 @@ class ModNoteMixin:
             await submission.mod.create_note(label="HELPFUL_USER", note="Test note")
 
         """
-        return await self.thing.subreddit.mod.notes.create(
-            label=label, note=note, thing=self.thing, **other_settings
-        )
+        return await self.thing.subreddit.mod.notes.create(label=label, note=note, thing=self.thing, **other_settings)

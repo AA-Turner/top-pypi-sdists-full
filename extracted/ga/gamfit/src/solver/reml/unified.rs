@@ -488,10 +488,14 @@ pub trait HessianOperator: Send + Sync {
             });
             let chunk_t = rows.t().to_owned();
             let z_chunk = self.solve_multi(&chunk_t);
-            for i in 0..(end - start) {
+            for (i, (row, z_col)) in rows
+                .outer_iter()
+                .zip(z_chunk.columns().into_iter())
+                .enumerate()
+            {
                 let mut acc = 0.0;
-                for j in 0..p {
-                    acc += rows[[i, j]] * z_chunk[[j, i]];
+                for (row_value, z_value) in row.iter().copied().zip(z_col.iter().copied()) {
+                    acc += row_value * z_value;
                 }
                 h[start + i] = acc;
             }
@@ -3400,12 +3404,12 @@ impl HyperOperator for BlockLocalDrift {
         let v_block = v.slice(ndarray::s![self.start..self.end]);
         let u_block = u.slice(ndarray::s![self.start..self.end]);
         let mut total = 0.0;
-        for row in 0..self.local.nrows() {
+        for (row, u_value) in self.local.rows().into_iter().zip(u_block.iter().copied()) {
             let mut row_dot = 0.0;
-            for col in 0..self.local.ncols() {
-                row_dot += self.local[[row, col]] * v_block[col];
+            for (entry, v_value) in row.iter().copied().zip(v_block.iter().copied()) {
+                row_dot += entry * v_value;
             }
-            total += u_block[row] * row_dot;
+            total += u_value * row_dot;
         }
         total
     }
@@ -5098,14 +5102,7 @@ impl PenaltySubspaceTrace {
         // left = H_proj⁻¹ · R_A ;  right = H_proj⁻¹ · R_B ;  tr(left · right).
         let left = self.h_proj_inverse.dot(ra);
         let right = self.h_proj_inverse.dot(rb);
-        let r = left.nrows();
-        let mut trace = 0.0;
-        for i in 0..r {
-            for j in 0..r {
-                trace += left[[i, j]] * right[[j, i]];
-            }
-        }
-        trace
+        trace_matrix_product(&left, &right)
     }
 
     /// Reduce a `HyperOperator` `A` to its `r × r` projection
@@ -5169,15 +5166,18 @@ impl PenaltySubspaceTrace {
             // Z_chunk = rows · U_S  ((end-start) × r).
             let z_chunk = crate::faer_ndarray::fast_ab(&rows, &self.u_s);
             // h_i = Σ_{a,b} Z_{ia} (H_proj⁻¹)_{ab} Z_{ib}.
-            for i in 0..(end - start) {
-                let row_z = z_chunk.row(i);
+            for (i, row_z) in z_chunk.outer_iter().enumerate() {
                 let mut acc = 0.0;
-                for a in 0..r {
+                for (z_a, h_row) in row_z
+                    .iter()
+                    .copied()
+                    .zip(self.h_proj_inverse.rows().into_iter())
+                {
                     let mut inner = 0.0;
-                    for b in 0..r {
-                        inner += self.h_proj_inverse[[a, b]] * row_z[b];
+                    for (h_value, z_b) in h_row.iter().copied().zip(row_z.iter().copied()) {
+                        inner += h_value * z_b;
                     }
-                    acc += row_z[a] * inner;
+                    acc += z_a * inner;
                 }
                 h[start + i] = acc;
             }
@@ -6887,11 +6887,10 @@ fn design_matrix_transpose_apply_view_into(
 fn trace_matrix_product(left: &Array2<f64>, right: &Array2<f64>) -> f64 {
     assert_eq!(left.nrows(), left.ncols());
     assert_eq!(left.raw_dim(), right.raw_dim());
-    let n = left.nrows();
     let mut trace = 0.0;
-    for i in 0..n {
-        for j in 0..n {
-            trace += left[[i, j]] * right[[j, i]];
+    for (left_row, right_col) in left.rows().into_iter().zip(right.columns().into_iter()) {
+        for (left_value, right_value) in left_row.iter().copied().zip(right_col.iter().copied()) {
+            trace += left_value * right_value;
         }
     }
     trace
@@ -14368,9 +14367,20 @@ impl DenseSpectralOperator {
     #[inline]
     fn trace_hinv_product_cross_rotated(&self, a_rot: &Array2<f64>, b_rot: &Array2<f64>) -> f64 {
         let mut result = 0.0;
-        for a in 0..self.n_dim {
-            for b in 0..self.n_dim {
-                result += self.hinv_cross_kernel[[a, b]] * a_rot[[a, b]] * b_rot[[b, a]];
+        for ((kernel_row, a_row), b_col) in self
+            .hinv_cross_kernel
+            .rows()
+            .into_iter()
+            .zip(a_rot.rows().into_iter())
+            .zip(b_rot.columns().into_iter())
+        {
+            for ((kernel, a_value), b_value) in kernel_row
+                .iter()
+                .copied()
+                .zip(a_row.iter().copied())
+                .zip(b_col.iter().copied())
+            {
+                result += kernel * a_value * b_value;
             }
         }
         result
@@ -14413,9 +14423,10 @@ impl DenseSpectralOperator {
     #[inline]
     fn trace_projected_cross(&self, left: &Array2<f64>, right: &Array2<f64>) -> f64 {
         let mut result = 0.0;
-        for a in 0..left.nrows() {
-            for b in 0..left.ncols() {
-                result += left[[a, b]] * right[[b, a]];
+        for (left_row, right_col) in left.rows().into_iter().zip(right.columns().into_iter()) {
+            for (left_value, right_value) in left_row.iter().copied().zip(right_col.iter().copied())
+            {
+                result += left_value * right_value;
             }
         }
         result
@@ -14428,9 +14439,20 @@ impl DenseSpectralOperator {
         h_j_rot: &Array2<f64>,
     ) -> f64 {
         let mut result = 0.0;
-        for a in 0..self.n_dim {
-            for b in 0..self.n_dim {
-                result += self.logdet_hessian_kernel[[a, b]] * h_i_rot[[a, b]] * h_j_rot[[b, a]];
+        for ((kernel_row, h_i_row), h_j_col) in self
+            .logdet_hessian_kernel
+            .rows()
+            .into_iter()
+            .zip(h_i_rot.rows().into_iter())
+            .zip(h_j_rot.columns().into_iter())
+        {
+            for ((kernel, h_i_value), h_j_value) in kernel_row
+                .iter()
+                .copied()
+                .zip(h_i_row.iter().copied())
+                .zip(h_j_col.iter().copied())
+            {
+                result += kernel * h_i_value * h_j_value;
             }
         }
         result
@@ -17949,6 +17971,203 @@ mod tests {
     use crate::solver::estimate::DP_FLOOR;
     use approx::assert_relative_eq;
     use ndarray::array;
+
+    #[test]
+    fn trace_matrix_product_iterator_matches_scalar_reference_bitwise() {
+        let left = Array2::from_shape_fn((4, 4), |(i, j)| {
+            ((i as f64 + 0.25) * 0.37 + (j as f64 + 0.5) * 0.19).sin()
+        });
+        let right = Array2::from_shape_fn((4, 4), |(i, j)| {
+            ((i as f64 + 1.25) * 0.23 - (j as f64 + 0.75) * 0.41).cos()
+        });
+        let mut reference = 0.0;
+        for i in 0..left.nrows() {
+            for j in 0..left.ncols() {
+                reference += left[[i, j]] * right[[j, i]];
+            }
+        }
+
+        assert_eq!(
+            trace_matrix_product(&left, &right).to_bits(),
+            reference.to_bits()
+        );
+    }
+
+    #[test]
+    fn block_local_bilinear_iterator_matches_scalar_reference_bitwise() {
+        let local = Array2::from_shape_fn((4, 4), |(i, j)| {
+            ((i as f64 + 0.1) * 0.29 - (j as f64 + 0.7) * 0.13).sin()
+        });
+        let op = BlockLocalDrift {
+            local: local.clone(),
+            start: 2,
+            end: 6,
+            total_dim: 8,
+        };
+        let v = Array1::from_shape_fn(8, |i| ((i as f64 + 0.4) * 0.31).cos());
+        let u = Array1::from_shape_fn(8, |i| ((i as f64 + 0.8) * 0.17).sin());
+        let mut reference = 0.0;
+        for row in 0..local.nrows() {
+            let mut row_dot = 0.0;
+            for col in 0..local.ncols() {
+                row_dot += local[[row, col]] * v[op.start + col];
+            }
+            reference += u[op.start + row] * row_dot;
+        }
+
+        let got = op.bilinear_view(v.view(), u.view());
+        assert_eq!(got.to_bits(), reference.to_bits());
+    }
+
+    #[test]
+    fn xt_logdet_kernel_diagonal_iterator_matches_scalar_reference() {
+        struct FixedKernelHessian {
+            kernel: Array2<f64>,
+        }
+
+        impl HessianOperator for FixedKernelHessian {
+            fn logdet(&self) -> f64 {
+                0.0
+            }
+
+            fn trace_hinv_product(&self, a: &Array2<f64>) -> f64 {
+                assert_eq!(a.raw_dim(), self.kernel.raw_dim());
+                let mut trace = 0.0;
+                for i in 0..a.nrows() {
+                    for j in 0..a.ncols() {
+                        trace += self.kernel[[i, j]] * a[[j, i]];
+                    }
+                }
+                trace
+            }
+
+            fn solve(&self, rhs: &Array1<f64>) -> Array1<f64> {
+                self.kernel.dot(rhs)
+            }
+
+            fn solve_multi(&self, rhs: &Array2<f64>) -> Array2<f64> {
+                self.kernel.dot(rhs)
+            }
+
+            fn active_rank(&self) -> usize {
+                self.kernel.nrows()
+            }
+
+            fn dim(&self) -> usize {
+                self.kernel.nrows()
+            }
+        }
+
+        let x = Array2::from_shape_fn((5, 3), |(i, j)| {
+            ((i as f64 + 0.5) * 0.21 + (j as f64 + 0.25) * 0.47).sin()
+        });
+        let kernel = array![[1.7, 0.2, -0.1], [0.2, 2.3, 0.4], [-0.1, 0.4, 1.9]];
+        let op = FixedKernelHessian { kernel };
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x.clone()));
+
+        let got = HessianOperator::xt_logdet_kernel_x_diagonal(&op, &design);
+        let solved = op.solve_multi(&x.t().to_owned());
+        for i in 0..x.nrows() {
+            let mut reference = 0.0;
+            for j in 0..x.ncols() {
+                reference += x[[i, j]] * solved[[j, i]];
+            }
+            assert_eq!(got[i].to_bits(), reference.to_bits());
+        }
+    }
+
+    #[test]
+    fn xt_projected_kernel_diagonal_iterator_matches_scalar_reference_bitwise() {
+        let u_s = array![[0.8_f64, -0.2], [0.1, 0.9], [0.5, 0.3], [-0.4, 0.6]];
+        let h_proj_inverse = array![[1.6_f64, -0.25], [-0.25, 2.1]];
+        let subspace = PenaltySubspaceTrace {
+            u_s: u_s.clone(),
+            h_proj_inverse: h_proj_inverse.clone(),
+        };
+        let x = Array2::from_shape_fn((5, 4), |(i, j)| {
+            ((i as f64 + 0.3) * 0.19 - (j as f64 + 0.6) * 0.37).sin()
+        });
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x.clone()));
+
+        let got = subspace.xt_projected_kernel_x_diagonal(&design);
+        let z = crate::faer_ndarray::fast_ab(&x, &u_s);
+        for i in 0..x.nrows() {
+            let row_z = z.row(i);
+            let mut reference = 0.0;
+            for a in 0..h_proj_inverse.nrows() {
+                let mut inner = 0.0;
+                for b in 0..h_proj_inverse.ncols() {
+                    inner += h_proj_inverse[[a, b]] * row_z[b];
+                }
+                reference += row_z[a] * inner;
+            }
+            assert_eq!(got[i].to_bits(), reference.to_bits());
+        }
+    }
+
+    #[test]
+    fn projected_logdet_cross_reduced_uses_trace_product_reference() {
+        let kernel = PenaltySubspaceTrace {
+            u_s: Array2::<f64>::eye(3),
+            h_proj_inverse: array![[1.4, 0.2, -0.1], [0.2, 1.9, 0.3], [-0.1, 0.3, 1.6]],
+        };
+        let ra = Array2::from_shape_fn((3, 3), |(i, j)| {
+            ((i as f64 + 0.6) * 0.22 - (j as f64 + 0.3) * 0.35).sin()
+        });
+        let rb = Array2::from_shape_fn((3, 3), |(i, j)| {
+            ((i as f64 + 0.1) * 0.41 + (j as f64 + 0.8) * 0.18).cos()
+        });
+        let left = kernel.h_proj_inverse.dot(&ra);
+        let right = kernel.h_proj_inverse.dot(&rb);
+        let mut reference = 0.0;
+        for i in 0..left.nrows() {
+            for j in 0..left.ncols() {
+                reference += left[[i, j]] * right[[j, i]];
+            }
+        }
+
+        let got = kernel.trace_projected_logdet_cross_reduced(&ra, &rb);
+        assert_eq!(got.to_bits(), reference.to_bits());
+    }
+
+    #[test]
+    fn dense_spectral_rotated_cross_kernels_match_scalar_references_bitwise() {
+        let h = array![[3.5, 0.4, -0.2], [0.4, 2.8, 0.3], [-0.2, 0.3, 2.2]];
+        let op = DenseSpectralOperator::from_symmetric(&h).expect("spd fixture");
+        let a_rot = Array2::from_shape_fn((3, 3), |(i, j)| {
+            ((i as f64 + 0.2) * 0.31 + (j as f64 + 0.9) * 0.27).sin()
+        });
+        let b_rot = Array2::from_shape_fn((3, 3), |(i, j)| {
+            ((i as f64 + 0.7) * 0.17 - (j as f64 + 0.4) * 0.43).cos()
+        });
+
+        let mut hinv_reference = 0.0;
+        let mut logdet_reference = 0.0;
+        let mut projected_reference = 0.0;
+        for i in 0..op.n_dim {
+            for j in 0..op.n_dim {
+                hinv_reference += op.hinv_cross_kernel[[i, j]] * a_rot[[i, j]] * b_rot[[j, i]];
+                logdet_reference +=
+                    op.logdet_hessian_kernel[[i, j]] * a_rot[[i, j]] * b_rot[[j, i]];
+                projected_reference += a_rot[[i, j]] * b_rot[[j, i]];
+            }
+        }
+
+        assert_eq!(
+            op.trace_hinv_product_cross_rotated(&a_rot, &b_rot)
+                .to_bits(),
+            hinv_reference.to_bits()
+        );
+        assert_eq!(
+            op.trace_logdet_hessian_cross_rotated(&a_rot, &b_rot)
+                .to_bits(),
+            logdet_reference.to_bits()
+        );
+        assert_eq!(
+            op.trace_projected_cross(&a_rot, &b_rot).to_bits(),
+            projected_reference.to_bits()
+        );
+    }
 
     // ─── Batched kernel-trace factor must reproduce the exact kernel ─────
     //

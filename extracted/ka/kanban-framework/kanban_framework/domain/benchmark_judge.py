@@ -16,6 +16,15 @@ class CaseVerdict:
     evidence: str
     task_id: str = ""
     task_dir: str = ""
+    # v0.188: LLM efficiency dimensions (populated from LLMStatsReader)
+    llm_calls: int = 0
+    llm_tokens_input: int = 0
+    llm_tokens_output: int = 0
+    llm_tokens_cache_read: int = 0
+    llm_tokens_effective: int = 0  # input + output (what actually costs)
+    llm_quality_per_call: float = 0.0  # score / calls (higher = more efficient)
+    llm_score_per_1k_tokens: float = 0.0  # score per 1K effective tokens
+    llm_cache_efficiency: float = 0.0  # cache_read / (cache_read + input)
 
 
 def judge_case(case_id: str, acceptance: list[str], report_dir: Path) -> CaseVerdict:

@@ -71,6 +71,11 @@ from ..cli.install_commands import (
     uninstall_confirmation_token,
 )
 from ..cli.update_commands import build_guard_update_status_payload
+from ..cloud_exception_requests import (
+    CloudExceptionRequestError,
+    fetch_cloud_exception_requests,
+    submit_cloud_exception_request,
+)
 from ..codex_resume import (
     defer_request_resume_to_live_hook,
     get_request_resume_status,
@@ -92,6 +97,7 @@ from ..insights_share import publish_insights_share
 from ..local_dashboard_session import LOCAL_DASHBOARD_SESSION_AUDIENCE, build_local_dashboard_session_token
 from ..local_supply_chain import (
     build_workspace_audit_payload,
+    managed_install_audit_workspace_dirs,
     resolve_package_firewall_entitlement_with_refresh,
     resolve_supply_chain_audit_workspace_dir,
 )
@@ -117,6 +123,7 @@ from ..runtime.runner import (
     _build_policy_bundle_decisions,
     _daemon_version_supported,
     _guard_device_metadata,
+    _persist_cloud_exceptions,
     _policy_bundle_acknowledgement_payload,
     _policy_bundle_is_version_downgrade,
     sync_local_guard_cloud_proof,
@@ -141,6 +148,7 @@ from ..store_evidence import (
     export_evidence_json,
     list_evidence,
 )
+from .command_queue_worker import CommandQueueWorker, start_command_queue_worker, stop_command_queue_worker
 from .dashboard_update import merge_dashboard_update_progress, schedule_guard_dashboard_update
 from .manager import (
     GUARD_DAEMON_COMPATIBILITY_VERSION,
@@ -1149,9 +1157,22 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if parsed.path == "/v1/policy":
             query = parse_qs(parsed.query)
             harness = query.get("harness", [None])[-1]
+            harness_filter = harness if isinstance(harness, str) else None
             self._write_json(
-                {"items": store.list_policy_decisions(harness=harness if isinstance(harness, str) else None)}
+                {
+                    "items": store.list_policy_decisions(harness=harness_filter),
+                    "cloud_exceptions": store.list_cloud_exceptions(harness=harness_filter),
+                }
             )
+            return
+        if parsed.path == "/v1/policy/cloud-exceptions":
+            query = parse_qs(parsed.query)
+            harness = query.get("harness", [None])[-1]
+            harness_filter = harness if isinstance(harness, str) else None
+            self._write_json({"items": store.list_cloud_exceptions(harness=harness_filter)})
+            return
+        if parsed.path == "/v1/policy/cloud-exception-requests":
+            self._handle_cloud_exception_request_list()
             return
         if parsed.path == "/v1/evidence":
             query = parse_qs(parsed.query)
@@ -1327,6 +1348,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/v1/policy/sync":
             self._handle_headless_policy_sync(payload)
+            return
+        if parsed.path == "/v1/policy/cloud-exception-requests":
+            self._handle_cloud_exception_request_create(payload)
             return
         if parsed.path == "/v1/requests/remote-once":
             self._handle_headless_remote_once(payload)
@@ -1872,6 +1896,12 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 )
             )
             self.server.store.replace_remote_policies(existing_remote_decisions, applied_at)  # type: ignore[attr-defined]
+            _persist_cloud_exceptions(
+                self.server.store,  # type: ignore[attr-defined]
+                policy_bundle=validated_policy_bundle,
+                now=applied_at,
+                device_id=device_id,
+            )
             applied_bundle_hash = str(validated_policy_bundle["bundleHash"])
             applied_bundle_version = str(validated_policy_bundle["bundleVersion"])
         if not policy_memory:
@@ -2144,12 +2174,14 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
     def _handle_supply_chain_package_firewall_status(self) -> None:
         entitlement = self._supply_chain_entitlement()
         status = package_shim_status(self._harness_context({}))
+        audit_workspace_dir = self._resolve_supply_chain_workspace_dir({})
         self._write_json(
             {
                 "actions": package_firewall_action_states(
                     entitlement,
                     has_installed_managers=bool(status.get("installed_managers")),
                 ),
+                "audit_workspace_dir": (str(audit_workspace_dir) if audit_workspace_dir is not None else None),
                 "cli_fallback": {
                     "connect": "hol-guard connect",
                     "install": "hol-guard package-shims install --json",
@@ -2215,7 +2247,15 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_approval_gate_error(error)
             return
         except ValueError as error:
-            self._write_json({"error": str(error), "operation": operation}, status=400)
+            error_code = str(error)
+            error_payload: dict[str, object] = {"error": error_code, "operation": operation}
+            if error_code == "workspace_dir_required":
+                error_payload["message"] = (
+                    "Guard needs a project folder with package manifests before it can run "
+                    "the workspace audit. Open Guard from a connected app workspace or pass "
+                    "workspace_dir in the audit request."
+                )
+            self._write_json(error_payload, status=400)
             return
         receipt_overrides = package_firewall_receipt_metadata(
             operation=operation,
@@ -2239,12 +2279,17 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 else None
             ),
         )
+        response_status = "completed"
+        if operation == "audit":
+            audit_status = result.get("audit_status")
+            if audit_status == "incomplete":
+                response_status = "incomplete"
         response_payload: dict[str, object] = {
             "entitlement": entitlement,
             "operation": operation,
             "receipt": receipt,
             "result": result,
-            "status": "completed",
+            "status": response_status,
         }
         if operation == "audit":
             cloud_sync = _queue_headless_cloud_sync(store=self.server.store)  # type: ignore[attr-defined]
@@ -2292,17 +2337,18 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return sync_supply_chain_bundle(self.server.store)  # type: ignore[attr-defined]
         raise ValueError("unsupported_supply_chain_operation")
 
-    @staticmethod
-    def _resolve_supply_chain_workspace_dir(payload: dict[str, object]) -> Path | None:
+    def _resolve_supply_chain_workspace_dir(self, payload: dict[str, object]) -> Path | None:
         allowed_roots = (
             Path.home().resolve(),
             Path.cwd().resolve(),
             Path(tempfile.gettempdir()).resolve(),
         )
+        managed_workspace_dirs = managed_install_audit_workspace_dirs(self.server.store)  # type: ignore[attr-defined]
         return resolve_supply_chain_audit_workspace_dir(
             workspace_dir_value=payload.get("workspace_dir"),
             workspace_value=payload.get("workspace"),
             allowed_roots=allowed_roots,
+            managed_workspace_dirs=managed_workspace_dirs,
         )
 
     def _supply_chain_context(self, payload: dict[str, object]) -> HarnessContext:
@@ -3110,6 +3156,38 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return
         self._write_json(result)
 
+    def _handle_cloud_exception_request_list(self) -> None:
+        store = self.server.store  # type: ignore[attr-defined]
+        try:
+            result = fetch_cloud_exception_requests(store)
+        except CloudExceptionRequestError as error:
+            message = str(error).strip() or "Unable to load Guard Cloud exception requests."
+            self._write_json({"error": "cloud_exception_request_list_failed", "message": message}, status=error.status)
+            return
+        except Exception as error:
+            message = str(error).strip() or "Unable to load Guard Cloud exception requests."
+            self._write_json({"error": "cloud_exception_request_list_failed", "message": message}, status=502)
+            return
+        self._write_json(result)
+
+    def _handle_cloud_exception_request_create(self, payload: dict[str, object]) -> None:
+        store = self.server.store  # type: ignore[attr-defined]
+        try:
+            result = submit_cloud_exception_request(store, payload)
+        except ValueError as error:
+            message = str(error).strip() or "Invalid Guard exception request payload."
+            self._write_json({"error": "invalid_payload", "message": message}, status=400)
+            return
+        except CloudExceptionRequestError as error:
+            message = str(error).strip() or "Unable to create Guard Cloud exception request."
+            self._write_json({"error": "cloud_exception_request_failed", "message": message}, status=error.status)
+            return
+        except Exception as error:
+            message = str(error).strip() or "Unable to create Guard Cloud exception request."
+            self._write_json({"error": "cloud_exception_request_failed", "message": message}, status=502)
+            return
+        self._write_json(result)
+
     def _handle_settings_update(self, payload: dict[str, object]) -> None:
         settings = payload.get("settings")
         if not isinstance(settings, dict):
@@ -3842,6 +3920,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/cloud/connect",
             "/v1/receipts/latest",
             "/v1/policy",
+            "/v1/policy/cloud-exceptions",
             "/v1/evidence",
             "/v1/evidence/export",
             "/v1/clients/attach",
@@ -4114,6 +4193,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/harnesses",
             "/v1/notifications/setup",
             "/v1/policy",
+            "/v1/policy/cloud-exceptions",
+            "/v1/policy/cloud-exception-requests",
             "/v1/policy/clear",
             "/v1/policy/sync",
             "/v1/receipts",
@@ -4310,6 +4391,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             payload["saved"] = False
             self._write_json(payload, status=error.status)
             return
+        except ValueError as error:
+            self._write_json({"saved": False, "error": str(error)}, status=400)
+            return
         self._write_json({"saved": True, "decision": record})
 
     @staticmethod
@@ -4492,6 +4576,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/connect/result",
             "/v1/operations/block",
             "/v1/policy/decisions",
+            "/v1/policy/cloud-exceptions",
+            "/v1/policy/cloud-exception-requests",
             "/v1/policy/clear",
             "/v1/policy/sync",
             "/v1/requests/clear",
@@ -4699,6 +4785,7 @@ class GuardDaemonServer:
         self._bundle_refresh_backoff_seconds = bundle_refresh_backoff_seconds
         self._bundle_refresh_interval_seconds = bundle_refresh_interval_seconds
         self._bundle_refresh_thread: threading.Thread | None = None
+        self._command_queue_worker: CommandQueueWorker | None = None
         self._thread: threading.Thread | None = None
         self._watchdog_thread: threading.Thread | None = None
         self._shutdown_started = threading.Event()
@@ -4728,6 +4815,7 @@ class GuardDaemonServer:
         if self._bundle_refresh_thread is not None:
             self._bundle_refresh_thread.join(timeout=5)
             self._bundle_refresh_thread = None
+        self._command_queue_worker = stop_command_queue_worker(self._command_queue_worker)
 
     def _begin_service(self) -> None:
         self._shutdown_started.clear()
@@ -4742,6 +4830,7 @@ class GuardDaemonServer:
         )
         self._start_watchdog()
         self._start_supply_chain_bundle_refresh()
+        self._command_queue_worker = start_command_queue_worker(self._server.store, self._command_queue_worker)
 
     def _serve_forever(self) -> None:
         try:

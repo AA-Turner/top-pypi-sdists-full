@@ -11,6 +11,8 @@ directly via tab-completion::
     nir.xrs.ndvi(red)
 """
 
+import warnings
+
 import xarray as xr
 
 
@@ -86,22 +88,22 @@ def _pick_representative_dataarray(ds, *, var=None):
     )
 
 
-def _infer_caller_y_chunk(obj):
-    """First y-axis chunk size of a dask-backed DataArray, or None."""
+def _infer_caller_chunk(obj, axis):
+    """First chunk size along *axis* of a dask-backed DataArray, or None."""
     try:
-        y_axis = obj.get_axis_num('y')
+        axis_num = obj.get_axis_num(axis)
     except (ValueError, KeyError):
         return None
     chunks_tuple = getattr(obj, 'chunks', None)
     if not chunks_tuple:
         return None
     try:
-        y_chunks = chunks_tuple[y_axis]
+        axis_chunks = chunks_tuple[axis_num]
     except (IndexError, TypeError):
         return None
-    if not y_chunks:
+    if not axis_chunks:
         return None
-    return int(y_chunks[0])
+    return int(axis_chunks[0])
 
 
 def _to_pyproj_crs(crs):
@@ -146,7 +148,178 @@ def _bbox_edge_samples(x_min, y_min, x_max, y_max, n_per_side=20):
     return xs, ys
 
 
-def _open_geotiff_windowed(obj, source, *, auto_reproject=False, **kwargs):
+_RESAMPLING_CHOICES = ('auto', 'nearest', 'bilinear', 'cubic')
+
+# coregister=True paints the file onto the caller's full grid, NaN-filling
+# everything outside the file footprint. Below this coverage fraction the
+# result is mostly NaN, so warn and point at the crop-the-caller-first
+# pattern instead.
+_COREGISTER_COVERAGE_WARN_FRACTION = 0.10
+
+
+def _resolve_resampling(resampling, result):
+    """Resolve an ``'auto'`` resampling choice for the reproject step.
+
+    ``'auto'`` picks ``'nearest'`` for categorical rasters (a paletted
+    colormap is present, or the data has an integer dtype) and
+    ``'bilinear'`` otherwise. Any explicit mode is returned unchanged
+    for :func:`xrspatial.reproject.reproject` to validate.
+    """
+    if resampling != 'auto':
+        return resampling
+    import numpy as np
+    has_colormap = result.attrs.get('colormap') is not None
+    if has_colormap:
+        return 'nearest'
+    if np.issubdtype(result.dtype, np.integer):
+        # An integer dtype alone does not prove categorical data: an
+        # int16 DEM is continuous, and 'nearest' silently costs it the
+        # interpolation quality. Say what was picked and how to choose.
+        warnings.warn(
+            "resampling='auto' chose 'nearest' because the data has an "
+            f"integer dtype ({result.dtype}) and no colormap. If this "
+            "raster is continuous (e.g. a DEM), pass "
+            "resampling='bilinear'; pass resampling='nearest' to keep "
+            "this choice and silence the warning.",
+            UserWarning, stacklevel=4,
+        )
+        return 'nearest'
+    return 'bilinear'
+
+
+def _axis_res(coord, n, obj, axis):
+    """Resolution (cell size) for one axis of the caller's grid.
+
+    With 2+ cells it is the centre spacing. A single-cell axis cannot
+    give a spacing, so fall back to the caller's ``attrs['res']`` or
+    ``attrs['transform']`` pixel size, and raise if neither is present.
+    """
+    if n >= 2:
+        return abs(float(coord[-1]) - float(coord[0])) / (n - 1)
+    res = obj.attrs.get('res')
+    if res is not None:
+        return abs(float(res[0] if axis == 'x' else res[1]))
+    transform = obj.attrs.get('transform')
+    if transform is not None:
+        return abs(float(transform[0] if axis == 'x' else transform[4]))
+    raise ValueError(
+        f"coregister cannot infer {axis} resolution for a single-cell "
+        f"template; use a template with 2+ cells along {axis}, or set "
+        f"attrs['res'] / attrs['transform']"
+    )
+
+
+def _validate_template_grid(obj):
+    """Reject caller templates ``_caller_grid`` cannot reproduce.
+
+    The coregister output grid is derived from the template's first /
+    last coords and a uniform spacing, in reproject's output convention
+    (``x`` ascending, ``y`` descending). An irregular or differently
+    oriented template would come back silently misaligned, so refuse it
+    and name the offending axis.
+    """
+    import numpy as np
+    for axis, direction in (('x', 'ascending'), ('y', 'descending')):
+        coord = np.asarray(obj.coords[axis].values, dtype='float64')
+        if coord.size < 2:
+            continue
+        diffs = np.diff(coord)
+        sign_ok = (
+            (diffs > 0).all() if direction == 'ascending'
+            else (diffs < 0).all()
+        )
+        if not sign_ok:
+            if direction == 'descending':
+                hint = f".sortby('{axis}', ascending=False)"
+            else:
+                hint = f".sortby('{axis}')"
+            raise ValueError(
+                f"coregister=True needs the caller's {axis} coords in "
+                f"{direction} order to line up cell-for-cell with "
+                f"reproject's output; sort the caller along {axis} "
+                f"first (e.g. {hint})."
+            )
+        if coord.size >= 3:
+            steps = np.abs(diffs)
+            mean = steps.mean()
+            if (np.abs(steps - mean) > 1e-6 * mean).any():
+                raise ValueError(
+                    f"coregister=True needs a regular caller grid, but "
+                    f"the {axis} coords are not evenly spaced (max "
+                    f"spacing {steps.max():g}, min {steps.min():g}). "
+                    "Resample the caller onto a regular grid first."
+                )
+
+
+def _select_overview_level(source, base_transform, res_x, res_y):
+    """Pick the coarsest overview still finer than the caller's grid.
+
+    ``res_x`` / ``res_y`` are the caller's cell sizes in file-CRS units.
+    Probes overview levels with header-only reads and returns the
+    highest level whose pixel size stays <= the caller's on both axes,
+    or ``None`` when the full-resolution read is the right choice (no
+    overviews, or the caller grid is too fine to benefit). Levels are
+    probed in order, so a missing level ends the search.
+
+    Each probe re-parses the header: sub-millisecond mmap work for
+    local paths, one bounded range fetch per level for fsspec / HTTP
+    sources. Real pyramids top out around 8 levels, and the probes
+    replace full-resolution tile fetches that can run to gigabytes on
+    remote COGs, so the trade holds on both source types.
+    """
+    from .geotiff import _read_geo_info
+
+    # A level-1 overview is conventionally ~2x the base pixel size; skip
+    # the probing reads entirely when even that could not stay finer
+    # than the caller's grid.
+    if (abs(base_transform.pixel_width) * 2 > res_x
+            or abs(base_transform.pixel_height) * 2 > res_y):
+        return None
+    selected = None
+    level = 1
+    while True:
+        try:
+            geo_info, _h, _w, _dtype, _nbands = _read_geo_info(
+                source, overview_level=level)
+        except ValueError:
+            # out of range: no more pyramid levels
+            break
+        t = geo_info.transform
+        if (abs(t.pixel_width) > res_x or abs(t.pixel_height) > res_y):
+            break
+        selected = level
+        level += 1
+    return selected
+
+
+def _caller_grid(obj):
+    """Edge bounds + shape that make :func:`reproject` reproduce the
+    caller's exact pixel centres.
+
+    Returns ``((left, bottom, right, top), width, height)``. ``reproject``
+    emits pixel-centre coords ``linspace(left+res/2, right-res/2, W)``, so
+    bounds offset half a pixel outside the caller's centre extent map the
+    output cells back onto the caller's coordinates.
+
+    Assumes a regular grid with ``x`` ascending and ``y`` descending (the
+    convention ``_open_geotiff_windowed`` already works in); resolution is
+    the centre spacing. An irregular or descending-``x`` template would
+    not line up cell-for-cell.
+    """
+    y = obj.coords['y'].values
+    x = obj.coords['x'].values
+    width, height = len(x), len(y)
+    res_x = _axis_res(x, width, obj, 'x')
+    res_y = _axis_res(y, height, obj, 'y')
+    x_lo, x_hi = float(min(x[0], x[-1])), float(max(x[0], x[-1]))
+    y_lo, y_hi = float(min(y[0], y[-1])), float(max(y[0], y[-1]))
+    bounds = (x_lo - res_x / 2, y_lo - res_y / 2,
+              x_hi + res_x / 2, y_hi + res_y / 2)
+    return bounds, width, height
+
+
+def _open_geotiff_windowed(obj, source, *, auto_reproject=False,
+                           coregister=False, resampling='auto', **kwargs):
     """Shared implementation for ``.xrs.open_geotiff`` on DataArray and
     Dataset.
 
@@ -167,14 +340,47 @@ def _open_geotiff_windowed(obj, source, *, auto_reproject=False, **kwargs):
     covers the full footprint even when the transform has curvature
     across the bbox.
     """
-    from .geotiff import open_geotiff, _read_geo_info, _extent_to_window
+    from .geotiff import (open_geotiff, _read_geo_info, _extent_to_window,
+                          _validate_chunks_arg)
     from .utils import _classify_backend
+
+    if resampling not in _RESAMPLING_CHOICES:
+        raise ValueError(
+            f"resampling must be one of {list(_RESAMPLING_CHOICES)}, "
+            f"got {resampling!r}"
+        )
+
+    if coregister:
+        gpu_requested = (
+            kwargs.get('gpu', False)
+            or _classify_backend(obj) in ("cupy", "dask+cupy")
+        )
+        is_vrt = str(source).lower().endswith('.vrt')
+        if gpu_requested or is_vrt:
+            raise ValueError(
+                "coregister=True runs an unpack-and-reproject read that "
+                "runs on CPU only and is not supported with gpu=True or "
+                ".vrt sources. Read on CPU, or pass coregister=False."
+            )
+        if kwargs.get('allow_rotated'):
+            raise ValueError(
+                "coregister=True is not supported with allow_rotated="
+                "True: a rotated file reads as an ungeoreferenced pixel "
+                "grid, so reproject would treat its row/col indices as "
+                "map coordinates and mis-place every pixel. Read the "
+                "file without coregister and resample it explicitly."
+            )
+        # coregister implies an unpacked (scaled + masked) read; this
+        # overrides an explicit unpack=False.
+        kwargs['unpack'] = True
 
     if 'y' not in obj.coords or 'x' not in obj.coords:
         raise ValueError(
             "Caller must have 'y' and 'x' coordinates to compute a "
             "spatial window"
         )
+    if coregister:
+        _validate_template_grid(obj)
     y = obj.coords['y'].values
     x = obj.coords['x'].values
     y_min, y_max = float(y.min()), float(y.max())
@@ -193,7 +399,7 @@ def _open_geotiff_windowed(obj, source, *, auto_reproject=False, **kwargs):
         and not caller_crs.equals(file_crs)
     )
 
-    if crs_mismatch and not auto_reproject:
+    if crs_mismatch and not (auto_reproject or coregister):
         raise ValueError(
             f"CRS mismatch: caller has {caller_crs_raw!r} but file has "
             f"EPSG:{file_crs_raw}. Pass auto_reproject=True to project "
@@ -201,7 +407,9 @@ def _open_geotiff_windowed(obj, source, *, auto_reproject=False, **kwargs):
             f"and reproject the result back to the caller CRS."
         )
 
+    crosses_antimeridian = False
     if crs_mismatch:
+        import numpy as np
         from pyproj import Transformer
         transformer = Transformer.from_crs(
             caller_crs, file_crs, always_xy=True
@@ -215,6 +423,52 @@ def _open_geotiff_windowed(obj, source, *, auto_reproject=False, **kwargs):
         x_max = float(px.max())
         y_min = float(py.min())
         y_max = float(py.max())
+        # A caller grid straddling the antimeridian lands as two
+        # longitude clusters near +180 and -180: a gap wider than 180
+        # degrees between consecutive sorted samples is the signature
+        # (a genuinely global caller fills the range without such a
+        # gap). min/max windowing then covers the full file width --
+        # still correct, but a much larger read than the footprint.
+        if file_crs.is_geographic:
+            gaps = np.diff(np.sort(np.asarray(px, dtype='float64')))
+            if gaps.size and float(gaps.max()) > 180.0:
+                crosses_antimeridian = True
+                warnings.warn(
+                    "the caller grid appears to cross the antimeridian "
+                    f"in {source!r}'s geographic CRS; the windowed read "
+                    "falls back to the full file width, which is "
+                    "correct but may be slow. Consider splitting the "
+                    "analysis at the dateline or reprojecting the file "
+                    "into the caller's CRS.",
+                    UserWarning, stacklevel=3,
+                )
+
+    # open_geotiff interprets window= in the pixel space of the selected
+    # overview level, so an explicit overview_level= means the window
+    # must be computed against that level's transform and dimensions,
+    # not the full-resolution ones read above.
+    overview_arg = kwargs.get('overview_level')
+    if overview_arg not in (None, 0):
+        geo_info, file_h, file_w, _dtype, _nbands = _read_geo_info(
+            source, overview_level=overview_arg)
+        t = geo_info.transform
+    elif (coregister and overview_arg is None and isinstance(source, str)
+          and not crosses_antimeridian):
+        # The caller's grid fixes the output resolution, so decoding
+        # file pixels finer than that grid is wasted work: read the
+        # coarsest overview that still meets the caller's resolution.
+        # Pass overview_level=0 to force the full-resolution read.
+        # (Skipped across the antimeridian: the wrapped bbox span would
+        # grossly overstate the caller's cell size.)
+        res_x_caller = (x_max - x_min) / len(x)
+        res_y_caller = (y_max - y_min) / len(y)
+        level = _select_overview_level(source, t, res_x_caller,
+                                       res_y_caller)
+        if level is not None:
+            kwargs['overview_level'] = level
+            geo_info, file_h, file_w, _dtype, _nbands = _read_geo_info(
+                source, overview_level=level)
+            t = geo_info.transform
 
     # Expand extent by half a pixel so we capture edge pixels
     y_min -= abs(t.pixel_height) * 0.5
@@ -226,23 +480,100 @@ def _open_geotiff_windowed(obj, source, *, auto_reproject=False, **kwargs):
                                y_min, y_max, x_min, x_max)
     kwargs.pop('window', None)
 
+    if coregister:
+        # Both extents are in file pixel units here: the caller bbox was
+        # transformed into the file CRS above when the two differ, and
+        # ``window`` is that bbox clamped to the file bounds, so the area
+        # ratio is the fraction of the caller grid the file can fill.
+        row_start, col_start, row_stop, col_stop = window
+        window_area = (max(0, row_stop - row_start)
+                       * max(0, col_stop - col_start))
+        req_rows = (y_max - y_min) / abs(t.pixel_height)
+        req_cols = (x_max - x_min) / abs(t.pixel_width)
+        coverage = window_area / (req_rows * req_cols)
+        if coverage == 0:
+            raise ValueError(
+                f"{source!r} does not overlap the caller grid; the "
+                "coregistered result would be entirely NaN. Check the "
+                "caller's coords / attrs['crs'] against the file's "
+                "georeferencing."
+            )
+        if 0 < coverage < _COREGISTER_COVERAGE_WARN_FRACTION:
+            warnings.warn(
+                f"{source!r} covers only {coverage:.1%} of the caller "
+                "grid; the coregistered result will be mostly NaN. "
+                "Consider opening the small raster first and cropping "
+                "the caller to its bounds before coregistering.",
+                UserWarning, stacklevel=3,
+            )
+
     # Infer backend kwargs. Caller-supplied values always win.
     backend = _classify_backend(obj)
+    # Coerce here because reproject's chunk layout only unpacks builtin
+    # ints, while the read path accepts np.integer scalars.
+    explicit_chunks = _validate_chunks_arg(
+        kwargs.get('chunks'), allow_none=True
+    )
     if backend in ("cupy", "dask+cupy"):
         kwargs.setdefault('gpu', True)
     if backend in ("dask+numpy", "dask+cupy"):
-        inferred_chunk = _infer_caller_y_chunk(obj)
+        inferred_chunk = _infer_caller_chunk(obj, 'y')
         if inferred_chunk is not None:
             kwargs.setdefault('chunks', inferred_chunk)
 
     result = open_geotiff(source, window=window, **kwargs)
 
-    if crs_mismatch:
+    # reproject defaults its dask output chunks to 512x512; forward the
+    # explicit ``chunks=`` kwarg, or failing that the caller's chunk
+    # layout, so a coregistered / auto-reprojected result keeps the
+    # chunking of the array it is meant to align with (#3234).
+    caller_y_chunk = _infer_caller_chunk(obj, 'y')
+    caller_x_chunk = _infer_caller_chunk(obj, 'x')
+    if explicit_chunks is not None:
+        reproject_chunk_size = explicit_chunks
+    elif caller_y_chunk is not None and caller_x_chunk is not None:
+        reproject_chunk_size = (caller_y_chunk, caller_x_chunk)
+    else:
+        reproject_chunk_size = None
+
+    # A masked read replaces the nodata sentinel with NaN but leaves
+    # attrs['nodata'] as the raw sentinel; tell reproject the holes are
+    # NaN so it does not resample them as ordinary values.
+    nodata_arg = float('nan') if result.attrs.get('masked_nodata') else None
+
+    if coregister:
+        from .reproject import reproject
+        target_crs = caller_crs if caller_crs is not None else file_crs
+        if target_crs is None:
+            raise ValueError(
+                "coregister=True needs a CRS: set attrs['crs'] on the "
+                "caller or read a file that declares one"
+            )
+        # A file that declares no CRS is treated as already in the
+        # caller's CRS, so coregister stays a pure resample instead of
+        # failing reproject's source-CRS detection.
+        source_crs = file_crs if file_crs is not None else target_crs
+        bounds, width_out, height_out = _caller_grid(obj)
+        result = reproject(
+            result,
+            target_crs=target_crs,
+            source_crs=source_crs,
+            bounds=bounds,
+            width=width_out,
+            height=height_out,
+            resampling=_resolve_resampling(resampling, result),
+            nodata=nodata_arg,
+            chunk_size=reproject_chunk_size,
+        )
+    elif crs_mismatch:
         from .reproject import reproject
         result = reproject(
             result,
             target_crs=caller_crs,
             source_crs=file_crs,
+            resampling=_resolve_resampling(resampling, result),
+            nodata=nodata_arg,
+            chunk_size=reproject_chunk_size,
         )
 
     return result
@@ -783,7 +1114,8 @@ class XrsSpatialDataArrayAccessor:
         from .geotiff import to_geotiff
         return to_geotiff(self._obj, path, **kwargs)
 
-    def open_geotiff(self, source, *, auto_reproject=False, **kwargs):
+    def open_geotiff(self, source, *, auto_reproject=False,
+                     coregister=False, resampling='auto', **kwargs):
         """Read a GeoTIFF windowed to this DataArray's spatial extent.
 
         Uses ``self``'s ``y``/``x`` coordinates to compute a pixel window
@@ -803,19 +1135,67 @@ class XrsSpatialDataArrayAccessor:
             then reprojects the result back to ``self``'s CRS via
             :func:`xrspatial.reproject.reproject` so the returned
             DataArray lines up with ``self``.
+        coregister : bool
+            If True, read the file unpacked (``unpack=True``: scaled and
+            masked), reproject into ``self``'s CRS, and
+            resample onto ``self``'s exact grid, so the result shares
+            ``self``'s ``y``/``x`` coordinates and shape. The grid snap
+            happens even when the CRS already matches. The
+            unpack-and-reproject read runs on CPU only, so
+            ``coregister=True`` raises ``ValueError`` with ``gpu=True`` or
+            ``.vrt`` sources, and it overrides an explicit ``unpack=False``.
+            Cells outside the file footprint come back NaN; if the file
+            covers less than 10% of ``self``'s grid a ``UserWarning``
+            suggests cropping ``self`` to the file bounds first, and a
+            file that does not overlap ``self`` at all raises
+            ``ValueError``. ``self``'s grid must be regularly spaced
+            with ``x`` ascending and ``y`` descending (reproject's
+            output convention); other templates raise ``ValueError``,
+            as does combining ``coregister=True`` with
+            ``allow_rotated=True``.
+            When the file carries overviews (a COG) and ``self``'s grid
+            is coarser than the full-resolution pixels, the read
+            automatically uses the coarsest overview that still meets
+            ``self``'s resolution; pass ``overview_level=0`` to force
+            the full-resolution read or ``overview_level=N`` to pick a
+            level yourself.
+            The resample mode follows ``resampling``. This is the heavier
+            counterpart of ``auto_reproject``, which keeps the file's native
+            resolution.
+        resampling : {'auto', 'nearest', 'bilinear', 'cubic'}
+            Resampling mode for the ``auto_reproject`` / ``coregister``
+            reproject step; ignored when no reprojection happens.
+            ``'auto'`` (default) picks ``'nearest'`` for categorical
+            rasters (a paletted colormap is present, or the data has an
+            integer dtype) and ``'bilinear'`` otherwise. Note an
+            integer-typed continuous DEM (e.g. int16 elevation) is
+            treated as categorical under ``'auto'`` (a ``UserWarning``
+            points this out); pass ``resampling='bilinear'`` for those.
+            Conversely, an integer raster read with a nodata sentinel is
+            promoted to float on read, so a categorical raster that
+            carries nodata and no colormap resolves to ``'bilinear'``;
+            pass ``resampling='nearest'`` for those.
         **kwargs
             Forwarded to :func:`xrspatial.geotiff.open_geotiff` (except
-            ``window=``, which is computed automatically).
+            ``window=``, which is computed automatically; an explicit
+            ``overview_level=`` is honoured and the window is computed
+            in that overview's pixel space).
 
         Returns
         -------
         xr.DataArray
-            The windowed portion of the GeoTIFF, in ``self``'s CRS when
-            ``auto_reproject`` reprojection occurred and otherwise in the
-            file's native CRS.
+            The windowed portion of the GeoTIFF. In ``self``'s CRS when
+            ``auto_reproject`` reprojection occurred, on ``self``'s exact
+            grid when ``coregister`` is set, and otherwise in the file's
+            native CRS. The ``auto_reproject`` / ``coregister``
+            reproject step chunks its dask output like the explicit
+            ``chunks=`` kwarg when given, and otherwise like ``self``,
+            rather than reverting to
+            :func:`~xrspatial.reproject.reproject`'s own default.
         """
         return _open_geotiff_windowed(
-            self._obj, source, auto_reproject=auto_reproject, **kwargs
+            self._obj, source, auto_reproject=auto_reproject,
+            coregister=coregister, resampling=resampling, **kwargs
         )
 
     # ---- Chunking ----
@@ -1281,7 +1661,8 @@ class XrsSpatialDatasetAccessor:
             "Dataset has no variable with 'y' and 'x' dimensions to write"
         )
 
-    def open_geotiff(self, source, *, auto_reproject=False, var=None, **kwargs):
+    def open_geotiff(self, source, *, auto_reproject=False, var=None,
+                     coregister=False, resampling='auto', **kwargs):
         """Read a GeoTIFF windowed to this Dataset's spatial extent.
 
         Uses the Dataset's ``y``/``x`` coordinates to compute a pixel
@@ -1304,6 +1685,42 @@ class XrsSpatialDatasetAccessor:
         var : str or None
             Data variable used for backend inference and CRS lookup. If
             None, picks the first 2D variable with ``y``/``x`` dims.
+        coregister : bool
+            If True, read the file unpacked (``unpack=True``: scaled and
+            masked), reproject into the Dataset's CRS,
+            and resample onto the Dataset's exact grid, so the result
+            shares the Dataset's ``y``/``x`` coordinates and shape. The
+            grid snap happens even when the CRS already matches. The
+            unpack-and-reproject read runs on CPU only, so
+            ``coregister=True`` raises ``ValueError`` with ``gpu=True`` or
+            ``.vrt`` sources, and it overrides an explicit ``unpack=False``.
+            Cells outside the file footprint come back NaN; if the file
+            covers less than 10% of the Dataset's grid a ``UserWarning``
+            suggests cropping the Dataset to the file bounds first, and
+            a file that does not overlap the Dataset at all raises
+            ``ValueError``. The Dataset's grid must be regularly spaced
+            with ``x`` ascending and ``y`` descending; other grids raise
+            ``ValueError``, as does combining ``coregister=True`` with
+            ``allow_rotated=True``.
+            When the file carries overviews (a COG) and the Dataset's
+            grid is coarser than the full-resolution pixels, the read
+            automatically uses the coarsest overview that still meets
+            the Dataset's resolution; pass ``overview_level=0`` to force
+            the full-resolution read.
+            The resample mode follows ``resampling``.
+        resampling : {'auto', 'nearest', 'bilinear', 'cubic'}
+            Resampling mode for the ``auto_reproject`` / ``coregister``
+            reproject step; ignored when no reprojection happens.
+            ``'auto'`` (default) picks ``'nearest'`` for categorical
+            rasters (a paletted colormap is present, or the data has an
+            integer dtype) and ``'bilinear'`` otherwise. Note an
+            integer-typed continuous DEM (e.g. int16 elevation) is
+            treated as categorical under ``'auto'``; pass
+            ``resampling='bilinear'`` for those. Conversely, an integer
+            raster read with a nodata sentinel is promoted to float on
+            read, so a categorical raster that carries nodata and no
+            colormap resolves to ``'bilinear'``; pass
+            ``resampling='nearest'`` for those.
         **kwargs
             Forwarded to :func:`xrspatial.geotiff.open_geotiff` (except
             ``window=``, which is computed automatically).
@@ -1325,7 +1742,8 @@ class XrsSpatialDatasetAccessor:
             rep = rep.copy()
             rep.attrs = {**rep.attrs, 'crs': ds.attrs['crs']}
         return _open_geotiff_windowed(
-            rep, source, auto_reproject=auto_reproject, **kwargs
+            rep, source, auto_reproject=auto_reproject,
+            coregister=coregister, resampling=resampling, **kwargs
         )
 
     # ---- Chunking ----

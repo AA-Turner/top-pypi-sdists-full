@@ -5461,12 +5461,14 @@ impl<'a> RemlState<'a> {
             kronecker_penalty_system: None,
             kronecker_factored: None,
             gaussian_fixed_cache: RwLock::new(None),
+            gaussian_psi_gram_deriv: RwLock::new(None),
             alo_frozen_nuisance: RwLock::new(None),
             persistent_warm_start_key: RwLock::new(None),
             persistent_latent_values_fingerprint: None,
             persistent_latent_values_cache: RwLock::new(PersistentLatentValuesCache::default()),
             analytic_penalty_registry_fingerprint: 0,
             persistent_warm_start_loaded: AtomicBool::new(false),
+            persistent_warm_start_store_suppression: AtomicUsize::new(0),
         })
     }
 
@@ -5515,10 +5517,15 @@ impl<'a> RemlState<'a> {
         // The Gaussian-fixed cache is keyed to (X, y, w, offset); replacing the
         // design invalidates it. The new surface will repopulate it on demand.
         *self.gaussian_fixed_cache.write().unwrap() = None;
+        // The conditioned-frame ψ-gram derivative is keyed to the same design;
+        // a new design invalidates it. The installing trial repopulates it.
+        *self.gaussian_psi_gram_deriv.write().unwrap() = None;
         *self.alo_frozen_nuisance.write().unwrap() = None;
         *self.persistent_warm_start_key.write().unwrap() = None;
         self.persistent_warm_start_loaded
             .store(false, Ordering::Relaxed);
+        self.persistent_warm_start_store_suppression
+            .store(0, Ordering::Relaxed);
         self.cache_manager.clear_eval_and_factor_caches();
         self.cache_manager.pirls_cache.write().unwrap().clear();
         // The new surface has a different design / penalty system /
@@ -6410,6 +6417,23 @@ impl<'a> RemlState<'a> {
         if !self.warm_start_enabled.load(Ordering::Relaxed) {
             return;
         }
+        if self
+            .persistent_warm_start_store_suppression
+            .load(Ordering::Relaxed)
+            > 0
+        {
+            return;
+        }
+        // Disk persistence is a process-recovery checkpoint, not part of the
+        // REML objective. The in-memory warm start is updated on every
+        // successful PIRLS solve above; writing JSON/bin records here on every
+        // outer trial puts filesystem eviction scans directly in the optimizer
+        // hot loop. Checkpoint sparsely so long fits remain recoverable while
+        // ordinary fits and posterior probes stay CPU-bound.
+        let eval_count = *self.arena.cost_eval_count.read().unwrap();
+        if eval_count % 1024 != 0 {
+            return;
+        }
         let Some(key) = self.persistent_warm_start_cache_key() else {
             return;
         };
@@ -6449,6 +6473,22 @@ impl<'a> RemlState<'a> {
         if let Err(err) = store_record(&record) {
             log::warn!("[warm-start-cache] failed to persist warm start: {err}");
         }
+    }
+
+    pub(crate) fn without_persistent_warm_start_store<T>(&self, f: impl FnOnce() -> T) -> T {
+        struct StoreSuppressionGuard<'a>(&'a AtomicUsize);
+        impl Drop for StoreSuppressionGuard<'_> {
+            fn drop(&mut self) {
+                self.0.fetch_sub(1, Ordering::Relaxed);
+            }
+        }
+
+        self.persistent_warm_start_store_suppression
+            .fetch_add(1, Ordering::Relaxed);
+        let guard = StoreSuppressionGuard(&self.persistent_warm_start_store_suppression);
+        let out = f();
+        drop(guard);
+        out
     }
 
     /// Predict β at `new_rho` via the implicit-function-theorem first-order
@@ -6988,23 +7028,85 @@ impl<'a> RemlState<'a> {
     /// `solve_penalized_least_squares_implicit` so the cache is only ever
     /// consulted where it is mathematically equivalent to streaming the
     /// dense `XᵀWX` from scratch.
-    pub(crate) fn gaussian_fixed_cache_if_eligible(
-        &self,
-    ) -> Option<Arc<crate::pirls::GaussianFixedCache>> {
-        // Static eligibility — these only depend on data the outer loop
-        // never mutates, so the gate is correct once and stays correct.
+    /// True iff this state satisfies the static Gaussian-identity
+    /// sufficient-statistic eligibility (the gate `gaussian_fixed_cache_if_eligible`
+    /// applies before building or returning a cache).
+    pub(crate) fn gaussian_fixed_cache_eligible(&self) -> bool {
         let spec = reml_spec(&self.config.likelihood);
         let family_ok = matches!(spec.response, ResponseFamily::Gaussian);
         let link_ok = matches!(
             self.config.link_kind,
             crate::types::InverseLink::Standard(StandardLink::Identity)
         );
-        if !family_ok
-            || !link_ok
-            || self.config.firth_bias_reduction
-            || self.coefficient_lower_bounds.is_some()
-            || self.linear_constraints.is_some()
+        family_ok
+            && link_ok
+            && !self.config.firth_bias_reduction
+            && self.coefficient_lower_bounds.is_none()
+            && self.linear_constraints.is_none()
+    }
+
+    /// Install an externally assembled Gaussian sufficient-statistic cache
+    /// (#1033b): the certified ψ-Gram tensor assembles `XᵀWX(ψ)/XᵀWy(ψ)/yᵀWy`
+    /// n-free per design-moving trial, and this hands it to the same slot the
+    /// streamed builder fills, so every consumer (dense PLS fast path, sparse
+    /// scatter, final accept-fit) picks it up via the read fast path.
+    /// Refuses (returns false) when the state is statically ineligible or the
+    /// shape disagrees with the current design — the caller then leaves the
+    /// streamed path to do its usual work.
+    pub(crate) fn install_gaussian_fixed_cache(
+        &self,
+        cache: Arc<crate::pirls::GaussianFixedCache>,
+    ) -> bool {
+        if !self.gaussian_fixed_cache_eligible()
+            || cache.xtwx_orig.nrows() != self.p
+            || cache.xtwx_orig.ncols() != self.p
+            || cache.xtwy_orig.len() != self.p
         {
+            return false;
+        }
+        *self.gaussian_fixed_cache.write().unwrap() = Some(cache);
+        true
+    }
+
+    /// Install the conditioned-frame exact ψ-derivative pair
+    /// `(∂XᵀWX/∂ψ, ∂XᵀW(y−offset)/∂ψ)` for the single design-moving spatial
+    /// hyperparameter (#1033b). Shapes must match the current `p` (k×k Gram
+    /// derivative, k-vector rhs derivative) and the Gaussian-fixed cache must
+    /// be eligible — the gradient lane that consumes this only fires for
+    /// Gaussian-identity. Returns whether the pair was installed.
+    pub(crate) fn install_gaussian_psi_gram_deriv(
+        &self,
+        deriv: Arc<(ndarray::Array2<f64>, ndarray::Array1<f64>)>,
+    ) -> bool {
+        if !self.gaussian_fixed_cache_eligible()
+            || deriv.0.nrows() != self.p
+            || deriv.0.ncols() != self.p
+            || deriv.1.len() != self.p
+        {
+            return false;
+        }
+        *self.gaussian_psi_gram_deriv.write().unwrap() = Some(deriv);
+        true
+    }
+
+    /// Conditioned-frame exact ψ-derivative pair, when installed for the
+    /// current in-window Gaussian trial (#1033b). `None` keeps the slab path.
+    pub(crate) fn gaussian_psi_gram_deriv(
+        &self,
+    ) -> Option<Arc<(ndarray::Array2<f64>, ndarray::Array1<f64>)>> {
+        self.gaussian_psi_gram_deriv
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(Arc::clone)
+    }
+
+    pub(crate) fn gaussian_fixed_cache_if_eligible(
+        &self,
+    ) -> Option<Arc<crate::pirls::GaussianFixedCache>> {
+        // Static eligibility — these only depend on data the outer loop
+        // never mutates, so the gate is correct once and stays correct.
+        if !self.gaussian_fixed_cache_eligible() {
             return None;
         }
         // Fast path — already populated.
@@ -10883,43 +10985,44 @@ impl<'a> RemlState<'a> {
         let pirls_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
         let t1 = std::time::Instant::now();
-        let (ext_coords, ext_pair_fn, rho_ext_pair_fn, fixed_drift_deriv) =
-            if !hyper_dirs.is_empty() {
-                if mode == super::unified::EvalMode::ValueGradientHessian {
-                    let (coords, epf, repf, fixed_drift_deriv) =
-                        self.build_tau_unified_objects_from_bundle(rho, &bundle, hyper_dirs)?;
-                    (coords, Some(epf), Some(repf), fixed_drift_deriv)
-                } else if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
-                    (
-                        self.build_tau_hyper_coords_sparse_exact(rho, &bundle, hyper_dirs)?,
-                        None,
-                        None,
-                        None,
-                    )
-                } else if matches!(
-                    bundle.pirls_result.coordinate_frame,
-                    pirls::PirlsCoordinateFrame::TransformedQs
-                ) && self
-                    .active_constraint_free_basis(bundle.pirls_result.as_ref())
-                    .is_none()
-                {
-                    (
-                        self.build_tau_hyper_coords_original_basis(rho, &bundle, hyper_dirs)?,
-                        None,
-                        None,
-                        None,
-                    )
-                } else {
-                    (
-                        self.build_tau_hyper_coords(rho, &bundle, hyper_dirs)?,
-                        None,
-                        None,
-                        None,
-                    )
-                }
+        let (ext_coords, ext_pair_fn, rho_ext_pair_fn, fixed_drift_deriv) = if !hyper_dirs
+            .is_empty()
+        {
+            if mode == super::unified::EvalMode::ValueGradientHessian {
+                let (coords, epf, repf, fixed_drift_deriv) =
+                    self.build_tau_unified_objects_from_bundle(rho, &bundle, hyper_dirs)?;
+                (coords, Some(epf), Some(repf), fixed_drift_deriv)
+            } else if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
+                (
+                    self.build_tau_hyper_coords_sparse_exact(rho, &bundle, hyper_dirs, false)?,
+                    None,
+                    None,
+                    None,
+                )
+            } else if matches!(
+                bundle.pirls_result.coordinate_frame,
+                pirls::PirlsCoordinateFrame::TransformedQs
+            ) && self
+                .active_constraint_free_basis(bundle.pirls_result.as_ref())
+                .is_none()
+            {
+                (
+                    self.build_tau_hyper_coords_original_basis(rho, &bundle, hyper_dirs, false)?,
+                    None,
+                    None,
+                    None,
+                )
             } else {
-                (Vec::new(), None, None, None)
-            };
+                (
+                    self.build_tau_hyper_coords(rho, &bundle, hyper_dirs, false)?,
+                    None,
+                    None,
+                    None,
+                )
+            }
+        } else {
+            (Vec::new(), None, None, None)
+        };
         let tau_build_ms = t1.elapsed().as_secs_f64() * 1000.0;
         let t2 = std::time::Instant::now();
         let mut assembly = self.build_auto_assembly(rho, &bundle, mode)?;
@@ -11025,7 +11128,7 @@ impl<'a> RemlState<'a> {
 
         let ext_coords = if !hyper_dirs.is_empty() {
             if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
-                self.build_tau_hyper_coords_sparse_exact(rho, &bundle, hyper_dirs)?
+                self.build_tau_hyper_coords_sparse_exact(rho, &bundle, hyper_dirs, false)?
             } else if matches!(
                 bundle.pirls_result.coordinate_frame,
                 pirls::PirlsCoordinateFrame::TransformedQs
@@ -11033,9 +11136,9 @@ impl<'a> RemlState<'a> {
                 .active_constraint_free_basis(bundle.pirls_result.as_ref())
                 .is_none()
             {
-                self.build_tau_hyper_coords_original_basis(rho, &bundle, hyper_dirs)?
+                self.build_tau_hyper_coords_original_basis(rho, &bundle, hyper_dirs, false)?
             } else {
-                self.build_tau_hyper_coords(rho, &bundle, hyper_dirs)?
+                self.build_tau_hyper_coords(rho, &bundle, hyper_dirs, false)?
             }
         } else {
             Vec::new()
@@ -11133,6 +11236,17 @@ impl<'a> RemlState<'a> {
         );
         self.update_hypergradient_budget_after_outer_eval(p, &grad, ift_residual_energy);
         Ok(grad)
+    }
+
+    pub(crate) fn compute_cost_and_gradient(
+        &self,
+        p: &Array1<f64>,
+    ) -> Result<(f64, Array1<f64>), EstimationError> {
+        let eval = self.compute_outer_eval_with_order(
+            p,
+            crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient,
+        )?;
+        Ok((eval.cost, eval.gradient))
     }
 
     pub fn compute_outer_eval_with_order(

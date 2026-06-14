@@ -1,32 +1,41 @@
-Metadata-Version: 2.1
-Name: pyotp
-Version: 2.9.0
+Metadata-Version: 2.4
+Name: PyOTP
+Version: 2.10.0
 Summary: Python One Time Password Library
-Home-page: https://github.com/pyotp/pyotp
-Author: PyOTP contributors
-Author-email: kislyuk@gmail.com
-License: MIT License
-Project-URL: Documentation, https://pyauth.github.io/pyotp
+Project-URL: Homepage, https://github.com/pyauth/pyotp
+Project-URL: Documentation, https://github.com/pyauth/pyotp
 Project-URL: Source Code, https://github.com/pyauth/pyotp
 Project-URL: Issue Tracker, https://github.com/pyauth/pyotp/issues
-Project-URL: Change Log, https://github.com/pyauth/pyotp/blob/master/Changes.rst
-Platform: MacOS X
-Platform: Posix
+Project-URL: Change Log, https://github.com/pyauth/pyotp/blob/main/Changes.rst
+Author: Andrey Kislyuk
+Author-email: kislyuk@gmail.com
+Maintainer: Andrey Kislyuk
+Maintainer-email: kislyuk@gmail.com
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Provides-Extra: test
-License-File: LICENSE
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: mypy; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Requires-Dist: wheel; extra == 'test'
+Description-Content-Type: text/x-rst
 
 PyOTP - The Python One-Time Password Library
 ============================================
@@ -54,11 +63,11 @@ minimum, application implementers should follow this checklist:
 - Throttle (rate limit) brute-force attacks against your application's login functionality (see RFC 4226, section 7.3)
 - When implementing a "greenfield" application, consider supporting
   `FIDO U2F <https://en.wikipedia.org/wiki/Universal_2nd_Factor>`_/`WebAuthn <https://www.w3.org/TR/webauthn/>`_ in
-  addition to HOTP/TOTP. U2F uses asymmetric cryptography to avoid using a shared secret design, which strengthens your
-  MFA solution against server-side attacks. Hardware U2F also sequesters the client secret in a dedicated single-purpose
-  device, which strengthens your clients against client-side attacks. And by automating scoping of credentials to
-  relying party IDs (application origin/domain names), U2F adds protection against phishing attacks. One implementation
-  of FIDO U2F/WebAuthn is PyOTP's sister project, `PyWARP <https://github.com/pyauth/pywarp>`_.
+  addition to or instead of HOTP/TOTP. U2F uses asymmetric cryptography to avoid using a shared secret design, which
+  strengthens your MFA solution against server-side attacks. Hardware U2F also sequesters the client secret in a
+  dedicated single-purpose device, which strengthens your clients against client-side attacks. And by automating scoping
+  of credentials to relying party IDs (application origin/domain names), U2F adds protection against phishing attacks.
+  One implementation of FIDO U2F/WebAuthn is PyOTP's sister project, `PyWARP <https://github.com/pyauth/pywarp>`_.
 
 We also recommend that implementers read the
 `OWASP Authentication Cheat Sheet
@@ -158,7 +167,7 @@ Working example
 
 Scan the following barcode with your phone's OTP app (e.g. Google Authenticator):
 
-.. image:: https://chart.apis.google.com/chart?cht=qr&chs=250x250&chl=otpauth%3A%2F%2Ftotp%2Falice%40google.com%3Fsecret%3DJBSWY3DPEHPK3PXP
+.. image:: https://quickchart.io/qr?size=250&text=otpauth%3A%2F%2Ftotp%2Falice%40google.com%3Fsecret%3DJBSWY3DPEHPK3PXP
 
 Now run the following and compare the output::
 

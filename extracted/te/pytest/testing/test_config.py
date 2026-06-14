@@ -14,10 +14,12 @@ from typing import Any
 
 import _pytest._code
 from _pytest.config import _get_plugin_specs_as_list
+from _pytest.config import _get_prog_name
 from _pytest.config import _iter_rewritable_modules
 from _pytest.config import _strtobool
 from _pytest.config import Config
 from _pytest.config import ConftestImportFailure
+from _pytest.config import console_main
 from _pytest.config import ExitCode
 from _pytest.config import parse_warning_filter
 from _pytest.config.argparsing import get_ini_default_for_type
@@ -30,6 +32,7 @@ from _pytest.config.findpaths import locate_config
 from _pytest.monkeypatch import MonkeyPatch
 from _pytest.pathlib import absolutepath
 from _pytest.pytester import Pytester
+from _pytest.warning_types import PytestDeprecationWarning
 import pytest
 
 
@@ -95,6 +98,21 @@ class TestParseIni:
         assert config.option.reportchars == "s"
         assert config.option.tbstyle == "short"
         assert config.option.verbose
+
+    @pytest.mark.parametrize("flag", ("-r", "--report-chars="))
+    @pytest.mark.parametrize("value", ("fE", "A", "fs"))
+    def test_report_chars_option(
+        self,
+        pytester: Pytester,
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+        flag: str,
+        value: str,
+    ) -> None:
+        """Test that -r/--report-chars is parsed correctly."""
+        monkeypatch.setenv("PYTEST_ADDOPTS", flag + value)
+        config = pytester.parseconfig(tmp_path)
+        assert config.option.reportchars == value
 
     def test_tox_ini_wrong_version(self, pytester: Pytester) -> None:
         pytester.makefile(
@@ -459,16 +477,21 @@ class TestParseIni:
         result = pytester.runpytest()
         result.stdout.no_fnmatch_line("*PytestConfigWarning*")
 
-    @pytest.mark.parametrize("option_name", ["strict_config", "strict"])
-    def test_strict_config_ini_option(
-        self, pytester: Pytester, option_name: str
-    ) -> None:
+    @pytest.mark.parametrize(
+        "option",
+        [
+            "strict_config = true",
+            "strict = true",
+            "addopts = --strict-config",
+        ],
+    )
+    def test_strict_config_ini_option(self, pytester: Pytester, option: str) -> None:
         """Test that strict_config and strict ini options enable strict config checking."""
         pytester.makeini(
             f"""
             [pytest]
             unknown_option = 1
-            {option_name} = True
+            {option}
             """
         )
         result = pytester.runpytest()
@@ -600,8 +623,7 @@ class TestParseIni:
             group: str = "pytest11"
 
             def load(self):
-                __import__(self.module)
-                return sys.modules[self.module]
+                return importlib.import_module(self.module)
 
         entry_points = [
             DummyEntryPoint("myplugin1", "myplugin1_module"),
@@ -677,7 +699,8 @@ class TestParseIni:
 class TestConfigCmdlineParsing:
     def test_parsing_again_fails(self, pytester: Pytester) -> None:
         config = pytester.parseconfig()
-        pytest.raises(AssertionError, lambda: config.parse([]))
+        with pytest.raises(AssertionError):
+            config.parse([])
 
     def test_explicitly_specified_config_file_is_loaded(
         self, pytester: Pytester
@@ -762,7 +785,8 @@ class TestConfigAPI:
         config = pytester.parseconfig("--hello=this")
         for x in ("hello", "--hello", "-X"):
             assert config.getoption(x) == "this"
-        pytest.raises(ValueError, config.getoption, "qweqwe")
+        with pytest.raises(ValueError):
+            config.getoption("qweqwe")
 
         config_novalue = pytester.parseconfig()
         assert config_novalue.getoption("hello") is None
@@ -788,7 +812,8 @@ class TestConfigAPI:
 
     def test_config_getvalueorskip(self, pytester: Pytester) -> None:
         config = pytester.parseconfig()
-        pytest.raises(pytest.skip.Exception, config.getvalueorskip, "hello")
+        with pytest.raises(pytest.skip.Exception):
+            config.getvalueorskip("hello")
         verbose = config.getvalueorskip("verbose")
         assert verbose == config.option.verbose
 
@@ -836,7 +861,8 @@ class TestConfigAPI:
         config = pytester.parseconfig()
         val = config.getini("myname")
         assert val == "hello"
-        pytest.raises(ValueError, config.getini, "other")
+        with pytest.raises(ValueError):
+            config.getini("other")
 
     @pytest.mark.parametrize("config_type", ["ini", "pyproject"])
     def test_addini_paths(self, pytester: Pytester, config_type: str) -> None:
@@ -866,7 +892,8 @@ class TestConfigAPI:
         assert len(values) == 2
         assert values[0] == inipath.parent.joinpath("hello")
         assert values[1] == inipath.parent.joinpath("world/sub.py")
-        pytest.raises(ValueError, config.getini, "other")
+        with pytest.raises(ValueError):
+            config.getini("other")
 
     def make_conftest_for_args(self, pytester: Pytester) -> None:
         pytester.makeconftest(
@@ -3015,10 +3042,10 @@ class TestNativeTomlConfig:
 
 
 class TestInicfgDeprecation:
-    """Tests for the upcoming deprecation of config.inicfg."""
+    """Tests for the deprecation of config.inicfg."""
 
     def test_inicfg_deprecated(self, pytester: Pytester) -> None:
-        """Test that accessing config.inicfg issues a deprecation warning (not yet)."""
+        """Test that accessing config.inicfg issues a deprecation warning."""
         pytester.makeini(
             """
             [pytest]
@@ -3027,7 +3054,10 @@ class TestInicfgDeprecation:
         )
         config = pytester.parseconfig()
 
-        inicfg = config.inicfg
+        with pytest.warns(
+            PytestDeprecationWarning, match=r"config\.inicfg is deprecated"
+        ):
+            inicfg = config.inicfg  # type: ignore[deprecated]
 
         assert config.getini("minversion") == "3.0"
         assert inicfg["minversion"] == "3.0"
@@ -3054,3 +3084,61 @@ class TestInicfgDeprecation:
 
         result = pytester.runpytest()
         assert result.ret == 0
+
+
+class TestProgName:
+    """Test program name display in help and error messages (issue #1764)."""
+
+    def test_get_prog_name_direct_pytest(self) -> None:
+        """When argv[0] is a pytest entry point, prog should be 'pytest'."""
+        assert _get_prog_name(["/usr/bin/pytest", "--help"]) == "pytest"
+        assert _get_prog_name(["pytest", "-v"]) == "pytest"
+
+    def test_get_prog_name_python_m_pytest(self) -> None:
+        """When argv[0] is __main__.py, prog should be 'python -m pytest'."""
+        assert (
+            _get_prog_name(["/path/to/site-packages/pytest/__main__.py", "--help"])
+            == "python -m pytest"
+        )
+        assert _get_prog_name(["__main__.py", "-v"]) == "python -m pytest"
+
+    def test_get_prog_name_empty_argv(self) -> None:
+        """When argv is empty, should default to 'pytest'."""
+        assert _get_prog_name([]) == "pytest"
+
+    def test_prog_in_error_message_programmatic(self, pytester: Pytester) -> None:
+        """Error messages should show 'pytest.main()' when called programmatically.
+
+        runpytest_inprocess calls pytest.main() directly, so it should show
+        pytest.main() as the program name.
+        """
+        result = pytester.runpytest_inprocess("--invalid-option-xyz")
+        result.stderr.fnmatch_lines(["*pytest.main(): error:*invalid-option-xyz*"])
+
+    def test_prog_in_error_message_cli(self, pytester: Pytester) -> None:
+        """Error messages should show 'python -m pytest' when called from CLI subprocess.
+
+        runpytest_subprocess runs pytest via 'python -m pytest', so it should
+        show 'python -m pytest' as the program name.
+        """
+        result = pytester.runpytest_subprocess("--invalid-option-xyz")
+        result.stderr.fnmatch_lines(["*python -m pytest: error:*invalid-option-xyz*"])
+
+    def test_prog_in_usage_programmatic(self, pytester: Pytester) -> None:
+        """Usage line should show 'pytest.main()' when called programmatically."""
+        result = pytester.runpytest_inprocess("--help")
+        result.stdout.fnmatch_lines(["usage: pytest.main() *"])
+
+    def test_prog_in_usage_cli(self, pytester: Pytester) -> None:
+        """Usage line should show 'python -m pytest' when called from CLI subprocess."""
+        result = pytester.runpytest_subprocess("--help")
+        result.stdout.fnmatch_lines(["usage: python -m pytest *"])
+
+    def test_console_main_deprecated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Calling pytest.console_main() should emit a deprecation warning."""
+        monkeypatch.setattr("_pytest.config._console_main", lambda: 0)
+        with pytest.warns(
+            pytest.PytestRemovedIn10Warning,
+            match="pytest.console_main.*is deprecated",
+        ):
+            console_main()

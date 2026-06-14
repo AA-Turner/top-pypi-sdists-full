@@ -5,22 +5,21 @@ from __future__ import annotations
 from json import dumps
 from typing import TYPE_CHECKING, Optional
 
-from ....const import API_PATH
-from ....util import _deprecate_args
-from .editable import EditableMixin
-from .fullname import FullnameMixin
-from .gildable import GildableMixin
-from .inboxable import InboxableMixin
-from .inboxtoggleable import InboxToggleableMixin
-from .messageable import MessageableMixin
-from .modnote import ModNoteMixin
-from .replyable import ReplyableMixin
-from .reportable import ReportableMixin
-from .savable import SavableMixin
-from .votable import VotableMixin
+from praw.const import API_PATH
+from praw.models.reddit.mixins.created import CreatedMixin
+from praw.models.reddit.mixins.editable import EditableMixin
+from praw.models.reddit.mixins.fullname import FullnameMixin
+from praw.models.reddit.mixins.inboxable import InboxableMixin
+from praw.models.reddit.mixins.inboxtoggleable import InboxToggleableMixin
+from praw.models.reddit.mixins.messageable import MessageableMixin
+from praw.models.reddit.mixins.modnote import ModNoteMixin
+from praw.models.reddit.mixins.replyable import ReplyableMixin
+from praw.models.reddit.mixins.reportable import ReportableMixin
+from praw.models.reddit.mixins.savable import SavableMixin
+from praw.models.reddit.mixins.votable import VotableMixin
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    from praw import models
 
 
 class ThingModerationMixin(ModNoteMixin):
@@ -28,7 +27,9 @@ class ThingModerationMixin(ModNoteMixin):
 
     REMOVAL_MESSAGE_API = None
 
-    def _add_removal_reason(self, *, mod_note: str = "", reason_id: str | None = None):
+    thing: models.Comment | models.Submission
+
+    def _add_removal_reason(self, *, mod_note: str = "", reason_id: str | None = None) -> None:
         """Add a removal reason for a :class:`.Comment` or :class:`.Submission`.
 
         :param mod_note: A message for the other moderators.
@@ -51,7 +52,7 @@ class ThingModerationMixin(ModNoteMixin):
         }
         self.thing._reddit.post(API_PATH["removal_reasons"], data={"json": dumps(data)})
 
-    def approve(self):
+    def approve(self) -> None:
         """Approve a :class:`.Comment` or :class:`.Submission`.
 
         Approving a comment or submission reverts a removal, resets the report counter,
@@ -72,8 +73,7 @@ class ThingModerationMixin(ModNoteMixin):
         """
         self.thing._reddit.post(API_PATH["approve"], data={"id": self.thing.fullname})
 
-    @_deprecate_args("how", "sticky")
-    def distinguish(self, *, how: str = "yes", sticky: bool = False):
+    def distinguish(self, *, how: str = "yes", sticky: bool = False) -> None:
         """Distinguish a :class:`.Comment` or :class:`.Submission`.
 
         :param how: One of ``"yes"``, ``"no"``, ``"admin"``, or ``"special"``. ``"yes"``
@@ -100,12 +100,12 @@ class ThingModerationMixin(ModNoteMixin):
             :meth:`.undistinguish`
 
         """
-        data = {"how": how, "id": self.thing.fullname}
+        data: dict[str, str | bool] = {"how": how, "id": self.thing.fullname}
         if sticky and getattr(self.thing, "is_root", False):
             data["sticky"] = True
         self.thing._reddit.post(API_PATH["distinguish"], data=data)
 
-    def ignore_reports(self):
+    def ignore_reports(self) -> None:
         """Ignore future reports on a :class:`.Comment` or :class:`.Submission`.
 
         Calling this method will prevent future reports on this :class:`.Comment` or
@@ -129,11 +129,9 @@ class ThingModerationMixin(ModNoteMixin):
             :meth:`.unignore_reports`
 
         """
-        self.thing._reddit.post(
-            API_PATH["ignore_reports"], data={"id": self.thing.fullname}
-        )
+        self.thing._reddit.post(API_PATH["ignore_reports"], data={"id": self.thing.fullname})
 
-    def lock(self):
+    def lock(self) -> None:
         """Lock a :class:`.Comment` or :class:`.Submission`.
 
         Example usage:
@@ -154,10 +152,7 @@ class ThingModerationMixin(ModNoteMixin):
         """
         self.thing._reddit.post(API_PATH["lock"], data={"id": self.thing.fullname})
 
-    @_deprecate_args("spam", "mod_note", "reason_id")
-    def remove(
-        self, *, mod_note: str = "", spam: bool = False, reason_id: str | None = None
-    ):
+    def remove(self, *, mod_note: str = "", spam: bool = False, reason_id: str | None = None) -> None:
         """Remove a :class:`.Comment` or :class:`.Submission`.
 
         :param mod_note: A message for the other moderators.
@@ -189,14 +184,13 @@ class ThingModerationMixin(ModNoteMixin):
         if any([reason_id, mod_note]):
             self._add_removal_reason(mod_note=mod_note, reason_id=reason_id)
 
-    @_deprecate_args("message", "title", "type")
     def send_removal_message(
         self,
         *,
         message: str,
         title: str = "ignored",
-        type: str = "public",
-    ) -> praw.models.Comment | None:
+        type: str = "public",  # noqa: A002
+    ) -> models.Comment | None:
         """Send a removal message for a :class:`.Comment` or :class:`.Submission`.
 
         .. warning::
@@ -239,7 +233,7 @@ class ThingModerationMixin(ModNoteMixin):
 
         return self.thing._reddit.post(url, data={"json": dumps(data)}) or None
 
-    def undistinguish(self):
+    def undistinguish(self) -> None:
         """Remove mod, admin, or special distinguishing from an object.
 
         Also unstickies the object if applicable.
@@ -262,7 +256,7 @@ class ThingModerationMixin(ModNoteMixin):
         """
         self.distinguish(how="no")
 
-    def unignore_reports(self):
+    def unignore_reports(self) -> None:
         """Resume receiving future reports on a :class:`.Comment` or :class:`.Submission`.
 
         Future reports on this :class:`.Comment` or :class:`.Submission` will cause
@@ -284,11 +278,9 @@ class ThingModerationMixin(ModNoteMixin):
             :meth:`.ignore_reports`
 
         """
-        self.thing._reddit.post(
-            API_PATH["unignore_reports"], data={"id": self.thing.fullname}
-        )
+        self.thing._reddit.post(API_PATH["unignore_reports"], data={"id": self.thing.fullname})
 
-    def unlock(self):
+    def unlock(self) -> None:
         """Unlock a :class:`.Comment` or :class:`.Submission`.
 
         Example usage:
@@ -312,7 +304,6 @@ class ThingModerationMixin(ModNoteMixin):
 
 class UserContentMixin(
     EditableMixin,
-    GildableMixin,
     InboxToggleableMixin,
     ReplyableMixin,
     ReportableMixin,

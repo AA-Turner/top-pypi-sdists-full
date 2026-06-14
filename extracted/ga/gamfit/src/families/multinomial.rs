@@ -127,6 +127,22 @@ use std::sync::Arc;
 /// proper prior to lean on.
 const MULTINOMIAL_FORMULA_RIDGE_FLOOR: f64 = 1.0e-4;
 
+/// Inner joint-Newton KKT tolerance for the multinomial formula path.
+///
+/// The softmax Fisher weight `W = diag(p) − ppᵀ` collapses on saturated rows,
+/// so near-separable fits (penguins, #715) reach the OBJECTIVE's f64 noise
+/// floor before the default `inner_tol = 1e-6` KKT target: measured on the
+/// penguins arm (standardized columns), the trust region collapses to 1e-12
+/// with per-attempt objective changes of ~+2e-9 on |obj| ≈ 1e2 (≈ 1e-11
+/// relative — pure rounding) while the KKT residual plateaus at 2.8e-5–9.4e-5
+/// against a scaled tolerance of ~1.9e-5. Demanding a residual below the
+/// floating-point noise floor is certifiable-never: every eval is rejected by
+/// the stall guard and the whole fit fails. `1e-5` certifies the measured
+/// plateaus while still resolving β to ~1e-6 in the relevant metric — the
+/// LAML criterion consumes β̂ with error O(residual²/curvature), far below
+/// any quantity the outer ρ-search can read.
+const MULTINOMIAL_FORMULA_INNER_TOL: f64 = 1.0e-5;
+
 /// Formula-adapter penalty calibration for multinomial softmax REML.
 ///
 /// The term builder's normalized penalties are calibrated on single-response
@@ -140,13 +156,21 @@ const MULTINOMIAL_FORMULA_PENALTY_SCALE: f64 = 0.5;
 /// Largest smoothing-parameter dimension where exact dense outer curvature is
 /// still worth paying for multinomial formula fits.
 ///
-/// `D = (K - 1) * n_terms`. Medium-size loaded models (`D <= 6`) use exact
-/// curvature so the optimizer does not wander into over-smoothed lambda caps
-/// on near-boundary softmax surfaces. Smooth-by-factor models with one global
-/// plus one per-level smooth already reach `D = 8` for `K = 3`, where the
-/// O(D^2) dense outer Hessian dominates runtime; those stay on the
-/// exact-gradient quasi-Newton route.
-const MULTINOMIAL_EXACT_OUTER_HESSIAN_MAX_DIM: usize = 6;
+/// `D = (K - 1) * n_penalties`. Medium-size loaded models use exact curvature
+/// so the optimizer does not wander into over-smoothed lambda caps on
+/// near-boundary softmax surfaces. The threshold was originally calibrated at
+/// `D <= 6` when each `s()` term carried ONE penalty; the double-penalty
+/// migration (wiggliness + null-space shrinkage per term, mgcv `select=TRUE`
+/// semantics) doubled `D` for the SAME models, silently flipping the
+/// reference formula fits (2 smooths, K = 3: old `D = 4`, now `D = 8`) onto
+/// the gradient-only route — where the #715 quality arm showed every
+/// wiggliness ρ driven onto the ±10 box bound (smooths collapsed toward their
+/// polynomial null space, truth-RMSE behind VGAM). `12 = 2 × 6` preserves the
+/// original classification boundary under the doubled penalty count:
+/// smooth-by-factor models (one global plus one per-level smooth, old
+/// `D = 8`, now `D = 16` for `K = 3`) stay on the exact-gradient quasi-Newton
+/// route where the O(D^2) dense outer Hessian dominates runtime.
+const MULTINOMIAL_EXACT_OUTER_HESSIAN_MAX_DIM: usize = 12;
 
 fn multinomial_formula_use_outer_hessian(total_rho_dim: usize) -> bool {
     total_rho_dim <= MULTINOMIAL_EXACT_OUTER_HESSIAN_MAX_DIM
@@ -773,10 +797,68 @@ pub fn fit_penalized_multinomial_formula(
     }
     let (y_one_hot, _) = one_hot_categorical_response(data, y_col, &response_name)?;
     // Build the global X dense (the design is a DesignMatrix abstraction).
-    let x_dense = design
+    let mut x_dense = design
         .design
         .try_to_dense_by_chunks("multinomial fit design")
         .map_err(EstimationError::InvalidInput)?;
+
+    // ── #715 real-data conditioning: standardize unpenalized parametric
+    // columns. Raw-unit linear covariates (penguins `body_mass_g` ~ 4e3 grams)
+    // inflate the joint Newton information by the squared column scale (a κ(H)
+    // multiplier of ~s² ≈ 1e7 against the intercept), which is what turns the
+    // near-separable LM-damped inner solve into a geometric grind that
+    // exhausts its cycle budgets — the adapter-level face of "all REML startup
+    // seeds rejected". Because these columns are UNPENALIZED (parametric terms
+    // carry no default ridge, #749), the affine reparameterization
+    // `x_j ↦ (x_j − m_j)/s_j` is EXACT for the whole criterion: the optimized
+    // REML/LAML objective, the fitted η, the selected λ, and the separation
+    // diagnostics are all invariant — only the conditioning of `H` changes.
+    // Fitted coefficients are mapped back to raw units at repack below, so the
+    // saved model and the (raw-design) predict path are untouched. Penalized
+    // columns are left alone (a penalty makes the rescaling non-equivalent),
+    // and nothing is touched when explicit coefficient bounds/constraints
+    // exist (those are stated in raw units).
+    let parametric_standardization: Vec<(usize, f64, f64)> =
+        if design.coefficient_lower_bounds.is_some() || design.linear_constraints.is_some() {
+            Vec::new()
+        } else {
+            let p_total = x_dense.ncols();
+            let mut penalized = vec![false; p_total];
+            for bp in &design.penalties {
+                for col in bp.col_range.clone() {
+                    if col < p_total {
+                        penalized[col] = true;
+                    }
+                }
+            }
+            let has_intercept = !design.intercept_range.is_empty();
+            let n_rows = x_dense.nrows().max(1) as f64;
+            let mut standardized = Vec::new();
+            for (_, range) in &design.linear_ranges {
+                for col in range.clone() {
+                    if col >= p_total || penalized[col] {
+                        continue;
+                    }
+                    let column = x_dense.column(col);
+                    let mean = column.sum() / n_rows;
+                    let var = column.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / n_rows;
+                    let scale = var.sqrt();
+                    // Skip near-constant or degenerate columns: no conditioning to
+                    // be gained and the back-map would divide by ~0.
+                    if !(scale.is_finite() && scale > 1e-8 * (mean.abs() + 1.0)) {
+                        continue;
+                    }
+                    // Centering shifts mass onto the intercept; without one the
+                    // shift is not representable, so scale only.
+                    let center = if has_intercept { mean } else { 0.0 };
+                    for v in x_dense.column_mut(col).iter_mut() {
+                        *v = (*v - center) / scale;
+                    }
+                    standardized.push((col, center, scale));
+                }
+            }
+            standardized
+        };
     // Preserve the per-smooth-term penalty block structure (#561): each smooth
     // term `t` contributes its own `P × P` penalty component (`Blockwise` with
     // `total_dim = P`, the term's local `S_t` embedded at its `col_range`), and
@@ -862,17 +944,16 @@ pub fn fit_penalized_multinomial_formula(
     // of cycles on the well-conditioned interior fits, so this is free there.
     // The caller's `max_iter` / `tol` become the OUTER controls they were always
     // meant to be (smoothing-parameter search depth / accuracy). The inner KKT
-    // target is kept no tighter than the outer accuracy can consume: a 1e-8
-    // inner residual below a 1e-5 outer tolerance asks the inner to over-resolve
-    // gradient components the outer optimizer never reads, so we floor `inner_tol`
-    // at the default and never demand more inner precision than `tol` implies.
+    // target is kept no tighter than the outer accuracy can consume — and no
+    // tighter than the softmax objective's f64 noise floor on near-separable
+    // fits (see `MULTINOMIAL_FORMULA_INNER_TOL`).
     let outer_max_iter = max_iter.max(1);
     let outer_tol = if tol.is_finite() && tol > 0.0 {
         tol
     } else {
         BlockwiseFitOptions::default().outer_tol
     };
-    let inner_tol = BlockwiseFitOptions::default().inner_tol.max(tol.max(0.0));
+    let inner_tol = MULTINOMIAL_FORMULA_INNER_TOL.max(tol.max(0.0));
 
     let options = BlockwiseFitOptions {
         inner_max_cycles: crate::custom_family::DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES,
@@ -996,6 +1077,27 @@ pub fn fit_penalized_multinomial_formula(
         }
         for i in 0..p_per_class {
             coefficients_active[[i, a]] = block.beta[i];
+        }
+    }
+    // Map the standardized-column coefficients back to raw units (the exact
+    // inverse of the conditioning reparameterization above): β_raw = b/s, with
+    // the centering mass `Σ_j b_j·m_j/s_j` returned to the intercept.
+    if !parametric_standardization.is_empty() {
+        let intercept_col = design.intercept_range.clone().next();
+        for a in 0..m {
+            let mut intercept_adjust = 0.0;
+            for &(col, center, scale) in &parametric_standardization {
+                if col < p_per_class {
+                    let raw = coefficients_active[[col, a]] / scale;
+                    coefficients_active[[col, a]] = raw;
+                    intercept_adjust += raw * center;
+                }
+            }
+            if let Some(i0) = intercept_col
+                && i0 < p_per_class
+            {
+                coefficients_active[[i0, a]] -= intercept_adjust;
+            }
         }
     }
     // Flatten every (class, term) smoothing parameter in block-major order
@@ -1165,17 +1267,27 @@ mod fisher_override_tests {
 
     #[test]
     fn formula_outer_route_uses_exact_curvature_for_medium_d() {
+        // The 2-smooth reference formula fit (K = 3, double-penalty terms) is
+        // D = (K-1) * 2 terms * 2 penalties = 8 and needs exact curvature to
+        // avoid over-smoothed lambda caps (#715 arm (a)).
         assert!(
-            multinomial_formula_use_outer_hessian(6),
-            "D=6 loaded multinomial fits need exact curvature to avoid over-smoothed lambda caps"
+            multinomial_formula_use_outer_hessian(8),
+            "D=8 loaded multinomial fits need exact curvature to avoid over-smoothed lambda caps"
+        );
+        assert!(
+            multinomial_formula_use_outer_hessian(12),
+            "D=12 (3 double-penalty smooth terms, K=3) stays on exact curvature"
         );
     }
 
     #[test]
-    fn formula_outer_route_uses_first_order_for_smooth_by_factor_d8() {
+    fn formula_outer_route_uses_first_order_for_smooth_by_factor_d16() {
+        // Smooth-by-factor (one global + one per-level smooth, K = 3) is
+        // D = 16 under double-penalty terms and must avoid the O(D^2) dense
+        // outer Hessian.
         assert!(
-            !multinomial_formula_use_outer_hessian(8),
-            "D=8 smooth-by-factor multinomial fits must avoid the O(D^2) dense outer Hessian"
+            !multinomial_formula_use_outer_hessian(16),
+            "D=16 smooth-by-factor multinomial fits must avoid the O(D^2) dense outer Hessian"
         );
     }
 

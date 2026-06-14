@@ -301,6 +301,7 @@ else:
 
 # --- Window geometry helpers (Windows-only, no-op on other platforms) ---
 
+
 def get_window_client_physical_geometry(
     hwnd: int,
 ) -> Optional[Tuple[int, int, int, int]]:
@@ -438,6 +439,7 @@ _last_process_pausing_activity_ts: float = 0.0
 
 
 # --- Persistence ---
+
 
 def _get_suspended_pids_file_path() -> Path:
     global _suspended_pids_file
@@ -613,6 +615,7 @@ def force_resume_suspended_processes() -> Dict[str, int]:
 
 # --- Monitor registry ---
 
+
 def set_window_state_monitor(monitor: Optional["BaseWindowStateMonitor"]) -> None:
     global _window_state_monitor
     _window_state_monitor = monitor
@@ -629,6 +632,7 @@ def cleanup_minimized_audio_mutes() -> None:
 
 
 # --- Process pausing state helpers ---
+
 
 def _clear_overlay_pause_request_state() -> None:
     global _overlay_pause_request_pid
@@ -670,6 +674,7 @@ def _resolve_pause_target_hwnd(hwnd: Optional[int]) -> Optional[int]:
 
 
 # --- Linux process resolution ---
+
 
 def _get_configured_linux_target() -> str:
     process_cfg = getattr(get_config(), "process_pausing", None)
@@ -893,6 +898,46 @@ def _x11_window_to_pid(disp, info: dict) -> int:
         if found:
             pid = _x11_window_pid(disp, found)
     return pid
+
+
+def _exe_path_from_cmdline(cmdline: List[str]) -> str:
+    """Return the most game-like '*.exe' argument from a launcher cmdline, or ''."""
+    best = ""
+    for arg in cmdline or []:
+        norm = (arg or "").replace("\\", "/")
+        if not norm.lower().endswith(".exe"):
+            continue
+        if os.path.basename(norm).lower() in _PROTON_LAUNCHER_COMMS:
+            continue
+        # Prefer the exe under steamapps/common (the actual game) over launcher shims.
+        if "steamapps/common/" in norm.lower():
+            return arg
+        if not best:
+            best = arg
+    return best
+
+
+def detect_linux_game_executable(context: str = "detect game exe") -> str:
+    """Resolve the game's executable path/name from the OBS-captured X11 window.
+
+    Reuses the X11/XComposite resolution that drives process pausing. Prefers the Windows
+    '*.exe' path from the process cmdline (so the Wine/Proton prefix can be derived), falling
+    back to the resolved Linux exe path/name. Returns '' when the game cannot be resolved
+    (e.g. Wayland sessions — the user should then set the path manually).
+    """
+    if not is_linux():
+        return ""
+    pid = _resolve_linux_pid_from_obs(context)
+    if pid <= 0:
+        return ""
+    try:
+        cmdline = psutil.Process(pid).cmdline() or []
+    except (psutil.Error, OSError):
+        cmdline = []
+    exe_arg = _exe_path_from_cmdline(cmdline)
+    if exe_arg:
+        return exe_arg
+    return _get_process_exe_path(pid) or _get_process_exe_name(pid)
 
 
 def _resolve_linux_pid_from_obs(context: str) -> int:
@@ -1413,6 +1458,7 @@ def _linux_pid_source_allowed(pid: int, source: str, exe_name: str, comm_name: s
 
 # --- Auto-resume monitor ---
 
+
 def _auto_resume_monitor():
     """Monitors suspended processes and auto-resumes after timeout."""
     while True:
@@ -1655,6 +1701,7 @@ def toggle_active_game_pause(hwnd: Optional[int] = None) -> bool:
 
 
 # --- Base window state monitor ---
+
 
 class BaseWindowStateMonitor:
     """Shared interface for platform-specific window state monitors.

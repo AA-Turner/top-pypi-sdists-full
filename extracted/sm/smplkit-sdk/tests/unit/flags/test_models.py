@@ -314,6 +314,23 @@ class TestFlag:
         assert flag.values == [_val("Blue", "blue")]
         assert result is flag
 
+    def test_removeValue_drops_only_first_of_duplicates(self):
+        flag = _make_flag(
+            values=[
+                _val("Red", "red"),
+                _val("Crimson", "red"),
+                _val("Blue", "blue"),
+            ],
+        )
+        flag.remove_value("red")
+        # Only the first "red" entry is removed; the later duplicate survives.
+        assert flag.values == [_val("Crimson", "red"), _val("Blue", "blue")]
+
+    def test_removeValue_no_op_when_no_match(self):
+        flag = _make_flag(values=[_val("Red", "red")])
+        flag.remove_value("green")
+        assert flag.values == [_val("Red", "red")]
+
     def test_removeValue_no_op_when_values_none(self):
         flag = _make_flag(values=None)
         flag.remove_value("red")
@@ -651,6 +668,24 @@ class TestAsyncFlag:
         result = flag.remove_value("red")
         assert flag.values == [_val("Blue", "blue")]
         assert result is flag
+
+    def test_removeValue_drops_only_first_of_duplicates(self):
+        flag = _make_flag(
+            cls=AsyncFlag,
+            values=[
+                _val("Red", "red"),
+                _val("Crimson", "red"),
+                _val("Blue", "blue"),
+            ],
+        )
+        flag.remove_value("red")
+        # Only the first "red" entry is removed; the later duplicate survives.
+        assert flag.values == [_val("Crimson", "red"), _val("Blue", "blue")]
+
+    def test_removeValue_no_op_when_no_match(self):
+        flag = _make_flag(cls=AsyncFlag, values=[_val("Red", "red")])
+        flag.remove_value("green")
+        assert flag.values == [_val("Red", "red")]
 
     def test_removeValue_no_op_when_values_none(self):
         flag = _make_flag(cls=AsyncFlag, values=None)

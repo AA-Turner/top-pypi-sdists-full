@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "openequivariance"
-version = "0.6.6"
+version = "0.6.7"
 authors = [
   { name="Austin Glover" },
   { name="Vivek Bharadwaj" },
@@ -17,7 +17,8 @@ dependencies = [
   "setuptools",
   "ninja",
   "jinja2",
-  "numpy"
+  "numpy",
+  "pybind11"
 ]
 readme = "README.md"
 
@@ -55,6 +56,7 @@ dev = [
   "pytest",
   "pytest-check",
   "pytest-subtests",
+  "mace-torch",
   "torch_geometric",
   "cmake"
 ]

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-from ..endpoints import API_PATH
-from .base import PRAWBase
+from typing import TYPE_CHECKING
+
+from praw.endpoints import API_PATH
+from praw.models.base import DynamicAttributes, PRAWBase
+from praw.models.reddit.mixins import CreatedMixin
+
+if TYPE_CHECKING:
+    import praw.models
 
 
-class ModNote(PRAWBase):
+class ModNote(DynamicAttributes, CreatedMixin, PRAWBase):
     """Represent a moderator note.
 
     .. include:: ../../typical_attributes.rst
@@ -45,7 +51,13 @@ class ModNote(PRAWBase):
 
     """
 
-    def __eq__(self, other: ModNote) -> bool:
+    _created_at_attribute = "created_at"
+
+    id: str
+    subreddit: praw.models.Subreddit
+    user: praw.models.Redditor
+
+    def __eq__(self, other: ModNote | str | object) -> bool:
         """Return whether the other instance equals the current."""
         if isinstance(other, self.__class__):
             return self.id == other.id
@@ -53,7 +65,11 @@ class ModNote(PRAWBase):
             return self.id == other
         return super().__eq__(other)
 
-    def delete(self):
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash(self.id)
+
+    def delete(self) -> None:
         """Delete this note.
 
         For example, to delete the last note for u/spez from r/test, try:
@@ -64,7 +80,7 @@ class ModNote(PRAWBase):
                 note.delete()
 
         """
-        params = {
+        params: dict[str, str | int] = {
             "user": str(self.user),
             "subreddit": str(self.subreddit),
             "note_id": self.id,

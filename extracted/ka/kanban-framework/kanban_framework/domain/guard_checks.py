@@ -198,7 +198,23 @@ class GuardChecks:
         # 2. spec.md or plan/*.md must contain K-NNN or scope-NNN references
         #    Skip this check when knowledge_used.json reports no matches with a reason
         #    (e.g., empty knowledge base on new projects)
+        #    v0.187: Also skip when no_match_reason is present even if matched has
+        #    entries (user may have written ceremonial refs to satisfy old guard).
         skip_ref_check = warnings and "no matches" in warnings[-1]
+        if not skip_ref_check:
+            # Check if knowledge_used.json explicitly says KB has nothing relevant
+            try:
+                ku_data = json.loads(ku_path.read_text(encoding="utf-8"))
+                for rf in _NO_MATCH_REASON_FIELDS:
+                    if ku_data.get(rf):
+                        skip_ref_check = True
+                        warnings.append(
+                            f"KB reference check skipped: knowledge_used.json "
+                            f"has {rf}={ku_data[rf][:80]}"
+                        )
+                        break
+            except (ValueError, OSError, AttributeError):
+                pass
         if not skip_ref_check:
             # Match knowledge entry IDs: K001, K001-K003, alice001, test011, etc.
             # Scope IDs: 1-15 lowercase alphanumeric prefix + 3+ digits

@@ -42,6 +42,9 @@ class Export:
             format_ (ExportFormat): Output format for the download. `CSV` writes one row per event with the event payload
                 (`data`) serialized as a JSON-encoded cell. `JSONL` writes one JSON object per line with `data` preserved as a
                 nested object.
+            environment (None | str | Unset): The single environment the export is scoped to. Omit it and a single-
+                environment credential implies it (a multi-environment credential must name it), and a named environment must be
+                one the caller may access. An export always covers exactly one environment.
             filteroccurred_at (None | str | Unset): Date range using interval notation, e.g.
                 `[2026-04-01T00:00:00Z,2026-04-15T00:00:00Z)`.
             filteractor_type (None | str | Unset): Exact match on the event's `actor_type` field.
@@ -62,6 +65,7 @@ class Export:
     """
 
     format_: ExportFormat
+    environment: None | str | Unset = UNSET
     filteroccurred_at: None | str | Unset = UNSET
     filteractor_type: None | str | Unset = UNSET
     filteractor_id: None | str | Unset = UNSET
@@ -76,6 +80,12 @@ class Export:
 
     def to_dict(self) -> dict[str, Any]:
         format_: str = self.format_
+
+        environment: None | str | Unset
+        if isinstance(self.environment, Unset):
+            environment = UNSET
+        else:
+            environment = self.environment
 
         filteroccurred_at: None | str | Unset
         if isinstance(self.filteroccurred_at, Unset):
@@ -146,6 +156,8 @@ class Export:
                 "format": format_,
             }
         )
+        if environment is not UNSET:
+            field_dict["environment"] = environment
         if filteroccurred_at is not UNSET:
             field_dict["filter[occurred_at]"] = filteroccurred_at
         if filteractor_type is not UNSET:
@@ -173,6 +185,15 @@ class Export:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         format_ = check_export_format(d.pop("format"))
+
+        def _parse_environment(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        environment = _parse_environment(d.pop("environment", UNSET))
 
         def _parse_filteroccurred_at(data: object) -> None | str | Unset:
             if data is None:
@@ -274,6 +295,7 @@ class Export:
 
         export = cls(
             format_=format_,
+            environment=environment,
             filteroccurred_at=filteroccurred_at,
             filteractor_type=filteractor_type,
             filteractor_id=filteractor_id,

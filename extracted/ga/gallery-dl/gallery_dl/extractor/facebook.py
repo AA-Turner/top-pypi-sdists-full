@@ -121,7 +121,11 @@ class FacebookExtractor(Extractor):
                 photo_page,
                 '"nextMediaAfterNodeId":{"__typename":"Photo","id":"',
                 '"'
-            )
+            ) or text.extr(
+                photo_page,
+                '"nextMedia":{"edges":[{"node":{"__typename":"Photo","id":"',
+                '"'
+            ),
         }
 
         if photo["user_id"].startswith("pfbid"):

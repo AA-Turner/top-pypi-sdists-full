@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2026.6.10
+Version: 2026.6.12
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License:                     GNU GENERAL PUBLIC LICENSE
@@ -687,7 +687,6 @@ Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests~=2.32.5
-Requires-Dist: chardet<6,>=3.0.2
 Requires-Dist: watchdog~=6.0.0
 Requires-Dist: soundfile~=0.13.1
 Requires-Dist: toml~=0.10.2
@@ -699,25 +698,18 @@ Requires-Dist: keyboard~=0.13.5
 Requires-Dist: websockets~=15.0.1
 Requires-Dist: dataclasses_json~=0.6.7
 Requires-Dist: obsws-python~=1.8.0
-Requires-Dist: DateTime~=5.5
+Requires-Dist: pytz>=2025.1
 Requires-Dist: numpy==2.2.6
 Requires-Dist: faster-whisper~=1.2.1
-Requires-Dist: silero-vad~=6.2.0
 Requires-Dist: regex~=2025.10.23
 Requires-Dist: opencv-python~=4.12.0.88
-Requires-Dist: scikit-image~=0.25.2
 Requires-Dist: oneocr==1.0.10
 Requires-Dist: sounddevice~=0.5.2
-Requires-Dist: matplotlib~=3.10.6
 Requires-Dist: groq~=0.33.0
 Requires-Dist: flask~=3.1.2
 Requires-Dist: pystray~=0.19.5
 Requires-Dist: pygetwindow==0.0.9; sys_platform == "win32"
 Requires-Dist: pywin32==311; sys_platform == "win32"
-Requires-Dist: stable-ts~=2.19.1
-Requires-Dist: torchcodec~=0.8.1
-Requires-Dist: torchaudio~=2.8.0
-Requires-Dist: torch~=2.8.0
 Requires-Dist: pillow~=12.0.0
 Requires-Dist: openai~=2.6.0
 Requires-Dist: flask-compress~=1.15
@@ -751,12 +743,15 @@ Requires-Dist: windows-capture>=2.0.0; sys_platform == "win32"
 Provides-Extra: lens
 Requires-Dist: protobuf>=6.33.2; extra == "lens"
 Provides-Extra: gpu
-Requires-Dist: onnxruntime-gpu[cuda,cudnn]; extra == "gpu"
+Requires-Dist: onnxruntime-gpu; extra == "gpu"
+Requires-Dist: nvidia-cublas-cu12; sys_platform == "win32" and extra == "gpu"
+Requires-Dist: nvidia-cudnn-cu12; sys_platform == "win32" and extra == "gpu"
 Provides-Extra: dev
 Requires-Dist: pytest>=9.0.2; extra == "dev"
 Requires-Dist: hypothesis>=6.100.0; extra == "dev"
 Requires-Dist: pre-commit>=4.3.0; extra == "dev"
 Requires-Dist: ruff>=0.14.0; extra == "dev"
+Requires-Dist: matplotlib~=3.10.6; extra == "dev"
 Dynamic: license-file
 
 <p align="center">

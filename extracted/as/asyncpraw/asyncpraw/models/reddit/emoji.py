@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from ...exceptions import ClientException
-from ...util import _deprecate_args
-from ..util import deprecate_lazy
-from .base import RedditBase
+from asyncpraw.const import API_PATH
+from asyncpraw.exceptions import ClientException
+from asyncpraw.models.reddit.base import RedditBase
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw
+    import asyncpraw.models
 
 
 class Emoji(RedditBase):
@@ -52,13 +52,13 @@ class Emoji(RedditBase):
         subreddit: asyncpraw.models.Subreddit,
         name: str,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize an :class:`.Emoji` instance."""
         self.name = name
         self.subreddit = subreddit
         super().__init__(reddit, _data=_data)
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         async for emoji in self.subreddit.emoji:
             if emoji.name == self.name:
                 self.__dict__.update(emoji.__dict__)
@@ -67,7 +67,7 @@ class Emoji(RedditBase):
         msg = f"r/{self.subreddit} does not have the emoji {self.name}"
         raise ClientException(msg)
 
-    async def delete(self):
+    async def delete(self) -> None:
         """Delete an emoji from this subreddit by :class:`.Emoji`.
 
         To delete ``"emoji"`` as an emoji on r/test try:
@@ -79,19 +79,16 @@ class Emoji(RedditBase):
             await emoji.delete()
 
         """
-        url = API_PATH["emoji_delete"].format(
-            emoji_name=self.name, subreddit=self.subreddit
-        )
+        url = API_PATH["emoji_delete"].format(emoji_name=self.name, subreddit=self.subreddit)
         await self._reddit.delete(url)
 
-    @_deprecate_args("mod_flair_only", "post_flair_allowed", "user_flair_allowed")
     async def update(
         self,
         *,
         mod_flair_only: bool | None = None,
         post_flair_allowed: bool | None = None,
         user_flair_allowed: bool | None = None,
-    ):
+    ) -> None:
         """Update the permissions of an emoji in this subreddit.
 
         :param mod_flair_only: Indicate whether the emoji is restricted to mod use only.
@@ -143,7 +140,7 @@ class Emoji(RedditBase):
 class SubredditEmoji:
     """Provides a set of functions to a :class:`.Subreddit` for emoji."""
 
-    async def __aiter__(self) -> list[Emoji]:
+    async def __aiter__(self) -> AsyncIterator[Emoji]:
         """Return a list of :class:`.Emoji` for the subreddit.
 
         This method is to be used to discover all emoji for a subreddit:
@@ -155,19 +152,13 @@ class SubredditEmoji:
                 print(emoji)
 
         """
-        response = await self._reddit.get(
-            API_PATH["emoji_list"].format(subreddit=self.subreddit)
-        )
-        subreddit_keys = [
-            key
-            for key in response
-            if key.startswith(self._reddit.config.kinds["subreddit"])
-        ]
+        response = await self._reddit.get(API_PATH["emoji_list"].format(subreddit=self.subreddit))
+        subreddit_keys = [key for key in response if key.startswith(self._reddit.config.kinds["subreddit"])]
         assert len(subreddit_keys) == 1
         for emoji_name, emoji_data in response[subreddit_keys[0]].items():
             yield Emoji(self._reddit, self.subreddit, emoji_name, _data=emoji_data)
 
-    def __init__(self, subreddit: asyncpraw.models.Subreddit):
+    def __init__(self, subreddit: asyncpraw.models.Subreddit) -> None:
         """Initialize a :class:`.SubredditEmoji` instance.
 
         :param subreddit: The subreddit whose emoji are affected.
@@ -179,7 +170,7 @@ class SubredditEmoji:
     async def add(
         self,
         *,
-        image_path: str,
+        media: asyncpraw.models.EmojiMedia,
         mod_flair_only: bool | None = None,
         name: str,
         post_flair_allowed: bool | None = None,
@@ -187,7 +178,7 @@ class SubredditEmoji:
     ) -> Emoji:
         """Add an emoji to this subreddit.
 
-        :param image_path: A path to a jpeg or png image.
+        :param media: The :class:`.EmojiMedia` to be uploaded as an emoji.
         :param mod_flair_only: When provided, indicate whether the emoji is restricted
             to mod use only (default: ``None``).
         :param name: The name of the emoji.
@@ -202,46 +193,27 @@ class SubredditEmoji:
 
         .. code-block:: python
 
+            from asyncpraw.models import EmojiMedia
+
+            media = EmojiMedia("emoji.png")
             subreddit = await reddit.subreddit("test")
-            await subreddit.emoji.add(name="emoji", image_path="emoji.png")
+            await subreddit.emoji.add(media=media, name="emoji")
 
         """
-        file = Path(image_path)
-        data = {
-            "filepath": file.name,
-            "mimetype": "image/jpeg",
-        }
-        if image_path.lower().endswith(".png"):
-            data["mimetype"] = "image/png"
-        url = API_PATH["emoji_lease"].format(subreddit=self.subreddit)
-
-        # until we learn otherwise, assume this request always succeeds
-        response = await self._reddit.post(url, data=data)
-        upload_lease = response["s3UploadLease"]
-        upload_data = {item["name"]: item["value"] for item in upload_lease["fields"]}
-        upload_url = f"https:{upload_lease['action']}"
-
-        # TODO(@LilSpazJoekp): This is a blocking operation. It should be made async.
-        with file.open("rb") as image:  # noqa: ASYNC230
-            upload_data["file"] = image
-            response = await self._reddit._core._requestor._http.post(
-                upload_url, data=upload_data
-            )
-        response.raise_for_status()
+        s3_key = await media._upload(self.subreddit)
 
         data = {
             "mod_flair_only": mod_flair_only,
             "name": name,
             "post_flair_allowed": post_flair_allowed,
-            "s3_key": upload_data["key"],
+            "s3_key": s3_key,
             "user_flair_allowed": user_flair_allowed,
         }
         url = API_PATH["emoji_upload"].format(subreddit=self.subreddit)
         await self._reddit.post(url, data=data)
         return Emoji(self._reddit, self.subreddit, name)
 
-    @deprecate_lazy
-    async def get_emoji(self, name: str, fetch: bool = True, **_: Any) -> Emoji:
+    async def get_emoji(self, /, name: str, *, fetch: bool = True) -> Emoji:
         """Return the :class:`.Emoji` for the subreddit named ``name``.
 
         :param name: The name of the emoji.

@@ -93,6 +93,7 @@ static PyObject *wrap_annotated(PyObject *val, int key_index) {
         }
     }
     Py_DECREF(val);
+    if (PyObject_GC_IsTracked(d)) PyObject_GC_UnTrack(d);
     return d;
 }
 
@@ -100,6 +101,7 @@ static PyObject *convert_object(const JSON::JSON &obj, bool annotated) {
     const auto &members = obj.getMembers();
     PyObject *d = _PyDict_NewPresized((Py_ssize_t)members.size());
     if (!d) return nullptr;
+    bool has_container = false;
     for (const auto &m : members) {
         int k = m.Key();
         if ((unsigned)k < 64 && (kSkipMask & (1ULL << k))) continue;
@@ -111,23 +113,29 @@ static PyObject *convert_object(const JSON::JSON &obj, bool annotated) {
             key = PyUnicode_FromFormat("key_%d", k);
             if (!key) { Py_DECREF(d); return nullptr; }
         }
+        using T = JSON::Value::Type;
+        T t = m.Get().getType();
         PyObject *val = convert_value(m.Get(), annotated);
         if (!val) { Py_DECREF(key); Py_DECREF(d); return nullptr; }
         // Wrap scalars only — leave nested objects/arrays alone (they recurse internally).
         if (annotated) {
-            using T = JSON::Value::Type;
-            T t = m.Get().getType();
             if (t == T::BOOL || t == T::INT || t == T::FLOAT || t == T::STRING) {
                 val = wrap_annotated(val, k);
                 if (!val) { Py_DECREF(key); Py_DECREF(d); return nullptr; }
             }
         }
+        if (annotated || t == T::OBJECT || t == T::ARRAY || t == T::ARRAY_STRING)
+            has_container = true;
         if (PyDict_SetItem(d, key, val) < 0) {
             Py_DECREF(key); Py_DECREF(val); Py_DECREF(d); return nullptr;
         }
         Py_DECREF(key);
         Py_DECREF(val);
     }
+    // Exempting all-scalar dicts from cyclic GC is safe: CPython re-tracks a
+    // dict when a trackable value is stored in it, so user-made cycles remain
+    // collectable.
+    if (!has_container && PyObject_GC_IsTracked(d)) PyObject_GC_UnTrack(d);
     return d;
 }
 
@@ -187,11 +195,21 @@ public:
             PyObject *d = nullptr;
             switch (format) {
                 case OutFormat::DICTIONARY:
-                    d = convert_object(data[i], false);
+                case OutFormat::ANNOTATED: {
+                    d = convert_object(data[i], format == OutFormat::ANNOTATED);
+                    auto *msg = static_cast<const AIS::Message *>(data[i].binary);
+                    if (d && msg) {
+                        PyObject *f = PyFloat_FromDouble((double)msg->getRxTimeMicros() / 1000000.0);
+                        if (f && format == OutFormat::ANNOTATED)
+                            f = wrap_annotated(f, AIS::KEY_RXUXTIME);
+                        if (!f || PyDict_SetItem(d, g_keys[AIS::KEY_RXUXTIME], f) < 0) {
+                            Py_XDECREF(f); Py_DECREF(d); d = nullptr;
+                        } else {
+                            Py_DECREF(f);
+                        }
+                    }
                     break;
-                case OutFormat::ANNOTATED:
-                    d = convert_object(data[i], true);
-                    break;
+                }
                 case OutFormat::JSON: {
                     scratch.clear();
                     serializer.stringify(data[i], scratch);
@@ -274,6 +292,10 @@ static int Decoder_init(DecoderObject *self, PyObject *args, PyObject *kwds) {
     self->tag = new TAG();
     self->tag->clear();
     if (country) self->tag->mode |= 4;  // enables JSONAIS::COUNTRY (MMSI prefix → country, country_code)
+    // Clearing mode bit 2 skips the rxtime string the dict formats would only
+    // discard (kSkipMask); PySink::Receive adds rxuxtime from the message.
+    if (fmt == OutFormat::DICTIONARY || fmt == OutFormat::ANNOTATED)
+        self->tag->mode &= ~2u;
     self->nmea->out.Connect(self->jsonais);
     self->jsonais->out.Connect(self->sink);
     return 0;
@@ -323,9 +345,11 @@ static PyObject *Decoder_pending(DecoderObject *self, PyObject *Py_UNUSED(ignore
 
 static PyMethodDef Decoder_methods[] = {
     {"feed", (PyCFunction)Decoder_feed, METH_O,
-     "Feed bytes/bytearray/str to the decoder. Returns number of pending messages."},
+     "Feed bytes/bytearray/str to the decoder. Returns number of pending messages. "
+     "Do not call concurrently on the same Decoder."},
     {"next", (PyCFunction)Decoder_next, METH_NOARGS,
-     "Pop the next decoded message as a dict, or None if the queue is empty."},
+     "Pop the next decoded message as a dict, or None if the queue is empty. "
+     "Do not call concurrently on the same Decoder."},
     {"pending", (PyCFunction)Decoder_pending, METH_NOARGS,
      "Number of decoded messages waiting in the queue."},
     {nullptr, nullptr, 0, nullptr}
@@ -357,6 +381,10 @@ PyMODINIT_FUNC PyInit__core(void) {
 
     PyObject *m = PyModule_Create(&coremodule);
     if (!m) return nullptr;
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
 
     g_keys = (PyObject **)PyMem_Calloc((size_t)AIS::KEY_COUNT, sizeof(PyObject *));
     if (!g_keys) { Py_DECREF(m); return nullptr; }

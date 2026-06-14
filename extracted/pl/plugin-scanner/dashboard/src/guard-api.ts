@@ -33,6 +33,7 @@ import type {
   GuardManagedInstall,
   GuardNotificationSetupResult,
   GuardPolicyDecision,
+  GuardCloudException,
   PackageManagerProtection,
   CodexResumeStatus,
   GuardCodexResumeResult,
@@ -1577,6 +1578,85 @@ export async function fetchPolicy(harness: string): Promise<GuardPolicyDecision[
   return payload.items;
 }
 
+
+export async function fetchCloudExceptions(harness?: string): Promise<GuardCloudException[]> {
+  if (isGuardDemoMode()) {
+    return [];
+  }
+  const query = harness ? `?harness=${encodeURIComponent(harness)}` : "";
+  const payload = await readJson<{ items: GuardCloudException[] }>(`/v1/policy/cloud-exceptions${query}`);
+  return payload.items;
+}
+
+export type GuardCloudExceptionRequestCreateInput = {
+  scope: "artifact" | "publisher" | "harness" | "workspace";
+  harness?: string | null;
+  artifactId?: string | null;
+  publisher?: string | null;
+  requestedBy: string;
+  reason: string;
+  owner: string;
+  requestedExpiresAt: string;
+  sourceReceiptId?: string | null;
+  sourceReviewItemId?: string | null;
+  projectId?: string | null;
+  workspaceId?: string | null;
+  workingDirectory?: string | null;
+  teamId?: string | null;
+  stepUpChallengeId?: string | null;
+};
+
+export type GuardCloudExceptionRequestItem = {
+  requestId: string;
+  scope: GuardCloudExceptionRequestCreateInput["scope"];
+  status: "pending" | "approved" | "rejected";
+  reason: string;
+  owner: string;
+  requestedAt: string;
+  requestedExpiresAt: string;
+};
+
+export type GuardCloudExceptionRequestListResponse = {
+  generatedAt: string;
+  items: GuardCloudExceptionRequestItem[];
+};
+
+export async function fetchCloudExceptionRequests(): Promise<GuardCloudExceptionRequestListResponse> {
+  if (isGuardDemoMode()) {
+    return { generatedAt: new Date().toISOString(), items: [] };
+  }
+  return readJson<GuardCloudExceptionRequestListResponse>("/v1/policy/cloud-exception-requests");
+}
+
+export async function createCloudExceptionRequest(
+  input: GuardCloudExceptionRequestCreateInput,
+): Promise<GuardCloudExceptionRequestListResponse> {
+  if (isGuardDemoMode()) {
+    return {
+      generatedAt: new Date().toISOString(),
+      items: [
+        {
+          requestId: "demo-exception-request",
+          scope: input.scope,
+          status: "pending",
+          reason: input.reason,
+          owner: input.owner,
+          requestedAt: new Date().toISOString(),
+          requestedExpiresAt: input.requestedExpiresAt,
+        },
+      ],
+    };
+  }
+  return readJson<GuardCloudExceptionRequestListResponse>("/v1/policy/cloud-exception-requests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...guardAuthHeaders(),
+    },
+    body: JSON.stringify(input),
+  });
+}
+
 export async function fetchPolicies(): Promise<GuardPolicyDecision[]> {
   if (isGuardDemoMode()) {
     return getDemoPolicy("codex");
@@ -2258,8 +2338,11 @@ function buildPackageShimPathSummary(detail: Record<string, unknown> | null): st
   }
   const shimPath = stringValue(detail.shim_path);
   const realBinaryPath = stringValue(detail.real_binary_path);
+  const pathActive = booleanValue(detail.path_active);
   if (shimPath !== null && realBinaryPath !== null) {
-    return `${shimPath} precedes ${realBinaryPath}`;
+    return pathActive
+      ? `${shimPath} precedes ${realBinaryPath}`
+      : `${realBinaryPath} precedes ${shimPath}`;
   }
   if (shimPath !== null) {
     return shimPath;
@@ -2301,16 +2384,21 @@ function normalizePackageShimEntry(
   const integrity = stringValue(detail?.integrity) ?? "uninstalled";
   const installed = detail !== null && integrity !== "missing";
   const active = booleanValue(detail?.path_active);
-  const pathBroken = coverage.pathBroken || detail?.path_broken === true;
-  const activation_state = !installed
-    ? "uninstalled"
-    : integrity === "tampered" || pathBroken
-    ? "repair_required"
-    : active
-    ? "protected"
-    : pathStatus === "restart_required"
-    ? "restart_required"
-    : "repair_required";
+  const pathBroken =
+    pathStatus !== "restart_required" &&
+    (coverage.pathBroken || detail?.path_broken === true);
+  let activation_state: PackageShimEntry["activation_state"];
+  if (!installed) {
+    activation_state = "uninstalled";
+  } else if (integrity === "tampered") {
+    activation_state = "repair_required";
+  } else if (active) {
+    activation_state = "protected";
+  } else if (pathStatus === "restart_required") {
+    activation_state = "restart_required";
+  } else {
+    activation_state = "repair_required";
+  }
   return {
     active,
     activation_state,
@@ -2423,6 +2511,7 @@ export function normalizePackageFirewallStatus(value: unknown): PackageFirewallS
   const protectedSet = new Set(protectedManagers);
   const lastAuditProofAt =
     stringValue(readPackageShimField(shimStatus, "last_audit_proof_at", "lastAuditProofAt")) ?? null;
+  const auditWorkspaceDir = stringValue(record.audit_workspace_dir) ?? null;
   const shellProfilePath = readPackageShimField(shimStatus, "shell_profile_path", "shellProfilePath");
   const protection: PackageManagerProtection = {
     path_status: rawPathStatus,
@@ -2443,6 +2532,7 @@ export function normalizePackageFirewallStatus(value: unknown): PackageFirewallS
   };
   return {
     actions: normalizePackageFirewallActions(record.actions),
+    audit_workspace_dir: auditWorkspaceDir,
     cli_fallback: normalizePackageFirewallCliFallback(record.cli_fallback),
     connect_flow: normalizePackageFirewallConnectFlow(record.connect_flow),
     detected_managers: detectedManagers,
@@ -2595,14 +2685,21 @@ export async function runAuditRemediation(input: AuditRemediationInput): Promise
   return normalizePackageFirewallAction(payload);
 }
 
-export async function runPackageAudit(): Promise<PackageFirewallActionResponse> {
+export async function runPackageAudit(input?: {
+  workspaceDir?: string | null;
+}): Promise<PackageFirewallActionResponse> {
+  const workspaceDir = input?.workspaceDir?.trim() ?? null;
+  const body: Record<string, string> = {};
+  if (workspaceDir) {
+    body.workspace_dir = workspaceDir;
+  }
   const response = await fetchGuardApi("/v1/supply-chain/audit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...guardAuthHeaders(),
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(body),
   });
   const payloadBody = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {
@@ -2614,14 +2711,24 @@ export async function runPackageAudit(): Promise<PackageFirewallActionResponse> 
   return normalizePackageFirewallAction(payloadBody);
 }
 
-export async function runPackageSync(): Promise<PackageFirewallActionResponse> {
+export async function runPackageSync(credentials?: {
+  approval_password?: string;
+  approval_totp_code?: string;
+}): Promise<PackageFirewallActionResponse> {
   const response = await fetchGuardApi("/v1/supply-chain/sync", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...guardAuthHeaders(),
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({
+      ...(credentials?.approval_password !== undefined
+        ? { approval_password: credentials.approval_password }
+        : {}),
+      ...(credentials?.approval_totp_code !== undefined
+        ? { approval_totp_code: credentials.approval_totp_code }
+        : {}),
+    }),
   });
   const payloadBody = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {

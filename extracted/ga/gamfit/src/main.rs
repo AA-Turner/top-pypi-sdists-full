@@ -50,9 +50,9 @@ use gam::inference::model_payload_builders::{
     SurvivalMarginalSlopeInputs, SurvivalTimewiggle, SurvivalTimewiggleBeta,
     SurvivalTransformationInputs, TransformationNormalInputs,
     assemble_bernoulli_marginal_slope_payload, assemble_latent_window_payload,
-    assemble_location_scale_payload, assemble_survival_location_scale_payload,
-    assemble_survival_marginal_slope_payload, assemble_survival_transformation_payload,
-    assemble_transformation_normal_payload,
+    assemble_location_scale_payload, assemble_spline_scan_payload,
+    assemble_survival_location_scale_payload, assemble_survival_marginal_slope_payload,
+    assemble_survival_transformation_payload, assemble_transformation_normal_payload,
 };
 use gam::inference::predict::input::build_predict_input_for_model;
 use gam::inference::predict::linalg::{PredictionCovarianceBackend, rowwise_local_covariances};
@@ -1495,6 +1495,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         // existing `COV_MAX_P=5000` diagonal-fallback guard in
         // `solver/estimate.rs::3252` already caps the cost on huge models.
         compute_inference: true,
+        skip_rho_posterior_inference: false,
         max_iter: fit_max_iter,
         tol: fit_tol,
         nullspace_dims: vec![],
@@ -1572,6 +1573,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
                 // Always compute inference so `predict --uncertainty` works
                 // for Gaussian fits too (see comment near the other compute_inference site).
                 compute_inference: true,
+                skip_rho_posterior_inference: false,
                 max_iter: fit_max_iter,
                 tol: fit_tol,
                 nullspace_dims: design.nullspace_dims.clone(),
@@ -1600,7 +1602,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
             ds.values.nrows(),
             family
         );
-        let fitted = match fit_model(FitRequest::Standard(StandardFitRequest {
+        let standard_request = StandardFitRequest {
             data: ds.values.to_owned(),
             y: y.clone(),
             weights: weights.clone(),
@@ -1618,7 +1620,61 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
             penalty_block_gamma_priors: Vec::new(),
             latent_coord: None,
             _marker: std::marker::PhantomData,
-        })) {
+        };
+        // Exact O(n) spline-scan fast path (#1030/#1034): a single 1-D
+        // Gaussian cubic smooth routes through the state-space scan — the
+        // same penalized posterior at O(n) per λ-trial instead of the dense
+        // design/Gram route — and persists the smoother state directly.
+        if let Some(inputs) = gam::spline_scan_fast_path(&standard_request) {
+            let scan = gam::solver::spline_scan::fit_spline_scan(
+                &inputs.x,
+                &inputs.y,
+                &inputs.w,
+                inputs.order,
+            )
+            .map_err(|e| format!("spline-scan fit failed: {e}"))?;
+            log::info!(
+                "[PHASE] spline-scan fit end elapsed={:.3}s",
+                phase_start.elapsed().as_secs_f64()
+            );
+            let feature_col = match &spec.smooth_terms[0].basis {
+                gam::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => *feature_col,
+                other => {
+                    return Err(format!(
+                        "internal error: spline-scan detection accepted a non-1D basis {other:?}"
+                    ));
+                }
+            };
+            let feature_column = ds.headers.get(feature_col).cloned().ok_or_else(|| {
+                format!("internal error: spline-scan feature column {feature_col} has no header")
+            })?;
+            cli_out!(
+                "spline-scan fit | knots={} | edf={:.3} | sigma2={:.6e} | log_lambda={:.4} | reml={:.6e}",
+                scan.knots.len(),
+                scan.edf(),
+                scan.sigma2,
+                scan.log_lambda,
+                scan.restricted_loglik,
+            );
+            progress.advance_workflow(4);
+            if let Some(out) = args.out {
+                progress.set_stage("fit", "writing fitted model");
+                let payload = assemble_spline_scan_payload(
+                    formula_text,
+                    feature_column,
+                    &scan,
+                    ds.schema.clone(),
+                    ds.headers.clone(),
+                    ds.feature_ranges(),
+                );
+                write_payload_json(&out, payload)?;
+                progress.advance_workflow(5);
+            }
+            emit_smooth_structure_warnings("fit-end", &spatial_usagewarnings);
+            progress.finish_progress("fit complete");
+            return Ok(());
+        }
+        let fitted = match fit_model(FitRequest::Standard(standard_request)) {
             Ok(FitResult::Standard(result)) => {
                 log::info!(
                     "[PHASE] standard-GAM fit end elapsed={:.3}s",
@@ -2981,6 +3037,9 @@ fn run_predict_model(
             predict_noise_offset,
         );
     }
+    if model.spline_scan.is_some() {
+        return run_predict_spline_scan(progress, args, model, data, col_map);
+    }
 
     let predictor = model.predictor().ok_or_else(|| {
         format!(
@@ -3005,6 +3064,61 @@ fn validate_level(level: f64) -> Result<(), String> {
     if !(level.is_finite() && level > 0.0 && level < 1.0) {
         return Err(format!("--level must be in (0,1), got {level}"));
     }
+    Ok(())
+}
+
+/// Predict for a spline-scan saved model (#1030/#1034): replay the exact
+/// Gaussian bridge at each query abscissa — no design matrix, O(log m) per
+/// row. The link is identity so η == mean; SEs and intervals come from the
+/// exact smoothing-spline posterior variance of the mean.
+fn run_predict_spline_scan(
+    progress: &mut gam::visualizer::VisualizerSession,
+    args: &PredictArgs,
+    model: &SavedModel,
+    data: ndarray::ArrayView2<'_, f64>,
+    col_map: &HashMap<String, usize>,
+) -> Result<(), String> {
+    let (column, fit) = model
+        .saved_spline_scan()
+        .map_err(String::from)?
+        .ok_or_else(|| "internal error: spline-scan predict on a dense model".to_string())?;
+    let col = *col_map.get(column).ok_or_else(|| {
+        format!("prediction data is missing the model's feature column '{column}'")
+    })?;
+    let n = data.nrows();
+    let mut mean = Array1::<f64>::zeros(n);
+    let mut se = Array1::<f64>::zeros(n);
+    for (i, &x) in data.column(col).iter().enumerate() {
+        let (m, v) = fit
+            .predict(x)
+            .map_err(|e| format!("spline-scan predict failed at row {i}: {e}"))?;
+        mean[i] = m;
+        se[i] = v.max(0.0).sqrt();
+    }
+    progress.advance_workflow(3);
+    progress.advance_workflow(4);
+    progress.set_stage("predict", "writing predictions");
+    let (se_opt, mean_lo, mean_hi) = if args.uncertainty {
+        let z = standard_normal_quantile(0.5 + args.level * 0.5)?;
+        let lo = Array1::from_iter(mean.iter().zip(se.iter()).map(|(m, s)| m - z * s));
+        let hi = Array1::from_iter(mean.iter().zip(se.iter()).map(|(m, s)| m + z * s));
+        (Some(se.clone()), Some(lo), Some(hi))
+    } else {
+        (None, None, None)
+    };
+    write_prediction_csv(
+        &args.out,
+        mean.view(),
+        mean.view(),
+        se_opt.as_ref().map(|a| a.view()),
+        mean_lo.as_ref().map(|a| a.view()),
+        mean_hi.as_ref().map(|a| a.view()),
+    )?;
+    cli_out!(
+        "wrote predictions: {} (rows={})",
+        args.out.display(),
+        mean.len()
+    );
     Ok(())
 }
 
@@ -4240,6 +4354,7 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
             sas_link: None,
             optimize_sas: false,
             compute_inference: false,
+            skip_rho_posterior_inference: false,
             max_iter: 80,
             tol: 1e-6,
             nullspace_dims: design.nullspace_dims.clone(),
@@ -6922,7 +7037,6 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
                     &fit,
                     family.clone(),
                     y.view(),
-                    offset.view(),
                     reportweights.view(),
                 );
                 for st in &summary.smooth_terms {
@@ -6952,10 +7066,9 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
                 // the per-scale fitted λ̂_ℓ and implied order when the term
                 // carries one non-ridge λ per band scale (per-scale-candidate
                 // mode); a single fused jet-energy penalty reports only the
-                // band and the spec's order. Same penalty-cursor convention
-                // as `build_model_summary` (random effects first, then smooth
-                // terms in design order) and the same λ = λ̃ / c unscaling as
-                // the continuous-order diagnostics above.
+                // band and the spec's order. The implied-order diagnostic uses
+                // λ_raw = λ̃ / ||S_raw,ℓ||_F, before the arbitrary Mellin
+                // ε_ℓ^(-2s0)·log_step gauge is folded into the fit-time forms.
                 {
                     let mut penalty_cursor = design.random_effect_ranges.len();
                     for term in &design.smooth.terms {
@@ -6966,6 +7079,7 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
                             eps_band,
                             length_scale,
                             order_s,
+                            raw_penalty_normalization_scales,
                             ..
                         } = &term.metadata
                         else {
@@ -6975,30 +7089,40 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
                         else {
                             continue;
                         };
-                        let mut scale_lambdas = Vec::new();
+                        let mut scale_lambdas = vec![None; eps_band.len()];
                         for idx in term_penalty_start..term_penalty_start + k {
                             let (Some(info), Some(&lambda_tilde)) =
                                 (design.penaltyinfo.get(idx), fit.lambdas.get(idx))
                             else {
                                 break;
                             };
-                            if matches!(
-                                info.penalty.source,
-                                gam::basis::PenaltySource::DoublePenaltyNullspace
-                            ) {
+                            let gam::basis::PenaltySource::Other(label) = &info.penalty.source
+                            else {
                                 continue;
-                            }
-                            let c = info.penalty.normalization_scale;
-                            if c.is_finite() && c > 0.0 {
-                                scale_lambdas.push(lambda_tilde / c);
+                            };
+                            let Some(level_txt) = label.strip_prefix("measure_jet_scale_") else {
+                                continue;
+                            };
+                            let Ok(level) = level_txt.parse::<usize>() else {
+                                continue;
+                            };
+                            let Some(&c_raw) = raw_penalty_normalization_scales.get(level) else {
+                                continue;
+                            };
+                            if level < scale_lambdas.len() && c_raw.is_finite() && c_raw > 0.0 {
+                                scale_lambdas[level] = Some(lambda_tilde / c_raw);
                             }
                         }
                         // Per-scale-candidate mode ⇔ exactly one non-ridge λ
                         // per band scale, and at least two scales (one point
                         // has no slope to regress).
                         let per_scale: Vec<(f64, f64)> =
-                            if scale_lambdas.len() == eps_band.len() && eps_band.len() >= 2 {
-                                eps_band.iter().copied().zip(scale_lambdas).collect()
+                            if scale_lambdas.iter().all(Option::is_some) && eps_band.len() >= 2 {
+                                eps_band
+                                    .iter()
+                                    .copied()
+                                    .zip(scale_lambdas.into_iter().flatten())
+                                    .collect()
                             } else {
                                 Vec::new()
                             };
@@ -8352,7 +8476,7 @@ fn measure_jet_spectrum_rows_from_spec(
     rows
 }
 
-/// Implied continuous order from a measure-jet per-scale λ spectrum:
+/// Implied continuous order from a measure-jet raw-form per-scale λ spectrum:
 /// ŝ = −½ · (least-squares slope of ln λ̂_ℓ on ln ε_ℓ). `None` unless at
 /// least two scales carry finite positive (ε_ℓ, λ̂_ℓ) and the band has
 /// nonzero log-spread.
@@ -8834,71 +8958,12 @@ fn response_column_kind_for_dataset(ds: &Dataset, y_col: usize) -> ResponseColum
     }
 }
 
-/// Build the Lawley (1956) cumulant substrate for known-scale Bartlett
-/// corrections of the smooth-term tests (#939): the dense design, per-row
-/// expected cumulant jets at the fitted linear predictor (offset included),
-/// and the fitted penalty `S_λ̂` folded over all blocks. Returns `None` when
-/// the family/link pair has no closed-form jets yet, the fit is multi-block,
-/// any shape disagrees, or `n` exceeds the `O(n²)` pair-matrix cap — the
-/// summary then reports first-order p-values only, which is always sound.
-fn lawley_known_scale_substrate(
-    design: &gam::smooth::TermCollectionDesign,
-    fit: &UnifiedFitResult,
-    family: &LikelihoodSpec,
-    offset: ArrayView1<'_, f64>,
-    weights: ArrayView1<'_, f64>,
-) -> Option<(
-    Array2<f64>,
-    Vec<gam::inference::lawley::RowKappas>,
-    Array2<f64>,
-)> {
-    let n = design.design.nrows();
-    let p = design.design.ncols();
-    if n == 0 || n > gam::inference::lawley::LAWLEY_PAIR_MATRIX_MAX_ROWS {
-        return None;
-    }
-    // Multi-block fits concatenate β across blocks; the substrate is the
-    // single-block mean-model design only.
-    if fit.beta.len() != p || offset.len() != n || weights.len() != n {
-        return None;
-    }
-    // Probe family/link support before paying for η.
-    gam::inference::lawley::known_scale_expected_jets(family, 0.0)?;
-    let mut eta = design.design.dot(&fit.beta);
-    eta += &offset;
-    let mut kappas = Vec::with_capacity(n);
-    for i in 0..n {
-        let w = weights[i];
-        if !(w.is_finite() && w >= 0.0 && eta[i].is_finite()) {
-            return None;
-        }
-        let jets = gam::inference::lawley::known_scale_expected_jets(family, eta[i])?;
-        kappas.push(jets.kappas().ok()?.weighted(w));
-    }
-    if fit.lambdas.len() != design.penalties.len() {
-        return None;
-    }
-    let mut s_pen = Array2::<f64>::zeros((p, p));
-    for (bp, &lambda) in design.penalties.iter().zip(fit.lambdas.iter()) {
-        if !(lambda.is_finite() && lambda >= 0.0) || bp.col_range.end > p {
-            return None;
-        }
-        for (li, gi) in bp.col_range.clone().enumerate() {
-            for (lj, gj) in bp.col_range.clone().enumerate() {
-                s_pen[[gi, gj]] += lambda * bp.local[[li, lj]];
-            }
-        }
-    }
-    Some((design.design.to_dense_cow().into_owned(), kappas, s_pen))
-}
-
 fn build_model_summary(
     design: &gam::smooth::TermCollectionDesign,
     spec: &TermCollectionSpec,
     fit: &UnifiedFitResult,
     family: LikelihoodSpec,
     y: ArrayView1<'_, f64>,
-    offset: ArrayView1<'_, f64>,
     weights: ArrayView1<'_, f64>,
 ) -> ModelSummary {
     const CONTINUOUS_ORDER_EPS: f64 = 1e-12;
@@ -9074,14 +9139,10 @@ fn build_model_summary(
             ref_df,
             chi_sq: chi_sq_opt,
             pvalue,
-            pvalue_corrected: None,
-            bartlett_factor: None,
             continuous_order: None,
             basis_note: None,
         });
     }
-    // #939: known-scale Lawley Bartlett substrate (None ⇒ first-order only).
-    let lawley_substrate = lawley_known_scale_substrate(design, fit, &family, offset, weights);
     for term in &design.smooth.terms {
         let k = term.penalties_local.len();
         let term_penalty_start = penalty_cursor;
@@ -9092,22 +9153,6 @@ fn build_model_summary(
             .unwrap_or(0.0);
         penalty_cursor += k;
         let smooth_test = if term.shape == gam::smooth::ShapeConstraint::None {
-            // #939: Lawley's second-order LR mean shift Δε = ε_k − ε_{k−q} for
-            // this term's block, from the exact family cumulant jets at the
-            // fit. A degenerate assembly (singular information, etc.) simply
-            // falls back to first-order reporting.
-            let known_scale_lr_mean_shift =
-                lawley_substrate
-                    .as_ref()
-                    .and_then(|(x_dense, kappas, s_pen)| {
-                        gam::inference::lawley::lawley_lr_mean_shift(
-                            x_dense.view(),
-                            kappas,
-                            Some(s_pen.view()),
-                            term.coeff_range.clone(),
-                        )
-                        .ok()
-                    });
             cov_forwald.and_then(|cov| {
                 wood_smooth_test(SmoothTestInput {
                     beta: fit.beta.view(),
@@ -9122,7 +9167,6 @@ fn build_model_summary(
                     } else {
                         SmoothTestScale::Known
                     },
-                    known_scale_lr_mean_shift,
                 })
             })
         } else {
@@ -9183,8 +9227,6 @@ fn build_model_summary(
             ref_df,
             chi_sq: chi_sq_opt,
             pvalue,
-            pvalue_corrected: smooth_test.as_ref().and_then(|test| test.p_value_corrected),
-            bartlett_factor: smooth_test.as_ref().and_then(|test| test.bartlett_factor),
             continuous_order,
             basis_note,
         });

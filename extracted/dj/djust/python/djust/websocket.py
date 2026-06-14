@@ -1977,12 +1977,28 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 await self.close(code=4403)
                 return
             if redirect_url:
+                # Auth failure (e.g. anonymous user on a login_required view).
+                # Send the redirect frame so a browser navigates to LOGIN_URL,
+                # THEN close the socket — otherwise a raw WS client can ignore
+                # the navigate and keep sending events to handlers with no
+                # authenticated session (the mount left view_instance set but
+                # never ran mount(), and handle_event does not re-check auth).
+                # Mirrors the PermissionDenied/4403 branch above. (Threat model
+                # T1, docs/audits/websocket-auth-2026-06.md.)
                 await self.send_json(
                     {
                         "type": "navigate",
                         "to": redirect_url,
                     }
                 )
+                # Clear the unmounted view so handle_event can't dispatch against
+                # it, then close — UNLESS we're inside a multiplexed mount_batch
+                # on a shared socket, where the navigate frame is collected into
+                # navigate[] and closing would kill sibling mounts (the batch
+                # reports this view as a redirect, not a bypass). (T1)
+                self.view_instance = None
+                if not getattr(self, "_mounting_in_batch", False):
+                    await self.close(code=4403)
                 return
             # --- End auth check ---
 
@@ -2003,7 +2019,16 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 self.view_instance, request, **params
             )
             if hook_redirect:
+                # Same shape as the auth redirect above (T2): the view never
+                # mounted (we return before mount()), so the socket is orphaned
+                # — close it + clear view_instance so a raw client can't dispatch
+                # events against the unmounted view. (docs/audits/websocket-auth-2026-06.md.)
                 await self.send_json({"type": "navigate", "to": hook_redirect})
+                # Same as the auth branch (T2): clear the unmounted view, and
+                # close only when not inside a multiplexed mount_batch.
+                self.view_instance = None
+                if not getattr(self, "_mounting_in_batch", False):
+                    await self.close(code=4403)
                 return
             # --- End on_mount hooks ---
 
@@ -2525,6 +2550,13 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             captured.append(payload)
 
         self.send_json = _collect  # type: ignore[assignment]
+        # Signal to handle_mount that it runs inside a multiplexed batch on a
+        # shared socket: an auth/hook redirect must NOT close() the socket here
+        # (that would kill sibling mounts + the collected navigate[] and
+        # reconnect-storm the client). handle_mount still clears view_instance,
+        # and the redirect's navigate frame is collected into navigate[] — so a
+        # batched login-required view is reported as a redirect, not a bypass.
+        self._mounting_in_batch = True
         # Mount-batch is never combined with sticky preservation (sticky
         # only runs through live_redirect_mount which doesn't batch) or
         # state_snapshot (snapshot is for popstate restoration, also
@@ -2537,6 +2569,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             )
         except Exception as exc:  # noqa: BLE001 — isolate per-view failures
             self.send_json = orig_send_json  # type: ignore[assignment]
+            self._mounting_in_batch = False
             logger.exception(
                 "mount_batch: _mount_one raised for view %s",
                 sanitize_for_log(view_path),
@@ -2554,6 +2587,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             # Only restore if the try-block didn't already restore (else
             # we'd double-restore harmlessly). Idempotent.
             self.send_json = orig_send_json  # type: ignore[assignment]
+            self._mounting_in_batch = False
 
         # Extract the successful mount frame; any "error" frame means failure.
         # Fix #4: capture "navigate" frames too — those are emitted when
@@ -2722,6 +2756,46 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         if not self.view_instance:
             await self.send_error("View not mounted. Please reload the page.")
             return
+
+        # Per-event auth re-check (#1777, threat model T3, opt-in). Auth runs at
+        # mount; the connect-time scope user is cached, so a user who logs out /
+        # loses a permission mid-session would keep dispatching events until they
+        # reconnect. When LIVEVIEW_CONFIG['reauth_on_event'] is True and the view
+        # declares login_required/permission_required, re-resolve the user from
+        # the session and re-run the view's auth check; on failure, redirect +
+        # close the socket (mirroring the mount-time gate). Costs one session
+        # read per event — hence default-OFF. Fail-safe: any error here (e.g. no
+        # session in scope) skips the re-check rather than breaking the event.
+        if djust_config.get("reauth_on_event") and (
+            getattr(self.view_instance, "login_required", None)
+            or getattr(self.view_instance, "permission_required", None)
+        ):
+            try:
+                from channels.auth import get_user
+
+                from .auth.core import check_view_auth_lightweight
+
+                fresh_user = await get_user(self.scope)
+                # The mount request is stored on the view (see handle_mount:
+                # ``self.view_instance.request = request``), not on the consumer.
+                request = getattr(self.view_instance, "request", None)
+                if request is not None:
+                    request.user = fresh_user  # reflect current auth for the check + handler
+                    authorized = await sync_to_async(check_view_auth_lightweight)(
+                        self.view_instance, request
+                    )
+                    if not authorized:
+                        from django.conf import settings as _dj_settings
+
+                        login_url = getattr(self.view_instance, "login_url", None) or getattr(
+                            _dj_settings, "LOGIN_URL", "/accounts/login/"
+                        )
+                        await self.send_json({"type": "navigate", "to": login_url})
+                        await self.close(code=4403)
+                        self.view_instance = None
+                        return
+            except Exception:  # noqa: BLE001 — re-auth is defense-in-depth; never break events
+                logger.debug("reauth_on_event re-check skipped (non-fatal)", exc_info=True)
 
         # Route to embedded child view if view_id is specified.
         # The registry is provided by StickyChildRegistry (composed into

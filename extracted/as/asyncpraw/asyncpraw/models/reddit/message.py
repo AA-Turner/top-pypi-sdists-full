@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from .base import RedditBase
-from .mixins import FullnameMixin, InboxableMixin, ReplyableMixin
-from .redditor import Redditor
-from .subreddit import Subreddit
+from asyncpraw.const import API_PATH
+from asyncpraw.models.reddit.base import RedditBase
+from asyncpraw.models.reddit.mixins import CreatedMixin, FullnameMixin, InboxableMixin, ReplyableMixin
+from asyncpraw.models.reddit.redditor import Redditor
+from asyncpraw.models.reddit.subreddit import Subreddit
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import asyncpraw.models
 
 
-class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
+class Message(InboxableMixin, ReplyableMixin, FullnameMixin, CreatedMixin, RedditBase):
     """A class for private messages.
 
     .. include:: ../../typical_attributes.rst
@@ -41,9 +41,7 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
     STR_FIELD = "id"
 
     @classmethod
-    def parse(
-        cls, data: dict[str, Any], reddit: asyncpraw.Reddit
-    ) -> Message | SubredditMessage:
+    def parse(cls, data: dict[str, Any], reddit: asyncpraw.Reddit) -> Message | SubredditMessage:
         """Return an instance of :class:`.Message` or :class:`.SubredditMessage` from ``data``.
 
         :param data: The structured data.
@@ -60,7 +58,7 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
 
         if data["replies"]:
             replies = data["replies"]
-            data["replies"] = reddit._objector.objectify(replies["data"]["children"])
+            data["replies"] = reddit._objector.objectify(data=replies["data"]["children"])
         else:
             data["replies"] = []
 
@@ -97,17 +95,15 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
                 msg = "Message must be fetched with `.load()` before accessing the parent."
                 raise AttributeError(msg)
             if self.parent_id:
-                self._parent = Message(
-                    self._reddit, {"id": self.parent_id.split("_")[1]}
-                )
+                self._parent = Message(self._reddit, {"id": self.parent_id.split("_")[1]})
                 self._parent._fetched = False
         return self._parent
 
     @parent.setter
-    def parent(self, value: asyncpraw.models.Message | None):
+    def parent(self, value: asyncpraw.models.Message | None) -> None:
         self._parent = value
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.Message` instance."""
         super().__init__(reddit, _data=_data, _fetched=True)
         self._parent = None
@@ -115,12 +111,12 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
             if reply.parent_id == self.fullname:
                 reply.parent = self
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         message = await self._reddit.inbox.message(self.id)
         self.__dict__.update(message.__dict__)
         await super()._fetch()
 
-    async def delete(self):
+    async def delete(self) -> None:
         """Delete the message.
 
         .. note::
@@ -165,39 +161,3 @@ class SubredditMessage(Message):
     .. _unix time: https://en.wikipedia.org/wiki/Unix_time
 
     """
-
-    async def mute(self):
-        """Mute the sender of this :class:`.SubredditMessage`.
-
-        For example, to mute the sender of the first :class:`.SubredditMessage` in the
-        authenticated users' inbox:
-
-        .. code-block:: python
-
-            from asyncpraw.models import SubredditMessage
-
-            async for message in reddit.inbox.all():
-                if isinstance(message, SubredditMessage):
-                    await msg.mute()
-                    break
-
-        """
-        await self._reddit.post(API_PATH["mute_sender"], data={"id": self.fullname})
-
-    async def unmute(self):
-        """Unmute the sender of this :class:`.SubredditMessage`.
-
-        For example, to unmute the sender of the first :class:`.SubredditMessage` in the
-        authenticated users' inbox:
-
-        .. code-block:: python
-
-            from asyncpraw.models import SubredditMessage
-
-            async for message in reddit.inbox.all():
-                if isinstance(message, SubredditMessage):
-                    await msg.unmute()
-                    break
-
-        """
-        await self._reddit.post(API_PATH["unmute_sender"], data={"id": self.fullname})

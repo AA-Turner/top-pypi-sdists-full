@@ -227,10 +227,8 @@ class XPathFunction(XPathToken):
         else:
             return None
 
-    def is_reference(self) -> int:
-        if not isinstance(self.nargs, int):
-            return False
-        return self.nargs and not len(self._items)
+    def is_reference(self) -> bool:
+        return isinstance(self.nargs, int) and self.nargs != 0 and not self._items
 
     def nud(self) -> 'XPathFunction':
         if not self.parser.parse_arguments:
@@ -413,12 +411,12 @@ class ExternalFunction(XPathFunction):
             for k, (arg, st) in enumerate(zip(args, self.sequence_types), start=1):
                 if not match_sequence_type(arg, st, self.parser):
                     msg = f"{ordinal(k)} argument does not match sequence type {st!r}"
-                    raise self.error('XPDY0050', msg)
+                    raise self.error('XPTY0004', msg)
 
             result = self.callback(*args)
             if not match_sequence_type(result, self.sequence_types[-1], self.parser):
                 msg = f"Result does not match sequence type {self.sequence_types[-1]!r}"
-                raise self.error('XPDY0050', msg)
+                raise self.error('XPTY0004', msg)
             return result
 
         return self.callback(*args)

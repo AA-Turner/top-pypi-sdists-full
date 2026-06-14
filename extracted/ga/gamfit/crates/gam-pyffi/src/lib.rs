@@ -86,9 +86,9 @@ use gam::terms::basis::{
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
     SplineScratch, auto_centers_1d_equal_mass, auto_knot_vector_1d_quantile,
     bspline_tensor_first_derivative, build_duchon_basis, build_duchon_basis_mixed_periodicity_auto,
-    build_duchon_operator_penalty_matrices, build_matern_basis, build_periodic_bspline_basis_1d,
-    build_spherical_spline_basis, build_thin_plate_penalty_matrix, create_basis,
-    create_cyclic_difference_penalty_matrix, create_difference_penalty_matrix,
+    build_duchon_operator_penalty_matrices, build_matern_basis, build_matern_basis_literal_aniso,
+    build_periodic_bspline_basis_1d, build_spherical_spline_basis, build_thin_plate_penalty_matrix,
+    create_basis, create_cyclic_difference_penalty_matrix, create_difference_penalty_matrix,
     duchon_cubic_default, duchon_nullspace_dimension, duchon_polynomial_first_derivative_nd,
     duchon_pure_kernel_amplification, duchon_radial_first_derivative_nd,
     duchon_sae_atom_basis_with_jet, evaluate_bspline_basis_scalar,
@@ -153,8 +153,25 @@ use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
+mod benchmark_scores;
+mod competing_risks_decode;
 mod manifold_pyclasses;
+mod python_literal;
+mod summary_render;
 mod survival_surface_io;
+use benchmark_scores::{
+    benchmark_auc_score, benchmark_binary_logloss, benchmark_binary_logloss_eps,
+    benchmark_exp_saturated, benchmark_gaussian_logloss, benchmark_nagelkerke_r2,
+    benchmark_nagelkerke_r2_with_null_mean,
+};
+use python_literal::{python_float_display, python_string_repr};
+use competing_risks_decode::{
+    competing_risks_columns, competing_risks_numeric_list, competing_risks_string_list,
+    set_optional_competing_risks_matrix, set_optional_competing_risks_vector,
+};
+use summary_render::{
+    summary_html_escape, summary_render_coefficients_html, summary_render_value,
+};
 use manifold_pyclasses::{
     CircleManifold, EuclideanManifold, GrassmannManifold, ProductManifold, SpdManifold,
     SphereManifold, StiefelManifold, TorusManifold,
@@ -1611,242 +1628,6 @@ fn competing_risks_prediction_payload_from_json(py: Python<'_>, raw: &str) -> Py
     Ok(out.into_any().unbind())
 }
 
-fn set_optional_competing_risks_vector<'py>(
-    py: Python<'py>,
-    out: &Bound<'py, PyDict>,
-    key: &str,
-    raw: Option<&serde_json::Value>,
-) -> PyResult<()> {
-    match raw {
-        Some(serde_json::Value::Null) | None => out.set_item(key, py.None()),
-        Some(value) => out.set_item(
-            key,
-            Array1::from_vec(competing_risks_flattened_numbers(value, key)?).into_pyarray(py),
-        ),
-    }
-}
-
-fn set_optional_competing_risks_matrix<'py>(
-    py: Python<'py>,
-    out: &Bound<'py, PyDict>,
-    key: &str,
-    raw: Option<&serde_json::Value>,
-) -> PyResult<()> {
-    match raw {
-        Some(serde_json::Value::Null) | None => out.set_item(key, py.None()),
-        Some(value) => out.set_item(
-            key,
-            competing_risks_numeric_matrix(value, key)?.into_pyarray(py),
-        ),
-    }
-}
-
-fn competing_risks_columns(
-    raw: Option<&serde_json::Value>,
-) -> PyResult<BTreeMap<String, Vec<f64>>> {
-    let Some(value) = raw else {
-        return Ok(BTreeMap::new());
-    };
-    if value.is_null() {
-        return Ok(BTreeMap::new());
-    }
-    let object = value
-        .as_object()
-        .ok_or_else(|| py_value_error("columns must be a JSON object".to_string()))?;
-    let mut columns = BTreeMap::new();
-    for (name, values) in object {
-        columns.insert(
-            name.clone(),
-            competing_risks_numeric_list(Some(values), &format!("columns.{name}"))?,
-        );
-    }
-    Ok(columns)
-}
-
-fn competing_risks_string_list(
-    raw: Option<&serde_json::Value>,
-    key: &str,
-) -> PyResult<Vec<String>> {
-    let Some(value) = raw else {
-        return Ok(Vec::new());
-    };
-    if value.is_null() {
-        return Ok(Vec::new());
-    }
-    let items = value
-        .as_array()
-        .ok_or_else(|| py_value_error(format!("{key} must be a JSON array")))?;
-    let mut out = Vec::with_capacity(items.len());
-    for (idx, item) in items.iter().enumerate() {
-        let text = item
-            .as_str()
-            .ok_or_else(|| py_value_error(format!("{key}[{idx}] must be a string")))?;
-        out.push(text.to_string());
-    }
-    Ok(out)
-}
-
-fn competing_risks_numeric_list(raw: Option<&serde_json::Value>, key: &str) -> PyResult<Vec<f64>> {
-    let Some(value) = raw else {
-        return Ok(Vec::new());
-    };
-    if value.is_null() {
-        return Ok(Vec::new());
-    }
-    let items = value
-        .as_array()
-        .ok_or_else(|| py_value_error(format!("{key} must be a JSON array")))?;
-    let mut out = Vec::with_capacity(items.len());
-    for (idx, item) in items.iter().enumerate() {
-        out.push(competing_risks_number(item, &format!("{key}[{idx}]"))?);
-    }
-    Ok(out)
-}
-
-fn competing_risks_flattened_numbers(value: &serde_json::Value, key: &str) -> PyResult<Vec<f64>> {
-    let mut out = Vec::new();
-    competing_risks_flatten_numbers_into(value, key, &mut out)?;
-    Ok(out)
-}
-
-fn competing_risks_flatten_numbers_into(
-    value: &serde_json::Value,
-    key: &str,
-    out: &mut Vec<f64>,
-) -> PyResult<()> {
-    match value {
-        serde_json::Value::Number(_) => {
-            out.push(competing_risks_number(value, key)?);
-            Ok(())
-        }
-        serde_json::Value::Array(items) => {
-            for (idx, item) in items.iter().enumerate() {
-                competing_risks_flatten_numbers_into(item, &format!("{key}[{idx}]"), out)?;
-            }
-            Ok(())
-        }
-        _ => Err(py_value_error(format!("{key} must contain only numbers"))),
-    }
-}
-
-fn competing_risks_numeric_matrix(value: &serde_json::Value, key: &str) -> PyResult<Array2<f64>> {
-    match competing_risks_array_depth(value, key)? {
-        1 => competing_risks_vector_as_matrix(value, key),
-        2 => competing_risks_matrix2(value, key),
-        3 => competing_risks_stacked_matrix3(value, key),
-        depth => Err(py_value_error(format!(
-            "{key} must be a vector, matrix, or list of matrices; got array depth {depth}"
-        ))),
-    }
-}
-
-fn competing_risks_vector_as_matrix(value: &serde_json::Value, key: &str) -> PyResult<Array2<f64>> {
-    let values = competing_risks_numeric_list(Some(value), key)?;
-    let n_rows = values.len();
-    Array2::from_shape_vec((n_rows, 1), values)
-        .map_err(|err| py_value_error(format!("failed to reshape {key}: {err}")))
-}
-
-fn competing_risks_matrix2(value: &serde_json::Value, key: &str) -> PyResult<Array2<f64>> {
-    let rows = value
-        .as_array()
-        .ok_or_else(|| py_value_error(format!("{key} must be a JSON array")))?;
-    if rows.is_empty() {
-        return Ok(Array2::<f64>::zeros((0, 1)));
-    }
-    let first_row = rows[0]
-        .as_array()
-        .ok_or_else(|| py_value_error(format!("{key}[0] must be a JSON array")))?;
-    let n_cols = first_row.len();
-    let mut flat = Vec::with_capacity(rows.len() * n_cols);
-    for (row_idx, row) in rows.iter().enumerate() {
-        let cells = row
-            .as_array()
-            .ok_or_else(|| py_value_error(format!("{key}[{row_idx}] must be a JSON array")))?;
-        if cells.len() != n_cols {
-            return Err(py_value_error(format!(
-                "{key}[{row_idx}] has length {}, expected {n_cols}",
-                cells.len()
-            )));
-        }
-        for (col_idx, cell) in cells.iter().enumerate() {
-            flat.push(competing_risks_number(
-                cell,
-                &format!("{key}[{row_idx}][{col_idx}]"),
-            )?);
-        }
-    }
-    Array2::from_shape_vec((rows.len(), n_cols), flat)
-        .map_err(|err| py_value_error(format!("failed to reshape {key}: {err}")))
-}
-
-fn competing_risks_stacked_matrix3(value: &serde_json::Value, key: &str) -> PyResult<Array2<f64>> {
-    let matrices = value
-        .as_array()
-        .ok_or_else(|| py_value_error(format!("{key} must be a JSON array")))?;
-    if matrices.is_empty() {
-        return Ok(Array2::<f64>::zeros((0, 1)));
-    }
-    let mut n_cols = None;
-    let mut n_rows = 0usize;
-    let mut flat = Vec::new();
-    for (matrix_idx, matrix_value) in matrices.iter().enumerate() {
-        let matrix_key = format!("{key}[{matrix_idx}]");
-        let matrix = competing_risks_matrix2(matrix_value, &matrix_key)?;
-        match n_cols {
-            Some(expected) if matrix.ncols() != expected => {
-                return Err(py_value_error(format!(
-                    "{matrix_key} has {} columns, expected {expected}",
-                    matrix.ncols()
-                )));
-            }
-            Some(_) => {}
-            None => {
-                n_cols = Some(matrix.ncols());
-            }
-        }
-        n_rows += matrix.nrows();
-        flat.extend(matrix.iter().copied());
-    }
-    let cols = n_cols.unwrap_or(1);
-    Array2::from_shape_vec((n_rows, cols), flat)
-        .map_err(|err| py_value_error(format!("failed to reshape {key}: {err}")))
-}
-
-fn competing_risks_array_depth(value: &serde_json::Value, key: &str) -> PyResult<usize> {
-    match value {
-        serde_json::Value::Array(items) => {
-            if items.is_empty() {
-                return Ok(1);
-            }
-            let first_depth = competing_risks_array_depth(&items[0], &format!("{key}[0]"))?;
-            for (idx, item) in items.iter().enumerate().skip(1) {
-                let depth = competing_risks_array_depth(item, &format!("{key}[{idx}]"))?;
-                if depth != first_depth {
-                    return Err(py_value_error(format!(
-                        "{key} has inconsistent array depth at index {idx}: got {depth}, expected {first_depth}"
-                    )));
-                }
-            }
-            Ok(first_depth + 1)
-        }
-        serde_json::Value::Number(_) => Ok(0),
-        _ => Err(py_value_error(format!(
-            "{key} must contain only numeric arrays"
-        ))),
-    }
-}
-
-fn competing_risks_number(value: &serde_json::Value, key: &str) -> PyResult<f64> {
-    let number = value
-        .as_f64()
-        .ok_or_else(|| py_value_error(format!("{key} must be a finite number")))?;
-    if !number.is_finite() {
-        return Err(py_value_error(format!("{key} must be finite")));
-    }
-    Ok(number)
-}
-
 #[pyfunction]
 fn extract_row_ids(
     headers: Vec<String>,
@@ -1874,37 +1655,6 @@ fn extract_row_ids(
         row_ids.push(value.clone());
     }
     Ok(Some(row_ids))
-}
-
-fn python_string_repr(value: &str) -> String {
-    let quote = if value.contains('\'') && !value.contains('"') {
-        '"'
-    } else {
-        '\''
-    };
-    let mut repr = String::with_capacity(value.len() + 2);
-    repr.push(quote);
-    for ch in value.chars() {
-        match ch {
-            '\\' => repr.push_str("\\\\"),
-            '\t' => repr.push_str("\\t"),
-            '\n' => repr.push_str("\\n"),
-            '\r' => repr.push_str("\\r"),
-            '\'' if quote == '\'' => repr.push_str("\\'"),
-            '"' if quote == '"' => repr.push_str("\\\""),
-            other => repr.push(other),
-        }
-    }
-    repr.push(quote);
-    repr
-}
-
-fn python_float_display(value: f64) -> String {
-    if value.is_finite() && value.fract() == 0.0 && value.abs() < 1.0e16 {
-        format!("{value:.1}")
-    } else {
-        value.to_string()
-    }
 }
 
 /// Training-time upper bound for the default survival surface grid, read from
@@ -2992,7 +2742,10 @@ fn matern_basis<'py>(
         periodic: None,
         nullspace_shrinkage_survived: None,
     };
-    let built = build_matern_basis(pts, &spec).map_err(basis_error_to_pyerr)?;
+    // Honor an explicit all-zero `aniso_log_scales` literally as the isotropic
+    // metric — this is a caller's explicit request, NOT the κ-optimizer's
+    // geometry-seeding sentinel (#1042).
+    let built = build_matern_basis_literal_aniso(pts, &spec).map_err(basis_error_to_pyerr)?;
     let design = built
         .design
         .try_to_dense_by_chunks("matern_basis")
@@ -5264,6 +5017,7 @@ fn gaussian_reml_fit_blocks_forward<'py>(
         sas_link: None,
         optimize_sas: false,
         compute_inference: true,
+        skip_rho_posterior_inference: false,
         max_iter: 200,
         tol: 1.0e-9,
         nullspace_dims: vec![0; s_list.len()],
@@ -5704,6 +5458,7 @@ fn gaussian_reml_fit_with_constraints_forward<'py>(
         sas_link: None,
         optimize_sas: false,
         compute_inference: true,
+        skip_rho_posterior_inference: false,
         max_iter: 200,
         tol: 1e-7,
         nullspace_dims: vec![0; s_list.len()],
@@ -9386,7 +9141,9 @@ fn sae_manifold_fit_inner<'py>(
             z_view,
             &basis_sizes,
             assignment_kind.as_str(),
+            alpha,
             tau,
+            jumprelu_threshold,
             seed_refine_random_state,
         )
         .map_err(py_value_error)?;
@@ -9470,12 +9227,15 @@ fn sae_manifold_fit_inner<'py>(
     //
     // `init_rho` packs `[log_lambda_sparse, log_lambda_smooth, per-atom ARD]`;
     // its `to_flat()` defines the outer ρ vector the engine optimizes, and its
-    // length is the objective's declared `n_params`.
+    // length is the objective's declared `n_params`. For learnable-alpha IBP,
+    // the first coordinate is a dimensionless log-alpha offset rather than a
+    // response-scale penalty strength, so assignment-aware seed scaling leaves it
+    // unshifted while still scaling smoothness and ARD.
     let seed_dispersion = base_term
         .seed_reconstruction_dispersion(z_view)
         .map_err(py_value_error)?;
     let init_rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard)
-        .seed_scaled_by_dispersion(seed_dispersion)
+        .seed_scaled_by_dispersion_for_assignment(seed_dispersion, mode)
         .map_err(py_value_error)?;
     let init_rho_flat = init_rho.to_flat();
     let n_params = init_rho_flat.len();
@@ -9771,15 +9531,11 @@ fn sae_manifold_fit_inner<'py>(
     out.set_item("atom_active_mask", active_mask)?;
     out.set_item("fitted", fitted.into_pyarray(py))?;
     out.set_item("reml_score", loss.evidence_proxy())?;
-    out.set_item(
-        "log_alpha",
-        alpha.ln()
-            + if learnable_alpha {
-                rho.log_lambda_sparse
-            } else {
-                0.0
-            },
-    )?;
+    let reported_log_alpha = match term.assignment.mode {
+        gam::terms::sae_manifold::AssignmentMode::IBPMap { alpha, .. } => alpha.ln(),
+        _ => alpha.ln(),
+    };
+    out.set_item("log_alpha", reported_log_alpha)?;
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
@@ -10450,9 +10206,10 @@ fn layer_transport_ladder(
 /// `U·diag(s)` from the thin SVD of the centered response.
 /// Seed each atom's decoder coefficient block via a joint ridge-regularized
 /// least-squares projection of `Z` onto the atom design `[a_init * Phi_1, ...,
-/// a_init * Phi_K]`, where `a_init` is the soft-assignment that the inner
-/// Newton driver will produce at iteration 0 from the supplied
-/// `initial_logits`.
+/// a_init * Phi_K]`, where `a_init` is the assignment map that the inner Newton
+/// driver will produce at iteration 0 from the supplied `initial_logits`.
+/// IBP-MAP uses the base `alpha` because learnable-alpha fits start with
+/// `rho0 = 0`, and JumpReLU uses the configured hard threshold.
 ///
 /// Zero-initialised decoder coefficients leave the joint-fit Arrow-Schur
 /// system in a degenerate fixed point on multi-atom configurations: the
@@ -10779,7 +10536,9 @@ fn sae_decoder_lsq_init(
     z: ArrayView2<'_, f64>,
     initial_logits: ArrayView2<'_, f64>,
     assignment_kind: &str,
+    alpha: f64,
     tau: f64,
+    jumprelu_threshold: f64,
 ) -> Result<Array3<f64>, String> {
     let k_atoms = basis_sizes.len();
     let (n_obs, p_out) = z.dim();
@@ -10808,9 +10567,9 @@ fn sae_decoder_lsq_init(
     // Compute per-row, per-atom assignment weight a_init that matches the
     // forward map of `assignment_kind` evaluated at `initial_logits`.
     let mut a_init = Array2::<f64>::zeros((n_obs, k_atoms));
-    let inv_tau = 1.0 / tau;
     match assignment_kind {
         "softmax" => {
+            let inv_tau = 1.0 / tau;
             for row in 0..n_obs {
                 let mut max_logit = f64::NEG_INFINITY;
                 for k in 0..k_atoms {
@@ -10834,34 +10593,35 @@ fn sae_decoder_lsq_init(
             }
         }
         "ibp_map" => {
+            if !alpha.is_finite() || alpha <= 0.0 {
+                return Err(format!(
+                    "sae_decoder_lsq_init: alpha must be finite and positive for IBP-MAP; got {alpha}"
+                ));
+            }
+            // Use the base alpha here. In learnable-alpha fits the first rho
+            // coordinate starts at zero, so alpha_eff = alpha at initialization.
             for row in 0..n_obs {
+                let weights =
+                    gam::terms::sae_manifold::ibp_map_row(initial_logits.row(row), tau, alpha);
                 for k in 0..k_atoms {
-                    let x = initial_logits[[row, k]] * inv_tau;
-                    let a = if x >= 0.0 {
-                        1.0 / (1.0 + (-x).exp())
-                    } else {
-                        let ex = x.exp();
-                        ex / (1.0 + ex)
-                    };
-                    a_init[[row, k]] = a;
+                    a_init[[row, k]] = weights[k];
                 }
             }
         }
         "jumprelu" => {
-            // Inner driver uses zero threshold; gate via `logit > 0`.
+            if !jumprelu_threshold.is_finite() {
+                return Err(format!(
+                    "sae_decoder_lsq_init: jumprelu_threshold must be finite; got {jumprelu_threshold}"
+                ));
+            }
             for row in 0..n_obs {
+                let weights = gam::terms::sae_manifold::jumprelu_row(
+                    initial_logits.row(row),
+                    tau,
+                    jumprelu_threshold,
+                );
                 for k in 0..k_atoms {
-                    let logit = initial_logits[[row, k]];
-                    if logit > 0.0 {
-                        let x = logit * inv_tau;
-                        let a = if x >= 0.0 {
-                            1.0 / (1.0 + (-x).exp())
-                        } else {
-                            let ex = x.exp();
-                            ex / (1.0 + ex)
-                        };
-                        a_init[[row, k]] = a;
-                    }
+                    a_init[[row, k]] = weights[k];
                 }
             }
         }
@@ -11008,7 +10768,9 @@ fn sae_em_refine_routing_seed(
     z: ArrayView2<'_, f64>,
     basis_sizes: &[usize],
     assignment_kind: &str,
+    alpha: f64,
     tau: f64,
+    jumprelu_threshold: f64,
     random_state: u64,
 ) -> Result<(), String> {
     const SAE_SEED_REFINE_ROUNDS: usize = 4;
@@ -11058,7 +10820,9 @@ fn sae_em_refine_routing_seed(
             z,
             term.assignment.logits.view(),
             assignment_kind,
+            alpha,
             tau,
+            jumprelu_threshold,
         )?;
         for atom_idx in 0..k_atoms {
             let m_k = basis_sizes[atom_idx];
@@ -11929,9 +11693,8 @@ fn sae_manifold_fit_minimal<'py>(
     // cannot escape that fixed point. Seed JumpReLU runs a fixed margin
     // ABOVE the configured threshold so every atom starts active relative to
     // its cut and the fit can learn which atoms to prune. Softmax
-    // (translation-invariant) and IBP-MAP (uses sigmoid prior with
-    // stick-breaking) are unaffected by a uniform logit shift, so zero
-    // remains the natural init for those.
+    // (translation-invariant) remains neutral at zero, while IBP-MAP uses the
+    // zero seed except for its degenerate K=1 gate handled below.
     // Warm-start logits (issue #357): a caller-supplied `(N, K)` assignment
     // logit seed (from an amortized encoder) replaces the cold-start init.
     // When absent we fall back to the documented zero / JumpReLU-positive init
@@ -11964,6 +11727,20 @@ fn sae_manifold_fit_minimal<'py>(
                 (n_obs, k_atoms),
                 jumprelu_threshold + SAE_JUMPRELU_SEED_MARGIN,
             )
+        }
+        None if k_atoms == 1 && assignment_kind == "ibp_map" => {
+            // At K=1 the IBP stick-breaking prior is degenerate (pi_0 == 1), so the
+            // gate zeta = sigma(logit/tau) is a free multiplicative scalar on the
+            // reconstruction with no competing atom and no sparsity pressure. A zero
+            // seed starts it at sigma(0)=0.5 -- a 50% radial seed contraction the
+            // joint fit must climb back from against a vanishing sigmoid gradient,
+            // landing the ring inside the data (#1023). Seed the single atom
+            // "present" so zeta starts ~1; the gate stays free to fall if the atom is
+            // genuinely vacuous (the post-fit EV collapse guard, not zeta->0, flags
+            // that, so part-3 collapse detection is unaffected). Temperature-robust:
+            // seed logit = c*tau so zeta = sigma(c) is independent of tau.
+            const SAE_IBP_K1_PRESENT_GATE_LOGIT: f64 = 6.0;
+            Array2::<f64>::from_elem((n_obs, k_atoms), SAE_IBP_K1_PRESENT_GATE_LOGIT * tau)
         }
         None => Array2::<f64>::zeros((n_obs, k_atoms)),
     };
@@ -12023,7 +11800,9 @@ fn sae_manifold_fit_minimal<'py>(
         z_view,
         initial_logits.view(),
         assignment_kind.as_str(),
+        alpha,
         tau,
+        jumprelu_threshold,
     )
     .map_err(py_value_error)?;
     // `plan_latent_dim` (computed above) is the optimizer's per-atom latent
@@ -14497,6 +14276,7 @@ fn glm_reml_fit_latent_impl(
         sas_link: None,
         optimize_sas: false,
         compute_inference: false,
+        skip_rho_posterior_inference: false,
         max_iter: 100,
         tol: 1e-7,
         nullspace_dims: vec![0],
@@ -15609,6 +15389,7 @@ fn gaussian_reml_fit_formula_table_impl(
         sas_link: None,
         optimize_sas: false,
         compute_inference: true,
+        skip_rho_posterior_inference: false,
         max_iter: 200,
         tol: 1.0e-9,
         nullspace_dims: vec![0; s_list.len()],
@@ -17511,238 +17292,6 @@ fn summary_html(payload: &Bound<'_, PyDict>) -> PyResult<String> {
     ))
 }
 
-const SUMMARY_HTML_COEFFICIENT_LIMIT: usize = 50;
-const SUMMARY_VALUE_PREVIEW_LIMIT: usize = 6;
-
-fn summary_render_value(value: &Bound<'_, PyAny>) -> PyResult<String> {
-    if let Ok(float_value) = value.cast::<PyFloat>() {
-        return Ok(summary_format_float(float_value.extract::<f64>()?));
-    }
-    if let Ok(mapping) = value.cast::<PyDict>() {
-        return summary_render_mapping_value(mapping);
-    }
-    if let Ok(sequence) = value.cast::<PyList>() {
-        return summary_render_list_value(sequence);
-    }
-    if let Ok(sequence) = value.cast::<PyTuple>() {
-        return summary_render_tuple_value(sequence);
-    }
-    value.str()?.extract::<String>()
-}
-
-fn summary_render_mapping_value(value: &Bound<'_, PyDict>) -> PyResult<String> {
-    if value.is_empty() {
-        return Ok("{}".to_string());
-    }
-    let mut parts = Vec::new();
-    for (index, (key, item_value)) in value.iter().enumerate() {
-        if index >= SUMMARY_VALUE_PREVIEW_LIMIT {
-            break;
-        }
-        parts.push(format!(
-            "{}: {}",
-            key.str()?.extract::<String>()?,
-            summary_render_value(&item_value)?
-        ));
-    }
-    let suffix = if value.len() <= SUMMARY_VALUE_PREVIEW_LIMIT {
-        String::new()
-    } else {
-        format!(", ... ({} total)", value.len())
-    };
-    Ok(format!("{{{}{}}}", parts.join(", "), suffix))
-}
-
-fn summary_render_list_value(value: &Bound<'_, PyList>) -> PyResult<String> {
-    if value.is_empty() {
-        return Ok("[]".to_string());
-    }
-    let preview_len = value.len().min(SUMMARY_VALUE_PREVIEW_LIMIT);
-    let mut parts = Vec::with_capacity(preview_len);
-    for index in 0..preview_len {
-        parts.push(summary_render_value(&value.get_item(index)?)?);
-    }
-    let suffix = if value.len() <= SUMMARY_VALUE_PREVIEW_LIMIT {
-        String::new()
-    } else {
-        format!(", ... ({} total)", value.len())
-    };
-    Ok(format!("[{}{}]", parts.join(", "), suffix))
-}
-
-fn summary_render_tuple_value(value: &Bound<'_, PyTuple>) -> PyResult<String> {
-    if value.is_empty() {
-        return Ok("[]".to_string());
-    }
-    let preview_len = value.len().min(SUMMARY_VALUE_PREVIEW_LIMIT);
-    let mut parts = Vec::with_capacity(preview_len);
-    for index in 0..preview_len {
-        parts.push(summary_render_value(&value.get_item(index)?)?);
-    }
-    let suffix = if value.len() <= SUMMARY_VALUE_PREVIEW_LIMIT {
-        String::new()
-    } else {
-        format!(", ... ({} total)", value.len())
-    };
-    Ok(format!("[{}{}]", parts.join(", "), suffix))
-}
-
-fn summary_render_coefficients_html(payload: &Bound<'_, PyDict>) -> PyResult<String> {
-    let Some(coefficients_any) = payload.get_item("coefficients")? else {
-        return Ok(String::new());
-    };
-    let Ok(coefficients) = coefficients_any.cast::<PyList>() else {
-        return Ok(String::new());
-    };
-    if coefficients.is_empty() {
-        return Ok(String::new());
-    }
-
-    let columns = summary_coefficient_columns(coefficients)?;
-    let mut header_cells = String::new();
-    for column in &columns {
-        header_cells.push_str(
-            "<th style='text-align:right;padding:0.25rem 0.75rem;\
-             border-bottom:1px solid #ddd;'>",
-        );
-        header_cells.push_str(&summary_html_escape(column));
-        header_cells.push_str("</th>");
-    }
-
-    let row_limit = coefficients.len().min(SUMMARY_HTML_COEFFICIENT_LIMIT);
-    let mut body_rows = String::new();
-    for index in 0..row_limit {
-        let row_any = coefficients.get_item(index)?;
-        let row = row_any
-            .cast::<PyDict>()
-            .map_err(|_| PyValueError::new_err("summary coefficient rows must be dictionaries"))?;
-        body_rows.push_str("<tr>");
-        for column in &columns {
-            let rendered = match row.get_item(column.as_str())? {
-                Some(value) => summary_render_value(&value)?,
-                None => String::new(),
-            };
-            body_rows.push_str("<td style='text-align:right;padding:0.25rem 0.75rem;'>");
-            body_rows.push_str(&summary_html_escape(&rendered));
-            body_rows.push_str("</td>");
-        }
-        body_rows.push_str("</tr>");
-    }
-
-    let note = if coefficients.len() > SUMMARY_HTML_COEFFICIENT_LIMIT {
-        format!(
-            "<p style='margin:0.25rem 0 0 0;color:#666;'>Showing first {} of {} coefficients.</p>",
-            SUMMARY_HTML_COEFFICIENT_LIMIT,
-            coefficients.len()
-        )
-    } else {
-        String::new()
-    };
-
-    Ok(format!(
-        "<h4 style='margin:1rem 0 0.35rem 0;'>Coefficients</h4>\
-         <table style='border-collapse:collapse;'>\
-         <thead><tr>{header_cells}</tr></thead>\
-         <tbody>{body_rows}</tbody>\
-         </table>\
-         {note}"
-    ))
-}
-
-fn summary_coefficient_columns(coefficients: &Bound<'_, PyList>) -> PyResult<Vec<String>> {
-    let mut columns = Vec::new();
-    for index in 0..coefficients.len() {
-        let row_any = coefficients.get_item(index)?;
-        let row = row_any
-            .cast::<PyDict>()
-            .map_err(|_| PyValueError::new_err("summary coefficient rows must be dictionaries"))?;
-        for (key, _) in row.iter() {
-            let column = key.str()?.extract::<String>()?;
-            if !columns.iter().any(|existing| existing == &column) {
-                columns.push(column);
-            }
-        }
-    }
-    Ok(columns)
-}
-
-fn summary_format_float(value: f64) -> String {
-    if value.is_nan() {
-        return "nan".to_string();
-    }
-    if value == f64::INFINITY {
-        return "inf".to_string();
-    }
-    if value == f64::NEG_INFINITY {
-        return "-inf".to_string();
-    }
-    if value == 0.0 {
-        return "0".to_string();
-    }
-
-    let exponent = value.abs().log10().floor() as i32;
-    let mut out = if !(-4..6).contains(&exponent) {
-        let raw = format!("{:.5e}", value);
-        summary_normalize_exponent(&raw)
-    } else {
-        let places = (6 - exponent - 1).max(0) as usize;
-        summary_trim_float(format!("{:.*}", places, value))
-    };
-    if out == "-0" {
-        out = "0".to_string();
-    }
-    out
-}
-
-fn summary_normalize_exponent(raw: &str) -> String {
-    let Some((mantissa, exponent)) = raw.split_once('e') else {
-        return raw.to_string();
-    };
-    let mantissa = summary_trim_float(mantissa.to_string());
-    let (sign, digits) = if let Some(rest) = exponent.strip_prefix('-') {
-        ('-', rest)
-    } else if let Some(rest) = exponent.strip_prefix('+') {
-        ('+', rest)
-    } else {
-        ('+', exponent)
-    };
-    let digits = digits.trim_start_matches('0');
-    let digits = if digits.is_empty() { "0" } else { digits };
-    let padded = if digits.len() == 1 {
-        format!("0{digits}")
-    } else {
-        digits.to_string()
-    };
-    format!("{mantissa}e{sign}{padded}")
-}
-
-fn summary_trim_float(mut value: String) -> String {
-    if value.contains('.') {
-        while value.ends_with('0') {
-            value.pop();
-        }
-        if value.ends_with('.') {
-            value.pop();
-        }
-    }
-    value
-}
-
-fn summary_html_escape(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    for ch in input.chars() {
-        match ch {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#x27;"),
-            _ => out.push(ch),
-        }
-    }
-    out
-}
-
 #[pyfunction]
 fn coefficient_state_json(py: Python<'_>, model_bytes: Vec<u8>) -> PyResult<String> {
     detach_py_result(py, "coefficient_state_json", move || {
@@ -17971,213 +17520,6 @@ fn diagnostics_from_predictions(
     out.set_item("residuals", PyList::new(py, diagnostics.residuals)?)?;
     out.set_item("metrics", metrics)?;
     Ok(out.unbind())
-}
-
-fn benchmark_auc_score(observed: &[f64], predicted_mean: &[f64]) -> PyResult<f64> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "auc length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    let mut pairs: Vec<(f64, bool)> = observed
-        .iter()
-        .zip(predicted_mean.iter())
-        .map(|(&y, &p)| (p, y > 0.5))
-        .collect();
-    let n_pos = pairs.iter().filter(|(_, is_pos)| *is_pos).count();
-    let n_neg = pairs.len().saturating_sub(n_pos);
-    if n_pos == 0 || n_neg == 0 {
-        return Ok(0.5);
-    }
-    pairs.sort_by(|(a, _), (b, _)| a.total_cmp(b));
-
-    let mut concordant = 0.0;
-    let mut negatives_below = 0usize;
-    let mut i = 0usize;
-    while i < pairs.len() {
-        let mut j = i + 1;
-        while j < pairs.len() && pairs[j].0 == pairs[i].0 {
-            j += 1;
-        }
-        let pos_in_group = pairs[i..j].iter().filter(|(_, is_pos)| *is_pos).count();
-        let neg_in_group = (j - i).saturating_sub(pos_in_group);
-        concordant += (pos_in_group * negatives_below) as f64;
-        concordant += 0.5 * (pos_in_group * neg_in_group) as f64;
-        negatives_below += neg_in_group;
-        i = j;
-    }
-    Ok(concordant / ((n_pos * n_neg) as f64))
-}
-
-fn benchmark_binary_logloss(observed: &[f64], predicted_mean: &[f64]) -> PyResult<f64> {
-    benchmark_binary_logloss_eps(observed, predicted_mean, 1.0e-12)
-}
-
-fn benchmark_binary_logloss_eps(
-    observed: &[f64],
-    predicted_mean: &[f64],
-    eps: f64,
-) -> PyResult<f64> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "logloss length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    if observed.is_empty() {
-        return Err(PyValueError::new_err("logloss requires at least one row"));
-    }
-    let loss_sum = observed
-        .iter()
-        .zip(predicted_mean.iter())
-        .map(|(&y, &p)| {
-            let clipped = p.clamp(eps, 1.0 - eps);
-            -(y * clipped.ln() + (1.0 - y) * (1.0 - clipped).ln())
-        })
-        .sum::<f64>();
-    Ok(loss_sum / observed.len() as f64)
-}
-
-fn benchmark_exp_saturated(x: f64) -> f64 {
-    if x >= 709.0 {
-        f64::INFINITY
-    } else if x <= -745.0 {
-        0.0
-    } else {
-        x.exp()
-    }
-}
-
-fn benchmark_nagelkerke_r2(
-    observed: &[f64],
-    predicted_mean: &[f64],
-    train_observed: &[f64],
-) -> PyResult<Option<f64>> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "nagelkerke length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    if observed.is_empty() || train_observed.is_empty() {
-        return Ok(None);
-    }
-    let null_mean = train_observed.iter().sum::<f64>() / train_observed.len() as f64;
-    if !null_mean.is_finite() || null_mean <= 0.0 || null_mean >= 1.0 {
-        return Ok(None);
-    }
-    let eps = 1.0e-12;
-    let log_null = null_mean.ln();
-    let log_not_null = (1.0 - null_mean).ln();
-    let ll_null = observed
-        .iter()
-        .map(|&y| y * log_null + (1.0 - y) * log_not_null)
-        .sum::<f64>();
-    let ll_model = observed
-        .iter()
-        .zip(predicted_mean.iter())
-        .map(|(&y, &p)| {
-            let clipped = p.clamp(eps, 1.0 - eps);
-            y * clipped.ln() + (1.0 - y) * (1.0 - clipped).ln()
-        })
-        .sum::<f64>();
-    let n = observed.len() as f64;
-    let r2_cs = 1.0 - benchmark_exp_saturated((2.0 / n) * (ll_null - ll_model));
-    let max_r2_cs = 1.0 - benchmark_exp_saturated((2.0 / n) * ll_null);
-    if !r2_cs.is_finite() || !max_r2_cs.is_finite() || max_r2_cs <= 0.0 {
-        return Ok(None);
-    }
-    Ok(Some(r2_cs / max_r2_cs))
-}
-
-fn benchmark_nagelkerke_r2_with_null_mean(
-    observed: &[f64],
-    predicted_mean: &[f64],
-    null_mean: f64,
-    eps: f64,
-) -> PyResult<Option<f64>> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "nagelkerke length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    if observed.is_empty() {
-        return Ok(None);
-    }
-    if !null_mean.is_finite() || null_mean <= 0.0 || null_mean >= 1.0 {
-        return Ok(None);
-    }
-    let log_null = null_mean.ln();
-    let log_not_null = (1.0 - null_mean).ln();
-    let ll_null = observed
-        .iter()
-        .map(|&y| y * log_null + (1.0 - y) * log_not_null)
-        .sum::<f64>();
-    let ll_model = observed
-        .iter()
-        .zip(predicted_mean.iter())
-        .map(|(&y, &p)| {
-            let clipped = p.clamp(eps, 1.0 - eps);
-            y * clipped.ln() + (1.0 - y) * (1.0 - clipped).ln()
-        })
-        .sum::<f64>();
-    let n = observed.len() as f64;
-    let r2_cs = 1.0 - benchmark_exp_saturated((2.0 / n) * (ll_null - ll_model));
-    let max_r2_cs = 1.0 - benchmark_exp_saturated((2.0 / n) * ll_null);
-    if !r2_cs.is_finite() || !max_r2_cs.is_finite() || max_r2_cs <= 0.0 {
-        return Ok(None);
-    }
-    Ok(Some(r2_cs / max_r2_cs))
-}
-
-fn benchmark_gaussian_logloss(
-    observed: &[f64],
-    predicted_mean: &[f64],
-    sigma: &[f64],
-) -> PyResult<f64> {
-    if observed.len() != predicted_mean.len() {
-        return Err(PyValueError::new_err(format!(
-            "gaussian logloss length mismatch: observed={} predicted={}",
-            observed.len(),
-            predicted_mean.len()
-        )));
-    }
-    if observed.is_empty() {
-        return Err(PyValueError::new_err(
-            "gaussian logloss requires at least one row",
-        ));
-    }
-    if sigma.len() != 1 && sigma.len() != observed.len() {
-        return Err(PyValueError::new_err(format!(
-            "sigma length must be 1 or {}, got {}",
-            observed.len(),
-            sigma.len()
-        )));
-    }
-    let eps = 1.0e-12;
-    let two_pi = 2.0 * std::f64::consts::PI;
-    let loss_sum = observed
-        .iter()
-        .zip(predicted_mean.iter())
-        .enumerate()
-        .map(|(idx, (&y, &mu))| {
-            let raw_sigma = if sigma.len() == 1 {
-                sigma[0]
-            } else {
-                sigma[idx]
-            };
-            let sigma_use = raw_sigma.max(eps);
-            let var = sigma_use * sigma_use;
-            0.5 * (two_pi * var).ln() + ((y - mu) * (y - mu)) / (2.0 * var)
-        })
-        .sum::<f64>();
-    Ok(loss_sum / observed.len() as f64)
 }
 
 #[pyfunction]
@@ -25052,6 +24394,54 @@ fn fit_dataset_impl(
 
     let mut payload = match request {
         FitRequest::Standard(standard_request) => {
+            // Exact O(n) spline-scan fast path (#1030/#1034): a single 1-D
+            // Gaussian cubic smooth is the penalized cubic-spline problem the
+            // state-space scan solves exactly — route through it and persist
+            // the smoother state instead of the dense fit. Detection is
+            // structural; every other shape falls through to the dense fit
+            // below. Mirrors the CLI run_fit path so CLI and FFI saves agree.
+            if let Some(inputs) = gam::spline_scan_fast_path(&standard_request) {
+                let scan = gam::solver::spline_scan::fit_spline_scan(
+                    &inputs.x,
+                    &inputs.y,
+                    &inputs.w,
+                    inputs.order,
+                )
+                .map_err(|reason| gam::WorkflowError::IntegrationFailed { reason })?;
+                let feature_col = match &standard_request.spec.smooth_terms[0].basis {
+                    gam::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => *feature_col,
+                    _ => {
+                        return Err(gam::WorkflowError::SchemaMismatch {
+                            reason: "spline-scan detection accepted a non-1D basis".to_string(),
+                        });
+                    }
+                };
+                let feature_column =
+                    dataset.headers.get(feature_col).cloned().ok_or_else(|| {
+                        gam::WorkflowError::SchemaMismatch {
+                            reason: format!(
+                                "spline-scan feature column {feature_col} has no header"
+                            ),
+                        }
+                    })?;
+                let mut scan_payload =
+                    gam::inference::model_payload_builders::assemble_spline_scan_payload(
+                        formula,
+                        feature_column,
+                        &scan,
+                        dataset.schema.clone(),
+                        dataset.headers.clone(),
+                        dataset.feature_ranges(),
+                    );
+                scan_payload.group_metadata = fit_config.group_metadata.clone();
+                scan_payload.training_table_kind = training_table_kind;
+                let model = FittedModel::from_payload(scan_payload);
+                return serde_json::to_vec(&model).map_err(|err| {
+                    gam::WorkflowError::IntegrationFailed {
+                        reason: format!("failed to serialize model: {err}"),
+                    }
+                });
+            }
             let family = standard_request.family.clone();
             let fit_result = fit_model(FitRequest::Standard(standard_request))?;
             let standard_result = match fit_result {
@@ -25982,6 +25372,36 @@ fn predict_columns(
     options: &PyPredictOptions,
 ) -> Result<BTreeMap<String, Vec<f64>>, String> {
     let col_map = dataset.column_map();
+    // Spline-scan saved model (#1030/#1034): replay the exact Gaussian bridge
+    // per row (identity link, η == mean). No design reconstruction, no
+    // predictor. SE/intervals come from the exact posterior variance.
+    if let Some((feature_column, fit)) = model.saved_spline_scan().map_err(String::from)? {
+        let col = *col_map.get(feature_column).ok_or_else(|| {
+            format!("prediction data is missing the model's feature column '{feature_column}'")
+        })?;
+        let n = dataset.values.nrows();
+        let mut eta = Vec::with_capacity(n);
+        let mut se = Vec::with_capacity(n);
+        for (i, &x) in dataset.values.column(col).iter().enumerate() {
+            let (m, v) = fit
+                .predict(x)
+                .map_err(|e| format!("spline-scan predict failed at row {i}: {e}"))?;
+            eta.push(m);
+            se.push(v.max(0.0).sqrt());
+        }
+        let mut columns = BTreeMap::<String, Vec<f64>>::new();
+        columns.insert("linear_predictor".to_string(), eta.clone());
+        columns.insert("mean".to_string(), eta.clone());
+        if let Some(confidence_level) = options.interval {
+            let z = gam::probability::standard_normal_quantile(0.5 + confidence_level * 0.5)?;
+            let lower: Vec<f64> = eta.iter().zip(&se).map(|(m, s)| m - z * s).collect();
+            let upper: Vec<f64> = eta.iter().zip(&se).map(|(m, s)| m + z * s).collect();
+            columns.insert("std_error".to_string(), se);
+            columns.insert("mean_lower".to_string(), lower);
+            columns.insert("mean_upper".to_string(), upper);
+        }
+        return Ok(columns);
+    }
     let offset = resolve_offset_column(&dataset, &col_map, model.offset_column.as_deref())?;
     let offset_noise =
         resolve_offset_column(&dataset, &col_map, model.noise_offset_column.as_deref())?;
@@ -28281,9 +27701,7 @@ fn summary_smooth_terms(
         let smooth_test = if term.shape == ShapeConstraint::None {
             cov_forwald.and_then(|cov| {
                 // The summary table is built from representative inputs reconstructed
-                // from saved feature ranges (not the original training rows), so the
-                // Lawley substrate needed for the second-order Bartlett correction
-                // is not honestly available here. Report first-order p-values only.
+                // from saved feature ranges (not the original training rows).
                 wood_smooth_test(SmoothTestInput {
                     beta: fit.beta.view(),
                     covariance: cov,
@@ -28293,9 +27711,6 @@ fn summary_smooth_terms(
                     nullspace_dim: term.nullspace_dims.iter().copied().sum::<usize>(),
                     residual_df,
                     scale,
-                    // No Lawley cumulant substrate on this FFI summary path;
-                    // the known-scale branch reports first-order p only (#939).
-                    known_scale_lr_mean_shift: None,
                 })
             })
         } else {

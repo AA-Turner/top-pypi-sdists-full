@@ -25,7 +25,7 @@ is present, and pass-through keys are kept when the writer can
 reconstruct them from canonical state.
 
 The contract version is recorded in ``attrs['_xrspatial_geotiff_contract']``
-(currently ``4``). Consumers can branch on this integer if the tier
+(currently ``5``). Consumers can branch on this integer if the tier
 split changes in a future release.
 
 Canonical (xrspatial owns these; round-trip stable):
@@ -76,6 +76,14 @@ Canonical (xrspatial owns these; round-trip stable):
   passed an explicit ``dtype=`` kwarg. Records that a post-mask cast
   happened so consumers can tell float-because-masked from
   float-because-promoted.
+- ``mask_and_scale_dtype`` (#3064, contract v5): string dtype name of
+  the source (e.g. ``"int8"``). Emitted when masking and / or
+  ``mask_and_scale`` promoted an integer array to float on read, and
+  on ``mask_and_scale`` reads of float sources that carry a declared
+  sentinel or a non-identity scale / offset (#3080) -- float sources
+  are never promoted, but recording their width keeps
+  ``to_geotiff(pack=True)`` from widening float32 to float64.
+  ``pack`` reads it to restore the on-disk dtype.
 - ``raster_type``: ``'area'`` (implicit / RasterPixelIsArea) or ``'point'``
   (explicit / RasterPixelIsPoint).
 - ``georef_status``: one of ``'full'``, ``'transform_only'``, ``'crs_only'``,
@@ -323,6 +331,21 @@ SUPPORTED_FEATURES = {
     'reader.local_cog': 'stable',
     'reader.http_cog': 'advanced',
     'reader.gpu': 'experimental',
+    # ``unpack=True`` scale/offset decode on ``open_geotiff`` (CF-style
+    # packed integers -> float, nodata sentinel -> NaN). Sits at
+    # ``experimental`` rather than ``advanced``: the GPU / dask+GPU
+    # branches gained round-trip coverage only recently (#3112 pack
+    # crash fix, #3114 coverage), so no behavioural promise is made yet.
+    'reader.unpack': 'experimental',
+    # ``coregister=True`` on the ``.xrs.open_geotiff`` accessor: an
+    # unpack-and-reproject read that resamples the file onto the
+    # caller's exact grid. Sits at ``experimental``: CPU-only (raises
+    # with ``gpu=True`` / ``.vrt`` sources), forces ``unpack=True``,
+    # and the surface (resampling heuristic, NaN fill outside the file
+    # footprint) can shift without a deprecation window. See the
+    # "Coregistered reads" section in
+    # ``docs/source/reference/geotiff.rst``.
+    'reader.coregister': 'experimental',
     # Write paths.
     'writer.local_file': 'stable',
     # ``writer.cog`` is ``stable``: the CPU writer emits a
@@ -337,6 +360,13 @@ SUPPORTED_FEATURES = {
     'writer.gpu': 'experimental',
     'writer.gdal_metadata_xml': 'experimental',
     'writer.extra_tags': 'experimental',
+    # ``pack=True`` on ``to_geotiff``: inverse of ``reader.unpack``
+    # (re-apply scale/offset, restore the recorded integer dtype, fill
+    # NaN back to the nodata sentinel). Tracked at the same
+    # ``experimental`` tier as ``reader.unpack`` -- the pair shares the
+    # scale/offset attr contract and the recently-closed GPU gaps
+    # (#3112, #3114).
+    'writer.pack': 'experimental',
     # BigTIFF COG writer surface.
     # Tracked separately from ``writer.bigtiff`` and ``writer.cog`` because
     # the BigTIFF + COG combination has its own external-interop surface
@@ -547,7 +577,15 @@ _TIFF_SHORT = 3
 # writer drops it on round-trip until ``to_geotiff`` grows a
 # ``ModelTransformationTag`` emit path. Existing keys keep their pre-v4
 # shape.
-_ATTRS_CONTRACT_VERSION = 4
+#
+# Version 5 adds ``attrs['mask_and_scale_dtype']``: the integer source
+# dtype recorded when ``mask_nodata`` / ``mask_and_scale`` promoted the
+# array to float on read. ``to_geotiff(pack=True)`` reads it to restore
+# the on-disk dtype. Existing keys keep their pre-v5 shape. #3080 later
+# extended emission (same key, same shape, still v5) to float sources on
+# ``mask_and_scale`` reads that carry a sentinel or a non-identity
+# scale / offset, so ``pack`` keeps float32 sources float32.
+_ATTRS_CONTRACT_VERSION = 5
 
 
 # Canonical ``attrs['georef_status']`` values. One attr
@@ -1500,6 +1538,17 @@ def _apply_eager_nodata_mask(arr, *, mask_sentinel, mask_nodata):
                 nodata_int = int(mask_sentinel)
                 info = np.iinfo(arr.dtype)
                 if info.min <= nodata_int <= info.max:
+                    # Compute the sentinel mask at the integer dtype's
+                    # native width BEFORE the float64 promotion. For
+                    # int64/uint64 sentinels above 2**53 (INT64_MAX,
+                    # UINT64_MAX, ...) the promotion rounds nearby valid
+                    # values onto the sentinel's float64 representation,
+                    # so a post-promotion compare masked valid pixels to
+                    # NaN and diverged from the dask / GPU-chunked / VRT
+                    # paths, which all compare at native width
+                    # (issue #3098).
+                    mask = arr == arr.dtype.type(nodata_int)
+                    nodata_pixels_present = bool(mask.any())
                     # Promote to float64 whenever the sentinel is
                     # maskable, independent of whether any pixel matches.
                     # The dask path declares float64 up front from the
@@ -1514,8 +1563,6 @@ def _apply_eager_nodata_mask(arr, *, mask_sentinel, mask_nodata):
                     # (issue #2990). ``nodata_pixels_present`` still
                     # records whether a pixel matched.
                     arr = arr.astype(np.float64)
-                    mask = arr == np.float64(nodata_int)
-                    nodata_pixels_present = bool(mask.any())
                     if nodata_pixels_present:
                         arr[mask] = np.nan
                 else:
@@ -1569,8 +1616,9 @@ def _extract_scale_offset(gdal_metadata, band=None, *, malformed=False):
       band's worth) are returned unchanged.
 
     Raises :class:`MalformedScaleOffsetError` when a ``SCALE`` or ``OFFSET``
-    item is present but does not parse as a float. An absent key keeps the
-    1.0 / 0.0 identity default.
+    item is present but does not parse as a float, when ``SCALE`` is zero
+    or non-finite, or when ``OFFSET`` is non-finite (issue #3104). An
+    absent key keeps the 1.0 / 0.0 identity default.
 
     ``malformed=True`` signals that the source carried a GDAL_METADATA XML
     payload that did not parse (see :func:`_parse_gdal_metadata_strict`).
@@ -1587,7 +1635,7 @@ def _extract_scale_offset(gdal_metadata, band=None, *, malformed=False):
     if malformed:
         raise MalformedScaleOffsetError(
             "GDAL_METADATA XML is malformed and could not be parsed. "
-            "mask_and_scale=True cannot honour the scale / offset it may "
+            "unpack=True cannot honour the scale / offset it may "
             "declare, so the read is refused rather than returning raw, "
             "unscaled pixels."
         )
@@ -1603,7 +1651,7 @@ def _extract_scale_offset(gdal_metadata, band=None, *, malformed=False):
         except (TypeError, ValueError):
             raise MalformedScaleOffsetError(
                 f"GDAL_METADATA {name} is not a number: {raw!r}. "
-                "mask_and_scale=True cannot honour a malformed "
+                "unpack=True cannot honour a malformed "
                 f"{name}."
             ) from None
 
@@ -1632,17 +1680,412 @@ def _extract_scale_offset(gdal_metadata, band=None, *, malformed=False):
         if len(distinct) > 1:
             from ._errors import MixedBandMetadataError
             raise MixedBandMetadataError(
-                f"mask_and_scale=True but the source declares distinct "
+                f"unpack=True but the source declares distinct "
                 f"per-band {name} values {distinct!r}. Applying one band's "
                 f"{name} to the whole array would silently corrupt the other "
                 f"bands. Select a single band with band= to read it with its "
-                f"own {name}, or drop mask_and_scale."
+                f"own {name}, or drop unpack."
             )
         return distinct[0]
 
     scale = _resolve('SCALE', 1.0)
     offset = _resolve('OFFSET', 0.0)
+    # A zero or non-finite SCALE (and a non-finite OFFSET) parses as a
+    # float but cannot be honoured: ``data * 0 + offset`` collapses every
+    # pixel to the offset, ``data * nan`` destroys the array, and the
+    # inverse transform in ``_pack`` divides by SCALE. Treat these like
+    # the unparseable case above and fail closed (issue #3104).
+    if scale == 0.0 or not np.isfinite(scale):
+        raise MalformedScaleOffsetError(
+            f"GDAL_METADATA SCALE is {scale!r}. mask_and_scale=True "
+            "cannot honour a zero or non-finite SCALE: applying it "
+            "destroys the data and it has no inverse for pack=True."
+        )
+    if not np.isfinite(offset):
+        raise MalformedScaleOffsetError(
+            f"GDAL_METADATA OFFSET is {offset!r}. mask_and_scale=True "
+            "cannot honour a non-finite OFFSET."
+        )
     return scale, offset
+
+
+def _pack_fill_nan(chunk, fill):
+    """NaN -> sentinel fill for ``_pack``'s float targets, at the buffer
+    level. Integer targets route through :func:`_pack_restore_int`
+    instead, which assigns the sentinel at the target dtype's native
+    width (issue #3264).
+
+    ``DataArray.fillna`` routes through xarray's ``duck_array_ops.where``,
+    which breaks on cupy-backed arrays (issue #3112): eager cupy hits
+    xarray calling ``cupy.astype`` (AttributeError on cupy 13.6), and a
+    dask+cupy graph feeds the host-side 0-d fill array into
+    ``cupy.where`` (TypeError). Filling through a boolean mask on the
+    raw buffer sidesteps ``where`` entirely: ``np.isnan`` dispatches to
+    cupy via ``__array_ufunc__`` and the masked assignment takes a
+    plain Python scalar on numpy and cupy alike.
+    """
+    if chunk.dtype.kind != 'f':
+        # Integer buffers cannot hold NaN; nothing to fill (matches
+        # ``fillna``'s no-op on non-float data).
+        return chunk
+    out = chunk.copy()
+    out[np.isnan(out)] = float(fill)
+    return out
+
+
+def _pack_restore_int(chunk, fill, tgt_name):
+    """NaN -> sentinel fill plus integer restore for ``_pack``, at the
+    target dtype's native width.
+
+    Filling the float64 buffer first and casting afterwards corrupts
+    64-bit sentinels above 2**53: ``float(INT64_MAX)`` rounds to 2**63,
+    the cast overflows, and the holes land on INT64_MIN (0 for
+    UINT64_MAX) while the GDAL_NODATA tag still declares the original
+    sentinel, so a masked re-read returns them as valid pixels (issue
+    #3264). Instead, park the holes at zero for the round + cast, then
+    assign the sentinel as a Python int -- exact at any width, the same
+    way the eager and GPU writers fill via ``dtype.type(nodata)``.
+    Works on numpy and cupy chunks alike: ``np.isnan`` dispatches on
+    the array type and the masked assignments take Python scalars.
+
+    Runs :func:`_pack_guard_int_range` between the round and the cast:
+    this is the only integer restore the sentinel path takes, and the
+    chunk is already integer-typed by the time ``_pack``'s body-level
+    guard block runs, so the range / finiteness check (issue #3260)
+    must happen here. ``+/-Inf`` is not NaN and therefore survives the
+    hole mask; the parked holes hold 0.0, in range for every integer
+    dtype, so they pass the guard.
+    """
+    tgt = np.dtype(tgt_name)
+    if chunk.dtype.kind != 'f':
+        # Integer buffers cannot hold NaN; nothing to fill.
+        return chunk.astype(tgt)
+    mask = np.isnan(chunk)
+    out = chunk.copy()
+    out[mask] = 0.0
+    out = out.round()
+    info = np.iinfo(tgt)
+    _pack_guard_int_range(out, tgt.name, float(info.min),
+                          float(int(info.max) + 1))
+    out = out.astype(tgt)
+    out[mask] = int(fill)
+    return out
+
+
+def _pack_guard_int_range(chunk, tgt_name, lo, hi_excl):
+    """Per-chunk range / finiteness guard for ``_pack``'s integer restore.
+
+    Runs after the round and before the ``astype``. Raises ``ValueError``
+    when the chunk holds non-finite values or values outside the target
+    integer dtype's range -- the cast would silently wrap them into
+    valid-looking integers (issue #3260). Returns the chunk unchanged
+    when clean.
+
+    ``lo`` is ``iinfo.min`` and ``hi_excl`` is ``iinfo.max + 1``, both as
+    floats. The exclusive upper bound matters for the 64-bit dtypes:
+    ``float(iinfo.max)`` rounds up to ``2**63`` / ``2**64``, so a
+    ``chunk > float(iinfo.max)`` test would pass a value that still wraps
+    in the cast. ``iinfo.max + 1`` is a power of two for every integer
+    dtype and therefore exact in float64. ``iinfo.min`` is likewise a
+    power of two (or zero) and exact.
+
+    Mapped over dask blocks so the scan fuses with the write's single
+    compute (same shape as :func:`_pack_guard_no_nan`); numpy and cupy
+    buffers are checked eagerly at ``_pack`` call time. ``np.isfinite``
+    and the comparisons dispatch on the array type, so the one function
+    covers all four backends.
+    """
+    if chunk.dtype.kind == 'f':
+        bad = ~np.isfinite(chunk)
+        bad |= chunk < lo
+        bad |= chunk >= hi_excl
+        if bool(bad.any()):
+            raise ValueError(
+                f"pack=True: data contains values that the packed "
+                f"integer dtype {tgt_name} cannot represent (valid "
+                f"range {int(lo)}..{int(hi_excl) - 1} after the "
+                f"scale/offset reversal) or that are not finite; the "
+                f"cast would silently wrap them. Clip the data to the "
+                f"packed range or rescale before writing.")
+    return chunk
+
+
+def _pack_guard_no_nan(chunk, tgt_name):
+    """Per-chunk NaN guard for ``_pack``'s no-sentinel integer restore.
+
+    Mapped over dask-backed data so the scan runs inside the write's
+    single compute instead of forcing a second full execution of the
+    upstream graph at ``to_geotiff(pack=True)`` call time (issue
+    #3235). Returns the chunk unchanged when clean; raises
+    ``ValueError`` when it contains NaN. Works on numpy and cupy
+    chunks alike -- ``np.isnan`` dispatches on the array type and the
+    ``bool(...)`` reduction is a scalar sync per chunk.
+    """
+    if chunk.dtype.kind == 'f' and bool(np.isnan(chunk).any()):
+        raise ValueError(
+            f"pack=True: cannot restore integer dtype {tgt_name}: "
+            "NaN pixels are present but no nodata sentinel is "
+            "declared to fill them.")
+    return chunk
+
+
+def _pack(data, nodata=None):
+    """Re-pack an ``unpack=True`` read for writing -- inverse of
+    :func:`_extract_scale_offset`'s forward direction.
+
+    Reverses the scale / offset applied on read (``(data - add_offset) /
+    scale_factor``), fills NaN back to the nodata sentinel, and
+    casts to the source dtype recorded in
+    ``attrs['mask_and_scale_dtype']`` (falling back to the dtype of an
+    integer ``attrs['nodata']`` for arrays read by an xrspatial release
+    predating contract v5, and to the buffer's own dtype otherwise).
+    Returns a new DataArray; ``data`` is left untouched.
+
+    ``nodata`` is the writer's explicit ``nodata=`` kwarg. When given, it
+    overrides the attrs sentinel as the NaN fill value, matching the
+    "kwarg overrides attrs" precedence the GDAL_NODATA tag already
+    follows -- otherwise the holes get filled with one value while the
+    tag declares another and a ``masked=True`` re-read returns the holes
+    as valid pixels (#3168). The pre-v5 dtype-width fallback still keys
+    off the attrs sentinel: it is stored in the source dtype, while the
+    kwarg is a plain Python number with no width information.
+
+    The SCALE / OFFSET GDAL_METADATA tags are kept: the written file stores
+    the raw packed integers and re-declares the scale, so reopening with
+    ``unpack=True`` unpacks to the same values rather than scaling a
+    second time. (The double-scale bug the round-trip caveat warns about
+    comes from writing the *already-scaled* floats with the tags still on;
+    reversing the scale first, as here, makes keeping the tags correct.)
+    Per-band ``(SCALE, i)`` / ``(OFFSET, i)`` entries are an exception:
+    after a band-subset read they still describe the *source's* band
+    indices, which the written file no longer has (#3161). They are
+    rewritten as dataset-level entries carrying the reversed pair -- the
+    one pair that was applied to every pixel of this array -- so the
+    packed file unpacks correctly whatever bands it carries.
+
+    Raises ``ValueError`` when ``data`` carries no unpack state to
+    reverse, when an integer dtype must be restored but NaN pixels are
+    present with no declared sentinel to fill them, when the ``nodata``
+    kwarg cannot be represented in the packed integer dtype (out of range
+    or fractional) -- the cast would wrap or round the fill value away
+    from what the GDAL_NODATA tag declares -- or when any pixel's packed
+    value is non-finite or falls outside the packed integer dtype's
+    range, where the cast would silently wrap it into a valid-looking
+    integer (issue #3260).
+
+    Error timing for the NaN-with-no-sentinel and packed-range cases
+    depends on the
+    backing: numpy-backed data raises here, at call time. dask-backed
+    data defers the scan into the graph (one per-chunk check fused with
+    the write's single compute) so the upstream graph is not executed a
+    second time just to look for NaN (issue #3235); the ``ValueError``
+    then surfaces from the compute that consumes the packed array,
+    typically the ``to_geotiff`` write itself.
+    """
+    attrs = dict(data.attrs)
+    scale = attrs.get('scale_factor', 1.0)
+    offset = attrs.get('add_offset', 0.0)
+    target = attrs.get('mask_and_scale_dtype')
+    attrs_nodata = _resolve_nodata_attr(attrs)
+    nodata_kwarg = nodata
+    if nodata is None:
+        nodata = attrs_nodata
+
+    if ('scale_factor' not in attrs and target is None
+            and not attrs.get('masked_nodata')):
+        raise ValueError(
+            "pack=True but the array carries no unpack state to "
+            "reverse (no scale_factor / mask_and_scale_dtype / "
+            "masked_nodata). It was not produced by "
+            "open_geotiff(unpack=True).")
+
+    # ``_extract_scale_offset`` rejects these on read (issue #3104), so
+    # they can only appear via hand-edited attrs. Refuse rather than
+    # divide by zero below and silently write a corrupt file.
+    if scale == 0 or not np.isfinite(scale) or not np.isfinite(offset):
+        raise ValueError(
+            f"pack=True cannot reverse scale_factor={scale!r} / "
+            f"add_offset={offset!r}: the inverse transform divides by "
+            "scale_factor, so it must be non-zero and finite, and "
+            "add_offset must be finite.")
+
+    out = (data - offset) / scale
+
+    if (target is None and attrs_nodata is not None
+            and np.asarray(attrs_nodata).dtype.kind in ('i', 'u')):
+        # Best-effort recovery for pre-v5 reads of integer sources: the
+        # attrs sentinel is stored in the source dtype, so its width is
+        # the source width. Float sentinels are excluded -- a reader
+        # stores them as plain Python floats, so their width says
+        # float64 regardless of the source's width (issue #3080); the
+        # buffer below is the better signal because float sources are
+        # never promoted on read. (The ``nodata`` kwarg carries no width
+        # information, so it never feeds this fallback.)
+        target = np.asarray(attrs_nodata).dtype.name
+    tgt = np.dtype(target) if target is not None else np.dtype(str(out.dtype))
+
+    if nodata_kwarg is not None and tgt.kind in ('i', 'u'):
+        # The attrs sentinel fits the source dtype by construction (the
+        # reader validated it against GDAL_NODATA). The kwarg has no such
+        # guarantee: an out-of-range or fractional value would wrap /
+        # round in the fill below, silently recreating the fill-vs-tag
+        # disagreement this override exists to prevent. Compare as
+        # integers, not through float(): float64 cannot represent 64-bit
+        # values above 2**53, so a float round-trip rejected INT64_MAX
+        # even though it fits int64 exactly (issue #3264).
+        info = np.iinfo(tgt)
+        try:
+            iv = int(nodata_kwarg)
+            representable = (iv == nodata_kwarg
+                             and info.min <= iv <= info.max)
+        except (OverflowError, ValueError):
+            representable = False  # inf / nan
+        if not representable:
+            raise ValueError(
+                f"pack=True: nodata={nodata_kwarg!r} cannot be represented "
+                f"in the packed integer dtype {tgt.name} (valid range "
+                f"{info.min}..{info.max}). The filled holes would not match "
+                f"the GDAL_NODATA tag; pass a sentinel that fits the packed "
+                f"dtype.")
+
+    if nodata is not None:
+        # Restore the masked sentinel for every dtype. Integers can't hold
+        # NaN at all; floats would otherwise write NaN pixels under a
+        # GDAL_NODATA tag that still declares the sentinel, leaving an
+        # inconsistent file that non-masking readers misread (#3078).
+        # Not ``fillna``: that routes through xarray's where(), which
+        # crashes on cupy-backed arrays (#3112). The helpers fill at the
+        # buffer level on all four backends; dask backings keep the fill
+        # lazy via the same map_blocks shape as the no-sentinel guard
+        # below.
+        if tgt.kind in ('i', 'u'):
+            # Integer restore: fill, round, and cast in one step so the
+            # sentinel is assigned at the target dtype's native width.
+            # Filling the float64 buffer first corrupts 64-bit sentinels
+            # above 2**53 -- INT64_MAX wrapped to INT64_MIN in the cast
+            # while GDAL_NODATA kept declaring INT64_MAX (issue #3264).
+            if hasattr(out.data, 'dask'):
+                out = out.copy(data=out.data.map_blocks(
+                    _pack_restore_int, nodata, tgt.name,
+                    dtype=tgt, meta=out.data._meta.astype(tgt)))
+            else:
+                out = out.copy(
+                    data=_pack_restore_int(out.data, nodata, tgt.name))
+        elif hasattr(out.data, 'dask'):
+            out = out.copy(data=out.data.map_blocks(
+                _pack_fill_nan, nodata,
+                dtype=out.dtype, meta=out.data._meta))
+        else:
+            out = out.copy(data=_pack_fill_nan(out.data, nodata))
+    elif tgt.kind in ('i', 'u'):
+        # No sentinel exists to fill an integer's holes, so a NaN pixel
+        # must abort the pack: the ``astype`` below would silently wrap
+        # it into a valid-looking integer. This guard runs on every
+        # no-sentinel integer pack, success path included. numpy-backed
+        # data scans eagerly and raises here, at call time. dask-backed
+        # data maps the guard into the graph instead: an eager
+        # ``isnull().any()`` executed the whole upstream graph once for
+        # the scan and the writer executed it again for the pixels
+        # (issue #3235), so the per-chunk check now raises from the
+        # write's single compute.
+        if hasattr(out.data, 'dask'):
+            out = out.copy(data=out.data.map_blocks(
+                _pack_guard_no_nan, tgt.name,
+                dtype=out.dtype, meta=out.data._meta))
+        else:
+            # Buffer-level scan, not ``bool(out.isnull().any())``: the
+            # xarray reduction materialises through ``np.asarray`` and
+            # raised TypeError on cupy-backed eager input, crashing
+            # every no-sentinel integer pack on the gpu backend before
+            # the scan could answer (#3260). ``_pack_guard_no_nan``
+            # dispatches ``np.isnan`` on the array type, so numpy and
+            # cupy take the same path here.
+            _pack_guard_no_nan(out.data, tgt.name)
+
+    # The integer-with-sentinel path above already rounded and cast at
+    # the chunk level; its ``out`` is integer-typed here, so the round
+    # is skipped and the astype is a no-op cast.
+    if tgt.kind in ('i', 'u') and out.dtype.kind == 'f':
+        out = out.round()
+        # Out-of-range and non-finite packed values would silently wrap
+        # in the astype below, exactly the corruption the NaN guard
+        # above exists to prevent: a finite value whose packed form
+        # exceeds the dtype range wraps (40000 -> -25536 in int16), and
+        # +/-Inf casts to a platform-defined integer (issue #3260).
+        # Runs after the round so a value like 32767.4 that rounds back
+        # into range is not rejected. Same eager/lazy split as the NaN
+        # guard: numpy / cupy raise here, dask raises from the write's
+        # single compute.
+        info = np.iinfo(tgt)
+        lo = float(info.min)
+        hi_excl = float(int(info.max) + 1)
+        if hasattr(out.data, 'dask'):
+            out = out.copy(data=out.data.map_blocks(
+                _pack_guard_int_range, tgt.name, lo, hi_excl,
+                dtype=out.dtype, meta=out.data._meta))
+        else:
+            _pack_guard_int_range(out.data, tgt.name, lo, hi_excl)
+
+    out = out.astype(tgt)
+
+    # Rewrite stale per-band SCALE / OFFSET entries (#3161). After a
+    # band-subset read the kept GDAL_METADATA still describes the source's
+    # band indices, so re-reading the packed file would raise
+    # MixedBandMetadataError or silently apply another band's scale. The
+    # reversed (scale, offset) pair is the single pair that was applied to
+    # every pixel of this array, so dataset-level entries carrying it are
+    # correct for any band layout (and _extract_scale_offset gives them
+    # precedence). Dataset-level-only metadata is already index-free and
+    # stays verbatim, preserving the raw XML. Scoped to arrays that carry
+    # unpack state: a plain masked read never applied the per-band scale,
+    # so collapsing its entries would destroy valid source metadata.
+    # Other per-band items (band descriptions, STATISTICS_*) are left
+    # as-is on purpose: they don't affect pixel values and can't be
+    # re-indexed without knowing which band was read.
+    gdal_md = attrs.get('gdal_metadata')
+    if (isinstance(gdal_md, dict)
+            and ('scale_factor' in attrs or 'mask_and_scale_dtype' in attrs)):
+        per_band_keys = [
+            key for key in gdal_md
+            if (isinstance(key, tuple) and len(key) == 2
+                and key[0] in ('SCALE', 'OFFSET'))
+        ]
+        if per_band_keys:
+            new_md = {key: val for key, val in gdal_md.items()
+                      if key not in per_band_keys}
+            # Keep an existing dataset-level value verbatim (it won on
+            # read, so it already equals the applied pair). Identity
+            # values are dropped rather than written: absent and 1.0 / 0.0
+            # read back the same.
+            if 'SCALE' not in new_md and scale != 1.0:
+                new_md['SCALE'] = str(float(scale))
+            if 'OFFSET' not in new_md and offset != 0.0:
+                new_md['OFFSET'] = str(float(offset))
+            attrs['gdal_metadata'] = new_md
+            # The raw XML still carries the stale per-band items and the
+            # writer prefers it over the dict; drop it so GDAL_METADATA is
+            # rebuilt from the rewritten dict.
+            attrs.pop('gdal_metadata_xml', None)
+
+    # Drop the read-side lifecycle attrs that describe the now-reversed
+    # transform. The SCALE / OFFSET GDAL_METADATA stays so the packed file
+    # still declares how to unpack. ``masked_nodata`` flips to False: the
+    # buffer now carries the literal sentinel, not NaN.
+    for key in ('scale_factor', 'add_offset', 'mask_and_scale_dtype'):
+        attrs.pop(key, None)
+    if 'masked_nodata' in attrs:
+        attrs['masked_nodata'] = False
+    if nodata_kwarg is not None:
+        # The buffer's holes now carry the kwarg sentinel, so the attr
+        # follows it. Downstream writers receive the kwarg and never
+        # consult the attr, but keeping the intermediate self-consistent
+        # means a path that forgot to thread the kwarg would still tag
+        # the value the pixels actually hold.
+        attrs['nodata'] = nodata_kwarg
+
+    out.attrs = attrs
+    out.name = data.name
+    return out
 
 
 def _finalize_eager_read(
@@ -1718,6 +2161,11 @@ def _finalize_eager_read(
     # AND masks the nodata sentinel to NaN), so fold it into the mask gate.
     effective_mask = mask_nodata or mask_and_scale
 
+    # Remember the source dtype before masking / scaling can promote an
+    # integer buffer to float so ``to_geotiff(pack=True)`` can restore it
+    # (issue #3064). Stamped below only when the promotion actually ran.
+    pre_promote_dtype = np.dtype(str(arr.dtype))
+
     # Apply the nodata-to-NaN mask (or compute pixels_present
     # without rewriting if masking is off). Skipped entirely when
     # the source declared no sentinel.
@@ -1741,6 +2189,22 @@ def _finalize_eager_read(
             arr = arr * scale + offset
             attrs['scale_factor'] = scale
             attrs['add_offset'] = offset
+
+    # Record the source dtype so ``to_geotiff(pack=True)`` can re-pack the
+    # decoded array (issue #3064). Scoped to ``mask_and_scale`` reads (not a
+    # plain ``masked`` read) since ``pack`` is the inverse of
+    # ``mask_and_scale``; the attr name says as much. Checked before the
+    # caller ``dtype=`` cast so it captures the on-disk dtype, not the
+    # caller's requested cast. Integer sources record it when the read
+    # promoted them to float. Float sources are never promoted, but record
+    # it too whenever the read carries unpack state to reverse (a declared
+    # sentinel or a non-identity scale / offset): without the attr,
+    # ``_pack`` falls back to the nodata scalar's dtype and widens a
+    # float32 source to float64 (issue #3080).
+    if mask_and_scale and np.dtype(str(arr.dtype)).kind == 'f':
+        if (pre_promote_dtype.kind != 'f'
+                or nodata is not None or 'scale_factor' in attrs):
+            attrs['mask_and_scale_dtype'] = pre_promote_dtype.name
 
     # Caller-requested dtype cast (post-mask so the integer
     # promotion above runs first). ``_validate_dtype_cast`` lives in

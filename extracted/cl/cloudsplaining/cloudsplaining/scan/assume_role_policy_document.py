@@ -40,7 +40,7 @@ class AssumeRolePolicyDocument(ResourcePolicyDocument):
         self.policy = policy
         self.current_account_id = current_account_id
         # We would actually need to define a proper base class with a generic type for statements
-        self.statements: list[AssumeRoleStatement] = []  # type:ignore[assignment]
+        self.statements: list[AssumeRoleStatement] = []
         self.exclusions = exclusions
         # leaving here but excluding from tests because IAM Policy grammar dictates that it must be a list
         if not isinstance(statement_structure, list):  # pragma: no cover
@@ -181,10 +181,7 @@ class AssumeRoleStatement(ResourceStatement):
             return []
 
         # Check if any principal is "*" or "arn:aws:iam::*:root"
-        any_principals = [
-            principal for principal in self.principals if principal == "*" or principal == "arn:aws:iam::*:root"
-        ]
-        return any_principals
+        return [principal for principal in self.principals if principal == "*" or principal == "arn:aws:iam::*:root"]
 
     @property
     def role_assumable_by_any_principal_with_conditions(self) -> list[str]:
@@ -203,7 +200,4 @@ class AssumeRoleStatement(ResourceStatement):
             return []
 
         # Check if any principal is "*" or "arn:aws:iam::*:root"
-        any_principals = [
-            principal for principal in self.principals if principal == "*" or principal == "arn:aws:iam::*:root"
-        ]
-        return any_principals
+        return [principal for principal in self.principals if principal == "*" or principal == "arn:aws:iam::*:root"]

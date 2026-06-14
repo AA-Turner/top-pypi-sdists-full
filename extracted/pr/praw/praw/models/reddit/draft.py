@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from ...exceptions import ClientException
-from .base import RedditBase
-from .subreddit import Subreddit
-from .user_subreddit import UserSubreddit
+from praw.const import API_PATH
+from praw.exceptions import ClientException
+from praw.models.reddit.base import RedditBase
+from praw.models.reddit.subreddit import Subreddit
+from praw.models.reddit.user_subreddit import UserSubreddit
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    import praw
+    from praw import models
 
 
 class Draft(RedditBase):
@@ -56,7 +57,7 @@ class Draft(RedditBase):
         selftext: str | None = None,
         send_replies: bool | None = None,
         spoiler: bool | None = None,
-        subreddit: praw.models.Subreddit | praw.models.UserSubreddit | None = None,
+        subreddit: models.Subreddit | models.UserSubreddit | None = None,
         title: str | None = None,
         url: str | None = None,
         **draft_kwargs: Any,
@@ -74,22 +75,14 @@ class Draft(RedditBase):
             "title": title,
         }
         if subreddit:
-            data.update(
-                {
-                    "subreddit": subreddit.fullname,
-                    "target": (
-                        "profile"
-                        if subreddit.display_name.startswith("u_")
-                        else "subreddit"
-                    ),
-                }
-            )
+            data.update({
+                "subreddit": subreddit.fullname,
+                "target": ("profile" if subreddit.display_name.startswith("u_") else "subreddit"),
+            })
         data.update(draft_kwargs)
         return data
 
-    def __init__(
-        self, reddit: praw.Reddit, id: str | None = None, _data: dict[str, Any] = None
-    ):
+    def __init__(self, reddit: praw.Reddit, id: str | None = None, _data: dict[str, Any] | None = None) -> None:
         """Initialize a :class:`.Draft` instance."""
         if (id, _data).count(None) != 1:
             msg = "Exactly one of 'id' or '_data' must be provided."
@@ -97,8 +90,8 @@ class Draft(RedditBase):
         fetched = False
         if id:
             self.id = id
-        elif len(_data) > 1:
-            if _data["kind"] == "markdown":
+        elif _data is not None and len(_data) > 1:
+            if _data["kind"] in {"markdown", "richtext"}:
                 _data["selftext"] = _data.pop("body")
             elif _data["kind"] == "link":
                 _data["url"] = _data.pop("body")
@@ -108,25 +101,21 @@ class Draft(RedditBase):
     def __repr__(self) -> str:
         """Return an object initialization representation of the instance."""
         if self._fetched:
-            subreddit = (
-                f" subreddit={self.subreddit.display_name!r}" if self.subreddit else ""
-            )
+            subreddit = f" subreddit={self.subreddit.display_name!r}" if self.subreddit else ""
             title = f" title={self.title!r}" if self.title else ""
             return f"{self.__class__.__name__}(id={self.id!r}{subreddit}{title})"
         return f"{self.__class__.__name__}(id={self.id!r})"
 
-    def _fetch(self):
+    def _fetch(self) -> None:
         for draft in self._reddit.drafts():
             if draft.id == self.id:
                 self.__dict__.update(draft.__dict__)
                 super()._fetch()
                 return
-        msg = (
-            f"The currently authenticated user not have a draft with an ID of {self.id}"
-        )
+        msg = f"The currently authenticated user not have a draft with an ID of {self.id}"
         raise ClientException(msg)
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete the :class:`.Draft`.
 
         Example usage:
@@ -147,13 +136,11 @@ class Draft(RedditBase):
         nsfw: bool | None = None,
         selftext: str | None = None,
         spoiler: bool | None = None,
-        subreddit: (
-            str | praw.models.Subreddit | praw.models.UserSubreddit | None
-        ) = None,
+        subreddit: (str | models.Subreddit | models.UserSubreddit | None) = None,
         title: str | None = None,
         url: str | None = None,
         **submit_kwargs: Any,
-    ) -> praw.models.Submission:
+    ) -> models.Submission:
         """Submit a draft.
 
         :param flair_id: The flair template to select (default: ``None``).
@@ -197,12 +184,7 @@ class Draft(RedditBase):
 
         .. seealso::
 
-            - :meth:`~.Subreddit.submit` to submit url posts and selftexts
-            - :meth:`~.Subreddit.submit_gallery`. to submit more than one image in the
-              same post
-            - :meth:`~.Subreddit.submit_image` to submit images
-            - :meth:`~.Subreddit.submit_poll` to submit polls
-            - :meth:`~.Subreddit.submit_video` to submit videos and videogifs
+            :meth:`~.Subreddit.submit` to make a submission directly.
 
         """
         submit_kwargs["draft_id"] = self.id
@@ -222,12 +204,12 @@ class Draft(RedditBase):
             if value is not None:
                 submit_kwargs[key] = value
         if isinstance(subreddit, str):
-            _subreddit = self._reddit.subreddit(subreddit)
+            subreddit_ = self._reddit.subreddit(subreddit)
         elif isinstance(subreddit, (Subreddit, UserSubreddit)):
-            _subreddit = subreddit
+            subreddit_ = subreddit
         else:
-            _subreddit = self.subreddit
-        return _subreddit.submit(**submit_kwargs)
+            subreddit_ = self.subreddit
+        return subreddit_.submit(**submit_kwargs)
 
     def update(
         self,
@@ -240,13 +222,11 @@ class Draft(RedditBase):
         selftext: str | None = None,
         send_replies: bool | None = None,
         spoiler: bool | None = None,
-        subreddit: (
-            str | praw.models.Subreddit | praw.models.UserSubreddit | None
-        ) = None,
+        subreddit: (str | models.Subreddit | models.UserSubreddit | None) = None,
         title: str | None = None,
         url: str | None = None,
         **draft_kwargs: Any,
-    ):
+    ) -> None:
         """Update the :class:`.Draft`.
 
         .. note::
@@ -303,6 +283,6 @@ class Draft(RedditBase):
             **draft_kwargs,
         )
         data["id"] = self.id
-        _new_draft = self._reddit.put(API_PATH["draft"], data=data)
-        _new_draft._fetch()
-        self.__dict__.update(_new_draft.__dict__)
+        new_draft = self._reddit.put(API_PATH["draft"], data=data)
+        new_draft._fetch()
+        self.__dict__.update(new_draft.__dict__)

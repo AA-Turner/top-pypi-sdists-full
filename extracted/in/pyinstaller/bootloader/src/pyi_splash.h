@@ -19,6 +19,21 @@
 #include "pyi_archive.h"
 #include "pyi_dylib_tcltk.h"
 
+/* Splash screen centering modes */
+enum SPLASH_CENTER_MODE
+{
+    /* No additional bootloader processing; have the splash screen script
+     * fall back to the  `winfo screenwidth` and `winfo screenheight` */
+    SPLASH_CENTER_DEFAULT = 0,
+    /* Center on virtual screen */
+    SPLASH_CENTER_VIRTUAL_SCREEN = 1,
+    /* Center on primary monitor / screen */
+    SPLASH_CENTER_PRIMARY_SCREEN = 2,
+    /* Center on active monitor / screen; i.e., where mouse cursor is at
+     * the time when application is launched. */
+    SPLASH_CENTER_ACTIVE_SCREEN = 3
+};
+
 /* Archive item header for splash data
  * This struct is a header describing the rest of this archive item */
 struct SPLASH_DATA_HEADER
@@ -50,6 +65,9 @@ struct SPLASH_DATA_HEADER
      */
     uint32_t requirements_len;
     uint32_t requirements_offset;
+
+    /* Centering mode set at build time. */
+    uint32_t centering_mode;
 
     /*
      * Followed by a chunk of data, including the splash screen
@@ -124,12 +142,21 @@ struct SPLASH_CONTEXT
     /* Structure that encapsulates loaded Tcl and Tk shared library and
      * pointers to imported functions. */
     struct DYLIB_TCLTK *dylib_tcltk;
+
+    /* Splash screen centering mode; see SPLASH_CENTER_MODE enum. */
+    int centering_mode;
 };
 
 typedef int (pyi_splash_event_proc)(struct SPLASH_CONTEXT *, const void *);
 
 struct PYI_CONTEXT;
 
+/* Platform-specific implementation of advanced centering modes */
+#if defined(_WIN32)
+int _pyi_splash_setup_centering_mode_win32(int mode, int *x, int *y, int *width, int *height);
+#elif !defined(__APPLE__)
+int _pyi_splash_setup_centering_mode_x11(int mode, int *x, int *y, int *width, int *height);
+#endif
 
 /**
  * Public API functions for pyi_splash

@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
-from ....util.cache import cachedproperty
-from ...base import PRAWBase
-from ..generator import ListingGenerator
-from .base import BaseListingMixin
-from .gilded import GildedListingMixin
-from .rising import RisingListingMixin
+from praw.models.base import PRAWBase
+from praw.models.listing.generator import ListingGenerator
+from praw.models.listing.mixins.base import BaseListingMixin
+from praw.models.listing.mixins.rising import RisingListingMixin
+from praw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from typing_extensions import Unpack
+
+    import praw
+    from praw import models
+    from praw.models.listing.generator import ListingGeneratorKwargs
 
 
 class CommentHelper(PRAWBase):
@@ -23,9 +28,7 @@ class CommentHelper(PRAWBase):
     def _path(self) -> str:
         return urljoin(self.subreddit._path, "comments/")
 
-    def __call__(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> Iterator[praw.models.Comment]:
+    def __call__(self, **generator_kwargs: Unpack[ListingGeneratorKwargs]) -> Iterator[models.Comment]:
         """Return a :class:`.ListingGenerator` for the :class:`.Subreddit`'s comments.
 
         Additional keyword arguments are passed in the initialization of
@@ -41,13 +44,13 @@ class CommentHelper(PRAWBase):
         """
         return ListingGenerator(self._reddit, self._path, **generator_kwargs)
 
-    def __init__(self, subreddit: praw.models.Subreddit | SubredditListingMixin):
+    def __init__(self, subreddit: models.Subreddit | SubredditListingMixin) -> None:
         """Initialize a :class:`.CommentHelper` instance."""
         super().__init__(subreddit._reddit, _data=None)
         self.subreddit = subreddit
 
 
-class SubredditListingMixin(BaseListingMixin, GildedListingMixin, RisingListingMixin):
+class SubredditListingMixin(BaseListingMixin, RisingListingMixin):
     """Adds additional methods pertaining to subreddit-like instances."""
 
     @cachedproperty
@@ -65,7 +68,7 @@ class SubredditListingMixin(BaseListingMixin, GildedListingMixin, RisingListingM
         """
         return CommentHelper(self)
 
-    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any] | None):
+    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any] | None) -> None:
         """Initialize a :class:`.SubredditListingMixin` instance.
 
         :param reddit: An instance of :class:`.Reddit`.

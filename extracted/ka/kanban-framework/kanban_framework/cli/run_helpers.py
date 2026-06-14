@@ -225,7 +225,16 @@ def _track_knowledge_effectiveness(fs: Filesystem, km, task_id: str) -> None:
         except Exception:
             ku = {}
         from kanban_framework.domain.guard_checks import _extract_matched_entries
-        matched = _extract_matched_entries(ku)
+        raw_matched = _extract_matched_entries(ku)
+        # Normalize to list[dict] — _extract_matched_entries may return
+        # list[str] (bare IDs like "K001"), while _extract_knowledge_refs
+        # returns list[dict] ({"id": "K001", ...}). Consumer expects dicts. (#648)
+        matched = []
+        for entry in raw_matched:
+            if isinstance(entry, dict):
+                matched.append(entry)
+            elif isinstance(entry, str):
+                matched.append({"id": entry})
 
     if not matched:
         matched = _extract_knowledge_refs_from_artifacts(fs, km, task_dir)

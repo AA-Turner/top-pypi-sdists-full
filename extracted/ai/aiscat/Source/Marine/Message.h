@@ -19,6 +19,7 @@
 
 #include <string>
 #include <time.h>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <vector>
@@ -59,7 +60,8 @@ namespace AIS
 	{
 	protected:
 		const int MAX_NMEA_CHARS = 56;
-		static int ID;
+		static std::atomic<int> ID;
+		static int nextSeqId();
 
 		uint8_t data[MAX_AIS_BYTES + 4]; // +4 padding so 5-byte reads in getText/getUint never go out of bounds
 		int64_t rxtime; // microseconds since epoch
@@ -168,7 +170,7 @@ namespace AIS
 			nmea_count = 0;
 			start_idx = 0;
 			end_idx = 0;
-			std::memset(data, 0, 128);
+			std::memset(data, 0, sizeof(data));
 		}
 
 		bool validate();
@@ -227,6 +229,18 @@ namespace AIS
 
 		bool setUint(int start, int len, unsigned val);
 		bool setInt(int start, int len, int val);
+
+		void setByteRaw(int i, uint8_t b)
+		{
+			if (i >= 0 && i < MAX_AIS_BYTES)
+				data[i] = b;
+		}
+		void setBytes(const uint8_t *src, int nbytes)
+		{
+			if (nbytes > MAX_AIS_BYTES)
+				nbytes = MAX_AIS_BYTES;
+			std::memcpy(data, src, nbytes);
+		}
 
 		void setBit(int i, bool b)
 		{

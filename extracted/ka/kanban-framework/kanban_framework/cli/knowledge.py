@@ -7,6 +7,7 @@ Heavy modules extracted:
 """
 from __future__ import annotations
 
+import json
 import re
 
 from kanban_framework.infra.filesystem import Filesystem

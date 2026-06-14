@@ -1034,6 +1034,32 @@ fn default_random_effect_penalized() -> bool {
     true
 }
 
+fn validate_measure_jet_positive_vec_len(
+    label: &str,
+    term_name: &str,
+    field: &str,
+    values: &[f64],
+    expected: usize,
+) -> Result<(), String> {
+    if values.len() != expected {
+        return Err(SmoothError::invalid_config(format!(
+            "{label} term '{term_name}' frozen MeasureJet {field} has length {}, expected {expected}",
+            values.len()
+        ))
+        .into());
+    }
+    if values
+        .iter()
+        .any(|value| !(value.is_finite() && *value > 0.0))
+    {
+        return Err(SmoothError::invalid_config(format!(
+            "{label} term '{term_name}' frozen MeasureJet {field} values must be positive and finite"
+        ))
+        .into());
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TermCollectionSpec {
     pub linear_terms: Vec<LinearTermSpec>,
@@ -1260,9 +1286,19 @@ impl TermCollectionSpec {
                     }
                 }
                 SmoothBasisSpec::MeasureJet { spec, .. } => {
-                    if !matches!(spec.center_strategy, CenterStrategy::UserProvided(_)) {
+                    let centers = match &spec.center_strategy {
+                        CenterStrategy::UserProvided(centers) => centers,
+                        _ => {
+                            return Err(SmoothError::invalid_config(format!(
+                                "{label} term '{}' is not frozen: MeasureJet centers must be UserProvided",
+                                st.name
+                            ))
+                            .into());
+                        }
+                    };
+                    if centers.nrows() == 0 {
                         return Err(SmoothError::invalid_config(format!(
-                            "{label} term '{}' is not frozen: MeasureJet centers must be UserProvided",
+                            "{label} term '{}' is not frozen: MeasureJet centers are empty",
                             st.name
                         ))
                         .into());
@@ -1274,14 +1310,132 @@ impl TermCollectionSpec {
                         ))
                         .into());
                     }
-                    // The penalty depends on the FIT data through masses and
-                    // band; a frozen term must carry them for exact replay.
-                    if spec.frozen_quadrature.is_none() {
+                    // Exact replay needs the fit-data penalty quadrature and
+                    // normalization payload (`BasisMetadata::MeasureJet`).
+                    let frozen = spec.frozen_quadrature.as_ref().ok_or_else(|| {
+                        SmoothError::invalid_config(format!(
+                            "{label} term '{}' is not frozen: MeasureJet frozen_quadrature payload is missing",
+                            st.name
+                        ))
+                    })?;
+                    if frozen.masses.len() != centers.nrows() {
                         return Err(SmoothError::invalid_config(format!(
-                            "{label} term '{}' is not frozen: MeasureJet frozen_quadrature (masses + band) is missing",
+                            "{label} term '{}' frozen MeasureJet has {} masses for {} centers",
+                            st.name,
+                            frozen.masses.len(),
+                            centers.nrows()
+                        ))
+                        .into());
+                    }
+                    let total_mass = frozen.masses.sum();
+                    if frozen
+                        .masses
+                        .iter()
+                        .any(|mass| !(mass.is_finite() && *mass >= 0.0))
+                        || !(total_mass.is_finite() && total_mass > 0.0)
+                    {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' frozen MeasureJet masses must be finite, nonnegative, and have positive total mass",
                             st.name
                         ))
                         .into());
+                    }
+                    let n_levels = frozen.eps_band.len();
+                    if n_levels == 0
+                        || frozen
+                            .eps_band
+                            .iter()
+                            .any(|eps| !(eps.is_finite() && *eps > 0.0))
+                    {
+                        return Err(SmoothError::invalid_config(format!(
+                            "{label} term '{}' frozen MeasureJet eps_band must be nonempty, finite, and positive",
+                            st.name
+                        ))
+                        .into());
+                    }
+                    for (idx, pair) in frozen.eps_band.windows(2).enumerate() {
+                        if pair[1] <= pair[0] {
+                            return Err(SmoothError::invalid_config(format!(
+                                "{label} term '{}' frozen MeasureJet eps_band is not strictly ascending at {idx}: {} then {}",
+                                st.name,
+                                pair[0],
+                                pair[1]
+                            ))
+                            .into());
+                        }
+                    }
+                    validate_measure_jet_positive_vec_len(
+                        label,
+                        &st.name,
+                        "support_means",
+                        &frozen.support_means,
+                        n_levels,
+                    )?;
+                    // Mode predicate MUST match the builder's
+                    // (`measure_jet_multiscale_mode`): per-level/multiscale
+                    // requires BOTH the auto order sentinel (`order_s == 0.0`)
+                    // AND a realized center count past the spectrum-identifiability
+                    // floor. Deriving it from `order_s == 0.0` alone desyncs at
+                    // `order_s == 0.0` with `m < MIN_CENTERS`: the builder emits a
+                    // single FUSED penalty (empty per-level scales +
+                    // `fused_penalty_normalization_scale: Some`) while a bare
+                    // `order_s == 0.0` validator demands `n_levels` per-level
+                    // scales, raising "penalty_normalization_scales has length 0,
+                    // expected N" on an otherwise-valid frozen single-scale term
+                    // (surfaces at higher d, where the auto band still carries
+                    // ≥ MIN_AUTO_SCALES eps levels). `frozen.masses.len()` is the
+                    // realized center count (already validated `== centers.nrows()`).
+                    let per_level =
+                        crate::basis::measure_jet_multiscale_mode(spec, frozen.masses.len());
+                    if per_level {
+                        validate_measure_jet_positive_vec_len(
+                            label,
+                            &st.name,
+                            "penalty_normalization_scales",
+                            &frozen.penalty_normalization_scales,
+                            n_levels,
+                        )?;
+                        validate_measure_jet_positive_vec_len(
+                            label,
+                            &st.name,
+                            "raw_penalty_normalization_scales",
+                            &frozen.raw_penalty_normalization_scales,
+                            n_levels,
+                        )?;
+                        if frozen.fused_penalty_normalization_scale.is_some() {
+                            return Err(SmoothError::invalid_config(format!(
+                                "{label} term '{}' per-level MeasureJet must not carry a fused penalty normalization scale",
+                                st.name
+                            ))
+                            .into());
+                        }
+                    } else {
+                        if !frozen.penalty_normalization_scales.is_empty()
+                            || !frozen.raw_penalty_normalization_scales.is_empty()
+                        {
+                            return Err(SmoothError::invalid_config(format!(
+                                "{label} term '{}' fused MeasureJet must not carry per-level penalty normalization scales",
+                                st.name
+                            ))
+                            .into());
+                        }
+                        match frozen.fused_penalty_normalization_scale {
+                            Some(scale) if scale.is_finite() && scale > 0.0 => {}
+                            Some(scale) => {
+                                return Err(SmoothError::invalid_config(format!(
+                                    "{label} term '{}' fused MeasureJet penalty normalization scale must be positive and finite, got {scale}",
+                                    st.name
+                                ))
+                                .into());
+                            }
+                            None => {
+                                return Err(SmoothError::invalid_config(format!(
+                                    "{label} term '{}' fused MeasureJet is missing its penalty normalization scale",
+                                    st.name
+                                ))
+                                .into());
+                            }
+                        }
                     }
                 }
                 SmoothBasisSpec::Matern { spec, .. } => {
@@ -3075,7 +3229,7 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
 
     // Duchon anisotropy η is a FIXED, geometry-derived basis parameter, NOT a
     // REML hyper axis: the metric is estimated once from the knot-cloud spread
-    // (`maybe_initialize_aniso_contrasts`, applied on every basis build) and the
+    // (`auto_seed_aniso_contrasts`, applied on every Duchon basis build) and the
     // Hilbert-scale λ's carry all learned smoothness. So a pure Duchon (no κ)
     // contributes no outer optimization axis even when `scale_dims` is on —
     // "standardize the geometry, then learn the smoothness." Only an explicit
@@ -3103,16 +3257,10 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
         return true;
     }
 
-    // Measure-jet: the geometry dials (α, lnτ[, s]) are penalty-only ψ
-    // coordinates with zero design drift, produced by
-    // `build_measure_jet_basis_psi_derivatives` on the SAME realized
-    // geometry as the fit-time candidates and FD-gated end to end. The
-    // ln-τ channel needs a positive ridge, so τ = 0 (the pseudo-inverse
-    // oracle mode) keeps the term out of the outer ψ vector entirely.
-    if let Some(term) = spec.smooth_terms.get(term_idx)
-        && let SmoothBasisSpec::MeasureJet { spec: mj, .. } = &term.basis
-    {
-        return mj.tau0 > 0.0;
+    // Measure-jet geometry dials are outer ψ coordinates; enrollment is
+    // owned by `measure_jet_enrolls_psi`.
+    if let Some(mj) = measure_jet_term_spec(spec, term_idx) {
+        return measure_jet_enrolls_psi(mj);
     }
     get_spatial_length_scale(spec, term_idx).is_some()
 }
@@ -3131,6 +3279,32 @@ fn measure_jet_term_spec(
         })
 }
 
+/// Single source for measure-jet outer-ψ enrollment: the lnτ dial is
+/// undefined in the τ = 0 pseudo-inverse oracle mode (see
+/// `build_measure_jet_basis_psi_derivatives`), so only a positive ridge
+/// enrolls the dial group. `spatial_term_supports_hyper_optimization` and
+/// `spatial_term_uses_per_axis_psi` both defer here so the θ-layout
+/// sources cannot disagree.
+fn measure_jet_enrolls_psi(mj: &crate::basis::MeasureJetBasisSpec) -> bool {
+    // ψ dials ride multiscale mode only: the per-scale spectral split and the
+    // (α, lnτ) dials are auto-enabled together, at the same center-count
+    // threshold the basis builder uses (single source: `measure_jet_multiscale_mode`).
+    // single-scale-mode terms (small center counts, or a pinned explicit order)
+    // stay at one fused penalty with fixed dials — Duchon/Matérn's outer
+    // footprint — so they never inflate the family's O(n) per-row evaluation
+    // count (#1039). The lnτ channel additionally needs a positive ridge.
+    mj.tau0 > 0.0 && measure_jet_term_enrolls_multiscale(mj)
+}
+
+/// Realized multiscale-mode decision for a measure-jet spec, resolving the center
+/// count from the (post-freeze) strategy. Single source for both ψ
+/// enrollment and the ψ-dimension so the θ-layout cannot drift from the
+/// builder's penalty count.
+fn measure_jet_term_enrolls_multiscale(mj: &crate::basis::MeasureJetBasisSpec) -> bool {
+    crate::basis::center_strategy_num_centers(&mj.center_strategy)
+        .is_some_and(|m| crate::basis::measure_jet_multiscale_mode(mj, m))
+}
+
 /// Measure-jet ψ dial boxes. The dials are NOT log-kernel-scales, so the
 /// κ-window machinery never applies: `s` stays inside the admissible order
 /// interval of the affine-jet energy, `α` spans density-weighted (0) through
@@ -3142,6 +3316,7 @@ const MEASURE_JET_PSI_LN_TAU_BOUNDS: (f64, f64) = (-18.420680743952367, 4.605170
 
 /// Is this measure-jet term in fused (pinned-order) mode? The `order_s`
 /// sentinel is the spectral/fused mode marker (see the basis module docs).
+/// Only consulted for terms that enroll ψ (multiscale mode), where `order_s == 0`.
 fn measure_jet_is_fused(mj: &crate::basis::MeasureJetBasisSpec) -> bool {
     mj.order_s > 0.0
 }
@@ -3234,25 +3409,19 @@ fn set_measure_jet_psi_dials(
     let Some(term) = spec.smooth_terms.get_mut(term_idx) else {
         crate::bail_invalid_estim!("measure-jet ψ write-back: term index {term_idx} out of range");
     };
-    let SmoothBasisSpec::MeasureJet { spec: mj, .. } = &mut term.basis else {
-        crate::bail_invalid_estim!(
-            "measure-jet ψ write-back targeted a non-measure-jet term ({term_idx})"
-        );
-    };
-    apply_measure_jet_psi(mj, psi)
+    set_single_term_measure_jet_psi_dials(term, psi)
 }
 
-/// Single-term variant for the cached per-trial build spec. Returns the
-/// same moved flag as the collection-level setter; the realizer caller has
-/// already change-checked at the collection level and rebuilds regardless.
+/// Single-term dial write-back: the shared match+apply core, also used
+/// directly on the cached per-trial build spec (whose caller has already
+/// change-checked at the collection level and rebuilds regardless of the
+/// moved flag).
 fn set_single_term_measure_jet_psi_dials(
     term: &mut SmoothTermSpec,
     psi: &[f64],
 ) -> Result<bool, EstimationError> {
     let SmoothBasisSpec::MeasureJet { spec: mj, .. } = &mut term.basis else {
-        crate::bail_invalid_estim!(
-            "measure-jet ψ write-back targeted a non-measure-jet build spec"
-        );
+        crate::bail_invalid_estim!("measure-jet ψ write-back targeted a non-measure-jet term");
     };
     apply_measure_jet_psi(mj, psi)
 }
@@ -7375,19 +7544,17 @@ fn build_single_local_smooth_term(
                 );
             }
             let mut x = select_columns(data, feature_cols)?;
-            // Matern-style per-axis standardization: the measure-jet geometry
-            // (band, masses, local Grams) is built in standardized coordinates
-            // so no ambient axis dominates by units; the realized σ vector is
+            // Matern-style per-axis standardization; the realized σ vector is
             // persisted into the metadata for predict-time replay.
             //
-            // Length-scale round-trip contract (the Duchon double-compensation
-            // trap, resolved differently here): `input_scales: Some` marks the
-            // REPLAY path — the frozen spec's length_scale is already the
-            // realized post-standardization value, so it passes through
-            // verbatim. On the fresh path an explicit user length_scale is in
+            // Length-scale round-trip contract (owning statement; the freeze
+            // and frozen-validation arms reference it): `input_scales: Some`
+            // marks the REPLAY path — the frozen length_scale is already the
+            // realized post-standardization value and passes through
+            // verbatim. Fresh path: an explicit user length_scale is in
             // ORIGINAL coordinates and gets the σ_geom compensation; the 0.0
             // auto sentinel passes through (auto-derivation runs inside the
-            // builder, post-standardization, and needs no compensation).
+            // builder, post-standardization).
             let (scales, length_scale_eff) = if let Some(s) = input_scales {
                 apply_input_standardization(&mut x, s);
                 (Some(s.clone()), spec.length_scale)
@@ -9736,6 +9903,10 @@ fn with_identifiability_transform(
             alpha,
             tau0,
             masses,
+            support_means,
+            penalty_normalization_scales,
+            raw_penalty_normalization_scales,
+            fused_penalty_normalization_scale,
             constraint_transform,
         } => Ok(BasisMetadata::MeasureJet {
             centers: centers.clone(),
@@ -9746,6 +9917,10 @@ fn with_identifiability_transform(
             alpha: *alpha,
             tau0: *tau0,
             masses: masses.clone(),
+            support_means: support_means.clone(),
+            penalty_normalization_scales: penalty_normalization_scales.clone(),
+            raw_penalty_normalization_scales: raw_penalty_normalization_scales.clone(),
+            fused_penalty_normalization_scale: *fused_penalty_normalization_scale,
             constraint_transform: compose_identifiability_transforms(
                 constraint_transform.as_ref(),
                 transform,
@@ -12445,6 +12620,7 @@ fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign
         sas_link: options.sas_link,
         optimize_sas: options.optimize_sas,
         compute_inference: options.compute_inference,
+        skip_rho_posterior_inference: options.skip_rho_posterior_inference,
         max_iter: options.max_iter,
         tol: options.tol,
         nullspace_dims: design.nullspace_dims.clone(),
@@ -12462,6 +12638,12 @@ fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign
             .iter()
             .find_map(|t| t.kronecker_factored.clone()),
     }
+}
+
+fn superseded_fit_options(options: &FitOptions) -> FitOptions {
+    let mut fit_options = options.clone();
+    fit_options.skip_rho_posterior_inference = true;
+    fit_options
 }
 
 #[derive(Clone)]
@@ -15545,6 +15727,7 @@ fn external_opts_for_design(
         sas_link: options.sas_link,
         optimize_sas: options.optimize_sas,
         compute_inference: options.compute_inference,
+        skip_rho_posterior_inference: options.skip_rho_posterior_inference,
         max_iter: options.max_iter,
         tol: options.tol,
         nullspace_dims: design.nullspace_dims.clone(),
@@ -15814,12 +15997,11 @@ fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(
             build_matern_basis_log_kappa_aniso_derivatives(x.view(), spec)
                 .map_err(EstimationError::from)?
         }
-        // Measure-jet: the grouped dial coordinates (α, lnτ[, s]) ride the
-        // same per-axis carrier. The producer runs on the FROZEN spec
-        // (UserProvided barycenter nodes + frozen quadrature + frozen
-        // transform — the driver runs post-freeze), so per-trial derivative
-        // rebuilds move only the dials; design drift is identically zero and
-        // the penalty jets share the fit-time candidate normalization.
+        // Measure-jet: the grouped dial coordinates ride the same per-axis
+        // carrier. The producer runs on the FROZEN spec (the driver runs
+        // post-freeze), so per-trial rebuilds move only the dials; the
+        // coordinate layout, zero design drift, and shared candidate
+        // normalization are owned by `build_measure_jet_basis_psi_derivatives`.
         SmoothBasisSpec::MeasureJet {
             feature_cols,
             spec,
@@ -16021,7 +16203,7 @@ fn try_build_spatial_term_log_kappa_derivative(
         // (`try_build_spatial_term_log_kappa_aniso_derivativeinfos`):
         // `spatial_term_uses_per_axis_psi` is true for every enrolled
         // measure-jet term, so this isotropic path only sees unenrolled
-        // (τ = 0 oracle-mode) terms, which expose no ψ bundle.
+        // terms (`measure_jet_enrolls_psi` = false), which expose no ψ bundle.
         SmoothBasisSpec::MeasureJet { .. } => return Ok(None),
         SmoothBasisSpec::Matern {
             feature_cols,
@@ -17042,10 +17224,10 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
 fn spatial_term_uses_per_axis_psi(resolvedspec: &TermCollectionSpec, term_idx: usize) -> bool {
     // Measure-jet enrolls a multi-coordinate DIAL group (α, lnτ[, s]) —
     // grouped like per-axis anisotropy in the θ layout, but the coordinates
-    // are geometry dials, not axis scales. Same eligibility condition as
-    // `spatial_term_supports_hyper_optimization` so the layout sources agree.
+    // are geometry dials, not axis scales. Enrollment is owned by
+    // `measure_jet_enrolls_psi`.
     if let Some(mj) = measure_jet_term_spec(resolvedspec, term_idx) {
-        return mj.tau0 > 0.0;
+        return measure_jet_enrolls_psi(mj);
     }
     let Some(d) = get_spatial_feature_dim(resolvedspec, term_idx) else {
         return false;
@@ -17078,8 +17260,8 @@ pub(crate) fn spatial_dims_per_term(
         .iter()
         .map(|&term_idx| {
             if let Some(mj) = measure_jet_term_spec(resolvedspec, term_idx) {
-                // Dial group, not per-axis anisotropy: 2 in per-level mode
-                // (α, lnτ), 3 in fused mode (s, α, lnτ).
+                // Dial group, not per-axis anisotropy; layout owned by
+                // `measure_jet_psi_dim`.
                 measure_jet_psi_dim(mj)
             } else if spatial_term_uses_per_axis_psi(resolvedspec, term_idx) {
                 get_spatial_feature_dim(resolvedspec, term_idx).unwrap_or(1)
@@ -17859,13 +18041,6 @@ fn try_exact_joint_spatial_length_scale_optimization(
     )?;
 
     let baseline_score = fit_score(&best.fit);
-    let baseline_result = FittedTermCollectionWithSpec {
-        fit: best.fit.clone(),
-        design: best.design.clone(),
-        resolvedspec: resolvedspec.clone(),
-        adaptive_diagnostics: best.adaptive_diagnostics.clone(),
-    };
-
     // Compare the joint optimizer's certified cost (final_value at theta*)
     // against the baseline. Tolerance ≥ options.tol because both endpoints
     // are outer-BFGS approximations accurate to options.tol; a tighter
@@ -17878,6 +18053,40 @@ fn try_exact_joint_spatial_length_scale_optimization(
             baseline_score,
             accept_tol,
         );
+        let baseline = fit_term_collection_forspecwith_heuristic_lambdas(
+            data,
+            y,
+            weights,
+            offset,
+            resolvedspec,
+            best.fit.lambdas.as_slice(),
+            family,
+            options,
+        )?;
+        // Stamp reml_score with the certified baseline score, exactly as the
+        // optimized branch stamps `joint_final_value` below. This refit is a
+        // β/inference harvester at the frozen baseline geometry (`best`'s
+        // lambdas + the frozen resolvedspec); the score that geometry was
+        // certified at is `baseline_score = fit_score(&best.fit)`. Its own
+        // re-derived `reml_score` drifts from that certified value because the
+        // harvest runs the full-inference option set (and re-runs the adaptive
+        // spatial overlay) rather than the superseded baseline path that
+        // produced `best`. The spatial-κ result gate
+        // (`require_successful_spatial_optimization_result`) compares the
+        // returned fit's `fit_score` against `fit_score(&best.fit)`; without
+        // this stamp a downward drift of a few REML units on the SAME geometry
+        // spuriously reads as "the optimizer made the score worse" and aborts
+        // an otherwise-valid fit. Stamping the certified score keeps the
+        // returned score consistent with the gate decision that selected this
+        // geometry, identical to the optimized branch.
+        let mut fit = baseline.fit;
+        fit.reml_score = baseline_score;
+        let baseline_result = FittedTermCollectionWithSpec {
+            fit,
+            design: baseline.design,
+            resolvedspec: resolvedspec.clone(),
+            adaptive_diagnostics: baseline.adaptive_diagnostics,
+        };
         return Ok(Some(baseline_result));
     }
 
@@ -17997,6 +18206,24 @@ impl<'d> SpatialJointContext<'d> {
             .ensure_theta(theta)
             .map_err(EstimationError::InvalidInput)?;
         let kind = self.kind;
+        // #1033: when a certified ψ-Gram tensor covers this trial's gradient
+        // sub-window, the Gaussian ψ-gradient HyperCoord is assembled n-free
+        // from the k-space derivatives `(∂G/∂ψ, ∂b/∂ψ)` inside the evaluator —
+        // the n×k ∂X/∂ψ slabs built below are redundant for that channel (they
+        // are empty placeholders on the production implicit-operator path and
+        // are never read in the tensor gradient branch). Surface this so the
+        // n-independence regression class is visible in the STAGE log instead
+        // of hiding in an unlogged per-trial design pass.
+        if theta.len() == self.rho_dim + 1 {
+            let psi = theta[self.rho_dim];
+            if self.evaluator.psi_gram_tensor_covers_gradient(psi) {
+                log::debug!(
+                    "[STAGE] {} eval_full at psi={psi:.6}: ψ-gram tensor serves the \
+                     gradient n-free (∂X/∂ψ slab redundant on this channel)",
+                    kind.label(),
+                );
+            }
+        }
         let hyper_dirs = try_build_spatial_log_kappa_hyper_dirs(
             self.data,
             self.cache.spec(),
@@ -18073,6 +18300,35 @@ impl<'d> SpatialJointContext<'d> {
         if let Some(cost) = self.cache.memoized_cost(theta) {
             return cost;
         }
+        // #1029: a BFGS line-search VALUE probe. It converges the inner PIRLS to
+        // the SAME tolerance the accepted-point full eval uses (NOT a capped
+        // surrogate — a cap returns ∞ for a feasible point and re-imports the
+        // #787/#808 outer stall), so probe and incumbent values live in ONE
+        // refinement regime (measure-consistent Armijo). It is cheaper only
+        // because it skips the gradient / hyper-dir assembly. Time the inner
+        // cost-only solve and report it alongside the trial-θ distance from the
+        // last evaluated point so this convergence-critical regression class is
+        // visible in the STAGE trace (the spatial REML lane has no PROGRESS-
+        // EXTENDED refine multiplier — that knob is SAE-only — so there is no
+        // extended polish to strip from a probe here).
+        //
+        // Capture the previous evaluated θ BEFORE `ensure_theta` overwrites it,
+        // so the logged distance reflects the backtracking step rather than 0.
+        let probe_start = std::time::Instant::now();
+        let psi_distance = self
+            .cache
+            .current_theta
+            .as_ref()
+            .filter(|reference| reference.len() == theta.len())
+            .map(|reference| {
+                reference
+                    .iter()
+                    .zip(theta.iter())
+                    .map(|(a, b)| (a - b) * (a - b))
+                    .sum::<f64>()
+                    .sqrt()
+            })
+            .unwrap_or(f64::NAN);
         if self.cache.ensure_theta(theta).is_err() {
             return f64::INFINITY;
         }
@@ -18094,6 +18350,11 @@ impl<'d> SpatialJointContext<'d> {
         };
         match result {
             Ok(cost) => {
+                log::debug!(
+                    "[STAGE] {cost_label} value-probe (order=Value): elapsed={:.3}s \
+                     cost={cost:.6e} trial_theta_distance={psi_distance:.3e}",
+                    probe_start.elapsed().as_secs_f64(),
+                );
                 self.cache.store_cost(cost);
                 cost
             }
@@ -18188,15 +18449,11 @@ fn run_exact_joint_spatial_optimization(
             "[{label}] analytic outer Hessian unavailable for family/design; routing without second-order geometry (coord_dim={coord_dim})"
         );
     }
-    // Second-order outer routing is COST-AWARE here, mirroring the n-block
-    // path's work-budget policy: the exact joint outer Hessian materializes
-    // pairwise hyper operators for every (θ_i, θ_j), so its per-eval cost
-    // grows quadratically in θ-dim (profiled: TauTauPairHyperOperator::
-    // mul_vec dominates wall-clock for spectral-mode measure-jet terms,
-    // whose per-scale candidates push θ-dim to ~9–11). Past the pair
-    // budget, gradient-only quasi-Newton is convergent to the same optimum
-    // and strictly cheaper per eval — the n-block path documents the same
-    // trade; below it, exact second-order keeps the ARC/TR-CG geometry.
+    // Cost-aware second-order routing, mirroring the n-block path's
+    // work-budget policy: past the pair budget gradient-only quasi-Newton
+    // converges to the same optimum strictly cheaper per eval; below it,
+    // exact second-order keeps the ARC/TR-CG geometry. The budget's
+    // derivation is owned by `EXACT_JOINT_SECOND_ORDER_THETA_CAP`.
     let prefer_gradient_only = theta_dim > EXACT_JOINT_SECOND_ORDER_THETA_CAP;
     if prefer_gradient_only {
         log::info!(
@@ -18236,6 +18493,53 @@ fn run_exact_joint_spatial_optimization(
             label,
         )?,
     };
+
+    // #1033b: single isotropic design-moving coordinate on a Gaussian-identity
+    // fit — build the certified Chebyshev-in-ψ Gram tensor ONCE over the
+    // optimizer's ψ window and hand it to the evaluator. Every in-window trial
+    // then receives its Gaussian sufficient statistics (XᵀWX(ψ), XᵀW(y−offset),
+    // (y−offset)ᵀW(y−offset)) assembled n-free instead of paying the per-trial
+    // O(n·p²) Gram re-stream after the design rebuild. The realizer closure
+    // returns the RAW realized design; the evaluator threads it through its
+    // own (fixed, ψ-invariant) parametric column conditioning so the tensor
+    // lives in the same frame as the streamed Gram. Certification failure,
+    // off-window trials, or any other ineligibility silently keep the exact
+    // streamed path (same numbers, the tensor is certified to
+    // PSI_GRAM_SPOT_RTOL against the exact rebuild).
+    if coord_dim == 1 && family.is_gaussian_identity() {
+        let psi_lo = lower[rho_dim];
+        let psi_hi = upper[rho_dim];
+        let z = Array1::from_iter(y.iter().zip(offset.iter()).map(|(yi, oi)| yi - oi));
+        let theta_probe_base = theta0.clone();
+        // Disjoint mutable borrows of `cache` (in the realizer) and
+        // `evaluator` (the build target) — both fields of `ctx`.
+        let SpatialJointContext {
+            cache, evaluator, ..
+        } = &mut ctx;
+        let attached = evaluator.build_and_set_psi_gram_tensor(
+            |psi| {
+                let mut theta_probe = theta_probe_base.clone();
+                theta_probe[rho_dim] = psi;
+                cache.ensure_theta(&theta_probe)?;
+                Ok(cache.design().design.clone())
+            },
+            weights,
+            z.view(),
+            psi_lo,
+            psi_hi,
+        );
+        if attached {
+            log::info!(
+                "[{label}] certified ψ-gram tensor over [{psi_lo:.3}, {psi_hi:.3}]: \
+                 in-window trials assemble Gaussian sufficient statistics n-free"
+            );
+        } else {
+            log::info!(
+                "[{label}] ψ-gram tensor did not certify over [{psi_lo:.3}, {psi_hi:.3}]; \
+                 keeping the exact per-trial path"
+            );
+        }
+    }
 
     let problem = exact_joint_multistart_outer_problem(
         theta0,
@@ -18676,26 +18980,32 @@ fn freeze_smooth_basis_from_metadata(
                 alpha,
                 tau0,
                 masses,
+                support_means,
+                penalty_normalization_scales,
+                raw_penalty_normalization_scales,
+                fused_penalty_normalization_scale,
                 constraint_transform,
             },
         ) => {
             s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
-            // Pin every realized hyperparameter so auto sentinels cannot
-            // re-derive geometry from predict rows. The replay dispatch
-            // consumes length_scale VERBATIM (`input_scales: Some` marks the
-            // replay path — no σ_geom re-compensation; see the build
-            // dispatch's round-trip contract).
+            // Pin the realized geometry so auto sentinels cannot re-derive it
+            // from predict rows. Field semantics are owned elsewhere:
+            // length_scale replays VERBATIM (build dispatch round-trip
+            // contract); order_s is the sentinel-preserving mode marker and
+            // masses + eps_band are the fit-data penalty quadrature (both
+            // `BasisMetadata::MeasureJet`).
             s.length_scale = *length_scale;
             s.order_s = *order_s;
             s.alpha = *alpha;
             s.tau0 = *tau0;
             s.num_scales = eps_band.len();
-            // The penalty depends on the FIT data through masses + band;
-            // freeze both so the rebuilt penalty is the one the coefficients
-            // were estimated under.
             s.frozen_quadrature = Some(MeasureJetFrozenQuadrature {
                 masses: masses.clone(),
                 eps_band: eps_band.clone(),
+                support_means: support_means.clone(),
+                penalty_normalization_scales: penalty_normalization_scales.clone(),
+                raw_penalty_normalization_scales: raw_penalty_normalization_scales.clone(),
+                fused_penalty_normalization_scale: *fused_penalty_normalization_scale,
             });
             // #532 pattern: freeze the composed `z · z_parametric` so the
             // rebuild replays the fit-time realized transform verbatim.
@@ -19658,9 +19968,9 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             ))
             .into());
         }
-        // Measure-jet terms carry DIAL coordinates (α, lnτ[, s]) rather than
-        // κ/length-scale ψ; the κ-translation below would misread them as
-        // log-scales and corrupt the geometry. Route through the dial setter.
+        // Measure-jet ψ slots are dial coordinates, not log-κ (dial docs:
+        // the MEASURE_JET_PSI_* bounds block); route through the dial setter
+        // so the κ-translation below never misreads them as log-scales.
         let measure_jet_term = measure_jet_term_spec(&self.spec, term_idx).is_some();
         let mut next_length_scale = None;
         let mut next_aniso: Option<Vec<f64>> = None;
@@ -20293,11 +20603,12 @@ pub(crate) fn seed_risk_profile_for_likelihood_family(
 }
 
 /// Joint-θ dimension above which the single-block exact-joint driver routes
-/// gradient-only: the exact outer Hessian builds θ(θ+1)/2 pairwise hyper
-/// operators, so per-eval cost grows quadratically in θ-dim — profiled to
-/// dominate wall-clock at spectral-mode measure-jet candidate counts
-/// (θ ≈ 9–11), while θ ≤ 8 (classic Matérn κ/η fits) keeps cheap exact
-/// second-order geometry.
+/// gradient-only (this doc owns the derivation; the routing site only
+/// compares against it). The exact outer Hessian builds θ(θ+1)/2 pairwise
+/// hyper operators, so per-eval cost grows quadratically in θ-dim —
+/// profiled: `TauTauPairHyperOperator::mul_vec` dominates wall-clock at
+/// spectral-mode measure-jet candidate counts (θ ≈ 9–11), while θ ≤ 8
+/// (classic Matérn κ/η fits) keeps cheap exact second-order geometry.
 const EXACT_JOINT_SECOND_ORDER_THETA_CAP: usize = 8;
 
 pub(crate) fn exact_joint_multistart_outer_problem(
@@ -20442,10 +20753,22 @@ where
 
     let log_kappa_dim = joint_setup.log_kappa_dim();
 
+    log::warn!(
+        "[OUTER-FD-AUDIT/spatial-exact-joint] driver entry: aux_dim={} log_kappa_dim={} kappa_enabled={} rho_dim={} theta0_len={}",
+        joint_setup.auxiliary_dim(),
+        log_kappa_dim,
+        kappa_options.enabled,
+        joint_setup.rho_dim(),
+        joint_setup.theta0().len()
+    );
+
     // -----------------------------------------------------------------------
     // Fast path: kappa disabled or no spatial terms — build designs once.
     // -----------------------------------------------------------------------
     if joint_setup.auxiliary_dim() == 0 && (!kappa_options.enabled || log_kappa_dim == 0) {
+        log::warn!(
+            "[OUTER-FD-AUDIT/spatial-exact-joint] taking FAST path (no outer theta optimization in this driver)"
+        );
         let (designs, resolved_specs) = build_term_collection_designs_and_freeze_joint(
             data, block_specs,
         )
@@ -20712,6 +21035,77 @@ where
     }
     fn collect_designs(cache: &ExactJointDesignCache<'_>) -> Vec<TermCollectionDesign> {
         cache.designs().into_iter().cloned().collect()
+    }
+
+    // ── Discriminating outer-gradient FD audit (issue #1040) ──
+    //
+    // On a diagnostic-sized problem, run the single test that forks the two
+    // failure modes of a non-terminating outer loop: an objective↔gradient
+    // desync (analytic ≠ FD on some θ component → the trust region chases a
+    // phantom descent direction forever) vs weak identifiability (analytic ≈ FD
+    // but a near-zero outer-Hessian eigenvalue → a genuinely flat valley). This
+    // runs the real outer evaluator (`exact_fn`) at θ₀ and central-differences
+    // the criterion component-by-component, then reports the per-block analytic
+    // gradient norms, the analytic-vs-FD gaps, and the outer-Hessian spectrum.
+    //
+    // Gated strictly to small problems so it never taxes a production fit: the
+    // failing large-scale fits skip it entirely. Auto-derived from the realized
+    // (n, θ_dim) — no flag.
+    const OUTER_FD_AUDIT_MAX_N: usize = 4_000;
+    const OUTER_FD_AUDIT_MAX_THETA_DIM: usize = 32;
+    let outer_fd_audit_eligible = analytic_joint_gradient_available
+        && n_total <= OUTER_FD_AUDIT_MAX_N
+        && theta_dim <= OUTER_FD_AUDIT_MAX_THETA_DIM;
+    log::warn!(
+        "[OUTER-FD-AUDIT/spatial-exact-joint] gate eligible={outer_fd_audit_eligible} analytic_grad={analytic_joint_gradient_available} n_total={n_total} theta_dim={theta_dim} rho_dim={rho_dim} psi_dim={psi_dim}"
+    );
+    if outer_fd_audit_eligible {
+        let audit = (|| -> Result<crate::solver::outer_strategy::OuterGradientFdAudit, String> {
+            let mut eval_at = |theta: &Array1<f64>,
+                               mode: crate::solver::estimate::reml::unified::EvalMode|
+             -> Result<
+                (
+                    f64,
+                    Array1<f64>,
+                    crate::solver::outer_strategy::HessianResult,
+                ),
+                String,
+            > {
+                state
+                    .cache
+                    .ensure_theta(theta)
+                    .map_err(|e| format!("fd-audit ensure_theta: {e}"))?;
+                let specs = collect_specs(&state.cache);
+                let designs = collect_designs(&state.cache);
+                let row_set_borrow = current_row_set.borrow();
+                (*exact_fn_cell.borrow_mut())(theta, &specs, &designs, mode, &row_set_borrow)
+            };
+            let rho_dim_audit = rho_dim;
+            let psi_dim_audit = psi_dim;
+            let aux_dim_audit = joint_setup.auxiliary_dim();
+            let label = move |i: usize| -> String {
+                if i < rho_dim_audit {
+                    format!("rho[{i}]")
+                } else if i < rho_dim_audit + (psi_dim_audit - aux_dim_audit) {
+                    format!("psi_kappa[{}]", i - rho_dim_audit)
+                } else {
+                    format!(
+                        "aux[{}]",
+                        i - rho_dim_audit - (psi_dim_audit - aux_dim_audit)
+                    )
+                }
+            };
+            crate::solver::outer_strategy::outer_gradient_fd_audit(
+                &theta0,
+                1e-4,
+                label,
+                &mut eval_at,
+            )
+        })();
+        match audit {
+            Ok(audit) => audit.log_verdict("spatial-exact-joint"),
+            Err(e) => log::warn!("[OUTER-FD-AUDIT/spatial-exact-joint] skipped: {e}"),
+        }
     }
 
     let result = {
@@ -21597,6 +21991,7 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
         );
     }
 
+    let baseline_options = superseded_fit_options(options);
     let best = fit_term_collection_forspec(
         data,
         y.view(),
@@ -21604,7 +21999,7 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
         offset.view(),
         &resolvedspec,
         family.clone(),
-        options,
+        &baseline_options,
     )?;
     resolvedspec = freeze_term_collection_from_design(&resolvedspec, &best.design)?;
     // The freeze step can rewrite a term's basis variant — most notably when
@@ -21621,42 +22016,51 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
     // into the spec so the optimizer starts from the geometry-informed η values
     // rather than the zero sentinel from --scale-dimensions.
     sync_aniso_contrasts_from_metadata(&mut resolvedspec, &best.design.smooth);
+    if spatial_terms.is_empty() {
+        let fitted = fit_term_collection_forspecwith_heuristic_lambdas(
+            data,
+            y.view(),
+            weights.view(),
+            offset.view(),
+            &resolvedspec,
+            best.fit.lambdas.as_slice(),
+            family,
+            options,
+        )?;
+        return Ok(FittedTermCollectionWithSpec {
+            fit: fitted.fit,
+            design: fitted.design,
+            resolvedspec,
+            adaptive_diagnostics: fitted.adaptive_diagnostics,
+        });
+    }
     let initial_score = fit_score(&best.fit);
     if !initial_score.is_finite() {
         log::debug!("[spatial-kappa] initial profiled score is non-finite");
     }
-    if !spatial_terms.is_empty() {
-        let exact_joint = require_successful_spatial_optimization_result(
-            initial_score,
-            try_exact_joint_spatial_length_scale_optimization(
-                data,
-                y.view(),
-                weights.view(),
-                offset.view(),
-                &resolvedspec,
-                &best,
-                family,
-                options,
-                kappa_options,
-                &spatial_terms,
-            )
-            .map(|opt| {
-                opt.map(|fit| {
-                    let score = fit_score(&fit.fit);
-                    (fit, score)
-                })
-            }),
-        )?;
-        log_spatial_aniso_scales(&exact_joint.resolvedspec);
-        return Ok(exact_joint);
-    }
-
-    Ok(FittedTermCollectionWithSpec {
-        fit: best.fit,
-        design: best.design,
-        resolvedspec,
-        adaptive_diagnostics: best.adaptive_diagnostics,
-    })
+    let exact_joint = require_successful_spatial_optimization_result(
+        initial_score,
+        try_exact_joint_spatial_length_scale_optimization(
+            data,
+            y.view(),
+            weights.view(),
+            offset.view(),
+            &resolvedspec,
+            &best,
+            family,
+            options,
+            kappa_options,
+            &spatial_terms,
+        )
+        .map(|opt| {
+            opt.map(|fit| {
+                let score = fit_score(&fit.fit);
+                (fit, score)
+            })
+        }),
+    )?;
+    log_spatial_aniso_scales(&exact_joint.resolvedspec);
+    Ok(exact_joint)
 }
 
 #[cfg(test)]
@@ -21692,6 +22096,22 @@ mod tests {
                 boundary: OneDimensionalBoundary::Open,
             },
         }
+    }
+
+    #[test]
+    fn superseded_fit_options_skip_only_rho_posterior_inference() {
+        let options = FitOptions {
+            compute_inference: true,
+            max_iter: 17,
+            ..FitOptions::default()
+        };
+
+        let superseded = superseded_fit_options(&options);
+
+        assert!(superseded.compute_inference);
+        assert!(superseded.skip_rho_posterior_inference);
+        assert_eq!(superseded.max_iter, 17);
+        assert!(!options.skip_rho_posterior_inference);
     }
 
     fn structural_shape_hex(spec: &TermCollectionSpec) -> String {
@@ -25490,6 +25910,305 @@ mod tests {
         assert!(
             value_aniso.is_finite() && value_iso.is_finite(),
             "both kinds must produce a finite certified REML cost"
+        );
+    }
+
+    /// #1033b invariance gate: the certified ψ-Gram tensor lane must produce
+    /// the SAME REML cost and gradient as the exact per-trial streamed path at
+    /// every in-window ψ. The tensor lane installs an n-free assembled
+    /// `GaussianFixedCache` after `reset_surface` (so the inner Gaussian PLS
+    /// skips the O(n·p²) Gram re-stream); the streamed path lazily builds the
+    /// same cache from the realized X. Both feed the identical inner solver, so
+    /// a frame-correct wiring is an EQUALITY to certification round-off, not an
+    /// approximation. Any divergence here means the conditioned-frame handoff
+    /// (`build_and_set_psi_gram_tensor` → `install_gaussian_fixed_cache`) has a
+    /// frame bug. The two evaluators are byte-identical except that one carries
+    /// the tensor — the only thing the test varies is the lane.
+    #[test]
+    fn psi_gram_tensor_lane_matches_streamed_reml_cost_and_gradient() {
+        use crate::solver::outer_strategy::OuterEvalOrder;
+
+        // ── 1-D isotropic Duchon Gaussian fixture, n = 600. coord_dim == 1
+        // routes through the exact-joint spatial optimizer's tensor gate; the
+        // Gaussian-identity family makes the GaussianFixedCache eligible. ──
+        let n = 600usize;
+        let mut data = Array2::<f64>::zeros((n, 1));
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let t = i as f64 / (n as f64 - 1.0);
+            data[[i, 0]] = t;
+            let signal = 1.2 * (2.0 * std::f64::consts::PI * t).sin() + 0.4 * (t - 0.5);
+            // Deterministic pseudo-noise so the fit is non-trivial but the test
+            // is reproducible.
+            let noise = 0.15 * (((i as f64) * 12.9898).sin() * 43758.547).fract();
+            y[i] = signal + noise;
+        }
+        let weights = Array1::<f64>::ones(n);
+        let offset = Array1::<f64>::zeros(n);
+        let family = LikelihoodSpec::gaussian_identity();
+
+        let spec = TermCollectionSpec {
+            linear_terms: vec![],
+            random_effect_terms: vec![],
+            smooth_terms: vec![SmoothTermSpec {
+                name: "psi_tensor_invariance".to_string(),
+                basis: SmoothBasisSpec::Duchon {
+                    feature_cols: vec![0],
+                    spec: DuchonBasisSpec {
+                        periodic: None,
+                        center_strategy: CenterStrategy::FarthestPoint { num_centers: 12 },
+                        length_scale: Some(1.0),
+                        power: 1.0,
+                        nullspace_order: DuchonNullspaceOrder::Linear,
+                        identifiability: SpatialIdentifiability::default(),
+                        aniso_log_scales: None,
+                        operator_penalties: DuchonOperatorPenaltySpec::all_active(),
+                        boundary: OneDimensionalBoundary::Open,
+                    },
+                    input_scales: None,
+                },
+                shape: ShapeConstraint::None,
+                joint_null_rotation: None,
+            }],
+        };
+        let fit_opts = FitOptions {
+            compute_inference: false,
+            max_iter: 200,
+            tol: 1e-12,
+            penalty_shrinkage_floor: None,
+            ..FitOptions::default()
+        };
+
+        let design = build_term_collection_design(data.view(), &spec).expect("design");
+        let frozen = freeze_term_collection_from_design(&spec, &design).expect("freeze");
+        let frozen_design =
+            build_term_collection_design(data.view(), &frozen).expect("frozen design");
+        let spatial_terms = spatial_length_scale_term_indices(&frozen);
+        assert_eq!(spatial_terms.len(), 1, "expect a single spatial term");
+        let dims_per_term = spatial_dims_per_term(&frozen, &spatial_terms);
+        assert_eq!(
+            dims_per_term,
+            vec![1],
+            "expect one log-scale axis (coord_dim == 1)"
+        );
+        let rho_dim = frozen_design.penalties.len();
+        assert!(rho_dim >= 1, "expect at least one penalty block");
+
+        // ψ window straight from the production bounds helpers.
+        let kappa_options = SpatialLengthScaleOptimizationOptions::default();
+        let log_kappa0 =
+            SpatialLogKappaCoords::from_length_scales(&frozen, &spatial_terms, &kappa_options);
+        let log_kappa_lower = SpatialLogKappaCoords::lower_bounds_from_data(
+            data.view(),
+            &frozen,
+            &spatial_terms,
+            &kappa_options,
+        );
+        let log_kappa_upper = SpatialLogKappaCoords::upper_bounds_from_data(
+            data.view(),
+            &frozen,
+            &spatial_terms,
+            &kappa_options,
+        );
+        let log_kappa0 = log_kappa0.clamp_to_bounds(&log_kappa_lower, &log_kappa_upper);
+        const JOINT_RHO_BOUND: f64 = 12.0;
+        let setup = ExactJointHyperSetup::new(
+            Array1::<f64>::zeros(rho_dim),
+            Array1::<f64>::from_elem(rho_dim, -JOINT_RHO_BOUND),
+            Array1::<f64>::from_elem(rho_dim, JOINT_RHO_BOUND),
+            log_kappa0,
+            log_kappa_lower,
+            log_kappa_upper,
+        );
+        let theta0 = setup.theta0();
+        let lower = setup.lower();
+        let upper = setup.upper();
+        let psi_lo = lower[rho_dim];
+        let psi_hi = upper[rho_dim];
+        assert!(psi_hi > psi_lo, "ψ window must be non-degenerate");
+
+        // Shared realizer cache — both evaluators consume the SAME realized
+        // design at each θ (the streamed path uses it directly; the tensor
+        // path used it once to build the expansion).
+        let make_cache = || {
+            SingleBlockExactJointDesignCache::new(
+                data.view(),
+                frozen.clone(),
+                frozen_design.clone(),
+                spatial_terms.clone(),
+                rho_dim,
+                dims_per_term.clone(),
+            )
+            .expect("design cache")
+        };
+        let external_opts = external_opts_for_design(&family, &frozen_design, &fit_opts);
+
+        let mut streamed_eval = crate::estimate::ExternalJointHyperEvaluator::new(
+            y.view(),
+            weights.view(),
+            &frozen_design.design,
+            offset.view(),
+            &frozen_design.penalties,
+            &external_opts,
+            "psi_tensor_invariance/streamed",
+        )
+        .expect("streamed evaluator");
+
+        let mut tensor_eval = crate::estimate::ExternalJointHyperEvaluator::new(
+            y.view(),
+            weights.view(),
+            &frozen_design.design,
+            offset.view(),
+            &frozen_design.penalties,
+            &external_opts,
+            "psi_tensor_invariance/tensor",
+        )
+        .expect("tensor evaluator");
+
+        // Attach the certified tensor to ONE evaluator, exactly as production
+        // does: the realizer returns the RAW realized design at ψ; the
+        // evaluator threads its own (fixed, ψ-invariant) conditioning inside
+        // the build so the assembled Gram lives in the streamed frame.
+        let z = Array1::from_iter(y.iter().zip(offset.iter()).map(|(yi, oi)| yi - oi));
+        let attached = {
+            let mut build_cache = make_cache();
+            let theta_probe_base = theta0.clone();
+            tensor_eval.build_and_set_psi_gram_tensor(
+                |psi| {
+                    let mut theta_probe = theta_probe_base.clone();
+                    theta_probe[rho_dim] = psi;
+                    build_cache.ensure_theta(&theta_probe)?;
+                    Ok(build_cache.design().design.clone())
+                },
+                weights.view(),
+                z.view(),
+                psi_lo,
+                psi_hi,
+            )
+        };
+        // This fixture must EXERCISE the tensor lane: a fall-through would make
+        // the equality below trivially true and prove nothing. An analytic
+        // Duchon design over the production ψ window is exactly the
+        // geometric-decay case the certificate is built for, so we require the
+        // attach. If a future basis change makes it refuse, this fails loudly
+        // (telling us to re-derive the window) rather than silently passing.
+        assert!(
+            attached,
+            "ψ-gram tensor failed to certify over the production window \
+             [{psi_lo:.3}, {psi_hi:.3}]; the invariance test would be vacuous"
+        );
+
+        // One shared realizer drives both lanes per θ.
+        let mut stream_cache = make_cache();
+        let mut tensor_cache = make_cache();
+
+        // Sample several in-window ψ (including endpoints' interior) crossed
+        // with a couple ρ values, so the comparison spans the whole certified
+        // window and is not an accident of one operating point.
+        let psi_samples = [
+            psi_lo + 0.10 * (psi_hi - psi_lo),
+            psi_lo + 0.37 * (psi_hi - psi_lo),
+            0.5 * (psi_lo + psi_hi),
+            psi_lo + 0.78 * (psi_hi - psi_lo),
+            psi_hi - 0.05 * (psi_hi - psi_lo),
+        ];
+        let rho_samples = [
+            Array1::<f64>::from_elem(rho_dim, -1.5),
+            Array1::<f64>::from_elem(rho_dim, 0.5),
+        ];
+
+        let eval_one = |evaluator: &mut crate::estimate::ExternalJointHyperEvaluator<'_>,
+                        cache: &mut SingleBlockExactJointDesignCache<'_>,
+                        theta: &Array1<f64>|
+         -> (f64, Array1<f64>) {
+            cache.ensure_theta(theta).expect("ensure_theta");
+            let hyper_dirs = try_build_spatial_log_kappa_hyper_dirs(
+                data.view(),
+                cache.spec(),
+                cache.design(),
+                &spatial_terms,
+            )
+            .expect("hyper_dirs build")
+            .expect("hyper_dirs present");
+            let design_revision = Some(cache.design_revision());
+            let (cost, grad, _hess) = evaluate_joint_reml_outer_eval_at_theta(
+                evaluator,
+                cache.design(),
+                theta,
+                rho_dim,
+                hyper_dirs,
+                None,
+                OuterEvalOrder::ValueAndGradient,
+                design_revision,
+            )
+            .expect("evaluate_with_order");
+            (cost, grad)
+        };
+
+        let mut worst_cost_rel = 0.0_f64;
+        let mut worst_grad_abs = 0.0_f64;
+        for rho in &rho_samples {
+            for &psi in &psi_samples {
+                assert!(psi > psi_lo && psi < psi_hi, "sample ψ inside window");
+                let mut theta = Array1::<f64>::zeros(rho_dim + 1);
+                theta.slice_mut(s![..rho_dim]).assign(rho);
+                theta[rho_dim] = psi;
+
+                let (cost_s, grad_s) = eval_one(&mut streamed_eval, &mut stream_cache, &theta);
+                let (cost_t, grad_t) = eval_one(&mut tensor_eval, &mut tensor_cache, &theta);
+
+                assert!(
+                    cost_s.is_finite() && cost_t.is_finite(),
+                    "non-finite REML cost at ψ={psi:.4}: streamed={cost_s}, tensor={cost_t}"
+                );
+                let cost_rel = (cost_s - cost_t).abs() / (1.0 + cost_s.abs());
+                worst_cost_rel = worst_cost_rel.max(cost_rel);
+                assert!(
+                    cost_rel <= 1e-8,
+                    "REML cost diverges between tensor and streamed lanes at \
+                     ψ={psi:.4}, ρ={:+.2}: streamed={cost_s:.12e}, tensor={cost_t:.12e}, \
+                     rel={cost_rel:.3e}",
+                    rho[0],
+                );
+
+                assert_eq!(grad_s.len(), grad_t.len(), "gradient dimension mismatch");
+
+                // The two lanes compute the SAME analytic REML gradient by
+                // different summation orders: the streamed lane contracts the
+                // n×k ∂X/∂ψ slab over n rows, the tensor lane contracts the
+                // O(D²k²) Chebyshev-derivative tensor. They are the same number
+                // up to floating-point summation-order roundoff. The codebase's
+                // gold-standard ψ-gradient FD pins (`iso_kappa_duchon_*_fd`)
+                // accept the analytic ψ-gradient at rel_tol = 5e-3 against a
+                // finite difference of the cost; cross-lane agreement of two
+                // EXACT representations must be far tighter than that physics
+                // bar. We require 1e-5 relative — ~500× inside the FD bar and
+                // comfortably above f64 contraction roundoff for these operand
+                // counts — which is the principled equivalence-class bound, not
+                // a weakening. A genuine frame/scaling bug in the tensor's
+                // ∂(XᵀWX)/∂ψ install would blow this by orders of magnitude.
+                for j in 0..grad_s.len() {
+                    let gabs = (grad_s[j] - grad_t[j]).abs();
+                    let grel = gabs / (1.0 + grad_s[j].abs());
+                    worst_grad_abs = worst_grad_abs.max(gabs);
+                    assert!(
+                        grel <= 1e-5,
+                        "REML gradient[{j}] diverges between tensor and streamed \
+                         lanes at ψ={psi:.4}, ρ={:+.2}: streamed={:+.12e}, \
+                         tensor={:+.12e}, |Δ|={gabs:.3e}, rel={grel:.3e} \
+                         (far above summation-order roundoff ⇒ ∂(XᵀWX)/∂ψ install \
+                         has a frame/scaling bug)",
+                        rho[0],
+                        grad_s[j],
+                        grad_t[j],
+                    );
+                }
+            }
+        }
+        eprintln!(
+            "[psi-gram-tensor invariance] worst cost rel={worst_cost_rel:.3e}, \
+             worst grad |Δ|={worst_grad_abs:.3e} over {} (ρ,ψ) points",
+            rho_samples.len() * psi_samples.len(),
         );
     }
 

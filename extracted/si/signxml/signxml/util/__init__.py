@@ -227,12 +227,26 @@ class X509CertChainVerifier:
     See https://docs.openssl.org/master/man3/SSL_CTX_load_verify_locations/#notes. If you need CApath support, please
     contact SignXML maintainers.
     """
-
-    def __init__(self, ca_pem_file=None, verification_time=None):
+    def __init__(self, ca_pem_file=None, verification_time=None, ee_policy=None, ca_policy=None):
         if ca_pem_file is None:
             ca_pem_file = certifi.where()
         self.ca_pem_file = ca_pem_file
         self.verification_time = verification_time
+
+        if ee_policy is not None:
+            if not isinstance(ee_policy, x509.verification.ExtensionPolicy):
+                raise ValueError("ee_policy must be an instance of x509.verification.ExtensionPolicy")
+            self.ee_policy = ee_policy
+        else:
+            self.ee_policy = x509.verification.ExtensionPolicy.webpki_defaults_ee()
+
+        if ca_policy is not None:
+            if not isinstance(ca_policy, x509.verification.ExtensionPolicy):
+                raise ValueError("ca_policy must be an instance of x509.verification.ExtensionPolicy")
+            self.ca_policy = ca_policy
+        else:
+            # Set default CA policy
+            self.ca_policy = x509.verification.ExtensionPolicy.webpki_defaults_ca()
 
     @property
     def store(self):
@@ -244,6 +258,10 @@ class X509CertChainVerifier:
     def builder(self):
         builder = x509.verification.PolicyBuilder()
         builder = builder.store(self.store)
+        builder = builder.extension_policies(
+            ee_policy=self.ee_policy,
+            ca_policy=self.ca_policy,
+        )
         if self.verification_time is not None:
             builder = builder.time(self.verification_time)
         return builder

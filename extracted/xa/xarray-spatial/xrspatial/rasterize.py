@@ -4,7 +4,7 @@ Converts vector geometries (GeoDataFrame or list of (geometry, value) pairs)
 to a 2D xr.DataArray.  No GDAL dependency.
 
 - Polygons/MultiPolygons: scanline fill
-- Lines/MultiLineStrings: Bresenham line rasterization
+- Lines/LinearRings/MultiLineStrings: Bresenham line rasterization
 - Points/MultiPoints: direct pixel burn
 
 Supports numpy, cupy, dask+numpy, and dask+cupy backends.
@@ -219,6 +219,52 @@ def _apply_merge(out, written, order, r, c, props, new_idx,
 # Geometry classification (single pass)
 # ---------------------------------------------------------------------------
 
+#: Human-readable names for the shapely type ids the fast path reports.
+_TYPE_ID_NAMES = {
+    0: 'Point', 1: 'LineString', 2: 'LinearRing', 3: 'Polygon',
+    4: 'MultiPoint', 5: 'MultiLineString', 6: 'MultiPolygon',
+    7: 'GeometryCollection',
+}
+
+
+def _warn_dropped_geometries(types):
+    """Warn that non-empty geometries of unsupported types are being dropped.
+
+    ``types`` is an iterable of either shapely type ids (ints, from the
+    vectorized fast path) or ``geom_type`` names (strings, from the recursive
+    slow path).  Names are resolved and de-duplicated so the warning lists each
+    dropped type once.
+    """
+    names = sorted({
+        _TYPE_ID_NAMES.get(int(t), f'type id {int(t)}')
+        if isinstance(t, (int, np.integer)) else str(t)
+        for t in types
+    })
+    warnings.warn(
+        f"rasterize: dropping unsupported non-empty geometr"
+        f"{'y' if len(names) == 1 else 'ies'} of type "
+        f"{', '.join(names)}; only points, lines, and polygons are "
+        f"rasterized.",
+        stacklevel=2,
+    )
+
+
+def _warn_nonfinite_geometries(count):
+    """Warn that geometries with non-finite coordinates are being dropped.
+
+    A NaN or infinite coordinate has no defined location on the raster
+    grid; letting it through poisons the pixel-space int casts downstream
+    (issue #3295).
+    """
+    warnings.warn(
+        f"rasterize: dropping {count} geometr"
+        f"{'y' if count == 1 else 'ies'} with non-finite coordinates "
+        f"(NaN or infinity); they have no defined location on the "
+        f"raster grid.",
+        stacklevel=2,
+    )
+
+
 def _classify_geometries(geometries, props_array):
     """Classify geometries by type in a single pass.
 
@@ -264,16 +310,53 @@ def _classify_geometries(geometries, props_array):
     shapely = _require_shapely()
     type_ids = shapely.get_type_id(geom_arr)
     empty = shapely.is_empty(geom_arr)
-    valid = ~empty
+    # ``get_type_id`` returns -1 for None/missing geometries (which report as
+    # non-empty); treat those as empty so they are skipped like the slow path's
+    # ``geom is None`` guard rather than warned about as an unsupported type.
+    valid = ~empty & (type_ids >= 0)
+
+    # Drop geometries containing non-finite coordinates (NaN / inf).
+    # They have no defined raster location, and letting them through
+    # poisons the pixel-space float -> int casts downstream: a NaN
+    # vertex survives the horizontal-edge filter (NaN != NaN) and turns
+    # into a phantom full-height edge, while an inf vertex burns pixels
+    # outside the polygon's real extent (issue #3295).  GEOS skips NaN
+    # coordinates when computing bounds, so a bbox check cannot detect
+    # these; inspect the coordinates directly.  GeometryCollections are
+    # excluded here -- their members are checked per-leaf in the slow
+    # path below, which is the only path that unpacks them.  When any
+    # GeometryCollection is present the slow path runs over every input
+    # and owns both the per-leaf check and the warning, so the
+    # vectorized check is skipped entirely to avoid warning twice for
+    # the same geometry.
+    if not np.any(valid & (type_ids == 7)):
+        coords_all, coord_owner = shapely.get_coordinates(
+            geom_arr, return_index=True)
+        nonfinite_coord = ~np.all(np.isfinite(coords_all), axis=1)
+        if np.any(nonfinite_coord):
+            nonfinite_geom = np.zeros(n, dtype=bool)
+            nonfinite_geom[coord_owner[nonfinite_coord]] = True
+            nonfinite_geom &= valid
+            if np.any(nonfinite_geom):
+                _warn_nonfinite_geometries(
+                    int(np.count_nonzero(nonfinite_geom)))
+                valid = valid & ~nonfinite_geom
 
     # Type ID mapping:
     # 0=Point, 1=LineString, 2=LinearRing, 3=Polygon,
     # 4=MultiPoint, 5=MultiLineString, 6=MultiPolygon,
     # 7=GeometryCollection
+    # LinearRing (2) is a closed line; rasterize it like any other line.
     poly_mask = valid & ((type_ids == 3) | (type_ids == 6))
-    line_mask = valid & ((type_ids == 1) | (type_ids == 5))
+    line_mask = valid & ((type_ids == 1) | (type_ids == 2) | (type_ids == 5))
     point_mask = valid & ((type_ids == 0) | (type_ids == 4))
     gc_mask = valid & (type_ids == 7)
+
+    # Warn before dropping any non-empty geometry that matches no bucket, so a
+    # caller never loses data silently.
+    dropped_mask = valid & ~(poly_mask | line_mask | point_mask | gc_mask)
+    if np.any(dropped_mask):
+        _warn_dropped_geometries(np.unique(type_ids[dropped_mask]))
 
     # Fast path: no GeometryCollections (common case)
     if not np.any(gc_mask):
@@ -308,19 +391,28 @@ def _classify_geometries(geometries, props_array):
     line_geoms, line_prop_rows = [], []
     point_geoms, point_prop_rows = [], []
     poly_counter = 0
+    nonfinite_count = 0
 
     def _classify_one(geom, prop_row, global_idx):
-        nonlocal poly_counter
+        nonlocal poly_counter, nonfinite_count
         if geom is None or geom.is_empty:
             return
         gt = geom.geom_type
+        # Per-leaf counterpart of the fast path's non-finite coordinate
+        # drop (issue #3295).  Collections recurse below, so each member
+        # is checked individually rather than dropping the whole
+        # collection for one bad leaf.
+        if gt != 'GeometryCollection' and not np.all(
+                np.isfinite(shapely.get_coordinates(geom))):
+            nonfinite_count += 1
+            return
         if gt in ('Polygon', 'MultiPolygon'):
             poly_geoms.append(geom)
             poly_prop_rows.append(prop_row)
             poly_ids.append(poly_counter)
             poly_global.append(global_idx)
             poly_counter += 1
-        elif gt in ('LineString', 'MultiLineString'):
+        elif gt in ('LineString', 'LinearRing', 'MultiLineString'):
             line_geoms.append(geom)
             line_prop_rows.append(prop_row)
             line_global.append(global_idx)
@@ -331,9 +423,14 @@ def _classify_geometries(geometries, props_array):
         elif gt == 'GeometryCollection':
             for sub in geom.geoms:
                 _classify_one(sub, prop_row, global_idx)
+        else:
+            _warn_dropped_geometries([gt])
 
     for idx, geom in enumerate(geometries):
         _classify_one(geom, props_array[idx], idx)
+
+    if nonfinite_count:
+        _warn_nonfinite_geometries(nonfinite_count)
 
     def _to_2d(rows):
         if rows:
@@ -452,15 +549,29 @@ def _extract_edges_vectorized(geometries, geom_ids, bounds,
     inv_slope = (bot_c - top_c) / dr
     del bot_c
 
+    # Clamp the cast inputs to a narrow band around the raster before
+    # converting to int32.  Row values beyond +/-2**31 otherwise
+    # overflow the cast (numpy lands them on INT_MIN, and the ``- 1``
+    # below wraps INT_MIN to INT_MAX), turning an edge that lies
+    # entirely off-raster into a phantom full-height edge instead of
+    # being filtered by the ``ry_min <= ry_max`` check (issue #3295).
+    # Clamping is exact for the visible region: any value at or beyond
+    # the band edges produces the same ry_min / ry_max as the original
+    # out-of-range value would have, without the overflow.  Only the
+    # cast inputs are clamped -- ``x_at_ymin`` below extrapolates from
+    # the original ``top_r`` so x intersections stay correct for edges
+    # entering the raster from far away.
+    top_r_cast = np.clip(top_r, -2.0, float(height) + 2.0)
+    bot_r_cast = np.clip(bot_r, -2.0, float(height) + 2.0)
     if all_touched:
-        ry_min = np.maximum(np.floor(top_r - 0.5).astype(np.int32), 0)
+        ry_min = np.maximum(np.floor(top_r_cast - 0.5).astype(np.int32), 0)
         ry_max = np.minimum(
-            np.ceil(bot_r + 0.5).astype(np.int32) - 1, height - 1)
+            np.ceil(bot_r_cast + 0.5).astype(np.int32) - 1, height - 1)
     else:
-        ry_min = np.maximum(np.ceil(top_r).astype(np.int32), 0)
+        ry_min = np.maximum(np.ceil(top_r_cast).astype(np.int32), 0)
         ry_max = np.minimum(
-            np.ceil(bot_r).astype(np.int32) - 1, height - 1)
-    del bot_r
+            np.ceil(bot_r_cast).astype(np.int32) - 1, height - 1)
+    del bot_r, top_r_cast, bot_r_cast
 
     x_at_ymin = top_c + (ry_min.astype(np.float64) - top_r) * inv_slope
     del top_c, top_r
@@ -1041,6 +1152,324 @@ def _burn_lines_supercover_cpu(out, written, x0_arr, y0_arr, x1_arr, y1_arr,
 
 
 # ---------------------------------------------------------------------------
+# Per-geometry write deduplication for merge='sum' / merge='count'
+#
+# Those two merges are the only built-ins where burning the same pixel
+# twice for the same geometry changes the result (min/max are
+# idempotent, first/last gate repeats through the per-pixel owner
+# index).  Two code paths used to do exactly that (issue #3304):
+#
+#   * all_touched=True polygons: the scanline fill burns every cell
+#     whose center is inside, then the supercover boundary pass burns
+#     every cell the rings cross -- including the ones scanline just
+#     burned -- and consecutive ring segments re-burn their shared
+#     vertex cell.
+#   * lines: each Bresenham segment burns both endpoints, so the
+#     connecting vertex of consecutive segments is burned once per
+#     segment.
+#
+# For sum/count the line / boundary cells are therefore enumerated
+# host-side (the segment extraction is host-side already), deduplicated
+# per (geometry, row, col), filtered against the geometry's own
+# scanline coverage, and burned through the point kernels, which write
+# each surviving cell exactly once per geometry on every backend.
+# GDAL behaves the same way: rasterio's MergeAlg.add yields 1 per
+# geometry per pixel, even for self-crossing lines.  Points are left
+# alone -- GDAL burns once per point, so a MultiPoint with duplicated
+# coordinates adding twice already matches.
+#
+# Memory tradeoff: line cells are materialized as O(pixels traversed)
+# int32 arrays instead of O(vertices) segment endpoints.  That is the
+# same order as the work the burn kernel does anyway, but it is
+# allocated up front (per tile on the dask backends), so very long
+# lines on very large eager rasters cost a few extra bytes per
+# traversed pixel while the burn runs.
+# ---------------------------------------------------------------------------
+
+@ngjit
+def _bresenham_cells(r0_arr, c0_arr, r1_arr, c1_arr, geom_idx,
+                     height, width):
+    """Enumerate the in-bounds cells each Bresenham segment visits.
+
+    Walks the exact same path as :func:`_burn_lines_cpu` (and the GPU
+    twin) so the covered cell set is identical; only the write is
+    replaced by collection.  Returns (rows, cols, gids) int32 arrays
+    with one entry per visited in-bounds cell (duplicates included --
+    the caller dedups).
+    """
+    n = len(r0_arr)
+    total = 0
+    for i in range(n):
+        dr = r1_arr[i] - r0_arr[i]
+        if dr < 0:
+            dr = -dr
+        dc = c1_arr[i] - c0_arr[i]
+        if dc < 0:
+            dc = -dc
+        total += (dr if dr >= dc else dc) + 1
+
+    rows = np.empty(total, np.int32)
+    cols = np.empty(total, np.int32)
+    gids = np.empty(total, np.int32)
+    m = 0
+    for i in range(n):
+        r0 = r0_arr[i]
+        c0 = c0_arr[i]
+        r1 = r1_arr[i]
+        c1 = c1_arr[i]
+        gi = geom_idx[i]
+
+        dr = r1 - r0
+        dc = c1 - c0
+        sr = 1 if dr >= 0 else -1
+        sc = 1 if dc >= 0 else -1
+        dr = dr * sr
+        dc = dc * sc
+
+        if dr >= dc:
+            err = dc - dr
+            r, c = r0, c0
+            for _ in range(dr + 1):
+                if 0 <= r < height and 0 <= c < width:
+                    rows[m] = r
+                    cols[m] = c
+                    gids[m] = gi
+                    m += 1
+                if err >= 0:
+                    c += sc
+                    err -= dr
+                r += sr
+                err += dc
+        else:
+            err = dr - dc
+            r, c = r0, c0
+            for _ in range(dc + 1):
+                if 0 <= r < height and 0 <= c < width:
+                    rows[m] = r
+                    cols[m] = c
+                    gids[m] = gi
+                    m += 1
+                if err >= 0:
+                    r += sr
+                    err -= dc
+                c += sc
+                err += dr
+    return rows[:m].copy(), cols[:m].copy(), gids[:m].copy()
+
+
+@ngjit
+def _supercover_cells(x0_arr, y0_arr, x1_arr, y1_arr, geom_idx,
+                      height, width):
+    """Enumerate the in-bounds cells each supercover segment visits.
+
+    Same Amanatides & Woo walk as :func:`_burn_lines_supercover_cpu`
+    (including the diagonal corner tick), collecting instead of
+    writing.  Returns (rows, cols, gids) int32 arrays; duplicates are
+    the caller's problem.
+    """
+    n = len(x0_arr)
+    total = 0
+    for i in range(n):
+        cx = int(np.floor(x0_arr[i]))
+        cy = int(np.floor(y0_arr[i]))
+        ex = int(np.floor(x1_arr[i]))
+        ey = int(np.floor(y1_arr[i]))
+        total += abs(ex - cx) + abs(ey - cy) + 2
+
+    rows = np.empty(total, np.int32)
+    cols = np.empty(total, np.int32)
+    gids = np.empty(total, np.int32)
+    m = 0
+    for i in range(n):
+        x0 = x0_arr[i]
+        y0 = y0_arr[i]
+        x1 = x1_arr[i]
+        y1 = y1_arr[i]
+        gi = geom_idx[i]
+
+        cx = int(np.floor(x0))
+        cy = int(np.floor(y0))
+        end_cx = int(np.floor(x1))
+        end_cy = int(np.floor(y1))
+
+        dx = x1 - x0
+        dy = y1 - y0
+
+        if dx > 0.0:
+            step_x = 1
+        elif dx < 0.0:
+            step_x = -1
+        else:
+            step_x = 0
+
+        if dy > 0.0:
+            step_y = 1
+        elif dy < 0.0:
+            step_y = -1
+        else:
+            step_y = 0
+
+        if dx != 0.0:
+            t_delta_x = 1.0 / (dx if dx > 0.0 else -dx)
+        else:
+            t_delta_x = np.inf
+
+        if dy != 0.0:
+            t_delta_y = 1.0 / (dy if dy > 0.0 else -dy)
+        else:
+            t_delta_y = np.inf
+
+        if dx > 0.0:
+            t_max_x = (float(cx + 1) - x0) / dx
+        elif dx < 0.0:
+            t_max_x = (float(cx) - x0) / dx
+        else:
+            t_max_x = np.inf
+
+        if dy > 0.0:
+            t_max_y = (float(cy + 1) - y0) / dy
+        elif dy < 0.0:
+            t_max_y = (float(cy) - y0) / dy
+        else:
+            t_max_y = np.inf
+
+        max_steps = abs(end_cx - cx) + abs(end_cy - cy) + 2
+        for _ in range(max_steps):
+            if 0 <= cy < height and 0 <= cx < width:
+                rows[m] = cy
+                cols[m] = cx
+                gids[m] = gi
+                m += 1
+            if cx == end_cx and cy == end_cy:
+                break
+            if t_max_x < t_max_y:
+                t_max_x += t_delta_x
+                cx += step_x
+            elif t_max_y < t_max_x:
+                t_max_y += t_delta_y
+                cy += step_y
+            else:
+                t_max_x += t_delta_x
+                t_max_y += t_delta_y
+                cx += step_x
+                cy += step_y
+    return rows[:m].copy(), cols[:m].copy(), gids[:m].copy()
+
+
+def _dedup_cells(rows, cols, gids, height, width):
+    """Drop duplicate (gid, row, col) triplets.
+
+    Packs the triplet into a single int64 key (all components are
+    non-negative and bounded by the raster dimensions / geometry
+    count), uniques it, and unpacks.  Output order is irrelevant to
+    the commutative merges this feeds.
+
+    The key only overflows when n_geometries * height * width exceeds
+    2**63, by which point the cell arrays being deduplicated could not
+    have been allocated in the first place.
+    """
+    if len(rows) == 0:
+        return rows, cols, gids
+    h = np.int64(height)
+    w = np.int64(width)
+    key = (gids.astype(np.int64) * h + rows) * w + cols
+    uniq = np.unique(key)
+    hw = h * w
+    g = (uniq // hw).astype(np.int32)
+    rem = uniq % hw
+    r = (rem // w).astype(np.int32)
+    c = (rem % w).astype(np.int32)
+    return r, c, g
+
+
+@ngjit
+def _cells_not_scanline_covered(rows, cols, gids, e_y_min, e_y_max,
+                                e_x_at_ymin, e_inv_slope, gid_starts):
+    """Boolean keep-mask: True where the cell is NOT burned by its own
+    geometry's scanline fill.
+
+    Replays the scanline arithmetic for the cell's row: an edge of the
+    same geometry covers column ``c`` when ``ceil(x_at_row) <= c``, and
+    the fill burns ``c`` exactly when an odd number of the geometry's
+    active edges do (the span pairs in :func:`_scanline_fill_cpu` are
+    consecutive sorted intersections, so [ceil(x_k), ceil(x_{k+1})-1]
+    membership and crossing parity agree).  Using the same float
+    expression and the same ceil keeps the test bit-identical to what
+    the fill actually burned.
+
+    Edge arrays must be pre-sorted by geometry id; ``gid_starts`` maps
+    gid -> [start, end) slice of the sorted arrays.
+    """
+    n = len(rows)
+    keep = np.ones(n, np.bool_)
+    for i in range(n):
+        g = gids[i]
+        r = rows[i]
+        c = cols[i]
+        cnt = 0
+        for e in range(gid_starts[g], gid_starts[g + 1]):
+            if e_y_min[e] <= r and r <= e_y_max[e]:
+                x = e_x_at_ymin[e] + (r - e_y_min[e]) * e_inv_slope[e]
+                if int(np.ceil(x)) <= c:
+                    cnt += 1
+        if cnt % 2 == 1:
+            keep[i] = False
+    return keep
+
+
+def _boundary_cells_sum_count(poly_geoms, poly_ids, bounds, height, width,
+                              edge_arrays):
+    """all_touched boundary cells for sum/count, deduplicated per geometry.
+
+    Enumerates the supercover cells of every ring segment, drops
+    duplicate (geometry, cell) pairs (shared vertices, ring closure),
+    then drops cells the same geometry's scanline fill already burns.
+    The survivors are exactly the cells all_touched adds on top of the
+    center-inside fill, once per geometry.
+
+    ``edge_arrays`` is the 5-tuple the scanline fill consumes; passing
+    the same arrays keeps the coverage test in the same float
+    arithmetic as the fill itself.
+    """
+    empty = np.empty(0, np.int32)
+    bx0, by0, bx1, by1, bidx = _extract_polygon_boundary_segments_float(
+        poly_geoms, poly_ids, bounds, height, width)
+    if len(bx0) == 0:
+        return empty, empty.copy(), empty.copy()
+
+    rows, cols, gids = _supercover_cells(
+        bx0, by0, bx1, by1, bidx, height, width)
+    rows, cols, gids = _dedup_cells(rows, cols, gids, height, width)
+    if len(rows) == 0:
+        return rows, cols, gids
+
+    edge_y_min, edge_y_max, edge_x_at_ymin, edge_inv_slope, \
+        edge_geom_id = edge_arrays
+    if len(edge_y_min) > 0:
+        order = np.argsort(edge_geom_id, kind='stable')
+        sorted_gid = edge_geom_id[order]
+        n_poly = len(poly_geoms)
+        gid_starts = np.searchsorted(
+            sorted_gid, np.arange(n_poly + 1, dtype=sorted_gid.dtype))
+        keep = _cells_not_scanline_covered(
+            rows, cols, gids,
+            edge_y_min[order], edge_y_max[order],
+            edge_x_at_ymin[order], edge_inv_slope[order],
+            gid_starts)
+        rows, cols, gids = rows[keep], cols[keep], gids[keep]
+    return rows, cols, gids
+
+
+def _is_dedup_merge_fn(merge_fn):
+    """True when *merge_fn* is one of the built-in CPU merges that needs
+    per-geometry write deduplication (sum / count).  Identity-based so
+    user callables never match; the built-ins are module-level numba
+    dispatchers, so identity survives pickling into dask workers.
+    """
+    return merge_fn is _merge_sum or merge_fn is _merge_count
+
+
+# ---------------------------------------------------------------------------
 # CPU scanline fill (numba) -- edges must be sorted by y_min
 # ---------------------------------------------------------------------------
 
@@ -1135,15 +1564,36 @@ def _scanline_fill_cpu(out, written, edge_y_min, edge_y_max, edge_x_at_ymin,
             i = j
 
 
+def _alloc_order(height, width, should_write):
+    """Allocate the per-pixel owner-index array for the CPU kernels.
+
+    ``order`` tracks the input index of the current owner per pixel.  -1
+    sentinel is fine: written[r,c]==0 means cur_idx is never consulted
+    for the "first write" branch of the predicates.
+
+    Only the ordered predicates (``first`` / ``last``) ever read the
+    stored values.  For ``_should_write_any`` merges (max/min/sum/count
+    and user callables) the kernels still store the int64 owner index,
+    but nothing reads it back, so an int8 buffer (1 byte/pixel instead
+    of 8) is enough -- numba wraps the store and the wrapped values are
+    dead.  Issue #3107.
+
+    Caveat: the wrap is a compiled-code behavior.  Under
+    ``NUMBA_DISABLE_JIT=1`` (pure-Python debugging) NumPy raises
+    ``OverflowError`` on the first store of an owner index above 127;
+    if that bites, force the int64 branch here.
+    """
+    if should_write is _should_write_any:
+        return np.zeros((height, width), dtype=np.int8)
+    return np.full((height, width), -1, dtype=np.int64)
+
+
 def _run_numpy(geometries, props_array, bounds, height, width, fill, dtype,
                all_touched, merge_fn, should_write):
     """NumPy backend for rasterize."""
     out = np.full((height, width), fill, dtype=np.float64)
     written = np.zeros((height, width), dtype=np.int8)
-    # Order tracks the input index of the current owner per pixel.  -1
-    # sentinel is fine: written[r,c]==0 means cur_idx is never consulted
-    # for the "first write" branch of the predicates.
-    order = np.full((height, width), -1, dtype=np.int64)
+    order = _alloc_order(height, width, should_write)
 
     (poly_geoms, poly_props, poly_ids, poly_global), \
         (line_geoms, line_props, line_global), \
@@ -1164,23 +1614,46 @@ def _run_numpy(geometries, props_array, bounds, height, width, fill, dtype,
     # 1b. all_touched: draw polygon boundaries with a supercover
     #     grid traversal so every pixel a ring segment crosses is
     #     burned (matches rasterio.features.rasterize all_touched).
+    #     sum/count burn the deduplicated cell list through the point
+    #     kernel instead, so each geometry contributes at most once
+    #     per pixel (issue #3304).
+    dedup = _is_dedup_merge_fn(merge_fn)
     if all_touched and poly_geoms:
-        bx0, by0, bx1, by1, bidx = (
-            _extract_polygon_boundary_segments_float(
-                poly_geoms, poly_ids, bounds, height, width))
-        if len(bx0) > 0:
-            _burn_lines_supercover_cpu(
-                out, written, bx0, by0, bx1, by1, bidx,
-                poly_props, height, width, poly_global,
-                merge_fn, should_write, order)
+        if dedup:
+            brows, bcols, bgids = _boundary_cells_sum_count(
+                poly_geoms, poly_ids, bounds, height, width, edge_arrays)
+            if len(brows) > 0:
+                _burn_points_cpu(out, written, brows, bcols, bgids,
+                                 poly_props, poly_global,
+                                 merge_fn, should_write, order)
+        else:
+            bx0, by0, bx1, by1, bidx = (
+                _extract_polygon_boundary_segments_float(
+                    poly_geoms, poly_ids, bounds, height, width))
+            if len(bx0) > 0:
+                _burn_lines_supercover_cpu(
+                    out, written, bx0, by0, bx1, by1, bidx,
+                    poly_props, height, width, poly_global,
+                    merge_fn, should_write, order)
 
-    # 2. Lines
+    # 2. Lines.  sum/count: enumerate + dedup cells so the connecting
+    #    vertex of consecutive segments is burned once (issue #3304).
     r0, c0, r1, c1, line_idx = _extract_line_segments(
         line_geoms, bounds, height, width)
     if len(r0) > 0:
-        _burn_lines_cpu(out, written, r0, c0, r1, c1, line_idx,
-                        line_props, height, width, line_global,
-                        merge_fn, should_write, order)
+        if dedup:
+            lrows, lcols, lgids = _bresenham_cells(
+                r0, c0, r1, c1, line_idx, height, width)
+            lrows, lcols, lgids = _dedup_cells(
+                lrows, lcols, lgids, height, width)
+            if len(lrows) > 0:
+                _burn_points_cpu(out, written, lrows, lcols, lgids,
+                                 line_props, line_global,
+                                 merge_fn, should_write, order)
+        else:
+            _burn_lines_cpu(out, written, r0, c0, r1, c1, line_idx,
+                            line_props, height, width, line_global,
+                            merge_fn, should_write, order)
 
     # 3. Points
     prows, pcols, pt_idx = _extract_points(
@@ -1192,7 +1665,10 @@ def _run_numpy(geometries, props_array, bounds, height, width, fill, dtype,
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', RuntimeWarning)
-        return out.astype(dtype)
+        # copy=False: the work buffer is local, so when dtype is already
+        # float64 (the default) the cast is a no-op and skips a full-
+        # raster copy.  Issue #3107.
+        return out.astype(dtype, copy=False)
 
 
 # ---------------------------------------------------------------------------
@@ -2033,6 +2509,11 @@ def _run_cupy(geometries, props_array, bounds, height, width, fill, dtype,
     kernels = _ensure_gpu_kernels(merge_fn, should_write, merge_name)
     atomic_mode = kernels['atomic_mode']
     two_pass = atomic_mode in ('first', 'last')
+    # sum/count need per-geometry write dedup (issue #3304); their
+    # boundary / line cells are enumerated host-side and burned through
+    # the point kernel instead of the segment kernels.
+    dedup = atomic_mode in ('sum', 'count')
+    extra_point_launches = []
 
     out, written, order, order_sentinel = _gpu_init_buffers(
         height, width, fill, atomic_mode)
@@ -2088,25 +2569,45 @@ def _run_cupy(geometries, props_array, bounds, height, width, fill, dtype,
     # replacing the older Bresenham boundary burn.
     boundary_launch = None
     if all_touched and poly_geoms:
-        bx0, by0, bx1, by1, bidx = (
-            _extract_polygon_boundary_segments_float(
-                poly_geoms, poly_ids, bounds, height, width))
-        if len(bx0) > 0:
-            boundary_launch = (
-                cupy.asarray(bx0), cupy.asarray(by0),
-                cupy.asarray(bx1), cupy.asarray(by1),
-                cupy.asarray(bidx), poly_props_gpu,
-                poly_global_gpu, len(bx0))
+        if dedup:
+            brows, bcols, bgids = _boundary_cells_sum_count(
+                poly_geoms, poly_ids, bounds, height, width, edge_arrays)
+            if len(brows) > 0:
+                extra_point_launches.append((
+                    cupy.asarray(brows), cupy.asarray(bcols),
+                    cupy.asarray(bgids), poly_props_gpu,
+                    poly_global_gpu, len(brows)))
+        else:
+            bx0, by0, bx1, by1, bidx = (
+                _extract_polygon_boundary_segments_float(
+                    poly_geoms, poly_ids, bounds, height, width))
+            if len(bx0) > 0:
+                boundary_launch = (
+                    cupy.asarray(bx0), cupy.asarray(by0),
+                    cupy.asarray(bx1), cupy.asarray(by1),
+                    cupy.asarray(bidx), poly_props_gpu,
+                    poly_global_gpu, len(bx0))
 
     r0, c0, r1, c1, line_idx = _extract_line_segments(
         line_geoms, bounds, height, width)
     line_launch = None
     if len(r0) > 0:
-        line_launch = (
-            cupy.asarray(r0), cupy.asarray(c0),
-            cupy.asarray(r1), cupy.asarray(c1),
-            cupy.asarray(line_idx), cupy.asarray(line_props),
-            cupy.asarray(line_global), len(r0))
+        if dedup:
+            lrows, lcols, lgids = _bresenham_cells(
+                r0, c0, r1, c1, line_idx, height, width)
+            lrows, lcols, lgids = _dedup_cells(
+                lrows, lcols, lgids, height, width)
+            if len(lrows) > 0:
+                extra_point_launches.append((
+                    cupy.asarray(lrows), cupy.asarray(lcols),
+                    cupy.asarray(lgids), cupy.asarray(line_props),
+                    cupy.asarray(line_global), len(lrows)))
+        else:
+            line_launch = (
+                cupy.asarray(r0), cupy.asarray(c0),
+                cupy.asarray(r1), cupy.asarray(c1),
+                cupy.asarray(line_idx), cupy.asarray(line_props),
+                cupy.asarray(line_global), len(r0))
 
     prows, pcols, pt_idx = _extract_points(
         point_geoms, bounds, height, width)
@@ -2149,6 +2650,14 @@ def _run_cupy(geometries, props_array, bounds, height, width, fill, dtype,
                                point_launch[0], point_launch[1],
                                point_launch[2], point_launch[3],
                                point_launch[4], n_pts)
+        # Deduplicated sum/count line / boundary cells (issue #3304).
+        # Only populated when ``dedup`` is true, which never coincides
+        # with the two-pass first/last modes.
+        for pl in extra_point_launches:
+            n_pts = pl[5]
+            bpg = (n_pts + tpb - 1) // tpb
+            k_points[bpg, tpb](out, written, order,
+                               pl[0], pl[1], pl[2], pl[3], pl[4], n_pts)
 
     # Pass 1: write values (atomics) or, for first/last, resolve the
     # per-pixel winning input index into ``order``.
@@ -2166,7 +2675,9 @@ def _run_cupy(geometries, props_array, bounds, height, width, fill, dtype,
 
     final_out = _gpu_finalize_buffers(out, written, order, order_sentinel,
                                       fill, atomic_mode)
-    return final_out.astype(dtype)
+    # copy=False skips a full-raster device copy when dtype is already
+    # float64 (the default).  The buffer is local to this call.  #3107.
+    return final_out.astype(dtype, copy=False)
 
 
 # ---------------------------------------------------------------------------
@@ -2375,7 +2886,13 @@ def _rasterize_tile_numpy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
     """
     out = np.full((tile_h, tile_w), fill, dtype=np.float64)
     written = np.zeros((tile_h, tile_w), dtype=np.int8)
-    order = np.full((tile_h, tile_w), -1, dtype=np.int64)
+    # int8 for order-insensitive merges, int64 for first/last; the
+    # decision runs worker-side, keyed on the unpickled predicate.
+    # ``_should_write_any`` is a module-level dispatcher, so pickling
+    # preserves identity.  Issue #3107.
+    order = _alloc_order(tile_h, tile_w, should_write)
+
+    dedup = _is_dedup_merge_fn(merge_fn)
 
     # 1. Polygons (deserialize WKB, then scanline fill)
     if poly_wkb:
@@ -2393,21 +2910,45 @@ def _rasterize_tile_numpy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
         # 1b. all_touched: draw polygon boundaries with the
         # supercover grid traversal so the dask path matches the
         # eager numpy path pixel-for-pixel under all_touched=True.
+        # sum/count burn the deduplicated cell list instead, exactly
+        # like the eager path (issue #3304).
         if all_touched:
-            bx0, by0, bx1, by1, bidx = (
-                _extract_polygon_boundary_segments_float(
-                    poly_geoms, poly_ids, tile_bounds, tile_h, tile_w))
-            if len(bx0) > 0:
-                _burn_lines_supercover_cpu(
-                    out, written, bx0, by0, bx1, by1, bidx,
-                    poly_props_2d, tile_h, tile_w,
-                    poly_global_2d, merge_fn, should_write, order)
+            if dedup:
+                brows, bcols, bgids = _boundary_cells_sum_count(
+                    poly_geoms, poly_ids, tile_bounds, tile_h, tile_w,
+                    edge_arrays)
+                if len(brows) > 0:
+                    _burn_points_cpu(out, written, brows, bcols, bgids,
+                                     poly_props_2d, poly_global_2d,
+                                     merge_fn, should_write, order)
+            else:
+                bx0, by0, bx1, by1, bidx = (
+                    _extract_polygon_boundary_segments_float(
+                        poly_geoms, poly_ids, tile_bounds, tile_h, tile_w))
+                if len(bx0) > 0:
+                    _burn_lines_supercover_cpu(
+                        out, written, bx0, by0, bx1, by1, bidx,
+                        poly_props_2d, tile_h, tile_w,
+                        poly_global_2d, merge_fn, should_write, order)
 
-    # 2. Lines (tile-local segments, Bresenham with bounds check)
+    # 2. Lines (tile-local segments, Bresenham with bounds check).
+    #    sum/count dedup the visited cells first (issue #3304); cells
+    #    partition across tiles, so per-tile dedup equals global dedup.
     if len(seg_r0) > 0:
-        _burn_lines_cpu(out, written, seg_r0, seg_c0, seg_r1, seg_c1,
-                        seg_geom_idx, line_props, tile_h, tile_w,
-                        line_global, merge_fn, should_write, order)
+        if dedup:
+            lrows, lcols, lgids = _bresenham_cells(
+                seg_r0, seg_c0, seg_r1, seg_c1, seg_geom_idx,
+                tile_h, tile_w)
+            lrows, lcols, lgids = _dedup_cells(
+                lrows, lcols, lgids, tile_h, tile_w)
+            if len(lrows) > 0:
+                _burn_points_cpu(out, written, lrows, lcols, lgids,
+                                 line_props, line_global,
+                                 merge_fn, should_write, order)
+        else:
+            _burn_lines_cpu(out, written, seg_r0, seg_c0, seg_r1, seg_c1,
+                            seg_geom_idx, line_props, tile_h, tile_w,
+                            line_global, merge_fn, should_write, order)
 
     # 3. Points (tile-local)
     if len(pt_rows) > 0:
@@ -2415,7 +2956,8 @@ def _rasterize_tile_numpy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
                          point_props, point_global,
                          merge_fn, should_write, order)
 
-    return out.astype(dtype)
+    # copy=False: no per-tile copy when dtype is already float64.  #3107.
+    return out.astype(dtype, copy=False)
 
 
 def _run_dask_numpy(geometries, props_array, bounds, height, width, fill,
@@ -2526,6 +3068,11 @@ def _rasterize_tile_cupy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
     kernels = _ensure_gpu_kernels(merge_fn, should_write, merge_name)
     atomic_mode = kernels['atomic_mode']
     two_pass = atomic_mode in ('first', 'last')
+    # Per-geometry write dedup for sum/count (issue #3304), mirroring
+    # _run_cupy: boundary / line cells enumerated host-side, burned via
+    # the point kernel.
+    dedup = atomic_mode in ('sum', 'count')
+    extra_point_launches = []
 
     out, written, order, order_sentinel = _gpu_init_buffers(
         tile_h, tile_w, fill, atomic_mode)
@@ -2570,25 +3117,48 @@ def _rasterize_tile_cupy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
 
         # all_touched: stage the supercover boundary burn through
         # ``boundary_launch`` so the two-pass first/last path can fire
-        # both pass-1 and pass-2 kernels.
+        # both pass-1 and pass-2 kernels.  sum/count stage the
+        # deduplicated cell list as a point launch instead (#3304).
         if all_touched:
-            bx0, by0, bx1, by1, bidx = (
-                _extract_polygon_boundary_segments_float(
-                    poly_geoms, poly_ids, tile_bounds, tile_h, tile_w))
-            if len(bx0) > 0:
-                boundary_launch = (
-                    cupy.asarray(bx0), cupy.asarray(by0),
-                    cupy.asarray(bx1), cupy.asarray(by1),
-                    cupy.asarray(bidx), poly_props_2d_gpu,
-                    poly_global_2d_gpu, len(bx0))
+            if dedup:
+                brows, bcols, bgids = _boundary_cells_sum_count(
+                    poly_geoms, poly_ids, tile_bounds, tile_h, tile_w,
+                    edge_arrays)
+                if len(brows) > 0:
+                    extra_point_launches.append((
+                        cupy.asarray(brows), cupy.asarray(bcols),
+                        cupy.asarray(bgids), poly_props_2d_gpu,
+                        poly_global_2d_gpu, len(brows)))
+            else:
+                bx0, by0, bx1, by1, bidx = (
+                    _extract_polygon_boundary_segments_float(
+                        poly_geoms, poly_ids, tile_bounds, tile_h, tile_w))
+                if len(bx0) > 0:
+                    boundary_launch = (
+                        cupy.asarray(bx0), cupy.asarray(by0),
+                        cupy.asarray(bx1), cupy.asarray(by1),
+                        cupy.asarray(bidx), poly_props_2d_gpu,
+                        poly_global_2d_gpu, len(bx0))
 
     line_launch = None
     if len(seg_r0) > 0:
-        line_launch = (
-            cupy.asarray(seg_r0), cupy.asarray(seg_c0),
-            cupy.asarray(seg_r1), cupy.asarray(seg_c1),
-            cupy.asarray(seg_geom_idx), _ensure_cupy(line_props),
-            _ensure_cupy(line_global), len(seg_r0))
+        if dedup:
+            lrows, lcols, lgids = _bresenham_cells(
+                seg_r0, seg_c0, seg_r1, seg_c1, seg_geom_idx,
+                tile_h, tile_w)
+            lrows, lcols, lgids = _dedup_cells(
+                lrows, lcols, lgids, tile_h, tile_w)
+            if len(lrows) > 0:
+                extra_point_launches.append((
+                    cupy.asarray(lrows), cupy.asarray(lcols),
+                    cupy.asarray(lgids), _ensure_cupy(line_props),
+                    _ensure_cupy(line_global), len(lrows)))
+        else:
+            line_launch = (
+                cupy.asarray(seg_r0), cupy.asarray(seg_c0),
+                cupy.asarray(seg_r1), cupy.asarray(seg_c1),
+                cupy.asarray(seg_geom_idx), _ensure_cupy(line_props),
+                _ensure_cupy(line_global), len(seg_r0))
 
     point_launch = None
     if len(pt_rows) > 0:
@@ -2630,6 +3200,12 @@ def _rasterize_tile_cupy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
                                point_launch[0], point_launch[1],
                                point_launch[2], point_launch[3],
                                point_launch[4], n_pts)
+        # Deduplicated sum/count line / boundary cells (issue #3304).
+        for pl in extra_point_launches:
+            n_pts = pl[5]
+            bpg = (n_pts + tpb - 1) // tpb
+            k_points[bpg, tpb](out, written, order,
+                               pl[0], pl[1], pl[2], pl[3], pl[4], n_pts)
 
     _launch_phase(kernels['scanline_fill'],
                   kernels['burn_lines'],
@@ -2643,7 +3219,9 @@ def _rasterize_tile_cupy(poly_wkb, poly_props_2d, poly_global_2d, tile_bounds,
 
     final_out = _gpu_finalize_buffers(out, written, order, order_sentinel,
                                       fill, atomic_mode)
-    return final_out.astype(dtype)
+    # copy=False: no per-tile device copy when dtype is already float64.
+    # Issue #3107.
+    return final_out.astype(dtype, copy=False)
 
 
 def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
@@ -2742,13 +3320,16 @@ def _run_dask_cupy(geometries, props_array, bounds, height, width, fill,
 # ---------------------------------------------------------------------------
 
 def _parse_input(geometries, column=None, columns=None):
-    """Normalise input to (geometry_list, props_array, bounds).
+    """Normalise input to (geometry_list, props_array, bounds, crs).
 
     Returns
     -------
     geom_list : list of shapely geometries
     props_array : (N, P) float64 array of property values
     bounds : tuple or None
+    crs : the GeoDataFrame's ``.crs`` (any pyproj-parseable value) or
+        ``None``.  Only a GeoDataFrame exposes a CRS; the
+        ``(geometry, value)`` iterable path always returns ``None``.
     """
     # Handle dask-geopandas by materializing eagerly.  Geometry data is
     # typically much smaller than the output raster, so this is fine.
@@ -2782,7 +3363,7 @@ def _parse_input(geometries, column=None, columns=None):
                     column = numeric_cols[0]
                 props_array = geometries[column].values.astype(
                     np.float64).reshape(-1, 1)
-            return geom_list, props_array, total_bounds
+            return geom_list, props_array, total_bounds, geometries.crs
     except ImportError:
         pass
 
@@ -2798,13 +3379,13 @@ def _parse_input(geometries, column=None, columns=None):
 
     if not geom_list:
         props_array = np.empty((0, 1), dtype=np.float64)
-        return geom_list, props_array, None
+        return geom_list, props_array, None, None
 
     props_array = np.array(value_list, dtype=np.float64).reshape(-1, 1)
 
     # Bounds computation is deferred: return None here and let the
     # caller compute bboxes only when bounds are actually needed.
-    return geom_list, props_array, None
+    return geom_list, props_array, None, None
 
 
 def _check_uniform_axis(axis_name, coords, expected_step):
@@ -2973,6 +3554,95 @@ def _extract_grid_from_like(like):
     )
 
 
+def _like_crs(like):
+    """Detect the CRS of a ``like`` template DataArray, or ``None``.
+
+    Mirrors the resolution order in
+    ``xrspatial.polygonize._detect_raster_crs`` so a template carries the
+    same CRS into rasterize that polygonize would read back out:
+
+    1. ``like.attrs['crs']`` (xrspatial.geotiff convention)
+    2. ``like.attrs['crs_wkt']``
+    3. the ``spatial_ref`` non-dim coord's ``crs_wkt`` / ``spatial_ref``
+       attr (rioxarray's georeference coord)
+    4. ``like.rio.crs`` (rioxarray, if installed)
+    5. ``None``
+
+    The raw value is returned (string / int / WKT / pyproj.CRS) so the
+    caller normalizes it the same way the geometry CRS is normalized.
+    """
+    crs_attr = like.attrs.get('crs')
+    if crs_attr is not None:
+        return crs_attr
+
+    crs_wkt = like.attrs.get('crs_wkt')
+    if crs_wkt is not None:
+        return crs_wkt
+
+    if 'spatial_ref' in like.coords:
+        sr_attrs = like.coords['spatial_ref'].attrs
+        sr_crs = sr_attrs.get('crs_wkt') or sr_attrs.get('spatial_ref')
+        if sr_crs is not None:
+            return sr_crs
+
+    try:
+        rio_crs = like.rio.crs
+        if rio_crs is not None:
+            return rio_crs
+    except Exception:
+        # Broad on purpose (matches polygonize._detect_raster_crs):
+        # ``.rio`` raises AttributeError when rioxarray is not installed,
+        # and rio.crs can raise on a malformed georeference.  Either way
+        # we treat the template as having no detectable CRS and let the
+        # earlier attrs/spatial_ref paths be the source of truth.
+        pass
+
+    return None
+
+
+def _check_crs_match(geom_crs, like_crs):
+    """Raise ``ValueError`` if ``geom_crs`` and ``like_crs`` disagree.
+
+    Both values are normalized through ``pyproj.CRS`` so an int EPSG
+    code, an ``"EPSG:xxxx"`` string, a WKT string, and a ``pyproj.CRS``
+    instance describing the same system all compare equal.  When either
+    side is ``None`` (no CRS to compare) the check is a no-op -- this
+    keeps CRS-less geometry lists and templates working unchanged.  An
+    unparseable value on either side raises ``ValueError`` rather than
+    silently disabling the guard.
+    """
+    if geom_crs is None or like_crs is None:
+        return
+
+    from pyproj import CRS as _PyprojCRS
+    from pyproj.exceptions import CRSError
+
+    def _norm(value, label):
+        try:
+            return _PyprojCRS(value)
+        except CRSError as e:
+            raise ValueError(
+                f"{label} CRS {value!r} is not a valid CRS: {e}"
+            ) from e
+
+    g = _norm(geom_crs, 'geometry')
+    t = _norm(like_crs, "'like' template")
+    if not g.equals(t):
+        # Prefer a compact "EPSG:xxxx" label over the raw value, whose
+        # repr is a multi-line WKT block for a pyproj/geopandas CRS.
+        # Fall back to the CRS name when no EPSG code is available.
+        def _label(crs):
+            epsg = crs.to_epsg()
+            return f"EPSG:{epsg}" if epsg is not None else crs.name
+        raise ValueError(
+            f"CRS mismatch: geometries are in {_label(g)} but the "
+            f"'like' template is in {_label(t)}. Reproject the "
+            f"geometries to match the template, or pass check_crs=False "
+            f"to rasterize onto the template grid anyway (the output "
+            f"will inherit the template CRS without reprojection)."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -2985,15 +3655,17 @@ def rasterize(
     column: Optional[str] = None,
     columns: Optional[Sequence[str]] = None,
     fill: float = np.nan,
-    dtype: Optional[np.dtype] = None,
+    dtype: Optional[Union[str, np.dtype, type]] = None,
     all_touched: bool = False,
-    use_cuda: bool = False,
+    gpu: bool = False,
     name: str = 'rasterize',
     resolution: Optional[Union[float, Tuple[float, float]]] = None,
     like: Optional[xr.DataArray] = None,
     merge: Union[str, Callable] = 'last',
     chunks: Optional[Union[int, Tuple[int, int]]] = None,
     max_pixels: int = MAX_PIXELS_DEFAULT,
+    check_crs: bool = True,
+    use_cuda: Optional[bool] = None,
 ) -> xr.DataArray:
     """Rasterize vector geometries into a 2D DataArray.
 
@@ -3004,9 +3676,15 @@ def rasterize(
     Supported geometry types:
 
     - **Polygon / MultiPolygon** -- scanline fill
-    - **LineString / MultiLineString** -- Bresenham line rasterization
+    - **LineString / LinearRing / MultiLineString** -- Bresenham line
+      rasterization (a LinearRing burns its closed boundary)
     - **Point / MultiPoint** -- direct pixel burn
     - **GeometryCollection** -- recursively unpacked
+
+    A non-empty geometry of any other type is dropped with a warning rather
+    than silently discarded.  Likewise, a geometry containing non-finite
+    coordinates (NaN or infinity) has no defined location on the raster
+    grid and is dropped with a warning.
 
     Parameters
     ----------
@@ -3039,16 +3717,33 @@ def rasterize(
         length ``len(columns)`` as its ``props`` argument.
     fill : float, default np.nan
         Value for pixels not covered by any geometry.  When ``dtype``
-        resolves to an integer type (either via the ``dtype`` argument or
-        via ``like`` carrying an integer dtype), the default NaN fill is
-        rejected with ``ValueError`` because NaN has no integer
-        representation and the cast would silently land on a
-        platform-specific sentinel with no ``_FillValue`` attr to mark
-        it; pass an explicit integer sentinel (e.g. ``fill=0`` or
-        ``fill=-9999``) or use a floating dtype.
-    dtype : numpy dtype, optional
-        Data type of the output array.  Defaults to np.float64, or
-        to the dtype of ``like`` if provided.
+        resolves to an integer or boolean type (either via the ``dtype``
+        argument or via ``like``), a fill the dtype cannot represent
+        exactly is rejected with ``ValueError``.  This covers NaN into an
+        integer dtype (which would land on a platform sentinel), an
+        out-of-range integer (``fill=-9999`` into ``uint8`` wraps to
+        241), and any non-False value into ``bool`` (which collapses to
+        ``True``).  Without the guard the burned array and its emitted
+        ``nodata`` / ``_FillValue`` attrs would disagree.  Pass a fill the
+        dtype can hold (e.g. ``fill=0`` or ``fill=-9999`` for integers,
+        ``fill=False`` for bool) or use a floating dtype.
+    dtype : numpy dtype, dtype name, or scalar type, optional
+        Data type of the output array.  Accepts anything ``np.dtype()``
+        can parse: an ``np.dtype`` instance, a dtype name string
+        (``'int32'``), or a numpy scalar type (``np.int32``).  Defaults
+        to np.float64, or to the dtype of ``like`` if provided.  When
+        this resolves to an integer type, burn values are validated
+        against the float64 safe
+        integer range: the rasterizer computes in float64, so a value
+        with magnitude above ``2**53 - 1`` cannot be cast back to an
+        exact integer (e.g. ``2**53 + 1`` would land on ``2**53``).  Such
+        a value is rejected with ``ValueError`` rather than silently
+        rounded; use a floating dtype to burn identifiers larger than
+        that.  Non-finite burn values (NaN, inf) are likewise rejected
+        for integer and bool dtypes -- the final cast would otherwise
+        land them on a platform sentinel (NaN becomes ``-2147483648``
+        for int32, ``True`` for bool).  ``merge='count'`` is exempt
+        because it burns overlap counts, never the property values.
     all_touched : bool, default False
         If True, every pixel a polygon boundary passes through is
         burned in addition to the normal center-fill, using a
@@ -3057,8 +3752,10 @@ def rasterize(
         pixel-for-pixel up to rasterization tie-breaking on shared
         edges. If False, only pixels whose centers fall inside a
         polygon are burned.
-    use_cuda : bool, default False
-        If True, use the CuPy/CUDA backend.
+    gpu : bool, default False
+        If True, use the CuPy/CUDA backend.  Same convention as
+        ``open_geotiff(gpu=True)``; combine with ``chunks`` for the
+        dask+cupy backend.
     name : str, default 'rasterize'
         Name for the output DataArray.
     resolution : float or (x_res, y_res), optional
@@ -3095,10 +3792,19 @@ def rasterize(
         - ``'sum'`` -- add values together
         - ``'count'`` -- count overlapping geometries
 
+        For ``'sum'`` and ``'count'``, each geometry contributes at
+        most once per pixel: the connecting vertex of consecutive line
+        segments and the overlap between a polygon's interior fill and
+        its ``all_touched`` boundary are deduplicated, matching
+        rasterio's ``MergeAlg.add`` (which yields 1 per geometry per
+        pixel even for a self-crossing line).  Individual points are
+        not deduplicated -- a MultiPoint with repeated coordinates
+        burns once per point, also matching rasterio.
+
         Custom merge function (pass a callable):
 
         For CPU backends, pass a ``@ngjit``-decorated function.  For GPU
-        backends (``use_cuda=True``), pass a
+        backends (``gpu=True``), pass a
         ``@numba.cuda.jit(device=True)`` function.  Signature::
 
             merge_fn(pixel, props, is_first) -> float64
@@ -3107,21 +3813,55 @@ def rasterize(
         - *props*: 1D float64 array of property values for the geometry
         - *is_first*: 1 on first write to this pixel, 0 otherwise
 
+        .. warning::
+
+           On the GPU backends (``gpu=True``, with or without
+           ``chunks``) a custom callable does not use CUDA atomics.  Its
+           per-pixel update is a non-atomic read-modify-write, so when
+           geometries overlap, several threads may update the same pixel
+           at once and the result for those pixels is nondeterministic --
+           it can vary between runs and need not match the CPU backend.
+           The built-in string merges (``'sum'``, ``'count'``, ``'min'``,
+           ``'max'``, ``'first'``, ``'last'``) do use atomics and stay
+           deterministic over overlap; pass one of those if you need a
+           stable result where geometries overlap on the GPU.  Calling
+           ``rasterize`` with a callable ``merge`` and ``gpu=True``
+           emits a ``UserWarning`` to this effect.
+
     chunks : int or (int, int), optional
         If given, use the dask backend and split the output raster into
         tiles of this size ``(row_chunk, col_chunk)``.  Both axes must be
         ``> 0``.  A single int uses the same chunk size for both axes.
-        Combined with ``use_cuda`` to select dask+numpy vs dask+cupy.
+        Combined with ``gpu`` to select dask+numpy vs dask+cupy.
     max_pixels : int, default 1_000_000_000
         Safety cap on the resolved output size (``width * height``).  The
         function raises ``ValueError`` before any host or device
         allocation if the cap is exceeded.  Raise this explicitly when
         rasterizing a legitimately large grid.
+    check_crs : bool, default True
+        When ``geometries`` is a GeoDataFrame with a ``.crs`` and ``like``
+        is a template that carries a CRS (via ``attrs['crs']``,
+        ``attrs['crs_wkt']``, a ``spatial_ref`` coord, or ``rio.crs``),
+        compare the two and raise ``ValueError`` if they disagree.  This
+        prevents silently burning, say, an EPSG:4326 GeoDataFrame onto an
+        EPSG:3857 template and handing back a raster mislabeled with the
+        template CRS.  The geometries are never reprojected; reproject
+        them yourself to match the template.  Pass ``check_crs=False`` to
+        skip the comparison (the output still inherits the template CRS).
+        The check is a no-op when either side lacks a CRS.
+    use_cuda : bool, optional
+        Deprecated alias for ``gpu``; emits a ``DeprecationWarning``
+        when passed.  Passing both ``gpu=True`` and ``use_cuda`` raises
+        ``TypeError``.
 
     Returns
     -------
     xr.DataArray
-        2D raster with dims ``('y', 'x')``.
+        2D raster with dims ``('y', 'x')``.  When ``geometries`` is a
+        GeoDataFrame with a ``.crs`` and neither ``like`` nor its
+        ``spatial_ref`` coord supplies a CRS, the geometry CRS is
+        emitted on the output (``attrs['crs']`` as an EPSG int when one
+        resolves, else ``attrs['crs_wkt']`` as WKT).
 
     Examples
     --------
@@ -3142,6 +3882,22 @@ def rasterize(
         >>> density = rasterize(gdf, width=100, height=100,
         ...                     column='pop', merge='sum', fill=0)
     """
+    # Deprecation shim: ``use_cuda`` was renamed to ``gpu`` so the GPU
+    # opt-in matches ``open_geotiff(gpu=True)`` (issue #3089).  The old
+    # keyword still works but warns; asking for both is ambiguous.
+    if use_cuda is not None:
+        if gpu:
+            raise TypeError(
+                "rasterize() got both 'gpu' and its deprecated alias "
+                "'use_cuda'; pass only 'gpu'")
+        warnings.warn(
+            "rasterize(use_cuda=...) is deprecated; use gpu=... instead "
+            "(same convention as open_geotiff).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        gpu = use_cuda
+
     # Fail early with a clear message if the optional ``vector`` extra
     # (shapely) is not installed, rather than deep inside a helper.
     _require_shapely()
@@ -3213,8 +3969,15 @@ def rasterize(
         like_x_descending = grid.x_descending
 
     # Parse input geometries
-    geom_list, props_array, inferred_bounds = _parse_input(
+    geom_list, props_array, inferred_bounds, geom_crs = _parse_input(
         geometries, column=column, columns=columns)
+
+    # Guard against silently burning geometries onto a template in a
+    # different CRS.  The output inherits the template CRS (attrs /
+    # spatial_ref coord) but the geometry coords are never reprojected,
+    # so a mismatch yields an authoritative-looking but wrong raster.
+    if check_crs and geom_crs is not None and like is not None:
+        _check_crs_match(geom_crs, _like_crs(like))
 
     # Resolve bounds: explicit > like > inferred from geometries
     final_bounds = bounds
@@ -3338,37 +4101,116 @@ def rasterize(
     else:
         final_dtype = np.float64
 
-    # Reject NaN fill against an integer output dtype.  Without this guard
-    # the final ``astype(int_dtype)`` silently coerces NaN to either 0
-    # (unsigned) or ``np.iinfo(dtype).min`` (signed), and the rasterizer
-    # emits no ``_FillValue`` / ``nodata`` / ``nodatavals`` attr to mark
-    # the unwritten pixels.  Downstream consumers (geotiff writer,
-    # rioxarray masks) have no sentinel to key off and treat unwritten
-    # cells as valid data -- a metadata-propagation failure surfaced by
-    # the metadata sweep (issue #2504).
+    # Reject a fill that the output dtype cannot represent exactly.  Every
+    # backend casts its float64 work buffer with ``astype(final_dtype)`` at
+    # the end (``_run_numpy`` etc.), and the attrs block below stores the
+    # original ``fill`` verbatim.  When the cast changes the value, the
+    # array and its ``nodata`` / ``_FillValue`` / ``nodatavals`` attrs
+    # disagree, so downstream consumers (geotiff writer, rioxarray masks)
+    # mask the wrong pixels or treat unwritten cells as valid data -- a
+    # metadata-propagation failure surfaced by the metadata sweep
+    # (issues #2504, #3054).  Failure modes guarded here:
+    #   * NaN fill into an integer dtype -> coerced to 0 / INT_MIN.
+    #   * out-of-range integer fill (fill=-9999 into uint8 -> 241).
+    #   * any non-False fill into bool (fill=NaN -> True everywhere).
+    # ``np.issubdtype(bool_, np.integer)`` is False, so bool needs the
+    # explicit round-trip test below rather than the old integer-only
+    # check.
     #
     # Checked before any host / device allocation so the error surfaces
     # cleanly regardless of backend (numpy, cupy, dask+numpy, dask+cupy).
     # It runs after ``_check_output_dimensions`` because the
     # width/height/resolution guard reports a more actionable diagnostic
     # for oversized grids; both checks land before the allocator either
-    # way.
+    # way.  Float dtypes are left alone: NaN is representable and ordinary
+    # float rounding is expected, not a metadata lie.
     final_dtype_np = np.dtype(final_dtype)
-    try:
-        fill_is_nan_for_dtype_check = (
-            isinstance(fill, (float, np.floating))
-            and np.isnan(float(fill)))
-    except (TypeError, ValueError):
-        fill_is_nan_for_dtype_check = False
-    if (fill_is_nan_for_dtype_check
-            and np.issubdtype(final_dtype_np, np.integer)):
-        raise ValueError(
-            f"fill=NaN cannot be represented in integer dtype "
-            f"{final_dtype_np}: the cast would silently coerce NaN to a "
-            f"dtype-specific sentinel (0 for unsigned, INT_MIN for signed) "
-            f"with no _FillValue attr to mark unwritten pixels. Pass an "
-            f"explicit integer fill (e.g. fill=0 or fill=-9999) or use a "
-            f"floating dtype.")
+    if (np.issubdtype(final_dtype_np, np.integer)
+            or final_dtype_np == np.bool_):
+        try:
+            fill_arr = np.array(fill)
+            with warnings.catch_warnings():
+                # NaN -> int casts warn; we are probing for exactly that.
+                warnings.simplefilter('ignore', RuntimeWarning)
+                cast_back = fill_arr.astype(
+                    final_dtype_np).astype(fill_arr.dtype)
+            representable = bool(np.array_equal(fill_arr, cast_back))
+        except (TypeError, ValueError, OverflowError):
+            # A fill too large for the dtype's C type (e.g. an int wider
+            # than the platform long) overflows the cast rather than
+            # round-tripping; that is exactly a value the dtype cannot
+            # hold, so treat it as non-representable.
+            representable = False
+        if not representable:
+            raise ValueError(
+                f"fill={fill!r} cannot be represented exactly in output "
+                f"dtype {final_dtype_np}: the final cast would silently "
+                f"change it (e.g. NaN -> 0/INT_MIN, an out-of-range int -> "
+                f"a wrapped value, any non-False value -> True for bool), "
+                f"leaving the burned array and its nodata/_FillValue attrs "
+                f"in disagreement. Pass a fill the dtype can hold (e.g. "
+                f"fill=0 or fill=-9999 for integers, fill=False for bool) "
+                f"or use a floating dtype.")
+
+    # Reject burn values that float64 cannot hold exactly when the output
+    # dtype is integer.  ``_parse_input`` casts every burn value to float64
+    # (props_array is float64, GeoDataFrame columns go through
+    # ``.astype(np.float64)``, and ``(geom, value)`` pairs go through
+    # ``float()``), and the whole rasterize pipeline computes in float64
+    # before the final ``astype(int_dtype)``.  Integers with magnitude above
+    # 2**53 - 1 (the IEEE-754 "max safe integer") are not exactly
+    # representable, so an ID like ``2**53 + 1`` silently lands on
+    # ``2**53`` -- off by one -- by the time it reaches the output.  Zone
+    # IDs, parcel IDs, and uint64 identifiers are exactly the values that
+    # exceed this range, so a silent round is a correctness failure rather
+    # than a rounding nicety.  Reject up front with the offending value
+    # named, mirroring the NaN-fill guard above.  Float dtypes are
+    # unaffected: the float64 value is what the user asked to store.
+    #
+    # Checked before any host / device allocation so the error surfaces
+    # cleanly across all four backends (numpy, cupy, dask+numpy, dask+cupy).
+    if (np.issubdtype(final_dtype_np, np.integer)
+            and props_array.size > 0):
+        max_safe_int = 2.0 ** 53 - 1
+        finite = np.isfinite(props_array)
+        unsafe = finite & (np.abs(props_array) > max_safe_int)
+        if unsafe.any():
+            bad_value = float(props_array[unsafe].flat[0])
+            raise ValueError(
+                f"burn value {bad_value!r} exceeds the range of integers "
+                f"that float64 can represent exactly (|value| > 2**53 - 1 "
+                f"= {int(max_safe_int)}). rasterize() computes in float64, "
+                f"so casting to integer dtype {final_dtype_np} would "
+                f"silently round it (e.g. 2**53 + 1 lands on 2**53). Use a "
+                f"floating output dtype, or pass values within the safe "
+                f"integer range.")
+
+    # Reject non-finite burn values when the output dtype cannot represent
+    # them.  The pipeline computes in float64 and casts with
+    # ``astype(final_dtype)`` at the end, so a NaN or +/-inf burn value
+    # (e.g. a GeoDataFrame column with missing data) against an integer
+    # dtype lands on a platform sentinel (NaN -> -2147483648 for int32) and
+    # against bool collapses to True -- silently on the numpy backend,
+    # whose final cast suppresses the RuntimeWarning.  This mirrors the
+    # NaN-fill guard (#2504) and the unsafe-integer guard (#3056) above;
+    # the non-finite burn value was the remaining gap (#3085).
+    # ``merge='count'`` never reads property values (the burned value is
+    # the overlap count), so NaN attributes stay usable there.  Float
+    # dtypes are unaffected: NaN/inf are representable.
+    if ((np.issubdtype(final_dtype_np, np.integer)
+            or final_dtype_np == np.bool_)
+            and props_array.size > 0
+            and merge != 'count'):
+        nonfinite_props = ~np.isfinite(props_array)
+        if nonfinite_props.any():
+            bad_value = float(props_array[nonfinite_props].flat[0])
+            raise ValueError(
+                f"burn value {bad_value!r} is not finite and cannot be "
+                f"represented in output dtype {final_dtype_np}: the final "
+                f"cast would silently turn it into a platform sentinel "
+                f"(e.g. NaN -> -2147483648 for int32, NaN -> True for "
+                f"bool). Remove or fill the non-finite values, or use a "
+                f"floating output dtype.")
 
     # For GPU paths, resolve string merge names to GPU (merge_fn,
     # should_write_fn) pairs.  User callables are paired with the
@@ -3377,10 +4219,10 @@ def rasterize(
     # ``_ensure_gpu_kernels``; ``None`` falls back to the non-atomic
     # closure path used for user callables.
     gpu_merge_name = None
-    if use_cuda:
+    if gpu:
         if cupy is None:
             raise ImportError(
-                "CuPy is required for use_cuda=True but is not installed")
+                "CuPy is required for gpu=True but is not installed")
         gpu_fns = _get_gpu_merge_fns()
         if isinstance(_merge_fn_gpu, str):
             gpu_merge_fn, should_write_gpu = gpu_fns[_merge_fn_gpu]
@@ -3391,11 +4233,29 @@ def rasterize(
             # _should_write_any_gpu from the cache.  The cached dict
             # always includes a sum/count entry that uses it.
             _, should_write_gpu = gpu_fns['sum']
+            # A callable keeps gpu_merge_name=None, i.e. the non-atomic
+            # read-modify-write path in _apply_merge_gpu.  Overlapping
+            # geometries then race and the overlap pixels are
+            # nondeterministic.  Warn here (after the CuPy check so a
+            # missing-dependency caller only sees the ImportError); this
+            # covers both the cupy and dask+cupy paths.  A built-in string
+            # merge stays deterministic over overlap.
+            warnings.warn(
+                "A custom callable merge on the GPU backend "
+                "(gpu=True) uses a non-atomic read-modify-write, so "
+                "values for pixels where geometries overlap are "
+                "nondeterministic and may not match the CPU backend. Use a "
+                "built-in string merge ('sum', 'count', 'min', 'max', "
+                "'first', 'last') if you need a deterministic result over "
+                "overlap.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     if chunks is not None:
         row_chunks, col_chunks = _normalize_chunks(
             chunks, final_height, final_width)
-        if use_cuda:
+        if gpu:
             out = _run_dask_cupy(
                 geom_list, props_array, final_bounds,
                 final_height, final_width, fill, final_dtype,
@@ -3407,7 +4267,7 @@ def rasterize(
                 final_height, final_width, fill, final_dtype,
                 all_touched, merge_fn, should_write_cpu,
                 row_chunks, col_chunks)
-    elif use_cuda:
+    elif gpu:
         out = _run_cupy(geom_list, props_array, final_bounds,
                         final_height, final_width, fill, final_dtype,
                         all_touched, gpu_merge_fn, should_write_gpu,
@@ -3483,6 +4343,31 @@ def rasterize(
         out_attrs['nodata'] = fill
         out_attrs['_FillValue'] = fill
         out_attrs['nodatavals'] = (fill,)
+
+    # Emit the geometry CRS when the output would otherwise carry none.
+    # The grid is laid out in the geometry's coordinate system (bounds
+    # come from the geometry coords), so a CRS-carrying GeoDataFrame
+    # rasterized without ``like`` should produce a raster labeled with
+    # that CRS -- otherwise to_geotiff writes an un-georeferenced file
+    # and polygonize(rasterize(gdf)) returns crs=None (issue #3087).
+    # A template CRS always wins: if ``like`` supplied attrs['crs'],
+    # attrs['crs_wkt'], or a spatial_ref coord, those are left alone
+    # (the check_crs guard has already compared them to geom_crs).
+    # Follow the geotiff attrs convention (xrspatial/geotiff/_attrs.py):
+    # an EPSG int under 'crs' when one resolves, else WKT under
+    # 'crs_wkt'.  geom_crs is only non-None on the GeoDataFrame path,
+    # where pyproj is available (geopandas requires it).
+    if (geom_crs is not None
+            and 'crs' not in out_attrs
+            and 'crs_wkt' not in out_attrs
+            and 'spatial_ref' not in like_extra_coords):
+        from pyproj import CRS as _PyprojCRS
+        crs_obj = _PyprojCRS(geom_crs)
+        epsg = crs_obj.to_epsg()
+        if epsg is not None:
+            out_attrs['crs'] = epsg
+        else:
+            out_attrs['crs_wkt'] = crs_obj.to_wkt()
 
     # Combine y/x dim coords with any non-dim coords carried from the
     # template (e.g. rioxarray's spatial_ref CRS coord).

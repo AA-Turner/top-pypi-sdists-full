@@ -4,20 +4,22 @@ from __future__ import annotations
 
 import re
 from json import dumps
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from ...const import API_PATH
-from ...util import _deprecate_args, cachedproperty
-from ..listing.mixins import SubredditListingMixin
-from .base import RedditBase
-from .redditor import Redditor
-from .subreddit import Subreddit, SubredditStream
+from praw.const import API_PATH
+from praw.models.listing.mixins import SubredditListingMixin
+from praw.models.reddit.base import RedditBase
+from praw.models.reddit.mixins import CreatedMixin
+from praw.models.reddit.redditor import Redditor
+from praw.models.reddit.subreddit import Subreddit, SubredditStream
+from praw.util import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    import praw
+    from praw import models
 
 
-class Multireddit(SubredditListingMixin, RedditBase):
+class Multireddit(SubredditListingMixin, CreatedMixin, RedditBase):
     r"""A class for users' multireddits.
 
     This is referred to as a "Custom Feed" on the Reddit UI.
@@ -47,6 +49,7 @@ class Multireddit(SubredditListingMixin, RedditBase):
 
     """
 
+    SLUG_CUTOFF_LENGTH = 21
     STR_FIELD = "path"
     RE_INVALID = re.compile(r"[\W_]+", re.UNICODE)
 
@@ -60,8 +63,8 @@ class Multireddit(SubredditListingMixin, RedditBase):
 
         """
         title = Multireddit.RE_INVALID.sub("_", title).strip("_").lower()
-        if len(title) > 21:  # truncate to nearest word
-            title = title[:21]
+        if len(title) > Multireddit.SLUG_CUTOFF_LENGTH:  # truncate to nearest word
+            title = title[: Multireddit.SLUG_CUTOFF_LENGTH]
             last_word = title.rfind("_")
             if last_word > 0:
                 title = title[:last_word]
@@ -90,33 +93,34 @@ class Multireddit(SubredditListingMixin, RedditBase):
                 print(submission)
 
         """
-        return SubredditStream(self)
+        return SubredditStream(cast("models.Subreddit", self))
 
-    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.Multireddit` instance."""
-        self.path = None
+        self.path: str | None = None
         super().__init__(reddit, _data=_data)
+        assert self.path is not None
         self._author = Redditor(reddit, self.path.split("/", 3)[2])
         self._path = API_PATH["multireddit"].format(multi=self.name, user=self._author)
         self.path = f"/{self._path[:-1]}"  # Prevent requests for path
         if "subreddits" in self.__dict__:
             self.subreddits = [Subreddit(reddit, x["name"]) for x in self.subreddits]
 
-    def _fetch(self):
+    def _fetch(self) -> None:
         data = self._fetch_data()
         data = data["data"]
         other = type(self)(self._reddit, _data=data)
         self.__dict__.update(other.__dict__)
         super()._fetch()
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict[str, str], None]:
         return (
             "multireddit_api",
             {"multi": self.name, "user": self._author.name},
             None,
         )
 
-    def add(self, subreddit: praw.models.Subreddit):
+    def add(self, subreddit: models.Subreddit) -> None:
         """Add a subreddit to this multireddit.
 
         :param subreddit: The subreddit to add to this multi.
@@ -129,14 +133,11 @@ class Multireddit(SubredditListingMixin, RedditBase):
             reddit.multireddit(redditor="bboe", name="test").add(subreddit)
 
         """
-        url = API_PATH["multireddit_update"].format(
-            multi=self.name, user=self._author, subreddit=subreddit
-        )
+        url = API_PATH["multireddit_update"].format(multi=self.name, user=self._author, subreddit=subreddit)
         self._reddit.put(url, data={"model": dumps({"name": str(subreddit)})})
         self._reset_attributes("subreddits")
 
-    @_deprecate_args("display_name")
-    def copy(self, *, display_name: str | None = None) -> praw.models.Multireddit:
+    def copy(self, *, display_name: str | None = None) -> models.Multireddit:
         """Copy this multireddit and return the new multireddit.
 
         :param display_name: The display name for the copied multireddit. Reddit will
@@ -158,13 +159,11 @@ class Multireddit(SubredditListingMixin, RedditBase):
         data = {
             "display_name": display_name,
             "from": self.path,
-            "to": API_PATH["multireddit"].format(
-                multi=name, user=self._reddit.user.me()
-            ),
+            "to": API_PATH["multireddit"].format(multi=name, user=self._reddit.user.me()),
         }
         return self._reddit.post(API_PATH["multireddit_copy"], data=data)
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete this multireddit.
 
         For example, to delete multireddit ``bboe/test``:
@@ -174,12 +173,10 @@ class Multireddit(SubredditListingMixin, RedditBase):
             reddit.multireddit(redditor="bboe", name="test").delete()
 
         """
-        path = API_PATH["multireddit_api"].format(
-            multi=self.name, user=self._author.name
-        )
+        path = API_PATH["multireddit_api"].format(multi=self.name, user=self._author.name)
         self._reddit.delete(path)
 
-    def remove(self, subreddit: praw.models.Subreddit):
+    def remove(self, subreddit: models.Subreddit) -> None:
         """Remove a subreddit from this multireddit.
 
         :param subreddit: The subreddit to remove from this multi.
@@ -192,16 +189,14 @@ class Multireddit(SubredditListingMixin, RedditBase):
             reddit.multireddit(redditor="bboe", name="test").remove(subreddit)
 
         """
-        url = API_PATH["multireddit_update"].format(
-            multi=self.name, user=self._author, subreddit=subreddit
-        )
+        url = API_PATH["multireddit_update"].format(multi=self.name, user=self._author, subreddit=subreddit)
         self._reddit.delete(url, data={"model": dumps({"name": str(subreddit)})})
         self._reset_attributes("subreddits")
 
     def update(
         self,
-        **updated_settings: str | list[str | praw.models.Subreddit | dict[str, str]],
-    ):
+        **updated_settings: str | list[str | models.Subreddit | dict[str, str]],
+    ) -> None:
         """Update this multireddit.
 
         Keyword arguments are passed for settings that should be updated. They can any
@@ -230,11 +225,7 @@ class Multireddit(SubredditListingMixin, RedditBase):
 
         """
         if "subreddits" in updated_settings:
-            updated_settings["subreddits"] = [
-                {"name": str(sub)} for sub in updated_settings["subreddits"]
-            ]
-        path = API_PATH["multireddit_api"].format(
-            multi=self.name, user=self._author.name
-        )
+            updated_settings["subreddits"] = [{"name": str(sub)} for sub in updated_settings["subreddits"]]
+        path = API_PATH["multireddit_api"].format(multi=self.name, user=self._author.name)
         new = self._reddit.put(path, data={"model": dumps(updated_settings)})
         self.__dict__.update(new.__dict__)

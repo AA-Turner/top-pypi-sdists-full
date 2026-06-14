@@ -5,6 +5,7 @@ import argparse
 import logging
 
 from kanban_framework.cli.task_utils import _resolve
+from kanban_framework.infra.consts import Consts
 
 
 def cmd_create(args: list[str]) -> dict:
@@ -37,8 +38,8 @@ def cmd_create(args: list[str]) -> dict:
     parser.add_argument("--mode", type=str, default=None,                         help="Task mode: lightweight, quick, custom, or any custom mode from workflow.json")
     parser.add_argument("--lightweight", action="store_true", default=False,
                         help="Shorthand for --mode lightweight")
-    parser.add_argument("--auto-mode", nargs="*", default=[], dest="auto_mode",
-                        help="Auto-mode flags: all, brainstorm, iteration, lightweight, archive, worktree")
+    parser.add_argument("--auto-mode", type=str, default="", dest="auto_mode",
+                        help="Auto-mode flags (comma-separated): all, brainstorm, iteration, lightweight, archive, worktree")
     parser.add_argument("--priority", type=int, default=5, dest="priority",
                         help="Task priority (0-10, default 5)")
     parser.add_argument("--test-level", type=str, default=None,
@@ -63,7 +64,9 @@ def cmd_create(args: list[str]) -> dict:
     parsed = parser.parse_args(filtered_args)
     title = " ".join(parsed.title) if parsed.title else "Untitled"
     desc = parsed.desc or ""
-    auto_mode_flags = parsed.auto_mode
+    # Parse comma-separated auto-mode string into list (#645: was nargs="*"
+    # which greedily consumed positional title as another flag value)
+    auto_mode_flags = [f.strip().lower() for f in parsed.auto_mode.split(",") if f.strip()]
 
     # ── Resolve filesystem and config (early, for default_mode) ──
     fs, _, tm = _resolve()

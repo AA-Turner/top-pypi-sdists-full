@@ -730,11 +730,13 @@ namespace AIS
 		char buf[16];
 		if (start_year > 0 && start_month > 0 && start_day > 0) {
 			snprintf(buf, sizeof(buf), "%04u%02u%02u", start_year, start_month, start_day);
-			json.Add(AIS::KEY_START_DATE, buf);
+			start_date.assign(buf);
+			json.Add(AIS::KEY_START_DATE, &start_date);
 		}
 		if (end_year > 0 && end_month > 0 && end_day > 0) {
 			snprintf(buf, sizeof(buf), "%04u%02u%02u", end_year, end_month, end_day);
-			json.Add(AIS::KEY_END_DATE, buf);
+			end_date.assign(buf);
+			json.Add(AIS::KEY_END_DATE, &end_date);
 		}
 
 		unsigned start_hour = msg.getUint(start + 46, 5);
@@ -744,11 +746,13 @@ namespace AIS
 
 		if (start_hour < 24 && start_min < 60) {
 			snprintf(buf, sizeof(buf), "%02u%02u", start_hour, start_min);
-			json.Add(AIS::KEY_START_TIME, buf);
+			start_time.assign(buf);
+			json.Add(AIS::KEY_START_TIME, &start_time);
 		}
 		if (end_hour < 24 && end_min < 60) {
 			snprintf(buf, sizeof(buf), "%02u%02u", end_hour, end_min);
-			json.Add(AIS::KEY_END_TIME, buf);
+			end_time.assign(buf);
+			json.Add(AIS::KEY_END_TIME, &end_time);
 		}
 
 		SL(msg, AIS::KEY_START_LON, start + 68, 28, 1 / 600000.0f, 0);
@@ -838,6 +842,7 @@ namespace AIS
 		else if (dac == 200 && fid == 10)                      asm_inland_fid10_eri_static(msg, start);
 		else if (dac == 200 && fid == 23)                      asm_inland_fid23_emma_warning(msg, start);
 		else if (dac == 200 && fid == 24)                      asm_inland_fid24_water_level(msg, start);
+		else if (dac == 200 && fid == 55)                      asm_inland_fid55_persons(msg, start);
 		else if (dac == 1 && fid == 31)                        asm_imo_fid31_meteo_hydro(msg, start);
 		else if (dac == 200 && fid == 25)                      asm_inland_fid25_bridge_clearance(msg, start);
 		else if (dac == 1 && fid == 21)                        asm_imo_fid21_weather_ship(msg, start);
@@ -902,7 +907,6 @@ namespace AIS
 	void JSONAIS::ProcessMsg(const AIS::Message &msg, TAG &tag)
 	{
 
-		rxtime = msg.getRxTime();
 		channel = std::string(1, msg.getChannel());
 
 		json.Add(AIS::KEY_CLASS, &class_str);
@@ -913,6 +917,7 @@ namespace AIS
 
 		if (tag.mode & 2)
 		{
+			rxtime = msg.getRxTime();
 			json.Add(AIS::KEY_RXTIME, &rxtime);
 			json.Add(AIS::KEY_RXUXTIME, (double)msg.getRxTimeMicros() / 1000000.0);
 		}
@@ -1627,7 +1632,7 @@ namespace AIS
 		{725, "Chile", "CL"},
 		{730, "Colombia", "CO"},
 		{735, "Ecuador", "EC"},
-		{740, "UK", "UK"},
+		{740, "Falkland Islands", "FK"},
 		{745, "Guiana", "GF"},
 		{750, "Guyana", "GY"},
 		{755, "Paraguay", "PY"},

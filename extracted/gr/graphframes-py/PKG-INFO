@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphframes-py
-Version: 0.11.0
+Version: 0.12.0
 Summary: GraphFrames: Graph Processing Framework for Apache Spark
 License: Apache 2.0
 Keywords: pyspark,network-analysis,pagerank,pregel,graph

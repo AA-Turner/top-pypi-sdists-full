@@ -22,7 +22,7 @@ class PatreonExtractor(Extractor):
     directory_fmt = ("{category}", "{creator[full_name]}")
     filename_fmt = "{id}_{title}_{num:>02}.{extension}"
     archive_fmt = "{id}_{num}"
-    useragent = "Patreon/126.9.0.15 (Android; Android 14; Scale/2.10)"
+    useragent = "Patreon/126.24.0.9 (Android; Android 14; Scale/2.10)"
     _warning = True
 
     def _init(self):
@@ -396,6 +396,38 @@ class PatreonCollectionExtractor(PatreonExtractor):
         return "&sort=" + sort if sort else ""
 
 
+class PatreonPostExtractor(PatreonExtractor):
+    """Extractor for media from a single post"""
+    subcategory = "post"
+    pattern = (r"(?:https?://)?(?:www\.)?patreon\.com"
+               r"/(?:[^/?#]+/)?posts/([^/?#]+)")
+    example = "https://www.patreon.com/posts/TITLE-12345"
+
+    def posts(self):
+        if not self._logged_in and \
+                self.session.headers["User-Agent"] is self.useragent:
+            # enable `.m3u8` manifest downloads
+            headers = {"User-Agent":
+                       "Patreon/14.2.1 (Android; Android 11; Scale/2.10)"}
+        else:
+            headers = None
+
+        url = f"{self.root}/posts/{self.groups[0]}"
+        page = self.request(url, headers=headers, notfound=True).text
+        bootstrap = self._extract_bootstrap(page)
+
+        try:
+            post = bootstrap["post"]
+        except KeyError:
+            self.log.debug(bootstrap)
+            if bootstrap.get("campaignDisciplinaryStatus") == "suspended":
+                self.log.warning("Account suspended")
+            return ()
+
+        included = self._transform(post["included"])
+        return (self._process(post["data"], included),)
+
+
 class PatreonCreatorExtractor(PatreonExtractor):
     """Extractor for a creator's works"""
     subcategory = "creator"
@@ -483,34 +515,3 @@ class PatreonUserExtractor(PatreonExtractor):
             "&json-api-use-default-includes=false"
         ))
         return self._pagination(url)
-
-
-class PatreonPostExtractor(PatreonExtractor):
-    """Extractor for media from a single post"""
-    subcategory = "post"
-    pattern = r"(?:https?://)?(?:www\.)?patreon\.com/posts/([^/?#]+)"
-    example = "https://www.patreon.com/posts/TITLE-12345"
-
-    def posts(self):
-        if not self._logged_in and \
-                self.session.headers["User-Agent"] is self.useragent:
-            # enable `.m3u8` manifest downloads
-            headers = {"User-Agent":
-                       "Patreon/14.2.1 (Android; Android 11; Scale/2.10)"}
-        else:
-            headers = None
-
-        url = f"{self.root}/posts/{self.groups[0]}"
-        page = self.request(url, headers=headers, notfound=True).text
-        bootstrap = self._extract_bootstrap(page)
-
-        try:
-            post = bootstrap["post"]
-        except KeyError:
-            self.log.debug(bootstrap)
-            if bootstrap.get("campaignDisciplinaryStatus") == "suspended":
-                self.log.warning("Account suspended")
-            return ()
-
-        included = self._transform(post["included"])
-        return (self._process(post["data"], included),)

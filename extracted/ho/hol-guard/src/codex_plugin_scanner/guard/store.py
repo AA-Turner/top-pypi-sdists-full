@@ -1958,6 +1958,7 @@ class GuardStore:
             approval_gate_grant=approval_gate_grant,
             now=now,
         )
+        _validate_scoped_policy_artifact_target(decision.scope, decision.artifact_id)
         artifact_id, artifact_hash, workspace, publisher = self._normalized_policy_keys(decision)
         with self._connect() as connection:
             connection.execute(
@@ -2013,6 +2014,7 @@ class GuardStore:
                 "delete from policy_decisions where source in ('cloud-sync', 'team-policy', 'policy-bundle')"
             )
             for decision in decisions:
+                _validate_scoped_policy_artifact_target(decision.scope, decision.artifact_id)
                 artifact_id, artifact_hash, workspace, publisher = self._normalized_policy_keys(decision)
                 connection.execute(
                     """
@@ -3308,6 +3310,28 @@ class GuardStore:
         if isinstance(payload, (dict, list)):
             return payload
         return None
+
+    def set_cloud_exceptions(self, items: list[dict[str, object]], now: str) -> None:
+        self.set_sync_payload("cloud_exceptions", items, now)
+
+    def list_cloud_exceptions(self, harness: str | None = None) -> list[dict[str, object]]:
+        from .cloud_exceptions import (
+            build_cloud_exceptions_from_stored_items,
+            cloud_exception_to_dict,
+            list_active_cloud_exceptions,
+        )
+
+        payload = self.get_sync_payload("cloud_exceptions")
+        raw_items: list[dict[str, object]] = []
+        if isinstance(payload, list):
+            raw_items = [item for item in payload if isinstance(item, dict)]
+        elif isinstance(payload, dict):
+            nested = payload.get("items")
+            if isinstance(nested, list):
+                raw_items = [item for item in nested if isinstance(item, dict)]
+        parsed_items = build_cloud_exceptions_from_stored_items(raw_items)
+        active_items = list_active_cloud_exceptions(parsed_items, harness=harness)
+        return [cloud_exception_to_dict(item) for item in active_items]
 
     def delete_sync_payload(self, state_key: str) -> None:
         with self._connect() as connection:
@@ -5094,6 +5118,19 @@ def _stored_workspace_policy_key(workspace: str) -> str:
         msg = "Workspace policy key cannot be empty"
         raise ValueError(msg)
     return policy_key
+
+
+def _validate_scoped_policy_artifact_target(scope: str, artifact_id: str | None) -> None:
+    if scope not in {"harness", "global"}:
+        return
+    if artifact_id is None or not artifact_id.strip():
+        return
+    if not artifact_id.startswith("family:"):
+        return
+    family = artifact_id.removeprefix("family:").strip().lower()
+    if family not in _SCOPED_HARNESS_FAMILIES:
+        msg = "unsupported_scoped_policy_family"
+        raise ValueError(msg)
 
 
 def _artifact_family_key(artifact_id: str | None) -> str | None:

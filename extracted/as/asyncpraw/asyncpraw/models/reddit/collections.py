@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, cast
 
-from ...const import API_PATH
-from ...exceptions import ClientException
-from ...util import _deprecate_args
-from ...util.cache import cachedproperty
-from ..base import AsyncPRAWBase
-from ..util import deprecate_lazy
-from .base import RedditBase
-from .redditor import Redditor
-from .submission import Submission
-from .subreddit import Subreddit
+from asyncpraw.const import API_PATH
+from asyncpraw.exceptions import ClientException
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.reddit.base import RedditBase
+from asyncpraw.models.reddit.mixins import CreatedMixin
+from asyncpraw.models.reddit.redditor import Redditor
+from asyncpraw.models.reddit.submission import Submission
+from asyncpraw.models.reddit.subreddit import Subreddit
+from asyncpraw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    import datetime
+    from collections.abc import AsyncIterator, Iterator
+
     import asyncpraw.models
 
 
@@ -32,7 +34,7 @@ class CollectionModeration(AsyncPRAWBase):
 
     """
 
-    def __init__(self, reddit: asyncpraw.Reddit, collection_id: str):
+    def __init__(self, reddit: asyncpraw.Reddit, collection_id: str) -> None:
         """Initialize a :class:`.CollectionModeration` instance.
 
         :param collection_id: The ID of a :class:`.Collection`.
@@ -61,7 +63,7 @@ class CollectionModeration(AsyncPRAWBase):
         except ClientException:
             return Submission(self._reddit, id=post).fullname
 
-    async def add_post(self, submission: asyncpraw.models.Submission):
+    async def add_post(self, submission: asyncpraw.models.Submission) -> None:
         """Add a post to the collection.
 
         :param submission: The post to add, a :class:`.Submission`, its permalink as a
@@ -87,7 +89,7 @@ class CollectionModeration(AsyncPRAWBase):
             data={"collection_id": self.collection_id, "link_fullname": link_fullname},
         )
 
-    async def delete(self):
+    async def delete(self) -> None:
         """Delete this collection.
 
         Example usage:
@@ -103,11 +105,9 @@ class CollectionModeration(AsyncPRAWBase):
             :meth:`~.SubredditCollectionsModeration.create`
 
         """
-        await self._reddit.post(
-            API_PATH["collection_delete"], data={"collection_id": self.collection_id}
-        )
+        await self._reddit.post(API_PATH["collection_delete"], data={"collection_id": self.collection_id})
 
-    async def remove_post(self, submission: asyncpraw.models.Submission):
+    async def remove_post(self, submission: asyncpraw.models.Submission) -> None:
         """Remove a post from the collection.
 
         :param submission: The post to remove, a :class:`.Submission`, its permalink as
@@ -133,7 +133,7 @@ class CollectionModeration(AsyncPRAWBase):
             data={"collection_id": self.collection_id, "link_fullname": link_fullname},
         )
 
-    async def reorder(self, links: list[str | asyncpraw.models.Submission]):
+    async def reorder(self, links: list[str | asyncpraw.models.Submission]) -> None:
         r"""Reorder posts in the collection.
 
         :param links: A list of :class:`.Submission`\ s or a ``str`` that is either a
@@ -156,7 +156,7 @@ class CollectionModeration(AsyncPRAWBase):
             data={"collection_id": self.collection_id, "link_ids": link_ids},
         )
 
-    async def update_description(self, description: str):
+    async def update_description(self, description: str) -> None:
         """Update the collection's description.
 
         :param description: The new description.
@@ -179,7 +179,7 @@ class CollectionModeration(AsyncPRAWBase):
             data={"collection_id": self.collection_id, "description": description},
         )
 
-    async def update_display_layout(self, display_layout: str):
+    async def update_display_layout(self, display_layout: str) -> None:
         """Update the collection's display layout.
 
         :param display_layout: Either ``"TIMELINE"`` for events or discussions or
@@ -205,7 +205,7 @@ class CollectionModeration(AsyncPRAWBase):
             },
         )
 
-    async def update_title(self, title: str):
+    async def update_title(self, title: str) -> None:
         """Update the collection's title.
 
         :param title: The new title.
@@ -246,15 +246,12 @@ class SubredditCollectionsModeration(AsyncPRAWBase):
         reddit: asyncpraw.Reddit,
         subreddit: asyncpraw.models.Subreddit,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.SubredditCollectionsModeration` instance."""
         super().__init__(reddit, _data)
         self.subreddit = subreddit
 
-    @_deprecate_args("title", "description", "display_layout")
-    async def create(
-        self, *, description: str, display_layout: str | None = None, title: str
-    ) -> Collection:
+    async def create(self, *, description: str, display_layout: str | None = None, title: str) -> Collection:
         """Create a new :class:`.Collection`.
 
         The authenticated account must have appropriate moderator permissions in the
@@ -333,7 +330,7 @@ class SubredditCollections(AsyncPRAWBase):
         """
         return SubredditCollectionsModeration(self._reddit, self.subreddit)
 
-    async def __aiter__(self):
+    async def __aiter__(self) -> AsyncIterator[Collection]:
         r"""Iterate over the :class:`.Subreddit`'s :class:`.Collection`\ s.
 
         Example usage:
@@ -354,13 +351,12 @@ class SubredditCollections(AsyncPRAWBase):
         for collection in request:
             yield collection
 
-    @deprecate_lazy
     async def __call__(
         self,
         collection_id: str | None = None,
         permalink: str | None = None,
+        *,
         fetch: bool = True,
-        **_,
     ) -> Collection:
         """Return the :class:`.Collection` with the specified ID.
 
@@ -402,9 +398,7 @@ class SubredditCollections(AsyncPRAWBase):
         if (collection_id is None) == (permalink is None):
             msg = "Exactly one of 'collection_id' or 'permalink' must be provided."
             raise TypeError(msg)
-        collection = Collection(
-            self._reddit, collection_id=collection_id, permalink=permalink
-        )
+        collection = Collection(self._reddit, collection_id=collection_id, permalink=permalink)
         if fetch:
             await collection._fetch()
         return collection
@@ -414,13 +408,13 @@ class SubredditCollections(AsyncPRAWBase):
         reddit: asyncpraw.Reddit,
         subreddit: asyncpraw.models.Subreddit,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.SubredditCollections` instance."""
         super().__init__(reddit, _data)
         self.subreddit = subreddit
 
 
-class Collection(RedditBase):
+class Collection(CreatedMixin, RedditBase):
     """Class to represent a :class:`.Collection`.
 
     Obtain an instance via:
@@ -463,6 +457,8 @@ class Collection(RedditBase):
 
     STR_FIELD = "collection_id"
 
+    _created_at_attribute = "created_at_utc"
+
     @cachedproperty
     def mod(self) -> CollectionModeration:
         """Get an instance of :class:`.CollectionModeration`.
@@ -484,13 +480,22 @@ class Collection(RedditBase):
         """
         return CollectionModeration(self._reddit, self.collection_id)
 
+    @property
+    def updated_datetime(self) -> datetime.datetime:
+        """Return the last update time as a timezone-aware :class:`datetime.datetime`.
+
+        The returned object is localized to the system's timezone.
+
+        """
+        return self._to_local_datetime(self.last_update_utc)
+
     def __init__(
         self,
         reddit: asyncpraw.Reddit,
-        _data: dict[str, Any] = None,
+        _data: dict[str, Any] | None = None,
         collection_id: str | None = None,
         permalink: str | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.Collection` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
@@ -499,7 +504,7 @@ class Collection(RedditBase):
         :param permalink: The permalink of the :class:`.Collection`.
 
         """
-        if (_data, collection_id, permalink).count(None) != 2:
+        if sum(1 for value in (_data, collection_id, permalink) if value is not None) != 1:
             msg = "Exactly one of '_data', 'collection_id', or 'permalink' must be provided."
             raise TypeError(msg)
 
@@ -516,7 +521,7 @@ class Collection(RedditBase):
             "include_links": True,
         }
 
-    def __iter__(self) -> Iterator[Any, None, None]:
+    def __iter__(self) -> Iterator[asyncpraw.models.Submission]:
         """Provide a way to iterate over the posts in this :class:`.Collection`.
 
         Example usage:
@@ -545,15 +550,15 @@ class Collection(RedditBase):
         """
         return len(self.link_ids)
 
-    def __setattr__(self, attribute: str, value: Any):
+    def __setattr__(self, attribute: str, value: Any) -> None:
         """Objectify author, subreddit, and sorted_links attributes."""
         if attribute == "author_name":
             self.author = Redditor(self._reddit, name=attribute)
         elif attribute == "sorted_links":
-            value = self._reddit._objector.objectify(value)
+            value = self._reddit._objector.objectify(data=value)
         super().__setattr__(attribute, value)
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         data = await self._fetch_data()
         try:
             self._reddit._objector.check_error(data)
@@ -568,10 +573,10 @@ class Collection(RedditBase):
         self.__dict__.update(other.__dict__)
         await super()._fetch()
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict, dict[str, bool | str]]:
         return "collection", {}, self._info_params
 
-    async def follow(self):
+    async def follow(self) -> None:
         """Follow this :class:`.Collection`.
 
         Example usage:
@@ -604,12 +609,10 @@ class Collection(RedditBase):
             print(await collection.subreddit())
 
         """
-        async for subreddit in self._reddit.info(  # noqa: RET503
-            fullnames=[self.subreddit_id]
-        ):
-            return subreddit
+        subreddits = [subreddit async for subreddit in self._reddit.info(fullnames=[self.subreddit_id])]
+        return cast("asyncpraw.models.Subreddit", subreddits[0])
 
-    async def unfollow(self):
+    async def unfollow(self) -> None:
         """Unfollow this :class:`.Collection`.
 
         Example usage:

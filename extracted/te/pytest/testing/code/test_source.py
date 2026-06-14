@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import textwrap
 from typing import Any
+from unittest.mock import patch
 
 from _pytest._code import Code
 from _pytest._code import Frame
@@ -210,7 +211,8 @@ class TestSourceParsing:
 
     def test_getstatementrange_with_syntaxerror_issue7(self) -> None:
         source = Source(":")
-        pytest.raises(SyntaxError, lambda: source.getstatementrange(0))
+        with pytest.raises(SyntaxError):
+            source.getstatementrange(0)
 
 
 def test_getstartingblock_singleline() -> None:
@@ -379,7 +381,8 @@ def test_code_of_object_instance_with_call() -> None:
     class A:
         pass
 
-    pytest.raises(TypeError, lambda: Source(A()))
+    with pytest.raises(TypeError):
+        Source(A())
 
     class WithCall:
         def __call__(self) -> None:
@@ -392,7 +395,8 @@ def test_code_of_object_instance_with_call() -> None:
         def __call__(self) -> None:
             pass
 
-    pytest.raises(TypeError, lambda: Code.from_function(Hello))
+    with pytest.raises(TypeError):
+        Code.from_function(Hello)
 
 
 def getstatement(lineno: int, source) -> Source:
@@ -647,3 +651,27 @@ def test_getstartingblock_multiline() -> None:
     # fmt: on
     values = [i for i in x.source.lines if i.strip()]
     assert len(values) == 4
+
+
+def test_patched_compile() -> None:
+    # ensure Source doesn't break
+    # when compile() modifies code dynamically
+    from builtins import compile
+
+    def patched_compile1(_, *args, **kwargs):
+        return compile("", *args, **kwargs)
+
+    with patch("builtins.compile", new=patched_compile1):
+        Source(patched_compile1).getstatement(1)
+
+    # fmt: off
+    def patched_compile2(_, *args, **kwargs):
+
+        # first line of this function (the one above this one) must be empty
+        # LINES must be equal or higher than number of lines of this function
+        LINES = 99
+        return compile("\ndef a():\n" + "\n" * LINES + "    pass", *args, **kwargs)
+    # fmt: on
+
+    with patch("builtins.compile", new=patched_compile2):
+        Source(patched_compile2).getstatement(1)

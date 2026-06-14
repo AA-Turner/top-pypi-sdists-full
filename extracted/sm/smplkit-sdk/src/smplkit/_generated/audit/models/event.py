@@ -52,10 +52,10 @@ class Event:
                 under `data.snapshot`), request identifiers, or any other context the event needs to carry.
             do_not_forward (bool | Unset): When `true`, the event is recorded but not delivered to any forwarder, and no
                 delivery log entries are created for it. Default: False.
-            environment (None | str | Unset): The environment the event occurred in. Always present on read. Resolved when
-                the event is recorded — from a single-environment credential, or the `X-Smplkit-Environment` header for multi-
-                environment credentials — and never set on the request body. The same content recorded in two environments
-                produces two distinct events.
+            environment (None | str | Unset): The environment the event occurred in. On write, optionally names the target
+                environment: omit it and a single-environment credential implies it (a multi-environment credential must name
+                it), and a named environment must be one the caller may access. Always present on read as the resolved
+                environment. The same content recorded in two environments produces two distinct events.
             created_at (datetime.datetime | None | Unset): When the event was received and recorded.
             idempotency_key (None | str | Unset): The idempotency key used to deduplicate the record. Echoes the
                 `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.

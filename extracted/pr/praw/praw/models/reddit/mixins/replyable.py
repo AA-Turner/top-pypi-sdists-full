@@ -4,16 +4,24 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ....const import API_PATH
+from praw.const import API_PATH
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    import praw
+    from praw import models
 
 
 class ReplyableMixin:
     """Interface for :class:`.RedditBase` classes that can be replied to."""
 
-    def reply(self, body: str) -> praw.models.Comment | praw.models.Message | None:
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: praw.Reddit
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    def reply(self, body: str) -> models.Comment | models.Message | None:
         """Reply to the object.
 
         :param body: The Markdown formatted content for a comment.

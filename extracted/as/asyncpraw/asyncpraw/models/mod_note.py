@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
-from ..endpoints import API_PATH
-from .base import AsyncPRAWBase
+from typing import TYPE_CHECKING
+
+from asyncpraw.endpoints import API_PATH
+from asyncpraw.models.base import AsyncPRAWBase, DynamicAttributes
+from asyncpraw.models.reddit.mixins import CreatedMixin
+
+if TYPE_CHECKING:
+    import asyncpraw.models
 
 
-class ModNote(AsyncPRAWBase):
+class ModNote(DynamicAttributes, CreatedMixin, AsyncPRAWBase):
     """Represent a moderator note.
 
     .. include:: ../../typical_attributes.rst
@@ -45,7 +51,13 @@ class ModNote(AsyncPRAWBase):
 
     """
 
-    def __eq__(self, other: ModNote) -> bool:
+    _created_at_attribute = "created_at"
+
+    id: str
+    subreddit: asyncpraw.models.Subreddit
+    user: asyncpraw.models.Redditor
+
+    def __eq__(self, other: ModNote | str | object) -> bool:
         """Return whether the other instance equals the current."""
         if isinstance(other, self.__class__):
             return self.id == other.id
@@ -53,7 +65,11 @@ class ModNote(AsyncPRAWBase):
             return self.id == other
         return super().__eq__(other)
 
-    async def delete(self):
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash(self.id)
+
+    async def delete(self) -> None:
         """Delete this note.
 
         For example, to delete the last note for u/spez from r/test, try:
@@ -64,7 +80,7 @@ class ModNote(AsyncPRAWBase):
                 note.delete()
 
         """
-        params = {
+        params: dict[str, str | int] = {
             "user": str(self.user),
             "subreddit": str(self.subreddit),
             "note_id": self.id,

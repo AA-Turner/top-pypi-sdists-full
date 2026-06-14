@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peewee
-Version: 4.0.7
+Version: 4.0.8
 Summary: a little orm
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/peewee
@@ -38,12 +38,17 @@ Dynamic: license-file
 peewee
 ======
 
-Peewee is a simple and small ORM. It has few (but expressive) concepts, making it easy to learn and intuitive to use.
+Peewee is a simple and small ORM. It has few (but expressive) concepts, making
+it easy to learn and intuitive to use.
+
+Peewee is a single module with no required dependencies and has been running
+production workloads of all sizes since 2010.
 
 * a small, expressive ORM
 * flexible query-builder that exposes full power of SQL
 * supports sqlite, mysql, mariadb, postgresql
-* asyncio support
+* `asyncio support <https://docs.peewee-orm.com/en/latest/peewee/asyncio.html>`__
+  built on the standard async drivers (aiosqlite, asyncpg, aiomysql)
 * tons of extensions
 * use with `flask <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html#flask>`__,
   `fastapi <https://docs.peewee-orm.com/en/latest/peewee/framework_integration.html#fastapi>`__,
@@ -168,9 +173,58 @@ Queries are expressive and composable:
     # table for tracking a "count" associated with each URL). We don't want to
     # naively get the save in two separate steps since this is prone to race
     # conditions.
-    Counter.update(count=Counter.count + 1).where(Counter.url == request.url)
+    Counter.update(count=Counter.count + 1).where(Counter.url == request.url).execute()
 
 Check out the `example twitter app <http://docs.peewee-orm.com/en/latest/peewee/example.html>`_.
+
+Asyncio
+-------
+
+.. code-block:: python
+
+    import asyncio
+    from peewee import *
+    from playhouse.pwasyncio import AsyncPostgresqlDatabase
+
+    db = AsyncPostgresqlDatabase('my_app')
+
+    class User(db.Model):
+        username = CharField(unique=True)
+
+    class Tweet(db.Model):
+        user = ForeignKeyField(User, backref='tweets')
+        message = TextField()
+
+    async def main():
+        async with db:
+            await db.acreate_tables([User, Tweet])
+
+            # Queries are awaited on the event loop using asyncpg.
+            huey = await User.acreate(username='huey')
+            tweet = await Tweet.acreate(user=huey, message='meow')
+
+            async with db.atomic():
+                tweet.message = 'purr'
+                await tweet.asave()
+
+            # Create a query - nothing is executed yet.
+            query = Tweet.select(Tweet, User).join(User)
+
+            # Execute and buffer the results.
+            tweets = await query.aexecute()  # Or: await db.list(query)
+            for tweet in tweets:
+                print(tweet.user.username, '->', tweet.message)
+
+            # Streaming results via server-side cursor.
+            async for tweet in db.iterate(query):
+                print(tweet.user.username, '->', tweet.message)
+
+        await db.close_pool()
+
+    asyncio.run(main())
+
+See the `asyncio docs <https://docs.peewee-orm.com/en/latest/peewee/asyncio.html>`_
+for details.
 
 Learning more
 -------------

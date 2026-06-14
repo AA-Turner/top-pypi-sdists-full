@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from ..util import _deprecate_args
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from praw import models
 
 
 class InlineMedia:
@@ -10,24 +13,26 @@ class InlineMedia:
 
     TYPE = None
 
-    def __eq__(self, other: InlineMedia) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Return whether the other instance equals the current."""
-        return all(
-            getattr(self, attr) == getattr(other, attr)
-            for attr in ["TYPE", "path", "caption", "media_id"]
+        return all(getattr(self, attr) == getattr(other, attr) for attr in ["TYPE", "media", "caption", "media_id"])
+
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash(
+            tuple(getattr(self, attr) for attr in ["TYPE", "media", "caption", "media_id"])
         )
 
-    @_deprecate_args("path", "caption")
-    def __init__(self, *, caption: str = None, path: str):
+    def __init__(self, *, caption: str | None = None, media: models.PostMedia) -> None:
         """Initialize an :class:`.InlineMedia` instance.
 
         :param caption: An optional caption to add to the image (default: ``None``).
-        :param path: The path to a media file.
+        :param media: The :class:`.PostMedia` to embed.
 
         """
-        self.path = path
+        self.media = media
         self.caption = caption
-        self.media_id = None
+        self.media_id: str | None = None
 
     def __repr__(self) -> str:
         """Return an object initialization representation of the instance."""
@@ -35,7 +40,7 @@ class InlineMedia:
 
     def __str__(self) -> str:
         """Return a string representation of the media in Markdown format."""
-        return f'\n\n![{self.TYPE}]({self.media_id} "{self.caption if self.caption else ""}")\n\n'
+        return f'\n\n![{self.TYPE}]({self.media_id} "{self.caption or ""}")\n\n'
 
 
 class InlineGif(InlineMedia):

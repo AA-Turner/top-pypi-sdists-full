@@ -103,6 +103,24 @@ def _join_environments(environments: list[str] | None) -> str | Any:
     return ",".join(environments)
 
 
+def _resolve_environment_filter(environments: list[str] | None, default: str | None) -> str | Any:
+    """Resolve the ``filter[environment]`` value for a read surface.
+
+    An explicit ``environments`` list always wins and is comma-joined.
+    Otherwise the client's configured ``default`` environment scopes the
+    read — this is the body-driven replacement for the old per-request
+    ``X-Smplkit-Environment`` header, which previously scoped every read to
+    the client's environment. A client with no configured environment and
+    no explicit list returns ``UNSET`` so the param is omitted and the
+    credential's own scoping applies server-side.
+    """
+    if environments:
+        return _join_environments(environments)
+    if default is not None:
+        return default
+    return UNSET
+
+
 def _extract_next_cursor(body_dict: dict[str, Any]) -> str | None:
     next_link = (body_dict.get("links") or {}).get("next")
     if next_link and "page[after]=" in next_link:
@@ -220,7 +238,6 @@ def _audit_transport(
     *,
     api_key: str | None,
     base_url: str | None,
-    environment: str | None,
     profile: str | None,
     base_domain: str | None,
     scheme: str | None,
@@ -232,11 +249,11 @@ def _audit_transport(
     ``base_url``/``api_key`` are used directly when both are supplied (the
     path a top-level client takes after it has already resolved them);
     otherwise the config resolver fills in whatever is missing
-    (``~/.smplkit`` / env vars / defaults). ``environment`` is optional —
-    when present it is stamped as ``X-Smplkit-Environment`` so event
-    recording and reads scope to it server-side (ADR-055); when absent the
-    client still works (forwarder CRUD and discovery are environment-agnostic,
-    and reads accept an explicit ``environments=[...]`` filter).
+    (``~/.smplkit`` / env vars / defaults). Environment scoping no longer
+    rides on this transport (ADR-055): the configured environment travels on
+    the event request body when recording and as the default
+    ``filter[environment]`` on the read surfaces, so the transport carries
+    only auth plus any caller-supplied ``extra_headers``.
     """
     if api_key is None or base_url is None:
         cfg = resolve_client_config(
@@ -252,8 +269,6 @@ def _audit_transport(
     else:
         cfg_extra = None
     headers: dict[str, str] = {"Accept": "application/vnd.api+json"}
-    if environment is not None:
-        headers["X-Smplkit-Environment"] = environment
     headers.update(cfg_extra or {})
     headers.update(extra_headers or {})
     return AuthenticatedClient(
@@ -276,8 +291,15 @@ def _build_record_body(
     category: str | None,
     data: dict[str, Any] | None,
     do_not_forward: bool,
+    environment: str | None,
 ) -> _GenEventResponse:
-    """Build the generated event-record request body (shared sync/async)."""
+    """Build the generated event-record request body (shared sync/async).
+
+    The client's configured ``environment`` (if any) is stamped onto the
+    event body — the body-driven replacement for the old
+    ``X-Smplkit-Environment`` header (ADR-055). Omitted when ``None`` so a
+    single-environment credential resolves it server-side.
+    """
     attrs = _GenEvent(
         event_type=event_type,
         resource_type=resource_type,
@@ -297,6 +319,8 @@ def _build_record_body(
         attrs.data = _GenEventData.from_dict(data)
     if do_not_forward:
         attrs.do_not_forward = True
+    if environment is not None:
+        attrs.environment = environment
     return _GenEventResponse(data=_GenEventResource(id="", attributes=attrs))
 
 
@@ -326,8 +350,9 @@ def _record_post_fn(auth: AuthenticatedClient):
 class EventsClient:
     """Surface for ``client.audit.events.*`` (sync)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
         self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client))
 
     def record(
@@ -424,6 +449,7 @@ class EventsClient:
             category=category,
             data=data,
             do_not_forward=do_not_forward,
+            environment=self._environment,
         )
         self._buffer.enqueue(body, idempotency_key=idempotency_key)
         if flush:
@@ -474,9 +500,9 @@ class EventsClient:
         ``environments`` scopes the read to a set of environments: pass
         a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely and let environment scope fall back to the
-        ``X-Smplkit-Environment`` request header.
+        ``filter[environment]``. Omit it (the default) to scope the read
+        to the client's configured environment; with no configured
+        environment the filter is left off entirely.
 
         Args:
             event_type: Return only events with this ``event_type``. Omit
@@ -499,7 +525,7 @@ class EventsClient:
                 disable text filtering.
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the read to.
-                Omit to leave the filter off entirely.
+                Omit to fall back to the client's configured environment.
             page_size: Maximum number of events to return in this page.
             page_after: Opaque cursor from a previous page's
                 ``next_cursor``. Omit for the first page.
@@ -517,7 +543,7 @@ class EventsClient:
             filteractor_id=actor_id if actor_id is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             filtersearch=search if search is not None else UNSET,
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
         )
@@ -552,8 +578,9 @@ class EventsClient:
 class ResourceTypesClient:
     """Surface for ``client.audit.resource_types.*``."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
 
     def list(
         self,
@@ -571,13 +598,15 @@ class ResourceTypesClient:
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely.
+        ``filter[environment]``. Omit it (the default) to scope the
+        listing to the client's configured environment; with no
+        configured environment the filter is left off entirely.
 
         Args:
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the listing
-                to. Omit to leave the filter off entirely.
+                to. Omit to fall back to the client's configured
+                environment.
             page_number: 1-based page index. Omit for the first page.
             page_size: Maximum number of slugs to return in this page.
             meta_total: When ``True``, populate ``total`` and
@@ -590,7 +619,7 @@ class ResourceTypesClient:
         """
         resp = _gen_list_resource_types.sync_detailed(
             client=self._auth,
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -607,8 +636,9 @@ class ResourceTypesClient:
 class EventTypesClient:
     """Surface for ``client.audit.event_types.*``."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
 
     def list(
         self,
@@ -630,8 +660,9 @@ class EventTypesClient:
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely.
+        ``filter[environment]``. Omit it (the default) to scope the
+        listing to the client's configured environment; with no
+        configured environment the filter is left off entirely.
 
         Sorted alphabetically; offset paginated.
 
@@ -641,7 +672,8 @@ class EventTypesClient:
                 event_type.
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the listing
-                to. Omit to leave the filter off entirely.
+                to. Omit to fall back to the client's configured
+                environment.
             page_number: 1-based page index. Omit for the first page.
             page_size: Maximum number of slugs to return in this page.
             meta_total: When ``True``, populate ``total`` and
@@ -655,7 +687,7 @@ class EventTypesClient:
         resp = _gen_list_event_types.sync_detailed(
             client=self._auth,
             filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -672,8 +704,9 @@ class EventTypesClient:
 class CategoriesClient:
     """Surface for ``client.audit.categories.*``."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
 
     def list(
         self,
@@ -691,13 +724,15 @@ class CategoriesClient:
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely.
+        ``filter[environment]``. Omit it (the default) to scope the
+        listing to the client's configured environment; with no
+        configured environment the filter is left off entirely.
 
         Args:
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the listing
-                to. Omit to leave the filter off entirely.
+                to. Omit to fall back to the client's configured
+                environment.
             page_number: 1-based page index. Omit for the first page.
             page_size: Maximum number of categories to return in this page.
             meta_total: When ``True``, populate ``total`` and
@@ -709,7 +744,7 @@ class CategoriesClient:
         """
         resp = _gen_list_categories.sync_detailed(
             client=self._auth,
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -726,8 +761,9 @@ class CategoriesClient:
 class AsyncEventsClient:
     """Surface for ``client.audit.events.*`` (async)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
         self._buffer = AuditEventBuffer(post_fn=_record_post_fn(auth_client))
 
     async def record(
@@ -810,6 +846,7 @@ class AsyncEventsClient:
             category=category,
             data=data,
             do_not_forward=do_not_forward,
+            environment=self._environment,
         )
         self._buffer.enqueue(body, idempotency_key=idempotency_key)
         if flush:
@@ -860,9 +897,9 @@ class AsyncEventsClient:
         ``environments`` scopes the read to a set of environments: pass
         a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely and let environment scope fall back to the
-        ``X-Smplkit-Environment`` request header.
+        ``filter[environment]``. Omit it (the default) to scope the read
+        to the client's configured environment; with no configured
+        environment the filter is left off entirely.
 
         Args:
             event_type: Return only events with this ``event_type``. Omit
@@ -885,7 +922,7 @@ class AsyncEventsClient:
                 disable text filtering.
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the read to.
-                Omit to leave the filter off entirely.
+                Omit to fall back to the client's configured environment.
             page_size: Maximum number of events to return in this page.
             page_after: Opaque cursor from a previous page's
                 ``next_cursor``. Omit for the first page.
@@ -903,7 +940,7 @@ class AsyncEventsClient:
             filteractor_id=actor_id if actor_id is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
             filtersearch=search if search is not None else UNSET,
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
         )
@@ -938,8 +975,9 @@ class AsyncEventsClient:
 class AsyncResourceTypesClient:
     """Surface for ``client.audit.resource_types.*`` (async)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
 
     async def list(
         self,
@@ -957,13 +995,15 @@ class AsyncResourceTypesClient:
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely.
+        ``filter[environment]``. Omit it (the default) to scope the
+        listing to the client's configured environment; with no
+        configured environment the filter is left off entirely.
 
         Args:
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the listing
-                to. Omit to leave the filter off entirely.
+                to. Omit to fall back to the client's configured
+                environment.
             page_number: 1-based page index. Omit for the first page.
             page_size: Maximum number of slugs to return in this page.
             meta_total: When ``True``, populate ``total`` and
@@ -976,7 +1016,7 @@ class AsyncResourceTypesClient:
         """
         resp = await _gen_list_resource_types.asyncio_detailed(
             client=self._auth,
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -990,8 +1030,9 @@ class AsyncResourceTypesClient:
 class AsyncEventTypesClient:
     """Surface for ``client.audit.event_types.*`` (async)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
 
     async def list(
         self,
@@ -1013,8 +1054,9 @@ class AsyncEventTypesClient:
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely.
+        ``filter[environment]``. Omit it (the default) to scope the
+        listing to the client's configured environment; with no
+        configured environment the filter is left off entirely.
 
         Sorted alphabetically; offset paginated.
 
@@ -1024,7 +1066,8 @@ class AsyncEventTypesClient:
                 event_type.
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the listing
-                to. Omit to leave the filter off entirely.
+                to. Omit to fall back to the client's configured
+                environment.
             page_number: 1-based page index. Omit for the first page.
             page_size: Maximum number of slugs to return in this page.
             meta_total: When ``True``, populate ``total`` and
@@ -1038,7 +1081,7 @@ class AsyncEventTypesClient:
         resp = await _gen_list_event_types.asyncio_detailed(
             client=self._auth,
             filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -1052,8 +1095,9 @@ class AsyncEventTypesClient:
 class AsyncCategoriesClient:
     """Surface for ``client.audit.categories.*`` (async)."""
 
-    def __init__(self, *, auth_client: AuthenticatedClient) -> None:
+    def __init__(self, *, auth_client: AuthenticatedClient, environment: str | None = None) -> None:
         self._auth = auth_client
+        self._environment = environment
 
     async def list(
         self,
@@ -1071,13 +1115,15 @@ class AsyncCategoriesClient:
         ``environments`` scopes the listing to a set of environments:
         pass a list of environment keys and/or the reserved ``"smplkit"``
         control-plane bucket; the values are sent comma-separated as
-        ``filter[environment]``. Omit it (the default) to leave the
-        param off entirely.
+        ``filter[environment]``. Omit it (the default) to scope the
+        listing to the client's configured environment; with no
+        configured environment the filter is left off entirely.
 
         Args:
             environments: Environment keys and/or the reserved
                 ``"smplkit"`` control-plane bucket to scope the listing
-                to. Omit to leave the filter off entirely.
+                to. Omit to fall back to the client's configured
+                environment.
             page_number: 1-based page index. Omit for the first page.
             page_size: Maximum number of categories to return in this page.
             meta_total: When ``True``, populate ``total`` and
@@ -1089,7 +1135,7 @@ class AsyncCategoriesClient:
         """
         resp = await _gen_list_categories.asyncio_detailed(
             client=self._auth,
-            filterenvironment=_join_environments(environments),
+            filterenvironment=_resolve_environment_filter(environments, self._environment),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -1121,13 +1167,14 @@ class AuditClient:
     Args:
         api_key: API key. When omitted, resolved from ``SMPLKIT_API_KEY`` or
             ``~/.smplkit``.
-        environment: Deployment environment to scope recording and reads to,
-            sent as ``X-Smplkit-Environment``. Optional — forwarder CRUD and
-            discovery are environment-agnostic, and reads accept an explicit
-            ``environments=[...]`` filter. When reached via ``SmplClient`` this
-            is the SDK's configured runtime environment; on a standalone client
-            without it, recording falls back to the server-side default
-            environment.
+        environment: Deployment environment to scope recording and reads to.
+            Sent on the event request body when recording and as the default
+            ``filter[environment]`` on the read surfaces. Optional — forwarder
+            CRUD and discovery are environment-agnostic, and reads accept an
+            explicit ``environments=[...]`` filter that overrides this default.
+            When reached via ``SmplClient`` this is the SDK's configured runtime
+            environment; on a standalone client without it, recording falls back
+            to the server-side default environment.
         profile: Named ``~/.smplkit`` profile section.
         base_url: Full audit-service base URL. Usually resolved from
             ``base_domain``/``scheme``; supplied directly by the top-level
@@ -1135,8 +1182,7 @@ class AuditClient:
         base_domain: Base domain for API requests (default ``"smplkit.com"``).
         scheme: URL scheme (default ``"https"``).
         debug: Enable SDK debug logging.
-        extra_headers: Extra headers attached to every request. An
-            ``X-Smplkit-Environment`` entry here wins over ``environment``.
+        extra_headers: Extra headers attached to every request.
         auth_client: Internal — a pre-built transport supplied by a top-level
             client so the audit surface shares one connection pool. Not for
             direct use.
@@ -1169,7 +1215,6 @@ class AuditClient:
             self._auth = _audit_transport(
                 api_key=api_key,
                 base_url=base_url,
-                environment=environment,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
@@ -1182,10 +1227,10 @@ class AuditClient:
         # before this client module.
         from smplkit.audit.forwarders import ForwardersClient
 
-        self.events = EventsClient(auth_client=self._auth)
-        self.resource_types = ResourceTypesClient(auth_client=self._auth)
-        self.event_types = EventTypesClient(auth_client=self._auth)
-        self.categories = CategoriesClient(auth_client=self._auth)
+        self.events = EventsClient(auth_client=self._auth, environment=environment)
+        self.resource_types = ResourceTypesClient(auth_client=self._auth, environment=environment)
+        self.event_types = EventTypesClient(auth_client=self._auth, environment=environment)
+        self.categories = CategoriesClient(auth_client=self._auth, environment=environment)
         self.forwarders = ForwardersClient(auth_client=self._auth)
 
     def _close(self) -> None:
@@ -1245,7 +1290,6 @@ class AsyncAuditClient:
             self._auth = _audit_transport(
                 api_key=api_key,
                 base_url=base_url,
-                environment=environment,
                 profile=profile,
                 base_domain=base_domain,
                 scheme=scheme,
@@ -1255,10 +1299,10 @@ class AsyncAuditClient:
             self._owns_transport = True
         from smplkit.audit.forwarders import AsyncForwardersClient
 
-        self.events = AsyncEventsClient(auth_client=self._auth)
-        self.resource_types = AsyncResourceTypesClient(auth_client=self._auth)
-        self.event_types = AsyncEventTypesClient(auth_client=self._auth)
-        self.categories = AsyncCategoriesClient(auth_client=self._auth)
+        self.events = AsyncEventsClient(auth_client=self._auth, environment=environment)
+        self.resource_types = AsyncResourceTypesClient(auth_client=self._auth, environment=environment)
+        self.event_types = AsyncEventTypesClient(auth_client=self._auth, environment=environment)
+        self.categories = AsyncCategoriesClient(auth_client=self._auth, environment=environment)
         self.forwarders = AsyncForwardersClient(auth_client=self._auth)
 
     async def _close(self) -> None:

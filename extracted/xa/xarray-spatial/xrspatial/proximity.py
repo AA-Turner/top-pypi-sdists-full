@@ -1,6 +1,5 @@
 import warnings
 from functools import partial
-from math import sqrt
 
 try:
     import dask.array as da
@@ -259,8 +258,8 @@ def _check_monotonic_coords(x_coords, y_coords, x, y):
 
     Every backend in this module assumes the 1D axis coordinates are
     monotonic: ``max_possible_distance`` is taken from the endpoints, the
-    dask halo and the NumPy line-sweep treat array adjacency as spatial
-    adjacency, and the tiled KDTree convergence check lower-bounds the
+    dask halo treats array adjacency as spatial adjacency, and the tiled
+    KDTree convergence check lower-bounds the
     out-of-region distance with chunk-boundary coordinate gaps. None of
     those hold when a coordinate axis is not monotonic, so a non-monotonic
     axis silently yields wrong proximity/allocation/direction. Reject it up
@@ -284,6 +283,65 @@ def _check_monotonic_coords(x_coords, y_coords, x, y):
             )
 
 
+def _great_circle_col_halo(x_coords, y_coords, max_distance):
+    """Column halo depth (in pixels) for the GREAT_CIRCLE metric.
+
+    Great-circle distance is periodic in longitude (haversine takes the
+    short way around the sphere) and its chords shorten toward the poles,
+    so a linear sum of per-column step distances is not a lower bound on
+    the spherical distance between two grid points. Use the chord bound
+
+        dist(p, t) >= 2 * R * asin(cos(lat_max) * |sin(dlon / 2)|)
+
+    which holds for every pair of grid points (``lat_max`` is the largest
+    absolute latitude on the raster). Inverting it for ``max_distance``
+    gives ``dlon_max``: any pair separated by more than ``dlon_max``
+    degrees of longitude (the short way around) is farther apart than
+    ``max_distance`` no matter the latitudes.
+
+    When the bound cannot exclude anything -- ``max_distance`` reaches the
+    180-degree chord at ``lat_max``, or targets across the +/-180 seam are
+    within reach (seam gap <= ``dlon_max``) -- no array-space halo can
+    cover the wrap. Return a depth one larger than the axis so
+    ``_fit_halo_to_chunks`` folds the x axis into a single chunk and every
+    chunk sees all columns.
+    """
+    width = len(x_coords)
+    if width < 2:
+        return 0
+    fold = width + 1
+
+    radius = 6378137.0
+    half_angle = max_distance / (2.0 * radius)
+    if half_angle >= np.pi / 2.0:
+        # max_distance spans half the circumference: everything is in reach.
+        return fold
+
+    cos_lat_max = np.cos(np.radians(np.abs(np.asarray(y_coords)).max()))
+    sin_half = np.sin(half_angle)
+    if sin_half >= cos_lat_max:
+        # Even a 180-degree longitude gap at the worst-case latitude stays
+        # within max_distance, so no longitude separation excludes a target.
+        return fold
+
+    dlon_max = np.degrees(2.0 * np.arcsin(sin_half / cos_lat_max))
+
+    # Wrap check: the smallest longitude separation through the +/-180 seam
+    # is between the first and last columns. If that is within dlon_max, a
+    # target near one edge of the array can be the nearest target of a pixel
+    # near the opposite edge, which no per-chunk halo can express.
+    span = abs(float(x_coords[-1]) - float(x_coords[0]))
+    seam_gap = 360.0 - span
+    if seam_gap <= dlon_max:
+        return fold
+
+    # No wrap in reach: a target k columns away is at least k * min_step
+    # degrees of longitude away (monotonic coords), so columns beyond
+    # dlon_max / min_step are excluded by the chord bound.
+    min_step = np.abs(np.diff(np.asarray(x_coords, dtype=np.float64))).min()
+    return int(np.ceil(dlon_max / min_step))
+
+
 def _halo_depth(x_coords, y_coords, max_distance, distance_metric):
     """Overlap depth in pixels for the bounded dask map_overlap call.
 
@@ -302,10 +360,15 @@ def _halo_depth(x_coords, y_coords, max_distance, distance_metric):
     no halo along that axis (depth 0), so (1, N) and (N, 1) rasters do not
     crash on the missing second coordinate.
 
-    For GREAT_CIRCLE the east-west distance per degree of longitude shrinks
-    toward the poles, so the column spacing is measured at the highest-latitude
-    row (largest absolute y) to take the worst case. The north-south distance
-    does not depend on longitude, so the row spacing uses a fixed longitude.
+    For GREAT_CIRCLE the column depth comes from the spherical chord bound
+    in ``_great_circle_col_halo``: longitude is periodic and chords shorten
+    toward the poles, so a per-column linear step sum is not a valid lower
+    bound there. When targets across the +/-180 seam are within
+    ``max_distance``, the returned column depth exceeds the axis length so
+    ``_fit_halo_to_chunks`` folds the axis. The row depth stays linear: the
+    great-circle distance between two points is never smaller than their
+    meridian (north-south) separation, so the per-row step sum is a valid
+    lower bound for every metric.
     """
     def _min_step_distance(coords, x_ref, y_ref, along):
         if len(coords) < 2:
@@ -322,15 +385,15 @@ def _halo_depth(x_coords, y_coords, max_distance, distance_metric):
                 smallest = d
         return smallest
 
-    # Worst-case latitude for east-west spacing: the row farthest from the
-    # equator, where a degree of longitude covers the least ground.
-    y_worst = max(y_coords, key=abs)
-
     dist_per_row = _min_step_distance(y_coords, x_coords[0], None, "row")
-    dist_per_col = _min_step_distance(x_coords, None, y_worst, "col")
-
     pad_y = 0 if dist_per_row is None else int(max_distance / dist_per_row + 0.5)
-    pad_x = 0 if dist_per_col is None else int(max_distance / dist_per_col + 0.5)
+
+    if distance_metric == GREAT_CIRCLE:
+        pad_x = _great_circle_col_halo(x_coords, y_coords, max_distance)
+    else:
+        dist_per_col = _min_step_distance(x_coords, None, y_coords[0], "col")
+        pad_x = 0 if dist_per_col is None else int(
+            max_distance / dist_per_col + 0.5)
     return pad_y, pad_x
 
 
@@ -430,8 +493,9 @@ def _process_numpy_bruteforce(
 
     For every pixel, scan all target pixels and keep the closest one under the
     chosen distance metric. This is the same brute-force search the CUDA kernel
-    runs (see ``_proximity_cuda_kernel``), so it stays correct for metrics like
-    GREAT_CIRCLE where the line-sweep's local-planarity assumption breaks.
+    runs (see ``_proximity_cuda_kernel``). It covers what the cKDTree path
+    cannot: GREAT_CIRCLE (not a Minkowski metric), the tie-break-sensitive
+    ALLOCATION/DIRECTION modes, and PROXIMITY when scipy is missing.
 
     ``xs`` and ``ys`` are the per-pixel 2D coordinate grids built by the caller.
     """
@@ -632,14 +696,18 @@ def _process_dask_cupy(raster, x_coords, y_coords, target_values,
 
     # Build 2D coordinate grids as dask+cupy arrays matching raster chunks.
     # Each chunk is small (chunk_h x chunk_w x 8 bytes); the full grid is
-    # never materialised.
+    # never materialised. Chunk the 1D coords to the raster's chunking and
+    # broadcast: tile/repeat + rechunk built the same grids but cost ~100
+    # graph tasks per chunk (the repeat term scales with raster height),
+    # while a chunk-aligned broadcast is ~1 task per chunk (issue #3132).
     x_cp = cp.asarray(x_coords, dtype=cp.float64)
     y_cp = cp.asarray(y_coords, dtype=cp.float64)
-    x_da = da.from_array(x_cp, chunks=(x_cp.shape[0],))
-    y_da = da.from_array(y_cp, chunks=(y_cp.shape[0],))
-    xs = da.tile(x_da, (raster.shape[0], 1)).rechunk(raster.data.chunks)
-    ys = da.repeat(y_da, raster.shape[1]).reshape(
-        raster.shape).rechunk(raster.data.chunks)
+    x_da = da.from_array(x_cp, chunks=(raster.data.chunks[1],))
+    y_da = da.from_array(y_cp, chunks=(raster.data.chunks[0],))
+    xs = da.broadcast_to(
+        x_da[None, :], raster.shape, chunks=raster.data.chunks)
+    ys = da.broadcast_to(
+        y_da[:, None], raster.shape, chunks=raster.data.chunks)
 
     # Keep the overlap depth within what map_overlap accepts on skinny rasters.
     pad_y, pad_x, (raster_data, xs, ys) = _fit_halo_to_chunks(
@@ -666,144 +734,54 @@ def _process_dask_cupy(raster, x_coords, y_coords, target_values,
     )
 
 
-@ngjit
-def _process_proximity_line(
-    source_line,
-    xs,
-    ys,
-    pan_near_x,
-    pan_near_y,
-    is_forward,
-    line_id,
-    width,
-    max_distance,
-    line_proximity,
-    nearest_xs,
-    nearest_ys,
-    values,
-    distance_metric,
-):
+def _process_numpy_kdtree(img, xs, ys, target_values, max_distance, p,
+                          workers=1):
+    """Exact nearest-target PROXIMITY on the CPU via scipy's cKDTree.
+
+    ``workers`` is forwarded to ``cKDTree.query``. The eager numpy backend
+    passes -1 (all cores) because it runs a single query over the whole
+    raster; the dask chunk path keeps the default 1 because concurrent
+    chunks already fill the cores and -1 would oversubscribe them.
+
+    Replaces the GDAL-ported 4-pass line-sweep for EUCLIDEAN/MANHATTAN: the
+    sweep propagated one nearest-target candidate between adjacent pixels,
+    and on some target layouts that chain never delivers the true nearest
+    target, overstating the distance by a fraction of a pixel (issue #3121).
+
+    This function is also the bounded-dask chunk function. map_overlap pads
+    edge chunks with NaN (boundary=np.nan) in both the data and the
+    coordinate grids, so:
+
+    * pad pixels are excluded as targets. Their coordinates are NaN; on
+      integer rasters the NaN data pad casts to a garbage finite value that
+      passes the target test, so the coordinate check is what drops them --
+      the same effect the NaN coordinate distances had in the kernels.
+    * pad pixels are not queried (cKDTree rejects non-finite query points);
+      dask trims them from the output anyway.
     """
-    Process proximity for a line of pixels in an image.
+    finite_coords = np.isfinite(xs) & np.isfinite(ys)
+    target_mask = _target_mask(img, target_values) & finite_coords
 
-    Parameters
-    ----------
-    source_line : numpy.array
-        Input data.
-    pan_near_x : numpy.array
-    pan_near_y : numpy.array
-    is_forward : boolean
-        Will we loop forward through pixel.
-    line_id : np.int64
-        Index of the source_line in the image.
-    width : np.int64
-        Image width.
-        It is the number of pixels in the `source_line`.
-    max_distance : np.float32, maximum distance considered.
-    line_proximity : numpy.array
-        1d numpy array of type np.float32, calculated proximity from
-        source_line.
-    values : numpy.array
-        1d numpy array. A list of target pixel values
-        to measure the distance from. If this option is not provided
-        proximity will be computed from non-zero pixel values.
+    output = np.full(img.shape, np.nan, dtype=np.float32)
+    if not target_mask.any():
+        return output
 
-    Returns
-    -------
-    self: numpy.array
-        1d numpy array of type np.float32. Corresponding proximity of
-        source_line.
-    """
-    start = width - 1
-    end = -1
-    step = -1
-    if is_forward:
-        start = 0
-        end = width
-        step = 1
+    tree = cKDTree(np.column_stack([ys[target_mask], xs[target_mask]]))
+    query_pts = np.column_stack([ys[finite_coords], xs[finite_coords]])
 
-    n_values = len(values)
-    for pixel in prange(start, end, step):
-        is_target = False
-        # Is the current pixel a target pixel?
-        if n_values == 0:
-            if source_line[pixel] != 0 and np.isfinite(source_line[pixel]):
-                is_target = True
-        else:
-            for i in prange(n_values):
-                if source_line[pixel] == values[i]:
-                    is_target = True
+    # cKDTree's distance_upper_bound is exclusive, while the brute-force and
+    # CUDA kernels keep dist <= max_distance. Widening the bound by one ulp
+    # turns the exclusive check into the inclusive one.
+    upper = max_distance
+    if np.isfinite(upper):
+        upper = np.nextafter(upper, np.inf)
+    dists, _ = tree.query(query_pts, p=p, distance_upper_bound=upper,
+                          workers=workers)
 
-        if is_target:
-            line_proximity[pixel] = 0.0
-            nearest_xs[pixel] = pixel
-            nearest_ys[pixel] = line_id
-            pan_near_x[pixel] = pixel
-            pan_near_y[pixel] = line_id
-            continue
-
-        # Are we near(er) to the closest target to the above (below) pixel?
-        near_distance_square = max_distance ** 2 * 2.0
-        if pan_near_x[pixel] != -1:
-            # distance_square
-            x1 = xs[pan_near_y[pixel], pan_near_x[pixel]]
-            y1 = ys[pan_near_y[pixel], pan_near_x[pixel]]
-            x2 = xs[line_id, pixel]
-            y2 = ys[line_id, pixel]
-
-            dist = _distance(x1, x2, y1, y2, distance_metric)
-            dist_sqr = dist ** 2
-            if dist_sqr < near_distance_square:
-                near_distance_square = dist_sqr
-            else:
-                pan_near_x[pixel] = -1
-                pan_near_y[pixel] = -1
-
-        # Are we near(er) to the closest target to the left (right) pixel?
-        last = pixel - step
-        if pixel != start and pan_near_x[last] != -1:
-            x1 = xs[pan_near_y[last], pan_near_x[last]]
-            y1 = ys[pan_near_y[last], pan_near_x[last]]
-            x2 = xs[line_id, pixel]
-            y2 = ys[line_id, pixel]
-
-            dist = _distance(x1, x2, y1, y2, distance_metric)
-            dist_sqr = dist ** 2
-            if dist_sqr < near_distance_square:
-                near_distance_square = dist_sqr
-                pan_near_x[pixel] = pan_near_x[last]
-                pan_near_y[pixel] = pan_near_y[last]
-
-        #  Are we near(er) to the closest target to the
-        #  topright (bottom left) pixel?
-        tr = pixel + step
-        if tr != end and pan_near_x[tr] != -1:
-            x1 = xs[pan_near_y[tr], pan_near_x[tr]]
-            y1 = ys[pan_near_y[tr], pan_near_x[tr]]
-            x2 = xs[line_id, pixel]
-            y2 = ys[line_id, pixel]
-
-            dist = _distance(x1, x2, y1, y2, distance_metric)
-            dist_sqr = dist ** 2
-            if dist_sqr < near_distance_square:
-                near_distance_square = dist_sqr
-                pan_near_x[pixel] = pan_near_x[tr]
-                pan_near_y[pixel] = pan_near_y[tr]
-
-        # Update our proximity value.
-        if (
-            pan_near_x[pixel] != -1
-            and max_distance * max_distance >= near_distance_square
-            and (
-                line_proximity[pixel] < 0
-                or near_distance_square < line_proximity[pixel]
-                * line_proximity[pixel]
-            )
-        ):
-            line_proximity[pixel] = sqrt(near_distance_square)
-            nearest_xs[pixel] = pan_near_x[pixel]
-            nearest_ys[pixel] = pan_near_y[pixel]
-    return
+    dists = dists.astype(np.float32)
+    dists[~np.isfinite(dists)] = np.nan
+    output[finite_coords] = dists
+    return output
 
 
 def _kdtree_query_lowest_index(tree, query_pts, p, max_distance):
@@ -811,8 +789,10 @@ def _kdtree_query_lowest_index(tree, query_pts, p, max_distance):
 
     ``cKDTree.query`` does not promise which of several equidistant targets
     it returns, so allocation and direction can disagree with the brute-force
-    and CUDA backends on a tie. Target coordinates are stored in row-major
-    (flat-index) order, so the lowest target index is the lowest flat index --
+    and CUDA backends on a tie. Target coordinates are sorted into row-major
+    (flat-index) order by ``_collect_region_targets`` before the tree is
+    built -- chunk-by-chunk collection alone does not produce that order
+    (issue #3090) -- so the lowest target index is the lowest flat index,
     the tie-break policy documented on ``allocation``/``direction``.
 
     Query the two nearest targets; wherever they are equidistant, keep the one
@@ -887,6 +867,16 @@ def _target_mask(chunk_data, target_values):
     return np.isin(chunk_data, target_values) & np.isfinite(chunk_data)
 
 
+def _global_flat_indices(iy, ix, rows, cols, y_offsets, x_offsets, width):
+    """Global flat (row-major) pixel indices of chunk-local target positions.
+
+    The flat index is the tie-break key documented on
+    ``allocation``/``direction``: among equidistant targets, the lowest one
+    wins (see ``_kdtree_query_lowest_index``).
+    """
+    return (y_offsets[iy] + rows) * width + (x_offsets[ix] + cols)
+
+
 def _stream_target_counts(raster, target_values, y_coords, x_coords,
                           chunks_y, chunks_x):
     """Stream all dask chunks, counting targets per chunk.
@@ -900,12 +890,17 @@ def _stream_target_counts(raster, target_values, y_coords, x_coords,
     total_targets : int
     coords_cache : dict  (iy, ix) -> ndarray shape (N, 2)
     values_cache : dict  (iy, ix) -> ndarray shape (N,), dtype float32
+    flat_cache : dict  (iy, ix) -> ndarray shape (N,), dtype int64
+        Global flat (row-major) pixel index of each cached target. Used by
+        ``_collect_region_targets`` to restore row-major target order so the
+        documented lowest-flat-index tie-break holds across chunkings.
     """
     n_tile_y = len(chunks_y)
     n_tile_x = len(chunks_x)
     target_counts = np.zeros((n_tile_y, n_tile_x), dtype=np.int64)
     coords_cache = {}
     values_cache = {}
+    flat_cache = {}
     cache_bytes = 0
     budget = int(0.25 * _available_memory_bytes())
 
@@ -913,6 +908,7 @@ def _stream_target_counts(raster, target_values, y_coords, x_coords,
     np.cumsum(chunks_y, out=y_offsets[1:])
     x_offsets = np.zeros(n_tile_x + 1, dtype=np.int64)
     np.cumsum(chunks_x, out=x_offsets[1:])
+    width = int(x_offsets[-1])
 
     for iy in range(n_tile_y):
         # Compute one chunk-row at a time so the scheduler can read the
@@ -934,14 +930,17 @@ def _stream_target_counts(raster, target_values, y_coords, x_coords,
                     x_coords[x_offsets[ix] + cols],
                 ])
                 vals = chunk_data[rows, cols].astype(np.float32)
-                entry_bytes = coords.nbytes + vals.nbytes
+                flat = _global_flat_indices(
+                    iy, ix, rows, cols, y_offsets, x_offsets, width)
+                entry_bytes = coords.nbytes + vals.nbytes + flat.nbytes
                 if cache_bytes + entry_bytes <= budget:
                     coords_cache[(iy, ix)] = coords
                     values_cache[(iy, ix)] = vals
+                    flat_cache[(iy, ix)] = flat
                     cache_bytes += entry_bytes
 
     total_targets = int(target_counts.sum())
-    return target_counts, total_targets, coords_cache, values_cache
+    return target_counts, total_targets, coords_cache, values_cache, flat_cache
 
 
 def _chunk_offsets(chunks):
@@ -955,14 +954,25 @@ def _collect_region_targets(raster, jy_lo, jy_hi, jx_lo, jx_hi,
                             target_values, target_counts,
                             y_coords, x_coords,
                             y_offsets, x_offsets,
-                            coords_cache, values_cache):
+                            coords_cache, values_cache, flat_cache):
     """Collect target (y, x) coords and pixel values from chunks.
 
     Uses cache where available, re-reads uncached chunks via .compute().
     Returns (coords ndarray (N, 2), vals ndarray (N,)) or (None, None).
+
+    The returned targets are sorted by global flat (row-major) pixel index.
+    Chunks are visited chunk-row by chunk-column, so with more than one chunk
+    column the concatenation order is chunk-major, not row-major. The KDTree
+    tie-break in ``_kdtree_query_lowest_index`` keeps the lowest *tree* index
+    on a tie, which only matches the documented lowest-flat-index policy of
+    ``allocation``/``direction`` if the tree's target order is global
+    row-major. Sorting here restores that order for both the global and the
+    tiled KDTree paths.
     """
     coord_parts = []
     val_parts = []
+    flat_parts = []
+    width = int(x_offsets[-1])
     for iy in range(jy_lo, jy_hi):
         for ix in range(jx_lo, jx_hi):
             if target_counts[iy, ix] == 0:
@@ -970,6 +980,7 @@ def _collect_region_targets(raster, jy_lo, jy_hi, jx_lo, jx_hi,
             if (iy, ix) in coords_cache:
                 coord_parts.append(coords_cache[(iy, ix)])
                 val_parts.append(values_cache[(iy, ix)])
+                flat_parts.append(flat_cache[(iy, ix)])
             else:
                 chunk_data = raster.data.blocks[iy, ix].compute()
                 mask = _target_mask(chunk_data, target_values)
@@ -983,9 +994,15 @@ def _collect_region_targets(raster, jy_lo, jy_hi, jx_lo, jx_hi,
                     val_parts.append(
                         chunk_data[rows, cols].astype(np.float32)
                     )
+                    flat_parts.append(_global_flat_indices(
+                        iy, ix, rows, cols, y_offsets, x_offsets, width))
     if not coord_parts:
         return None, None
-    return np.concatenate(coord_parts), np.concatenate(val_parts)
+    coords = np.concatenate(coord_parts)
+    vals = np.concatenate(val_parts)
+    flat = np.concatenate(flat_parts)
+    order = np.argsort(flat)
+    return coords[order], vals[order]
 
 
 def _min_boundary_distance(iy, ix, y_coords, x_coords,
@@ -1040,7 +1057,7 @@ def _min_boundary_distance(iy, ix, y_coords, x_coords,
 def _tiled_chunk_query(raster, iy, ix, y_coords, x_coords,
                        y_offsets, x_offsets,
                        target_values, target_counts,
-                       coords_cache, values_cache,
+                       coords_cache, values_cache, flat_cache,
                        max_distance, p,
                        n_tile_y, n_tile_x, process_mode):
     """Expanding-ring local KDTree for one output chunk.
@@ -1070,7 +1087,7 @@ def _tiled_chunk_query(raster, iy, ix, y_coords, x_coords,
             raster, jy_lo, jy_hi, jx_lo, jx_hi,
             target_values, target_counts,
             y_coords, x_coords, y_offsets, x_offsets,
-            coords_cache, values_cache,
+            coords_cache, values_cache, flat_cache,
         )
 
         if target_coords is None:
@@ -1126,7 +1143,7 @@ def _tiled_chunk_query(raster, iy, ix, y_coords, x_coords,
 
 def _build_tiled_kdtree(raster, y_coords, x_coords, target_values,
                         max_distance, p, target_counts,
-                        coords_cache, values_cache,
+                        coords_cache, values_cache, flat_cache,
                         chunks_y, chunks_x, process_mode):
     """Tiled (eager) KDTree query — memory-safe fallback."""
     H, W = raster.shape
@@ -1158,7 +1175,7 @@ def _build_tiled_kdtree(raster, y_coords, x_coords, target_values,
                 raster, iy, ix, y_coords, x_coords,
                 y_offsets, x_offsets,
                 target_values, target_counts,
-                coords_cache, values_cache,
+                coords_cache, values_cache, flat_cache,
                 max_distance, p, n_tile_y, n_tile_x, process_mode,
             )
             r0 = int(y_offsets[iy])
@@ -1172,7 +1189,7 @@ def _build_tiled_kdtree(raster, y_coords, x_coords, target_values,
 
 def _build_global_kdtree(raster, y_coords, x_coords, target_values,
                          max_distance, p, target_counts,
-                         coords_cache, values_cache,
+                         coords_cache, values_cache, flat_cache,
                          chunks_y, chunks_x, process_mode):
     """Global KDTree query — fast, lazy via da.map_blocks."""
     n_tile_y = len(chunks_y)
@@ -1184,7 +1201,7 @@ def _build_global_kdtree(raster, y_coords, x_coords, target_values,
         raster, 0, n_tile_y, 0, n_tile_x,
         target_values, target_counts,
         y_coords, x_coords, y_offsets, x_offsets,
-        coords_cache, values_cache,
+        coords_cache, values_cache, flat_cache,
     )
 
     tree = cKDTree(target_coords)
@@ -1223,7 +1240,7 @@ def _process_dask_kdtree(raster, x_coords, y_coords,
     chunks_y, chunks_x = raster.data.chunks
 
     # Phase 0: streaming count pass
-    target_counts, total_targets, coords_cache, values_cache = \
+    target_counts, total_targets, coords_cache, values_cache, flat_cache = \
         _stream_target_counts(
             raster, target_values, y_coords, x_coords, chunks_y, chunks_x,
         )
@@ -1240,14 +1257,14 @@ def _process_dask_kdtree(raster, x_coords, y_coords,
         return _build_global_kdtree(
             raster, y_coords, x_coords, target_values,
             max_distance, p, target_counts,
-            coords_cache, values_cache,
+            coords_cache, values_cache, flat_cache,
             chunks_y, chunks_x, process_mode,
         )
     else:
         return _build_tiled_kdtree(
             raster, y_coords, x_coords, target_values,
             max_distance, p, target_counts,
-            coords_cache, values_cache,
+            coords_cache, values_cache, flat_cache,
             chunks_y, chunks_x, process_mode,
         )
 
@@ -1314,8 +1331,8 @@ def _process(
     if da is not None and isinstance(y_coords, da.Array):
         y_coords = y_coords.compute()
 
-    # The endpoint-based max distance, the dask halo, the NumPy line-sweep,
-    # and the tiled KDTree convergence check all assume monotonic 1D coords.
+    # The endpoint-based max distance, the dask halo, and the tiled KDTree
+    # convergence check all assume monotonic 1D coords.
     _check_monotonic_coords(x_coords, y_coords, x, y)
 
     # Compute max_possible_distance using coordinate endpoints directly
@@ -1323,176 +1340,12 @@ def _process(
         x_coords[0], x_coords[-1], y_coords[0], y_coords[-1], distance_metric
     )
 
-    @ngjit
-    def _process_numpy_linesweep(img, x_coords, y_coords):
-        height, width = img.shape
-        pan_near_x = np.zeros(width, dtype=np.int64)
-        pan_near_y = np.zeros(width, dtype=np.int64)
-
-        # output of the function
-        output_img = np.full((height, width), np.nan, dtype=np.float32)
-        img_distance = np.zeros(shape=(height, width), dtype=np.float32)
-
-        # Loop from top to bottom of the image.
-        for i in prange(width):
-            pan_near_x[i] = -1
-            pan_near_y[i] = -1
-
-        # a single line of the input image img
-        scan_line = np.zeros(width, dtype=img.dtype)
-
-        # indexes of nearest pixels of current line scan_line
-        nearest_xs = np.zeros(width, dtype=np.int64)
-        nearest_ys = np.zeros(width, dtype=np.int64)
-
-        for line in prange(height):
-            # Read for target values.
-            for i in prange(width):
-                scan_line[i] = img[line][i]
-
-            line_proximity = np.zeros(width, dtype=np.float32)
-
-            for i in prange(width):
-                line_proximity[i] = -1.0
-                nearest_xs[i] = -1
-                nearest_ys[i] = -1
-
-            # left to right
-            _process_proximity_line(
-                scan_line, x_coords, y_coords,
-                pan_near_x, pan_near_y, True,
-                line, width, max_distance,
-                line_proximity, nearest_xs, nearest_ys,
-                target_values, distance_metric,
-            )
-            for i in prange(width):
-                if nearest_xs[i] != -1 and line_proximity[i] >= 0:
-                    if process_mode == ALLOCATION:
-                        output_img[line][i] = img[nearest_ys[i], nearest_xs[i]]
-                    elif process_mode == DIRECTION:
-                        output_img[line][i] = _calc_direction(
-                            x_coords[line, i],
-                            x_coords[nearest_ys[i], nearest_xs[i]],
-                            y_coords[line, i],
-                            y_coords[nearest_ys[i], nearest_xs[i]],
-                        )
-
-            # right to left
-            for i in prange(width):
-                nearest_xs[i] = -1
-                nearest_ys[i] = -1
-
-            _process_proximity_line(
-                scan_line, x_coords, y_coords,
-                pan_near_x, pan_near_y, False,
-                line, width, max_distance,
-                line_proximity, nearest_xs, nearest_ys,
-                target_values, distance_metric,
-            )
-
-            for i in prange(width):
-                img_distance[line][i] = line_proximity[i]
-
-                if nearest_xs[i] != -1 and line_proximity[i] >= 0:
-                    if process_mode == ALLOCATION:
-                        output_img[line][i] = img[nearest_ys[i], nearest_xs[i]]
-
-                    elif process_mode == DIRECTION:
-                        output_img[line][i] = _calc_direction(
-                            x_coords[line, i],
-                            x_coords[nearest_ys[i], nearest_xs[i]],
-                            y_coords[line, i],
-                            y_coords[nearest_ys[i], nearest_xs[i]],
-                        )
-
-        # Loop from bottom to top of the image.
-        for i in prange(width):
-            pan_near_x[i] = -1
-            pan_near_y[i] = -1
-
-        for line in prange(height - 1, -1, -1):
-            # Read first pass proximity.
-            for i in prange(width):
-                line_proximity[i] = img_distance[line][i]
-
-            # Read pixel target_values.
-            for i in prange(width):
-                scan_line[i] = img[line][i]
-
-            # Right to left
-            for i in prange(width):
-                nearest_xs[i] = -1
-                nearest_ys[i] = -1
-
-            _process_proximity_line(
-                scan_line, x_coords, y_coords,
-                pan_near_x, pan_near_y, False,
-                line, width, max_distance,
-                line_proximity, nearest_xs, nearest_ys,
-                target_values, distance_metric,
-            )
-
-            for i in prange(width):
-                if nearest_xs[i] != -1 and line_proximity[i] >= 0:
-                    if process_mode == ALLOCATION:
-                        output_img[line][i] = img[nearest_ys[i], nearest_xs[i]]
-
-                    elif process_mode == DIRECTION:
-                        output_img[line][i] = _calc_direction(
-                            x_coords[line, i],
-                            x_coords[nearest_ys[i], nearest_xs[i]],
-                            y_coords[line, i],
-                            y_coords[nearest_ys[i], nearest_xs[i]],
-                        )
-
-            # Left to right
-            for i in prange(width):
-                nearest_xs[i] = -1
-                nearest_ys[i] = -1
-
-            _process_proximity_line(
-                scan_line, x_coords, y_coords,
-                pan_near_x, pan_near_y, True,
-                line, width, max_distance,
-                line_proximity, nearest_xs, nearest_ys,
-                target_values, distance_metric,
-            )
-
-            # final post processing of distances
-            for i in prange(width):
-                if line_proximity[i] < 0:
-                    line_proximity[i] = np.nan
-                else:
-                    if nearest_xs[i] != -1 and line_proximity[i] >= 0:
-                        if process_mode == ALLOCATION:
-                            output_img[line][i] = img[
-                                nearest_ys[i], nearest_xs[i]]
-
-                        elif process_mode == DIRECTION:
-                            output_img[line][i] = _calc_direction(
-                                x_coords[line, i],
-                                x_coords[nearest_ys[i], nearest_xs[i]],
-                                y_coords[line, i],
-                                y_coords[nearest_ys[i], nearest_xs[i]],
-                            )
-
-            for i in prange(width):
-                img_distance[line][i] = line_proximity[i]
-
-        if process_mode == PROXIMITY:
-            return img_distance
-        else:
-            return output_img
-
-    def _process_numpy(img, x_coords, y_coords):
-        # The line-sweep propagates a single nearest-target candidate between
-        # adjacent pixels, which only holds for locally-monotonic metrics
-        # (EUCLIDEAN, MANHATTAN). GREAT_CIRCLE wraps in longitude and its
-        # meridians converge with latitude, so the true nearest target is not
-        # always reachable through the neighbour chain. Use an exact
-        # brute-force search there instead (matches the GPU kernel). The
-        # branch lives in plain Python rather than inside the numba kernel so
-        # the metric choice is never frozen into a cached closure compilation.
+    def _process_numpy(img, x_coords, y_coords, workers=1):
+        # GREAT_CIRCLE is not a Minkowski metric, so the cKDTree query below
+        # cannot answer it. Use an exact brute-force search instead (matches
+        # the GPU kernel). The branch lives in plain Python rather than
+        # inside the numba kernel so the metric choice is a runtime value,
+        # never frozen into a compiled specialization.
         if distance_metric == GREAT_CIRCLE:
             return _process_numpy_bruteforce(
                 img, x_coords, y_coords, target_values,
@@ -1500,21 +1353,35 @@ def _process(
             )
         # ALLOCATION and DIRECTION pick a single target per pixel, so a tie
         # between two equidistant targets must resolve the same way on every
-        # backend. The line-sweep breaks ties as a side effect of its
-        # four-pass propagation order, which disagrees with the brute-force
-        # and CUDA kernels. Route those modes through the brute-force search,
-        # which keeps the lowest-flat-index target on a tie (see the
-        # `allocation`/`direction` docstrings). Brute force is O(N*T) versus
-        # the line-sweep's O(N); the slower scan is a deliberate trade for a
-        # tie-break that matches every other backend. PROXIMITY only returns
-        # the distance, which is identical for tied targets, so the faster
-        # line-sweep stays in use there.
+        # backend. cKDTree.query makes no promise about which of several
+        # equidistant targets it returns, so route those modes through the
+        # brute-force search, which keeps the lowest-flat-index target on a
+        # tie (see the `allocation`/`direction` docstrings).
         if process_mode in (ALLOCATION, DIRECTION):
             return _process_numpy_bruteforce(
                 img, x_coords, y_coords, target_values,
                 np.float32(max_distance), distance_metric, process_mode,
             )
-        return _process_numpy_linesweep(img, x_coords, y_coords)
+        # PROXIMITY with EUCLIDEAN/MANHATTAN: exact cKDTree query. The
+        # GDAL-ported line-sweep that used to run here could miss the true
+        # nearest target by a fraction of a pixel (issue #3121). Without
+        # scipy, fall back to the brute-force kernel, which is also exact.
+        if cKDTree is None:
+            warnings.warn(
+                "proximity: scipy is not installed; falling back to an "
+                "exact brute-force search, which is slower on large "
+                "rasters.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return _process_numpy_bruteforce(
+                img, x_coords, y_coords, target_values,
+                np.float32(max_distance), distance_metric, process_mode,
+            )
+        return _process_numpy_kdtree(
+            img, x_coords, y_coords, target_values, max_distance,
+            2 if distance_metric == EUCLIDEAN else 1, workers=workers,
+        )
 
     def _process_dask(raster, xs, ys):
 
@@ -1555,7 +1422,7 @@ def _process(
         # numpy case - create full coordinate arrays as numpy
         xs = np.tile(x_coords, raster.shape[0]).reshape(raster.shape)
         ys = np.repeat(y_coords, raster.shape[1]).reshape(raster.shape)
-        result = _process_numpy(raster.data, xs, ys)
+        result = _process_numpy(raster.data, xs, ys, workers=-1)
 
     elif has_cuda_and_cupy() and is_cupy_array(raster.data):
         result = _process_cupy(
@@ -1577,7 +1444,7 @@ def _process(
             if was_dask_cupy:
                 import cupy as cp
 
-                # Unbounded: convert to dask+numpy for KDTree/line-sweep
+                # Unbounded: convert to dask+numpy for the KDTree
                 # (KDTree is CPU-only; O(N log T) beats brute-force O(NT))
                 raster = raster.copy(
                     data=raster.data.map_blocks(
@@ -1618,14 +1485,22 @@ def _process(
                                 "Set a finite max_distance."
                             )
 
-                # Existing path: build 2D coordinate arrays as dask arrays
-                x_coords_da = da.from_array(x_coords, chunks=x_coords.shape[0])
-                y_coords_da = da.from_array(y_coords, chunks=y_coords.shape[0])
-                xs = da.tile(x_coords_da, (raster.shape[0], 1))
-                ys = da.repeat(y_coords_da, raster.shape[1]).reshape(
-                    raster.shape)
-                xs = xs.rechunk(raster.chunks)
-                ys = ys.rechunk(raster.chunks)
+                # Build 2D coordinate grids as dask arrays. Chunk the 1D
+                # coords to the raster's chunking and broadcast: tile/repeat
+                # + rechunk built the same grids but cost ~100 graph tasks
+                # per chunk (the repeat term scales with raster height),
+                # while a chunk-aligned broadcast is ~1 task per chunk
+                # (issue #3132).
+                x_coords_da = da.from_array(
+                    x_coords, chunks=(raster.data.chunks[1],))
+                y_coords_da = da.from_array(
+                    y_coords, chunks=(raster.data.chunks[0],))
+                xs = da.broadcast_to(
+                    x_coords_da[None, :], raster.shape,
+                    chunks=raster.data.chunks)
+                ys = da.broadcast_to(
+                    y_coords_da[:, None], raster.shape,
+                    chunks=raster.data.chunks)
                 result = _process_dask(raster, xs, ys)
 
             # Convert result back to dask+cupy if input was dask+cupy
@@ -1666,21 +1541,24 @@ def proximity(
     and all proximities will be computed in pixels. Note that target
     pixels are set to the value corresponding to a distance of zero.
 
-    Proximity support NumPy backed, and Dask with NumPy backed
-    xarray DataArray. The return values of proximity are of the same type as
-    the input type.
-    If input raster is a NumPy-backed DataArray, the result is NumPy-backed.
-    If input raster is a Dask-backed DataArray, the result is Dask-backed.
+    Proximity supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy
+    backed xarray DataArray. The return values of proximity are of the same
+    type as the input type: a NumPy-backed input gives a NumPy-backed result,
+    a CuPy-backed input gives a CuPy-backed result, and a Dask-backed input
+    gives a Dask-backed result.
 
-    The implementation for NumPy-backed is ported from GDAL, which uses
-    a dynamic programming approach to identify nearest target of a pixel from
-    its surrounding neighborhood in a 3x3 window. That 3x3 line-sweep only
-    holds for the EUCLIDEAN and MANHATTAN metrics; for GREAT_CIRCLE the NumPy
-    backend uses an exact brute-force nearest-target search instead, because
-    great-circle distance is not locally monotonic across the raster.
-    The implementation for Dask-backed uses `dask.map_overlap` to compute
-    proximity chunk by chunk by expanding the chunk's borders to cover
-    the `max_distance`.
+    The NumPy-backed implementation answers EUCLIDEAN and MANHATTAN with an
+    exact nearest-target k-d tree query (scipy's cKDTree), falling back to an
+    exact brute-force search when scipy is not installed. GREAT_CIRCLE is not
+    a Minkowski metric, so it always uses the brute-force search. Earlier
+    versions used a GDAL-ported 3x3 line-sweep here, which could overstate
+    the distance by a fraction of a pixel on some target layouts
+    (issue #3121).
+    The Dask-backed implementation depends on `max_distance`: when it is
+    smaller than the maximum possible distance within the raster, proximity
+    is computed chunk by chunk with `dask.map_overlap`, expanding each
+    chunk's borders to cover `max_distance`; otherwise the nearest targets
+    are found with a KDTree query over all target pixels.
 
     Parameters
     ----------
@@ -1820,20 +1698,22 @@ def allocation(
     pixels in the image to a set of pixels in the source image. The
     following options are used to define the behavior of the function.
     By default all non-zero pixels in `raster.values` will be considered
-    as"target", and all allocation will be computed in pixels.
+    as "target", and all allocation will be computed in pixels.
 
-    Allocation supports NumPy backed, and Dask with NumPy backed
-    xarray DataArray. The return values of `allocation` are of the same type as
-    the input type.
-    If input raster is a NumPy-backed DataArray, the result is NumPy-backed.
-    If input raster is a Dask-backed DataArray, the result is Dask-backed.
+    Allocation supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy
+    backed xarray DataArray. The return values of `allocation` are of the
+    same type as the input type: a NumPy-backed input gives a NumPy-backed
+    result, a CuPy-backed input gives a CuPy-backed result, and a
+    Dask-backed input gives a Dask-backed result.
 
-    `allocation` uses the same approach as `proximity`, which is ported
-    from GDAL. A dynamic programming approach is used for identifying nearest
-    target of a pixel from its surrounding neighborhood in a 3x3 window.
-    The implementation for Dask-backed uses `dask.map_overlap` to compute
-    `allocation` chunk by chunk by expanding the chunk's borders to cover
-    the `max_distance`.
+    The NumPy-backed implementation uses an exact brute-force nearest-target
+    search: `allocation` must pick a single target per pixel, so its
+    tie-break has to match every other backend (see Tie-breaking below).
+    The Dask-backed implementation depends on `max_distance`: when it is
+    smaller than the maximum possible distance within the raster,
+    `allocation` is computed chunk by chunk with `dask.map_overlap`,
+    expanding each chunk's borders to cover `max_distance`; otherwise the
+    nearest targets are found with a KDTree query over all target pixels.
 
     Tie-breaking: when two or more targets are exactly equidistant from a
     pixel, the target with the lowest flat (row-major) index wins, i.e. the
@@ -1924,11 +1804,11 @@ def allocation(
         >>> allocation_agg = allocation(raster)
         >>> allocation_agg
         <xarray.DataArray (y: 5, x: 5)>
-        array([[1., 1., 2., 2., 2.],
+        array([[1., 1., 1., 2., 2.],
                [1., 1., 1., 2., 2.],
                [1., 1., 3., 2., 2.],
                [1., 3., 3., 3., 2.],
-               [3., 3., 3., 3., 3.]])
+               [3., 3., 3., 3., 3.]], dtype=float32)
         Coordinates:
           * y        (y) int64 4 3 2 1 0
           * x        (x) int64 0 1 2 3 4
@@ -1949,7 +1829,6 @@ def allocation(
         process_mode=ALLOCATION,
     )
 
-    # convert to have same type as of input @raster
     result = xr.DataArray(
         allocation_img,
         coords=raster.coords,
@@ -1971,11 +1850,10 @@ def direction(
     distance_metric: str = "EUCLIDEAN",
 ) -> xr.DataArray:
     """
-    Calculates, for all cells in the array, the downward slope direction
     Calculates, for all pixels in the input raster, the direction to
     nearest source based on a set of target values and a distance metric.
 
-    This function attempts to calculate for each cell, the the direction,
+    This function attempts to calculate for each cell, the direction,
     in degrees, to the nearest source. The output values are based on
     compass directions, where 90 is for the east, 180 for the south,
     270 for the west, 360 for the north, and 0 for the source cell
@@ -1984,18 +1862,20 @@ def direction(
     will be considered as "target", and all direction will be computed
     in pixels.
 
-    Direction support NumPy backed, and Dask with NumPy backed
-    xarray DataArray. The return values of `direction` are of the same type as
-    the input type.
-    If input raster is a NumPy-backed DataArray, the result is NumPy-backed.
-    If input raster is a Dask-backed DataArray, the result is Dask-backed.
+    Direction supports NumPy, CuPy, Dask with NumPy, and Dask with CuPy
+    backed xarray DataArray. The return values of `direction` are of the
+    same type as the input type: a NumPy-backed input gives a NumPy-backed
+    result, a CuPy-backed input gives a CuPy-backed result, and a
+    Dask-backed input gives a Dask-backed result.
 
-    Similar to `proximity`, the implementation for NumPy-backed is ported
-    from GDAL, which uses a dynamic programming approach to identify
-    nearest target of a pixel from its surrounding neighborhood in a 3x3 window
-    The implementation for Dask-backed uses `dask.map_overlap` to compute
-    proximity direction chunk by chunk by expanding the chunk's borders
-    to cover the `max_distance`.
+    The NumPy-backed implementation uses an exact brute-force nearest-target
+    search: `direction` must pick a single target per pixel, so its
+    tie-break has to match every other backend (see Tie-breaking below).
+    The Dask-backed implementation depends on `max_distance`: when it is
+    smaller than the maximum possible distance within the raster,
+    `direction` is computed chunk by chunk with `dask.map_overlap`,
+    expanding each chunk's borders to cover `max_distance`; otherwise the
+    nearest targets are found with a KDTree query over all target pixels.
 
     Tie-breaking: when two or more targets are exactly equidistant from a
     pixel, the direction is computed toward the target with the lowest flat

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ...util import cachedproperty
-from ..base import AsyncPRAWBase
+from asyncpraw.models.base import AsyncPRAWBase, DynamicAttributes
+from asyncpraw.util import cachedproperty
+
+if TYPE_CHECKING:
+    import datetime
 
 
-class PollOption(AsyncPRAWBase):
+class PollOption(DynamicAttributes, AsyncPRAWBase):
     """Class to represent one option of a poll.
 
     If ``submission`` is a poll :class:`.Submission`, access the poll's options like so:
@@ -35,6 +38,9 @@ class PollOption(AsyncPRAWBase):
 
     """
 
+    id: str
+    text: str
+
     def __repr__(self) -> str:
         """Return an object initialization representation of the instance."""
         return f"PollOption(id={self.id!r})"
@@ -44,7 +50,7 @@ class PollOption(AsyncPRAWBase):
         return self.text
 
 
-class PollData(AsyncPRAWBase):
+class PollData(DynamicAttributes, AsyncPRAWBase):
     """Class to represent poll data on a poll submission.
 
     If ``submission`` is a poll :class:`.Submission`, access the poll data like so:
@@ -74,6 +80,10 @@ class PollData(AsyncPRAWBase):
 
     """
 
+    _user_selection: str | None
+    options: list[PollOption]
+    voting_end_timestamp: float
+
     @cachedproperty
     def user_selection(self) -> PollOption | None:
         """Get the user's selection in this poll, if any.
@@ -85,6 +95,15 @@ class PollData(AsyncPRAWBase):
         if self._user_selection is None:
             return None
         return self.option(self._user_selection)
+
+    @property
+    def voting_end_datetime(self) -> datetime.datetime:
+        """Return the poll's closing time as a timezone-aware :class:`datetime.datetime`.
+
+        The returned object is localized to the system's timezone.
+
+        """
+        return self._to_local_datetime(self.voting_end_timestamp / 1000)
 
     def __setattr__(self, attribute: str, value: Any) -> None:
         """Objectify the options attribute, and save user_selection."""

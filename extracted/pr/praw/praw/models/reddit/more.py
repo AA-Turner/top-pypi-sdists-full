@@ -4,30 +4,47 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from ...util import _deprecate_args
-from ..base import PRAWBase
+from praw.const import API_PATH
+from praw.models.base import PRAWBase
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    import praw
+    from praw import models
+    from praw.models.comment_forest import CommentForest
+    from praw.models.reddit.submission import Submission
 
 
 class MoreComments(PRAWBase):
     """A class indicating there are more comments."""
 
-    def __eq__(self, other: str | MoreComments) -> bool:
+    MAX_COMMENTS_IN_REPR = 4
+
+    children: list[str]
+    count: int
+    name: str
+    parent_id: str
+    submission: Submission
+    _comments: CommentForest | list[models.Comment | MoreComments] | None
+    # Attached by CommentForest._gather_more_comments.
+    _remove_from: list[models.Comment | MoreComments]
+
+    def __eq__(self, other: object) -> bool:
         """Return ``True`` if these :class:`.MoreComments` instances are the same."""
         if isinstance(other, self.__class__):
             return self.count == other.count and self.children == other.children
         return super().__eq__(other)
 
-    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any]):
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash(str(self))
+
+    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.MoreComments` instance."""
-        self.count = self.parent_id = None
-        self.children = []
+        # count, parent_id, and children are populated from _data by super().__init__;
+        # submission is attached afterward by CommentForest. All are declared as class
+        # attributes above, so they need no placeholder initialization here.
         super().__init__(reddit, _data=_data)
         self._comments = None
-        self.submission = None
 
     def __lt__(self, other: MoreComments) -> bool:
         """Provide a sort order on the :class:`.MoreComments` object."""
@@ -38,12 +55,12 @@ class MoreComments(PRAWBase):
 
     def __repr__(self) -> str:
         """Return an object initialization representation of the instance."""
-        children = self.children[:4]
-        if len(self.children) > 4:
+        children = self.children[: self.MAX_COMMENTS_IN_REPR]
+        if len(self.children) > self.MAX_COMMENTS_IN_REPR:
             children[-1] = "..."
         return f"<{self.__class__.__name__} count={self.count}, children={children!r}>"
 
-    def _continue_comments(self, update: bool):
+    def _continue_comments(self, *, update: bool) -> CommentForest | list[models.Comment | MoreComments]:
         assert not self.children, "Please file a bug report with PRAW."
         parent = self._load_comment(self.parent_id.split("_", 1)[1])
         self._comments = parent.replies
@@ -52,7 +69,7 @@ class MoreComments(PRAWBase):
                 comment.submission = self.submission
         return self._comments
 
-    def _load_comment(self, comment_id: str):
+    def _load_comment(self, comment_id: str) -> models.Comment:
         path = f"{API_PATH['submission'].format(id=self.submission.id)}_/{comment_id}"
         _, comments = self._reddit.get(
             path,
@@ -64,20 +81,20 @@ class MoreComments(PRAWBase):
         assert len(comments.children) == 1, "Please file a bug report with PRAW."
         return comments.children[0]
 
-    @_deprecate_args("update")
-    def comments(self, *, update: bool = True) -> list[praw.models.Comment]:
+    def comments(self, *, update: bool = True) -> CommentForest | list[models.Comment | MoreComments]:
         """Fetch and return the comments for a single :class:`.MoreComments` object."""
         if self._comments is None:
             if self.count == 0:  # Handle "continue this thread"
-                return self._continue_comments(update)
+                return self._continue_comments(update=update)
             assert self.children, "Please file a bug report with PRAW."
             data = {
                 "children": ",".join(self.children),
                 "link_id": self.submission.fullname,
                 "sort": self.submission.comment_sort,
             }
-            self._comments = self._reddit.post(API_PATH["morechildren"], data=data)
+            comments: list[models.Comment | MoreComments] = self._reddit.post(API_PATH["morechildren"], data=data)
+            self._comments = comments
             if update:
-                for comment in self._comments:
+                for comment in comments:
                     comment.submission = self.submission
         return self._comments

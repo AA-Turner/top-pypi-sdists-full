@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abxpkg
-Version: 1.11.206
+Version: 1.11.211
 Summary: System package manager interfaces with Python type hints
 Project-URL: Homepage, https://github.com/ArchiveBox/abxpkg
 Project-URL: Source, https://github.com/ArchiveBox/abxpkg
@@ -1326,8 +1326,8 @@ uv build && uv publish --username=__token__
 
 ## Other Packages We Like
 
-- https://github.com/jdx/mise
-- https://github.com/pyinfra-dev/pyinfra
+- ⭐️ https://github.com/jdx/mise https://mise.jdx.dev/
+- ⭐️ https://github.com/pyinfra-dev/pyinfra
 - https://github.com/astral-sh/uv
 - https://github.com/MrThearMan/django-signal-webhooks
 - https://github.com/MrThearMan/django-admin-data-views

@@ -42,13 +42,15 @@ class SingleBucketFactory(BucketFactory):
     def wrap_item(self, name: str, weight: int = 1):
         now = self.bucket.now()
 
-        async def wrap_async():
-            return RateItem(name, await now, weight=weight)
+        if isawaitable(now):
 
-        def wrap_sync():
-            return RateItem(name, now, weight=weight)
+            async def wrap_async():
+                return RateItem(name, await now, weight=weight)
 
-        return wrap_async() if isawaitable(now) else wrap_sync()
+            return wrap_async()
+
+        # Sync fast path (every blocking-free acquire): no closures allocated.
+        return RateItem(name, now, weight=weight)
 
     def get(self, _: RateItem) -> AbstractBucket:
         return self.bucket
@@ -86,6 +88,25 @@ def combined_lock(locks: Union[Iterable[LockLike], RLock], blocking: bool, timeo
         finally:
             for lock in reversed(acquired_locks):
                 lock.release()
+
+
+def _plan_delay_step(deadline: Optional[float], delay_ms: Union[int, float]) -> Tuple[float, bool]:
+    """Plan one delay step for `_delay_waiter`.
+
+    Returns ``(seconds_to_sleep, raise_timeout_after_sleep)``. Raises
+    ``TimeoutError`` immediately (no sleep) when the deadline has already
+    passed. This is the deadline math shared verbatim by the sync and async
+    branches of `_delay_waiter`; the caller performs the actual sleep with its
+    own primitive (`time.sleep` vs `asyncio.sleep`) and re-raises afterwards.
+    """
+    if deadline is None:
+        return delay_ms / 1000, False
+    remaining_ms = (deadline - monotonic()) * 1000
+    if remaining_ms <= 0:
+        raise TimeoutError()
+    if remaining_ms < delay_ms:
+        return remaining_ms / 1000, True
+    return delay_ms / 1000, False
 
 
 class Limiter:
@@ -180,16 +201,10 @@ class Limiter:
                     assert d >= 0
                     d += self.buffer_ms
 
-                    if deadline is not None:
-                        remaining_ms = (deadline - monotonic()) * 1000
-                        if remaining_ms <= 0:
-                            raise TimeoutError()
-                        if remaining_ms < d:
-                            await asyncio.sleep(remaining_ms / 1000)
-                            raise TimeoutError()
-                        await asyncio.sleep(d / 1000)
-                    else:
-                        await asyncio.sleep(d / 1000)
+                    secs, timed_out = _plan_delay_step(deadline, d)
+                    await asyncio.sleep(secs)
+                    if timed_out:
+                        raise TimeoutError()
 
                     item.timestamp += d
                     r = bucket.put(item)
@@ -215,16 +230,10 @@ class Limiter:
                 delay += self.buffer_ms
                 total_delay += delay
 
-                if deadline is not None:
-                    remaining_ms = (deadline - monotonic()) * 1000
-                    if remaining_ms <= 0:
-                        raise TimeoutError()
-                    if remaining_ms < delay:
-                        sleep(remaining_ms / 1000)
-                        raise TimeoutError()
-                    sleep(delay / 1000)
-                else:
-                    sleep(delay / 1000)
+                secs, timed_out = _plan_delay_step(deadline, delay)
+                sleep(secs)
+                if timed_out:
+                    raise TimeoutError()
 
                 item.timestamp += delay
                 re_acquire = bucket.put(item)
@@ -347,8 +356,8 @@ class Limiter:
 
         return _resolve_result(result)
 
-    async def _acquire_async(self, blocking, name, weight):
-        return await self._handle_async_result(self._try_acquire(name, weight, blocking=blocking, _force_async=True))
+    async def _acquire_async(self, blocking, name, weight, timeout=-1):
+        return await self._handle_async_result(self._try_acquire(name, weight, blocking=blocking, timeout=timeout, _force_async=True))
 
     async def try_acquire_async(self, name: str = "pyrate", weight: int = 1, blocking: bool = True, timeout: int | float = -1) -> bool:
         """
@@ -389,13 +398,18 @@ class Limiter:
         async def run():
             lock = self._get_async_lock()
             async with lock:
-                return await self._acquire_async(blocking=blocking, name=name, weight=weight)
+                # Pass timeout through so the internal deadline governs the wait
+                # (mirrors sync try_acquire). This makes timeout=0 a non-waiting
+                # attempt instead of asyncio.wait_for(timeout=0) failing before
+                # the acquire can even run.
+                return await self._acquire_async(blocking=blocking, name=name, weight=weight, timeout=timeout)
 
-        if timeout == -1:
-            return await run()
         try:
-            return await asyncio.wait_for(run(), timeout=timeout)
-        except asyncio.TimeoutError:
+            if timeout > 0:
+                # wait_for additionally bounds time spent waiting on the async lock.
+                return await asyncio.wait_for(run(), timeout=timeout)
+            return await run()
+        except (asyncio.TimeoutError, TimeoutError):
             return False
 
     async def _handle_async_acquire(

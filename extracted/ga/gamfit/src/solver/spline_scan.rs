@@ -1,34 +1,50 @@
-//! Exact O(n) state-space cubic smoothing spline ("the scan").
+//! Exact O(n) state-space polynomial smoothing spline ("the scan").
 //!
-//! The order-2 intrinsic Gaussian prior whose penalized posterior mean is the
-//! cubic smoothing spline (penalty `λ∫f″²`) is a Markov process in the state
-//! `α(x) = (f(x), f′(x))`: an integrated Wiener process. The Kalman filter +
-//! RTS smoother over the x-sorted observations therefore computes the EXACT
-//! smoothing-spline posterior — mean, derivative, pointwise variance — and the
-//! diffuse innovations decomposition computes the EXACT restricted (REML)
-//! likelihood, all in O(n) work per smoothing-parameter trial instead of the
-//! dense O(n·k²) design/Gram + O(k³) solve per trial (Wahba 1978;
-//! Kohn & Ansley 1987; Durbin & Koopman exact diffuse initialization).
+//! The order-`m` intrinsic Gaussian prior whose penalized posterior mean is the
+//! degree-`(2m−1)` smoothing spline (penalty `λ∫(f^{(m)})²`) is a Markov process
+//! in the state `α(x) = (f, f′, …, f^{(m−1)})`: an `m`-fold integrated Wiener
+//! process. The Kalman filter + RTS smoother over the x-sorted observations
+//! therefore computes the EXACT smoothing-spline posterior — mean, derivatives,
+//! pointwise variance — and the diffuse innovations decomposition computes the
+//! EXACT restricted (REML) likelihood, all in O(n) work per smoothing-parameter
+//! trial instead of the dense O(n·k²) design/Gram + O(k³) solve per trial
+//! (Wahba 1978; Kohn & Ansley 1987; Durbin & Koopman exact diffuse init).
+//!
+//! Supported orders are `m ∈ {1, 2, 3}` (`MAX_ORDER`): `m = 1` is the
+//! random-walk / linear smoother (penalty `λ∫f′²`), `m = 2` the cubic smoother
+//! (`λ∫f″²`), `m = 3` the quintic smoother (`λ∫(f‴)²`, natural spline degree
+//! `2m−1 = 5`). The diffuse prior carries `m` improper dimensions consumed by
+//! the first `m` distinct abscissae, leaving `m − 1` *partially-diffuse leading
+//! nodes* whose smoothed moments the ordinary RTS recursion cannot reach (its
+//! predicted covariance is rank-deficient there). For `m = 2` that is the
+//! single node 0; for `m = 3` the pair {0, 1}. These are recovered exactly by a
+//! joint Gaussian conditioning of the whole leading block on the first proper
+//! smoothed node (see the smoother pass) — the exact diffuse analog of RTS, and
+//! the multi-node generalization of the `m = 2` reverse-Markov closure.
 //!
 //! Model, after sorting and pooling tied abscissae (precision-weighted):
 //!   α_{t+1} = F_t α_t + η_t,   η_t ~ N(0, q·Q(δ_t)),   q = σ_w²/σ² = 1/λ,
-//!   y_t     = H α_t + ε_t,     ε_t ~ N(0, σ²/w_t),     H = [1 0],
-//!   F(δ) = [[1, δ], [0, 1]],   Q(δ) = [[δ³/3, δ²/2], [δ²/2, δ]],
-//! with a diffuse (improper, flat) prior on α_1 carrying the unpenalized
-//! linear null space — the same null space the spline leaves unshrunk.
+//!   y_t     = H α_t + ε_t,     ε_t ~ N(0, σ²/w_t),     H = [1 0 … 0],
+//!   F(δ) = exp(δA) (nilpotent shift A),   Q(δ) the m-fold IWP noise,
+//! with a diffuse (improper, flat) prior on the first `m` states carrying the
+//! unpenalized degree-`<m` polynomial null space the spline leaves unshrunk.
+//! (`m = 2`: `F = [[1,δ],[0,1]]`, `Q = [[δ³/3,δ²/2],[δ²/2,δ]]`.)
 //!
 //! Exactness boundaries, by construction:
-//! - the diffuse dimension is 2 and is consumed by the first two distinct
-//!   abscissae (F_∞ = P_∞[0,0] = 1 > 0 at t=1, then δ² > 0 at t=2), after
-//!   which the filter is an ordinary proper Kalman filter;
-//! - the t=1 smoothed moments are recovered by direct Markov conditioning
-//!   `p(α_1 | y) = ∫ p(α_1 | α_2, y_1) p(α_2 | y)` (an affine 2×2 Bayes
-//!   update — no diffuse RTS recursion is needed);
+//! - the diffuse dimension is `m` and is consumed by the first `m` distinct
+//!   abscissae, after which the filter is an ordinary proper Kalman filter;
+//! - the `m − 1` partially-diffuse leading nodes are recovered by exact Markov
+//!   conditioning of the whole leading block on the first proper smoothed node,
+//!   `p(α_{0..m−2} | y) = ∫ p(α_{0..m−2} | α_{m−1}, y_{0..m−2}) p(α_{m−1} | y)`
+//!   — an affine `((m−1)m)×m` Bayes update built from the flat leading prior,
+//!   the Markov increments, and the leading observations; it reduces to the
+//!   single-node reverse-Markov closure at `m = 2` and needs no diffuse RTS
+//!   recursion;
 //! - off-knot prediction is the Gaussian bridge conditional on the two
 //!   flanking smoothed states (using the exact lag-one smoothed
 //!   cross-covariance `G_t · P^s_{t+1}`), or boundary extrapolation from the
-//!   end states, which reproduces the spline's linear extrapolation with
-//!   cubically growing variance — bridge-don't-sag is a theorem here.
+//!   end states, which reproduces the spline's polynomial extrapolation with
+//!   growing variance — bridge-don't-sag is a theorem here.
 //!
 //! The smoothing parameter is selected by maximizing the concentrated diffuse
 //! (restricted) log-likelihood over log λ with a deterministic coarse-grid +
@@ -55,79 +71,287 @@ const LOG_LAMBDA_TOL: f64 = 1e-7;
 /// Numerical floor treating a predicted innovation variance as singular.
 const INNOVATION_VAR_FLOOR: f64 = 1e-300;
 
-type Mat2 = [[f64; 2]; 2];
-type Vec2 = [f64; 2];
+/// Maximum supported smoothing-spline order handled by the fixed-capacity
+/// small-matrix layer. Order `m` penalizes `∫(f^{(m)})²`; the state dimension
+/// is `m`. The exact diffuse leading-block smoother (see the smoother pass)
+/// recovers the `m − 1` partially-diffuse leading nodes for any `m`: `m = 1`
+/// has none, `m = 2` has node 0, `m = 3` has {0, 1}. Order 3 (the quintic
+/// smoothing spline, #1044) is the current cap; bumping it further only needs a
+/// wider `mat_inv` branch and the (already order-general) leading-block solve.
+const MAX_ORDER: usize = 3;
+
+/// Row-major `m × m` matrix stored in a fixed `MAX_ORDER`-capacity buffer; only
+/// the top-left `m × m` block is meaningful. Generalizing the order-2 cubic
+/// scan to order `m ∈ {1, 2, 3}` (#1034 item 2, #1044) keeps the
+/// allocation-free fixed storage of the hot filter loop while letting `m` vary
+/// at runtime.
+type Mat2 = [[f64; MAX_ORDER]; MAX_ORDER];
+type Vec2 = [f64; MAX_ORDER];
 
 #[inline]
-fn mat_mul(a: &Mat2, b: &Mat2) -> Mat2 {
-    let mut c = [[0.0; 2]; 2];
-    for i in 0..2 {
-        for j in 0..2 {
-            c[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j];
+fn mat_mul(a: &Mat2, b: &Mat2, m: usize) -> Mat2 {
+    let mut c = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..m {
+        for j in 0..m {
+            let mut acc = 0.0;
+            for k in 0..m {
+                acc += a[i][k] * b[k][j];
+            }
+            c[i][j] = acc;
         }
     }
     c
 }
 
 #[inline]
-fn mat_t(a: &Mat2) -> Mat2 {
-    [[a[0][0], a[1][0]], [a[0][1], a[1][1]]]
-}
-
-#[inline]
-fn mat_vec(a: &Mat2, v: &Vec2) -> Vec2 {
-    [
-        a[0][0] * v[0] + a[0][1] * v[1],
-        a[1][0] * v[0] + a[1][1] * v[1],
-    ]
-}
-
-#[inline]
-fn mat_add(a: &Mat2, b: &Mat2) -> Mat2 {
-    [
-        [a[0][0] + b[0][0], a[0][1] + b[0][1]],
-        [a[1][0] + b[1][0], a[1][1] + b[1][1]],
-    ]
-}
-
-#[inline]
-fn mat_sub(a: &Mat2, b: &Mat2) -> Mat2 {
-    [
-        [a[0][0] - b[0][0], a[0][1] - b[0][1]],
-        [a[1][0] - b[1][0], a[1][1] - b[1][1]],
-    ]
-}
-
-/// Inverse of a symmetric 2×2 with a hard singularity error.
-fn mat_inv(a: &Mat2, what: &str) -> Result<Mat2, String> {
-    let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
-    if !(det.is_finite() && det.abs() > 0.0) {
-        return Err(format!("spline scan: singular 2x2 in {what} (det={det})"));
+fn mat_t(a: &Mat2, m: usize) -> Mat2 {
+    let mut c = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..m {
+        for j in 0..m {
+            c[i][j] = a[j][i];
+        }
     }
-    Ok([
-        [a[1][1] / det, -a[0][1] / det],
-        [-a[1][0] / det, a[0][0] / det],
-    ])
+    c
 }
 
 #[inline]
-fn transition(delta: f64) -> Mat2 {
-    [[1.0, delta], [0.0, 1.0]]
+fn mat_vec(a: &Mat2, v: &Vec2, m: usize) -> Vec2 {
+    let mut out = [0.0; MAX_ORDER];
+    for i in 0..m {
+        let mut acc = 0.0;
+        for j in 0..m {
+            acc += a[i][j] * v[j];
+        }
+        out[i] = acc;
+    }
+    out
 }
 
 #[inline]
-fn process_noise(delta: f64, q: f64) -> Mat2 {
-    let d2 = delta * delta;
-    let d3 = d2 * delta;
-    [[q * d3 / 3.0, q * d2 / 2.0], [q * d2 / 2.0, q * delta]]
+fn mat_add(a: &Mat2, b: &Mat2, m: usize) -> Mat2 {
+    let mut c = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..m {
+        for j in 0..m {
+            c[i][j] = a[i][j] + b[i][j];
+        }
+    }
+    c
+}
+
+#[inline]
+fn mat_sub(a: &Mat2, b: &Mat2, m: usize) -> Mat2 {
+    let mut c = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..m {
+        for j in 0..m {
+            c[i][j] = a[i][j] - b[i][j];
+        }
+    }
+    c
+}
+
+/// Inverse of an `m × m` (`m ∈ {1, 2, 3}`) with a hard singularity error.
+/// Closed-form cofactor inverses keep the hot-loop arithmetic exact and
+/// branch-free; order 3 is the quintic smoother's state dimension (#1044).
+fn mat_inv(a: &Mat2, m: usize, what: &str) -> Result<Mat2, String> {
+    let mut out = [[0.0; MAX_ORDER]; MAX_ORDER];
+    match m {
+        1 => {
+            let d = a[0][0];
+            if !(d.is_finite() && d.abs() > 0.0) {
+                return Err(format!("spline scan: singular 1x1 in {what} (a00={d})"));
+            }
+            out[0][0] = 1.0 / d;
+        }
+        2 => {
+            let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
+            if !(det.is_finite() && det.abs() > 0.0) {
+                return Err(format!("spline scan: singular 2x2 in {what} (det={det})"));
+            }
+            out[0][0] = a[1][1] / det;
+            out[0][1] = -a[0][1] / det;
+            out[1][0] = -a[1][0] / det;
+            out[1][1] = a[0][0] / det;
+        }
+        3 => {
+            // Cofactor / adjugate inverse. Cofactors of the 2×2 minors:
+            let c00 = a[1][1] * a[2][2] - a[1][2] * a[2][1];
+            let c01 = a[1][2] * a[2][0] - a[1][0] * a[2][2];
+            let c02 = a[1][0] * a[2][1] - a[1][1] * a[2][0];
+            let det = a[0][0] * c00 + a[0][1] * c01 + a[0][2] * c02;
+            if !(det.is_finite() && det.abs() > 0.0) {
+                return Err(format!("spline scan: singular 3x3 in {what} (det={det})"));
+            }
+            let inv_det = 1.0 / det;
+            // inv = adj/det = (cofactor matrix)ᵀ / det.
+            out[0][0] = c00 * inv_det;
+            out[0][1] = (a[0][2] * a[2][1] - a[0][1] * a[2][2]) * inv_det;
+            out[0][2] = (a[0][1] * a[1][2] - a[0][2] * a[1][1]) * inv_det;
+            out[1][0] = c01 * inv_det;
+            out[1][1] = (a[0][0] * a[2][2] - a[0][2] * a[2][0]) * inv_det;
+            out[1][2] = (a[0][2] * a[1][0] - a[0][0] * a[1][2]) * inv_det;
+            out[2][0] = c02 * inv_det;
+            out[2][1] = (a[0][1] * a[2][0] - a[0][0] * a[2][1]) * inv_det;
+            out[2][2] = (a[0][0] * a[1][1] - a[0][1] * a[1][0]) * inv_det;
+        }
+        _ => return Err(format!("spline scan: unsupported order {m} in {what}")),
+    }
+    Ok(out)
+}
+
+/// Inverse of a general dense `d × d` SPD matrix via Gauss–Jordan elimination
+/// with partial pivoting, symmetric diagonal (Jacobi) equilibration, and one
+/// iterative-refinement step. Used once per fit by the leading-block diffuse
+/// smoother (dimension `(order−1)·order ≤ 6`), so clarity over speed — it is
+/// NOT on the hot REML grid path (that runs only `run_filter`).
+///
+/// Equilibration matters at order `m ≥ 3`: the IWP process noise `Q(δ)` scales
+/// the `f^{(k)}` state components by `δ^{2m−1}` down to `δ`, so its inverse
+/// `(qQ)⁻¹` — and hence the leading-block precision `Λ` — spans many orders of
+/// magnitude (the f-component carries the `O(w)` observation term, the
+/// high-derivative components carry `O(1/(qδ^{2m−1}))` penalty mass). A bare
+/// Gauss–Jordan inverse of such a `Λ` loses `≈ ε·κ(Λ)` digits, which at heavy
+/// smoothing (small `q`) would corrupt the quintic's leading smoothed nodes.
+/// Rescaling to unit diagonal (`Λ̃ = SΛS`, `s_i = 1/√Λ_ii`) collapses that
+/// scale disparity before the elimination, then `Λ⁻¹ = S Λ̃⁻¹ S`.
+fn dense_spd_inverse(a: &[Vec<f64>], what: &str) -> Result<Vec<Vec<f64>>, String> {
+    let d = a.len();
+    // Jacobi equilibration scale s_i = 1/√Λ_ii (Λ SPD ⇒ Λ_ii > 0).
+    let s: Vec<f64> = (0..d)
+        .map(|i| {
+            let dii = a[i][i];
+            if dii.is_finite() && dii > 0.0 {
+                1.0 / dii.sqrt()
+            } else {
+                1.0
+            }
+        })
+        .collect();
+    let a_s: Vec<Vec<f64>> = (0..d)
+        .map(|i| (0..d).map(|j| s[i] * a[i][j] * s[j]).collect())
+        .collect();
+    // Gauss–Jordan inverse of the equilibrated matrix.
+    let mut inv_s = gauss_jordan_inverse(&a_s, what)?;
+    // One iterative-refinement step against the equilibrated system:
+    // X ← X + X·(I − Λ̃·X), reducing the residual to near machine precision.
+    let mut resid = vec![vec![0.0_f64; d]; d]; // R = I − Λ̃·X
+    for i in 0..d {
+        for j in 0..d {
+            let mut ax = 0.0;
+            for k in 0..d {
+                ax += a_s[i][k] * inv_s[k][j];
+            }
+            resid[i][j] = f64::from(u8::from(i == j)) - ax;
+        }
+    }
+    let mut delta = vec![vec![0.0_f64; d]; d]; // ΔX = X·R
+    for i in 0..d {
+        for j in 0..d {
+            let mut acc = 0.0;
+            for k in 0..d {
+                acc += inv_s[i][k] * resid[k][j];
+            }
+            delta[i][j] = acc;
+        }
+    }
+    for i in 0..d {
+        for j in 0..d {
+            inv_s[i][j] += delta[i][j];
+        }
+    }
+    // Un-equilibrate: Λ⁻¹ = S·Λ̃⁻¹·S.
+    Ok((0..d)
+        .map(|i| (0..d).map(|j| s[i] * inv_s[i][j] * s[j]).collect())
+        .collect())
+}
+
+/// Gauss–Jordan inverse with partial pivoting (helper for `dense_spd_inverse`).
+fn gauss_jordan_inverse(a: &[Vec<f64>], what: &str) -> Result<Vec<Vec<f64>>, String> {
+    let d = a.len();
+    let mut aug = a.to_vec();
+    let mut inv = vec![vec![0.0_f64; d]; d];
+    for i in 0..d {
+        inv[i][i] = 1.0;
+    }
+    for col in 0..d {
+        let piv = (col..d)
+            .max_by(|&i, &j| aug[i][col].abs().total_cmp(&aug[j][col].abs()))
+            .unwrap();
+        let p = aug[piv][col];
+        if !(p.is_finite() && p.abs() > 0.0) {
+            return Err(format!("spline scan: singular {d}x{d} in {what} (pivot={p})"));
+        }
+        aug.swap(col, piv);
+        inv.swap(col, piv);
+        let d_piv = aug[col][col];
+        for k in 0..d {
+            aug[col][k] /= d_piv;
+            inv[col][k] /= d_piv;
+        }
+        for r in 0..d {
+            if r == col {
+                continue;
+            }
+            let f = aug[r][col];
+            if f == 0.0 {
+                continue;
+            }
+            for k in 0..d {
+                aug[r][k] -= f * aug[col][k];
+                inv[r][k] -= f * inv[col][k];
+            }
+        }
+    }
+    Ok(inv)
+}
+
+/// Factorials `k!` for `k ≤ 2·MAX_ORDER` — the only ones the order-`m`
+/// transition and process-noise formulas reference.
+#[inline]
+fn factorial(k: usize) -> f64 {
+    (1..=k).map(|v| v as f64).product::<f64>().max(1.0)
+}
+
+/// Transition `F(δ) = exp(δ·A)` of the `m`-th order integrated Wiener process,
+/// `A` the nilpotent shift: `F[i][j] = δ^{j−i}/(j−i)!` for `j ≥ i`, else 0.
+/// `m = 1 ⇒ [[1]]`; `m = 2 ⇒ [[1, δ], [0, 1]]` (the cubic case, unchanged).
+#[inline]
+fn transition(delta: f64, m: usize) -> Mat2 {
+    let mut f = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..m {
+        for j in i..m {
+            f[i][j] = delta.powi((j - i) as i32) / factorial(j - i);
+        }
+    }
+    f
+}
+
+/// Process noise `Q(δ) = ∫₀^δ e^{As} b bᵀ e^{Aᵀs} ds` (`b = e_{m−1}`) of the
+/// `m`-th order IWP at unit `q`, scaled by `q`:
+/// `Q[i][j] = q · δ^{2m−1−i−j} / ((m−1−i)! (m−1−j)! (2m−1−i−j))`.
+/// `m = 1 ⇒ [[q·δ]]`; `m = 2 ⇒ [[q·δ³/3, q·δ²/2], [q·δ²/2, q·δ]]` (unchanged).
+#[inline]
+fn process_noise(delta: f64, q: f64, m: usize) -> Mat2 {
+    let mut out = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..m {
+        for j in 0..m {
+            let p = 2 * m - 1 - i - j;
+            out[i][j] = q * delta.powi(p as i32)
+                / (factorial(m - 1 - i) * factorial(m - 1 - j) * (p as f64));
+        }
+    }
+    out
 }
 
 /// Symmetrize in place against drift from the rank-one update arithmetic.
 #[inline]
-fn symmetrize(a: &mut Mat2) {
-    let off = 0.5 * (a[0][1] + a[1][0]);
-    a[0][1] = off;
-    a[1][0] = off;
+fn symmetrize(a: &mut Mat2, m: usize) {
+    for i in 0..m {
+        for j in (i + 1)..m {
+            let off = 0.5 * (a[i][j] + a[j][i]);
+            a[i][j] = off;
+            a[j][i] = off;
+        }
+    }
 }
 
 /// Per-node filter storage needed by the RTS backward pass.
@@ -151,52 +375,65 @@ struct FilterPass {
     n_proper: usize,
 }
 
-fn run_filter(nodes: &[PooledNode], q: f64) -> Result<FilterPass, String> {
-    let m = nodes.len();
-    let mut steps = Vec::with_capacity(m);
+fn run_filter(nodes: &[PooledNode], q: f64, order: usize) -> Result<FilterPass, String> {
+    let n = nodes.len();
+    let mut steps = Vec::with_capacity(n);
     // Exact diffuse initialization (Durbin–Koopman): P = P* + κ·P_∞, κ → ∞.
-    let mut a: Vec2 = [0.0, 0.0];
-    let mut p_star: Mat2 = [[0.0; 2]; 2];
-    let mut p_inf: Mat2 = [[1.0, 0.0], [0.0, 1.0]];
-    let mut diffuse_rank = 2usize;
+    // The order-`m` polynomial null space (degree < m) is fully diffuse: the
+    // diffuse rank starts at `order`, consumed by the first `order` distinct
+    // abscissae.
+    let mut a: Vec2 = [0.0; MAX_ORDER];
+    let mut p_star: Mat2 = [[0.0; MAX_ORDER]; MAX_ORDER];
+    let mut p_inf: Mat2 = [[0.0; MAX_ORDER]; MAX_ORDER];
+    for i in 0..order {
+        p_inf[i][i] = 1.0;
+    }
+    let mut diffuse_rank = order;
     let mut sum_log_f = 0.0;
     let mut sum_v2_over_f = 0.0;
     let mut n_proper = 0usize;
-    for t in 0..m {
+    for t in 0..n {
         let a_pred = a;
         let p_pred = p_star;
         let r = 1.0 / nodes[t].w;
         let v = nodes[t].y - a[0];
-        // H = [1 0] ⇒ M = P·H' is the first column, F = M[0] (+ r).
-        let m_star: Vec2 = [p_star[0][0], p_star[1][0]];
+        // H = [1 0 … 0] ⇒ M = P·H' is the first column, F = M[0] (+ r).
+        let mut m_star: Vec2 = [0.0; MAX_ORDER];
+        for i in 0..order {
+            m_star[i] = p_star[i][0];
+        }
         let f_star = m_star[0] + r;
         if diffuse_rank > 0 {
-            let m_inf: Vec2 = [p_inf[0][0], p_inf[1][0]];
+            let mut m_inf: Vec2 = [0.0; MAX_ORDER];
+            for i in 0..order {
+                m_inf[i] = p_inf[i][0];
+            }
             let f_inf = m_inf[0];
             if f_inf > INNOVATION_VAR_FLOOR {
                 // Exact diffuse update (Koopman 1997): the κ→∞ limit of the
                 // standard update; the diffuse step contributes −½·log F_∞ to
                 // the restricted likelihood and consumes one diffuse dimension.
-                let k0: Vec2 = [m_inf[0] / f_inf, m_inf[1] / f_inf];
-                a = [a[0] + k0[0] * v, a[1] + k0[1] * v];
+                for i in 0..order {
+                    a[i] += (m_inf[i] / f_inf) * v;
+                }
                 let mut p_new = p_star;
-                for i in 0..2 {
-                    for j in 0..2 {
+                for i in 0..order {
+                    for j in 0..order {
                         p_new[i][j] += -m_inf[i] * m_star[j] / f_inf - m_star[i] * m_inf[j] / f_inf
                             + m_inf[i] * m_inf[j] * f_star / (f_inf * f_inf);
                     }
                 }
                 p_star = p_new;
-                symmetrize(&mut p_star);
-                for i in 0..2 {
-                    for j in 0..2 {
+                symmetrize(&mut p_star, order);
+                for i in 0..order {
+                    for j in 0..order {
                         p_inf[i][j] -= m_inf[i] * m_inf[j] / f_inf;
                     }
                 }
-                symmetrize(&mut p_inf);
+                symmetrize(&mut p_inf, order);
                 diffuse_rank -= 1;
                 if diffuse_rank == 0 {
-                    p_inf = [[0.0; 2]; 2];
+                    p_inf = [[0.0; MAX_ORDER]; MAX_ORDER];
                 }
             } else {
                 // Diffuse direction orthogonal to H at this node: ordinary
@@ -204,14 +441,15 @@ fn run_filter(nodes: &[PooledNode], q: f64) -> Result<FilterPass, String> {
                 if f_star <= INNOVATION_VAR_FLOOR {
                     return Err("spline scan: non-positive innovation variance".to_string());
                 }
-                let k: Vec2 = [m_star[0] / f_star, m_star[1] / f_star];
-                a = [a[0] + k[0] * v, a[1] + k[1] * v];
-                for i in 0..2 {
-                    for j in 0..2 {
+                for i in 0..order {
+                    a[i] += (m_star[i] / f_star) * v;
+                }
+                for i in 0..order {
+                    for j in 0..order {
                         p_star[i][j] -= m_star[i] * m_star[j] / f_star;
                     }
                 }
-                symmetrize(&mut p_star);
+                symmetrize(&mut p_star, order);
                 sum_log_f += f_star.ln();
                 sum_v2_over_f += v * v / f_star;
                 n_proper += 1;
@@ -220,14 +458,15 @@ fn run_filter(nodes: &[PooledNode], q: f64) -> Result<FilterPass, String> {
             if f_star <= INNOVATION_VAR_FLOOR {
                 return Err("spline scan: non-positive innovation variance".to_string());
             }
-            let k: Vec2 = [m_star[0] / f_star, m_star[1] / f_star];
-            a = [a[0] + k[0] * v, a[1] + k[1] * v];
-            for i in 0..2 {
-                for j in 0..2 {
+            for i in 0..order {
+                a[i] += (m_star[i] / f_star) * v;
+            }
+            for i in 0..order {
+                for j in 0..order {
                     p_star[i][j] -= m_star[i] * m_star[j] / f_star;
                 }
             }
-            symmetrize(&mut p_star);
+            symmetrize(&mut p_star, order);
             sum_log_f += f_star.ln();
             sum_v2_over_f += v * v / f_star;
             n_proper += 1;
@@ -239,19 +478,21 @@ fn run_filter(nodes: &[PooledNode], q: f64) -> Result<FilterPass, String> {
             p_pred,
         });
         // Predict to the next node.
-        if t + 1 < m {
+        if t + 1 < n {
             let delta = nodes[t + 1].x - nodes[t].x;
-            let f_t = transition(delta);
-            a = mat_vec(&f_t, &a);
+            let f_t = transition(delta, order);
+            a = mat_vec(&f_t, &a, order);
             let mut p_next = mat_add(
-                &mat_mul(&mat_mul(&f_t, &p_star), &mat_t(&f_t)),
-                &process_noise(delta, q),
+                &mat_mul(&mat_mul(&f_t, &p_star, order), &mat_t(&f_t, order), order),
+                &process_noise(delta, q, order),
+                order,
             );
-            symmetrize(&mut p_next);
+            symmetrize(&mut p_next, order);
             p_star = p_next;
             if diffuse_rank > 0 {
-                let mut pi_next = mat_mul(&mat_mul(&f_t, &p_inf), &mat_t(&f_t));
-                symmetrize(&mut pi_next);
+                let mut pi_next =
+                    mat_mul(&mat_mul(&f_t, &p_inf, order), &mat_t(&f_t, order), order);
+                symmetrize(&mut pi_next, order);
                 p_inf = pi_next;
             }
         }
@@ -265,12 +506,18 @@ fn run_filter(nodes: &[PooledNode], q: f64) -> Result<FilterPass, String> {
 }
 
 /// Fitted exact smoothing-spline posterior on the pooled knots.
-pub struct CubicSplineScanFit {
+#[derive(Clone, Debug)]
+pub struct SplineScanFit {
+    /// Smoothing-spline order `m` (penalize `∫(f^{(m)})²`); state dimension.
+    /// `m = 1` is the random-walk/linear smoother, `m = 2` the cubic smoother,
+    /// `m = 3` the quintic smoother.
+    pub order: usize,
     /// Distinct sorted abscissae (pooled knots).
     pub knots: Vec<f64>,
     /// Smoothed posterior mean of `f` at each knot.
     pub mean: Vec<f64>,
-    /// Smoothed posterior mean of `f′` at each knot.
+    /// Smoothed posterior mean of `f′` at each knot (`0` for order `m = 1`,
+    /// which carries no derivative state).
     pub deriv: Vec<f64>,
     /// Posterior variance of `f` at each knot (scaled by `sigma2`).
     pub var: Vec<f64>,
@@ -296,7 +543,12 @@ pub struct CubicSplineScanFit {
 
 /// Pool tied abscissae and validate inputs. Returns nodes plus the within-tie
 /// weighted residual sum and the raw observation count.
-fn pool_nodes(x: &[f64], y: &[f64], w: &[f64]) -> Result<(Vec<PooledNode>, f64, usize), String> {
+fn pool_nodes(
+    x: &[f64],
+    y: &[f64],
+    w: &[f64],
+    order: usize,
+) -> Result<(Vec<PooledNode>, f64, usize), String> {
     let n = x.len();
     if y.len() != n || w.len() != n {
         return Err(format!(
@@ -313,10 +565,10 @@ fn pool_nodes(x: &[f64], y: &[f64], w: &[f64]) -> Result<(Vec<PooledNode>, f64, 
             ));
         }
     }
-    let mut order: Vec<usize> = (0..n).collect();
-    order.sort_by(|&i, &j| x[i].total_cmp(&x[j]));
+    let mut perm: Vec<usize> = (0..n).collect();
+    perm.sort_by(|&i, &j| x[i].total_cmp(&x[j]));
     let mut nodes: Vec<PooledNode> = Vec::new();
-    for &i in &order {
+    for &i in &perm {
         match nodes.last_mut() {
             Some(last) if last.x == x[i] => {
                 let w_new = last.w + w[i];
@@ -330,16 +582,18 @@ fn pool_nodes(x: &[f64], y: &[f64], w: &[f64]) -> Result<(Vec<PooledNode>, f64, 
             }),
         }
     }
-    if nodes.len() < 3 {
+    // Need the `order` diffuse dimensions plus at least one proper innovation.
+    if nodes.len() < order + 1 {
         return Err(format!(
-            "spline scan: needs at least 3 distinct abscissae, got {}",
+            "spline scan: order {order} needs at least {} distinct abscissae, got {}",
+            order + 1,
             nodes.len()
         ));
     }
     // Within-tie residual sum Σ w_i (y_i − ȳ_group)², part of the profiled σ².
     let mut ssr_within = 0.0;
     let mut k = 0usize;
-    for &i in &order {
+    for &i in &perm {
         while nodes[k].x != x[i] {
             k += 1;
         }
@@ -355,39 +609,214 @@ fn concentrated_criterion(
     ssr_within: f64,
     n_obs: usize,
     log_lambda: f64,
+    order: usize,
 ) -> Result<f64, String> {
-    let pass = run_filter(nodes, (-log_lambda).exp())?;
+    let pass = run_filter(nodes, (-log_lambda).exp(), order)?;
     // Profiled σ̂² over the proper innovations plus within-tie residuals;
-    // the restricted degrees of freedom subtract the diffuse dimension 2.
-    let dof = (n_obs - 2) as f64;
+    // the restricted degrees of freedom subtract the diffuse dimension `order`.
+    let dof = (n_obs - order) as f64;
     let rss = pass.sum_v2_over_f + ssr_within;
     if rss <= 0.0 {
         return Err("spline scan: degenerate zero residual sum".to_string());
     }
     let sigma2 = rss / dof;
-    if pass.n_proper != nodes.len() - 2 {
+    if pass.n_proper != nodes.len() - order {
         return Err(format!(
             "spline scan: expected {} proper innovations, got {} (diffuse rank not consumed)",
-            nodes.len() - 2,
+            nodes.len() - order,
             pass.n_proper
         ));
     }
     Ok(-0.5 * (pass.sum_log_f + dof * sigma2.ln()))
 }
 
-/// Fit at a FIXED `log λ`, with σ² either supplied or profiled.
-pub fn fit_cubic_spline_scan_at(
+/// Exact diffuse smoother for the `order−1` partially-diffuse leading nodes
+/// (#1044 — the multi-node generalization of the `m = 2` reverse-Markov
+/// closure).
+///
+/// Ordinary RTS recovers every node `t ≥ order−1` (where the filtered
+/// distribution is proper). The first `order−1` nodes are partially diffuse:
+/// their filtered covariance still carries unresolved diffuse mass, so RTS —
+/// which needs the predicted covariance `P_{t+1|t}` to be invertible — cannot
+/// reach them. By the Markov property the leading block depends on all future
+/// data ONLY through the first proper smoothed node `α_{order−1}`:
+///
+///   p(α_{0..order−2} | y) = ∫ p(α_{0..order−2} | α_{order−1}, y_{0..order−2})
+///                             · p(α_{order−1} | y) dα_{order−1}.
+///
+/// The inner conditional is a proper Gaussian: it is the flat (improper)
+/// leading prior tightened by the Markov increments `(α_{t+1} − Fα_t)ᵀ(qQ)⁻¹(·)`
+/// and the leading observations `w_t (y_t − f_t)²`, with `α_{order−1}` entering
+/// linearly through the last increment. Writing `u = (α_0, …, α_{order−2})`,
+///
+///   u | α_{order−1} ~ N(C·α_{order−1} + d,  Σ),   Σ = Λ⁻¹,
+///   Λ  = increments(F'(qQ)⁻¹F …) + leading obs,
+///   d  = Σ·b_const,   C = Σ·B   (B = the pinned-node coupling F'(qQ)⁻¹),
+///
+/// and pushing the smoothed `α_{order−1} ~ N(α̂_p, V_p)` through the affine map
+/// gives the EXACT smoothed leading block, its covariances, and the lag-one
+/// cross-covariances `Cov(α_j, α_{j+1} | y)` the bridge `predict` needs:
+///
+///   mean(u) = C·α̂_p + d,   Cov(u) = C V_p Cᵀ + Σ,   Cov(u, α_p) = C V_p.
+///
+/// This is exact Gaussian conditioning — no diffuse RTS recursion, no
+/// sign-convention-laden `r/N` adjoint. At `order = 2` (one leading node) it is
+/// algebraically the existing single-node closure.
+fn leading_block_smooth(
+    sm_state: &mut [Vec2],
+    sm_cov: &mut [Mat2],
+    gains: &mut [Mat2],
+    nodes: &[PooledNode],
+    q: f64,
+    order: usize,
+) -> Result<(), String> {
+    let nb = order - 1; // leading nodes 0..nb-1 (the partially-diffuse ones)
+    let pin = order - 1; // first proper smoothed node (conditioning anchor)
+    let d = nb * order; // joint dimension of the leading block
+    let mut lambda = vec![vec![0.0_f64; d]; d];
+    let mut b_const = vec![0.0_f64; d];
+    let mut bmat = vec![vec![0.0_f64; order]; d]; // coupling to the pinned node
+
+    // Markov increments t = 0..order-2, each connecting node t and node t+1.
+    for t in 0..order - 1 {
+        let delta = nodes[t + 1].x - nodes[t].x;
+        let f = transition(delta, order);
+        let qn = process_noise(delta, q, order);
+        let a = mat_inv(&qn, order, "leading-block increment noise")?; // (qQ)⁻¹ (symmetric)
+        let ft = mat_t(&f, order);
+        let fta = mat_mul(&ft, &a, order); // F'A
+        let ftaf = mat_mul(&fta, &f, order); // F'A F
+        let af = mat_mul(&a, &f, order); // A F = (F'A)'
+        // Node t diagonal block (node t is always in the block): += F'A F.
+        for i in 0..order {
+            for j in 0..order {
+                lambda[t * order + i][t * order + j] += ftaf[i][j];
+            }
+        }
+        if t + 1 <= nb - 1 {
+            // Both nodes are in the block: fill node t+1's diagonal and the
+            // symmetric cross blocks.
+            for i in 0..order {
+                for j in 0..order {
+                    lambda[(t + 1) * order + i][(t + 1) * order + j] += a[i][j];
+                    lambda[t * order + i][(t + 1) * order + j] -= fta[i][j];
+                    lambda[(t + 1) * order + i][t * order + j] -= af[i][j];
+                }
+            }
+        } else {
+            // t+1 is the pinned node: it enters the conditional only linearly,
+            // through B (its coupling into node t's score is F'A·α_pin).
+            for i in 0..order {
+                for j in 0..order {
+                    bmat[t * order + i][j] += fta[i][j];
+                }
+            }
+        }
+    }
+    // Leading observations: y_t informs the f-component (local index 0) of node t.
+    for t in 0..nb {
+        let w = nodes[t].w;
+        lambda[t * order][t * order] += w;
+        b_const[t * order] += w * nodes[t].y;
+    }
+
+    // Conditional covariance Σ = Λ⁻¹, intercept d = Σ·b_const, coupling C = Σ·B.
+    let sigma = dense_spd_inverse(&lambda, "leading-block precision")?;
+    let dvec: Vec<f64> = (0..d)
+        .map(|i| (0..d).map(|k| sigma[i][k] * b_const[k]).sum())
+        .collect();
+    let cmat: Vec<Vec<f64>> = (0..d)
+        .map(|i| {
+            (0..order)
+                .map(|j| (0..d).map(|k| sigma[i][k] * bmat[k][j]).sum())
+                .collect()
+        })
+        .collect();
+
+    // Pinned smoothed moments (from the ordinary RTS pass).
+    let ahat_p = sm_state[pin];
+    let vp = sm_cov[pin];
+    // cvp = C·V_p  (= Cov(u, α_pin)), D×order.
+    let cvp: Vec<Vec<f64>> = (0..d)
+        .map(|i| {
+            (0..order)
+                .map(|j| (0..order).map(|k| cmat[i][k] * vp[k][j]).sum())
+                .collect()
+        })
+        .collect();
+    // mean(u) = C·α̂_p + d.
+    let mean_u: Vec<f64> = (0..d)
+        .map(|i| (0..order).map(|j| cmat[i][j] * ahat_p[j]).sum::<f64>() + dvec[i])
+        .collect();
+    // Cov(u) = cvp·Cᵀ + Σ.
+    let cov_u: Vec<Vec<f64>> = (0..d)
+        .map(|i| {
+            (0..d)
+                .map(|k| (0..order).map(|j| cvp[i][j] * cmat[k][j]).sum::<f64>() + sigma[i][k])
+                .collect()
+        })
+        .collect();
+
+    // Scatter the smoothed leading states and covariances.
+    for j in 0..nb {
+        for i in 0..order {
+            sm_state[j][i] = mean_u[j * order + i];
+        }
+        let mut cov = [[0.0_f64; MAX_ORDER]; MAX_ORDER];
+        for i in 0..order {
+            for k in 0..order {
+                cov[i][k] = cov_u[j * order + i][j * order + k];
+            }
+        }
+        symmetrize(&mut cov, order);
+        sm_cov[j] = cov;
+    }
+    // Lag-one bridge gains for the leading intervals [j, j+1], j = 0..order-2.
+    // gain_j = Cov(α_j, α_{j+1} | y) · Cov(α_{j+1} | y)⁻¹, so that the bridge's
+    // `gain_j · P^s_{j+1}` reproduces the exact lag-one smoothed cross-cov.
+    for j in 0..nb {
+        let mut cross = [[0.0_f64; MAX_ORDER]; MAX_ORDER];
+        if j + 1 <= nb - 1 {
+            // Both in the block: read the (j, j+1) sub-block of Cov(u).
+            for i in 0..order {
+                for k in 0..order {
+                    cross[i][k] = cov_u[j * order + i][(j + 1) * order + k];
+                }
+            }
+        } else {
+            // j+1 is the pinned node: read node j's rows of Cov(u, α_pin) = cvp.
+            for i in 0..order {
+                for k in 0..order {
+                    cross[i][k] = cvp[j * order + i][k];
+                }
+            }
+        }
+        let denom_inv = mat_inv(&sm_cov[j + 1], order, "leading-block gain denominator")?;
+        gains[j] = mat_mul(&cross, &denom_inv, order);
+    }
+    Ok(())
+}
+
+/// Fit at a FIXED `log λ` and order `m ∈ {1, 2, 3}`, σ² either supplied or
+/// profiled.
+pub fn fit_spline_scan_at(
     x: &[f64],
     y: &[f64],
     w: &[f64],
     log_lambda: f64,
     sigma2: Option<f64>,
-) -> Result<CubicSplineScanFit, String> {
-    let (nodes, ssr_within, n_obs) = pool_nodes(x, y, w)?;
+    order: usize,
+) -> Result<SplineScanFit, String> {
+    if order == 0 || order > MAX_ORDER {
+        return Err(format!(
+            "spline scan: order must be in 1..={MAX_ORDER}, got {order}"
+        ));
+    }
+    let (nodes, ssr_within, n_obs) = pool_nodes(x, y, w, order)?;
     let q = (-log_lambda).exp();
-    let pass = run_filter(&nodes, q)?;
-    let m = nodes.len();
-    let dof = (n_obs - 2) as f64;
+    let pass = run_filter(&nodes, q, order)?;
+    let n = nodes.len();
+    let dof = (n_obs - order) as f64;
     let sigma2 = match sigma2 {
         Some(s) => {
             if !(s.is_finite() && s > 0.0) {
@@ -404,69 +833,65 @@ pub fn fit_cubic_spline_scan_at(
     let rss = pass.sum_v2_over_f + ssr_within;
     let restricted_loglik = -0.5 * (pass.sum_log_f + dof * sigma2.ln() + rss / sigma2);
 
-    // ── RTS smoother (proper steps; t = 0 handled by direct conditioning) ──
-    let mut sm_state = vec![[0.0_f64; 2]; m];
-    let mut sm_cov = vec![[[0.0_f64; 2]; 2]; m];
-    let mut gains = vec![[[0.0_f64; 2]; 2]; m];
-    sm_state[m - 1] = pass.steps[m - 1].a_filt;
-    sm_cov[m - 1] = pass.steps[m - 1].p_filt;
-    for t in (1..m - 1).rev() {
+    // ── Smoother: ordinary RTS for the proper nodes (t ≥ order−1) plus an
+    // exact diffuse conditioning of the `order−1` leading nodes. ──
+    // The filtered distribution is fully proper from node order−1 onward (the
+    // diffuse rank, = order, is consumed by node order−1), so ordinary RTS is
+    // valid for t ≥ order−1. The first order−1 nodes are partially diffuse —
+    // their filtered covariance still carries unresolved diffuse mass and the
+    // RTS predicted-covariance inverse is singular there — and are recovered
+    // exactly, jointly, by `leading_block_smooth` (conditioning the whole
+    // leading block on the first proper smoothed node). For order = 1 there is
+    // no leading node and RTS covers every node down to t = 0.
+    let mut sm_state = vec![[0.0_f64; MAX_ORDER]; n];
+    let mut sm_cov = vec![[[0.0_f64; MAX_ORDER]; MAX_ORDER]; n];
+    let mut gains = vec![[[0.0_f64; MAX_ORDER]; MAX_ORDER]; n];
+    sm_state[n - 1] = pass.steps[n - 1].a_filt;
+    sm_cov[n - 1] = pass.steps[n - 1].p_filt;
+    for t in (order - 1..n - 1).rev() {
         let p_next_pred = &pass.steps[t + 1].p_pred;
         let delta = nodes[t + 1].x - nodes[t].x;
-        let f_t = transition(delta);
-        let p_inv = mat_inv(p_next_pred, "RTS predicted covariance")?;
-        let g = mat_mul(&mat_mul(&pass.steps[t].p_filt, &mat_t(&f_t)), &p_inv);
-        let dm: Vec2 = [
-            sm_state[t + 1][0] - pass.steps[t + 1].a_pred[0],
-            sm_state[t + 1][1] - pass.steps[t + 1].a_pred[1],
-        ];
-        let corr = mat_vec(&g, &dm);
-        sm_state[t] = [
-            pass.steps[t].a_filt[0] + corr[0],
-            pass.steps[t].a_filt[1] + corr[1],
-        ];
-        let dp = mat_sub(&sm_cov[t + 1], p_next_pred);
+        let f_t = transition(delta, order);
+        let p_inv = mat_inv(p_next_pred, order, "RTS predicted covariance")?;
+        let g = mat_mul(
+            &mat_mul(&pass.steps[t].p_filt, &mat_t(&f_t, order), order),
+            &p_inv,
+            order,
+        );
+        let mut dm: Vec2 = [0.0; MAX_ORDER];
+        for i in 0..order {
+            dm[i] = sm_state[t + 1][i] - pass.steps[t + 1].a_pred[i];
+        }
+        let corr = mat_vec(&g, &dm, order);
+        for i in 0..order {
+            sm_state[t][i] = pass.steps[t].a_filt[i] + corr[i];
+        }
+        let dp = mat_sub(&sm_cov[t + 1], p_next_pred, order);
         let mut cov = mat_add(
             &pass.steps[t].p_filt,
-            &mat_mul(&mat_mul(&g, &dp), &mat_t(&g)),
+            &mat_mul(&mat_mul(&g, &dp, order), &mat_t(&g, order), order),
+            order,
         );
-        symmetrize(&mut cov);
+        symmetrize(&mut cov, order);
         sm_cov[t] = cov;
         gains[t] = g;
     }
-    // t = 0 by exact Markov conditioning: p(α₁ | y) = ∫ p(α₁ | α₂, y₁) p(α₂ | y).
-    // Reverse map α₁ = F⁻¹(α₂ − η) gives the proper "prior" N(F⁻¹α₂, F⁻¹QF⁻ᵀ);
-    // one 2×2 Bayes update with y₁ makes the conditional affine in α₂, and the
-    // smoothed moments of α₂ push through the affine map exactly. This sidesteps
-    // the diffuse RTS recursion entirely (only t=0 retains diffuse filtered cov).
-    {
-        let delta = nodes[1].x - nodes[0].x;
-        let f1 = transition(delta);
-        let f1_inv = mat_inv(&f1, "first transition")?;
-        let q1 = process_noise(delta, q);
-        let rev_cov = mat_mul(&mat_mul(&f1_inv, &q1), &mat_t(&f1_inv));
-        let rev_prec = mat_inv(&rev_cov, "reverse-map covariance")?;
-        let r0 = 1.0 / nodes[0].w;
-        // Posterior precision Λ = rev_prec + H'H/r₀.
-        let mut lambda = rev_prec;
-        lambda[0][0] += 1.0 / r0;
-        let lam_inv = mat_inv(&lambda, "t=0 conditioning precision")?;
-        // Affine map α₁|α₂,y₁ ~ N(C α₂ + d, Λ⁻¹).
-        let c = mat_mul(&lam_inv, &mat_mul(&rev_prec, &f1_inv));
-        let d = mat_vec(&lam_inv, &[nodes[0].y / r0, 0.0]);
-        let mean1 = mat_vec(&c, &sm_state[1]);
-        sm_state[0] = [mean1[0] + d[0], mean1[1] + d[1]];
-        let mut cov0 = mat_add(&mat_mul(&mat_mul(&c, &sm_cov[1]), &mat_t(&c)), &lam_inv);
-        symmetrize(&mut cov0);
-        sm_cov[0] = cov0;
-        gains[0] = c;
+    // The order−1 partially-diffuse leading nodes by exact joint conditioning
+    // (the multi-node generalization of the m=2 reverse-Markov closure).
+    if order >= 2 {
+        leading_block_smooth(&mut sm_state, &mut sm_cov, &mut gains, &nodes, q, order)?;
     }
 
     let knots: Vec<f64> = nodes.iter().map(|n| n.x).collect();
     let mean: Vec<f64> = sm_state.iter().map(|s| s[0]).collect();
-    let deriv: Vec<f64> = sm_state.iter().map(|s| s[1]).collect();
+    // f′ lives at state index 1 — present for order ≥ 2, structurally 0 at m = 1.
+    let deriv: Vec<f64> = sm_state
+        .iter()
+        .map(|s| if order >= 2 { s[1] } else { 0.0 })
+        .collect();
     let var: Vec<f64> = sm_cov.iter().map(|p| p[0][0] * sigma2).collect();
-    Ok(CubicSplineScanFit {
+    Ok(SplineScanFit {
+        order,
         knots,
         mean,
         deriv,
@@ -485,13 +910,19 @@ pub fn fit_cubic_spline_scan_at(
 /// Fit with `log λ` selected by the concentrated diffuse REML criterion:
 /// deterministic coarse grid then golden-section refinement (no RNG, no
 /// iteration-count sensitivity — same data ⇒ same fit).
-pub fn fit_cubic_spline_scan(
+pub fn fit_spline_scan(
     x: &[f64],
     y: &[f64],
     w: &[f64],
-) -> Result<CubicSplineScanFit, String> {
-    let (nodes, ssr_within, n_obs) = pool_nodes(x, y, w)?;
-    let crit = |ll: f64| concentrated_criterion(&nodes, ssr_within, n_obs, ll);
+    order: usize,
+) -> Result<SplineScanFit, String> {
+    if order == 0 || order > MAX_ORDER {
+        return Err(format!(
+            "spline scan: order must be in 1..={MAX_ORDER}, got {order}"
+        ));
+    }
+    let (nodes, ssr_within, n_obs) = pool_nodes(x, y, w, order)?;
+    let crit = |ll: f64| concentrated_criterion(&nodes, ssr_within, n_obs, ll, order);
     let mut best_i = 0usize;
     let mut best_v = f64::NEG_INFINITY;
     let step = (LOG_LAMBDA_HI - LOG_LAMBDA_LO) / (LOG_LAMBDA_GRID - 1) as f64;
@@ -526,10 +957,209 @@ pub fn fit_cubic_spline_scan(
             f1 = crit(x1)?;
         }
     }
-    fit_cubic_spline_scan_at(x, y, w, 0.5 * (lo + hi), None)
+    fit_spline_scan_at(x, y, w, 0.5 * (lo + hi), None, order)
 }
 
-impl CubicSplineScanFit {
+/// Lossless serializable snapshot of a [`SplineScanFit`] (#1034).
+///
+/// Carries exactly the smoother state the Gaussian-bridge `predict` replays:
+/// pooled knots, smoothed `(f, f′, …, f^{(m−1)})` states (`m` per knot),
+/// smoothed state covariances (unit-σ² scale, symmetric — stored as the
+/// upper triangle row-major, `m(m+1)/2` per knot), RTS backward gains (full
+/// `m×m` row-major — gains are NOT symmetric), pooled node weights, and the
+/// three fit scalars. `q = e^{−log λ}` and the public `mean`/`deriv`/`var`
+/// views are derived on restore rather than stored, so a snapshot cannot go
+/// internally inconsistent. The layouts are order-derived; at the historical
+/// cubic `m = 2` they are exactly the original `[f, f′]` / `[c00, c01, c11]` /
+/// `[g00, g01, g10, g11]` triples, so pre-order-generality snapshots restore
+/// unchanged.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct SplineScanState {
+    /// Smoothing-spline order `m ∈ {1, 2, 3}` (`#[serde(default)]` → reads as
+    /// the historical cubic `m = 2` for snapshots written before order
+    /// generality).
+    #[serde(default = "default_spline_scan_order")]
+    pub order: usize,
+    pub knots: Vec<f64>,
+    /// Smoothed `(f, f′, …, f^{(m−1)})` per knot, row-major (`m` per knot).
+    pub state: Vec<f64>,
+    /// Smoothed covariance per knot at unit-σ² scale, upper triangle row-major
+    /// (`m(m+1)/2` per knot): `[c00, c01, …, c0,m−1, c11, …, c_{m−1,m−1}]`.
+    pub cov: Vec<f64>,
+    /// RTS backward gain per knot, full `m×m` row-major (`m²` per knot); the
+    /// last knot's gain is structurally unused and stored as written.
+    pub gain: Vec<f64>,
+    /// Pooled (tied-abscissa summed) observation weight per knot.
+    pub node_weight: Vec<f64>,
+    pub log_lambda: f64,
+    pub sigma2: f64,
+    pub restricted_loglik: f64,
+}
+
+/// Serde default for [`SplineScanState::order`]: historical snapshots predate
+/// order generality and are cubic (`m = 2`).
+fn default_spline_scan_order() -> usize {
+    2
+}
+
+impl SplineScanFit {
+    /// Snapshot the full smoother state for persistence (#1034).
+    pub fn to_state(&self) -> SplineScanState {
+        let order = self.order;
+        let tri = order * (order + 1) / 2;
+        let nk = self.knots.len();
+        let mut state = Vec::with_capacity(order * nk);
+        for s in &self.smoothed_state {
+            state.extend_from_slice(&s[..order]);
+        }
+        let mut cov = Vec::with_capacity(tri * nk);
+        for c in &self.smoothed_cov {
+            for i in 0..order {
+                for j in i..order {
+                    cov.push(c[i][j]);
+                }
+            }
+        }
+        let mut gain = Vec::with_capacity(order * order * nk);
+        for g in &self.rts_gain {
+            for i in 0..order {
+                for j in 0..order {
+                    gain.push(g[i][j]);
+                }
+            }
+        }
+        SplineScanState {
+            order: self.order,
+            knots: self.knots.clone(),
+            state,
+            cov,
+            gain,
+            node_weight: self.node_weight.clone(),
+            log_lambda: self.log_lambda,
+            sigma2: self.sigma2,
+            restricted_loglik: self.restricted_loglik,
+        }
+    }
+
+    /// Rebuild the exact in-memory fit from a persisted snapshot (#1034).
+    ///
+    /// Validates shape, finiteness, strict knot ordering, positive weights and
+    /// σ², so a corrupt payload fails loudly here instead of inside a later
+    /// `predict`. The restored fit replays the Gaussian bridge bit-for-bit:
+    /// every field `predict`/`edf`/`deriv_at_knot` reads is either stored
+    /// verbatim or derived by the same expressions the fitter uses.
+    pub fn from_state(state: &SplineScanState) -> Result<Self, String> {
+        let order = state.order;
+        if order == 0 || order > MAX_ORDER {
+            return Err(format!(
+                "spline scan state: order must be in 1..={MAX_ORDER}, got {order}"
+            ));
+        }
+        let m = state.knots.len();
+        if m < order + 1 {
+            return Err(format!(
+                "spline scan state: order {order} needs at least {} knots, got {m}",
+                order + 1
+            ));
+        }
+        let tri = order * (order + 1) / 2;
+        if state.state.len() != order * m
+            || state.cov.len() != tri * m
+            || state.gain.len() != order * order * m
+            || state.node_weight.len() != m
+        {
+            return Err(format!(
+                "spline scan state: inconsistent lengths (order={order}, m={m}, state={}, cov={}, gain={}, weights={})",
+                state.state.len(),
+                state.cov.len(),
+                state.gain.len(),
+                state.node_weight.len()
+            ));
+        }
+        let all = state
+            .state
+            .iter()
+            .chain(&state.cov)
+            .chain(&state.gain)
+            .chain(&state.knots)
+            .chain(&state.node_weight);
+        for (i, v) in all.enumerate() {
+            if !v.is_finite() {
+                return Err(format!("spline scan state: non-finite entry at {i}"));
+            }
+        }
+        if !(state.log_lambda.is_finite()
+            && state.restricted_loglik.is_finite()
+            && state.sigma2.is_finite()
+            && state.sigma2 > 0.0)
+        {
+            return Err(format!(
+                "spline scan state: invalid scalars (log_lambda={}, sigma2={}, restricted_loglik={})",
+                state.log_lambda, state.sigma2, state.restricted_loglik
+            ));
+        }
+        if state.knots.windows(2).any(|kk| !(kk[0] < kk[1])) {
+            return Err("spline scan state: knots must be strictly increasing".to_string());
+        }
+        if state.node_weight.iter().any(|&w| w <= 0.0) {
+            return Err("spline scan state: node weights must be positive".to_string());
+        }
+        let smoothed_state: Vec<Vec2> = state
+            .state
+            .chunks_exact(order)
+            .map(|s| {
+                let mut v = [0.0_f64; MAX_ORDER];
+                v[..order].copy_from_slice(s);
+                v
+            })
+            .collect();
+        let smoothed_cov: Vec<Mat2> = state
+            .cov
+            .chunks_exact(tri)
+            .map(|c| {
+                let mut mm = [[0.0_f64; MAX_ORDER]; MAX_ORDER];
+                let mut idx = 0;
+                for i in 0..order {
+                    for j in i..order {
+                        mm[i][j] = c[idx];
+                        mm[j][i] = c[idx];
+                        idx += 1;
+                    }
+                }
+                mm
+            })
+            .collect();
+        let rts_gain: Vec<Mat2> = state
+            .gain
+            .chunks_exact(order * order)
+            .map(|g| {
+                let mut mm = [[0.0_f64; MAX_ORDER]; MAX_ORDER];
+                for i in 0..order {
+                    for j in 0..order {
+                        mm[i][j] = g[i * order + j];
+                    }
+                }
+                mm
+            })
+            .collect();
+        let sigma2 = state.sigma2;
+        Ok(Self {
+            order,
+            knots: state.knots.clone(),
+            mean: smoothed_state.iter().map(|s| s[0]).collect(),
+            deriv: smoothed_state.iter().map(|s| s[1]).collect(),
+            var: smoothed_cov.iter().map(|c| c[0][0] * sigma2).collect(),
+            log_lambda: state.log_lambda,
+            sigma2,
+            restricted_loglik: state.restricted_loglik,
+            smoothed_state,
+            smoothed_cov,
+            rts_gain,
+            q: (-state.log_lambda).exp(),
+            node_weight: state.node_weight.clone(),
+        })
+    }
+
     /// Exact posterior `(mean, variance)` of `f` at an arbitrary abscissa.
     ///
     /// Interior points use the Gaussian bridge conditional on the two flanking
@@ -540,29 +1170,40 @@ impl CubicSplineScanFit {
         if !x_new.is_finite() {
             return Err("spline scan: non-finite prediction abscissa".to_string());
         }
-        let m = self.knots.len();
+        let n = self.knots.len();
+        let order = self.order;
         let first = self.knots[0];
-        let last = self.knots[m - 1];
+        let last = self.knots[n - 1];
         if x_new <= first {
             let delta = first - x_new;
             // Backward extrapolation through the reverse map α(x) = F⁻¹(α₁ − η).
-            let f_t = transition(delta);
-            let f_inv = mat_inv(&f_t, "backward extrapolation transition")?;
-            let mean_s = mat_vec(&f_inv, &self.smoothed_state[0]);
-            let qm = process_noise(delta, self.q);
+            let f_t = transition(delta, order);
+            let f_inv = mat_inv(&f_t, order, "backward extrapolation transition")?;
+            let mean_s = mat_vec(&f_inv, &self.smoothed_state[0], order);
+            let qm = process_noise(delta, self.q, order);
             let cov = mat_add(
-                &mat_mul(&mat_mul(&f_inv, &self.smoothed_cov[0]), &mat_t(&f_inv)),
-                &mat_mul(&mat_mul(&f_inv, &qm), &mat_t(&f_inv)),
+                &mat_mul(
+                    &mat_mul(&f_inv, &self.smoothed_cov[0], order),
+                    &mat_t(&f_inv, order),
+                    order,
+                ),
+                &mat_mul(&mat_mul(&f_inv, &qm, order), &mat_t(&f_inv, order), order),
+                order,
             );
             return Ok((mean_s[0], cov[0][0] * self.sigma2));
         }
         if x_new >= last {
             let delta = x_new - last;
-            let f_t = transition(delta);
-            let mean_s = mat_vec(&f_t, &self.smoothed_state[m - 1]);
+            let f_t = transition(delta, order);
+            let mean_s = mat_vec(&f_t, &self.smoothed_state[n - 1], order);
             let cov = mat_add(
-                &mat_mul(&mat_mul(&f_t, &self.smoothed_cov[m - 1]), &mat_t(&f_t)),
-                &process_noise(delta, self.q),
+                &mat_mul(
+                    &mat_mul(&f_t, &self.smoothed_cov[n - 1], order),
+                    &mat_t(&f_t, order),
+                    order,
+                ),
+                &process_noise(delta, self.q, order),
+                order,
             );
             return Ok((mean_s[0], cov[0][0] * self.sigma2));
         }
@@ -573,32 +1214,56 @@ impl CubicSplineScanFit {
         };
         let (xa, xb) = (self.knots[t], self.knots[t + 1]);
         let (d1, d2) = (x_new - xa, xb - x_new);
-        let (f1m, f2m) = (transition(d1), transition(d2));
-        let (q1, q2) = (process_noise(d1, self.q), process_noise(d2, self.q));
-        let q1_inv = mat_inv(&q1, "bridge left noise")?;
-        let q2_inv = mat_inv(&q2, "bridge right noise")?;
+        let (f1m, f2m) = (transition(d1, order), transition(d2, order));
+        let (q1, q2) = (
+            process_noise(d1, self.q, order),
+            process_noise(d2, self.q, order),
+        );
+        let q1_inv = mat_inv(&q1, order, "bridge left noise")?;
+        let q2_inv = mat_inv(&q2, order, "bridge right noise")?;
         // p(α* | α_t, α_{t+1}) ∝ N(α*; F₁α_t, Q₁)·N(α_{t+1}; F₂α*, Q₂):
         //   Λ = Q₁⁻¹ + F₂ᵀQ₂⁻¹F₂,  mean = Λ⁻¹(Q₁⁻¹F₁ α_t + F₂ᵀQ₂⁻¹ α_{t+1}).
-        let lambda = mat_add(&q1_inv, &mat_mul(&mat_mul(&mat_t(&f2m), &q2_inv), &f2m));
-        let lam_inv = mat_inv(&lambda, "bridge precision")?;
-        let ca = mat_mul(&lam_inv, &mat_mul(&q1_inv, &f1m));
-        let cb = mat_mul(&lam_inv, &mat_mul(&mat_t(&f2m), &q2_inv));
-        let ma = mat_vec(&ca, &self.smoothed_state[t]);
-        let mb = mat_vec(&cb, &self.smoothed_state[t + 1]);
-        let mean_s = [ma[0] + mb[0], ma[1] + mb[1]];
+        let lambda = mat_add(
+            &q1_inv,
+            &mat_mul(&mat_mul(&mat_t(&f2m, order), &q2_inv, order), &f2m, order),
+            order,
+        );
+        let lam_inv = mat_inv(&lambda, order, "bridge precision")?;
+        let ca = mat_mul(&lam_inv, &mat_mul(&q1_inv, &f1m, order), order);
+        let cb = mat_mul(
+            &lam_inv,
+            &mat_mul(&mat_t(&f2m, order), &q2_inv, order),
+            order,
+        );
+        let ma = mat_vec(&ca, &self.smoothed_state[t], order);
+        let mb = mat_vec(&cb, &self.smoothed_state[t + 1], order);
+        let mut mean_s = [0.0_f64; MAX_ORDER];
+        for i in 0..order {
+            mean_s[i] = ma[i] + mb[i];
+        }
         // Push the joint smoothed covariance of (α_t, α_{t+1}) through the
         // affine map: cross term uses Cov(α_t, α_{t+1}|y) = G_t · P^s_{t+1}.
-        let cross = mat_mul(&self.rts_gain[t], &self.smoothed_cov[t + 1]);
+        let cross = mat_mul(&self.rts_gain[t], &self.smoothed_cov[t + 1], order);
         let mut cov = mat_add(
             &mat_add(
-                &mat_mul(&mat_mul(&ca, &self.smoothed_cov[t]), &mat_t(&ca)),
-                &mat_mul(&mat_mul(&cb, &self.smoothed_cov[t + 1]), &mat_t(&cb)),
+                &mat_mul(
+                    &mat_mul(&ca, &self.smoothed_cov[t], order),
+                    &mat_t(&ca, order),
+                    order,
+                ),
+                &mat_mul(
+                    &mat_mul(&cb, &self.smoothed_cov[t + 1], order),
+                    &mat_t(&cb, order),
+                    order,
+                ),
+                order,
             ),
             &lam_inv,
+            order,
         );
-        let cab = mat_mul(&mat_mul(&ca, &cross), &mat_t(&cb));
-        cov = mat_add(&cov, &mat_add(&cab, &mat_t(&cab)));
-        symmetrize(&mut cov);
+        let cab = mat_mul(&mat_mul(&ca, &cross, order), &mat_t(&cb, order), order);
+        cov = mat_add(&cov, &mat_add(&cab, &mat_t(&cab, order), order), order);
+        symmetrize(&mut cov, order);
         Ok((mean_s[0], cov[0][0] * self.sigma2))
     }
 
@@ -629,5 +1294,189 @@ impl CubicSplineScanFit {
             self.smoothed_state[t][1],
             self.smoothed_cov[t][1][1] * self.sigma2,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #1034 persistence seam: snapshot → JSON → restore must replay the
+    /// Gaussian bridge bit-for-bit — knot posteriors, off-knot bridge,
+    /// boundary extrapolation, EDF, and derivative posteriors all compare
+    /// with exact equality, because every replayed field is either stored
+    /// verbatim or derived by the fitter's own expressions. Parameterized over
+    /// the smoothing order so the order-derived state/cov/gain layouts
+    /// (#1044: m=3 stores 3-wide state, 6-wide upper-tri cov, 9-wide gain) are
+    /// each round-tripped.
+    fn round_trip_predict_bit_for_bit(order: usize) {
+        let n = 60usize;
+        let x: Vec<f64> = (0..n).map(|i| (i as f64) / (n as f64 - 1.0)).collect();
+        // Deterministic wiggly response with a tie pair to exercise pooling.
+        let mut x = x;
+        x[7] = x[6];
+        let y: Vec<f64> = x
+            .iter()
+            .enumerate()
+            .map(|(i, &xi)| {
+                (6.0 * xi).sin() + 0.3 * (17.0 * xi).cos() + 0.05 * ((i * 37 % 11) as f64 - 5.0)
+            })
+            .collect();
+        let w: Vec<f64> = (0..n).map(|i| 1.0 + 0.5 * ((i % 3) as f64)).collect();
+        let fit = fit_spline_scan(&x, &y, &w, order).expect("scan fit");
+        assert_eq!(fit.order, order);
+
+        let json = serde_json::to_string(&fit.to_state()).expect("serialize state");
+        let state: SplineScanState = serde_json::from_str(&json).expect("deserialize state");
+        let restored = SplineScanFit::from_state(&state).expect("restore fit");
+
+        assert_eq!(fit.knots, restored.knots);
+        assert_eq!(fit.mean, restored.mean);
+        assert_eq!(fit.var, restored.var);
+        assert_eq!(fit.deriv, restored.deriv);
+        assert_eq!(fit.log_lambda.to_bits(), restored.log_lambda.to_bits());
+        assert_eq!(fit.sigma2.to_bits(), restored.sigma2.to_bits());
+        assert_eq!(fit.edf().to_bits(), restored.edf().to_bits());
+        for t in 0..fit.knots.len() {
+            let (d0, v0) = fit.deriv_at_knot(t);
+            let (d1, v1) = restored.deriv_at_knot(t);
+            assert_eq!(d0.to_bits(), d1.to_bits());
+            assert_eq!(v0.to_bits(), v1.to_bits());
+        }
+        // Off-knot bridge, exact knot hit, and both extrapolation sides.
+        for &xq in &[-0.2, 0.0, 0.013, 0.5, x[6], 0.987, 1.0, 1.3] {
+            let (m0, v0) = fit.predict(xq).expect("predict original");
+            let (m1, v1) = restored.predict(xq).expect("predict restored");
+            assert_eq!(m0.to_bits(), m1.to_bits(), "mean drift at x={xq} (m={order})");
+            assert_eq!(v0.to_bits(), v1.to_bits(), "variance drift at x={xq} (m={order})");
+        }
+
+        // Corrupt payloads fail loudly, not inside a later predict.
+        let mut bad = fit.to_state();
+        bad.cov.truncate(bad.cov.len() - 1);
+        SplineScanFit::from_state(&bad).expect_err("length mismatch must error");
+        let mut bad = fit.to_state();
+        bad.sigma2 = -1.0;
+        SplineScanFit::from_state(&bad).expect_err("non-positive sigma2 must error");
+        let mut bad = fit.to_state();
+        bad.knots[2] = bad.knots[1];
+        SplineScanFit::from_state(&bad).expect_err("non-increasing knots must error");
+    }
+
+    #[test]
+    fn state_snapshot_round_trips_predict_bit_for_bit() {
+        round_trip_predict_bit_for_bit(2);
+    }
+
+    /// #1044: the order-1 and order-3 layouts round-trip bit-for-bit too.
+    #[test]
+    fn state_snapshot_round_trips_predict_bit_for_bit_order1() {
+        round_trip_predict_bit_for_bit(1);
+    }
+
+    #[test]
+    fn state_snapshot_round_trips_predict_bit_for_bit_order3() {
+        round_trip_predict_bit_for_bit(3);
+    }
+
+    /// Dense order-1 (random-walk / linear smoothing spline) posterior of the
+    /// SAME intrinsic prior the order-1 scan integrates: improper level on
+    /// `f_0`, increments `f_{t+1}−f_t ~ N(0, q·δ_t)`, observations `y_t` with
+    /// precision `w_t` (unit σ²). Solve the tridiagonal precision densely and
+    /// compare to the scan — the exact-equivalence gate for the new m=1 path.
+    fn dense_rw_truth(x: &[f64], y: &[f64], w: &[f64], log_lambda: f64) -> (Vec<f64>, Vec<f64>) {
+        let n = x.len();
+        let q = (-log_lambda).exp();
+        let mut prec = vec![vec![0.0_f64; n]; n];
+        let mut rhs = vec![0.0_f64; n];
+        for t in 0..n {
+            prec[t][t] += w[t];
+            rhs[t] += w[t] * y[t];
+        }
+        for t in 0..n - 1 {
+            let p = 1.0 / (q * (x[t + 1] - x[t]));
+            prec[t][t] += p;
+            prec[t + 1][t + 1] += p;
+            prec[t][t + 1] -= p;
+            prec[t + 1][t] -= p;
+        }
+        // Dense inverse via Gauss-Jordan (small n in the test).
+        let mut aug = prec.clone();
+        let mut inv = vec![vec![0.0_f64; n]; n];
+        for i in 0..n {
+            inv[i][i] = 1.0;
+        }
+        for col in 0..n {
+            let piv = (col..n)
+                .max_by(|&a, &b| aug[a][col].abs().total_cmp(&aug[b][col].abs()))
+                .unwrap();
+            aug.swap(col, piv);
+            inv.swap(col, piv);
+            let d = aug[col][col];
+            for k in 0..n {
+                aug[col][k] /= d;
+                inv[col][k] /= d;
+            }
+            for r in 0..n {
+                if r == col {
+                    continue;
+                }
+                let f = aug[r][col];
+                if f == 0.0 {
+                    continue;
+                }
+                for k in 0..n {
+                    aug[r][k] -= f * aug[col][k];
+                    inv[r][k] -= f * inv[col][k];
+                }
+            }
+        }
+        let mean: Vec<f64> = (0..n)
+            .map(|i| (0..n).map(|j| inv[i][j] * rhs[j]).sum())
+            .collect();
+        let var: Vec<f64> = (0..n).map(|i| inv[i][i]).collect();
+        (mean, var)
+    }
+
+    /// The order-1 scan must reproduce the dense random-walk posterior exactly
+    /// (mean, pointwise variance, and the EDF identity tr(S)=Σ w_t·Var_t/σ²) at
+    /// the scan's own selected λ — the #1034-item-2 correctness gate.
+    #[test]
+    fn order_one_scan_matches_dense_random_walk_posterior() {
+        let n = 30usize;
+        let x: Vec<f64> = (0..n).map(|i| i as f64 / (n as f64 - 1.0)).collect();
+        let y: Vec<f64> = x
+            .iter()
+            .enumerate()
+            .map(|(i, &xi)| 2.0 * xi + 0.4 * (5.0 * xi).sin() + 0.05 * ((i * 13 % 7) as f64 - 3.0))
+            .collect();
+        let w = vec![1.0_f64; n];
+        let fit = fit_spline_scan(&x, &y, &w, 1).expect("order-1 scan fit");
+        assert_eq!(fit.order, 1);
+
+        let (mean, var) = dense_rw_truth(&x, &y, &w, fit.log_lambda);
+        for t in 0..n {
+            assert!(
+                (fit.mean[t] - mean[t]).abs() <= 1e-7 * mean[t].abs().max(1e-3),
+                "order-1 mean mismatch at {t}: scan={} dense={}",
+                fit.mean[t],
+                mean[t]
+            );
+            let se_scan = fit.var[t].sqrt();
+            let se_dense = (var[t] * fit.sigma2).sqrt();
+            assert!(
+                (se_scan - se_dense).abs() <= 1e-7 * se_dense.max(1e-12),
+                "order-1 SE mismatch at {t}: scan={se_scan} dense={se_dense}"
+            );
+        }
+        // EDF identity against the dense posterior variance diagonal.
+        let dense_edf: f64 = w.iter().zip(var.iter()).map(|(wt, vt)| wt * vt).sum();
+        assert!(
+            (fit.edf() - dense_edf).abs() <= 1e-7 * dense_edf.max(1e-12),
+            "order-1 EDF mismatch: scan={} dense={dense_edf}",
+            fit.edf()
+        );
+        // Order-1 derivative state is structurally absent.
+        assert!(fit.deriv.iter().all(|&d| d == 0.0));
     }
 }

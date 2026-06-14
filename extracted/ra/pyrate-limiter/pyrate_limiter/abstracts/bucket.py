@@ -11,6 +11,7 @@ from threading import Event, Thread
 from typing import Any, Awaitable, Dict, List, Optional, Type, Union
 
 from ..clocks import AbstractClock, MonotonicClock
+from ..utils import enforce_rate_list
 from .rate import Rate, RateItem
 
 logger = logging.getLogger("pyrate_limiter")
@@ -22,9 +23,31 @@ class AbstractBucket(ABC):
     TODO: allow empty rates
     """
 
-    rates: List[Rate]
+    _rates: List[Rate]
     failing_rate: Optional[Rate] = None
     _clock: AbstractClock = MonotonicClock()
+
+    @property
+    def rates(self) -> List[Rate]:
+        return self._rates
+
+    @rates.setter
+    def rates(self, value: List[Rate]) -> None:
+        """Sort, validate, and store the rate list.
+
+        Both sorting and validation are enforced here, at the abstract level,
+        so every bucket (built-in or custom) shares the same contract:
+
+        - Rates are sorted by ascending interval. Several backends assume
+          ``rates[-1]`` is the largest interval when leaking (e.g. Redis,
+          SQLite, Postgres), but historically only some buckets sorted -
+          centralizing it fixes that latent leak bug.
+        - The sorted list is then validated, rejecting ill-formed rate lists
+          at construction instead of silently misbehaving (issue #239).
+        """
+        ordered = sorted(value, key=lambda r: r.interval)
+        enforce_rate_list(ordered)
+        self._rates = ordered
 
     def now(self):
         """Retrieve current timestamp from the clock backend."""
@@ -80,7 +103,12 @@ class AbstractBucket(ABC):
             assert self.failing_rate is not None  # NOTE: silence mypy
             lower_time_bound = item.timestamp - self.failing_rate.interval
             upper_time_bound = inner_bound_item.timestamp
-            return upper_time_bound - lower_time_bound
+            # +1: the window lower bound is inclusive across all backends (an
+            # item counts while timestamp >= now - interval). Returning the bare
+            # difference lands the retry exactly ON the boundary, where the item
+            # is still counted, so the re-put fails and waiting() then returns 0
+            # -> _delay_waiter busy-spins. One extra ms pushes strictly past it.
+            return upper_time_bound - lower_time_bound + 1
 
         async def _calc_waiting_async() -> int:
             nonlocal bound_item

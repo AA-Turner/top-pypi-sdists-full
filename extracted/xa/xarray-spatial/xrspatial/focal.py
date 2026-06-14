@@ -30,7 +30,7 @@ from xrspatial.convolution import (_available_memory_bytes, _promote_float, conv
 from xrspatial.dataset_support import supports_dataset
 from xrspatial.utils import (ArrayTypeFunctionMapping, _boundary_to_dask, _pad_array,
                              _validate_boundary, _validate_raster, _validate_scalar, cuda_args,
-                             ngjit)
+                             is_cupy_array, is_dask_cupy, ngjit)
 
 
 def _validate_binary_kernel(kernel, func_name):
@@ -58,7 +58,8 @@ def _validate_binary_kernel(kernel, func_name):
         )
 
 
-def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name):
+def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name, chunks=None,
+                                   itemsize=4):
     """Reject kernel + raster combinations that would OOM the host.
 
     The focal public APIs (apply, focal_stats, hotspots) accept any 2-D
@@ -74,28 +75,51 @@ def _check_kernel_vs_raster_memory(kernel, rows, cols, func_name):
 
     Without a guard, a small raster paired with an oversized kernel can
     OOM the host (e.g. kernel of shape (50001, 50001) is ~10 GB on its
-    own; the padded raster is larger).  Budget 4 bytes per kernel cell
-    (float32 internal dtype) plus the padded raster footprint, and raise
+    own; the padded raster is larger).  Budget ``itemsize`` bytes per
+    kernel cell plus the padded raster footprint, and raise
     ``MemoryError`` when the total exceeds half of available memory.
+
+    Dask-backed input never materializes the padded full raster: each
+    ``map_overlap`` task allocates one chunk plus the overlap halo.  When
+    *chunks* is given (the dask ``.chunks`` tuple), the padded footprint
+    is budgeted from the largest chunk instead of the full raster shape,
+    so chunked rasters far larger than host memory pass while an
+    oversized kernel is still rejected.
+
+    ``itemsize`` is the byte width of the dtype the focal internals
+    compute in.  Since #2805 ``apply`` and ``focal_stats`` preserve
+    float64 input (``_promote_float``), so callers must pass 8 for
+    float64 rasters; ``hotspots`` always computes in float32 and uses
+    the default of 4 (issue #3223).
     """
     krows, kcols = kernel.shape
     pad_h = krows // 2
     pad_w = kcols // 2
 
-    # 4 bytes per cell -- focal internals cast to float32.
-    kernel_bytes = krows * kcols * 4
+    if chunks is not None:
+        # Per-task footprint for the dask paths: largest chunk + halo.
+        # The scheduler runs one task per worker concurrently, so true peak
+        # is ~num_workers * padded_chunk; the 0.5-of-available headroom
+        # below absorbs that for sane chunk sizes. Unknown chunk sizes
+        # (NaN, e.g. after boolean indexing) make the comparison False and
+        # fall through to dask's own map_overlap error.
+        rows = max(chunks[-2])
+        cols = max(chunks[-1])
+
+    kernel_bytes = krows * kcols * itemsize
     padded_rows = rows + 2 * pad_h
     padded_cols = cols + 2 * pad_w
-    padded_bytes = padded_rows * padded_cols * 4
+    padded_bytes = padded_rows * padded_cols * itemsize
 
     required = kernel_bytes + padded_bytes
     available = _available_memory_bytes()
 
     if required > 0.5 * available:
+        unit = 'chunk' if chunks is not None else 'raster'
         raise MemoryError(
             f"{func_name}(): kernel of shape {kernel.shape} on a "
-            f"{rows}x{cols} raster would need ~{required / 1e9:.1f} GB "
-            f"(kernel + padded raster), but only "
+            f"{rows}x{cols} {unit} would need ~{required / 1e9:.1f} GB "
+            f"(kernel + padded {unit}), but only "
             f"{available / 1e9:.1f} GB is available. "
             f"Use a smaller kernel or a coarser cellsize."
         )
@@ -186,17 +210,17 @@ def _mean_dask_numpy(data, excludes, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(1, 1),
                            boundary=_boundary_to_dask(boundary),
-                           meta=np.array(()))
+                           meta=np.array((), dtype=data.dtype))
     return out
 
 
 def _mean_dask_cupy(data, excludes, boundary='nan'):
-    data = data.astype(cupy.float32)
+    data = data.astype(_promote_float(data.dtype))
     _func = partial(_mean_cupy, excludes=excludes)
     out = data.map_overlap(_func,
                            depth=(1, 1),
                            boundary=_boundary_to_dask(boundary, is_cupy=True),
-                           meta=cupy.array(()))
+                           meta=cupy.array((), dtype=data.dtype))
     return out
 
 
@@ -257,9 +281,10 @@ def _mean_gpu(data, excludes, out):
 
 
 def _mean_cupy(data, excludes):
-    # ensure cupy arrays and a float dtype
-    data_cu = cupy.asarray(data, dtype=cupy.float32)
-    excludes_cu = cupy.asarray(excludes, dtype=cupy.float32)
+    # ensure cupy arrays and a float dtype; preserve float64 (issue #3214)
+    fdtype = _promote_float(data.dtype)
+    data_cu = cupy.asarray(data, dtype=fdtype)
+    excludes_cu = cupy.asarray(excludes, dtype=fdtype)
 
     griddim, blockdim = cuda_args(data_cu.shape)
 
@@ -331,6 +356,9 @@ def mean(agg, passes=1, excludes=None, name='mean', boundary='nan'):
         If `agg` is a Dataset, returns a Dataset with mean computed
         for each data variable.
         2D aggregate array of filtered values.
+        The input float dtype is preserved (float64 in, float64 out);
+        integer inputs are promoted to float32, matching ``apply`` and
+        ``focal_stats``.
 
     Examples
     --------
@@ -391,14 +419,14 @@ def mean(agg, passes=1, excludes=None, name='mean', boundary='nan'):
         >>> raster_cupy = xr.DataArray(cupy.asarray(data), name='raster_cupy')
         >>> mean_cupy = mean(raster_cupy, passes=25)
         >>> print(type(mean_cupy.data))
-        <class 'cupy.core.core.ndarray'>
+        <class 'cupy.ndarray'>
         >>> print(mean_cupy)
         <xarray.DataArray 'mean' (dim_0: 5, dim_1: 5)>
-        array([[0.47928995, 0.47928995, 0.47928995, 0.47928995, 0.47928995],
-               [0.47928995, 0.47928995, 0.47928995, 0.47928995, 0.47928995],
-               [0.47928995, 0.47928995, 0.47928995, 0.47928995, 0.47928995],
-               [0.47928995, 0.47928995, 0.47928995, 0.47928995, 0.47928995],
-               [0.47928995, 0.47928995, 0.47928995, 0.47928995, 0.47928995]])
+        array([[0.47928994, 0.47928994, 0.47928994, 0.47928994, 0.47928994],
+               [0.47928994, 0.47928994, 0.47928994, 0.47928994, 0.47928994],
+               [0.47928994, 0.47928994, 0.47928994, 0.47928994, 0.47928994],
+               [0.47928994, 0.47928994, 0.47928994, 0.47928994, 0.47928994],
+               [0.47928994, 0.47928994, 0.47928994, 0.47928994, 0.47928994]])
         Dimensions without coordinates: dim_0, dim_1
     """
 
@@ -413,9 +441,15 @@ def mean(agg, passes=1, excludes=None, name='mean', boundary='nan'):
         return _apply_per_band(mean, agg, passes=passes, excludes=excludes,
                                name=name, boundary=boundary)
 
-    out = agg.data.astype(float)
+    # Preserve the input float dtype, promoting ints to float32 -- the same
+    # contract as apply() / focal_stats() (#2769) and convolve_2d() (#1096).
+    # Cast excludes to the working dtype so value matching behaves the same
+    # on every backend (issue #3214).
+    fdtype = _promote_float(agg.data.dtype)
+    out = agg.data.astype(fdtype)
+    excludes = np.asarray(excludes, dtype=fdtype)
     for i in range(passes):
-        out = _mean(out, tuple(excludes), boundary)
+        out = _mean(out, excludes, boundary)
 
     return DataArray(out,
                      name=name,
@@ -531,7 +565,7 @@ def _apply_dask_numpy(data, kernel, func, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(pad_h, pad_w),
                            boundary=_boundary_to_dask(boundary),
-                           meta=np.array(()))
+                           meta=np.array((), dtype=data.dtype))
     return out
 
 
@@ -561,11 +595,11 @@ def _apply_dask_cupy(data, kernel, func, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(pad_h, pad_w),
                            boundary=_boundary_to_dask(boundary, is_cupy=True),
-                           meta=cupy.array(()))
+                           meta=cupy.array((), dtype=data.dtype))
     return out
 
 
-def apply(agg=None, kernel=None, func=_calc_mean, name='focal_apply',
+def apply(agg=None, kernel=None, func=None, name='focal_apply',
           boundary='nan', *, raster=None):
     """
     Returns custom function applied array using a user-created window.
@@ -582,10 +616,17 @@ def apply(agg=None, kernel=None, func=_calc_mean, name='focal_apply',
         and any other value raises a ValueError. Apply per-cell weights
         inside ``func`` (see the example below), or use
         ``xrspatial.convolution.convolve_2d`` for a weighted convolution.
-    func : callable, default=xrspatial.focal._calc_mean
+    func : callable, default=None
         Function which takes an input array and returns an array.
-        For cupy and dask+cupy backends the function must be a
-        ``@cuda.jit`` global kernel with signature ``(data, kernel, out)``.
+        If None, a focal mean over the kernel neighbourhood is computed
+        with an implementation that matches the backend of `agg`.
+        For numpy and dask+numpy backends a user-supplied function must
+        be decorated with ``numba.jit`` (xrspatial provides
+        ``xrspatial.utils.ngjit``); for cupy and dask+cupy backends it
+        must be a ``@cuda.jit`` global kernel with signature
+        ``(data, kernel, out)``.
+    name : str, default='focal_apply'
+        Output xr.DataArray.name property.
     boundary : str, default='nan'
         How to handle edges where the kernel extends beyond the raster.
         ``'nan'``     -- fill missing neighbours with NaN (default).
@@ -689,6 +730,17 @@ def apply(agg=None, kernel=None, func=_calc_mean, name='focal_apply',
 
     _validate_raster(agg, func_name='apply', name='agg', ndim=(2, 3))
 
+    if func is None:
+        # The default focal mean needs a per-backend implementation: the
+        # CPU paths call func on each masked window, while the GPU paths
+        # launch func as a @cuda.jit kernel. An @ngjit function cannot be
+        # launched on the device, so a single default cannot serve both
+        # (issue #3215).
+        if is_cupy_array(agg.data) or (da is not None and is_dask_cupy(agg)):
+            func = _focal_mean_cuda
+        else:
+            func = _calc_mean
+
     if agg.ndim == 3:
         return _apply_per_band(apply, agg, kernel=kernel, func=func,
                                name=name, boundary=boundary)
@@ -700,7 +752,12 @@ def apply(agg=None, kernel=None, func=_calc_mean, name='focal_apply',
     _validate_boundary(boundary)
 
     rows, cols = agg.shape[-2], agg.shape[-1]
-    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='apply')
+    # Budget for the dtype the internals will actually compute in:
+    # 8 bytes/cell for float64 input, 4 otherwise (issue #3223).
+    itemsize = np.dtype(_promote_float(agg.dtype)).itemsize
+    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='apply',
+                                   chunks=getattr(agg.data, 'chunks', None),
+                                   itemsize=itemsize)
 
     # apply kernel to raster values
     # if agg is a numpy or dask with numpy backed data array,
@@ -1130,9 +1187,12 @@ def _focal_stats_cupy(agg, kernel, stats_funcs):
         var=lambda *args: _focal_stats_func_cupy(*args, func=_focal_var_cuda),
         variety=lambda *args: _focal_stats_func_cupy(*args, func=_focal_variety_cuda),
     )
+    # Cast once, outside the loop: cupy's astype allocates and copies a
+    # full device raster even when the dtype is unchanged, so casting per
+    # stat repeated that copy once per requested statistic.
+    data = agg.data.astype(_promote_float(agg.data.dtype))
     stats_aggs = []
     for stats in stats_funcs:
-        data = agg.data.astype(_promote_float(agg.data.dtype))
         stats_data = _stats_cupy_mapper[stats](data, kernel)
         stats_agg = xr.DataArray(
             stats_data,
@@ -1186,7 +1246,7 @@ def _focal_stats_dask_cupy(agg, kernel, stats_funcs, boundary='nan'):
         data = agg.data.astype(_promote_float(agg.data.dtype))
         stats_data = data.map_overlap(
             _func, depth=(pad_h, pad_w),
-            boundary=dask_bnd, meta=cupy.array(()))
+            boundary=dask_bnd, meta=cupy.array((), dtype=data.dtype))
         stats_agg = xr.DataArray(
             stats_data, dims=agg.dims, coords=agg.coords, attrs=agg.attrs)
         stats_aggs.append(stats_agg)
@@ -1335,7 +1395,12 @@ def focal_stats(agg,
     _validate_boundary(boundary)
 
     rows, cols = agg.shape[-2], agg.shape[-1]
-    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='focal_stats')
+    # Budget for the dtype the internals will actually compute in:
+    # 8 bytes/cell for float64 input, 4 otherwise (issue #3223).
+    itemsize = np.dtype(_promote_float(agg.dtype)).itemsize
+    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='focal_stats',
+                                   chunks=getattr(agg.data, 'chunks', None),
+                                   itemsize=itemsize)
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=partial(_focal_stats_cpu, boundary=boundary),
@@ -1391,12 +1456,19 @@ def _gistar_global_stats(global_mean, global_std, n):
     ``global_mean`` is the mean of the valid (non-NaN) raster cells,
     ``global_std`` their population standard deviation, and ``n`` the
     count of valid cells. Gi* needs ``n > 1`` (the variance term divides
-    by ``n - 1``) and a non-zero spread.
+    by ``n - 1``) and a non-zero, finite spread.
     """
     if n < 2:
         raise ValueError(
             "hotspots() needs at least 2 valid (non-NaN) cells to "
             "compute the Getis-Ord Gi* statistic."
+        )
+    if not np.isfinite(global_std):
+        raise ValueError(
+            "Standard deviation of the input raster values is not finite. "
+            "The raster likely contains Inf values, or values too large "
+            "for float32; mask them (e.g. replace with NaN) or rescale "
+            "before calling hotspots()."
         )
     if global_std == 0:
         raise ZeroDivisionError(
@@ -1411,9 +1483,10 @@ def _gistar_validate_lazy(z_block, global_std, n):
     The dask backends keep ``global_std`` and ``n`` as lazy 0-d arrays, so
     the eager ``_gistar_global_stats`` check never runs on them. This block
     function re-applies that check at compute time and returns ``z_block``
-    unchanged, so degenerate inputs (constant raster, all-NaN raster, or a
-    single valid cell) raise the same errors as the numpy and cupy paths
-    instead of silently classifying to all zeros.
+    unchanged, so degenerate inputs (constant raster, all-NaN raster, a
+    single valid cell, or a raster containing Inf) raise the same errors
+    as the numpy and cupy paths instead of silently classifying to all
+    zeros.
     """
     _gistar_global_stats(0.0, float(global_std), int(n))
     return z_block
@@ -1661,9 +1734,13 @@ def hotspots(agg=None, kernel=None, name='hotspots', boundary='nan', *,
     ----------
     agg : xarray.DataArray
         2D Input raster image with `agg.shape` = (height, width).
-        Can be a NumPy backed, CuPy backed, or Dask with NumPy backed DataArray
+        Can be a NumPy backed, CuPy backed, Dask with NumPy backed, or
+        Dask with CuPy backed DataArray.
     kernel : Numpy Array
-        2D array where values of 1 indicate the kernel.
+        2D array of kernel weights ``w_ij``. A kernel of 0s and 1s acts
+        as a plain membership mask; unlike ``apply`` and ``focal_stats``,
+        non-binary weights are allowed and feed directly into the Gi*
+        statistic. Must not sum to zero.
     name : str, default='hotspots'
         Output xr.DataArray.name property.
     boundary : str, default='nan'
@@ -1716,13 +1793,17 @@ def hotspots(agg=None, kernel=None, name='hotspots', boundary='nan', *,
     kernel = custom_kernel(kernel)
     if kernel.sum() == 0:
         raise ValueError(
-            "hotspots(): kernel sums to zero. The kernel is normalized by "
-            "its sum, so a zero-sum kernel divides by zero. Supply a kernel "
-            "with at least one non-zero cell."
+            "hotspots(): kernel sums to zero. A zero-sum kernel makes the "
+            "Gi* neighborhood terms degenerate, so no cell can reach "
+            "significance. Supply a kernel whose weights have a non-zero "
+            "sum."
         )
 
     rows, cols = agg.shape[-2], agg.shape[-1]
-    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='hotspots')
+    # hotspots computes in float32 on every backend, so the default
+    # 4 bytes/cell budget is correct here (issue #3223).
+    _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='hotspots',
+                                   chunks=getattr(agg.data, 'chunks', None))
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=partial(_hotspots_numpy, boundary=boundary),

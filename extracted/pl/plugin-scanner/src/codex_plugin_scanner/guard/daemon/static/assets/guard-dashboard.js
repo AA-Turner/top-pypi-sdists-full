@@ -494,7 +494,7 @@ function requireReact_production() {
   react_production.useTransition = function() {
     return ReactSharedInternals.H.useTransition();
   };
-  react_production.version = "19.2.7";
+  react_production.version = "19.2.5";
   return react_production;
 }
 var hasRequiredReact;
@@ -516,7 +516,7 @@ var hasRequiredScheduler_production;
 function requireScheduler_production() {
   if (hasRequiredScheduler_production) return scheduler_production;
   hasRequiredScheduler_production = 1;
-  (function(exports) {
+  (function(exports$1) {
     function push(heap, node) {
       var index = heap.length;
       heap.push(node);
@@ -550,15 +550,15 @@ function requireScheduler_production() {
       var diff = a.sortIndex - b.sortIndex;
       return 0 !== diff ? diff : a.id - b.id;
     }
-    exports.unstable_now = void 0;
+    exports$1.unstable_now = void 0;
     if ("object" === typeof performance && "function" === typeof performance.now) {
       var localPerformance = performance;
-      exports.unstable_now = function() {
+      exports$1.unstable_now = function() {
         return localPerformance.now();
       };
     } else {
       var localDate = Date, initialTime = localDate.now();
-      exports.unstable_now = function() {
+      exports$1.unstable_now = function() {
         return localDate.now() - initialTime;
       };
     }
@@ -585,12 +585,12 @@ function requireScheduler_production() {
     }
     var isMessageLoopRunning = false, taskTimeoutID = -1, frameInterval = 5, startTime = -1;
     function shouldYieldToHost() {
-      return needsPaint ? true : exports.unstable_now() - startTime < frameInterval ? false : true;
+      return needsPaint ? true : exports$1.unstable_now() - startTime < frameInterval ? false : true;
     }
     function performWorkUntilDeadline() {
       needsPaint = false;
       if (isMessageLoopRunning) {
-        var currentTime = exports.unstable_now();
+        var currentTime = exports$1.unstable_now();
         startTime = currentTime;
         var hasMoreWork = true;
         try {
@@ -610,7 +610,7 @@ function requireScheduler_production() {
                     var continuationCallback = callback(
                       currentTask.expirationTime <= currentTime
                     );
-                    currentTime = exports.unstable_now();
+                    currentTime = exports$1.unstable_now();
                     if ("function" === typeof continuationCallback) {
                       currentTask.callback = continuationCallback;
                       advanceTimers(currentTime);
@@ -660,27 +660,27 @@ function requireScheduler_production() {
       };
     function requestHostTimeout(callback, ms) {
       taskTimeoutID = localSetTimeout(function() {
-        callback(exports.unstable_now());
+        callback(exports$1.unstable_now());
       }, ms);
     }
-    exports.unstable_IdlePriority = 5;
-    exports.unstable_ImmediatePriority = 1;
-    exports.unstable_LowPriority = 4;
-    exports.unstable_NormalPriority = 3;
-    exports.unstable_Profiling = null;
-    exports.unstable_UserBlockingPriority = 2;
-    exports.unstable_cancelCallback = function(task) {
+    exports$1.unstable_IdlePriority = 5;
+    exports$1.unstable_ImmediatePriority = 1;
+    exports$1.unstable_LowPriority = 4;
+    exports$1.unstable_NormalPriority = 3;
+    exports$1.unstable_Profiling = null;
+    exports$1.unstable_UserBlockingPriority = 2;
+    exports$1.unstable_cancelCallback = function(task) {
       task.callback = null;
     };
-    exports.unstable_forceFrameRate = function(fps) {
+    exports$1.unstable_forceFrameRate = function(fps) {
       0 > fps || 125 < fps ? console.error(
         "forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"
       ) : frameInterval = 0 < fps ? Math.floor(1e3 / fps) : 5;
     };
-    exports.unstable_getCurrentPriorityLevel = function() {
+    exports$1.unstable_getCurrentPriorityLevel = function() {
       return currentPriorityLevel;
     };
-    exports.unstable_next = function(eventHandler) {
+    exports$1.unstable_next = function(eventHandler) {
       switch (currentPriorityLevel) {
         case 1:
         case 2:
@@ -698,10 +698,10 @@ function requireScheduler_production() {
         currentPriorityLevel = previousPriorityLevel;
       }
     };
-    exports.unstable_requestPaint = function() {
+    exports$1.unstable_requestPaint = function() {
       needsPaint = true;
     };
-    exports.unstable_runWithPriority = function(priorityLevel, eventHandler) {
+    exports$1.unstable_runWithPriority = function(priorityLevel, eventHandler) {
       switch (priorityLevel) {
         case 1:
         case 2:
@@ -720,8 +720,8 @@ function requireScheduler_production() {
         currentPriorityLevel = previousPriorityLevel;
       }
     };
-    exports.unstable_scheduleCallback = function(priorityLevel, callback, options) {
-      var currentTime = exports.unstable_now();
+    exports$1.unstable_scheduleCallback = function(priorityLevel, callback, options) {
+      var currentTime = exports$1.unstable_now();
       "object" === typeof options && null !== options ? (options = options.delay, options = "number" === typeof options && 0 < options ? currentTime + options : currentTime) : options = currentTime;
       switch (priorityLevel) {
         case 1:
@@ -751,8 +751,8 @@ function requireScheduler_production() {
       options > currentTime ? (priorityLevel.sortIndex = options, push(timerQueue, priorityLevel), null === peek(taskQueue) && priorityLevel === peek(timerQueue) && (isHostTimeoutScheduled ? (localClearTimeout(taskTimeoutID), taskTimeoutID = -1) : isHostTimeoutScheduled = true, requestHostTimeout(handleTimeout, options - currentTime))) : (priorityLevel.sortIndex = timeout, push(taskQueue, priorityLevel), isHostCallbackScheduled || isPerformingWork || (isHostCallbackScheduled = true, isMessageLoopRunning || (isMessageLoopRunning = true, schedulePerformWorkUntilDeadline())));
       return priorityLevel;
     };
-    exports.unstable_shouldYield = shouldYieldToHost;
-    exports.unstable_wrapCallback = function(callback) {
+    exports$1.unstable_shouldYield = shouldYieldToHost;
+    exports$1.unstable_wrapCallback = function(callback) {
       var parentPriorityLevel = currentPriorityLevel;
       return function() {
         var previousPriorityLevel = currentPriorityLevel;
@@ -922,7 +922,7 @@ function requireReactDom_production() {
   reactDom_production.useFormStatus = function() {
     return ReactSharedInternals.H.useHostTransitionStatus();
   };
-  reactDom_production.version = "19.2.7";
+  reactDom_production.version = "19.2.5";
   return reactDom_production;
 }
 var hasRequiredReactDom;
@@ -12366,12 +12366,12 @@ function requireReactDomClient_production() {
     }
   };
   var isomorphicReactPackageVersion$jscomp$inline_1840 = React2.version;
-  if ("19.2.7" !== isomorphicReactPackageVersion$jscomp$inline_1840)
+  if ("19.2.5" !== isomorphicReactPackageVersion$jscomp$inline_1840)
     throw Error(
       formatProdErrorMessage(
         527,
         isomorphicReactPackageVersion$jscomp$inline_1840,
-        "19.2.7"
+        "19.2.5"
       )
     );
   ReactDOMSharedInternals.findDOMNode = function(componentOrElement) {
@@ -12389,10 +12389,10 @@ function requireReactDomClient_production() {
   };
   var internals$jscomp$inline_2347 = {
     bundleType: 0,
-    version: "19.2.7",
+    version: "19.2.5",
     rendererPackageName: "react-dom",
     currentDispatcherRef: ReactSharedInternals,
-    reconcilerVersion: "19.2.7"
+    reconcilerVersion: "19.2.5"
   };
   if ("undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__) {
     var hook$jscomp$inline_2348 = __REACT_DEVTOOLS_GLOBAL_HOOK__;
@@ -12459,7 +12459,7 @@ function requireReactDomClient_production() {
     listenToAllSupportedEvents(container2);
     return new ReactDOMHydrationRoot(initialChildren);
   };
-  reactDomClient_production.version = "19.2.7";
+  reactDomClient_production.version = "19.2.5";
   return reactDomClient_production;
 }
 var hasRequiredClient;
@@ -12727,9 +12727,6 @@ function HiMiniRocketLaunch(props) {
 function HiMiniQuestionMarkCircle(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 3 3 0 1 1 2.871 5.026v.345a.75.75 0 0 1-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 1 0 8.94 6.94ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
-function HiMiniPlus(props) {
-  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" }, "child": [] }] })(props);
-}
 function HiMiniPencilSquare(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" }, "child": [] }, { "tag": "path", "attr": { "d": "M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" }, "child": [] }] })(props);
 }
@@ -12807,6 +12804,9 @@ function HiMiniCloud(props) {
 }
 function HiMiniCloudArrowUp(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M5.5 17a4.5 4.5 0 0 1-1.44-8.765 4.5 4.5 0 0 1 8.302-3.046 3.5 3.5 0 0 1 4.504 4.272A4 4 0 0 1 15 17H5.5Zm3.75-2.75a.75.75 0 0 0 1.5 0V9.66l1.95 2.1a.75.75 0 1 0 1.1-1.02l-3.25-3.5a.75.75 0 0 0-1.1 0l-3.25 3.5a.75.75 0 1 0 1.1 1.02l1.95-2.1v4.59Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
+function HiMiniCloudArrowDown(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M5.5 17a4.5 4.5 0 0 1-1.44-8.765 4.5 4.5 0 0 1 8.302-3.046 3.5 3.5 0 0 1 4.504 4.272A4 4 0 0 1 15 17H5.5Zm5.25-9.25a.75.75 0 0 0-1.5 0v4.59l-1.95-2.1a.75.75 0 1 0-1.1 1.02l3.25 3.5a.75.75 0 0 0 1.1 0l3.25-3.5a.75.75 0 1 0-1.1-1.02l-1.95 2.1V7.75Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
 function HiMiniClock(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
@@ -13966,6 +13966,44 @@ function getDemoDiff(artifactId, harness) {
     return null;
   }
   return demoDiff;
+}
+function isRecord$2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function readString$1(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+function isSupplyChainAuditIncomplete(detail) {
+  if (!isRecord$2(detail)) {
+    return false;
+  }
+  return readString$1(detail.audit_status) === "incomplete";
+}
+function resolveSupplyChainAuditFailure(detail) {
+  if (!isRecord$2(detail) || !isSupplyChainAuditIncomplete(detail)) {
+    return null;
+  }
+  const outcome = readString$1(detail.audit_outcome);
+  const message = readString$1(detail.message);
+  const supplyChain = isRecord$2(detail.supply_chain) ? detail.supply_chain : null;
+  const supplyStatus = readString$1(supplyChain?.status);
+  if (outcome === "sync_required" || supplyStatus === "sync_required") {
+    return message ?? "Guard supply-chain intel is not synced on this device. Run Sync, then audit again.";
+  }
+  if (outcome === "inventory_empty") {
+    return message ?? "Guard found project files but could not index any packages for audit.";
+  }
+  if (outcome === "no_project_files") {
+    return message ?? "No supported manifests or lockfiles were found in the audit workspace.";
+  }
+  if (message !== null) {
+    return message;
+  }
+  return "Workspace audit did not complete. Review supply-chain status and try again.";
 }
 const GUARD_TOKEN_PARAM = "guard-token";
 const GUARD_DAEMON_PARAM = "guardDaemon";
@@ -15170,18 +15208,38 @@ async function fetchPolicy(harness) {
   );
   return payload.items;
 }
-async function fetchPolicies() {
+async function fetchCloudExceptions(harness) {
   if (isGuardDemoMode()) {
-    return getDemoPolicy("codex");
+    return [];
   }
-  const payload = await readJson("/v1/policy");
+  const query = "";
+  const payload = await readJson(`/v1/policy/cloud-exceptions${query}`);
   return payload.items;
 }
-async function savePolicyDecision(input) {
+async function fetchCloudExceptionRequests() {
   if (isGuardDemoMode()) {
-    return { saved: true };
+    return { generatedAt: (/* @__PURE__ */ new Date()).toISOString(), items: [] };
   }
-  return readJson("/v1/policy/decisions", {
+  return readJson("/v1/policy/cloud-exception-requests");
+}
+async function createCloudExceptionRequest(input) {
+  if (isGuardDemoMode()) {
+    return {
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      items: [
+        {
+          requestId: "demo-exception-request",
+          scope: input.scope,
+          status: "pending",
+          reason: input.reason,
+          owner: input.owner,
+          requestedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          requestedExpiresAt: input.requestedExpiresAt
+        }
+      ]
+    };
+  }
+  return readJson("/v1/policy/cloud-exception-requests", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -15189,6 +15247,13 @@ async function savePolicyDecision(input) {
     },
     body: JSON.stringify(input)
   });
+}
+async function fetchPolicies() {
+  if (isGuardDemoMode()) {
+    return getDemoPolicy("codex");
+  }
+  const payload = await readJson("/v1/policy");
+  return payload.items;
 }
 async function clearPolicy(input) {
   if (isGuardDemoMode()) {
@@ -15669,8 +15734,9 @@ function buildPackageShimPathSummary(detail) {
   }
   const shimPath = stringValue(detail.shim_path);
   const realBinaryPath = stringValue(detail.real_binary_path);
+  const pathActive = booleanValue(detail.path_active);
   if (shimPath !== null && realBinaryPath !== null) {
-    return `${shimPath} precedes ${realBinaryPath}`;
+    return pathActive ? `${shimPath} precedes ${realBinaryPath}` : `${realBinaryPath} precedes ${shimPath}`;
   }
   if (shimPath !== null) {
     return shimPath;
@@ -15700,8 +15766,19 @@ function normalizePackageShimEntry(manager, detail, pathStatus, coverage) {
   const integrity = stringValue(detail?.integrity) ?? "uninstalled";
   const installed = detail !== null && integrity !== "missing";
   const active = booleanValue(detail?.path_active);
-  const pathBroken = coverage.pathBroken || detail?.path_broken === true;
-  const activation_state = !installed ? "uninstalled" : integrity === "tampered" || pathBroken ? "repair_required" : active ? "protected" : pathStatus === "restart_required" ? "restart_required" : "repair_required";
+  const pathBroken = pathStatus !== "restart_required" && (coverage.pathBroken || detail?.path_broken === true);
+  let activation_state;
+  if (!installed) {
+    activation_state = "uninstalled";
+  } else if (integrity === "tampered") {
+    activation_state = "repair_required";
+  } else if (active) {
+    activation_state = "protected";
+  } else if (pathStatus === "restart_required") {
+    activation_state = "restart_required";
+  } else {
+    activation_state = "repair_required";
+  }
   return {
     active,
     activation_state,
@@ -15796,6 +15873,7 @@ function normalizePackageFirewallStatus(value) {
   const protectedManagers = packageShims.filter((shim) => shim.activation_state === "protected").map((shim) => shim.manager);
   const protectedSet = new Set(protectedManagers);
   const lastAuditProofAt = stringValue(readPackageShimField(shimStatus, "last_audit_proof_at", "lastAuditProofAt")) ?? null;
+  const auditWorkspaceDir = stringValue(record.audit_workspace_dir) ?? null;
   const shellProfilePath = readPackageShimField(shimStatus, "shell_profile_path", "shellProfilePath");
   const protection = {
     path_status: rawPathStatus,
@@ -15813,6 +15891,7 @@ function normalizePackageFirewallStatus(value) {
   };
   return {
     actions: normalizePackageFirewallActions(record.actions),
+    audit_workspace_dir: auditWorkspaceDir,
     cli_fallback: normalizePackageFirewallCliFallback(record.cli_fallback),
     connect_flow: normalizePackageFirewallConnectFlow(record.connect_flow),
     detected_managers: detectedManagers,
@@ -15940,14 +16019,19 @@ async function runAuditRemediation(input) {
   }
   return normalizePackageFirewallAction(payload);
 }
-async function runPackageAudit() {
+async function runPackageAudit(input) {
+  const workspaceDir = input?.workspaceDir?.trim() ?? null;
+  const body = {};
+  if (workspaceDir) {
+    body.workspace_dir = workspaceDir;
+  }
   const response = await fetchGuardApi("/v1/supply-chain/audit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...guardAuthHeaders()
     },
-    body: JSON.stringify({})
+    body: JSON.stringify(body)
   });
   const payloadBody = await response.json().catch(() => null);
   if (!response.ok) {
@@ -18765,6 +18849,27 @@ function readStringArray(value) {
   return value.filter((entry) => typeof entry === "string" && entry.trim().length > 0).map((entry) => entry.trim());
 }
 function parseAuditActionResult(result) {
+  if (isSupplyChainAuditIncomplete(result)) {
+    const failureMessage = resolveSupplyChainAuditFailure(result);
+    const manifestPaths2 = readStringArray(result.manifest_paths);
+    const lockfilePaths2 = readStringArray(result.lockfile_paths);
+    const lines2 = [];
+    if (manifestPaths2.length > 0) {
+      lines2.push(`Manifests found: ${manifestPaths2.join(", ")}.`);
+    }
+    if (lockfilePaths2.length > 0) {
+      lines2.push(`Lockfiles found: ${lockfilePaths2.join(", ")}.`);
+    }
+    if (failureMessage !== null) {
+      lines2.push(failureMessage);
+    }
+    return {
+      emptyState: false,
+      lines: lines2,
+      summary: "Workspace audit did not complete.",
+      tone: "warning"
+    };
+  }
   const evaluation = isRecord(result.evaluation) ? result.evaluation : null;
   const decision = readString(evaluation?.decision) ?? readString(result.decision) ?? "monitor";
   const manifestPaths = readStringArray(result.manifest_paths);
@@ -21194,25 +21299,36 @@ function CategoryTabRaw({ receipts, onFilterCategory }) {
   ] });
 }
 const CategoryTab = reactExports.memo(CategoryTabRaw);
-function WorkspacePageHeader({
-  eyebrow,
-  title,
-  description,
-  tabs,
-  activeTab,
-  onTabChange,
-  actions
-}) {
+function WorkspacePageHeaderToolbar(props) {
+  if (!props.tabConfig && !props.actions) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-start sm:justify-end sm:gap-4", children: [
+    props.tabConfig ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full min-w-0 sm:w-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      TabBar,
+      {
+        tabs: props.tabConfig.tabs,
+        active: props.tabConfig.activeTab,
+        onChange: props.tabConfig.onTabChange
+      }
+    ) }) : null,
+    props.actions ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 flex-wrap items-center justify-end gap-2", children: props.actions }) : null
+  ] });
+}
+function WorkspacePageHeader(props) {
+  const { eyebrow, title, description, actions } = props;
+  const tabConfig = props.tabs !== void 0 ? {
+    tabs: props.tabs,
+    activeTab: props.activeTab,
+    onTabChange: props.onTabChange
+  } : null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold uppercase tracking-[0.18em] text-slate-400", children: eyebrow }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "text-2xl font-semibold tracking-tight text-brand-dark", children: title }),
       description ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-slate-500", children: description }) : null
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-start sm:justify-end sm:gap-4", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full min-w-0 sm:w-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TabBar, { tabs, active: activeTab, onChange: onTabChange }) }),
-      actions ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 flex-wrap items-center justify-end gap-2", children: actions }) : null
-    ] })
+    /* @__PURE__ */ jsxRuntimeExports.jsx(WorkspacePageHeaderToolbar, { tabConfig, actions })
   ] });
 }
 const PAGE_SIZE = 50;
@@ -26355,12 +26471,12 @@ export {
   HiMiniExclamationCircle as J,
   HiMiniClipboardDocumentCheck as K,
   HiMiniClipboard as L,
-  getDefaultExportFromCjs as M,
-  HiMiniKey as N,
-  HiMiniLockClosed as O,
+  requireReact as M,
+  getDefaultExportFromCjs as N,
+  HiMiniKey as O,
   ProofStrip as P,
-  HiMiniBellAlert as Q,
-  React as R,
+  HiMiniLockClosed as Q,
+  HiMiniBellAlert as R,
   SectionLabel as S,
   HiMiniAdjustmentsHorizontal as T,
   HiMiniCog6Tooth as U,
@@ -26371,7 +26487,7 @@ export {
   fetchRuntimeSnapshot as Z,
   updateSettings as _,
   EvidenceActivityHeatmapMini as a,
-  HiMiniArrowRight as a$,
+  fetchSupplyChainBundle as a$,
   clearReviewQueue as a0,
   revokeApprovalGateCooldown as a1,
   disableApprovalGateTotp as a2,
@@ -26388,27 +26504,27 @@ export {
   Surface as aD,
   HiMiniArrowTopRightOnSquare as aE,
   HiMiniCheckBadge as aF,
-  HiMiniClock as aG,
-  IconActionButton as aH,
-  HiMiniBeaker as aI,
-  ActivationSummary as aJ,
-  ActionResultPanel as aK,
-  HiMiniBugAnt as aL,
-  fetchPackageFirewallStatus as aM,
-  runPackageAudit as aN,
-  startPackageFirewallConnect as aO,
-  runPackageFirewallAction as aP,
-  parseInterceptProofSnapshot as aQ,
-  runPackageSync as aR,
-  openPackageFirewallShell as aS,
-  EntitlementNotice as aT,
-  fetchSupplyChainBundle as aU,
-  HiMiniDocumentMagnifyingGlass as aV,
-  HiMiniShieldExclamation as aW,
-  HiMiniComputerDesktop as aX,
-  ConnectFlowCard as aY,
-  HiMiniArrowDown as aZ,
-  HiMiniArrowUp as a_,
+  isSupplyChainAuditIncomplete as aG,
+  HiMiniClock as aH,
+  IconActionButton as aI,
+  HiMiniBeaker as aJ,
+  ActivationSummary as aK,
+  ActionResultPanel as aL,
+  HiMiniBugAnt as aM,
+  readString$1 as aN,
+  isRecord$2 as aO,
+  GuardModalLayer as aP,
+  ConnectFlowCard as aQ,
+  HiMiniCloudArrowDown as aR,
+  fetchPackageFirewallStatus as aS,
+  runPackageAudit as aT,
+  resolveSupplyChainAuditFailure as aU,
+  runPackageSync as aV,
+  startPackageFirewallConnect as aW,
+  runPackageFirewallAction as aX,
+  parseInterceptProofSnapshot as aY,
+  openPackageFirewallShell as aZ,
+  EntitlementNotice as a_,
   resetSettings as aa,
   setupDesktopNotifications as ab,
   Tag as ac,
@@ -26436,18 +26552,24 @@ export {
   clearLabelForScope as ay,
   formatHarnessCommand as az,
   EmptyState as b,
-  HiMiniCloudArrowUp as b0,
-  HiMiniInformationCircle as b1,
-  fetchReceipts as b2,
-  runAuditRemediation as b3,
-  HiMiniDocumentText as b4,
-  guardAwareHref as b5,
-  HiMiniSignal as b6,
-  savePolicyDecision as b7,
-  HiMiniChevronLeft as b8,
-  policyActionLabel as b9,
-  scopeLabel as ba,
-  HiMiniPlus as bb,
+  HiMiniDocumentMagnifyingGlass as b0,
+  HiMiniShieldExclamation as b1,
+  HiMiniComputerDesktop as b2,
+  HiMiniArrowDown as b3,
+  HiMiniArrowUp as b4,
+  HiMiniArrowRight as b5,
+  HiMiniCloudArrowUp as b6,
+  HiMiniInformationCircle as b7,
+  fetchReceipts as b8,
+  runAuditRemediation as b9,
+  HiMiniDocumentText as ba,
+  guardAwareHref as bb,
+  HiMiniSignal as bc,
+  scopeLabel as bd,
+  createCloudExceptionRequest as be,
+  policyActionLabel as bf,
+  fetchCloudExceptions as bg,
+  fetchCloudExceptionRequests as bh,
   EvidenceInsightsShareModal as c,
   HiMiniCheckCircle as d,
   GuardHero as e,

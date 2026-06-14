@@ -1,9 +1,9 @@
 """Provide the Stylesheet class."""
 
-from .base import AsyncPRAWBase
+from asyncpraw.models.base import AsyncPRAWBase, DynamicAttributes
 
 
-class Stylesheet(AsyncPRAWBase):
+class Stylesheet(DynamicAttributes, AsyncPRAWBase):
     """Represent a stylesheet.
 
     .. include:: ../../typical_attributes.rst

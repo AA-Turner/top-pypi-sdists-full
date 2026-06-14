@@ -13,12 +13,7 @@ class Steam(TOTP):
     """
 
     def __init__(
-        self,
-        s: str,
-        name: Optional[str] = None,
-        issuer: Optional[str] = None,
-        interval: int = 30,
-        digits: int = 5
+        self, s: str, name: Optional[str] = None, issuer: Optional[str] = None, interval: int = 30, digits: int = 5
     ) -> None:
         """
         :param s: secret in base32 format
@@ -34,16 +29,12 @@ class Steam(TOTP):
         :param input: the HMAC counter value to use as the OTP input.
             Usually either the counter, or the computed integer based on the Unix timestamp
         """
-        str_code = super().generate_otp(input)
-        int_code = int(str_code)
-
-        steam_code = ""
+        int_code = int(super().generate_otp(input))
         total_chars = len(STEAM_CHARS)
 
+        digits = []
         for _ in range(STEAM_DEFAULT_DIGITS):
-            pos = int_code % total_chars
-            char = STEAM_CHARS[int(pos)]
-            steam_code += char
+            digits.append(STEAM_CHARS[int_code % total_chars])
             int_code //= total_chars
 
-        return steam_code
+        return "".join(digits)

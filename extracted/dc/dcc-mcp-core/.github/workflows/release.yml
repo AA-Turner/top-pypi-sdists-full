@@ -272,6 +272,29 @@ jobs:
             --cli-bin "${{ matrix.cli_artifact_name }}" \
             --out-dir .
 
+      - name: Create standalone CLI zip
+        id: cli-bundle
+        shell: bash
+        run: |
+          python scripts/release/build_cli_bundle.py \
+            --version "${{ needs.release-please.outputs.version }}" \
+            --platform "${{ matrix.platform }}" \
+            --cli-bin "${{ matrix.cli_artifact_name }}" \
+            --out-dir .
+
+      - name: Generate update manifest
+        id: update-manifest
+        shell: bash
+        run: |
+          python scripts/release/generate_update_manifest.py \
+            --version "${{ needs.release-please.outputs.version }}" \
+            --platform "${{ matrix.platform }}" \
+            --release-tag "${{ needs.release-please.outputs.tag_name }}" \
+            --repo "${{ github.repository }}" \
+            --server-bin "${{ matrix.artifact_name }}" \
+            --cli-bin "${{ matrix.cli_artifact_name }}" \
+            --out-dir .
+
       # ── PyPI wheel build ──────────────────────────────────────────
       # macOS / Windows reuse the same target/ directory the raw-binary
       # step just populated; maturin sees the binary as already-compiled
@@ -326,6 +349,8 @@ jobs:
             ${{ matrix.artifact_name }}
             ${{ matrix.cli_artifact_name }}
             ${{ steps.server-bundle.outputs.bundle_path }}
+            ${{ steps.cli-bundle.outputs.cli_bundle_path }}
+            ${{ steps.update-manifest.outputs.manifest_path }}
 
       - name: Upload server wheel artefact (for cross-job collection)
         uses: actions/upload-artifact@v4
@@ -341,6 +366,8 @@ jobs:
             ${{ matrix.artifact_name }}
             ${{ matrix.cli_artifact_name }}
             ${{ steps.server-bundle.outputs.bundle_path }}
+            ${{ steps.cli-bundle.outputs.cli_bundle_path }}
+            ${{ steps.update-manifest.outputs.manifest_path }}
             pkg/dcc-mcp-server-bin/wheels/*.whl
 
   # ── Build dcc-mcp-core-semantic companion wheels (issue #1395) ──
@@ -794,6 +821,8 @@ jobs:
             '^dcc-mcp-server-'
             '^dcc-mcp-cli-'
             '^dcc-mcp-server-[0-9A-Za-z.+-]+-(linux-x86_64|windows-x86_64|macos-universal2)\.zip$'
+            '^dcc-mcp-cli-[0-9A-Za-z.+-]+-(linux-x86_64|windows-x86_64|macos-universal2)\.zip$'
+            '^dcc-mcp-update-manifest-(linux-x86_64|windows-x86_64|macos-universal2)\.json$'
           )
 
           release_json=""
@@ -855,10 +884,40 @@ jobs:
               artifacts_verified: true,
               assets_count: $assets_count
             }')"
-          printf '%s' "$payload" | curl -fsS \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -H "X-GitHub-Event: core_release_ready" \
-            -H "X-GitHub-Delivery: core-release-ready-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --data-binary @- \
-            "$MULTICA_WEBHOOK_URL"
+          # Retry with exponential backoff for transient errors (HTTP 429 rate-limit, 5xx).
+          # A single 429 from Multica is not fatal — all build/publish jobs succeeded.
+          max_retries=5
+          delay=5
+
+          for i in $(seq 1 "$max_retries"); do
+            http_code=$(printf '%s' "$payload" | curl -fsS -o /dev/null -w '%{http_code}' \
+              --connect-timeout 10 \
+              --max-time 30 \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "X-GitHub-Event: core_release_ready" \
+              -H "X-GitHub-Delivery: core-release-ready-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              --data-binary @- \
+              "$MULTICA_WEBHOOK_URL")
+            curl_exit=$?
+
+            if [ "$curl_exit" -eq 0 ] && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+              echo "Multica notified successfully (HTTP ${http_code})"
+              exit 0
+            fi
+
+            if [ "$http_code" = "429" ] || [ "$http_code" -ge 500 ]; then
+              if [ "$i" -lt "$max_retries" ]; then
+                echo "::warning::Multica returned HTTP ${http_code}, attempt ${i}/${max_retries}, retrying in ${delay}s..."
+                sleep "$delay"
+                delay=$((delay * 2))
+                continue
+              fi
+            else
+              echo "::error::Multica notification failed with HTTP ${http_code} (non-retryable)"
+              exit 1
+            fi
+          done
+
+          echo "::error::Multica notification failed after ${max_retries} attempts"
+          exit 1

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wads
-Version: 0.2.6
+Version: 0.2.9
 Summary: Tools for packaging and publishing to pypi for those who just do not want to deal with it
 Project-URL: Homepage, https://github.com/i2mint/wads
 Author: Thor Whalen
@@ -29,6 +29,8 @@ Requires-Dist: tomlkit; extra == 'create'
 Requires-Dist: wheel; extra == 'create'
 Provides-Extra: docs
 Requires-Dist: epythet; extra == 'docs'
+Provides-Extra: skills
+Requires-Dist: skill; extra == 'skills'
 Provides-Extra: test
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest>=7.0; extra == 'test'

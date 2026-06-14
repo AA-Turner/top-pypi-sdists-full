@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any, TypedDict
 
-from ..base import AsyncPRAWBase
-from .listing import FlairListing, ModNoteListing
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.listing import FlairListing, Listing, ModNoteListing
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import asyncpraw
+    from asyncpraw.models.reddit.base import RedditBase
 
 
 class ListingGenerator(AsyncPRAWBase, AsyncIterator):
@@ -24,11 +26,11 @@ class ListingGenerator(AsyncPRAWBase, AsyncIterator):
 
     """
 
-    def __aiter__(self) -> Any:
+    def __aiter__(self) -> ListingGenerator:
         """Permit :class:`.ListingGenerator` to operate as an async iterator."""
         return self
 
-    async def __anext__(self) -> Any:
+    async def __anext__(self) -> RedditBase:
         """Permit :class:`.ListingGenerator` to operate as a async generator."""
         if self.limit is not None and self.yielded >= self.limit:
             raise StopAsyncIteration
@@ -38,15 +40,17 @@ class ListingGenerator(AsyncPRAWBase, AsyncIterator):
 
         self._list_index += 1
         self.yielded += 1
+        assert self._listing is not None
         return self._listing[self._list_index - 1]
 
     def __init__(
         self,
         reddit: asyncpraw.Reddit,
         url: str,
-        limit: int = 100,
+        limit: int | None = 100,
         params: dict[str, str | int] | None = None,
-    ):
+        request_limit: int | None = None,
+    ) -> None:
         """Initialize a :class:`.ListingGenerator` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
@@ -57,19 +61,22 @@ class ListingGenerator(AsyncPRAWBase, AsyncIterator):
             automatically issue all necessary requests (default: ``100``).
         :param params: A dictionary containing additional query string parameters to
             send with the request.
+        :param request_limit: The limit provided to Reddit's API for each request. If
+            ``request_limit`` is ``None``, then the value of ``limit`` will be used for
+            each request.
 
         """
         super().__init__(reddit, _data=None)
         self._exhausted = False
-        self._listing = None
-        self._list_index = None
+        self._listing: Listing | None = None
+        self._list_index: int
         self.limit = limit
         self.params = deepcopy(params) if params else {}
-        self.params["limit"] = limit or 1024
+        self.params["limit"] = request_limit or limit or 1024
         self.url = url
         self.yielded = 0
 
-    def _extract_sublist(self, listing: dict[str, Any] | list[Any]):
+    def _extract_sublist(self, listing: dict[str, Any] | list[Any] | Any) -> Any:
         if isinstance(listing, list):
             return listing[1]  # for submission duplicates
         if isinstance(listing, dict):
@@ -79,11 +86,13 @@ class ListingGenerator(AsyncPRAWBase, AsyncIterator):
                 if listing_type.CHILD_ATTRIBUTE in listing:
                     return listing_type(self._reddit, listing)
             else:  # noqa: PLW0120
-                msg = "The generator returned a dictionary Async PRAW didn't recognize. File a bug report at Async PRAW."
+                msg = (
+                    "The generator returned a dictionary Async PRAW didn't recognize. File a bug report at Async PRAW."
+                )
                 raise ValueError(msg)
         return listing
 
-    async def _next_batch(self):
+    async def _next_batch(self) -> None:
         if self._exhausted:
             raise StopAsyncIteration
 
@@ -94,9 +103,18 @@ class ListingGenerator(AsyncPRAWBase, AsyncIterator):
         if not self._listing:
             raise StopAsyncIteration
 
-        if self._listing.after and self._listing.after != self.params.get(
-            self._listing.AFTER_PARAM
-        ):
+        if self._listing.after and self._listing.after != self.params.get(self._listing.AFTER_PARAM):
             self.params[self._listing.AFTER_PARAM] = self._listing.after
         else:
             self._exhausted = True
+
+
+class ListingGeneratorKwargs(TypedDict, total=False):
+    """The keyword arguments accepted by methods that return a :class:`.ListingGenerator`.
+
+    See :meth:`.ListingGenerator.__init__` for the meaning of each value.
+
+    """
+
+    limit: int | None
+    params: dict[str, str | int] | None

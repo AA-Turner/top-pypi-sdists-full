@@ -70,10 +70,11 @@ def sync_detailed(
 
      Record an audit event for this account.
 
-    The event is stamped with the environment it occurred in: a
-    single-environment credential implies it; a multi-environment or
-    unrestricted credential must send the `X-Smplkit-Environment` header.
-    The resolved environment must exist and be managed for the account.
+    The event is stamped with the environment it occurred in. Name the target
+    environment in the request body's `environment` field; omit it and a
+    single-environment credential implies it, while a multi-environment or
+    unrestricted credential must name it. The named environment must be one
+    the caller may access and must exist and be managed for the account.
 
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
@@ -117,10 +118,11 @@ def sync(
 
      Record an audit event for this account.
 
-    The event is stamped with the environment it occurred in: a
-    single-environment credential implies it; a multi-environment or
-    unrestricted credential must send the `X-Smplkit-Environment` header.
-    The resolved environment must exist and be managed for the account.
+    The event is stamped with the environment it occurred in. Name the target
+    environment in the request body's `environment` field; omit it and a
+    single-environment credential implies it, while a multi-environment or
+    unrestricted credential must name it. The named environment must be one
+    the caller may access and must exist and be managed for the account.
 
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
@@ -159,10 +161,11 @@ async def asyncio_detailed(
 
      Record an audit event for this account.
 
-    The event is stamped with the environment it occurred in: a
-    single-environment credential implies it; a multi-environment or
-    unrestricted credential must send the `X-Smplkit-Environment` header.
-    The resolved environment must exist and be managed for the account.
+    The event is stamped with the environment it occurred in. Name the target
+    environment in the request body's `environment` field; omit it and a
+    single-environment credential implies it, while a multi-environment or
+    unrestricted credential must name it. The named environment must be one
+    the caller may access and must exist and be managed for the account.
 
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
@@ -204,10 +207,11 @@ async def asyncio(
 
      Record an audit event for this account.
 
-    The event is stamped with the environment it occurred in: a
-    single-environment credential implies it; a multi-environment or
-    unrestricted credential must send the `X-Smplkit-Environment` header.
-    The resolved environment must exist and be managed for the account.
+    The event is stamped with the environment it occurred in. Name the target
+    environment in the request body's `environment` field; omit it and a
+    single-environment credential implies it, while a multi-environment or
+    unrestricted credential must name it. The named environment must be one
+    the caller may access and must exist and be managed for the account.
 
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the

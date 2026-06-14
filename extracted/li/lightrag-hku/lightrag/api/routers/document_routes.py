@@ -7,7 +7,12 @@ import re
 import shutil
 import time
 from uuid import uuid4
-from lightrag.utils import logger, get_pinyin_sort_key, performance_timing_log
+from lightrag.utils import (
+    logger,
+    get_pinyin_sort_key,
+    performance_timing_log,
+    validate_workspace,
+)
 import aiofiles
 import traceback
 from datetime import datetime, timezone
@@ -969,6 +974,8 @@ class DocumentManager:
         input_dir: str,
         workspace: str = "",  # New parameter for workspace isolation
     ):
+        # Reject path traversal before using workspace in the upload path
+        validate_workspace(workspace)
         # Store the base input directory and workspace
         self.base_input_dir = Path(input_dir)
         self.workspace = workspace
@@ -2046,7 +2053,7 @@ async def run_scanning_process(
                 ):
                     # File is already PROCESSED, skip it with warning and archive it.
                     processed_files.append(filename)
-                    warning = f"Skipping already processed file: " f"{filename}"
+                    warning = f"Skipping already processed file: {filename}"
                     await record_scan_warning(rag, warning)
                     try:
                         await move_file_to_parsed_dir(file_path)
@@ -3097,6 +3104,18 @@ def create_document_routes(
                 storage_name = storages[i].__class__.__name__
                 if isinstance(result, Exception):
                     error_msg = f"Error dropping {storage_name}: {str(result)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+                    storage_error_count += 1
+                elif isinstance(result, dict) and result.get("status") != "success":
+                    # drop() reports a non-raising failure as {"status": "error"}
+                    # (e.g. a backend that could not safely clear a kept legacy
+                    # store). Honor it so the clear is not counted as successful
+                    # while stale data remains and could be re-migrated/resurface.
+                    error_msg = (
+                        f"Error dropping {storage_name}: "
+                        f"{result.get('message', 'unknown error')}"
+                    )
                     errors.append(error_msg)
                     logger.error(error_msg)
                     storage_error_count += 1

@@ -16,6 +16,7 @@ from ...types import Unset
 def _get_kwargs(
     forwarder_id: str,
     *,
+    filterenvironment: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterevent: None | str | Unset = UNSET,
@@ -25,6 +26,13 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
+
+    json_filterenvironment: None | str | Unset
+    if isinstance(filterenvironment, Unset):
+        json_filterenvironment = UNSET
+    else:
+        json_filterenvironment = filterenvironment
+    params["filter[environment]"] = json_filterenvironment
 
     json_filterstatus: None | str | Unset
     if isinstance(filterstatus, Unset):
@@ -109,6 +117,7 @@ def sync_detailed(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterevent: None | str | Unset = UNSET,
@@ -120,14 +129,21 @@ def sync_detailed(
 
      List delivery log entries for a forwarder.
 
-    Scoped to the resolved environment — only that environment's deliveries
-    for the forwarder are shown. Default sort is `-created_at` (newest
-    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
-    by `event`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Scoped by environment. Pass `filter[environment]` as a comma-separated
+    list of environment keys to restrict results to that subset of the
+    environments you can access; omit it to cover every environment you can
+    access. Default sort is `-created_at` (newest first). Filter by `status`
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
+    `created_at` range using interval notation (e.g.
+    `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (str):
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            deliveries to (e.g. `production,staging`). When omitted, results cover every environment
+            you can access. The reserved value `smplkit` selects deliveries of platform change events
+            smplkit records about your own resources; it is included by default when your plan grants
+            change history, and requesting it explicitly without that entitlement returns 402.
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent (None | str | Unset):
@@ -147,6 +163,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         forwarder_id=forwarder_id,
+        filterenvironment=filterenvironment,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
         filterevent=filterevent,
@@ -166,6 +183,7 @@ def sync(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterevent: None | str | Unset = UNSET,
@@ -177,14 +195,21 @@ def sync(
 
      List delivery log entries for a forwarder.
 
-    Scoped to the resolved environment — only that environment's deliveries
-    for the forwarder are shown. Default sort is `-created_at` (newest
-    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
-    by `event`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Scoped by environment. Pass `filter[environment]` as a comma-separated
+    list of environment keys to restrict results to that subset of the
+    environments you can access; omit it to cover every environment you can
+    access. Default sort is `-created_at` (newest first). Filter by `status`
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
+    `created_at` range using interval notation (e.g.
+    `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (str):
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            deliveries to (e.g. `production,staging`). When omitted, results cover every environment
+            you can access. The reserved value `smplkit` selects deliveries of platform change events
+            smplkit records about your own resources; it is included by default when your plan grants
+            change history, and requesting it explicitly without that entitlement returns 402.
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent (None | str | Unset):
@@ -205,6 +230,7 @@ def sync(
     return sync_detailed(
         forwarder_id=forwarder_id,
         client=client,
+        filterenvironment=filterenvironment,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
         filterevent=filterevent,
@@ -218,6 +244,7 @@ async def asyncio_detailed(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterevent: None | str | Unset = UNSET,
@@ -229,14 +256,21 @@ async def asyncio_detailed(
 
      List delivery log entries for a forwarder.
 
-    Scoped to the resolved environment — only that environment's deliveries
-    for the forwarder are shown. Default sort is `-created_at` (newest
-    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
-    by `event`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Scoped by environment. Pass `filter[environment]` as a comma-separated
+    list of environment keys to restrict results to that subset of the
+    environments you can access; omit it to cover every environment you can
+    access. Default sort is `-created_at` (newest first). Filter by `status`
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
+    `created_at` range using interval notation (e.g.
+    `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (str):
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            deliveries to (e.g. `production,staging`). When omitted, results cover every environment
+            you can access. The reserved value `smplkit` selects deliveries of platform change events
+            smplkit records about your own resources; it is included by default when your plan grants
+            change history, and requesting it explicitly without that entitlement returns 402.
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent (None | str | Unset):
@@ -256,6 +290,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         forwarder_id=forwarder_id,
+        filterenvironment=filterenvironment,
         filterstatus=filterstatus,
         filtercreated_at=filtercreated_at,
         filterevent=filterevent,
@@ -273,6 +308,7 @@ async def asyncio(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterevent: None | str | Unset = UNSET,
@@ -284,14 +320,21 @@ async def asyncio(
 
      List delivery log entries for a forwarder.
 
-    Scoped to the resolved environment — only that environment's deliveries
-    for the forwarder are shown. Default sort is `-created_at` (newest
-    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
-    by `event`, or by a `created_at` range using interval notation
-    (e.g. `[2026-01-01T00:00:00Z,*)`).
+    Scoped by environment. Pass `filter[environment]` as a comma-separated
+    list of environment keys to restrict results to that subset of the
+    environments you can access; omit it to cover every environment you can
+    access. Default sort is `-created_at` (newest first). Filter by `status`
+    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
+    `created_at` range using interval notation (e.g.
+    `[2026-01-01T00:00:00Z,*)`).
 
     Args:
         forwarder_id (str):
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            deliveries to (e.g. `production,staging`). When omitted, results cover every environment
+            you can access. The reserved value `smplkit` selects deliveries of platform change events
+            smplkit records about your own resources; it is included by default when your plan grants
+            change history, and requesting it explicitly without that entitlement returns 402.
         filterstatus (None | str | Unset):
         filtercreated_at (None | str | Unset):
         filterevent (None | str | Unset):
@@ -313,6 +356,7 @@ async def asyncio(
         await asyncio_detailed(
             forwarder_id=forwarder_id,
             client=client,
+            filterenvironment=filterenvironment,
             filterstatus=filterstatus,
             filtercreated_at=filtercreated_at,
             filterevent=filterevent,

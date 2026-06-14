@@ -2079,6 +2079,7 @@ def _update_compose_with_orchestration(runtime_config: dict):
             'LOG_TO_ARTIFACT_STORE=true',
             'LOG_AGENT_NAME=builder',
             'LOG_BUCKET=abi-logs',
+            f'AGENT_MEMORY_URL=http://{project_dir}-agent-memory:8000',
         ]
         
         builder_volumes = [
@@ -2113,6 +2114,61 @@ def _update_compose_with_orchestration(runtime_config: dict):
             'networks': [network_name],
             'depends_on': [f'{project_dir}-semantic-layer']
         }
+        
+        # Add Redis Stack (backing store for Agent Memory Server)
+        compose_data['services'][f'{project_dir}-redis-stack'] = {
+            'image': 'redis:8',
+            'container_name': f'{project_dir}-redis-stack',
+            'ports': ['6379:6379'],
+            'command': 'redis-server --appendonly yes',
+            'volumes': ['redis_data:/data'],
+            'networks': [network_name],
+            'restart': 'unless-stopped',
+            'healthcheck': {
+                'test': ['CMD', 'redis-cli', 'ping'],
+                'interval': '10s',
+                'timeout': '5s',
+                'retries': 5,
+            },
+        }
+
+        # Add Agent Memory Server (working + long-term memory, shared by the swarm)
+        compose_data['services'][f'{project_dir}-agent-memory'] = {
+            'image': 'redislabs/agent-memory-server:latest',
+            'container_name': f'{project_dir}-agent-memory',
+            'ports': ['8000:8000'],
+            'command': 'agent-memory api --host 0.0.0.0 --port 8000 --task-backend=asyncio',
+            'environment': [
+                f'REDIS_URL=redis://{project_dir}-redis-stack:6379',
+                'PORT=8000',
+                'DISABLE_AUTH=true',
+                'LONG_TERM_MEMORY=true',
+                'GENERATION_MODEL=ollama/qwen2.5:3b',
+                'FAST_MODEL=ollama/qwen2.5:3b',
+                'SLOW_MODEL=ollama/qwen2.5:3b',
+                'EMBEDDING_MODEL=ollama/nomic-embed-text:v1.5',
+                'OLLAMA_API_BASE=http://ollama:11434',
+                'REDISVL_VECTOR_DIMENSIONS=768',
+            ],
+            'depends_on': [f'{project_dir}-redis-stack'],
+            'networks': [network_name],
+            'restart': 'unless-stopped',
+            'healthcheck': {
+                'test': ['CMD', 'curl', '-f', 'http://localhost:8000/v1/health'],
+                'interval': '30s',
+                'timeout': '10s',
+                'retries': 3,
+            },
+        }
+        # Builder depends on agent memory so the swarm can store/recall context
+        compose_data['services'][f'{project_dir}-builder']['depends_on'].append(
+            f'{project_dir}-agent-memory'
+        )
+
+        # Persist the redis volume used by the Agent Memory Server
+        if 'volumes' not in compose_data:
+            compose_data['volumes'] = {}
+        compose_data['volumes']['redis_data'] = {'driver': 'local'}
         
         # Add volumes only in distributed mode
         if provision_mode == 'distributed':

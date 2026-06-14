@@ -5,10 +5,8 @@ from time import time
 
 import pytest
 
-from pyrate_limiter import binary_search
 from pyrate_limiter import Duration
 from pyrate_limiter import Rate
-from pyrate_limiter import RateItem
 from pyrate_limiter import SQLiteClock
 from pyrate_limiter import MonotonicClock
 from pyrate_limiter import AbstractClock
@@ -70,31 +68,6 @@ def test_rate():
     assert str(rate) == "limit=1000/3.0m"
 
 
-def test_binary_search():
-    """Testing binary-search that find item in array"""
-    # Normal list of items
-    items = [RateItem("item", nth * 2) for nth in range(5)]
-
-    print([item.timestamp for item in items])
-
-    assert binary_search(items, 0) == 0
-    assert binary_search(items, 1) == 1
-    assert binary_search(items, 2) == 1
-    assert binary_search(items, 3) == 2
-    assert binary_search(items, 9) == -1
-    assert binary_search(items, 8) == 4
-
-    # If the value is larger than the last item, idx would be -1
-    assert binary_search(items, 11) == -1
-
-    # Empty list
-    items = []
-
-    assert binary_search(items, 1) == 0
-    assert binary_search(items, 2) == 0
-    assert binary_search(items, 3) == 0
-
-
 def test_rate_validator():
     rates = []
     assert validate_rate_list(rates) is False
@@ -122,6 +95,26 @@ def test_rate_validator():
 
     rates = [Rate(2, 1), Rate(3, 2), Rate(4, 3)]
     assert validate_rate_list(rates) is True
+
+
+def test_inmemory_bucket_rejects_illformed_rates():
+    """Ill-formed rate lists must raise at construction instead of silently
+    misbehaving (issue #239). InMemoryBucket sorts by interval, so the rates
+    are validated in interval-ascending order."""
+    from pyrate_limiter import InMemoryBucket
+
+    # 3/min AND 1/day: the longer interval has a *smaller* limit -> ill-formed
+    bad_rates = [Rate(3, Duration.MINUTE), Rate(1, Duration.DAY)]
+    assert validate_rate_list(sorted(bad_rates, key=lambda r: r.interval)) is False
+
+    with pytest.raises(ValueError):
+        InMemoryBucket(bad_rates)
+
+    # Well-formed config (generous-before-tight) must still be accepted, and
+    # unordered-but-well-formed input is accepted because the bucket sorts it.
+    InMemoryBucket([Rate(100, Duration.SECOND), Rate(200, Duration.MINUTE)])
+    InMemoryBucket([Rate(200, Duration.MINUTE), Rate(100, Duration.SECOND)])
+    InMemoryBucket([Rate(10, Duration.SECOND)])
 
 
 @pytest.mark.asyncio

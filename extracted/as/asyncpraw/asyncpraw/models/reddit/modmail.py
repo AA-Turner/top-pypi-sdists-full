@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from ...util import _deprecate_args, snake_case_keys
-from .base import RedditBase
+from asyncpraw.const import API_PATH
+from asyncpraw.models.reddit.base import RedditBase
+from asyncpraw.util import snake_case_keys
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import asyncpraw
 
 
@@ -18,10 +18,10 @@ class ModmailObject(RedditBase):
     AUTHOR_ATTRIBUTE = "author"
     STR_FIELD = "id"
 
-    def __setattr__(self, attribute: str, value: Any):
+    def __setattr__(self, attribute: str, value: Any) -> None:
         """Objectify the AUTHOR_ATTRIBUTE attribute."""
         if attribute == self.AUTHOR_ATTRIBUTE:
-            value = self._reddit._objector.objectify(value)
+            value = self._reddit._objector.objectify(data=value)
         super().__setattr__(attribute, value)
 
 
@@ -63,20 +63,21 @@ class ModmailConversation(RedditBase):
 
     """
 
+    DEFAULT_NUMBER_OF_MUTE_DAYS = 3
     STR_FIELD = "id"
 
     @staticmethod
-    def _convert_conversation_objects(data: dict[str, Any], reddit: asyncpraw.Reddit):
+    def _convert_conversation_objects(data: dict[str, Any], reddit: asyncpraw.Reddit) -> None:
         """Convert messages and mod actions to Async PRAW objects."""
         result = {"messages": [], "modActions": []}
         for thing in data["objIds"]:
             key = thing["key"]
             thing_data = data[key][thing["id"]]
-            result[key].append(reddit._objector.objectify(thing_data))
+            result[key].append(reddit._objector.objectify(data=thing_data))
         data.update(result)
 
     @staticmethod
-    def _convert_user_summary(data: dict[str, Any], reddit: asyncpraw.Reddit):
+    def _convert_user_summary(data: dict[str, Any], reddit: asyncpraw.Reddit) -> None:
         """Convert dictionaries of recent user history to Async PRAW objects."""
         parsers = {
             "recentComments": reddit._objector.parsers[reddit.config.kinds["comment"]],
@@ -108,15 +109,13 @@ class ModmailConversation(RedditBase):
         :param reddit: An instance of :class:`.Reddit`.
 
         """
-        data["authors"] = [
-            reddit._objector.objectify(author) for author in data["authors"]
-        ]
+        data["authors"] = [reddit._objector.objectify(data=author) for author in data["authors"]]
         for entity in "owner", "participant":
-            data[entity] = reddit._objector.objectify(data[entity])
+            data[entity] = reddit._objector.objectify(data=data[entity])
 
         if data.get("user"):
             cls._convert_user_summary(data["user"], reddit)
-            data["user"] = reddit._objector.objectify(data["user"])
+            data["user"] = reddit._objector.objectify(data=data["user"])
 
         data = snake_case_keys(data)
 
@@ -126,9 +125,10 @@ class ModmailConversation(RedditBase):
         self,
         reddit: asyncpraw.Reddit,
         id: str | None = None,
+        *,
         mark_read: bool = False,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.ModmailConversation` instance.
 
         :param mark_read: If ``True``, conversation is marked as read (default:
@@ -146,23 +146,21 @@ class ModmailConversation(RedditBase):
 
         self._info_params = {"markRead": True} if mark_read else None
 
-    def _build_conversation_list(
-        self, other_conversations: list[ModmailConversation]
-    ) -> str:
+    def _build_conversation_list(self, other_conversations: list[ModmailConversation] | None) -> str:
         """Return a comma-separated list of conversation IDs."""
         conversations = [self] + (other_conversations or [])
         return ",".join(conversation.id for conversation in conversations)
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         data = await self._fetch_data()
-        other = self._reddit._objector.objectify(data)
+        other = self._reddit._objector.objectify(data=data)
         self.__dict__.update(other.__dict__)
         await super()._fetch()
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict[str, str], dict[str, bool] | None]:
         return "modmail_conversation", {"id": self.id}, self._info_params
 
-    async def archive(self):
+    async def archive(self) -> None:
         """Archive the conversation.
 
         For example:
@@ -176,7 +174,7 @@ class ModmailConversation(RedditBase):
         """
         await self._reddit.post(API_PATH["modmail_archive"].format(id=self.id))
 
-    async def highlight(self):
+    async def highlight(self) -> None:
         """Highlight the conversation.
 
         For example:
@@ -190,41 +188,7 @@ class ModmailConversation(RedditBase):
         """
         await self._reddit.post(API_PATH["modmail_highlight"].format(id=self.id))
 
-    @_deprecate_args("num_days")
-    async def mute(self, *, num_days: int = 3):
-        """Mute the non-mod user associated with the conversation.
-
-        :param num_days: Duration of mute in days. Valid options are ``3``, ``7``, or
-            ``28`` (default: ``3``).
-
-        For example:
-
-        .. code-block:: python
-
-            subreddit = await reddit.subreddit("test")
-            conversation = await subreddit.modmail("2gmz")
-            await conversation.mute()
-
-        To mute for 7 days:
-
-        .. code-block:: python
-
-            subreddit = await reddit.subreddit("test")
-            conversation = await subreddit.modmail("2gmz")
-            await conversation.mute(num_days=7)
-
-        """
-        params = {"num_hours": num_days * 24} if num_days != 3 else {}
-        await self._reddit.request(
-            method="POST",
-            params=params,
-            path=API_PATH["modmail_mute"].format(id=self.id),
-        )
-
-    @_deprecate_args("other_conversations")
-    async def read(
-        self, *, other_conversations: list[ModmailConversation] | None = None
-    ):
+    async def read(self, *, other_conversations: list[ModmailConversation] | None = None) -> None:
         """Mark the conversation(s) as read.
 
         :param other_conversations: A list of other conversations to mark (default:
@@ -243,10 +207,7 @@ class ModmailConversation(RedditBase):
         data = {"conversationIds": self._build_conversation_list(other_conversations)}
         await self._reddit.post(API_PATH["modmail_read"], data=data)
 
-    @_deprecate_args("body", "author_hidden", "internal")
-    async def reply(
-        self, *, author_hidden: bool = False, body: str, internal: bool = False
-    ) -> ModmailMessage:
+    async def reply(self, *, author_hidden: bool = False, body: str, internal: bool = False) -> ModmailMessage:
         """Reply to the conversation.
 
         :param author_hidden: When ``True``, author is hidden from non-moderators
@@ -277,19 +238,17 @@ class ModmailConversation(RedditBase):
             "isAuthorHidden": author_hidden,
             "isInternal": internal,
         }
-        response = await self._reddit.post(
-            API_PATH["modmail_conversation"].format(id=self.id), data=data
-        )
+        response = await self._reddit.post(API_PATH["modmail_conversation"].format(id=self.id), data=data)
         if isinstance(response, dict):
             # Reddit recently changed the response format, so we need to handle both in case they change it back
             message_id = response["conversation"]["objIds"][-1]["id"]
             message_data = response["messages"][message_id]
-            return self._reddit._objector.objectify(message_data)
-        for message in response.messages:  # noqa: RET503
-            if message.id == response.obj_ids[-1]["id"]:
-                return message
+            message = self._reddit._objector.objectify(data=message_data)
+            assert isinstance(message, ModmailMessage)
+            return message
+        return next(message for message in response.messages if message.id == response.obj_ids[-1]["id"])
 
-    async def unarchive(self):
+    async def unarchive(self) -> None:
         """Unarchive the conversation.
 
         For example:
@@ -303,7 +262,7 @@ class ModmailConversation(RedditBase):
         """
         await self._reddit.post(API_PATH["modmail_unarchive"].format(id=self.id))
 
-    async def unhighlight(self):
+    async def unhighlight(self) -> None:
         """Un-highlight the conversation.
 
         For example:
@@ -317,7 +276,7 @@ class ModmailConversation(RedditBase):
         """
         await self._reddit.delete(API_PATH["modmail_highlight"].format(id=self.id))
 
-    async def unmute(self):
+    async def unmute(self) -> None:
         """Unmute the non-mod user associated with the conversation.
 
         For example:
@@ -329,14 +288,9 @@ class ModmailConversation(RedditBase):
             await conversation.unmute()
 
         """
-        await self._reddit.request(
-            method="POST", path=API_PATH["modmail_unmute"].format(id=self.id)
-        )
+        await self._reddit.request(method="POST", path=API_PATH["modmail_unmute"].format(id=self.id))
 
-    @_deprecate_args("other_conversations")
-    async def unread(
-        self, *, other_conversations: list[ModmailConversation] | None = None
-    ):
+    async def unread(self, *, other_conversations: list[ModmailConversation] | None = None) -> None:
         """Mark the conversation(s) as unread.
 
         :param other_conversations: A list of other conversations to mark (default:
@@ -354,6 +308,38 @@ class ModmailConversation(RedditBase):
         """
         data = {"conversationIds": self._build_conversation_list(other_conversations)}
         await self._reddit.post(API_PATH["modmail_unread"], data=data)
+
+    async def mute(self, *, num_days: int = DEFAULT_NUMBER_OF_MUTE_DAYS) -> None:
+        """Mute the non-mod user associated with the conversation.
+
+        :param num_days: Duration of mute in days. Valid options are ``3``, ``7``, or
+            ``28`` (default: ``3``).
+
+        For example:
+
+        .. code-block:: python
+
+            subreddit = await reddit.subreddit("test")
+            conversation = await subreddit.modmail("2gmz")
+            await conversation.mute()
+
+        To mute for 7 days:
+
+        .. code-block:: python
+
+            subreddit = await reddit.subreddit("test")
+            conversation = await subreddit.modmail("2gmz")
+            await conversation.mute(num_days=7)
+
+        """
+        params: dict[str, str | int] = (
+            {"num_hours": num_days * 24} if num_days != self.DEFAULT_NUMBER_OF_MUTE_DAYS else {}
+        )
+        await self._reddit.request(
+            method="POST",
+            params=params,
+            path=API_PATH["modmail_mute"].format(id=self.id),
+        )
 
 
 class ModmailAction(ModmailObject):

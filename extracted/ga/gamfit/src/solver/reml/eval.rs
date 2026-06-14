@@ -574,18 +574,22 @@ impl<'a> RemlState<'a> {
         let certificate = rho_posterior_certificate(
             final_rho,
             &outer_hessian,
-            |rho| self.compute_cost(rho).ok(),
+            |rho| self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok()),
             n_samples,
         );
         let escalation = match certificate.as_ref().map(|c| c.certificate) {
             Some(RhoCertificate::Escalate) => Some(escalate_rho_posterior(
                 final_rho,
                 &outer_hessian,
-                |rho| self.compute_cost(rho).ok(),
+                |rho| self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok()),
                 |rho| {
-                    let cost = self.compute_cost(rho).ok()?;
-                    let gradient = self.compute_gradient(rho).ok()?;
-                    Some((cost, gradient))
+                    self.without_persistent_warm_start_store(|| {
+                        // NUTS leapfrog gradients need the criterion value and
+                        // gradient at the same rho; compute them through one
+                        // value+gradient outer evaluation so the inner PIRLS
+                        // solve and IFT state are shared by construction.
+                        self.compute_cost_and_gradient(rho).ok()
+                    })
                 },
             )),
             _ => None,

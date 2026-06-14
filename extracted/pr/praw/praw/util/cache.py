@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class cachedproperty:  # noqa: N801
@@ -22,8 +25,8 @@ class cachedproperty:  # noqa: N801
 
     """
 
-    # This to make sphinx run properly
-    def __call__(self, *args: Any, **kwargs: Any):  # pragma: no cover
+    # This definition prevents sphinx from outputting errors like `<cachedproperty <function ...>> is not a callable object`
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
         """Empty method to make sphinx run properly."""
 
     def __get__(self, obj: Any | None, objtype: Any | None = None) -> Any:
@@ -39,7 +42,7 @@ class cachedproperty:  # noqa: N801
         value = obj.__dict__[self.func.__name__] = self.func(obj)
         return value
 
-    def __init__(self, func: Callable[[Any], Any], doc: str | None = None):
+    def __init__(self, func: Callable[[Any], Any], doc: str | None = None) -> None:
         """Initialize a :class:`.cachedproperty` instance."""
         self.func = self.__wrapped__ = func
 

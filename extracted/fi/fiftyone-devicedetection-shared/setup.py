@@ -41,7 +41,7 @@ setuptools.setup(
     version=read("version.txt"),
     author_email="engineering@51degrees.com",
     author="51Degrees Engineering",
-    url="https://51degrees.com/",
+    url="https://51degrees.com/?utm_source=pypi&utm_medium=package&utm_campaign=device-detection-python&utm_content=fiftyone_devicedetection_shared-setup.py&utm_term=url",
     description=("The 51Degrees Pipeline API is a generic web request intelligence and data processing solution with the ability to add a range of 51Degrees and/or custom plug ins (Engines). This project contains 51Degrees Device Detection engines that can be used with the Pipeline API."),
     long_description=read("readme.md"),
     long_description_content_type='text/markdown',

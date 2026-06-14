@@ -159,6 +159,9 @@ pyi_splash_setup(struct SPLASH_CONTEXT *splash, const struct PYI_CONTEXT *pyi_ct
         splash->requirements_len
     );
 
+    /* Copy default centering mode */
+    splash->centering_mode = pyi_be32toh(data_header->centering_mode);
+
     /* Free raw header data */
     free(data_header);
 
@@ -693,6 +696,100 @@ pyi_splash_send(struct SPLASH_CONTEXT *splash, bool async, const void *user_data
     return rc;
 }
 
+/*
+ * Use platform-specific API to determine monitor geometry for advanced
+ * centering modes. Stored the corresponding screen geometry info
+ * (x, y, width, height) into `_pyi_screen_geometry` array variable that
+ * can be used by the splash screen script in lieu of screen dimensions
+ * obtained via `winfo` command.
+ */
+static void _pyi_splash_setup_centering_mode (struct SPLASH_CONTEXT *splash)
+{
+    const struct DYLIB_TCLTK *dylib_tcltk = splash->dylib_tcltk;
+
+    char *env_var_value;
+    int centering_mode;
+
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height= 0;
+    int status = -1;
+
+    char var_value[64];
+
+    /* Default centering mode set at build time. */
+    centering_mode = splash->centering_mode;
+
+    /* Allow user to override the mode at run-time via environment variable */
+    env_var_value = pyi_getenv("PYINSTALLER_SPLASH_SCREEN_CENTER");
+    if (env_var_value) {
+        if (strcmp(env_var_value, "default") == 0) {
+            centering_mode = SPLASH_CENTER_DEFAULT;
+        } else if (strcmp(env_var_value, "virtual") == 0) {
+            centering_mode = SPLASH_CENTER_VIRTUAL_SCREEN;
+        } else if (strcmp(env_var_value, "primary") == 0) {
+            centering_mode = SPLASH_CENTER_PRIMARY_SCREEN;
+        } else if (strcmp(env_var_value, "active") == 0) {
+            centering_mode = SPLASH_CENTER_ACTIVE_SCREEN;
+        }
+        free(env_var_value);
+    }
+
+    /* If default centering mode is used, nothing needs to be done here. */
+    switch (centering_mode) {
+        case SPLASH_CENTER_DEFAULT: {
+            PYI_DEBUG("SPLASH: 'default' center mode - nothing to do!\n");
+            return;
+        }
+        case SPLASH_CENTER_VIRTUAL_SCREEN: {
+            PYI_DEBUG("SPLASH: 'virtual' center mode...\n");
+            break;
+        }
+        case SPLASH_CENTER_PRIMARY_SCREEN: {
+            PYI_DEBUG("SPLASH: 'primary' center mode...\n");
+            break;
+        }
+        case SPLASH_CENTER_ACTIVE_SCREEN:  {
+            PYI_DEBUG("SPLASH: 'active' center mode...\n");
+            break;
+        }
+        default: {
+            PYI_DEBUG("SPLASH: unhandled centering mode: %d\n", centering_mode);
+            return;
+        }
+    }
+
+    /* Platform-specific implementation */
+#if defined(_WIN32)
+    status = _pyi_splash_setup_centering_mode_win32(centering_mode, &x, &y, &width, &height);
+#elif !defined(__APPLE__)
+    status = _pyi_splash_setup_centering_mode_x11(centering_mode, &x, &y, &width, &height);
+#else
+    PYI_DEBUG("SPLASH: splash screen centering is not supported on this platform!\n");
+    status = -1;
+#endif
+
+    if (status != 0) {
+        return;
+    }
+
+    PYI_DEBUG("SPLASH: storing monitor geometry: x=%d, y=%d, width=%d, height=%d\n", x, y, width, height);
+
+    /* Store values in an array */
+    snprintf(var_value, 64, "%d", x);
+    dylib_tcltk->Tcl_SetVar2(splash->interp, "_pyi_screen_geometry", "x", var_value, TCL_GLOBAL_ONLY);
+
+    snprintf(var_value, 64, "%d", y);
+    dylib_tcltk->Tcl_SetVar2(splash->interp, "_pyi_screen_geometry", "y", var_value, TCL_GLOBAL_ONLY);
+
+    snprintf(var_value, 64, "%d", width);
+    dylib_tcltk->Tcl_SetVar2(splash->interp, "_pyi_screen_geometry", "width", var_value, TCL_GLOBAL_ONLY);
+
+    snprintf(var_value, 64, "%d", height);
+    dylib_tcltk->Tcl_SetVar2(splash->interp, "_pyi_screen_geometry", "height", var_value, TCL_GLOBAL_ONLY);
+}
+
 /* ----------------------------------------------------------------------------------------- */
 
 /*
@@ -1107,6 +1204,11 @@ _splash_init(ClientData client_data)
     free(splash->image);
     splash->image = NULL;
 
+    /* Setup additional variables for different splash-screen centering
+     * modes (if available on the current platform). */
+    _pyi_splash_setup_centering_mode(splash);
+
+    /* Run the splash screen script */
     if (dylib_tcltk->tcl_major >= 9) {
         err = dylib_tcltk->Tcl_EvalEx_9(splash->interp, splash->script, splash->script_len, TCL_GLOBAL_ONLY);
     } else {

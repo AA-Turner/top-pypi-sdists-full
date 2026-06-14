@@ -72,11 +72,13 @@ pgit_odb_backend_read(void **ptr, size_t *sz, git_object_t *type,
 
     const char *bytes;
     Py_ssize_t type_value;
-    if (!PyArg_ParseTuple(result, "ny#", &type_value, &bytes, sz) || !bytes) {
+    Py_ssize_t py_sz;
+    if (!PyArg_ParseTuple(result, "ny#", &type_value, &bytes, &py_sz) || !bytes) {
         Py_DECREF(result);
         return GIT_EUSER;
     }
     *type = (git_object_t)type_value;
+    *sz = (size_t)py_sz;
 
     *ptr = git_odb_backend_data_alloc(_be, *sz);
     if (!*ptr) {
@@ -106,12 +108,14 @@ pgit_odb_backend_read_prefix(git_oid *oid_out, void **ptr, size_t *sz, git_objec
     // Parse output from callback
     PyObject *py_oid_out;
     Py_ssize_t type_value;
+    Py_ssize_t py_sz;
     const char *bytes;
-    if (!PyArg_ParseTuple(result, "ny#O", &type_value, &bytes, sz, &py_oid_out) || !bytes) {
+    if (!PyArg_ParseTuple(result, "ny#O", &type_value, &bytes, &py_sz, &py_oid_out) || !bytes) {
         Py_DECREF(result);
         return GIT_EUSER;
     }
     *type = (git_object_t)type_value;
+    *sz = (size_t)py_sz;
 
     *ptr = git_odb_backend_data_alloc(_be, *sz);
     if (!*ptr) {
@@ -255,6 +259,10 @@ OdbBackend_init(OdbBackend *self, PyObject *args, PyObject *kwds)
 
     // Create the C backend
     pgit_odb_backend *custom_backend = calloc(1, sizeof(pgit_odb_backend));
+    if (custom_backend == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
     custom_backend->backend.version = GIT_ODB_BACKEND_VERSION;
 
     // Fill the member methods

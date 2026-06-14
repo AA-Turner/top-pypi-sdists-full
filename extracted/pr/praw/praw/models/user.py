@@ -2,30 +2,31 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator
-from warnings import warn
+from typing import TYPE_CHECKING, Any
 
 from prawcore import Conflict
 
-from ..const import API_PATH
-from ..exceptions import ReadOnlyException
-from ..models import Preferences
-from ..util import _deprecate_args
-from ..util.cache import cachedproperty
-from .base import PRAWBase
-from .listing.generator import ListingGenerator
-from .reddit.redditor import Redditor
-from .reddit.subreddit import Subreddit
+from praw.const import API_PATH
+from praw.exceptions import ReadOnlyException
+from praw.models import Preferences
+from praw.models.base import PRAWBase
+from praw.models.listing.generator import ListingGenerator
+from praw.models.reddit.redditor import Redditor
+from praw.models.reddit.subreddit import Subreddit
+from praw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    import praw
+    from praw import models
 
 
 class User(PRAWBase):
     """The :class:`.User` class provides methods for the currently authenticated user."""
 
     @cachedproperty
-    def preferences(self) -> praw.models.Preferences:
+    def preferences(self) -> models.Preferences:
         """Get an instance of :class:`.Preferences`.
 
         The preferences can be accessed as a ``dict`` like so:
@@ -54,7 +55,7 @@ class User(PRAWBase):
         """
         return Preferences(self._reddit)
 
-    def __init__(self, reddit: praw.Reddit):
+    def __init__(self, reddit: praw.Reddit) -> None:
         """Initialize an :class:`.User` instance.
 
         This class is intended to be interfaced with through ``reddit.user``.
@@ -62,13 +63,11 @@ class User(PRAWBase):
         """
         super().__init__(reddit, _data=None)
 
-    def blocked(self) -> list[praw.models.Redditor]:
+    def blocked(self) -> list[models.Redditor]:
         r"""Return a :class:`.RedditorList` of blocked :class:`.Redditor`\ s."""
         return self._reddit.get(API_PATH["blocked"])
 
-    def contributor_subreddits(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> Iterator[praw.models.Subreddit]:
+    def contributor_subreddits(self, **generator_kwargs: Any) -> Iterator[models.Subreddit]:
         r"""Return a :class:`.ListingGenerator` of contributor :class:`.Subreddit`\ s.
 
         These are subreddits in which the user is an approved user.
@@ -84,14 +83,9 @@ class User(PRAWBase):
                 print(str(subreddit))
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["my_contributor"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["my_contributor"], **generator_kwargs)
 
-    @_deprecate_args("user")
-    def friends(
-        self, *, user: str | praw.models.Redditor | None = None
-    ) -> list[praw.models.Redditor] | praw.models.Redditor:
+    def friends(self, *, user: str | models.Redditor | None = None) -> list[models.Redditor] | models.Redditor:
         r"""Return a :class:`.RedditorList` of friends or a :class:`.Redditor` in the friends list.
 
         :param user: Checks to see if you are friends with the redditor. Either an
@@ -105,14 +99,10 @@ class User(PRAWBase):
             the specified :class:`.Redditor`.
 
         """
-        endpoint = (
-            API_PATH["friends"]
-            if user is None
-            else API_PATH["friend_v1"].format(user=str(user))
-        )
+        endpoint = API_PATH["friends"] if user is None else API_PATH["friend_v1"].format(user=str(user))
         return self._reddit.get(endpoint)
 
-    def karma(self) -> dict[praw.models.Subreddit, dict[str, int]]:
+    def karma(self) -> dict[models.Subreddit, dict[str, int]]:
         r"""Return a dictionary mapping :class:`.Subreddit`\ s to their karma.
 
         The returned dict contains subreddits as keys. Each subreddit key contains a
@@ -133,8 +123,7 @@ class User(PRAWBase):
             karma_map[subreddit] = row
         return karma_map
 
-    @_deprecate_args("use_cache")
-    def me(self, *, use_cache: bool = True) -> praw.models.Redditor | None:
+    def me(self, *, use_cache: bool = True) -> models.Redditor | None:
         """Return a :class:`.Redditor` instance for the authenticated user.
 
         :param use_cache: When ``True``, and if this function has been previously
@@ -146,24 +135,8 @@ class User(PRAWBase):
             to refresh the cached value. Prefer using separate :class:`.Reddit`
             instances, however, for distinct authorizations.
 
-        .. deprecated:: 7.2
-
-            In :attr:`.read_only` mode this method returns ``None``. In PRAW 8 this
-            method will raise :class:`.ReadOnlyException` when called in
-            :attr:`.read_only` mode. To operate in PRAW 8 mode, set the config variable
-            ``praw8_raise_exception_on_me`` to ``True``.
-
         """
         if self._reddit.read_only:
-            if not self._reddit.config.custom.get("praw8_raise_exception_on_me"):
-                warn(
-                    "The 'None' return value is deprecated, and will raise a"
-                    " ReadOnlyException beginning with PRAW 8. See documentation for"
-                    " forward compatibility options.",
-                    category=DeprecationWarning,
-                    stacklevel=2,
-                )
-                return None
             msg = "`user.me()` does not work in read_only mode"
             raise ReadOnlyException(msg)
         if "_me" not in self.__dict__ or not use_cache:
@@ -171,9 +144,7 @@ class User(PRAWBase):
             self._me = Redditor(self._reddit, _data=user_data)
         return self._me
 
-    def moderator_subreddits(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> Iterator[praw.models.Subreddit]:
+    def moderator_subreddits(self, **generator_kwargs: Any) -> Iterator[models.Subreddit]:
         """Return a :class:`.ListingGenerator` subreddits that the user moderates.
 
         Additional keyword arguments are passed in the initialization of
@@ -191,17 +162,15 @@ class User(PRAWBase):
             :meth:`.Redditor.moderated`
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["my_moderator"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["my_moderator"], **generator_kwargs)
 
-    def multireddits(self) -> list[praw.models.Multireddit]:
+    def multireddits(self) -> list[models.Multireddit]:
         r"""Return a list of :class:`.Multireddit`\ s belonging to the user."""
         return self._reddit.get(API_PATH["my_multireddits"])
 
     def pin(
-        self, submission: praw.models.Submission, *, num: int = None, state: bool = True
-    ) -> praw.models.Submission:
+        self, submission: models.Submission, *, num: int | None = None, state: bool = True
+    ) -> models.Submission | None:
         """Set the pin state of a submission on the authenticated user's profile.
 
         :param submission: An instance of :class:`.Submission` that will be
@@ -257,9 +226,7 @@ class User(PRAWBase):
         except Conflict:
             pass
 
-    def subreddits(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> Iterator[praw.models.Subreddit]:
+    def subreddits(self, **generator_kwargs: Any) -> Iterator[models.Subreddit]:
         r"""Return a :class:`.ListingGenerator` of :class:`.Subreddit`\ s the user is subscribed to.
 
         Additional keyword arguments are passed in the initialization of
@@ -273,11 +240,9 @@ class User(PRAWBase):
                 print(str(subreddit))
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["my_subreddits"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["my_subreddits"], **generator_kwargs)
 
-    def trusted(self) -> list[praw.models.Redditor]:
+    def trusted(self) -> list[models.Redditor]:
         r"""Return a :class:`.RedditorList` of trusted :class:`.Redditor`\ s.
 
         To display the usernames of your trusted users and the times at which you

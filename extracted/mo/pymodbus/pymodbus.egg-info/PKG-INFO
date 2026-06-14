@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymodbus
-Version: 3.13.0
+Version: 3.13.1
 Summary: A fully featured modbus protocol stack in python
 Author: Galen Collins, Jan Iversen
 Maintainer: dhoomakethu, janiversen
@@ -102,7 +102,7 @@ as well as the
 `API_changes <https://github.com/pymodbus-dev/pymodbus/blob/dev/API_changes.rst>`_
 files.
 
-Current release is `3.13.0 <https://github.com/pymodbus-dev/pymodbus/releases/tag/v3.13.0>`_.
+Current release is `3.13.1 <https://github.com/pymodbus-dev/pymodbus/releases/tag/v3.13.1>`_.
 
 Bleeding edge (not released) is `dev <https://github.com/pymodbus-dev/pymodbus/tree/dev>`_.
 

@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
-from ....util.cache import cachedproperty
-from ...base import AsyncPRAWBase
-from ..generator import ListingGenerator
-from .base import BaseListingMixin
-from .gilded import GildedListingMixin
-from .rising import RisingListingMixin
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.generator import ListingGenerator
+from asyncpraw.models.listing.mixins.base import BaseListingMixin
+from asyncpraw.models.listing.mixins.rising import RisingListingMixin
+from asyncpraw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from typing_extensions import Unpack
+
     import asyncpraw.models
+    from asyncpraw.models.listing.generator import ListingGeneratorKwargs
 
 
 class CommentHelper(AsyncPRAWBase):
@@ -23,9 +27,7 @@ class CommentHelper(AsyncPRAWBase):
     def _path(self) -> str:
         return urljoin(self.subreddit._path, "comments/")
 
-    def __call__(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Comment]:
+    def __call__(self, **generator_kwargs: Unpack[ListingGeneratorKwargs]) -> AsyncIterator[asyncpraw.models.Comment]:
         """Return a :class:`.ListingGenerator` for the :class:`.Subreddit`'s comments.
 
         Additional keyword arguments are passed in the initialization of
@@ -42,13 +44,13 @@ class CommentHelper(AsyncPRAWBase):
         """
         return ListingGenerator(self._reddit, self._path, **generator_kwargs)
 
-    def __init__(self, subreddit: asyncpraw.models.Subreddit | SubredditListingMixin):
+    def __init__(self, subreddit: asyncpraw.models.Subreddit | SubredditListingMixin) -> None:
         """Initialize a :class:`.CommentHelper` instance."""
         super().__init__(subreddit._reddit, _data=None)
         self.subreddit = subreddit
 
 
-class SubredditListingMixin(BaseListingMixin, GildedListingMixin, RisingListingMixin):
+class SubredditListingMixin(BaseListingMixin, RisingListingMixin):
     """Adds additional methods pertaining to subreddit-like instances."""
 
     @cachedproperty
@@ -67,7 +69,7 @@ class SubredditListingMixin(BaseListingMixin, GildedListingMixin, RisingListingM
         """
         return CommentHelper(self)
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any] | None):
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any] | None) -> None:
         """Initialize a :class:`.SubredditListingMixin` instance.
 
         :param reddit: An instance of :class:`.Reddit`.

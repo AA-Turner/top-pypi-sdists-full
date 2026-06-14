@@ -4,17 +4,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from .base import RedditBase
-from .mixins import FullnameMixin, InboxableMixin, ReplyableMixin
-from .redditor import Redditor
-from .subreddit import Subreddit
+from praw.const import API_PATH
+from praw.models.reddit.base import RedditBase
+from praw.models.reddit.mixins import CreatedMixin, FullnameMixin, InboxableMixin, ReplyableMixin
+from praw.models.reddit.redditor import Redditor
+from praw.models.reddit.subreddit import Subreddit
 
-if TYPE_CHECKING:  # pragma: no cover
-    import praw.models
+if TYPE_CHECKING:
+    import praw
+    from praw import models
 
 
-class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
+class Message(InboxableMixin, ReplyableMixin, FullnameMixin, CreatedMixin, RedditBase):
     """A class for private messages.
 
     .. include:: ../../typical_attributes.rst
@@ -41,9 +42,7 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
     STR_FIELD = "id"
 
     @classmethod
-    def parse(
-        cls, data: dict[str, Any], reddit: praw.Reddit
-    ) -> Message | SubredditMessage:
+    def parse(cls, data: dict[str, Any], reddit: praw.Reddit) -> Message | SubredditMessage:
         """Return an instance of :class:`.Message` or :class:`.SubredditMessage` from ``data``.
 
         :param data: The structured data.
@@ -60,7 +59,7 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
 
         if data["replies"]:
             replies = data["replies"]
-            data["replies"] = reddit._objector.objectify(replies["data"]["children"])
+            data["replies"] = reddit._objector.objectify(data=replies["data"]["children"])
         else:
             data["replies"] = []
 
@@ -76,17 +75,17 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
         return self._reddit.config.kinds["message"]
 
     @property
-    def parent(self) -> praw.models.Message | None:
+    def parent(self) -> models.Message | None:
         """Return the parent of the message if it exists."""
         if not self._parent and self.parent_id:
             self._parent = self._reddit.inbox.message(self.parent_id.split("_")[1])
         return self._parent
 
     @parent.setter
-    def parent(self, value: praw.models.Message | None):
+    def parent(self, value: models.Message | None) -> None:
         self._parent = value
 
-    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: praw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.Message` instance."""
         super().__init__(reddit, _data=_data, _fetched=True)
         self._parent = None
@@ -94,7 +93,7 @@ class Message(InboxableMixin, ReplyableMixin, FullnameMixin, RedditBase):
             if reply.parent_id == self.fullname:
                 reply.parent = self
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete the message.
 
         .. note::
@@ -137,39 +136,3 @@ class SubredditMessage(Message):
     .. _unix time: https://en.wikipedia.org/wiki/Unix_time
 
     """
-
-    def mute(self):
-        """Mute the sender of this :class:`.SubredditMessage`.
-
-        For example, to mute the sender of the first :class:`.SubredditMessage` in the
-        authenticated users' inbox:
-
-        .. code-block:: python
-
-            from praw.models import SubredditMessage
-
-            msg = next(
-                message for message in reddit.inbox.all() if isinstance(message, SubredditMessage)
-            )
-            msg.mute()
-
-        """
-        self._reddit.post(API_PATH["mute_sender"], data={"id": self.fullname})
-
-    def unmute(self):
-        """Unmute the sender of this :class:`.SubredditMessage`.
-
-        For example, to unmute the sender of the first :class:`.SubredditMessage` in the
-        authenticated users' inbox:
-
-        .. code-block:: python
-
-            from praw.models import SubredditMessage
-
-            msg = next(
-                message for message in reddit.inbox.all() if isinstance(message, SubredditMessage)
-            )
-            msg.unmute()
-
-        """
-        self._reddit.post(API_PATH["unmute_sender"], data={"id": self.fullname})

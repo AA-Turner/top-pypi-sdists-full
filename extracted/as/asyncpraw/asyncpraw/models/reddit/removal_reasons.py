@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, AsyncIterator
-from warnings import warn
+from typing import TYPE_CHECKING, Any, SupportsIndex
 
-from ...const import API_PATH
-from ...exceptions import ClientException
-from ...util import _deprecate_args
-from ..util import deprecate_lazy
-from .base import RedditBase
+from asyncpraw.const import API_PATH
+from asyncpraw.exceptions import ClientException
+from asyncpraw.models.reddit.base import RedditBase
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw
+    import asyncpraw.models
 
 
 class RemovalReason(RedditBase):
@@ -32,29 +32,6 @@ class RemovalReason(RedditBase):
 
     STR_FIELD = "id"
 
-    @staticmethod
-    def _warn_reason_id(
-        *, id_value: str | None, reason_id_value: str | None
-    ) -> str | None:
-        """Reason ID param is deprecated. Warns if it's used.
-
-        :param id_value: Returns the actual value of parameter ``id`` is parameter
-            ``reason_id`` is not used.
-        :param reason_id_value: The value passed as parameter ``reason_id``.
-
-        """
-        if reason_id_value is not None:
-            warn(
-                "Parameter 'reason_id' is deprecated. Either use positional arguments"
-                ' (e.g., reason_id="x" -> "x") or change the parameter name to \'id\''
-                ' (e.g., reason_id="x" -> id="x"). This parameter will be removed in'
-                " Async PRAW 8.",
-                category=DeprecationWarning,
-                stacklevel=3,
-            )
-            return reason_id_value
-        return id_value
-
     def __eq__(self, other: str | RemovalReason) -> bool:
         """Return whether the other instance equals the current."""
         if isinstance(other, str):
@@ -70,29 +47,25 @@ class RemovalReason(RedditBase):
         reddit: asyncpraw.Reddit,
         subreddit: asyncpraw.models.Subreddit,
         id: str | None = None,
-        reason_id: str | None = None,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.RemovalReason` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
         :param subreddit: An instance of :class:`.Subreddit`.
         :param id: The ID of the removal reason.
-        :param reason_id: The original name of the ``id`` parameter. Used for backwards
-            compatibility. This parameter should not be used.
 
         """
-        reason_id = self._warn_reason_id(id_value=id, reason_id_value=reason_id)
-        if (reason_id, _data).count(None) != 1:
+        if (id, _data).count(None) != 1:
             msg = "Either id or _data needs to be given."
             raise ValueError(msg)
 
-        if reason_id:
-            self.id = reason_id
+        if id:
+            self.id = id
         self.subreddit = subreddit
         super().__init__(reddit, _data=_data)
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         async for removal_reason in self.subreddit.mod.removal_reasons:
             if removal_reason.id == self.id:
                 self.__dict__.update(removal_reason.__dict__)
@@ -101,7 +74,7 @@ class RemovalReason(RedditBase):
         msg = f"Subreddit {self.subreddit} does not have the removal reason {self.id}"
         raise ClientException(msg)
 
-    async def delete(self):
+    async def delete(self) -> None:
         """Delete a removal reason from this subreddit.
 
         To delete ``"141vv5c16py7d"`` from r/test try:
@@ -116,8 +89,7 @@ class RemovalReason(RedditBase):
         url = API_PATH["removal_reason"].format(subreddit=self.subreddit, id=self.id)
         await self._reddit.delete(url)
 
-    @_deprecate_args("message", "title")
-    async def update(self, *, message: str | None = None, title: str | None = None):
+    async def update(self, *, message: str | None = None, title: str | None = None) -> None:
         """Update the removal reason from this subreddit.
 
         .. note::
@@ -162,7 +134,7 @@ class SubredditRemovalReasons:
         for reason in await self._removal_reason_list():
             yield reason
 
-    def __init__(self, subreddit: asyncpraw.models.Subreddit):
+    def __init__(self, subreddit: asyncpraw.models.Subreddit) -> None:
         """Initialize a :class:`.SubredditRemovalReasons` instance.
 
         :param subreddit: The subreddit whose removal reasons to work with.
@@ -177,17 +149,12 @@ class SubredditRemovalReasons:
         :returns: A list of instances of :class:`.RemovalReason`.
 
         """
-        response = await self._reddit.get(
-            API_PATH["removal_reasons_list"].format(subreddit=self.subreddit)
-        )
+        response = await self._reddit.get(API_PATH["removal_reasons_list"].format(subreddit=self.subreddit))
         return [
-            RemovalReason(
-                self._reddit, self.subreddit, _data=response["data"][reason_id]
-            )
+            RemovalReason(self._reddit, self.subreddit, _data=response["data"][reason_id])
             for reason_id in response["order"]
         ]
 
-    @_deprecate_args("message", "title")
     async def add(self, *, message: str, title: str) -> RemovalReason:
         """Add a removal reason to this subreddit.
 
@@ -211,16 +178,16 @@ class SubredditRemovalReasons:
         reason_id = await self._reddit.post(url, data=data)
         return RemovalReason(self._reddit, self.subreddit, reason_id["id"])
 
-    @deprecate_lazy
     async def get_reason(
         self,
-        reason_id: str | (int | slice),
+        /,
+        id: SupportsIndex,
+        *,
         fetch: bool = True,
-        **_,
     ) -> RemovalReason:
-        """Return the Removal Reason with the ID/number/slice ``reason_id``.
+        """Return the Removal Reason with the ID/number/slice ``id``.
 
-        :param reason_id: The ID or index of the removal reason.
+        :param id: The ID or index of the removal reason.
         :param fetch: Determines if Async PRAW will fetch the object (default:
             ``True``).
 
@@ -271,10 +238,10 @@ class SubredditRemovalReasons:
             await reason.delete()
 
         """
-        if not isinstance(reason_id, str):
+        if not isinstance(id, str):
             reasons = await self._removal_reason_list()
-            return reasons[reason_id]
-        reason = RemovalReason(self._reddit, self.subreddit, reason_id)
+            return reasons[id]
+        reason = RemovalReason(self._reddit, self.subreddit, id)
         if fetch:
             await reason._fetch()
         return reason

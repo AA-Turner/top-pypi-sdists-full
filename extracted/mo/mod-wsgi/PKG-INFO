@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mod_wsgi
-Version: 6.0.3
+Version: 6.0.4
 Summary: Installer for Apache/mod_wsgi.
 Home-page: https://www.modwsgi.org/
 Author: Graham Dumpleton

@@ -1453,6 +1453,33 @@ impl SaeManifoldRho {
     /// absolute penalty weights; adding `log(phi_seed)` makes the seeded
     /// effective stiffness `lambda / phi_seed` dimensionless.
     pub fn seed_scaled_by_dispersion(&self, dispersion: f64) -> Result<Self, String> {
+        self.seed_scaled_by_dispersion_with_sparse_policy(dispersion, true)
+    }
+
+    /// Assignment-aware seed scaling. In learnable-alpha IBP mode the sparse
+    /// coordinate is a dimensionless log-alpha offset, not a penalty strength, so
+    /// response-dispersion scaling must skip it while still scaling smoothness and
+    /// ARD precision seeds.
+    pub fn seed_scaled_by_dispersion_for_assignment(
+        &self,
+        dispersion: f64,
+        assignment_mode: AssignmentMode,
+    ) -> Result<Self, String> {
+        let scale_sparse = !matches!(
+            assignment_mode,
+            AssignmentMode::IBPMap {
+                learnable_alpha: true,
+                ..
+            }
+        );
+        self.seed_scaled_by_dispersion_with_sparse_policy(dispersion, scale_sparse)
+    }
+
+    fn seed_scaled_by_dispersion_with_sparse_policy(
+        &self,
+        dispersion: f64,
+        scale_sparse: bool,
+    ) -> Result<Self, String> {
         if !(dispersion.is_finite() && dispersion > 0.0) {
             return Err(format!(
                 "SaeManifoldRho::seed_scaled_by_dispersion: dispersion must be finite and \
@@ -1461,7 +1488,9 @@ impl SaeManifoldRho {
         }
         let shift = dispersion.ln();
         let mut scaled = self.clone();
-        scaled.log_lambda_sparse += shift;
+        if scale_sparse {
+            scaled.log_lambda_sparse += shift;
+        }
         scaled.log_lambda_smooth += shift;
         for atom in &mut scaled.log_ard {
             for value in atom.iter_mut() {
@@ -2155,12 +2184,13 @@ pub struct SaeRowLayout {
 }
 
 impl SaeRowLayout {
-    /// JumpReLU optimization active set: atoms within the reactivation band
-    /// `logit > threshold − MARGIN·τ` (see [`jumprelu_in_optimization_band`]).
-    /// This is intentionally wider than the hard forward gate `logit > threshold`
-    /// so that gated-off atoms near the boundary remain in the Newton system for
-    /// value-consistent prior terms. Their forward reconstruction contribution
-    /// and data-fit logit JVP remain hard-zero while `a_k = 0`.
+    /// JumpReLU optimization active set: atoms inside the smooth prior's
+    /// machine-precision support `(logit - threshold)/tau > -36` (see
+    /// [`jumprelu_in_optimization_band`]). This is intentionally wider than the
+    /// hard forward gate `logit > threshold` so gated-off atoms can remain in the
+    /// Newton system for value-consistent prior terms. Their forward
+    /// reconstruction contribution and data-fit logit JVP remain hard-zero while
+    /// `a_k = 0`.
     fn from_jumprelu(
         n: usize,
         k_atoms: usize,
@@ -3755,11 +3785,12 @@ impl SaeManifoldTerm {
     /// `add_sae_analytic_penalty_contributions` is total (no runtime
     /// "unsupported penalty" fallthrough, no per-call K-gating):
     ///
-    /// 1. Every Psi-tier penalty is either a logit-target penalty
-    ///    (`IBPAssignment`, `SoftmaxAssignmentSparsity`) or in
-    ///    [`sae_penalty_is_row_block_supported`], or `NuclearNorm` (which is
-    ///    redirected to the per-atom decoder (β) block rather than the coord
-    ///    "t" row block). Penalty kinds with cross-row structure
+    /// 1. Every Psi-tier penalty is either in [`sae_penalty_is_row_block_supported`],
+    ///    or `NuclearNorm` (which is redirected to the per-atom decoder (β) block
+    ///    rather than the coord "t" row block). Assignment sparsity penalties
+    ///    (`IBPAssignment`, `SoftmaxAssignmentSparsity`) are refused because the SAE
+    ///    term already owns them through its built-in assignment path
+    ///    (`loss.assignment_sparsity`). Penalty kinds with cross-row structure
     ///    (`TotalVariation`, `Monotonicity`, `BlockSparsity`,
     ///    `IvaeRidgeMeanGauge`, `Orthogonality`, `NestedPrefix`,
     ///    `SheafConsistency`) cannot be expressed in the SAE row-block layout
@@ -3784,13 +3815,17 @@ impl SaeManifoldTerm {
             if penalty.tier() != PenaltyTier::Psi {
                 continue;
             }
-            let is_logit = matches!(
+            if matches!(
                 penalty,
                 AnalyticPenaltyKind::IBPAssignment(_)
                     | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
-            );
-            if is_logit {
-                continue;
+            ) {
+                return Err(format!(
+                    "SAE-manifold term refuses analytic penalty {:?}: assignment sparsity \
+                     is owned by the built-in SAE assignment path (loss.assignment_sparsity). \
+                     Registering it would double-count the objective and gradient",
+                    penalty.name()
+                ));
             }
             // NuclearNorm is redirected to the per-atom decoder (β) block in
             // `add_sae_beta_penalty` (it penalizes each atom's decoder matrix
@@ -4118,6 +4153,7 @@ impl SaeManifoldTerm {
     fn refresh_active_frames_from_data(
         &mut self,
         target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
     ) -> Result<usize, String> {
         let n = self.n_obs();
         let p = self.output_dim();
@@ -4128,7 +4164,7 @@ impl SaeManifoldTerm {
         // Per-row assignments and per-(row, atom) decoded outputs, computed once.
         let mut assignments = Vec::with_capacity(n);
         for row in 0..n {
-            assignments.push(self.assignment.try_assignments_row(row)?);
+            assignments.push(self.assignment.try_assignments_row_for_rho(row, rho)?);
         }
         let mut decoded = Array3::<f64>::zeros((n, k_atoms, p));
         let mut dbuf = vec![0.0_f64; p];
@@ -4354,6 +4390,7 @@ impl SaeManifoldTerm {
     pub fn refit_decoder_least_squares_at_current_state(
         &mut self,
         target: ArrayView2<'_, f64>,
+        rho: Option<&SaeManifoldRho>,
     ) -> Result<(), String> {
         let n = self.n_obs();
         let p = self.output_dim();
@@ -4368,7 +4405,10 @@ impl SaeManifoldTerm {
         let m_total = self.beta_dim() / p;
         let mut design = Array2::<f64>::zeros((n, m_total));
         for row in 0..n {
-            let assignments = self.assignment.try_assignments_row(row)?;
+            let assignments = match rho {
+                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
+                None => self.assignment.try_assignments_row(row)?,
+            };
             for atom_idx in 0..k_atoms {
                 let atom = &self.atoms[atom_idx];
                 let weight = assignments[atom_idx];
@@ -4405,6 +4445,14 @@ impl SaeManifoldTerm {
     }
 
     pub fn try_fitted(&self) -> Result<Array2<f64>, String> {
+        self.try_fitted_with_rho(None)
+    }
+
+    pub(crate) fn try_fitted_for_rho(&self, rho: &SaeManifoldRho) -> Result<Array2<f64>, String> {
+        self.try_fitted_with_rho(Some(rho))
+    }
+
+    fn try_fitted_with_rho(&self, rho: Option<&SaeManifoldRho>) -> Result<Array2<f64>, String> {
         let n = self.n_obs();
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
@@ -4413,7 +4461,10 @@ impl SaeManifoldTerm {
         // allocating a fresh `Array1<f64>` of length p per call.
         let mut g_buf = vec![0.0_f64; p];
         for row in 0..n {
-            let a = self.assignment.try_assignments_row(row)?;
+            let a = match rho {
+                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
+                None => self.assignment.try_assignments_row(row)?,
+            };
             for atom_idx in 0..k_atoms {
                 self.atoms[atom_idx].fill_decoded_row(row, &mut g_buf);
                 let a_k = a[atom_idx];
@@ -4460,7 +4511,7 @@ impl SaeManifoldTerm {
                 target.dim()
             ));
         }
-        let fitted = self.try_fitted()?;
+        let fitted = self.try_fitted_for_rho(rho)?;
         let mut data_fit = 0.0_f64;
         // The likelihood whitens through the RowMetric **only** when the metric
         // is a genuinely estimated noise model (`metric.whitens_likelihood()`,
@@ -4533,7 +4584,6 @@ impl SaeManifoldTerm {
         }
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
         let layout = registry.rho_layout();
-        let logits_flat = flat_logits(self.assignment.logits.view());
         let beta = self.flatten_beta();
         let mut value = 0.0_f64;
         for (penalty, (rho_slice, tier, name)) in registry.penalties.iter().zip(layout.iter()) {
@@ -4552,13 +4602,7 @@ impl SaeManifoldTerm {
             }
             match tier {
                 PenaltyTier::Psi => {
-                    if matches!(
-                        penalty,
-                        AnalyticPenaltyKind::IBPAssignment(_)
-                            | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
-                    ) {
-                        value += penalty.value(logits_flat.view(), rho_local);
-                    } else if let AnalyticPenaltyKind::NuclearNorm(base) = penalty {
+                    if let AnalyticPenaltyKind::NuclearNorm(base) = penalty {
                         for (per_atom, start, end) in self.live_nuclear_norm_penalties(base) {
                             value += penalty_scale
                                 * per_atom.value(beta.slice(s![start..end]), rho_local);
@@ -4942,6 +4986,34 @@ impl SaeManifoldTerm {
         let (assignment_grad, assignment_hdiag) =
             assignment_prior_grad_hdiag(&self.assignment, rho)?;
 
+        // #1038 softmax entropy: the exact per-row Hessian in logits is dense
+        // (`H_kj = (λ/τ²) a_k[δ_kj(m−L_k−1)+a_j(L_k+L_j+1−2m)]`), not just the
+        // `assignment_hdiag` diagonal. Build the shared penalty + `scale = λ/τ²`
+        // once here so the dense row block written into `block.htt` below, the
+        // criterion's `log|H|`, and the #1006 θ-adjoint all differentiate the
+        // SAME operator. JumpReLU / IBP keep their (separately exact) diagonal /
+        // cross-row channels and leave this `None`. The block is gauge-null in
+        // isolation (`H·𝟙 = 0`); it is only ever summed onto the gauge-breaking
+        // data-fit row block before the Cholesky factor, never factored alone.
+        let softmax_dense: Option<(crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty, f64)> =
+            match self.assignment.mode {
+                AssignmentMode::Softmax {
+                    temperature,
+                    sparsity,
+                } if k_atoms > 1 => {
+                    let inv_tau = 1.0 / temperature;
+                    let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
+                    Some((
+                        crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
+                            k_atoms,
+                            temperature,
+                        ),
+                        scale,
+                    ))
+                }
+                _ => None,
+            };
+
         // Decoder smoothness penalty: build one KroneckerPenaltyOp per atom
         // (structure = λ·S_k ⊗ I_p, offset = beta_offsets[k]) instead of
         // materialising the dense K×K block.  The gradient is a dense K-vector
@@ -4999,12 +5071,13 @@ impl SaeManifoldTerm {
         }
 
         // Per-row active-set layout. Engaged for two regimes:
-        //   * JumpReLU — structural gate plus a reactivation band: atoms with
-        //     `logit > threshold − MARGIN·τ` enter the compact solve
+        //   * JumpReLU — structural gate plus the smooth prior's
+        //     machine-precision support: atoms with
+        //     `(logit - threshold)/tau > -36` enter the compact solve
         //     ([`jumprelu_in_optimization_band`]). Strictly gated-off atoms
         //     (logit ≤ threshold) carry zero assignment mass so their data-fit
         //     reconstruction contribution and data-fit logit JVP are zero, but
-        //     band atoms keep value-consistent prior gradient in the row block.
+        //     supported atoms keep value-consistent prior gradient in the row block.
         //   * IBP-MAP at large `K` — the dense `(m_total · p)²` data
         //     Gram is infeasible, so each row is truncated to its
         //     top-`k_active` atoms above a relative magnitude cutoff
@@ -5037,10 +5110,12 @@ impl SaeManifoldTerm {
                     Some((k_active_cap, relative_cutoff)) => {
                         // Build per-row dense assignments once to derive the
                         // active set; the row loop re-derives `assignments`
-                        // (cheap softmax) and reuses these active sets.
+                        // (cheap gate map at the same rho) and reuses these
+                        // active sets.
                         let mut assignments_all = Vec::with_capacity(n);
                         for row in 0..n {
-                            assignments_all.push(self.assignment.try_assignments_row(row)?);
+                            assignments_all
+                                .push(self.assignment.try_assignments_row_for_rho(row, rho)?);
                         }
                         // Absolute cutoff = relative_cutoff · max row peak, so a
                         // single threshold drops sub-1e-3 mass across all rows.
@@ -5135,14 +5210,6 @@ impl SaeManifoldTerm {
         for (i, g) in smooth_grad_gb.iter().enumerate() {
             sys.gb[i] += g;
         }
-        // Hoist per-row temporaries outside the row loop: these allocations
-        // previously fired N times per assembly, and each `decoded_row` /
-        // `decoded_derivative_row` call inside the loop allocated its own
-        // `Array1<f64>` of length p.
-        let mut decoded = Array2::<f64>::zeros((k_atoms, p));
-        let mut dg_buf = vec![0.0_f64; p];
-        let mut fitted = Array1::<f64>::zeros(p);
-        let mut error = Array1::<f64>::zeros(p);
         // `w_dim` is the whitened output dimension: `rank` of the metric factor
         // when whitening, else `p` (identity). `error_white` is the whitened
         // residual `U_nᵀ r_n ∈ ℝ^{w_dim}` whose squared norm is `r_nᵀ M_n r_n`,
@@ -5152,15 +5219,6 @@ impl SaeManifoldTerm {
             Some(metric) if whitens_likelihood => metric.metric_rank(),
             _ => p,
         };
-        // p-space metric-applied error `M_n r_n = U_n (U_nᵀ r_n)`, used by the
-        // β-tier data-fit gradient (β lives in p-output space, so its gradient
-        // contracts the residual through the full p×p metric, not the rank-space
-        // whitened residual). Identity (`= error`) when not whitening.
-        let mut error_white = vec![0.0_f64; w_dim];
-        let mut error_metric = Array1::<f64>::zeros(p);
-        // Whitened per-row Jacobian `J̃ = U_nᵀ J ∈ ℝ^{q_row × w_dim}` (row-major
-        // flat) reused for the t-block htt = J̃ J̃ᵀ and gt = J̃ ẽ.
-        let mut jac_white = vec![0.0_f64; q * w_dim.max(p)];
         // Data-fit Gauss-Newton β-Hessian is block-diagonal across the `p`
         // output channels and identical in each: with the flat β layout
         // `β[μ·p + oc] = B[μ, oc]` (μ enumerating (atom, basis_col)) the GN
@@ -5182,14 +5240,18 @@ impl SaeManifoldTerm {
         // Gram exactly. A `BTreeMap` key order keeps the installed op's
         // fingerprint deterministic. The `μ`-space offset of atom `k` is
         // `beta_offsets[k] / p`.
+        type SaeGBlocks = std::collections::BTreeMap<(usize, usize), Array2<f64>>;
         let m_total: usize = self.atoms.iter().map(|a| a.basis_size()).sum();
         let mu_offsets: Vec<usize> = beta_offsets.iter().map(|&off| off / p).collect();
-        let mut g_blocks: std::collections::BTreeMap<(usize, usize), Array2<f64>> =
-            std::collections::BTreeMap::new();
-        // Stick-breaking prior for IBP-MAP depends only on (k_atoms, alpha)
-        // which are constant across rows; precompute once.
+        // Stick-breaking prior for IBP-MAP depends only on (k_atoms, alpha_eff)
+        // which are constant across rows for the current rho; precompute once.
         let ibp_prior_vec = match self.assignment.mode {
-            AssignmentMode::IBPMap { alpha, .. } => {
+            AssignmentMode::IBPMap { .. } => {
+                let alpha = self
+                    .assignment
+                    .mode
+                    .resolved_ibp_alpha(rho)
+                    .ok_or_else(|| "IBP assignment alpha resolution failed".to_string())?;
                 Some(ibp_stick_breaking_prior(k_atoms, alpha).to_vec())
             }
             _ => None,
@@ -5198,15 +5260,6 @@ impl SaeManifoldTerm {
         // #991 design honesty weights (mean-1 HT inclusion corrections); see
         // the seam comment at the per-row residual below.
         let row_loss_w = self.row_loss_weights.as_deref();
-        // Scratch buffer for per-(row, atom) decoded outputs. The full `decoded`
-        // matrix retains all atoms for this row so the assignment-Jacobian
-        // helper can read it.
-        let mut decoded_scratch = vec![0.0_f64; p];
-        // Kronecker htbeta storage for the full-B path: per-row sparse support
-        // and local Jacobian. Factored rows write their C-space cross slabs
-        // directly in the row loop below.
-        let mut kron_a_phi: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
-        let mut kron_jac: Vec<Vec<f64>> = Vec::with_capacity(n);
         // Dense full-support index `[0, k_atoms)`, used by the row loop when no
         // compact layout is engaged so the active-atom iteration is uniform.
         let all_atoms_index: Vec<usize> = (0..k_atoms).collect();
@@ -5219,468 +5272,570 @@ impl SaeManifoldTerm {
             .iter()
             .map(|coord| coord.effective_axis_periods())
             .collect();
-        for row in 0..n {
-            let assignments = self.assignment.try_assignments_row(row)?;
-            // Reconstruction uses the row's active support: for the dense
-            // full-support layout this is all atoms (exact); for a compact
-            // layout the dropped atoms carry negligible `O(a)` reconstruction
-            // mass and zero curvature, so excluding them keeps `fitted`,
-            // `error`, and the logit-JVP cross term `(decoded[k] − fitted)`
-            // mutually consistent with the curvature actually assembled.
-            fitted.fill(0.0);
-            let row_active_owned: Option<&[usize]> =
-                row_layout.as_ref().map(|l| l.active_atoms[row].as_slice());
-            match row_active_owned {
-                Some(active) => {
-                    for &atom_idx in active {
-                        let a_k = assignments[atom_idx];
-                        self.atoms[atom_idx].fill_decoded_row(row, &mut decoded_scratch);
-                        for out_col in 0..p {
-                            decoded[[atom_idx, out_col]] = decoded_scratch[out_col];
-                            fitted[out_col] += a_k * decoded_scratch[out_col];
-                        }
-                    }
-                }
-                None => {
-                    for atom_idx in 0..k_atoms {
-                        let a_k = assignments[atom_idx];
-                        self.atoms[atom_idx].fill_decoded_row(row, &mut decoded_scratch);
-                        for out_col in 0..p {
-                            decoded[[atom_idx, out_col]] = decoded_scratch[out_col];
-                            fitted[out_col] += a_k * decoded_scratch[out_col];
-                        }
-                    }
-                }
-            }
-            for out_col in 0..p {
-                error[out_col] = fitted[out_col] - target[[row, out_col]];
-            }
-            // #991 design-honesty seam: a per-row scalar weight `w_row` on the
-            // reconstruction channel is exactly the metric `w_row · I_p`, so it
-            // is realized as a `√w_row` scaling of the THREE row-local data
-            // quantities at their construction sites — this residual, the
-            // latent Jacobian (below), and the β basis load `a·φ` (below).
-            // Every downstream data object then carries exactly one factor of
-            // `w_row` (gt, htt, htbeta, the β Gram `G`, and the β gradient),
-            // matching the `w_row`-weighted value `loss_scaled` sums; the
-            // per-row latent priors (assignment / ARD, added to `gt`/`htt`
-            // further down) are deliberately unweighted — see the
-            // `row_loss_weights` field docs. `None` ⇒ `sqrt_row_w == 1.0` and
-            // no multiply is applied (bit-identical unweighted path).
-            let sqrt_row_w = row_loss_w.map_or(1.0, |w| w[row].sqrt());
-            if sqrt_row_w != 1.0 {
-                for out_col in 0..p {
-                    error[out_col] *= sqrt_row_w;
-                }
-            }
-            // #974 seam (step 1/2): whiten the per-row residual ONCE.
-            //   * not whitening ⇒ `error_white == error` (length p) and
-            //     `error_metric == error`; every downstream loop is the
-            //     historical isotropic path bit-for-bit.
-            //   * whitening ⇒ `error_white = U_nᵀ r_n ∈ ℝ^{w_dim}` (its squared
-            //     norm is `r_nᵀ M_n r_n`, the value the data-fit sums) and
-            //     `error_metric = U_n (U_nᵀ r_n) = M_n r_n ∈ ℝ^p` (the p-space
-            //     metric-applied residual the β-tier gradient contracts).
-            match self.row_metric.as_ref() {
-                Some(metric) if whitens_likelihood => {
-                    let wr = metric.whiten_residual_row(row, error.view());
-                    for (slot, &v) in error_white.iter_mut().zip(wr.iter()) {
-                        *slot = v;
-                    }
-                    let mr = metric.apply_metric_row(row, error.view());
-                    for (slot, &v) in error_metric.iter_mut().zip(mr.iter()) {
-                        *slot = v;
-                    }
-                }
-                _ => {
-                    for out_col in 0..p {
-                        error_white[out_col] = error[out_col];
-                        error_metric[out_col] = error[out_col];
-                    }
-                }
-            }
+        struct SaeAssemblyRow {
+            row: usize,
+            block: ArrowRowBlock,
+            gb_delta: Vec<(usize, f64)>,
+            g_blocks: SaeGBlocks,
+            kron_a_phi: Option<Vec<(usize, f64)>>,
+            kron_jac: Option<Vec<f64>>,
+        }
 
-            // Determine whether this row uses the compact active-set layout.
-            //   * JumpReLU: gated atoms plus the reactivation band
-            //     (logit > threshold − MARGIN·τ) enter.
-            //   * IBP-MAP at large K: only the top-`k_active` atoms.
-            //   * Otherwise (small K): the dense uniform-q layout.
-            let (q_row, mut local_jac_row) = if let Some(ref layout) = row_layout {
-                let active = &layout.active_atoms[row];
-                let starts = &layout.coord_starts[row];
-                let q_active = layout.row_q_active(row);
-                let mut jac_compact = Array2::<f64>::zeros((q_active, p));
-                // Logit JVP rows for active atoms only, using the per-mode
-                // assignment sensitivity `da_k/dl_k` contracted into the
-                // decoded / fitted-corrected output direction.
-                let logits_row = self.assignment.logits.row(row);
-                for (j, &k) in active.iter().enumerate() {
-                    fill_active_atom_logit_jvp(
-                        ActiveAtomLogitJvp {
-                            mode: self.assignment.mode,
-                            k,
-                            logit_k: logits_row[k],
-                            a_k: assignments[k],
-                            decoded_k: decoded.row(k),
-                            fitted: fitted.view(),
-                            ibp_prior: ibp_prior_slice,
-                            compact_index: j,
-                        },
-                        &mut jac_compact,
-                    );
-                }
-                // Coordinate JVP rows for active atoms only.
-                for (j, &k) in active.iter().enumerate() {
-                    let d = self.atoms[k].latent_dim;
-                    let a_k = assignments[k];
-                    let coord_start = starts[j];
-                    for axis in 0..d {
-                        self.atoms[k].fill_decoded_derivative_row(row, axis, &mut dg_buf);
-                        for out_col in 0..p {
-                            jac_compact[[coord_start + axis, out_col]] = a_k * dg_buf[out_col];
-                        }
-                    }
-                }
-                (q_active, jac_compact)
-            } else {
-                // Fresh per-row Jacobian, structurally identical to the
-                // JumpReLU branch: every (q × p) element is unconditionally
-                // overwritten below (assignment-chart JVP rows + coordinate rows), so the
-                // `Array2::zeros` allocation needs no separate `fill(0.0)` and
-                // the populated buffer is returned by move without a clone.
-                let mut jac_row = Array2::<f64>::zeros((q, p));
-                fill_assignment_logit_jvp_rows(
-                    self.assignment.mode,
-                    self.assignment.logits.row(row),
-                    assignments.view(),
-                    decoded.view(),
-                    fitted.view(),
-                    ibp_prior_slice,
-                    &mut jac_row,
-                );
-                // Coordinate columns for all atoms.
-                for atom_idx in 0..k_atoms {
-                    let d = self.atoms[atom_idx].latent_dim;
-                    let off = coord_offsets[atom_idx];
-                    let a_k = assignments[atom_idx];
-                    for axis in 0..d {
-                        self.atoms[atom_idx].fill_decoded_derivative_row(row, axis, &mut dg_buf);
-                        for out_col in 0..p {
-                            jac_row[[off + axis, out_col]] = a_k * dg_buf[out_col];
-                        }
-                    }
-                }
-                (q, jac_row)
-            };
-
-            // #991 design-honesty seam, Jacobian leg: scale the row's latent
-            // Jacobian by `√w_row` BEFORE the whitening / Kronecker capture so
-            // htt (= J̃J̃ᵀ), the data part of gt (= J̃ẽ, the residual already
-            // carries its own √w_row), and the htbeta cross block (J paired
-            // with the √w_row-scaled β load below) each carry exactly one
-            // factor of `w_row`. No-op on the unweighted path.
-            if sqrt_row_w != 1.0 {
-                for a in 0..q_row {
-                    for out_col in 0..p {
-                        local_jac_row[[a, out_col]] *= sqrt_row_w;
-                    }
-                }
-            }
-
-            // #974 seam (step 2/2): whiten the per-row Jacobian through the SAME
-            // metric the residual was whitened by. `jac_white[a*w_dim + k]` holds
-            // `J̃[a, k] = Σ_out U_n[out, k] · J_n[a, out]` so the t-block
-            // Gauss-Newton row block is `htt = J̃ J̃ᵀ = J_n M_n J_nᵀ` and
-            // `gt = J̃ ẽ = J_nᵀ M_n r_n`. When not whitening, `w_dim == p` and the
-            // whitened jac equals the raw Jacobian, so htt/gt are byte-identical
-            // to the historical isotropic assembly. Because the SAME `error_white`
-            // feeds both the value-path data-fit (Σ½ ẽ²) and this gradient
-            // (J̃ ẽ), the objective and its t-block gradient share one whitening
-            // — they cannot desync.
-            if whitens_likelihood {
-                if let Some(metric) = self.row_metric.as_ref() {
-                    for a in 0..q_row {
-                        for k in 0..w_dim {
-                            let mut acc = 0.0;
-                            // U_n[out, k] read through the metric's factor layout.
+        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+        let row_results: Vec<SaeAssemblyRow> = (0..n)
+            .into_par_iter()
+            .map(|row| -> Result<SaeAssemblyRow, String> {
+                let mut decoded = Array2::<f64>::zeros((k_atoms, p));
+                let mut dg_buf = vec![0.0_f64; p];
+                let mut fitted = Array1::<f64>::zeros(p);
+                let mut error = Array1::<f64>::zeros(p);
+                let mut error_white = vec![0.0_f64; w_dim];
+                let mut error_metric = Array1::<f64>::zeros(p);
+                let mut jac_white = vec![0.0_f64; q * w_dim.max(p)];
+                let mut decoded_scratch = vec![0.0_f64; p];
+                let mut gb_delta: Vec<(usize, f64)> = Vec::new();
+                let mut g_blocks: SaeGBlocks = std::collections::BTreeMap::new();
+                let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+                // Reconstruction uses the row's active support: for the dense
+                // full-support layout this is all atoms (exact); for a compact
+                // layout the dropped atoms carry negligible `O(a)` reconstruction
+                // mass and zero curvature, so excluding them keeps `fitted`,
+                // `error`, and the logit-JVP cross term `(decoded[k] − fitted)`
+                // mutually consistent with the curvature actually assembled.
+                fitted.fill(0.0);
+                let row_active_owned: Option<&[usize]> =
+                    row_layout.as_ref().map(|l| l.active_atoms[row].as_slice());
+                match row_active_owned {
+                    Some(active) => {
+                        for &atom_idx in active {
+                            let a_k = assignments[atom_idx];
+                            self.atoms[atom_idx].fill_decoded_row(row, &mut decoded_scratch);
                             for out_col in 0..p {
-                                acc += metric.factor_entry(row, out_col, k)
-                                    * local_jac_row[[a, out_col]];
+                                decoded[[atom_idx, out_col]] = decoded_scratch[out_col];
+                                fitted[out_col] += a_k * decoded_scratch[out_col];
                             }
-                            jac_white[a * w_dim + k] = acc;
+                        }
+                    }
+                    None => {
+                        for atom_idx in 0..k_atoms {
+                            let a_k = assignments[atom_idx];
+                            self.atoms[atom_idx].fill_decoded_row(row, &mut decoded_scratch);
+                            for out_col in 0..p {
+                                decoded[[atom_idx, out_col]] = decoded_scratch[out_col];
+                                fitted[out_col] += a_k * decoded_scratch[out_col];
+                            }
                         }
                     }
                 }
-            } else {
-                for a in 0..q_row {
-                    for out_col in 0..p {
-                        jac_white[a * w_dim + out_col] = local_jac_row[[a, out_col]];
-                    }
-                }
-            }
-
-            // Build the per-row Arrow-Schur block at the row's active dim.
-            let mut block = ArrowRowBlock::new(q_row, row_htbeta_dim);
-            for a in 0..q_row {
-                let mut g = 0.0;
-                for k in 0..w_dim {
-                    g += jac_white[a * w_dim + k] * error_white[k];
-                }
-                block.gt[a] += g;
-                for b in 0..q_row {
-                    let mut h = 0.0;
-                    for k in 0..w_dim {
-                        h += jac_white[a * w_dim + k] * jac_white[b * w_dim + k];
-                    }
-                    block.htt[[a, b]] += h;
-                }
-            }
-
-            // Assignment prior in logit space.
-            // For compact layout: position `j` = active_atoms index.
-            // For dense layout: position `atom_idx` directly.
-            //
-            // H-consistency note (#1006 audit). This `assignment_hdiag` is the
-            // assignment penalty's EXACT `hessian_diag` (softmax-sparsity, IBP-MAP
-            // empirical-π, or JumpReLU surrogate), added RAW — unlike the ARD
-            // coordinate curvature (`prior.hess.max(0.0)` below) and the
-            // decoder-tier penalties (`psd_majorizer_diag`), it is NOT majorized.
-            // That diagonal CAN be negative (the softmax `(1−2z)`-type logit
-            // curvature, IBP `score·(1−2z)` term), so the assembled `H_tt` is
-            // Gauss-Newton (PSD) + majorized ARD (PSD) + raw-assignment-prior
-            // (indefinite) and is therefore NOT guaranteed PD off the optimum.
-            // This refutes the "pure GN+majorizer cannot be non-PD" premise: the
-            // genuine non-PD the evidence factorization reports
-            // (`arrow_schur.rs` "evidence mode preserves the genuine Cholesky")
-            // comes from this un-majorized term, not from any divergence between
-            // the Newton-solve H and the evidence H. Both paths factor THIS one
-            // assembled block (single source of truth); they differ only in ridge
-            // policy — Newton conditions a non-PD block, evidence refuses to (a
-            // silent ridge would shift the reported log-det). At the converged
-            // optimum `H_tt` is PD, where the evidence factor is taken. Because
-            // the criterion's log|H| and the Γ adjoint (`logdet_theta_adjoint`)
-            // both differentiate THIS raw diagonal — `hessian_diag` and its exact
-            // logit third channels `hessian_diag_logit_third_channels`,
-            // #1006 — value and gradient stay on the same branch with no desync.
-            let assignment_base = row * k_atoms;
-            if let Some(ref layout) = row_layout {
-                let active = &layout.active_atoms[row];
-                for (j, &k) in active.iter().enumerate() {
-                    block.gt[j] += assignment_grad[assignment_base + k];
-                    block.htt[[j, j]] += assignment_hdiag[assignment_base + k];
-                }
-            } else {
-                for free_idx in 0..assignment_dim {
-                    block.gt[free_idx] += assignment_grad[assignment_base + free_idx];
-                    block.htt[[free_idx, free_idx]] += assignment_hdiag[assignment_base + free_idx];
-                }
-            }
-
-            // ARD on each on-atom coordinate.
-            // For compact layout: only active atoms; coord positions use compact starts.
-            // For dense layout: all atoms; coord positions use coord_offsets.
-            if let Some(ref layout) = row_layout {
-                let active = &layout.active_atoms[row];
-                let starts = &layout.coord_starts[row];
-                for (j, &k) in active.iter().enumerate() {
-                    let coord = &self.assignment.coords[k];
-                    let d = coord.latent_dim();
-                    if rho.log_ard[k].is_empty() {
-                        continue;
-                    }
-                    if rho.log_ard[k].len() != d {
-                        return Err(format!(
-                            "ARD rho atom {k} has len {} but atom dim is {d}",
-                            rho.log_ard[k].len()
-                        ));
-                    }
-                    let row_t = coord.row(row);
-                    let periods = &ard_axis_periods[k];
-                    for axis in 0..d {
-                        // ARD on coords is a genuine per-row prior (each row
-                        // contributes the per-axis prior energy), so it is NOT
-                        // minibatch-scaled — the per-chunk row sums already
-                        // reconstruct the full coordinate prior across a pass.
-                        // The value (`ard_value`/`loss.ard`) and the gradient
-                        // both come from the SAME `ArdAxisPrior` energy, so they
-                        // stay FD-consistent on periodic axes. The exact
-                        // von-Mises curvature `V'' = α·cos(κt)` is INDEFINITE —
-                        // it goes negative for |t| past a quarter period — so
-                        // writing it raw into the Newton/Schur `htt` diagonal
-                        // makes that PSD curvature block indefinite and the Schur
-                        // Cholesky (used both for the Newton step and the exact
-                        // log-det) fails on a non-PD pivot. Accumulate the PSD
-                        // majorizer `max(V'', 0)` instead, exactly as
-                        // `add_sae_coord_penalty` does for the registry coord
-                        // penalties: the positive part keeps `htt` PSD so the
-                        // factorization succeeds, and majorizing the curvature of
-                        // a fixed prior only damps the Newton step — it does not
-                        // move the stationary point (the gradient, which sets the
-                        // fixed point, stays the exact `V'`).
-                        let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
-                        let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
-                        block.gt[starts[j] + axis] += prior.grad;
-                        block.htt[[starts[j] + axis, starts[j] + axis]] += prior.hess.max(0.0);
-                    }
-                }
-            } else {
-                for atom_idx in 0..k_atoms {
-                    let coord = &self.assignment.coords[atom_idx];
-                    let d = coord.latent_dim();
-                    if rho.log_ard[atom_idx].is_empty() {
-                        continue;
-                    }
-                    if rho.log_ard[atom_idx].len() != d {
-                        return Err(format!(
-                            "ARD rho atom {atom_idx} has len {} but atom dim is {d}",
-                            rho.log_ard[atom_idx].len()
-                        ));
-                    }
-                    let off = coord_offsets[atom_idx];
-                    let row_t = coord.row(row);
-                    let periods = &ard_axis_periods[atom_idx];
-                    for axis in 0..d {
-                        // PSD-majorize the (possibly negative) von-Mises curvature
-                        // into the Newton/Schur `htt` block; see the compact-layout
-                        // branch above for why `max(V'', 0)` is required to keep
-                        // `htt` PD (the exact `V'' = α·cos κt` is indefinite past a
-                        // quarter period and breaks the Schur/log-det Cholesky).
-                        let alpha =
-                            SaeManifoldRho::stable_exp_strength(rho.log_ard[atom_idx][axis]);
-                        let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
-                        block.gt[off + axis] += prior.grad;
-                        block.htt[[off + axis, off + axis]] += prior.hess.max(0.0);
-                    }
-                }
-            }
-
-            // Beta gradient/Hessian — Kronecker form J_β = φᵀ ⊗ I_p.
-            //
-            // The per-row beta Jacobian is
-            //   J_β[out_col, beta_idx] = a_k · phi_k[basis_col]   if out_col == out_col(beta_idx)
-            //                            0                         otherwise
-            // so the data-fit Gauss-Newton beta-Hessian factors as a rank-`p`
-            // sum of outer products. We pre-compute the per-(atom, basis_col)
-            // scalar `a_k · phi_k` once and reuse it across the `out_col`
-            // and inner `(atom_j, basis_col2)` loops.
-            //
-            // Full-B rows keep the matrix-free Kronecker path below. Factored
-            // rows write the `q_i × Σ M_k r_k` C-space cross slab directly by
-            // folding each output-channel contribution through the atom frame,
-            // so no `q_i × β_dim` slab is ever materialized.
-            //
-            // Only the row's active atoms contribute `a_phi` support and data
-            // curvature: in a compact layout (JumpReLU gate or large-K
-            // top-`k_active` truncation) the inactive atoms carry zero (gated)
-            // or sub-cutoff assignment mass and are excluded — this is what
-            // keeps both the htbeta support and the `G` accumulation
-            // `O(k_active)` rather than `O(K)`. In the dense full-support
-            // layout `row_active` spans all atoms.
-            let row_active: &[usize] = match row_layout {
-                Some(ref layout) => layout.active_atoms[row].as_slice(),
-                None => &all_atoms_index,
-            };
-            let mut a_phi: Vec<(usize, f64)> = Vec::with_capacity(row_active.len() * 4);
-            // Per-active-atom weighted basis row `a_k · φ_k[·]`, retained so the
-            // data Gram blocks can be accumulated as clean per-atom-pair outer
-            // products `(a_k φ_k) (a_{k'} φ_{k'})ᵀ`.
-            let mut weighted_phi: Vec<(usize, Vec<f64>)> = Vec::with_capacity(row_active.len());
-            for &atom_idx in row_active {
-                let atom = &self.atoms[atom_idx];
-                let atom_beta_off = beta_offsets[atom_idx];
-                let m = atom.basis_size();
-                let a_k = assignments[atom_idx];
-                let mut wphi = Vec::with_capacity(m);
-                for basis_col in 0..m {
-                    let phi = atom.basis_values[[row, basis_col]];
-                    // #991 design-honesty seam, β leg: the `√w_row` here pairs
-                    // with the `√w_row` on the residual (β gradient =
-                    // `a·φ · M r` ⇒ w_row) and with itself (β Gram `G` and the
-                    // htbeta Kronecker capture ⇒ w_row). `1.0` when unweighted.
-                    let w = a_k * phi * sqrt_row_w;
-                    a_phi.push((atom_beta_off + basis_col * p, w));
-                    wphi.push(w);
-                }
-                weighted_phi.push((atom_idx, wphi));
-            }
-            // β data-fit gradient `gᵦ += J_βᵀ M_n r_n`. The β-Jacobian is
-            // `J_β = φ_nᵀ ⊗ I_p`, so `J_βᵀ M_n r_n = φ_n ⊗ (M_n r_n)` —
-            // contract the basis weight `a·φ` against the p-space metric-applied
-            // residual `error_metric` (= `M_n r_n`), the SAME whitening the value
-            // path and t-block share. When not whitening, `error_metric == error`
-            // and this is byte-identical to the historical `J_βᵀ r`.
-            for &(beta_base_i, j_beta_i) in a_phi.iter() {
-                if j_beta_i == 0.0 {
-                    continue;
-                }
                 for out_col in 0..p {
-                    sys.gb[beta_base_i + out_col] += j_beta_i * error_metric[out_col];
-                    // No dense hbb write — the sparse `G ⊗ I_p` op installed
-                    // after the loop carries the data-fit GN β-Hessian.
+                    error[out_col] = fitted[out_col] - target[[row, out_col]];
                 }
-            }
-            if frames_engaged {
+                // #991 design-honesty seam: a per-row scalar weight `w_row` on the
+                // reconstruction channel is exactly the metric `w_row · I_p`, so it
+                // is realized as a `√w_row` scaling of the THREE row-local data
+                // quantities at their construction sites — this residual, the
+                // latent Jacobian (below), and the β basis load `a·φ` (below).
+                // Every downstream data object then carries exactly one factor of
+                // `w_row` (gt, htt, htbeta, the β Gram `G`, and the β gradient),
+                // matching the `w_row`-weighted value `loss_scaled` sums; the
+                // per-row latent priors (assignment / ARD, added to `gt`/`htt`
+                // further down) are deliberately unweighted — see the
+                // `row_loss_weights` field docs. `None` ⇒ `sqrt_row_w == 1.0` and
+                // no multiply is applied (bit-identical unweighted path).
+                let sqrt_row_w = row_loss_w.map_or(1.0, |w| w[row].sqrt());
+                if sqrt_row_w != 1.0 {
+                    for out_col in 0..p {
+                        error[out_col] *= sqrt_row_w;
+                    }
+                }
+                // #974 seam (step 1/2): whiten the per-row residual ONCE.
+                //   * not whitening ⇒ `error_white == error` (length p) and
+                //     `error_metric == error`; every downstream loop is the
+                //     historical isotropic path bit-for-bit.
+                //   * whitening ⇒ `error_white = U_nᵀ r_n ∈ ℝ^{w_dim}` (its squared
+                //     norm is `r_nᵀ M_n r_n`, the value the data-fit sums) and
+                //     `error_metric = U_n (U_nᵀ r_n) = M_n r_n ∈ ℝ^p` (the p-space
+                //     metric-applied residual the β-tier gradient contracts).
+                match self.row_metric.as_ref() {
+                    Some(metric) if whitens_likelihood => {
+                        let wr = metric.whiten_residual_row(row, error.view());
+                        for (slot, &v) in error_white.iter_mut().zip(wr.iter()) {
+                            *slot = v;
+                        }
+                        let mr = metric.apply_metric_row(row, error.view());
+                        for (slot, &v) in error_metric.iter_mut().zip(mr.iter()) {
+                            *slot = v;
+                        }
+                    }
+                    _ => {
+                        for out_col in 0..p {
+                            error_white[out_col] = error[out_col];
+                            error_metric[out_col] = error[out_col];
+                        }
+                    }
+                }
+
+                // Determine whether this row uses the compact active-set layout.
+                //   * JumpReLU: gated atoms plus the smooth prior's
+                //     machine-precision support enter.
+                //   * IBP-MAP at large K: only the top-`k_active` atoms.
+                //   * Otherwise (small K): the dense uniform-q layout.
+                let (q_row, mut local_jac_row) = if let Some(layout) = row_layout.as_ref() {
+                    let active = &layout.active_atoms[row];
+                    let starts = &layout.coord_starts[row];
+                    let q_active = layout.row_q_active(row);
+                    let mut jac_compact = Array2::<f64>::zeros((q_active, p));
+                    // Logit JVP rows for active atoms only, using the per-mode
+                    // assignment sensitivity `da_k/dl_k` contracted into the
+                    // decoded / fitted-corrected output direction.
+                    let logits_row = self.assignment.logits.row(row);
+                    for (j, &k) in active.iter().enumerate() {
+                        fill_active_atom_logit_jvp(
+                            ActiveAtomLogitJvp {
+                                mode: self.assignment.mode,
+                                k,
+                                logit_k: logits_row[k],
+                                a_k: assignments[k],
+                                decoded_k: decoded.row(k),
+                                fitted: fitted.view(),
+                                ibp_prior: ibp_prior_slice,
+                                compact_index: j,
+                            },
+                            &mut jac_compact,
+                        );
+                    }
+                    // Coordinate JVP rows for active atoms only.
+                    for (j, &k) in active.iter().enumerate() {
+                        let d = self.atoms[k].latent_dim;
+                        let a_k = assignments[k];
+                        let coord_start = starts[j];
+                        for axis in 0..d {
+                            self.atoms[k].fill_decoded_derivative_row(row, axis, &mut dg_buf);
+                            for out_col in 0..p {
+                                jac_compact[[coord_start + axis, out_col]] = a_k * dg_buf[out_col];
+                            }
+                        }
+                    }
+                    (q_active, jac_compact)
+                } else {
+                    // Fresh per-row Jacobian, structurally identical to the
+                    // JumpReLU branch: every (q × p) element is unconditionally
+                    // overwritten below (assignment-chart JVP rows + coordinate rows), so the
+                    // `Array2::zeros` allocation needs no separate `fill(0.0)` and
+                    // the populated buffer is returned by move without a clone.
+                    let mut jac_row = Array2::<f64>::zeros((q, p));
+                    fill_assignment_logit_jvp_rows(
+                        self.assignment.mode,
+                        self.assignment.logits.row(row),
+                        assignments.view(),
+                        decoded.view(),
+                        fitted.view(),
+                        ibp_prior_slice,
+                        &mut jac_row,
+                    );
+                    // Coordinate columns for all atoms.
+                    for atom_idx in 0..k_atoms {
+                        let d = self.atoms[atom_idx].latent_dim;
+                        let off = coord_offsets[atom_idx];
+                        let a_k = assignments[atom_idx];
+                        for axis in 0..d {
+                            self.atoms[atom_idx].fill_decoded_derivative_row(
+                                row,
+                                axis,
+                                &mut dg_buf,
+                            );
+                            for out_col in 0..p {
+                                jac_row[[off + axis, out_col]] = a_k * dg_buf[out_col];
+                            }
+                        }
+                    }
+                    (q, jac_row)
+                };
+
+                // #991 design-honesty seam, Jacobian leg: scale the row's latent
+                // Jacobian by `√w_row` BEFORE the whitening / Kronecker capture so
+                // htt (= J̃J̃ᵀ), the data part of gt (= J̃ẽ, the residual already
+                // carries its own √w_row), and the htbeta cross block (J paired
+                // with the √w_row-scaled β load below) each carry exactly one
+                // factor of `w_row`. No-op on the unweighted path.
+                if sqrt_row_w != 1.0 {
+                    for a in 0..q_row {
+                        for out_col in 0..p {
+                            local_jac_row[[a, out_col]] *= sqrt_row_w;
+                        }
+                    }
+                }
+
+                // #974 seam (step 2/2): whiten the per-row Jacobian through the SAME
+                // metric the residual was whitened by. `jac_white[a*w_dim + k]` holds
+                // `J̃[a, k] = Σ_out U_n[out, k] · J_n[a, out]` so the t-block
+                // Gauss-Newton row block is `htt = J̃ J̃ᵀ = J_n M_n J_nᵀ` and
+                // `gt = J̃ ẽ = J_nᵀ M_n r_n`. When not whitening, `w_dim == p` and the
+                // whitened jac equals the raw Jacobian, so htt/gt are byte-identical
+                // to the historical isotropic assembly. Because the SAME `error_white`
+                // feeds both the value-path data-fit (Σ½ ẽ²) and this gradient
+                // (J̃ ẽ), the objective and its t-block gradient share one whitening
+                // — they cannot desync.
+                if whitens_likelihood {
+                    if let Some(metric) = self.row_metric.as_ref() {
+                        for a in 0..q_row {
+                            for k in 0..w_dim {
+                                let mut acc = 0.0;
+                                // U_n[out, k] read through the metric's factor layout.
+                                for out_col in 0..p {
+                                    acc += metric.factor_entry(row, out_col, k)
+                                        * local_jac_row[[a, out_col]];
+                                }
+                                jac_white[a * w_dim + k] = acc;
+                            }
+                        }
+                    }
+                } else {
+                    for a in 0..q_row {
+                        for out_col in 0..p {
+                            jac_white[a * w_dim + out_col] = local_jac_row[[a, out_col]];
+                        }
+                    }
+                }
+
+                // Build the per-row Arrow-Schur block at the row's active dim.
+                let mut block = ArrowRowBlock::new(q_row, row_htbeta_dim);
+                for a in 0..q_row {
+                    let jac_a = &jac_white[a * w_dim..(a + 1) * w_dim];
+                    let g = jac_a
+                        .iter()
+                        .zip(error_white.iter())
+                        .map(|(&j, &e)| j * e)
+                        .sum::<f64>();
+                    block.gt[a] += g;
+                    for b in 0..q_row {
+                        let jac_b = &jac_white[b * w_dim..(b + 1) * w_dim];
+                        let h = jac_a
+                            .iter()
+                            .zip(jac_b.iter())
+                            .map(|(&ja, &jb)| ja * jb)
+                            .sum::<f64>();
+                        block.htt[[a, b]] += h;
+                    }
+                }
+
+                // Assignment prior in logit space.
+                // For compact layout: position `j` = active_atoms index.
+                // For dense layout: position `atom_idx` directly.
+                //
+                // H-consistency note (#1006 audit). This `assignment_hdiag` is the
+                // assignment channel's raw diagonal curvature, added un-majorized. It
+                // is exact for JumpReLU and exact within each IBP row/column diagonal,
+                // but it is a deliberate diagonal approximation for two full-Hessian
+                // structures that the current factorization does not yet carry (#1038):
+                //
+                //   * softmax entropy has dense within-row Hessian
+                //     H_kj = (λ/τ²) a_k[δ_kj(m-L_k-1) + a_j(L_k+L_j+1-2m)];
+                //     this block stores only its diagonal.
+                //   * IBP empirical-π has cross-row rank-one terms per column
+                //     H_(i,k),(j,k) = w score_derivative_k z'_ik z'_jk for i != j;
+                //     this row-local block stores only the diagonal/self-row part.
+                //
+                // The criterion's log|H| and Γ adjoint differentiate this same
+                // assembled diagonal/quasi-Laplace Hessian, so value and gradient stay
+                // on one branch. A future dense-row softmax or IBP Woodbury correction
+                // must update both assembly and the θ-adjoint together.
+                let assignment_base = row * k_atoms;
+                if let Some(layout) = row_layout.as_ref() {
+                    let active = &layout.active_atoms[row];
+                    for (j, &k) in active.iter().enumerate() {
+                        block.gt[j] += assignment_grad[assignment_base + k];
+                        block.htt[[j, j]] += assignment_hdiag[assignment_base + k];
+                    }
+                } else {
+                    for free_idx in 0..assignment_dim {
+                        block.gt[free_idx] += assignment_grad[assignment_base + free_idx];
+                    }
+                    if let Some((penalty, scale)) = softmax_dense.as_ref() {
+                        // #1038: write the EXACT dense entropy Hessian (diagonal +
+                        // off-diagonals) onto the row's logit block. Softmax uses
+                        // the REDUCED K−1 free-logit chart (the last reference logit
+                        // is fixed at 0, `assignment_coord_dim() = K−1`), which
+                        // already removes the shift-gauge null. Holding z_{K-1}
+                        // fixed, the reduced Hessian over the free logits 0..K−1 is
+                        // exactly the top-left (K−1)×(K−1) submatrix of the full
+                        // K×K dense entropy Hessian (the fixed logit contributes no
+                        // row/column to the free curvature). Summing it onto the
+                        // data-fit `htt` keeps the block PD for the Cholesky factor,
+                        // and the dense Cholesky makes `log|H|` carry it exactly (no
+                        // separate Woodbury — `htt` is already a small dense per-row
+                        // factor). Its diagonal equals `assignment_hdiag` for these
+                        // logits, so we skip the diagonal-only add above.
+                        let row_logits: Vec<f64> = (0..k_atoms)
+                            .map(|k| self.assignment.logits[[row, k]])
+                            .collect();
+                        let h_dense = penalty.row_dense_hessian(&row_logits, *scale);
+                        for ki in 0..assignment_dim {
+                            for kj in 0..assignment_dim {
+                                block.htt[[ki, kj]] += h_dense[[ki, kj]];
+                            }
+                        }
+                    } else {
+                        for free_idx in 0..assignment_dim {
+                            block.htt[[free_idx, free_idx]] +=
+                                assignment_hdiag[assignment_base + free_idx];
+                        }
+                    }
+                }
+
+                // ARD on each on-atom coordinate.
+                // For compact layout: only active atoms; coord positions use compact starts.
+                // For dense layout: all atoms; coord positions use coord_offsets.
+                if let Some(layout) = row_layout.as_ref() {
+                    let active = &layout.active_atoms[row];
+                    let starts = &layout.coord_starts[row];
+                    for (j, &k) in active.iter().enumerate() {
+                        let coord = &self.assignment.coords[k];
+                        let d = coord.latent_dim();
+                        if rho.log_ard[k].is_empty() {
+                            continue;
+                        }
+                        if rho.log_ard[k].len() != d {
+                            return Err(format!(
+                                "ARD rho atom {k} has len {} but atom dim is {d}",
+                                rho.log_ard[k].len()
+                            ));
+                        }
+                        let row_t = coord.row(row);
+                        let periods = &ard_axis_periods[k];
+                        for axis in 0..d {
+                            // ARD on coords is a genuine per-row prior (each row
+                            // contributes the per-axis prior energy), so it is NOT
+                            // minibatch-scaled — the per-chunk row sums already
+                            // reconstruct the full coordinate prior across a pass.
+                            // The value (`ard_value`/`loss.ard`) and the gradient
+                            // both come from the SAME `ArdAxisPrior` energy, so they
+                            // stay FD-consistent on periodic axes. The exact
+                            // von-Mises curvature `V'' = α·cos(κt)` is INDEFINITE —
+                            // it goes negative for |t| past a quarter period — so
+                            // writing it raw into the Newton/Schur `htt` diagonal
+                            // makes that PSD curvature block indefinite and the Schur
+                            // Cholesky (used both for the Newton step and the exact
+                            // log-det) fails on a non-PD pivot. Accumulate the PSD
+                            // majorizer `max(V'', 0)` instead, exactly as
+                            // `add_sae_coord_penalty` does for the registry coord
+                            // penalties: the positive part keeps `htt` PSD so the
+                            // factorization succeeds, and majorizing the curvature of
+                            // a fixed prior only damps the Newton step — it does not
+                            // move the stationary point (the gradient, which sets the
+                            // fixed point, stays the exact `V'`).
+                            let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
+                            let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
+                            block.gt[starts[j] + axis] += prior.grad;
+                            block.htt[[starts[j] + axis, starts[j] + axis]] += prior.hess.max(0.0);
+                        }
+                    }
+                } else {
+                    for atom_idx in 0..k_atoms {
+                        let coord = &self.assignment.coords[atom_idx];
+                        let d = coord.latent_dim();
+                        if rho.log_ard[atom_idx].is_empty() {
+                            continue;
+                        }
+                        if rho.log_ard[atom_idx].len() != d {
+                            return Err(format!(
+                                "ARD rho atom {atom_idx} has len {} but atom dim is {d}",
+                                rho.log_ard[atom_idx].len()
+                            ));
+                        }
+                        let off = coord_offsets[atom_idx];
+                        let row_t = coord.row(row);
+                        let periods = &ard_axis_periods[atom_idx];
+                        for axis in 0..d {
+                            // PSD-majorize the (possibly negative) von-Mises curvature
+                            // into the Newton/Schur `htt` block; see the compact-layout
+                            // branch above for why `max(V'', 0)` is required to keep
+                            // `htt` PD (the exact `V'' = α·cos κt` is indefinite past a
+                            // quarter period and breaks the Schur/log-det Cholesky).
+                            let alpha =
+                                SaeManifoldRho::stable_exp_strength(rho.log_ard[atom_idx][axis]);
+                            let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
+                            block.gt[off + axis] += prior.grad;
+                            block.htt[[off + axis, off + axis]] += prior.hess.max(0.0);
+                        }
+                    }
+                }
+
+                // Beta gradient/Hessian — Kronecker form J_β = φᵀ ⊗ I_p.
+                //
+                // The per-row beta Jacobian is
+                //   J_β[out_col, beta_idx] = a_k · phi_k[basis_col]   if out_col == out_col(beta_idx)
+                //                            0                         otherwise
+                // so the data-fit Gauss-Newton beta-Hessian factors as a rank-`p`
+                // sum of outer products. We pre-compute the per-(atom, basis_col)
+                // scalar `a_k · phi_k` once and reuse it across the `out_col`
+                // and inner `(atom_j, basis_col2)` loops.
+                //
+                // Full-B rows keep the matrix-free Kronecker path below. Factored
+                // rows write the `q_i × Σ M_k r_k` C-space cross slab directly by
+                // folding each output-channel contribution through the atom frame,
+                // so no `q_i × β_dim` slab is ever materialized.
+                //
+                // Only the row's active atoms contribute `a_phi` support and data
+                // curvature: in a compact layout (JumpReLU gate or large-K
+                // top-`k_active` truncation) the inactive atoms carry zero (gated)
+                // or sub-cutoff assignment mass and are excluded — this is what
+                // keeps both the htbeta support and the `G` accumulation
+                // `O(k_active)` rather than `O(K)`. In the dense full-support
+                // layout `row_active` spans all atoms.
+                let row_active: &[usize] = match row_layout.as_ref() {
+                    Some(layout) => layout.active_atoms[row].as_slice(),
+                    None => &all_atoms_index,
+                };
+                let mut a_phi: Vec<(usize, f64)> = Vec::with_capacity(row_active.len() * 4);
+                // Per-active-atom weighted basis row `a_k · φ_k[·]`, retained so the
+                // data Gram blocks can be accumulated as clean per-atom-pair outer
+                // products `(a_k φ_k) (a_{k'} φ_{k'})ᵀ`.
+                let mut weighted_phi: Vec<(usize, Vec<f64>)> = Vec::with_capacity(row_active.len());
                 for &atom_idx in row_active {
                     let atom = &self.atoms[atom_idx];
+                    let atom_beta_off = beta_offsets[atom_idx];
                     let m = atom.basis_size();
                     let a_k = assignments[atom_idx];
+                    let mut wphi = Vec::with_capacity(m);
                     for basis_col in 0..m {
                         let phi = atom.basis_values[[row, basis_col]];
+                        // #991 design-honesty seam, β leg: the `√w_row` here pairs
+                        // with the `√w_row` on the residual (β gradient =
+                        // `a·φ · M r` ⇒ w_row) and with itself (β Gram `G` and the
+                        // htbeta Kronecker capture ⇒ w_row). `1.0` when unweighted.
                         let w = a_k * phi * sqrt_row_w;
-                        if w == 0.0 {
-                            continue;
-                        }
-                        let c_base = frame_projection.border_offsets[atom_idx]
-                            + basis_col * frame_projection.ranks[atom_idx];
-                        for c in 0..q_row {
-                            let mut hrow = block.htbeta.row_mut(c);
-                            let hrow_slice = hrow.as_slice_mut().expect("htbeta row is contiguous");
-                            for out_col in 0..p {
-                                let value = local_jac_row[[c, out_col]] * w;
-                                frame_projection.accumulate_output_project(
-                                    atom_idx, c_base, out_col, value, hrow_slice,
-                                );
+                        a_phi.push((atom_beta_off + basis_col * p, w));
+                        wphi.push(w);
+                    }
+                    weighted_phi.push((atom_idx, wphi));
+                }
+                // β data-fit gradient `gᵦ += J_βᵀ M_n r_n`. The β-Jacobian is
+                // `J_β = φ_nᵀ ⊗ I_p`, so `J_βᵀ M_n r_n = φ_n ⊗ (M_n r_n)` —
+                // contract the basis weight `a·φ` against the p-space metric-applied
+                // residual `error_metric` (= `M_n r_n`), the SAME whitening the value
+                // path and t-block share. When not whitening, `error_metric == error`
+                // and this is byte-identical to the historical `J_βᵀ r`.
+                for &(beta_base_i, j_beta_i) in a_phi.iter() {
+                    if j_beta_i == 0.0 {
+                        continue;
+                    }
+                    for out_col in 0..p {
+                        gb_delta.push((beta_base_i + out_col, j_beta_i * error_metric[out_col]));
+                        // No dense hbb write — the sparse `G ⊗ I_p` op installed
+                        // after the loop carries the data-fit GN β-Hessian.
+                    }
+                }
+                if frames_engaged {
+                    for &atom_idx in row_active {
+                        let atom = &self.atoms[atom_idx];
+                        let m = atom.basis_size();
+                        let a_k = assignments[atom_idx];
+                        for basis_col in 0..m {
+                            let phi = atom.basis_values[[row, basis_col]];
+                            let w = a_k * phi * sqrt_row_w;
+                            if w == 0.0 {
+                                continue;
+                            }
+                            let c_base = frame_projection.border_offsets[atom_idx]
+                                + basis_col * frame_projection.ranks[atom_idx];
+                            for c in 0..q_row {
+                                let mut hrow = block.htbeta.row_mut(c);
+                                let hrow_slice =
+                                    hrow.as_slice_mut().expect("htbeta row is contiguous");
+                                for out_col in 0..p {
+                                    let value = local_jac_row[[c, out_col]] * w;
+                                    frame_projection.accumulate_output_project(
+                                        atom_idx, c_base, out_col, value, hrow_slice,
+                                    );
+                                }
                             }
                         }
                     }
                 }
+                // Data-fit GN β-Hessian: accumulate the channel-independent block
+                // `G[μ_i, μ_j] += (a_k φ_k)[μ_i] (a_{k'} φ_{k'})[μ_j]` into the
+                // sparse per-atom-pair map (the `out_col` dimension is carried by
+                // `I_p`). Only co-occurring `(atom_i, atom_j)` pairs are touched.
+                for ai in 0..weighted_phi.len() {
+                    let (atom_i, ref wphi_i) = weighted_phi[ai];
+                    let m_i = wphi_i.len();
+                    for aj in 0..weighted_phi.len() {
+                        let (atom_j, ref wphi_j) = weighted_phi[aj];
+                        let m_j = wphi_j.len();
+                        let blk = g_blocks
+                            .entry((atom_i, atom_j))
+                            .or_insert_with(|| Array2::<f64>::zeros((m_i, m_j)));
+                        for li in 0..m_i {
+                            let wi = wphi_i[li];
+                            if wi == 0.0 {
+                                continue;
+                            }
+                            for lj in 0..m_j {
+                                blk[[li, lj]] += wi * wphi_j[lj];
+                            }
+                        }
+                    }
+                }
+                let (kron_a_phi, kron_jac) = if !frames_engaged {
+                    // Flatten local_jac_row row-major into a plain Vec<f64> (q_row * p entries).
+                    let mut jac_flat = vec![0.0_f64; q_row * p];
+                    for c in 0..q_row {
+                        for j in 0..p {
+                            jac_flat[c * p + j] = local_jac_row[[c, j]];
+                        }
+                    }
+                    (Some(a_phi), Some(jac_flat))
+                } else {
+                    (None, None)
+                };
+                Ok(SaeAssemblyRow {
+                    row,
+                    block,
+                    gb_delta,
+                    g_blocks,
+                    kron_a_phi,
+                    kron_jac,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+
+        let mut g_blocks: SaeGBlocks = std::collections::BTreeMap::new();
+        let mut kron_a_phi: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
+        let mut kron_jac: Vec<Vec<f64>> = Vec::with_capacity(n);
+        for (row, row_result) in row_results.into_iter().enumerate() {
+            assert_eq!(
+                row, row_result.row,
+                "parallel SAE row assembly returned rows out of order"
+            );
+            for (idx, value) in row_result.gb_delta {
+                sys.gb[idx] += value;
             }
-            // Data-fit GN β-Hessian: accumulate the channel-independent block
-            // `G[μ_i, μ_j] += (a_k φ_k)[μ_i] (a_{k'} φ_{k'})[μ_j]` into the
-            // sparse per-atom-pair map (the `out_col` dimension is carried by
-            // `I_p`). Only co-occurring `(atom_i, atom_j)` pairs are touched.
-            for ai in 0..weighted_phi.len() {
-                let (atom_i, ref wphi_i) = weighted_phi[ai];
-                let m_i = wphi_i.len();
-                for aj in 0..weighted_phi.len() {
-                    let (atom_j, ref wphi_j) = weighted_phi[aj];
-                    let m_j = wphi_j.len();
-                    let blk = g_blocks
-                        .entry((atom_i, atom_j))
-                        .or_insert_with(|| Array2::<f64>::zeros((m_i, m_j)));
-                    for li in 0..m_i {
-                        let wi = wphi_i[li];
-                        if wi == 0.0 {
-                            continue;
-                        }
-                        for lj in 0..m_j {
-                            blk[[li, lj]] += wi * wphi_j[lj];
-                        }
+            for ((atom_i, atom_j), data) in row_result.g_blocks {
+                let m_i = data.nrows();
+                let m_j = data.ncols();
+                let blk = g_blocks
+                    .entry((atom_i, atom_j))
+                    .or_insert_with(|| Array2::<f64>::zeros((m_i, m_j)));
+                for li in 0..m_i {
+                    for lj in 0..m_j {
+                        blk[[li, lj]] += data[[li, lj]];
                     }
                 }
             }
             if !frames_engaged {
-                kron_a_phi.push(a_phi);
-                // Flatten local_jac_row row-major into a plain Vec<f64> (q_row * p entries).
-                let mut jac_flat = vec![0.0_f64; q_row * p];
-                for c in 0..q_row {
-                    for j in 0..p {
-                        jac_flat[c * p + j] = local_jac_row[[c, j]];
-                    }
-                }
-                kron_jac.push(jac_flat);
+                kron_a_phi.push(
+                    row_result
+                        .kron_a_phi
+                        .expect("full-B SAE row assembly must return a_phi rows"),
+                );
+                kron_jac.push(
+                    row_result
+                        .kron_jac
+                        .expect("full-B SAE row assembly must return local Jacobian rows"),
+                );
             }
-            sys.rows[row] = block;
+            sys.rows[row] = row_result.block;
         }
         // Apply Riemannian geometry to the per-row row blocks (htt, gt) and
         // also to the per-row Kronecker local Jacobians stored in kron_jac.
@@ -7482,6 +7637,60 @@ impl SaeManifoldTerm {
         cache: &ArrowFactorCache,
         solver: &DeflatedArrowSolver<'_>,
     ) -> Result<f64, String> {
+        let k_atoms = self.k_atoms();
+        // #1038 softmax: `H` carries the DENSE entropy block, and since the
+        // entropy curvature scales linearly with `λ_sparse = exp(ρ)`,
+        // `∂H/∂ρ = H_entropy` (the full dense per-row block, not just its
+        // diagonal). The trace `½ tr(H⁻¹ ∂H/∂ρ)` must therefore contract the
+        // dense `∂H/∂ρ` against the per-row selected-inverse BLOCK, mirroring the
+        // dense `log|H|` and θ-adjoint — a diagonal-only contraction would
+        // desync the ρ-gradient from the criterion. (Softmax uses the dense
+        // `None` layout, so logit positions index atoms directly.)
+        if let AssignmentMode::Softmax {
+            temperature,
+            sparsity,
+        } = self.assignment.mode
+        {
+            if k_atoms <= 1 {
+                return Ok(0.0);
+            }
+            let inv_tau = 1.0 / temperature;
+            let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
+            let penalty =
+                crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
+                    k_atoms, temperature,
+                );
+            // Softmax uses the reduced K−1 free-logit chart: only positions
+            // 0..K−1 are free logit coordinates (last reference logit fixed), and
+            // the reduced `∂H/∂ρ` over the free logits is the top-left
+            // (K−1)×(K−1) submatrix of the full dense block. Contract it against
+            // the matching per-row selected-inverse block.
+            let assignment_dim = self.assignment.assignment_coord_dim();
+            let total_t = cache.delta_t_len();
+            let mut trace = 0.0_f64;
+            for row in 0..self.n_obs() {
+                let row_base = cache.row_offsets[row];
+                let q = cache.row_dims[row];
+                let logit_dim = assignment_dim.min(q);
+                let row_logits: Vec<f64> =
+                    (0..k_atoms).map(|k| self.assignment.logits[[row, k]]).collect();
+                // ∂H/∂ρ over this row's free-logit block (position j ↔ atom j).
+                let dh_rho = penalty.row_dense_hessian(&row_logits, scale);
+                for kj in 0..logit_dim {
+                    let mut rhs_t = Array1::<f64>::zeros(total_t);
+                    let rhs_beta = Array1::<f64>::zeros(cache.k);
+                    rhs_t[row_base + kj] = 1.0;
+                    let solved = solver.solve(rhs_t.view(), rhs_beta.view()).map_err(|err| {
+                        format!("assignment_log_strength_hessian_trace: {err}")
+                    })?;
+                    for ki in 0..logit_dim {
+                        // trace += (H⁻¹)_{ki,kj} · (∂H/∂ρ)_{kj,ki}; dh_rho symmetric.
+                        trace += solved.t[row_base + ki] * dh_rho[[kj, ki]];
+                    }
+                }
+            }
+            return Ok(0.5 * trace);
+        }
         let hdiag = assignment_prior_log_strength_hdiag(&self.assignment, rho)?;
         if hdiag.is_empty() {
             return Ok(0.0);
@@ -7489,7 +7698,6 @@ impl SaeManifoldTerm {
         let inv_diag = solver
             .latent_inverse_diagonal()
             .map_err(|err| format!("assignment_log_strength_hessian_trace: {err}"))?;
-        let k_atoms = self.k_atoms();
         let assignment_dim = self.assignment.assignment_coord_dim();
         let mut trace = 0.0_f64;
         for row in 0..self.n_obs() {
@@ -7509,6 +7717,184 @@ impl SaeManifoldTerm {
             }
         }
         Ok(0.5 * trace)
+    }
+
+    fn learnable_ibp_forward_alpha_data_derivative(
+        &self,
+        rho: &SaeManifoldRho,
+        target: ArrayView2<'_, f64>,
+    ) -> Result<f64, String> {
+        let AssignmentMode::IBPMap {
+            temperature: _,
+            learnable_alpha: true,
+            ..
+        } = self.assignment.mode
+        else {
+            return Ok(0.0);
+        };
+        let alpha = self
+            .assignment
+            .mode
+            .resolved_ibp_alpha(rho)
+            .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
+        let k_atoms = self.k_atoms();
+        let prior = ibp_stick_breaking_prior(k_atoms, alpha);
+        let mut dprior = Array1::<f64>::zeros(k_atoms);
+        for k in 0..k_atoms {
+            dprior[k] = prior[k] * k as f64 / (alpha + 1.0);
+        }
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let row_loss_w = self.row_loss_weights.as_deref();
+        let whitens = self
+            .row_metric
+            .as_ref()
+            .is_some_and(|metric| metric.whitens_likelihood());
+        let mut decoded = vec![0.0_f64; p];
+        let mut fitted = Array1::<f64>::zeros(p);
+        let mut f_rho = Array1::<f64>::zeros(p);
+        let mut residual = Array1::<f64>::zeros(p);
+        let mut total = 0.0_f64;
+        for row in 0..n {
+            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            fitted.fill(0.0);
+            f_rho.fill(0.0);
+            for k in 0..k_atoms {
+                self.atoms[k].fill_decoded_row(row, &mut decoded);
+                let sigma = assignments[k] / prior[k];
+                let da_rho = sigma * dprior[k];
+                for out_col in 0..p {
+                    fitted[out_col] += assignments[k] * decoded[out_col];
+                    f_rho[out_col] += da_rho * decoded[out_col];
+                }
+            }
+            for out_col in 0..p {
+                residual[out_col] = fitted[out_col] - target[[row, out_col]];
+            }
+            let residual_metric = match self.row_metric.as_ref() {
+                Some(metric) if whitens => metric.apply_metric_row(row, residual.view()),
+                _ => residual.to_vec(),
+            };
+            let row_weight = row_loss_w.map_or(1.0, |w| w[row]);
+            let mut row_dot = 0.0_f64;
+            for out_col in 0..p {
+                row_dot += residual_metric[out_col] * f_rho[out_col];
+            }
+            total += row_weight * row_dot;
+        }
+        Ok(total)
+    }
+
+    fn add_learnable_ibp_forward_alpha_data_rhs(
+        &self,
+        rho: &SaeManifoldRho,
+        target: ArrayView2<'_, f64>,
+        cache: &ArrowFactorCache,
+        t: &mut Array1<f64>,
+        beta: &mut Array1<f64>,
+    ) -> Result<(), String> {
+        let AssignmentMode::IBPMap {
+            temperature,
+            learnable_alpha: true,
+            ..
+        } = self.assignment.mode
+        else {
+            return Ok(());
+        };
+        let alpha = self
+            .assignment
+            .mode
+            .resolved_ibp_alpha(rho)
+            .ok_or_else(|| "learnable IBP alpha resolution failed".to_string())?;
+        let k_atoms = self.k_atoms();
+        let p = self.output_dim();
+        let prior = ibp_stick_breaking_prior(k_atoms, alpha);
+        let mut dprior = Array1::<f64>::zeros(k_atoms);
+        for k in 0..k_atoms {
+            dprior[k] = prior[k] * k as f64 / (alpha + 1.0);
+        }
+        let inv_tau = 1.0 / temperature;
+        let row_loss_w = self.row_loss_weights.as_deref();
+        let whitens = self
+            .row_metric
+            .as_ref()
+            .is_some_and(|metric| metric.whitens_likelihood());
+        let border = self.border_channels_for_cache(cache)?;
+        let mut decoded_rows = vec![vec![0.0_f64; p]; k_atoms];
+        let mut decoded_deriv = vec![0.0_f64; p];
+        let mut fitted = Array1::<f64>::zeros(p);
+        let mut f_rho = Array1::<f64>::zeros(p);
+        let mut residual = Array1::<f64>::zeros(p);
+        for row in 0..self.n_obs() {
+            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            fitted.fill(0.0);
+            f_rho.fill(0.0);
+            for k in 0..k_atoms {
+                self.atoms[k].fill_decoded_row(row, &mut decoded_rows[k]);
+                let sigma = assignments[k] / prior[k];
+                let da_rho = sigma * dprior[k];
+                for out_col in 0..p {
+                    fitted[out_col] += assignments[k] * decoded_rows[k][out_col];
+                    f_rho[out_col] += da_rho * decoded_rows[k][out_col];
+                }
+            }
+            for out_col in 0..p {
+                residual[out_col] = fitted[out_col] - target[[row, out_col]];
+            }
+            let residual_metric = match self.row_metric.as_ref() {
+                Some(metric) if whitens => metric.apply_metric_row(row, residual.view()),
+                _ => residual.to_vec(),
+            };
+            let f_metric = match self.row_metric.as_ref() {
+                Some(metric) if whitens => metric.apply_metric_row(row, f_rho.view()),
+                _ => f_rho.to_vec(),
+            };
+            let row_weight = row_loss_w.map_or(1.0, |w| w[row]);
+            let row_vars = self.row_vars_for_cache_row(row, cache)?;
+            let row_base = cache.row_offsets[row];
+            for (pos, var) in row_vars.iter().enumerate() {
+                let mut contribution = 0.0_f64;
+                match *var {
+                    SaeLocalRowVar::Logit { atom } => {
+                        let sigma = assignments[atom] / prior[atom];
+                        let sigma_jac = sigma * (1.0 - sigma) * inv_tau;
+                        let da_dl = sigma_jac * prior[atom];
+                        let d_da_rho_dl = sigma_jac * dprior[atom];
+                        for out_col in 0..p {
+                            contribution += da_dl * decoded_rows[atom][out_col] * f_metric[out_col];
+                            contribution += d_da_rho_dl
+                                * decoded_rows[atom][out_col]
+                                * residual_metric[out_col];
+                        }
+                    }
+                    SaeLocalRowVar::Coord { atom, axis } => {
+                        let sigma = assignments[atom] / prior[atom];
+                        let da_rho = sigma * dprior[atom];
+                        self.atoms[atom].fill_decoded_derivative_row(row, axis, &mut decoded_deriv);
+                        for out_col in 0..p {
+                            contribution +=
+                                assignments[atom] * decoded_deriv[out_col] * f_metric[out_col];
+                            contribution +=
+                                da_rho * decoded_deriv[out_col] * residual_metric[out_col];
+                        }
+                    }
+                }
+                t[row_base + pos] += row_weight * contribution;
+            }
+            for channel in &border {
+                let phi = self.atoms[channel.atom].basis_values[[row, channel.basis_col]];
+                let sigma = assignments[channel.atom] / prior[channel.atom];
+                let da_rho = sigma * dprior[channel.atom];
+                let mut contribution = 0.0_f64;
+                for out_col in 0..p {
+                    let output = channel.output[out_col];
+                    contribution += assignments[channel.atom] * phi * output * f_metric[out_col];
+                    contribution += da_rho * phi * output * residual_metric[out_col];
+                }
+                beta[channel.index] += row_weight * contribution;
+            }
+        }
+        Ok(())
     }
 
     fn border_channels_for_cache(
@@ -7642,6 +8028,7 @@ impl SaeManifoldTerm {
 
     fn gate_derivatives_for_row(
         &self,
+        rho: &SaeManifoldRho,
         row: usize,
         assignments: ArrayView1<'_, f64>,
         vars: &[SaeLocalRowVar],
@@ -7686,7 +8073,12 @@ impl SaeManifoldTerm {
             AssignmentMode::IBPMap {
                 temperature, alpha, ..
             } => {
-                let prior = ibp_stick_breaking_prior(k_atoms, alpha);
+                let effective_alpha = self
+                    .assignment
+                    .mode
+                    .resolved_ibp_alpha(rho)
+                    .unwrap_or(alpha);
+                let prior = ibp_stick_breaking_prior(k_atoms, effective_alpha);
                 let inv_tau = 1.0 / temperature;
                 for (idx, var) in vars.iter().enumerate() {
                     let SaeLocalRowVar::Logit { atom } = *var else {
@@ -7743,6 +8135,7 @@ impl SaeManifoldTerm {
 
     fn row_jets_for_logdet(
         &self,
+        rho: &SaeManifoldRho,
         row: usize,
         vars: Vec<SaeLocalRowVar>,
         assignments: ArrayView1<'_, f64>,
@@ -7756,7 +8149,7 @@ impl SaeManifoldTerm {
             .row_loss_weights
             .as_deref()
             .map_or(1.0, |w| w[row].sqrt());
-        let (dz, d2z) = self.gate_derivatives_for_row(row, assignments, &vars)?;
+        let (dz, d2z) = self.gate_derivatives_for_row(rho, row, assignments, &vars)?;
 
         let mut decoded = vec![vec![0.0_f64; p]; k_atoms];
         let mut d1: Vec<Vec<Vec<f64>>> = self
@@ -7935,33 +8328,15 @@ impl SaeManifoldTerm {
             return 0.0;
         };
         match self.assignment.mode {
-            AssignmentMode::Softmax {
-                temperature,
-                sparsity,
-            } => {
-                let assignments = self.assignment.assignments_row(row);
-                let inv_tau = 1.0 / temperature;
-                let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
-                let k_atoms = assignments.len();
-                let mut l = vec![0.0_f64; k_atoms];
-                let mut mean = 0.0_f64;
-                for k in 0..k_atoms {
-                    l[k] = assignments[k].max(1.0e-300).ln() + 1.0;
-                    mean += assignments[k] * l[k];
-                }
-                let mut da = vec![0.0_f64; k_atoms];
-                for k in 0..k_atoms {
-                    let indicator = if k == wrt_atom { 1.0 } else { 0.0 };
-                    da[k] = assignments[k] * (indicator - assignments[wrt_atom]) * inv_tau;
-                }
-                let dmean: f64 = (0..k_atoms).map(|k| da[k] * l[k]).sum();
-                let k = diag_atom;
-                let term = (1.0 - 2.0 * assignments[k]) * (mean - l[k]) + assignments[k] - 1.0;
-                let dl_k = da[k] / assignments[k].max(1.0e-300);
-                let dterm = -2.0 * da[k] * (mean - l[k])
-                    + (1.0 - 2.0 * assignments[k]) * (dmean - dl_k)
-                    + da[k];
-                scale * (da[k] * term + assignments[k] * dterm)
+            AssignmentMode::Softmax { .. } => {
+                // #1038: the softmax entropy Hessian is now stored DENSE in
+                // `block.htt` and its full θ-derivative `∂H_{k,j}/∂z_w` (diagonal
+                // AND off-diagonal) is added inline in `logdet_theta_adjoint` from
+                // the shared `row_dense_hessian_logit_derivative`. Returning the
+                // diagonal contribution here too would double-count, so this
+                // primitive is silent for softmax — the dense path is the single
+                // source for value, logdet, and adjoint.
+                0.0
             }
             AssignmentMode::JumpReLU {
                 temperature,
@@ -8037,6 +8412,7 @@ impl SaeManifoldTerm {
     pub fn outer_rho_gradient_ift_rhs(
         &self,
         rho: &SaeManifoldRho,
+        target: ArrayView2<'_, f64>,
         j: usize,
         cache: &ArrowFactorCache,
     ) -> Result<SaeArrowVector, String> {
@@ -8049,7 +8425,8 @@ impl SaeManifoldTerm {
         let mut t = Array1::<f64>::zeros(cache.delta_t_len());
         let mut beta = Array1::<f64>::zeros(cache.k);
         if j == 0 {
-            let (assignment_grad, _) = assignment_prior_grad_hdiag(&self.assignment, rho)?;
+            let assignment_grad =
+                assignment_prior_log_strength_target_mixed(&self.assignment, rho)?;
             let k_atoms = self.k_atoms();
             let assignment_dim = self.assignment.assignment_coord_dim();
             for row in 0..self.n_obs() {
@@ -8068,6 +8445,7 @@ impl SaeManifoldTerm {
                     }
                 }
             }
+            self.add_learnable_ibp_forward_alpha_data_rhs(rho, target, cache, &mut t, &mut beta)?;
         } else if j == 1 {
             let lambda = rho.lambda_smooth();
             let frames_active = self.last_frames_active && cache.k == self.factored_border_dim();
@@ -8166,13 +8544,40 @@ impl SaeManifoldTerm {
                 }
             }
         }
-        // Exact IBP `hessian_diag` logit third-derivative channels (#1006), built
-        // once on the same penalty configuration the assembly uses. `None` for
-        // non-IBP modes. The cross-row empirical-`M_k` channel needs the per-row
-        // selected-inverse diagonals collected during the row loop, so it is
-        // distributed column-wise afterwards.
+        // IBP `hessian_diag` logit third-derivative channels (#1006), exact for
+        // the diagonal/quasi-Laplace assignment curvature this assembly actually
+        // factors. The full IBP Hessian also has per-column cross-row rank-one
+        // terms; those are omitted from H and therefore from this adjoint until
+        // the evidence factor grows the matching Woodbury correction.
         let ibp_channels = ibp_assignment_third_channels(&self.assignment, rho)?;
         let k_atoms = self.k_atoms();
+        // #1038 softmax entropy: the dense per-row entropy Hessian written into
+        // `block.htt` has off-diagonal logit terms whose θ-derivative the adjoint
+        // must contract too (not just the diagonal). Build the SAME penalty +
+        // `scale = λ/τ²` the assembly uses so value/logdet/adjoint differentiate
+        // one operator. `None` for non-softmax modes (their diagonal/cross-row
+        // channels are handled by `assignment_prior_hdiag_derivative_entry` and
+        // the IBP column pass).
+        let softmax_dense_adjoint: Option<(
+            crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty,
+            f64,
+        )> = match self.assignment.mode {
+            AssignmentMode::Softmax {
+                temperature,
+                sparsity,
+            } if k_atoms > 1 => {
+                let inv_tau = 1.0 / temperature;
+                let scale = rho.lambda_sparse() * sparsity * inv_tau * inv_tau;
+                Some((
+                    crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
+                        k_atoms,
+                        temperature,
+                    ),
+                    scale,
+                ))
+            }
+            _ => None,
+        };
         // Per active logit position: (row i, column k, global t-index,
         // (H⁻¹)_ik,ik) — the inputs to the IBP cross-row empirical-`M_k` channel.
         let mut ibp_logit_sites: Vec<(usize, usize, usize, f64)> = Vec::new();
@@ -8181,9 +8586,15 @@ impl SaeManifoldTerm {
             let q = cache.row_dims[row];
             let base = cache.row_offsets[row];
             let vars = self.row_vars_for_cache_row(row, cache)?;
-            let assignments = self.assignment.try_assignments_row(row)?;
-            let jets =
-                self.row_jets_for_logdet(row, vars, assignments.view(), &second_jets, &border)?;
+            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            let jets = self.row_jets_for_logdet(
+                rho,
+                row,
+                vars,
+                assignments.view(),
+                &second_jets,
+                &border,
+            )?;
 
             let mut inv_vv = Array2::<f64>::zeros((q, q));
             let mut inv_vbeta = Array2::<f64>::zeros((q, cache.k));
@@ -8212,12 +8623,37 @@ impl SaeManifoldTerm {
                 }
             }
 
+            // #1038: when `w` is a logit and the assignment is softmax, the dense
+            // entropy Hessian's full θ-derivative `∂H_{k,j}/∂z_w` (diagonal AND
+            // off-diagonal) is the SAME `(a,L,m)`-derived tensor the assembly and
+            // logdet use. Compute it once per logit `w` and add it at every logit
+            // pair `(a,b)` below. The diagonal softmax case is therefore handled
+            // here, NOT in `assignment_prior_hdiag_derivative_entry` (which returns
+            // 0 for softmax to avoid double-counting).
+            let row_logits_softmax: Option<Vec<f64>> = softmax_dense_adjoint
+                .as_ref()
+                .map(|_| (0..k_atoms).map(|k| self.assignment.logits[[row, k]]).collect());
             for w in 0..q {
                 let mut gamma = 0.0_f64;
+                let softmax_dh_w: Option<Array2<f64>> = match (
+                    softmax_dense_adjoint.as_ref(),
+                    row_logits_softmax.as_ref(),
+                    jets.vars[w],
+                ) {
+                    (Some((penalty, scale)), Some(row_logits), SaeLocalRowVar::Logit { atom }) => {
+                        Some(penalty.row_dense_hessian_logit_derivative(row_logits, *scale, atom))
+                    }
+                    _ => None,
+                };
                 for a in 0..q {
                     for b in 0..q {
                         let mut dh = sae_dot(&jets.second[a][w], &jets.first[b])
                             + sae_dot(&jets.first[a], &jets.second[b][w]);
+                        if let (Some(dh_w), SaeLocalRowVar::Logit { atom: atom_a }, SaeLocalRowVar::Logit { atom: atom_b }) =
+                            (softmax_dh_w.as_ref(), jets.vars[a], jets.vars[b])
+                        {
+                            dh += dh_w[[atom_a, atom_b]];
+                        }
                         if a == b {
                             dh += match jets.vars[a] {
                                 SaeLocalRowVar::Logit { atom } => self
@@ -8307,6 +8743,7 @@ impl SaeManifoldTerm {
     /// implicit-state third-order correction.
     pub(crate) fn analytic_outer_rho_gradient_components(
         &self,
+        target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
         loss: &SaeManifoldLoss,
         cache: &ArrowFactorCache,
@@ -8318,7 +8755,8 @@ impl SaeManifoldTerm {
         let mut occam = Array1::<f64>::zeros(n_params);
         let mut third_order_correction = Array1::<f64>::zeros(n_params);
 
-        explicit[0] = assignment_prior_log_strength_derivative(&self.assignment, rho);
+        explicit[0] = assignment_prior_log_strength_derivative(&self.assignment, rho)
+            + self.learnable_ibp_forward_alpha_data_derivative(rho, target)?;
         logdet_trace[0] = self.assignment_log_strength_hessian_trace(rho, cache, solver)?;
 
         explicit[1] = loss.smoothness;
@@ -8343,7 +8781,7 @@ impl SaeManifoldTerm {
 
         let gamma = self.logdet_theta_adjoint(rho, cache, solver)?;
         for coord in 0..n_params {
-            let rhs = self.outer_rho_gradient_ift_rhs(rho, coord, cache)?;
+            let rhs = self.outer_rho_gradient_ift_rhs(rho, target, coord, cache)?;
             let solved = solver.solve(rhs.t.view(), rhs.beta.view()).map_err(|err| {
                 format!("analytic_outer_rho_gradient_components: full_inverse_apply: {err}")
             })?;
@@ -8373,12 +8811,13 @@ impl SaeManifoldTerm {
     /// the crate-private `DeflatedArrowSolver`.
     pub fn analytic_outer_rho_gradient_at_converged(
         &self,
+        target: ArrayView2<'_, f64>,
         rho: &SaeManifoldRho,
         loss: &SaeManifoldLoss,
         cache: &ArrowFactorCache,
     ) -> Result<SaeOuterRhoGradientComponents, String> {
         let solver = self.outer_gradient_arrow_solver(cache)?;
-        self.analytic_outer_rho_gradient_components(rho, loss, cache, &solver)
+        self.analytic_outer_rho_gradient_components(target, rho, loss, cache, &solver)
     }
 
     /// Compose the SAE LAML criterion as a sum of atoms (#931 SAE pilot).
@@ -8429,7 +8868,7 @@ impl SaeManifoldTerm {
 
         let solver = self.outer_gradient_arrow_solver(&cache)?;
         let components =
-            self.analytic_outer_rho_gradient_components(rho, &loss, &cache, &solver)?;
+            self.analytic_outer_rho_gradient_components(target, rho, &loss, &cache, &solver)?;
         Ok(SaeCriterion::assemble(
             data_fit_priors_value,
             log_det,
@@ -8723,7 +9162,6 @@ impl SaeManifoldTerm {
     ) -> Result<SaeBetaPenaltyAssembly, ArrowSchurError> {
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
         let layout = registry.rho_layout();
-        let logits_flat = flat_logits(self.assignment.logits.view());
         let beta = self.flatten_beta();
         let mut beta_assembly = SaeBetaPenaltyAssembly::default();
         for (penalty, (rho_slice, tier, name)) in registry.penalties.iter().zip(layout.iter()) {
@@ -8749,19 +9187,7 @@ impl SaeManifoldTerm {
             }
             match tier {
                 PenaltyTier::Psi => {
-                    if matches!(
-                        penalty,
-                        AnalyticPenaltyKind::IBPAssignment(_)
-                            | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
-                    ) {
-                        self.add_sae_logit_penalty(
-                            sys,
-                            penalty,
-                            logits_flat.view(),
-                            rho_local,
-                            row_layout,
-                        );
-                    } else if matches!(penalty, AnalyticPenaltyKind::NuclearNorm(_)) {
+                    if matches!(penalty, AnalyticPenaltyKind::NuclearNorm(_)) {
                         // NuclearNorm is a Psi-tier penalty but it targets each
                         // atom's decoder (β) matrix singular spectrum, not the
                         // coord "t" row block. Route it to the β tier so it
@@ -8972,50 +9398,6 @@ impl SaeManifoldTerm {
         Ok(AnalyticPenaltyKind::Isometry(Arc::new(corrected)))
     }
 
-    fn add_sae_logit_penalty(
-        &self,
-        sys: &mut ArrowSchurSystem,
-        penalty: &AnalyticPenaltyKind,
-        target: ArrayView1<'_, f64>,
-        rho_local: ArrayView1<'_, f64>,
-        row_layout: Option<&SaeRowLayout>,
-    ) {
-        let n = self.n_obs();
-        let k = self.k_atoms();
-        let assignment_dim = self.assignment.assignment_coord_dim();
-        let grad = penalty.grad_target(target, rho_local);
-        for row in 0..n {
-            if let Some(layout) = row_layout {
-                for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                    sys.rows[row].gt[pos] += grad[row * k + atom];
-                }
-            } else {
-                for free_idx in 0..assignment_dim {
-                    sys.rows[row].gt[free_idx] += grad[row * k + free_idx];
-                }
-            }
-        }
-        // The ArrowSchur `htt` block is the Newton / PIRLS curvature operator and
-        // must stay PSD. Nonconvex sparsifiers (log, JumpReLU) have an indefinite
-        // true Hessian, so we accumulate the PSD majorizer here — never the exact
-        // `hessian_diag`, which goes negative and would destroy the solve's
-        // positive-definiteness. Convex penalties' majorizer equals their exact
-        // Hessian, so this is exact for them.
-        if let Some(diag) = penalty.psd_majorizer_diag(target, rho_local) {
-            for row in 0..n {
-                if let Some(layout) = row_layout {
-                    for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                        sys.rows[row].htt[[pos, pos]] += diag[row * k + atom];
-                    }
-                } else {
-                    for free_idx in 0..assignment_dim {
-                        sys.rows[row].htt[[free_idx, free_idx]] += diag[row * k + free_idx];
-                    }
-                }
-            }
-        }
-    }
-
     fn add_sae_coord_penalty(
         &self,
         sys: &mut ArrowSchurSystem,
@@ -9085,7 +9467,8 @@ impl SaeManifoldTerm {
         }
         // `htt` is the PSD Newton / PIRLS curvature block: accumulate the PSD
         // majorizer (exact for convex penalties), not the indefinite exact
-        // Hessian, for the same reason as `add_sae_logit_penalty` above.
+        // Hessian, for the same PSD-Newton reason used throughout the analytic
+        // penalty assembly.
         if let Some(diag) = penalty.psd_majorizer_diag(target, rho_local) {
             for row in 0..n {
                 if let Some(row_off) =
@@ -9827,7 +10210,10 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
-    fn canonicalize_affine_gauge_after_accept(&mut self) -> Result<(), String> {
+    fn canonicalize_affine_gauge_after_accept(
+        &mut self,
+        rho: Option<&SaeManifoldRho>,
+    ) -> Result<(), String> {
         for atom_idx in 0..self.k_atoms() {
             if !matches!(
                 self.atoms[atom_idx].basis_kind,
@@ -9835,12 +10221,16 @@ impl SaeManifoldTerm {
             ) {
                 continue;
             }
-            self.canonicalize_atom_affine_gauge(atom_idx)?;
+            self.canonicalize_atom_affine_gauge(atom_idx, rho)?;
         }
         Ok(())
     }
 
-    fn canonicalize_atom_affine_gauge(&mut self, atom_idx: usize) -> Result<(), String> {
+    fn canonicalize_atom_affine_gauge(
+        &mut self,
+        atom_idx: usize,
+        rho: Option<&SaeManifoldRho>,
+    ) -> Result<(), String> {
         let n = self.n_obs();
         let d = self.assignment.coords[atom_idx].latent_dim();
         if n == 0 || d == 0 {
@@ -9850,7 +10240,7 @@ impl SaeManifoldTerm {
             return Ok(());
         };
         let coords = self.assignment.coords[atom_idx].as_matrix();
-        let weights = self.atom_affine_gauge_weights(atom_idx)?;
+        let weights = self.atom_affine_gauge_weights(atom_idx, rho)?;
         let weight_sum: f64 = weights.iter().sum();
         if !(weight_sum.is_finite() && weight_sum > 0.0) {
             return Ok(());
@@ -9949,11 +10339,18 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
-    fn atom_affine_gauge_weights(&self, atom_idx: usize) -> Result<Array1<f64>, String> {
+    fn atom_affine_gauge_weights(
+        &self,
+        atom_idx: usize,
+        rho: Option<&SaeManifoldRho>,
+    ) -> Result<Array1<f64>, String> {
         let n = self.n_obs();
         let mut weights = Array1::<f64>::zeros(n);
         for row in 0..n {
-            let assignments = self.assignment.try_assignments_row(row)?;
+            let assignments = match rho {
+                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho)?,
+                None => self.assignment.try_assignments_row(row)?,
+            };
             let mut w = assignments[atom_idx].max(0.0);
             if let Some(row_weights) = self.row_loss_weights.as_ref() {
                 w *= row_weights[row].max(0.0);
@@ -10033,6 +10430,95 @@ impl SaeManifoldTerm {
             };
             eligible.push((atom_idx, plan));
         }
+
+        // #1019 sphere arm: d = 2 sphere atoms are NOT flow-pinned (no global
+        // pole-free flow basis — hairy ball), but the isometry DEFECT against the
+        // round-sphere reference metric is well-defined at the fitted chart and
+        // is exactly the issue's acceptance quantity. Measure and log it so the
+        // honest "left as fitted" sphere arm is MEASURABLE: a round-isometric
+        // (O(3)-representative) chart scores ≈ 0, a warped chart scores large.
+        // This never mutates the atom — it is a pure read-only diagnostic.
+        for atom_idx in 0..self.k_atoms() {
+            let atom = &self.atoms[atom_idx];
+            if !matches!(atom.basis_kind, SaeAtomBasisKind::Sphere)
+                || atom.latent_dim != 2
+                || atom.homotopy_eta != 1.0
+                || self.assignment.coords[atom_idx].latent_dim() != atom.latent_dim
+            {
+                continue;
+            }
+            let Some(evaluator) = atom.basis_evaluator.as_ref().cloned() else {
+                continue;
+            };
+            let coords = self.assignment.coords[atom_idx].as_matrix();
+            match crate::terms::sae_chart_canonicalization::sphere_chart_isometry_defect(
+                evaluator.as_ref(),
+                atom.decoder_coefficients.view(),
+                coords.view(),
+            ) {
+                Ok(Some(defect)) => log::info!(
+                    "[#1019] sphere atom '{}' chart isometry defect = {defect:.6e} \
+                     (round-sphere reference; 0 = O(3)-isometric, left as fitted — \
+                     no pole-free flow basis to pin)",
+                    atom.name
+                ),
+                Ok(None) => log::info!(
+                    "[#1019] sphere atom '{}' chart isometry defect unavailable \
+                     (degenerate or pole-singular chart); left as fitted",
+                    atom.name
+                ),
+                Err(err) => log::warn!(
+                    "[#1019] sphere atom '{}' chart isometry defect errored: {err}",
+                    atom.name
+                ),
+            }
+        }
+
+        // #1026 EV-vs-Θ measurement: log each d = 1 atom's fitted TURNING
+        // `Θ = ∫κ ds` (integrated curvature of its decoded curve). A linear SAE
+        // shatters a curved feature of turning Θ into `N(ε) ≈ Θ/(2√(2ε))` rank-1
+        // atoms at relative error ε, so the curved win is concentrated on high-Θ
+        // features and vanishes as Θ → 0. Pairing this with the atom's EV
+        // contribution (held-out reconstruction) is the discriminating
+        // hybrid-vs-shatter signal: a Θ ≈ 0 atom that still earns EV is a linear
+        // direction wearing a curved basis; a high-Θ atom earning EV is a genuine
+        // curved family. Pure read-only diagnostic, never mutates the atom.
+        for atom_idx in 0..self.k_atoms() {
+            let atom = &self.atoms[atom_idx];
+            if atom.latent_dim != 1
+                || atom.homotopy_eta != 1.0
+                || self.assignment.coords[atom_idx].latent_dim() != atom.latent_dim
+            {
+                continue;
+            }
+            let Some(evaluator) = atom.basis_evaluator.as_ref().cloned() else {
+                continue;
+            };
+            let coords = self.assignment.coords[atom_idx].as_matrix();
+            let row_coords = coords.column(0);
+            match crate::terms::sae_chart_canonicalization::d1_atom_fitted_turning(
+                evaluator.as_ref(),
+                atom.decoder_coefficients.view(),
+                row_coords,
+            ) {
+                Ok(Some(theta)) => log::info!(
+                    "[#1026] atom '{}' fitted turning Θ = {theta:.6e} rad \
+                     (∫κ ds; 0 = linear-tail direction, 2π = full curved loop; \
+                     pair with held-out EV for the hybrid-vs-shatter signal)",
+                    atom.name
+                ),
+                Ok(None) => log::info!(
+                    "[#1026] atom '{}' fitted turning unavailable \
+                     (no analytic second jet or degenerate curve)",
+                    atom.name
+                ),
+                Err(err) => log::warn!(
+                    "[#1026] atom '{}' fitted turning errored: {err}",
+                    atom.name
+                ),
+            }
+        }
+
         if eligible.is_empty() {
             return Ok(());
         }
@@ -10739,8 +11225,12 @@ impl SaeManifoldTerm {
     /// `(gates, coords, decoder)` state against `target`, in the term's native
     /// `(n, p)` layout. The curvature-homotopy predictor (#1007) contracts this
     /// against `∂Φ/∂η` to form the data-fit half of `∂g_β/∂η`.
-    fn reconstruction_residual(&self, target: ArrayView2<'_, f64>) -> Result<Array2<f64>, String> {
-        let fitted = self.try_fitted()?;
+    fn reconstruction_residual(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+    ) -> Result<Array2<f64>, String> {
+        let fitted = self.try_fitted_for_rho(rho)?;
         if fitted.dim() != target.dim() {
             return Err(format!(
                 "SaeManifoldTerm::reconstruction_residual: fitted {:?} != target {:?}",
@@ -10749,6 +11239,28 @@ impl SaeManifoldTerm {
             ));
         }
         Ok(&fitted - &target)
+    }
+
+    /// True when the curvature-homotopy `η` dial cannot move the basis: no
+    /// atom evaluator declares curved columns (caller-managed atoms have no
+    /// evaluator, hence no split — equally immovable). A one-harmonic periodic
+    /// bank (`M = 3`) is the canonical case: constant + fundamental are all
+    /// linear columns. Combined with an all-zero isometry ramp this makes the
+    /// entry walk's corrector problem η-invariant, which
+    /// [`SaeManifoldOuterObjective::run_curvature_homotopy_entry_at_rho`] uses
+    /// to collapse the η-grid to its first corrector.
+    fn curvature_homotopy_eta_is_inert(&self) -> Result<bool, String> {
+        for atom in &self.atoms {
+            if let Some(evaluator) = atom.basis_evaluator.as_ref()
+                && !evaluator
+                    .phi_eta_split(atom.basis_size())?
+                    .curved_cols
+                    .is_empty()
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// Per-atom curved-column basis derivative `∂Φ^η/∂η` (#1007): the raw
@@ -10794,16 +11306,17 @@ impl SaeManifoldTerm {
     fn curvature_beta_gradient_eta_derivative(
         &self,
         target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
     ) -> Result<Array1<f64>, String> {
         let n = self.n_obs();
         let p = self.output_dim();
         let offsets = self.beta_offsets();
-        let residual = self.reconstruction_residual(target)?;
+        let residual = self.reconstruction_residual(target, rho)?;
         let dphi_deta = self.curvature_basis_eta_derivatives()?;
         // ∂fitted_i/∂η = Σ_{k'} a_ik' (dΦ_{k'}[i,:]) · B_{k'}.
         let mut dfitted = Array2::<f64>::zeros((n, p));
         for row in 0..n {
-            let a = self.assignment.try_assignments_row(row)?;
+            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -10825,7 +11338,7 @@ impl SaeManifoldTerm {
         // ∂g_β/∂η[k,μ,c] = Σ_i a_ik (dΦ_k[i,μ] r_i[c] + Φ^η_k[i,μ] dfitted_i[c]).
         let mut out = Array1::<f64>::zeros(self.beta_dim());
         for row in 0..n {
-            let a = self.assignment.try_assignments_row(row)?;
+            let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
             for (atom_idx, atom) in self.atoms.iter().enumerate() {
                 let a_k = a[atom_idx];
                 if a_k == 0.0 {
@@ -10859,7 +11372,11 @@ impl SaeManifoldTerm {
     /// keep-or-kill decision belongs to the evidence-gated structure search,
     /// not to an inner-loop heuristic. Observable events, never silent deaths,
     /// never fit errors.
-    fn enforce_active_mass_guard(&mut self, iteration: usize) -> Result<(), String> {
+    fn enforce_active_mass_guard(
+        &mut self,
+        iteration: usize,
+        rho: Option<&SaeManifoldRho>,
+    ) -> Result<(), String> {
         let n = self.n_obs();
         let k = self.k_atoms();
         if n == 0 || k == 0 {
@@ -10867,10 +11384,11 @@ impl SaeManifoldTerm {
         }
         let mut max_mass = vec![0.0_f64; k];
         for row in 0..n {
-            let a = self
-                .assignment
-                .try_assignments_row(row)
-                .map_err(|e| format!("SaeManifoldTerm::enforce_active_mass_guard: {e}"))?;
+            let a = match rho {
+                Some(rho) => self.assignment.try_assignments_row_for_rho(row, rho),
+                None => self.assignment.try_assignments_row(row),
+            }
+            .map_err(|e| format!("SaeManifoldTerm::enforce_active_mass_guard: {e}"))?;
             for atom in 0..k {
                 if a[atom] > max_mass[atom] {
                     max_mass[atom] = a[atom];
@@ -11470,7 +11988,7 @@ impl SaeManifoldTerm {
         // collapses again mid-fit goes Terminal, which is the structure
         // search's signal, not the inner loop's. Genuinely degenerate bases
         // (zero rows regardless of gates) still fail the audit — correctly.
-        self.enforce_active_mass_guard(0)?;
+        self.enforce_active_mass_guard(0, Some(rho))?;
         // ── Pre-fit decoder identifiability audit ──────────────────────────
         //
         // Each decoder atom `k` contributes `η_i += a_ik · Φ_k(t_ik) · B_k`,
@@ -11714,7 +12232,7 @@ impl SaeManifoldTerm {
             let accepted_snapshot = self.snapshot_mutable_state();
             let accepted_total =
                 self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
-            self.canonicalize_affine_gauge_after_accept()?;
+            self.canonicalize_affine_gauge_after_accept(Some(rho))?;
             let canonical_total =
                 self.penalized_objective_total(target, rho, analytic_penalties, 1.0)?;
             if !(canonical_total.is_finite() && canonical_total <= accepted_total) {
@@ -11726,7 +12244,7 @@ impl SaeManifoldTerm {
             // CollapseEvent. Runs post-acceptance so it never perturbs a
             // line-search trial, and any re-seed is simply the next
             // iteration's starting state.
-            self.enforce_active_mass_guard(outer_iteration)?;
+            self.enforce_active_mass_guard(outer_iteration, Some(rho))?;
             // #972 / #977 T1 — U-block of the alternating block-coordinate ascent.
             // After the decoder `B` has been updated by the accepted (t, ΔC) step
             // (lifted through the OLD frames in `apply_newton_step`), re-polar each
@@ -11739,7 +12257,7 @@ impl SaeManifoldTerm {
             // accepted outer iteration is a sensible cadence (the issue's
             // streaming-polar fixed point).
             if self.frames_active() {
-                self.refresh_active_frames_from_data(target)
+                self.refresh_active_frames_from_data(target, rho)
                     .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
             }
         }
@@ -12711,13 +13229,13 @@ impl SaeManifoldOuterObjective {
         } else {
             (term, loss)
         };
-        if let (Ok(seed_fit), Ok(returned_fit)) =
-            (pristine_seed_term.try_fitted(), fitted.try_fitted())
-            && let (Some(seed_ev), Some(returned_ev)) = (
-                reconstruction_explained_variance(target.view(), seed_fit.view()),
-                reconstruction_explained_variance(target.view(), returned_fit.view()),
-            )
-            && seed_ev >= SAE_PRISTINE_SEED_EV_RETAIN_FLOOR
+        if let (Ok(seed_fit), Ok(returned_fit)) = (
+            pristine_seed_term.try_fitted_for_rho(&pristine_seed_rho),
+            fitted.try_fitted_for_rho(&fitted_rho),
+        ) && let (Some(seed_ev), Some(returned_ev)) = (
+            reconstruction_explained_variance(target.view(), seed_fit.view()),
+            reconstruction_explained_variance(target.view(), returned_fit.view()),
+        ) && seed_ev >= SAE_PRISTINE_SEED_EV_RETAIN_FLOOR
             && returned_ev < SAE_PRISTINE_SEED_EV_RETAIN_FLOOR
             && returned_ev + SAE_FINAL_EV_DEGRADATION_TOL < seed_ev
             && let Ok(seed_loss) = pristine_seed_term.loss(target.view(), &pristine_seed_rho)
@@ -12738,6 +13256,9 @@ impl SaeManifoldOuterObjective {
             fitted.canonicalize_charts_post_fit(target.view(), &fitted_rho, registry.as_ref())
         {
             log::debug!("into_fitted: chart canonicalization refused: {err}");
+        }
+        if fitted.assignment.persist_resolved_ibp_alpha(&fitted_rho) {
+            fitted_rho.log_lambda_sparse = 0.0;
         }
         (fitted, fitted_rho, fitted_loss)
     }
@@ -12786,9 +13307,13 @@ impl SaeManifoldOuterObjective {
             self.ridge_beta,
         )?;
         let solver = self.term.outer_gradient_arrow_solver(&cache)?;
-        let components = self
-            .term
-            .analytic_outer_rho_gradient_components(&rho_hat, &loss_hat, &cache, &solver)?;
+        let components = self.term.analytic_outer_rho_gradient_components(
+            self.target.view(),
+            &rho_hat,
+            &loss_hat,
+            &cache,
+            &solver,
+        )?;
         let grad = components.gradient_with_available_correction();
         let grad_norm = grad.iter().map(|g| g * g).sum::<f64>().sqrt();
         let analytic_directional: f64 = grad.iter().zip(dir.iter()).map(|(g, d)| g * d).sum();
@@ -12963,6 +13488,22 @@ impl SaeManifoldOuterObjective {
         let mut total_correctors = 0usize;
         let mut bifurcation: Option<CurvatureBifurcation> = None;
 
+        // Identity-homotopy shortcut: with no curved basis columns anywhere
+        // AND an all-zero isometry ramp, `solve_at_eta` poses the SAME problem
+        // at every η — the grid legs after the anchor corrector would re-solve
+        // its converged state verbatim, paying a full criterion/factorization
+        // rebuild each time. The anchor + first corrector carry all the value
+        // (certified Eckart-Young initialization + one full solve); arrive at
+        // η = 1 directly. `set_homotopy_eta(1.0)` restores the plain-evaluate
+        // fast path (η == 1 skips the dialed evaluator); the isometry weights
+        // are already at target because every ramp target is zero.
+        if isometry_targets.iter().all(|&target| target == 0.0)
+            && self.term.curvature_homotopy_eta_is_inert()?
+        {
+            self.term.set_homotopy_eta(1.0)?;
+            eta = 1.0;
+        }
+
         'walk: while eta < 1.0 {
             let eta_next = (eta + eta_step).min(1.0);
             let d_eta = eta_next - eta;
@@ -12972,7 +13513,7 @@ impl SaeManifoldOuterObjective {
             // the corrector simply opens from the previous η's converged β.
             if let Ok(dg_beta) = self
                 .term
-                .curvature_beta_gradient_eta_derivative(self.target.view())
+                .curvature_beta_gradient_eta_derivative(self.target.view(), &rho)
                 && dg_beta.len() == last_cache.k
             {
                 let w_t = Array1::<f64>::zeros(last_cache.delta_t_len());
@@ -13081,7 +13622,7 @@ impl SaeManifoldOuterObjective {
         }
         self.set_isometry_homotopy_weight(1.0, &isometry_targets);
         if arrived
-            && let Ok(before_fit) = self.term.try_fitted()
+            && let Ok(before_fit) = self.term.try_fitted_for_rho(&rho)
             && let Some(before_ev) =
                 reconstruction_explained_variance(self.target.view(), before_fit.view())
             && before_ev < 0.9
@@ -13089,17 +13630,19 @@ impl SaeManifoldOuterObjective {
             let snapshot = self.term.snapshot_mutable_state();
             let accepted_polish = self
                 .term
-                .refit_decoder_least_squares_at_current_state(self.target.view())
+                .refit_decoder_least_squares_at_current_state(self.target.view(), Some(&rho))
                 .and_then(|()| {
                     self.term
                         .seed_coords_by_decoder_projection(self.target.view(), 256)
                 })
                 .and_then(|()| {
-                    self.term
-                        .refit_decoder_least_squares_at_current_state(self.target.view())
+                    self.term.refit_decoder_least_squares_at_current_state(
+                        self.target.view(),
+                        Some(&rho),
+                    )
                 })
                 .and_then(|()| {
-                    let after_fit = self.term.try_fitted()?;
+                    let after_fit = self.term.try_fitted_for_rho(&rho)?;
                     let Some(after_ev) =
                         reconstruction_explained_variance(self.target.view(), after_fit.view())
                     else {
@@ -13170,9 +13713,13 @@ impl SaeManifoldOuterObjective {
         }
     }
 
-    fn add_fit_data_collapse_penalty(&mut self, cost: f64) -> Result<f64, String> {
-        let fitted = self.term.try_fitted()?;
-        let assignments = self.term.assignment.assignments();
+    fn add_fit_data_collapse_penalty(
+        &mut self,
+        cost: f64,
+        rho: &SaeManifoldRho,
+    ) -> Result<f64, String> {
+        let fitted = self.term.try_fitted_for_rho(rho)?;
+        let assignments = self.term.assignment.assignments_for_rho(rho)?;
         let collapsed = self.term.record_fit_data_collapse_if_needed(
             self.target.view(),
             fitted.view(),
@@ -13184,6 +13731,13 @@ impl SaeManifoldOuterObjective {
         } else {
             Ok(cost)
         }
+    }
+
+    fn is_recoverable_value_probe_refusal(err: &str) -> bool {
+        err.contains("inner solve did not converge at fixed ρ")
+            || err.contains(
+                "undamped evidence factorization hit a non-PD per-row H_tt block before KKT",
+            )
     }
 
     /// Shared cost path: evaluate the REML criterion at `rho_flat`, updating
@@ -13218,10 +13772,10 @@ impl SaeManifoldOuterObjective {
             self.ridge_beta,
             refine_progress_extension,
         )?;
+        let beta_hat = self.term.flatten_beta();
+        let cost = self.add_fit_data_collapse_penalty(cost, &rho)?;
         self.current_rho = rho;
         self.last_loss = Some(loss);
-        let beta_hat = self.term.flatten_beta();
-        let cost = self.add_fit_data_collapse_penalty(cost)?;
         Ok((cost, beta_hat))
     }
 
@@ -13325,7 +13879,7 @@ impl SaeManifoldOuterObjective {
         }
 
         let beta_hat = self.term.flatten_beta();
-        let cost = self.add_fit_data_collapse_penalty(cost)?;
+        let cost = self.add_fit_data_collapse_penalty(cost, &rho)?;
         Ok(EfsEval {
             cost,
             steps,
@@ -13378,9 +13932,11 @@ impl OuterObjective for SaeManifoldOuterObjective {
         // before any derivative consumption, and a probe value — when one is
         // returned at all — is converged to the same KKT/step tolerance as
         // the full-budget path, so all ranked comparisons stay in one measure.
-        self.evaluate_with_refine_policy(rho.view(), false)
-            .map(|(cost, _beta)| cost)
-            .map_err(EstimationError::RemlOptimizationFailed)
+        match self.evaluate_with_refine_policy(rho.view(), false) {
+            Ok((cost, _beta)) => Ok(cost),
+            Err(err) if Self::is_recoverable_value_probe_refusal(&err) => Ok(f64::INFINITY),
+            Err(err) => Err(EstimationError::RemlOptimizationFailed(err)),
+        }
     }
 
     fn eval(&mut self, rho: &Array1<f64>) -> Result<OuterEval, EstimationError> {
@@ -13410,15 +13966,21 @@ impl OuterObjective for SaeManifoldOuterObjective {
             .map_err(EstimationError::RemlOptimizationFailed)?;
         let components = self
             .term
-            .analytic_outer_rho_gradient_components(&rho_state, &loss, &cache, &solver)
+            .analytic_outer_rho_gradient_components(
+                self.target.view(),
+                &rho_state,
+                &loss,
+                &cache,
+                &solver,
+            )
             .map_err(EstimationError::RemlOptimizationFailed)?;
         let gradient = components.gradient_with_available_correction();
-        self.current_rho = rho_state;
-        self.last_loss = Some(loss);
         let beta_hat = self.term.flatten_beta();
         let cost = self
-            .add_fit_data_collapse_penalty(cost)
+            .add_fit_data_collapse_penalty(cost, &rho_state)
             .map_err(EstimationError::RemlOptimizationFailed)?;
+        self.current_rho = rho_state;
+        self.last_loss = Some(loss);
         Ok(OuterEval {
             cost,
             gradient,
@@ -13434,9 +13996,13 @@ impl OuterObjective for SaeManifoldOuterObjective {
     ) -> Result<OuterEval, EstimationError> {
         match order {
             OuterEvalOrder::Value => {
-                let (cost, _beta_hat) = self
-                    .evaluate_with_refine_policy(rho.view(), false)
-                    .map_err(EstimationError::RemlOptimizationFailed)?;
+                let (cost, _beta_hat) = match self.evaluate_with_refine_policy(rho.view(), false) {
+                    Ok(evaluated) => evaluated,
+                    Err(err) if Self::is_recoverable_value_probe_refusal(&err) => {
+                        return Ok(OuterEval::infeasible(rho.len()));
+                    }
+                    Err(err) => return Err(EstimationError::RemlOptimizationFailed(err)),
+                };
                 Ok(OuterEval {
                     cost,
                     gradient: Array1::zeros(rho.len()),
@@ -14015,8 +14581,6 @@ fn sae_penalty_is_row_block_supported(penalty: &AnalyticPenaltyKind) -> bool {
             | AnalyticPenaltyKind::TopKActivation(_)
             | AnalyticPenaltyKind::JumpReLU(_)
             | AnalyticPenaltyKind::Sparsity(_)
-            | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
-            | AnalyticPenaltyKind::IBPAssignment(_)
             | AnalyticPenaltyKind::RowPrecisionPrior(_)
             | AnalyticPenaltyKind::ParametricRowPrecisionPrior(_)
             | AnalyticPenaltyKind::ScadMcp(_)
@@ -14101,8 +14665,6 @@ pub fn sae_row_block_penalty_kinds() -> &'static [&'static str] {
         "top_k_activation",
         "jumprelu",
         "sparsity",
-        "softmax_assignment_sparsity",
-        "ibp_assignment",
         "row_precision_prior",
         "parametric_row_precision_prior",
         "scad_mcp",
@@ -14590,6 +15152,47 @@ mod tests {
             err.contains("deflation count changed"),
             "guard must report the quotient-dimension change explicitly; got: {err}"
         );
+    }
+
+    /// The identity-homotopy shortcut's structural probe: the η dial is inert
+    /// iff no atom evaluator declares curved columns. Caller-managed atoms
+    /// (no evaluator) and one-harmonic periodic banks (M = 3: constant +
+    /// fundamental, all linear columns) are inert; an M = 7 periodic bank
+    /// dials its h ≥ 2 harmonics, so the walk must run for it.
+    #[test]
+    fn curvature_homotopy_eta_inertness_probe_tracks_curved_columns() {
+        // Caller-managed atom: no evaluator, nothing to dial.
+        let term = trivial_k1_euclidean_term();
+        assert!(term.curvature_homotopy_eta_is_inert().unwrap());
+
+        // Periodic atoms whose evaluator split declares every column linear.
+        let (term, _target, _rho) = small_two_atom_periodic_term();
+        assert!(term.curvature_homotopy_eta_is_inert().unwrap());
+
+        // M = 7 periodic: harmonics h ≥ 2 are η-dialed curved columns.
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(7).unwrap());
+        let coords = array![[0.05], [0.20], [0.55], [0.80], [0.35]];
+        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+        let atom = SaeManifoldAtom::new(
+            "periodic7",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            Array2::<f64>::zeros((7, 1)),
+            Array2::<f64>::eye(7),
+        )
+        .unwrap()
+        .with_basis_evaluator(evaluator);
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((5, 1)),
+            vec![coords],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        assert!(!term.curvature_homotopy_eta_is_inert().unwrap());
     }
 
     #[test]
@@ -15485,7 +16088,7 @@ mod tests {
         };
 
         slam(&mut term);
-        term.enforce_active_mass_guard(0).expect("guard runs");
+        term.enforce_active_mass_guard(0, None).expect("guard runs");
         assert_eq!(term.collapse_events().len(), 1);
         let ev = term.collapse_events()[0];
         assert_eq!(ev.atom, 1);
@@ -15497,14 +16100,14 @@ mod tests {
         let masses = term.assignment.assignments();
         let max1 = (0..n).map(|r| masses[[r, 1]]).fold(0.0_f64, f64::max);
         assert!(max1 > SAE_ATOM_ACTIVE_MASS_FLOOR);
-        term.enforce_active_mass_guard(1).expect("guard runs");
+        term.enforce_active_mass_guard(1, None).expect("guard runs");
         assert_eq!(term.collapse_events().len(), 1);
 
         // Second collapse: budget exhausted ⇒ terminal, recorded exactly once
         // across repeated checks; the logits are left to the objective.
         slam(&mut term);
-        term.enforce_active_mass_guard(2).expect("guard runs");
-        term.enforce_active_mass_guard(3).expect("guard runs");
+        term.enforce_active_mass_guard(2, None).expect("guard runs");
+        term.enforce_active_mass_guard(3, None).expect("guard runs");
         let terminals: Vec<_> = term
             .collapse_events()
             .iter()
@@ -15522,7 +16125,9 @@ mod tests {
     fn sae_rho_seed_dispersion_scaling_shifts_every_scale_coupled_axis() {
         let rho = SaeManifoldRho::new(0.7_f64.ln(), 1.3_f64.ln(), vec![array![0.2, -0.4]]);
         let dispersion = 0.05_f64 * 0.05;
-        let scaled = rho.seed_scaled_by_dispersion(dispersion).unwrap();
+        let scaled = rho
+            .seed_scaled_by_dispersion_for_assignment(dispersion, AssignmentMode::softmax(1.0))
+            .unwrap();
         let shift = dispersion.ln();
 
         assert_abs_diff_eq!(
@@ -15543,6 +16148,28 @@ mod tests {
         assert_abs_diff_eq!(
             scaled.log_ard[0][1],
             rho.log_ard[0][1] + shift,
+            epsilon = 1.0e-14
+        );
+
+        let learnable_ibp = rho
+            .seed_scaled_by_dispersion_for_assignment(
+                dispersion,
+                AssignmentMode::ibp_map(1.0, 1.0, true),
+            )
+            .unwrap();
+        assert_abs_diff_eq!(
+            learnable_ibp.log_lambda_sparse,
+            rho.log_lambda_sparse,
+            epsilon = 1.0e-14
+        );
+        assert_abs_diff_eq!(
+            learnable_ibp.log_lambda_smooth,
+            rho.log_lambda_smooth + shift,
+            epsilon = 1.0e-14
+        );
+        assert_abs_diff_eq!(
+            learnable_ibp.log_ard[0][0],
+            rho.log_ard[0][0] + shift,
             epsilon = 1.0e-14
         );
     }
@@ -15627,20 +16254,64 @@ mod tests {
         1.0 - ssr / sst.max(1.0e-300)
     }
 
-    fn planted_circle_seed_term(z: ArrayView2<'_, f64>) -> (SaeManifoldTerm, f64) {
+    #[derive(Clone, Copy)]
+    enum PlantedCircleAssignmentMode {
+        Softmax,
+        IbpMap,
+    }
+
+    impl PlantedCircleAssignmentMode {
+        fn label(self) -> &'static str {
+            match self {
+                Self::Softmax => "softmax",
+                Self::IbpMap => "ibp_map",
+            }
+        }
+
+        fn mode(self) -> AssignmentMode {
+            const TAU: f64 = 1.0;
+            const ALPHA: f64 = 1.0;
+            match self {
+                Self::Softmax => AssignmentMode::softmax(TAU),
+                Self::IbpMap => AssignmentMode::ibp_map(TAU, ALPHA, false),
+            }
+        }
+
+        fn seed_logit(self) -> f64 {
+            const TAU: f64 = 1.0;
+            match self {
+                Self::Softmax => 0.0,
+                Self::IbpMap => 6.0 * TAU,
+            }
+        }
+
+        fn seed_gate(self) -> f64 {
+            match self {
+                Self::Softmax => 1.0,
+                Self::IbpMap => 1.0 / (1.0 + (-6.0_f64).exp()),
+            }
+        }
+    }
+
+    fn planted_circle_seed_term(
+        z: ArrayView2<'_, f64>,
+        assignment_mode: PlantedCircleAssignmentMode,
+    ) -> (SaeManifoldTerm, f64) {
         let n = z.nrows();
         let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
         let seed_coords =
             sae_pca_seed_initial_coords(z, &[SaeAtomBasisKind::Periodic], &[1]).unwrap();
         let coords = seed_coords.slice(s![0, .., 0..1]).to_owned();
         let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
-        let mut xtx = fast_ata(&phi);
+        let seed_gate = assignment_mode.seed_gate();
+        let gated_phi = &phi * seed_gate;
+        let mut xtx = fast_ata(&gated_phi);
         for i in 0..xtx.nrows() {
             xtx[[i, i]] += 1.0e-10;
         }
-        let xtz = fast_atb(&phi, &z.to_owned());
+        let xtz = fast_atb(&gated_phi, &z.to_owned());
         let decoder = xtx.cholesky(Side::Lower).unwrap().solve_mat(&xtz);
-        let seed_fitted = phi.dot(&decoder);
+        let seed_fitted = gated_phi.dot(&decoder);
         let mut rss = 0.0_f64;
         for row in 0..n {
             for col in 0..z.ncols() {
@@ -15661,10 +16332,10 @@ mod tests {
         .unwrap()
         .with_basis_evaluator(evaluator);
         let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
-            Array2::<f64>::zeros((n, 1)),
+            Array2::<f64>::from_elem((n, 1), assignment_mode.seed_logit()),
             vec![coords],
             vec![LatentManifold::Circle { period: 1.0 }],
-            AssignmentMode::softmax(1.0),
+            assignment_mode.mode(),
         )
         .unwrap();
         (
@@ -15675,48 +16346,78 @@ mod tests {
 
     #[test]
     fn planted_circle_noise_scale_sweep_reaches_high_ev_with_dimensionless_rho_seed() {
-        for &n in &[40usize, 250usize] {
-            for &sigma in &[0.02_f64, 0.05, 0.18] {
-                let z = planted_circle_data(n, sigma);
-                let (term, seed_dispersion) = planted_circle_seed_term(z.view());
-                let seed_ev = global_ev(z.view(), term.fitted().view());
-                let init_rho = SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![array![0.0]])
-                    .seed_scaled_by_dispersion(seed_dispersion)
-                    .unwrap();
-                let init_rho_flat = init_rho.to_flat();
-                let n_params = init_rho_flat.len();
-                let mut objective = SaeManifoldOuterObjective::new(
-                    term,
-                    z.clone(),
-                    None,
-                    init_rho,
-                    50,
-                    0.04,
-                    1.0e-6,
-                    1.0e-6,
-                );
-                crate::solver::outer_strategy::OuterProblem::new(n_params)
-                    .with_initial_rho(init_rho_flat)
-                    .run(&mut objective, "SAE planted circle dimensionless seed")
-                    .unwrap();
-                let (fitted_term, rho, _loss) = objective.into_fitted();
-                let fitted = fitted_term.fitted();
-                let ev = global_ev(z.view(), fitted.view());
-                assert!(
-                    ev > 0.95,
-                    "planted circle n={n} sigma={sigma} seed_ev={seed_ev:.4} seed_phi={seed_dispersion:.3e} \
-                     final_rho=({:.3}, {:.3}, {:?}) EV={ev:.4} should exceed 0.95",
-                    rho.log_lambda_sparse,
-                    rho.log_lambda_smooth,
-                    rho.log_ard
-                );
-                assert!(
-                    fitted_term.collapse_events().is_empty(),
-                    "healthy planted circle fit should not record collapse events: {:?}",
-                    fitted_term.collapse_events()
-                );
+        for assignment_mode in [
+            PlantedCircleAssignmentMode::Softmax,
+            PlantedCircleAssignmentMode::IbpMap,
+        ] {
+            let assignment_label = assignment_mode.label();
+            for &n in &[40usize, 250usize] {
+                for &sigma in &[0.02_f64, 0.05, 0.18] {
+                    let z = planted_circle_data(n, sigma);
+                    let (term, seed_dispersion) =
+                        planted_circle_seed_term(z.view(), assignment_mode);
+                    let seed_ev = global_ev(z.view(), term.fitted().view());
+                    let init_rho =
+                        SaeManifoldRho::new(0.02_f64.ln(), 1.0_f64.ln(), vec![array![0.0]])
+                            .seed_scaled_by_dispersion_for_assignment(
+                                seed_dispersion,
+                                assignment_mode.mode(),
+                            )
+                            .unwrap();
+                    let init_rho_flat = init_rho.to_flat();
+                    let n_params = init_rho_flat.len();
+                    let mut objective = SaeManifoldOuterObjective::new(
+                        term,
+                        z.clone(),
+                        None,
+                        init_rho,
+                        50,
+                        0.04,
+                        1.0e-6,
+                        1.0e-6,
+                    );
+                    crate::solver::outer_strategy::OuterProblem::new(n_params)
+                        .with_initial_rho(init_rho_flat)
+                        .run(&mut objective, "SAE planted circle dimensionless seed")
+                        .unwrap();
+                    let (fitted_term, rho, _loss) = objective.into_fitted();
+                    let fitted = fitted_term.fitted();
+                    let ev = global_ev(z.view(), fitted.view());
+                    assert!(
+                        ev > 0.95,
+                        "planted circle assignment={assignment_label} n={n} sigma={sigma} seed_ev={seed_ev:.4} seed_phi={seed_dispersion:.3e} \
+                         final_rho=({:.3}, {:.3}, {:?}) EV={ev:.4} should exceed 0.95",
+                        rho.log_lambda_sparse,
+                        rho.log_lambda_smooth,
+                        rho.log_ard
+                    );
+                    assert!(
+                        fitted_term.collapse_events().is_empty(),
+                        "healthy planted circle assignment={assignment_label} fit should not record collapse events: {:?}",
+                        fitted_term.collapse_events()
+                    );
+                }
             }
         }
+    }
+
+    #[test]
+    fn sae_value_probe_refusal_classification_is_inner_only() {
+        assert!(
+            SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
+                "SaeManifoldTerm::reml_criterion: inner solve did not converge at fixed ρ"
+            )
+        );
+        assert!(
+            SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
+                "SaeManifoldTerm::reml_criterion: undamped evidence factorization hit a non-PD per-row H_tt block before KKT stationarity"
+            )
+        );
+        assert!(
+            !SaeManifoldOuterObjective::is_recoverable_value_probe_refusal(
+                "SaeManifoldTerm::reml_criterion: row-gauge evidence deflation count changed"
+            )
+        );
     }
 
     #[test]
@@ -18130,7 +18831,7 @@ mod tests {
         let mut term = SaeManifoldTerm::new(vec![atom], assignment)?;
         let before = term.fitted();
 
-        term.canonicalize_affine_gauge_after_accept()?;
+        term.canonicalize_affine_gauge_after_accept(None)?;
 
         let after = term.fitted();
         let max_abs = before
@@ -18476,7 +19177,126 @@ mod tests {
     }
 
     #[test]
-    fn jumprelu_assignment_prior_hessian_diag_is_psd_over_logit_sweep() {
+    fn sae_registry_refuses_assignment_sparsity_penalties() {
+        let n = 3usize;
+        let k = 2usize;
+        let logits = Array2::<f64>::zeros((n, k));
+        let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
+        let manifolds = vec![LatentManifold::Circle { period: 1.0 }; k];
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            coords,
+            manifolds,
+            AssignmentMode::softmax(0.7),
+        )
+        .expect("valid assignment");
+        let atoms: Vec<SaeManifoldAtom> = (0..k)
+            .map(|atom_idx| {
+                SaeManifoldAtom::new(
+                    format!("periodic_{atom_idx}"),
+                    SaeAtomBasisKind::Periodic,
+                    1,
+                    Array2::<f64>::ones((n, 1)),
+                    Array3::<f64>::zeros((n, 1, 1)),
+                    Array2::<f64>::zeros((1, 1)),
+                    Array2::<f64>::eye(1),
+                )
+                .expect("valid atom")
+            })
+            .collect();
+        let term = SaeManifoldTerm::new(atoms, assignment).expect("valid SAE term");
+
+        let mut softmax_registry = AnalyticPenaltyRegistry::new();
+        softmax_registry.push(AnalyticPenaltyKind::SoftmaxAssignmentSparsity(Arc::new(
+            crate::terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(k, 0.7),
+        )));
+        let softmax_err = term
+            .validate_analytic_penalty_registry(&softmax_registry)
+            .expect_err("SAE registry must reject softmax assignment sparsity");
+        assert!(softmax_err.contains("assignment sparsity"));
+
+        let mut ibp_registry = AnalyticPenaltyRegistry::new();
+        ibp_registry.push(AnalyticPenaltyKind::IBPAssignment(Arc::new(
+            crate::terms::analytic_penalties::IBPAssignmentPenalty::new(k, 1.2, 0.7, false),
+        )));
+        let ibp_err = term
+            .validate_analytic_penalty_registry(&ibp_registry)
+            .expect_err("SAE registry must reject IBP assignment sparsity");
+        assert!(ibp_err.contains("assignment sparsity"));
+    }
+
+    #[test]
+    fn ibp_fixed_alpha_assignment_value_matches_logit_gradient_fd() {
+        let n = 4usize;
+        let k = 3usize;
+        let logits = Array2::<f64>::from_shape_vec(
+            (n, k),
+            vec![
+                -0.4, 0.2, 0.7, 0.1, -0.3, 0.5, 0.8, -0.1, -0.6, 0.3, 0.6, -0.2,
+            ],
+        )
+        .expect("valid IBP logit grid");
+        let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
+        let manifolds = vec![LatentManifold::Circle { period: 1.0 }; k];
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            coords,
+            manifolds,
+            AssignmentMode::ibp_map(0.9, 1.4, false),
+        )
+        .expect("valid IBP assignment");
+        let rho = SaeManifoldRho::new(0.23_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
+        let (grad, _) =
+            assignment_prior_grad_hdiag(&assignment, &rho).expect("IBP assignment gradient");
+        let idx = 5usize;
+        let step = 1.0e-6_f64;
+        let mut plus = assignment.clone();
+        plus.logits[[idx / k, idx % k]] += step;
+        let mut minus = assignment.clone();
+        minus.logits[[idx / k, idx % k]] -= step;
+        let fd = (assignment_prior_value(&plus, &rho) - assignment_prior_value(&minus, &rho))
+            / (2.0 * step);
+
+        assert_abs_diff_eq!(grad[idx], fd, epsilon = 2.0e-7);
+    }
+
+    #[test]
+    fn jumprelu_assignment_value_matches_logit_gradient_fd() {
+        let n = 4usize;
+        let k = 2usize;
+        let temperature = 0.35_f64;
+        let threshold = 0.1_f64;
+        let logits = Array2::<f64>::from_shape_vec(
+            (n, k),
+            vec![-13.0, -0.2, 0.0, 0.05, 0.15, 0.4, 0.9, 1.5],
+        )
+        .expect("valid JumpReLU logit grid");
+        let coords: Vec<Array2<f64>> = (0..k).map(|_| Array2::<f64>::zeros((n, 1))).collect();
+        let manifolds = vec![LatentManifold::Circle { period: 1.0 }; k];
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            coords,
+            manifolds,
+            AssignmentMode::jumprelu(temperature, threshold),
+        )
+        .expect("valid JumpReLU assignment");
+        let rho = SaeManifoldRho::new(0.7_f64.ln(), -6.0, vec![Array1::<f64>::zeros(1); k]);
+        let (grad, _) =
+            assignment_prior_grad_hdiag(&assignment, &rho).expect("JumpReLU assignment gradient");
+        let idx = 4usize;
+        let step = 1.0e-6_f64;
+        let mut plus = assignment.clone();
+        plus.logits[[idx / k, idx % k]] += step;
+        let mut minus = assignment.clone();
+        minus.logits[[idx / k, idx % k]] -= step;
+        let fd = (assignment_prior_value(&plus, &rho) - assignment_prior_value(&minus, &rho))
+            / (2.0 * step);
+
+        assert_abs_diff_eq!(grad[idx], fd, epsilon = 2.0e-8);
+    }
+
+    #[test]
+    fn jumprelu_assignment_prior_hessian_diag_is_exact_over_logit_sweep() {
         let n = 6usize;
         let k = 2usize;
         let temperature = 0.35_f64;
@@ -18506,29 +19326,31 @@ mod tests {
 
         assert_eq!(grad.len(), n * k);
         assert_eq!(diag.len(), n * k);
+        let mut saw_negative = false;
         for (idx, &entry) in diag.iter().enumerate() {
             let logit = logits[[idx / k, idx % k]];
-            // Expected = JumpReLU gated majorizer with the threshold-centered
-            // surrogate σ((l−θ)/τ), supported through the reactivation band
-            // (logit > θ − MARGIN·τ) so gated-off atoms near the boundary keep
-            // prior gradient. Softmax identifiability is handled by its
-            // reference-logit chart, not by adding curvature to gate logits.
-            let sparsity = if jumprelu_in_optimization_band(logit, threshold, temperature) {
+            // Expected = exact second derivative of the threshold-centered
+            // surrogate σ((l−θ)/τ), using the same machine-precision support as
+            // the value and gradient paths.
+            let expected = if jumprelu_in_optimization_band(logit, threshold, temperature) {
                 let activation =
                     crate::linalg::utils::stable_logistic((logit - threshold) * inv_tau);
                 let slope = activation * (1.0 - activation);
-                sparsity_strength * slope * slope * inv_tau2
+                sparsity_strength * slope * (1.0 - 2.0 * activation) * inv_tau2
             } else {
                 0.0
             };
-            let expected = sparsity;
             assert!(
-                entry.is_finite() && entry >= 0.0,
-                "JumpReLU gated hessian_diag majorizer must be finite and non-negative at index \
-                 {idx}; entry={entry}"
+                entry.is_finite(),
+                "JumpReLU hessian_diag must be finite at index {idx}"
             );
+            saw_negative |= entry < 0.0;
             assert_abs_diff_eq!(entry, expected, epsilon = 1e-12);
         }
+        assert!(
+            saw_negative,
+            "exact JumpReLU hessian_diag must go negative above the threshold"
+        );
     }
 
     /// Regression test for issue #174: K>=2 periodic atoms with zero-init
@@ -19811,7 +20633,7 @@ mod tests {
         let old_smooth_penalty = term.atoms[0].smooth_penalty.clone();
         let old_decoder = term.atoms[0].decoder_coefficients.clone();
 
-        term.canonicalize_atom_affine_gauge(0).unwrap();
+        term.canonicalize_atom_affine_gauge(0, None).unwrap();
         let after = term.decoder_smoothness_quadratic_form();
         let invariant_gap = (after - before).abs() / before.abs().max(1.0);
         assert!(
@@ -20949,6 +21771,7 @@ mod tests {
                     .expect("assignments row");
                 let jets = term
                     .row_jets_for_logdet(
+                        &rho,
                         row,
                         vars.clone(),
                         assignments.view(),

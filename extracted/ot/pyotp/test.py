@@ -335,6 +335,22 @@ class ValidWindowTest(unittest.TestCase):
         self.assertFalse(totp.verify("195979", 200, 1))
 
 
+class DigestFunctionTest(unittest.TestCase):
+    def test_md5(self):
+        with self.assertRaises(ValueError) as cm:
+            pyotp.OTP(s="secret", digest=hashlib.md5)
+        self.assertEqual(
+            "selected digest function must generate digest size greater than or equals to 18 bytes", str(cm.exception)
+        )
+
+    def test_shake128(self):
+        with self.assertRaises(ValueError) as cm:
+            pyotp.OTP(s="secret", digest=hashlib.shake_128)
+        self.assertEqual(
+            "selected digest function must generate digest size greater than or equals to 18 bytes", str(cm.exception)
+        )
+
+
 class ParseUriTest(unittest.TestCase):
     def test_invalids(self):
         with self.assertRaises(ValueError) as cm:
@@ -350,10 +366,6 @@ class ParseUriTest(unittest.TestCase):
         self.assertEqual("Not a supported OTP type", str(cm.exception))
 
         with self.assertRaises(ValueError) as cm:
-            pyotp.parse_uri("otpauth://totp?foo=secret")
-        self.assertEqual("foo is not a valid parameter", str(cm.exception))
-
-        with self.assertRaises(ValueError) as cm:
             pyotp.parse_uri("otpauth://totp?digits=-1")
         self.assertEqual("Digits may only be 6, 7, or 8", str(cm.exception))
 
@@ -364,7 +376,7 @@ class ParseUriTest(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             pyotp.parse_uri("otpauth://totp?algorithm=aes")
         self.assertEqual("Invalid value for algorithm, must be SHA1, SHA256 or SHA512", str(cm.exception))
-    
+
     def test_parse_steam(self):
         otp = pyotp.parse_uri("otpauth://totp/Steam:?secret=SOME_SECRET&encoder=steam")
         self.assertEqual(type(otp), pyotp.contrib.Steam)
@@ -435,12 +447,43 @@ class ParseUriTest(unittest.TestCase):
         self.assertEqual(otp.at(90), "JG3T3")
 
         # period and digits should be ignored
-        otp = pyotp.parse_uri("otpauth://totp/Steam:?secret=FMXNK4QEGKVPULRTADY6JIDK5VHUBGZW&period=15&digits=7&encoder=steam")
+        otp = pyotp.parse_uri(
+            "otpauth://totp/Steam:?secret=FMXNK4QEGKVPULRTADY6JIDK5VHUBGZW&period=15&digits=7&encoder=steam"
+        )
         self.assertEqual(type(otp), pyotp.contrib.Steam)
         self.assertEqual(otp.at(0), "C5V56")
         self.assertEqual(otp.at(30), "QJY8Y")
         self.assertEqual(otp.at(60), "R3WQY")
         self.assertEqual(otp.at(90), "JG3T3")
+
+        pyotp.parse_uri("otpauth://totp?secret=abc&image=foobar")
+
+    def test_parse_encoded_colon_in_label(self):
+        # Regression test for issue #174: an encoded colon (%3A) inside the
+        # issuer or account name must not be treated as the issuer:account
+        # separator. The label issuer and the query issuer should still match.
+        otp = pyotp.parse_uri(
+            "otpauth://totp/Text%3A%20More%20Text:Secret?secret=FFFFFFFAAAAAABBBBBBB&issuer=Text%3A%20More%20Text"
+        )
+        self.assertEqual(otp.name, "Secret")
+        self.assertEqual(otp.issuer, "Text: More Text")
+
+        # An encoded colon in the account name (no issuer) is kept intact.
+        otp = pyotp.parse_uri("otpauth://totp/a%3Ab?secret=GEZDGNBV")
+        self.assertEqual(otp.name, "a:b")
+        self.assertIsNone(otp.issuer)
+
+        # Round-trip: building the URI and parsing it back preserves both parts.
+        source = pyotp.TOTP("FFFFFFFAAAAAABBBBBBB", name="Secret", issuer="Text: More Text")
+        roundtrip = pyotp.parse_uri(source.provisioning_uri())
+        self.assertEqual(roundtrip.name, "Secret")
+        self.assertEqual(roundtrip.issuer, "Text: More Text")
+
+        # A percent-encoded space in a plain issuer (no colon) still decodes.
+        otp = pyotp.parse_uri("otpauth://totp/Big%20Corp:bob?secret=GEZDGNBV&issuer=Big%20Corp")
+        self.assertEqual(otp.name, "bob")
+        self.assertEqual(otp.issuer, "Big Corp")
+
 
 class Timecop(object):
     """

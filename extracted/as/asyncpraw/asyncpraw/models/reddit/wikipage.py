@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncGenerator,
-    AsyncIterator,
-)
+from typing import TYPE_CHECKING, Any, cast
 
-from ...const import API_PATH
-from ...util import _deprecate_args
-from ...util.cache import cachedproperty
-from ..listing.generator import ListingGenerator
-from .base import RedditBase
-from .redditor import Redditor
+from asyncpraw.const import API_PATH
+from asyncpraw.models.listing.generator import ListingGenerator
+from asyncpraw.models.reddit.base import RedditBase
+from asyncpraw.models.reddit.redditor import Redditor
+from asyncpraw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
 
 
@@ -33,7 +29,7 @@ class WikiPageModeration:
 
     """
 
-    def __init__(self, wikipage: WikiPage):
+    def __init__(self, wikipage: WikiPage) -> None:
         """Initialize a :class:`.WikiPageModeration` instance.
 
         :param wikipage: The wikipage to moderate.
@@ -41,7 +37,7 @@ class WikiPageModeration:
         """
         self.wikipage = wikipage
 
-    async def add(self, redditor: asyncpraw.models.Redditor):
+    async def add(self, redditor: asyncpraw.models.Redditor) -> None:
         """Add an editor to this :class:`.WikiPage`.
 
         :param redditor: A redditor name or :class:`.Redditor` instance.
@@ -56,12 +52,10 @@ class WikiPageModeration:
 
         """
         data = {"page": self.wikipage.name, "username": str(redditor)}
-        url = API_PATH["wiki_page_editor"].format(
-            subreddit=self.wikipage.subreddit, method="add"
-        )
+        url = API_PATH["wiki_page_editor"].format(subreddit=self.wikipage.subreddit, method="add")
         await self.wikipage._reddit.post(url, data=data)
 
-    async def remove(self, redditor: asyncpraw.models.Redditor):
+    async def remove(self, redditor: asyncpraw.models.Redditor) -> None:
         """Remove an editor from this :class:`.WikiPage`.
 
         :param redditor: A redditor name or :class:`.Redditor` instance.
@@ -76,12 +70,10 @@ class WikiPageModeration:
 
         """
         data = {"page": self.wikipage.name, "username": str(redditor)}
-        url = API_PATH["wiki_page_editor"].format(
-            subreddit=self.wikipage.subreddit, method="del"
-        )
+        url = API_PATH["wiki_page_editor"].format(subreddit=self.wikipage.subreddit, method="del")
         await self.wikipage._reddit.post(url, data=data)
 
-    async def revert(self):
+    async def revert(self) -> None:
         """Revert a wikipage back to a specific revision.
 
         To revert the page ``"praw_test"`` in r/test to revision ``"1234abc"``, try
@@ -136,16 +128,11 @@ class WikiPageModeration:
 
     async def settings(self) -> dict[str, Any]:
         """Return the settings for this :class:`.WikiPage`."""
-        url = API_PATH["wiki_page_settings"].format(
-            subreddit=self.wikipage.subreddit, page=self.wikipage.name
-        )
+        url = API_PATH["wiki_page_settings"].format(subreddit=self.wikipage.subreddit, page=self.wikipage.name)
         response = await self.wikipage._reddit.get(url)
         return response["data"]
 
-    @_deprecate_args("listed", "permlevel")
-    async def update(
-        self, *, listed: bool, permlevel: int, **other_settings: Any
-    ) -> dict[str, Any]:
+    async def update(self, *, listed: bool, permlevel: int, **other_settings: Any) -> dict[str, Any]:
         """Update the settings for this :class:`.WikiPage`.
 
         :param listed: Show this page on page list.
@@ -167,9 +154,7 @@ class WikiPageModeration:
 
         """
         other_settings.update({"listed": listed, "permlevel": permlevel})
-        url = API_PATH["wiki_page_settings"].format(
-            subreddit=self.wikipage.subreddit, page=self.wikipage.name
-        )
+        url = API_PATH["wiki_page_settings"].format(subreddit=self.wikipage.subreddit, page=self.wikipage.name)
         response = await self.wikipage._reddit.post(url, data=other_settings)
         return response["data"]
 
@@ -197,25 +182,18 @@ class WikiPage(RedditBase):
 
     """
 
-    __hash__ = RedditBase.__hash__
-
     @staticmethod
     async def _revision_generator(
         *,
         generator_kwargs: dict[str, Any],
         subreddit: asyncpraw.models.Subreddit,
         url: str,
-    ) -> AsyncGenerator[dict[str, Redditor | WikiPage | str | int | bool | None], None]:
-        async for revision in ListingGenerator(
-            subreddit._reddit, url, **generator_kwargs
-        ):
+    ) -> AsyncIterator[dict[str, Redditor | WikiPage | str | int | bool | None]]:
+        async for item in ListingGenerator(subreddit._reddit, url, **generator_kwargs):
+            revision = cast("dict[str, Any]", item)
             if revision["author"] is not None:
-                revision["author"] = Redditor(
-                    subreddit._reddit, _data=revision["author"]["data"]
-                )
-            revision["page"] = WikiPage(
-                subreddit._reddit, subreddit, revision["page"], revision["id"]
-            )
+                revision["author"] = Redditor(subreddit._reddit, _data=revision["author"]["data"])
+            revision["page"] = WikiPage(subreddit._reddit, subreddit, revision["page"], revision["id"])
             yield revision
 
     @cachedproperty
@@ -240,7 +218,7 @@ class WikiPage(RedditBase):
         name: str,
         revision: str | None = None,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.WikiPage` instance.
 
         :param revision: A specific revision ID to fetch. By default, fetches the most
@@ -254,35 +232,28 @@ class WikiPage(RedditBase):
 
     def __repr__(self) -> str:
         """Return an object initialization representation of the instance."""
-        return (
-            f"{self.__class__.__name__}(subreddit={self.subreddit!r},"
-            f" name={self.name!r})"
-        )
+        return f"{self.__class__.__name__}(subreddit={self.subreddit!r}, name={self.name!r})"
 
     def __str__(self) -> str:
         """Return a string representation of the instance."""
         return f"{self.subreddit}/{self.name}"
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         data = await self._fetch_data()
         data = data["data"]
         if data["revision_by"] is not None:
-            data["revision_by"] = Redditor(
-                self._reddit, _data=data["revision_by"]["data"]
-            )
+            data["revision_by"] = Redditor(self._reddit, _data=data["revision_by"]["data"])
         self.__dict__.update(data)
         await super()._fetch()
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict[str, str | asyncpraw.models.Subreddit], dict[str, str] | None]:
         return (
             "wiki_page",
             {"subreddit": self.subreddit, "page": self.name},
             {"v": self._revision} if self._revision else None,
         )
 
-    def discussions(
-        self, **generator_kwargs: Any
-    ) -> AsyncIterator[asyncpraw.models.Submission]:
+    def discussions(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Submission]:
         """Return a :class:`.ListingGenerator` for discussions of a wiki page.
 
         Discussions are site-wide links to a wiki page.
@@ -302,16 +273,11 @@ class WikiPage(RedditBase):
         """
         return ListingGenerator(
             self._reddit,
-            API_PATH["wiki_discussions"].format(
-                subreddit=self.subreddit, page=self.name
-            ),
+            API_PATH["wiki_discussions"].format(subreddit=self.subreddit, page=self.name),
             **generator_kwargs,
         )
 
-    @_deprecate_args("content", "reason")
-    async def edit(
-        self, *, content: str, reason: str | None = None, **other_settings: Any
-    ):
+    async def edit(self, *, content: str, reason: str | None = None, **other_settings: Any) -> None:
         """Edit this wiki page's contents.
 
         :param content: The updated Markdown content of the page.
@@ -329,9 +295,7 @@ class WikiPage(RedditBase):
 
         """
         other_settings.update({"content": content, "page": self.name, "reason": reason})
-        await self._reddit.post(
-            API_PATH["wiki_edit"].format(subreddit=self.subreddit), data=other_settings
-        )
+        await self._reddit.post(API_PATH["wiki_edit"].format(subreddit=self.subreddit), data=other_settings)
 
     async def revision(self, revision: str) -> WikiPage:
         """Return a specific version of this page by revision ID.
@@ -350,8 +314,8 @@ class WikiPage(RedditBase):
         return page
 
     def revisions(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncGenerator[WikiPage, None]:
+        self, **generator_kwargs: Any
+    ) -> AsyncIterator[dict[str, asyncpraw.models.Redditor | WikiPage | str | int | bool | None]]:
         """Return a :class:`.ListingGenerator` for page revisions.
 
         Additional keyword arguments are passed in the initialization of
@@ -376,9 +340,5 @@ class WikiPage(RedditBase):
                 print(item["page"])
 
         """
-        url = API_PATH["wiki_page_revisions"].format(
-            subreddit=self.subreddit, page=self.name
-        )
-        return self._revision_generator(
-            generator_kwargs=generator_kwargs, subreddit=self.subreddit, url=url
-        )
+        url = API_PATH["wiki_page_revisions"].format(subreddit=self.subreddit, page=self.name)
+        return self._revision_generator(generator_kwargs=generator_kwargs, subreddit=self.subreddit, url=url)

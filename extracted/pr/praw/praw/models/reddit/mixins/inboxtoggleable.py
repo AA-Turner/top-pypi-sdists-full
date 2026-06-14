@@ -1,12 +1,26 @@
 """Provide the InboxToggleableMixin class."""
 
-from ....const import API_PATH
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from praw.const import API_PATH
+
+if TYPE_CHECKING:
+    import praw
 
 
 class InboxToggleableMixin:
     """Interface for classes that can optionally receive inbox replies."""
 
-    def disable_inbox_replies(self):
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: praw.Reddit
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    def disable_inbox_replies(self) -> None:
         """Disable inbox replies for the item.
 
         .. note::
@@ -28,11 +42,9 @@ class InboxToggleableMixin:
             :meth:`.enable_inbox_replies`
 
         """
-        self._reddit.post(
-            API_PATH["sendreplies"], data={"id": self.fullname, "state": False}
-        )
+        self._reddit.post(API_PATH["sendreplies"], data={"id": self.fullname, "state": False})
 
-    def enable_inbox_replies(self):
+    def enable_inbox_replies(self) -> None:
         """Enable inbox replies for the item.
 
         .. note::
@@ -54,6 +66,4 @@ class InboxToggleableMixin:
             :meth:`.disable_inbox_replies`
 
         """
-        self._reddit.post(
-            API_PATH["sendreplies"], data={"id": self.fullname, "state": True}
-        )
+        self._reddit.post(API_PATH["sendreplies"], data={"id": self.fullname, "state": True})

@@ -961,7 +961,11 @@ class TwitterTimelineExtractor(TwitterExtractor):
             self.api._user_id_by_screen_name(self.user)
 
         # build search query
-        query = f"from:{self._user['name']} max_id:{tweet_id}"
+        try:
+            name = self._user["name"]
+        except KeyError:
+            name = self._user["core"]["screen_name"]
+        query = f"from:{name} max_id:{tweet_id}"
         if self.retweets:
             query += " include:retweets include:nativeretweets"
 

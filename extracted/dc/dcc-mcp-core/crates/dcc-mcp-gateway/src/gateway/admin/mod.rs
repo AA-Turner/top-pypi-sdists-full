@@ -58,6 +58,8 @@ pub(crate) mod integrations;
 #[cfg(feature = "admin")]
 mod issue_report;
 mod links;
+#[cfg(all(test, feature = "admin"))]
+mod logs_tests;
 pub mod marketplace;
 mod skill_health;
 mod skill_paths;
@@ -68,13 +70,35 @@ pub mod stats;
 pub mod trace;
 mod trace_log;
 mod traffic;
+#[cfg(feature = "admin")]
+mod update;
+#[cfg(feature = "admin")]
+mod wecom_response;
+#[cfg(feature = "admin")]
+mod wecom_url;
 pub mod workers;
 pub mod workflows;
 
+#[cfg(all(test, feature = "admin"))]
+mod analytics_tests;
+#[cfg(all(test, feature = "admin"))]
+mod basic_endpoint_tests;
 #[cfg(feature = "admin")]
 mod handlers;
+#[cfg(all(test, feature = "admin"))]
+mod instance_update_tests;
+#[cfg(all(test, feature = "admin"))]
+mod integration_tests;
 #[cfg(feature = "admin")]
 mod router;
+#[cfg(all(test, feature = "admin"))]
+mod skill_paths_tests;
+#[cfg(all(test, feature = "admin"))]
+mod stats_traces_tests;
+#[cfg(all(test, feature = "admin"))]
+#[allow(clippy::await_holding_lock)]
+// Intentional: parking_lot Mutex for env-var test serialization
+mod workflows_tests;
 
 pub use activity::{ActivityCorrelation, ActivityEvent, TaskSnapshot};
 pub use dcc_mcp_db::{
@@ -91,5 +115,7 @@ pub use workflows::{WorkflowDiscoverySummary, WorkflowStep, WorkflowView};
 #[cfg(feature = "admin")]
 pub use router::{build_admin_router, build_v1_debug_router};
 
+#[cfg(all(test, feature = "admin"))]
+mod marketplace_tests;
 #[cfg(test)]
 mod tests;

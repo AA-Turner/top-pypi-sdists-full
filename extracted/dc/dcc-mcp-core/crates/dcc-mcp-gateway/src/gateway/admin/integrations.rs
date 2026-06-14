@@ -8,6 +8,8 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use super::state::AdminState;
+use super::wecom_response::summarize as summarize_wecom_response;
+use super::wecom_url::{WECOM_WEBHOOK_URL_HINT, looks_valid as wecom_webhook_url_looks_valid};
 
 const ENV_SENTRY_DSN: &str = "DCC_MCP_SENTRY_DSN";
 const ENV_SENTRY_ENVIRONMENT: &str = "DCC_MCP_SENTRY_ENVIRONMENT";
@@ -31,6 +33,13 @@ pub(crate) static INTEGRATIONS_TEST_ENV_LOCK: parking_lot::Mutex<()> = parking_l
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateIntegrationRequest {
+    kind: String,
+    #[serde(default)]
+    config: Map<String, Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TestIntegrationRequest {
     kind: String,
     #[serde(default)]
     config: Map<String, Value>,
@@ -66,7 +75,7 @@ pub async fn handle_admin_integration_update(
                 .into_response();
         }
     };
-    let pending_config = match persist_integration_config(&kind, &sanitized) {
+    let pending_config = match persist_integration_config(&s, &kind, &sanitized) {
         Ok(config) => config,
         Err((status, message)) => {
             return (
@@ -100,6 +109,106 @@ pub async fn handle_admin_integration_update(
         )
             .into_response(),
     }
+}
+
+/// `POST /admin/api/integrations/test` — send a real test event for supported integrations.
+pub async fn handle_admin_integration_test(
+    State(s): State<AdminState>,
+    Json(req): Json<TestIntegrationRequest>,
+) -> Response {
+    let kind = req.kind.trim().to_ascii_lowercase();
+    match kind.as_str() {
+        "wecom" => send_wecom_test_message(&s, req.config).await,
+        _ => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "unsupported_integration_test",
+                "message": format!("test send is not supported for integration kind '{kind}'"),
+            })),
+        )
+            .into_response(),
+    }
+}
+
+async fn send_wecom_test_message(s: &AdminState, config: Map<String, Value>) -> Response {
+    let webhook_url = match resolve_wecom_test_webhook_url(s, &config) {
+        Ok(url) => url,
+        Err((status, message)) => {
+            return (
+                status,
+                Json(json!({
+                    "error": "invalid_integration_test_config",
+                    "message": message,
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let sent_at_ms = unix_epoch_millis();
+    let payload = json!({
+        "msgtype": "text",
+        "text": {
+            "content": format!(
+                "DCC-MCP Admin WeCom test\nGateway: {}\nVersion: {}\nSent at: {}",
+                s.gateway.server_name,
+                s.gateway.server_version,
+                sent_at_ms,
+            ),
+        },
+    });
+
+    let response = match s
+        .gateway
+        .http_client
+        .post(&webhook_url)
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(err) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({
+                    "error": "wecom_test_failed",
+                    "message": format!("failed to send WeCom test message: {err}"),
+                    "kind": "wecom",
+                    "webhook_url": mask_webhook_url(&webhook_url),
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let http_status = response.status();
+    let response_text = response.text().await.unwrap_or_default();
+    let (errcode, errmsg, wecom_response) = summarize_wecom_response(&response_text, http_status);
+
+    if !http_status.is_success() || errcode.is_some_and(|code| code != 0) {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": "wecom_test_failed",
+                "message": format!("WeCom test message was rejected: {errmsg}"),
+                "kind": "wecom",
+                "http_status": http_status.as_u16(),
+                "wecom": wecom_response,
+                "webhook_url": mask_webhook_url(&webhook_url),
+            })),
+        )
+            .into_response();
+    }
+
+    Json(json!({
+        "kind": "wecom",
+        "status": "sent",
+        "message": errmsg,
+        "sent_at_ms": sent_at_ms,
+        "webhook_url": mask_webhook_url(&webhook_url),
+        "wecom": wecom_response,
+    }))
+    .into_response()
 }
 
 fn build_integration_entries(s: &AdminState) -> Vec<Value> {
@@ -281,7 +390,7 @@ fn wecom_integration_entry(s: &AdminState) -> Value {
     let mut config = Map::new();
     let mut error = None;
     let active = match webhook_url.as_deref() {
-        Some(value) if http_url_looks_valid(value) => {
+        Some(value) if wecom_webhook_url_looks_valid(value) => {
             config.insert("webhook_url".into(), Value::String(mask_webhook_url(value)));
             config.insert(
                 "event_types".into(),
@@ -303,7 +412,7 @@ fn wecom_integration_entry(s: &AdminState) -> Value {
         }
         Some(_) => {
             error = Some(format!(
-                "{ENV_WECOM_WEBHOOK_URL} is set but is not a valid HTTP(S) webhook URL"
+                "{ENV_WECOM_WEBHOOK_URL} is set but is not a valid WeCom robot webhook URL; expected {WECOM_WEBHOOK_URL_HINT}"
             ));
             config.insert("webhook_url".into(), Value::String("********".into()));
             false
@@ -494,6 +603,92 @@ fn pending_integration_config(s: &AdminState, kind: &str) -> Option<Map<String, 
         .filter(|config| !config.is_empty())
 }
 
+fn resolve_wecom_test_webhook_url(
+    s: &AdminState,
+    config: &Map<String, Value>,
+) -> Result<String, (StatusCode, String)> {
+    resolve_wecom_webhook_url(
+        s,
+        config,
+        "wecom webhook_url is required before sending a test message",
+    )
+}
+
+fn resolve_wecom_save_webhook_url(
+    s: &AdminState,
+    config: &Map<String, Value>,
+) -> Result<String, (StatusCode, String)> {
+    resolve_wecom_webhook_url(
+        s,
+        config,
+        "wecom webhook_url is required before saving this integration",
+    )
+}
+
+fn resolve_wecom_webhook_url(
+    s: &AdminState,
+    config: &Map<String, Value>,
+    missing_message: &str,
+) -> Result<String, (StatusCode, String)> {
+    if let Some(url) = concrete_wecom_webhook_url_from_config(config)? {
+        return Ok(url);
+    }
+    if let Some(url) = env_string(ENV_WECOM_WEBHOOK_URL) {
+        if !wecom_webhook_url_looks_valid(&url) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                format!(
+                    "{ENV_WECOM_WEBHOOK_URL} is set but is not a valid WeCom robot webhook URL; expected {WECOM_WEBHOOK_URL_HINT}"
+                ),
+            ));
+        }
+        return Ok(url);
+    }
+    if let Some(pending) = pending_integration_config(s, "wecom")
+        && let Some(url) = concrete_wecom_webhook_url_from_config(&pending)?
+    {
+        return Ok(url);
+    }
+    if let Some(saved) = saved_wecom_config_from_default_webhooks() {
+        match saved {
+            Ok(saved) => {
+                if let Some(url) = concrete_wecom_webhook_url_from_config(&saved)? {
+                    return Ok(url);
+                }
+            }
+            Err(message) => return Err((StatusCode::BAD_REQUEST, message)),
+        }
+    }
+    Err((StatusCode::BAD_REQUEST, missing_message.into()))
+}
+
+fn concrete_wecom_webhook_url_from_config(
+    config: &Map<String, Value>,
+) -> Result<Option<String>, (StatusCode, String)> {
+    let Some(url) = optional_string_field(config, "webhook_url")? else {
+        return Ok(None);
+    };
+    if url.contains("********") {
+        return Ok(None);
+    }
+    if !wecom_webhook_url_looks_valid(&url) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!(
+                "webhook_url must be a valid WeCom robot webhook URL like {WECOM_WEBHOOK_URL_HINT}"
+            ),
+        ));
+    }
+    Ok(Some(url))
+}
+
+fn unix_epoch_millis() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default()
+}
+
 fn sanitize_integration_config(
     kind: &str,
     config: Map<String, Value>,
@@ -531,11 +726,15 @@ fn sanitize_wecom_config(
 ) -> Result<Map<String, Value>, (StatusCode, String)> {
     let mut out = Map::new();
     let webhook_url = optional_string_field(&config, "webhook_url")?;
-    if let Some(url) = webhook_url {
-        if !http_url_looks_valid(&url) {
+    if let Some(url) = webhook_url
+        && !url.contains("********")
+    {
+        if !wecom_webhook_url_looks_valid(&url) {
             return Err((
                 StatusCode::BAD_REQUEST,
-                "webhook_url must be a valid HTTP(S) URL".into(),
+                format!(
+                    "webhook_url must be a valid WeCom robot webhook URL like {WECOM_WEBHOOK_URL_HINT}"
+                ),
             ));
         }
         out.insert("webhook_url".into(), Value::String(url));
@@ -564,13 +763,14 @@ fn sanitize_wecom_config(
 }
 
 fn persist_integration_config(
+    s: &AdminState,
     kind: &str,
     config: &Map<String, Value>,
 ) -> Result<Map<String, Value>, (StatusCode, String)> {
     match kind {
         "sentry" => persist_sentry_config(config),
         "webhooks" => persist_webhooks_config(config),
-        "wecom" => persist_wecom_config(config),
+        "wecom" => persist_wecom_config_for_update(s, config),
         "otlp" => persist_json_config(DEFAULT_OTLP_CONFIG_FILE, config),
         _ => Ok(config.clone()),
     }
@@ -638,12 +838,28 @@ fn persist_webhooks_config(
     Ok(out)
 }
 
+#[cfg(test)]
 fn persist_wecom_config(
     config: &Map<String, Value>,
 ) -> Result<Map<String, Value>, (StatusCode, String)> {
-    let Some(webhook_url) = config.get("webhook_url").and_then(Value::as_str) else {
+    let Some(webhook_url) = concrete_wecom_webhook_url_from_config(config)? else {
         return Ok(Map::new());
     };
+    persist_wecom_config_with_url(config, &webhook_url)
+}
+
+fn persist_wecom_config_for_update(
+    s: &AdminState,
+    config: &Map<String, Value>,
+) -> Result<Map<String, Value>, (StatusCode, String)> {
+    let webhook_url = resolve_wecom_save_webhook_url(s, config)?;
+    persist_wecom_config_with_url(config, &webhook_url)
+}
+
+fn persist_wecom_config_with_url(
+    config: &Map<String, Value>,
+    webhook_url: &str,
+) -> Result<Map<String, Value>, (StatusCode, String)> {
     let events = config
         .get("event_types")
         .and_then(Value::as_array)
@@ -669,10 +885,7 @@ fn persist_wecom_config(
         .map_err(|message| (StatusCode::INTERNAL_SERVER_ERROR, message))?;
 
     let mut out = Map::new();
-    out.insert(
-        "webhook_url".into(),
-        Value::String(mask_webhook_url(webhook_url)),
-    );
+    out.insert("webhook_url".into(), Value::String(webhook_url.to_owned()));
     out.insert(
         "event_types".into(),
         Value::Array(events.into_iter().map(Value::String).collect()),
@@ -904,11 +1117,6 @@ fn sentry_dsn_looks_valid(value: &str) -> bool {
             && url.host_str().is_some()
             && !url.path().trim_matches('/').is_empty()
     })
-}
-
-fn http_url_looks_valid(value: &str) -> bool {
-    reqwest::Url::parse(value)
-        .is_ok_and(|url| url_is_http_or_https(&url) && url.host_str().is_some())
 }
 
 fn url_is_http_or_https(url: &reqwest::Url) -> bool {
@@ -1209,14 +1417,14 @@ fn read_wecom_config_from_webhooks_file(path: &FsPath) -> Result<Map<String, Val
             continue;
         }
         let url = yaml_string(item.get("url")).unwrap_or_default();
-        if !http_url_looks_valid(&url) {
+        if !wecom_webhook_url_looks_valid(&url) {
             return Err(format!(
-                "WeCom webhook url in {} is invalid",
-                path.display()
+                "WeCom webhook url in {} must be a valid WeCom robot webhook URL like {WECOM_WEBHOOK_URL_HINT}",
+                path.display(),
             ));
         }
         let mut config = Map::new();
-        config.insert("webhook_url".into(), Value::String(mask_webhook_url(&url)));
+        config.insert("webhook_url".into(), Value::String(url));
         config.insert(
             "event_types".into(),
             Value::Array(
@@ -1263,181 +1471,5 @@ fn yaml_string_list(value: Option<&serde_yaml_ng::Value>) -> Vec<String> {
 }
 
 #[cfg(test)]
-mod integration_config_tests {
-    use super::*;
-
-    struct EnvGuard {
-        previous: Vec<(&'static str, Option<String>)>,
-    }
-
-    impl EnvGuard {
-        fn new(values: &[(&'static str, Option<String>)]) -> Self {
-            const KEYS: &[&str] = &[
-                ENV_WEBHOOKS_CONFIG,
-                ENV_DCC_MCP_ETC_DIR,
-                "USERPROFILE",
-                "HOMEDRIVE",
-                "HOMEPATH",
-                "HOME",
-            ];
-            let previous = KEYS
-                .iter()
-                .map(|key| (*key, std::env::var(key).ok()))
-                .collect::<Vec<_>>();
-            unsafe {
-                for key in KEYS {
-                    std::env::remove_var(key);
-                }
-                for (key, value) in values {
-                    match value {
-                        Some(value) => std::env::set_var(key, value),
-                        None => std::env::remove_var(key),
-                    }
-                }
-            }
-            Self { previous }
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            unsafe {
-                for (key, value) in &self.previous {
-                    match value {
-                        Some(value) => std::env::set_var(key, value),
-                        None => std::env::remove_var(key),
-                    }
-                }
-            }
-        }
-    }
-
-    fn webhooks_config_text(name: &str) -> String {
-        format!(
-            "queue_capacity: 16\nwebhooks:\n  - name: {name}\n    url: http://127.0.0.1:9000/hook\n    events:\n      - tool.failed\n"
-        )
-    }
-
-    #[test]
-    fn webhooks_persist_writes_local_etc_and_ignores_requested_path() {
-        let _lock = INTEGRATIONS_TEST_ENV_LOCK.lock();
-        let dir = tempfile::tempdir().expect("tempdir");
-        let etc_dir = dir.path().join("etc");
-        let requested = dir.path().join("outside.yaml");
-        let _env = EnvGuard::new(&[(ENV_DCC_MCP_ETC_DIR, Some(etc_dir.display().to_string()))]);
-        let config_text = webhooks_config_text("notify");
-        let mut config = Map::new();
-        config.insert("config_text".into(), Value::String(config_text.clone()));
-        config.insert(
-            "config_path".into(),
-            Value::String(requested.display().to_string()),
-        );
-
-        let saved = persist_webhooks_config(&config).expect("webhooks config should persist");
-
-        let expected = etc_dir.join(DEFAULT_WEBHOOKS_CONFIG_FILE);
-        assert!(expected.exists());
-        assert!(!requested.exists());
-        assert_eq!(
-            saved.get("config_path").and_then(Value::as_str),
-            Some(expected.to_string_lossy().as_ref())
-        );
-        assert_eq!(std::fs::read_to_string(expected).unwrap(), config_text);
-        assert_eq!(saved.get("webhook_count"), Some(&Value::from(1)));
-    }
-
-    #[test]
-    fn webhooks_persist_writes_local_etc_even_when_runtime_config_path_is_set() {
-        let _lock = INTEGRATIONS_TEST_ENV_LOCK.lock();
-        let dir = tempfile::tempdir().expect("tempdir");
-        let etc_dir = dir.path().join("etc");
-        let runtime_config = dir.path().join("runtime").join("webhooks.yaml");
-        let _env = EnvGuard::new(&[
-            (ENV_DCC_MCP_ETC_DIR, Some(etc_dir.display().to_string())),
-            (
-                ENV_WEBHOOKS_CONFIG,
-                Some(runtime_config.display().to_string()),
-            ),
-        ]);
-        let config_text = webhooks_config_text("runtime-notify");
-        let mut config = Map::new();
-        config.insert("config_text".into(), Value::String(config_text.clone()));
-
-        let saved = persist_webhooks_config(&config).expect("webhooks config should persist");
-
-        let expected = etc_dir.join(DEFAULT_WEBHOOKS_CONFIG_FILE);
-        assert!(expected.exists());
-        assert!(!runtime_config.exists());
-        assert_eq!(
-            saved.get("config_path").and_then(Value::as_str),
-            Some(expected.to_string_lossy().as_ref())
-        );
-        assert_eq!(
-            saved.get("write_config_path").and_then(Value::as_str),
-            Some(expected.to_string_lossy().as_ref())
-        );
-        assert_eq!(std::fs::read_to_string(expected).unwrap(), config_text);
-        assert_eq!(saved.get("webhook_count"), Some(&Value::from(1)));
-    }
-
-    #[test]
-    fn wecom_persist_preserves_existing_non_wecom_webhooks() {
-        let _lock = INTEGRATIONS_TEST_ENV_LOCK.lock();
-        let dir = tempfile::tempdir().expect("tempdir");
-        let etc_dir = dir.path().join("etc");
-        let webhooks_path = etc_dir.join(DEFAULT_WEBHOOKS_CONFIG_FILE);
-        std::fs::create_dir_all(&etc_dir).expect("create etc dir");
-        std::fs::write(
-            &webhooks_path,
-            r#"
-queue_capacity: 64
-webhooks:
-  - name: notify
-    url: http://127.0.0.1:9000/hook
-    events:
-      - tool.failed
-  - name: wecom-message-push
-    kind: wecom
-    url: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=old
-    events:
-      - old.event
-    message_template: Old $event
-"#,
-        )
-        .expect("write existing webhooks config");
-        let _env = EnvGuard::new(&[(ENV_DCC_MCP_ETC_DIR, Some(etc_dir.display().to_string()))]);
-
-        let mut config = Map::new();
-        config.insert(
-            "webhook_url".into(),
-            Value::String("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=new".into()),
-        );
-        config.insert(
-            "event_types".into(),
-            Value::Array(vec![
-                Value::String("tool.completed".into()),
-                Value::String("gateway.instance.*".into()),
-            ]),
-        );
-        config.insert(
-            "template".into(),
-            Value::String("New $event $dcc-type $url".into()),
-        );
-
-        let saved = persist_wecom_config(&config).expect("wecom config should persist");
-
-        assert_eq!(
-            saved.get("config_path").and_then(Value::as_str),
-            Some(webhooks_path.to_string_lossy().as_ref())
-        );
-        let raw = std::fs::read_to_string(&webhooks_path).expect("read saved webhooks config");
-        assert!(raw.contains("name: notify"));
-        assert!(raw.contains("http://127.0.0.1:9000/hook"));
-        assert!(raw.contains("queue_capacity: 64"));
-        assert!(raw.contains("key=new"));
-        assert!(raw.contains("New $event $dcc-type $url"));
-        assert!(!raw.contains("key=old"));
-        assert!(!raw.contains("old.event"));
-        assert_eq!(inspect_webhooks_config_text(&raw), Ok(2));
-    }
-}
+#[path = "integration_config_tests.rs"]
+mod integration_config_tests;

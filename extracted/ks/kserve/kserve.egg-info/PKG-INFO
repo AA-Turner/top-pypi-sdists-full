@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kserve
-Version: 0.18.0
+Version: 0.19.0
 Summary: KServe Python SDK
 Author-email: The KServe Authors <dsun20@bloomberg.net>, The KServe Authors <ellisbigelow@google.com>, The KServe Authors <hejinchi@cn.ibm.com>
 License: Apache-2.0
@@ -48,15 +48,15 @@ Requires-Dist: h11>=0.16.0
 Requires-Dist: cryptography>=46.0.5
 Requires-Dist: python-multipart>=0.0.22
 Requires-Dist: pyjwt>=2.12.0
-Requires-Dist: pyasn>=0.6.3
+Requires-Dist: pyasn1>=0.6.3
 Provides-Extra: storage
-Requires-Dist: kserve-storage==0.18.0; extra == "storage"
+Requires-Dist: kserve-storage==0.19.0; extra == "storage"
 Provides-Extra: logging
 Requires-Dist: asgi-logger<1.0.0,>=0.1.0; extra == "logging"
 Provides-Extra: ray
 Requires-Dist: ray[serve]>=2.43.0; extra == "ray"
 Provides-Extra: llm
-Requires-Dist: vllm==0.19.0; extra == "llm"
+Requires-Dist: vllm==0.20.0; extra == "llm"
 
 # KServe Python SDK
 Python SDK for KServe Server and Client.

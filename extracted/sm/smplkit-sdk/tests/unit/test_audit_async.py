@@ -289,7 +289,9 @@ class TestAsyncConstructionAndClose:
         # No base_url -> _audit_transport takes the resolve branch.
         c = AsyncAuditClient(api_key="sk_test", base_domain="example.com", scheme="https", environment="staging")
         assert c._owns_transport is True
-        assert c._auth._headers["X-Smplkit-Environment"] == "staging"
+        # Environment routes through the body / filter[environment], not a header.
+        assert "X-Smplkit-Environment" not in c._auth._headers
+        assert c._environment == "staging"
         assert "audit.example.com" in str(c._auth._base_url)
 
     def test_owned_async_transport_closed(self):

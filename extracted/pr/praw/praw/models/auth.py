@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from prawcore import Authorizer, ImplicitAuthorizer, UntrustedAuthenticator, session
+from prawcore import (
+    Authorizer,
+    DeviceIDAuthorizer,
+    ImplicitAuthorizer,
+    UntrustedAuthenticator,
+    session,
+)
 
-from ..exceptions import InvalidImplicitAuth, MissingRequiredAttributeException
-from ..util import _deprecate_args
-from .base import PRAWBase
+from praw.exceptions import InvalidImplicitAuth, MissingRequiredAttributeException
+from praw.models.base import PRAWBase
 
 
 class Auth(PRAWBase):
@@ -20,23 +25,16 @@ class Auth(PRAWBase):
 
         :remaining: The number of requests remaining to be made in the current rate
             limit window.
-        :reset_timestamp: A unix timestamp providing an upper bound on when the rate
-            limit counters will reset.
         :used: The number of requests made in the current rate limit window.
 
         All values are initially ``None`` as these values are set in response to issued
         requests.
 
-        The ``reset_timestamp`` value is an upper bound as the real timestamp is
-        computed on Reddit's end in preparation for sending the response. This value may
-        change slightly within a given window due to slight changes in response times
-        and rounding.
-
         """
-        data = self._reddit._core._rate_limiter
+        assert self._reddit._core is not None
+        data = self._reddit._core.rate_limiter
         return {
             "remaining": data.remaining,
-            "reset_timestamp": data.reset_timestamp,
             "used": data.used,
         }
 
@@ -50,17 +48,15 @@ class Auth(PRAWBase):
         The session's active authorization will be updated upon success.
 
         """
-        authenticator = self._reddit._read_only_core._authorizer._authenticator
-        authorizer = Authorizer(authenticator)
+        assert self._reddit._read_only_core is not None
+        authenticator = self._reddit._read_only_core.authorizer.authenticator
+        authorizer = Authorizer(authenticator=authenticator)
         authorizer.authorize(code)
-        authorized_session = session(
-            authorizer=authorizer, window_size=self._reddit.config.window_size
-        )
+        authorized_session = session(authorizer=authorizer, window_size=self._reddit.config.window_size)
         self._reddit._core = self._reddit._authorized_core = authorized_session
         return authorizer.refresh_token
 
-    @_deprecate_args("access_token", "expires_in", "scope")
-    def implicit(self, *, access_token: str, expires_in: int, scope: str):
+    def implicit(self, *, access_token: str, expires_in: int, scope: str) -> None:
         """Set the active authorization to be an implicit authorization.
 
         :param access_token: The access_token obtained from Reddit's callback.
@@ -76,12 +72,13 @@ class Auth(PRAWBase):
             non-installed application type.
 
         """
-        authenticator = self._reddit._read_only_core._authorizer._authenticator
+        assert self._reddit._read_only_core is not None
+        authenticator = self._reddit._read_only_core.authorizer.authenticator
         if not isinstance(authenticator, UntrustedAuthenticator):
             raise InvalidImplicitAuth
         implicit_session = session(
             authorizer=ImplicitAuthorizer(
-                authenticator, access_token, expires_in, scope
+                authenticator=authenticator, access_token=access_token, expires_in=expires_in, scope=scope
             ),
             window_size=self._reddit.config.window_size,
         )
@@ -93,12 +90,16 @@ class Auth(PRAWBase):
         For read-only authorizations this should return ``{"*"}``.
 
         """
-        authorizer = self._reddit._core._authorizer
+        assert self._reddit._core is not None
+        authorizer = self._reddit._core.authorizer
         if not authorizer.is_valid():
+            # The active core authorizer is always refreshable here; ImplicitAuthorizer
+            # is the only BaseAuthorizer without refresh() and never reaches this path.
+            assert isinstance(authorizer, (Authorizer, DeviceIDAuthorizer))
             authorizer.refresh()
+        assert authorizer.scopes is not None
         return authorizer.scopes
 
-    @_deprecate_args("scopes", "state", "duration", "implicit")
     def url(
         self,
         *,
@@ -124,17 +125,19 @@ class Auth(PRAWBase):
             whom the URL was generated for.
 
         """
+        assert self._reddit._read_only_core is not None
+        assert self._reddit._read_only_core._authorizer is not None
         authenticator = self._reddit._read_only_core._authorizer._authenticator
         if authenticator.redirect_uri is self._reddit.config.CONFIG_NOT_SET:
             msg = "redirect_uri must be provided"
             raise MissingRequiredAttributeException(msg)
         if isinstance(authenticator, UntrustedAuthenticator):
             return authenticator.authorize_url(
-                "temporary" if implicit else duration,
-                scopes,
-                state,
+                duration="temporary" if implicit else duration,
                 implicit=implicit,
+                scopes=scopes,
+                state=state,
             )
         if implicit:
             raise InvalidImplicitAuth
-        return authenticator.authorize_url(duration, scopes, state)
+        return authenticator.authorize_url(duration=duration, scopes=scopes, state=state)

@@ -705,7 +705,7 @@ class ExhentaiSearchExtractor(ExhentaiExtractor):
         params = text.parse_query(query)
         if "next" not in params:
             params["page"] = text.parse_int(params.get("page"))
-        if tag is not None:
+        if tag:
             if "+" in tag:
                 ns, _, tag = tag.rpartition(":")
                 tag = f"{ns}:\"{tag.replace('+', ' ')}$\""

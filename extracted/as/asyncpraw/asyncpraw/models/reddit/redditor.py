@@ -3,21 +3,72 @@
 from __future__ import annotations
 
 from json import dumps
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
-from ...const import API_PATH
-from ...util import _deprecate_args
-from ...util.cache import cachedproperty
-from ..listing.mixins import RedditorListingMixin
-from ..util import stream_generator
-from .base import RedditBase
-from .mixins import FullnameMixin, MessageableMixin
+from asyncpraw.const import API_PATH
+from asyncpraw.models.listing.mixins import RedditorListingMixin
+from asyncpraw.models.reddit.base import RedditBase
+from asyncpraw.models.reddit.mixins import CreatedMixin, FullnameMixin, MessageableMixin
+from asyncpraw.models.util import stream_generator
+from asyncpraw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
 
 
-class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase):
+class RedditorStream:
+    """Provides submission and comment streams."""
+
+    def __init__(self, redditor: asyncpraw.models.Redditor) -> None:
+        """Initialize a :class:`.RedditorStream` instance.
+
+        :param redditor: The redditor associated with the streams.
+
+        """
+        self.redditor = redditor
+
+    def comments(self, **stream_options: Any) -> AsyncIterator[asyncpraw.models.Comment]:
+        """Yield new comments as they become available.
+
+        Comments are yielded oldest first. Up to 100 historical comments will initially
+        be returned.
+
+        Keyword arguments are passed to :func:`.stream_generator`.
+
+        For example, to retrieve all new comments made by redditor u/spez, try:
+
+        .. code-block:: python
+
+            redditor = await reddit.redditor("spez")
+            async for comment in redditor.stream.comments():
+                print(comment)
+
+        """
+        return stream_generator(self.redditor.comments.new, **stream_options)
+
+    def submissions(self, **stream_options: Any) -> AsyncIterator[asyncpraw.models.Submission]:
+        """Yield new submissions as they become available.
+
+        Submissions are yielded oldest first. Up to 100 historical submissions will
+        initially be returned.
+
+        Keyword arguments are passed to :func:`.stream_generator`.
+
+        For example, to retrieve all new submissions made by redditor u/spez, try:
+
+        .. code-block:: python
+
+            redditor = await reddit.redditor("spez")
+            async for submission in redditor.stream.submissions():
+                print(submission)
+
+        """
+        return stream_generator(self.redditor.submissions.new, **stream_options)
+
+
+class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, CreatedMixin, RedditBase):
     """A class representing the users of Reddit.
 
     .. include:: ../../typical_attributes.rst
@@ -32,43 +83,32 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         Suspended/banned accounts will only return the ``name`` and ``is_suspended``
         attributes.
 
-    =================================== ================================================
-    Attribute                           Description
-    =================================== ================================================
-    ``comment_karma``                   The comment karma for the :class:`.Redditor`.
-    ``comments``                        Provide an instance of :class:`.SubListing` for
-                                        comment access.
-    ``submissions``                     Provide an instance of :class:`.SubListing` for
-                                        submission access.
-    ``created_utc``                     Time the account was created, represented in
-                                        `Unix Time`_.
-    ``has_verified_email``              Whether or not the :class:`.Redditor` has
-                                        verified their email.
-    ``icon_img``                        The url of the Redditors' avatar.
-    ``id``                              The ID of the :class:`.Redditor`.
-    ``is_employee``                     Whether or not the :class:`.Redditor` is a
-                                        Reddit employee.
-    ``is_friend``                       Whether or not the :class:`.Redditor` is friends
-                                        with the authenticated user.
-    ``is_mod``                          Whether or not the :class:`.Redditor` mods any
-                                        subreddits.
-    ``is_gold``                         Whether or not the :class:`.Redditor` has active
-                                        Reddit Premium status.
-    ``is_suspended``                    Whether or not the :class:`.Redditor` is
-                                        currently suspended.
-    ``link_karma``                      The link karma for the :class:`.Redditor`.
-    ``name``                            The Redditor's username.
-    ``subreddit``                       If the :class:`.Redditor` has created a
-                                        user-subreddit, provides a dictionary of
-                                        additional attributes. See below.
-    ``subreddit["banner_img"]``         The URL of the user-subreddit banner.
-    ``subreddit["name"]``               The fullname of the user-subreddit.
-    ``subreddit["over_18"]``            Whether or not the user-subreddit is NSFW.
-    ``subreddit["public_description"]`` The public description of the user- subreddit.
-    ``subreddit["subscribers"]``        The number of users subscribed to the
-                                        user-subreddit.
-    ``subreddit["title"]``              The title of the user-subreddit.
-    =================================== ================================================
+    ====================== =============================================================
+    Attribute              Description
+    ====================== =============================================================
+    ``comment_karma``      The comment karma for the :class:`.Redditor`.
+    ``comments``           Provide an instance of :class:`.SubListing` for comment
+                           access.
+    ``submissions``        Provide an instance of :class:`.SubListing` for submission
+                           access.
+    ``created_utc``        Time the account was created, represented in `Unix Time`_.
+    ``has_verified_email`` Whether or not the :class:`.Redditor` has verified their
+                           email.
+    ``icon_img``           The url of the Redditors' avatar.
+    ``id``                 The ID of the :class:`.Redditor`.
+    ``is_employee``        Whether or not the :class:`.Redditor` is a Reddit employee.
+    ``is_friend``          Whether or not the :class:`.Redditor` is friends with the
+                           authenticated user.
+    ``is_mod``             Whether or not the :class:`.Redditor` mods any subreddits.
+    ``is_gold``            Whether or not the :class:`.Redditor` has active Reddit
+                           Premium status.
+    ``is_suspended``       Whether or not the :class:`.Redditor` is currently suspended.
+    ``link_karma``         The link karma for the :class:`.Redditor`.
+    ``name``               The Redditor's username.
+    ``subreddit``          If the :class:`.Redditor` has created a user-subreddit,
+                           provides a :class:`.UserSubreddit` with additional
+                           attributes.
+    ====================== =============================================================
 
     .. _unix time: https://en.wikipedia.org/wiki/Unix_time
 
@@ -77,9 +117,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
     STR_FIELD = "name"
 
     @classmethod
-    def from_data(
-        cls, reddit: asyncpraw.Reddit, data: dict[str, Any]
-    ) -> Redditor | None:
+    def from_data(cls, reddit: asyncpraw.Reddit, data: str) -> Redditor | None:
         """Return an instance of :class:`.Redditor`, or ``None`` from ``data``."""
         if data == "[deleted]":
             return None
@@ -105,12 +143,12 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
                 print(f"{note.label}: {note.note}")
 
         """
-        from ..mod_notes import RedditorModNotes
+        from asyncpraw.models.mod_notes import RedditorModNotes  # noqa: PLC0415
 
         return RedditorModNotes(self._reddit, self)
 
     @cachedproperty
-    def stream(self) -> asyncpraw.models.reddit.redditor.RedditorStream:
+    def stream(self) -> RedditorStream:
         """Provide an instance of :class:`.RedditorStream`.
 
         Streams can be used to indefinitely retrieve new comments made by a redditor,
@@ -140,7 +178,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         return self._reddit.config.kinds["redditor"]
 
     @property
-    def _path(self) -> str:
+    def _path(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]  # read-only property override of base str attribute
         return API_PATH["user"].format(user=self)
 
     def __init__(
@@ -149,7 +187,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         name: str | None = None,
         fullname: str | None = None,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.Redditor` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
@@ -159,7 +197,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         Exactly one of ``name``, ``fullname`` or ``_data`` must be provided.
 
         """
-        if (name, fullname, _data).count(None) != 2:
+        if sum(1 for value in (name, fullname, _data) if value is not None) != 1:
             msg = "Exactly one of 'name', 'fullname', or '_data' must be provided."
             raise TypeError(msg)
         if _data:
@@ -173,15 +211,15 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
             self._fullname = fullname
         super().__init__(reddit, _data=_data, _extra_attribute_to_check="_fullname")
 
-    def __setattr__(self, name: str, value: Any):
+    def __setattr__(self, name: str, value: Any) -> None:
         """Objectify the subreddit attribute."""
         if name == "subreddit" and value:
-            from .user_subreddit import UserSubreddit
+            from asyncpraw.models.reddit.user_subreddit import UserSubreddit  # noqa: PLC0415
 
             value = UserSubreddit(reddit=self._reddit, _data=value)
         super().__setattr__(name, value)
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         if hasattr(self, "_fullname"):
             self.name = await self._fetch_username(self._fullname)
         data = await self._fetch_data()
@@ -190,20 +228,18 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         self.__dict__.update(other.__dict__)
         await super()._fetch()
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict[str, str], None]:
         return "user_about", {"user": self.name}, None
 
-    async def _fetch_username(self, fullname: str):
-        response = await self._reddit.get(
-            API_PATH["user_by_fullname"], params={"ids": fullname}
-        )
+    async def _fetch_username(self, fullname: str) -> str:
+        response = await self._reddit.get(API_PATH["user_by_fullname"], params={"ids": fullname})
         return response[fullname]["name"]
 
-    async def _friend(self, *, data: dict[str, Any], method: str):
+    async def _friend(self, *, data: dict[str, Any], method: str) -> None:
         url = API_PATH["friend_v1"].format(user=self)
         await self._reddit.request(data=dumps(data), method=method, path=url)
 
-    async def block(self):
+    async def block(self) -> None:
         """Block the :class:`.Redditor`.
 
         For example, to block :class:`.Redditor` u/spez:
@@ -224,7 +260,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         """
         await self._reddit.post(API_PATH["block_user"], params={"name": self.name})
 
-    async def distrust(self):
+    async def distrust(self) -> None:
         """Remove the :class:`.Redditor` from your whitelist of trusted users.
 
         For example, to remove :class:`.Redditor` u/spez from your whitelist:
@@ -239,12 +275,9 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
             :meth:`.trust`
 
         """
-        await self._reddit.post(
-            API_PATH["remove_whitelisted"], data={"name": self.name}
-        )
+        await self._reddit.post(API_PATH["remove_whitelisted"], data={"name": self.name})
 
-    @_deprecate_args("note")
-    async def friend(self, *, note: str = None):
+    async def friend(self, *, note: str | None = None) -> None:
         """Friend the :class:`.Redditor`.
 
         :param note: A note to save along with the relationship. Requires Reddit Premium
@@ -285,27 +318,6 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
 
         """
         return await self._reddit.get(API_PATH["friend_v1"].format(user=self))
-
-    @_deprecate_args("months")
-    async def gild(self, *, months: int = 1):
-        """Gild the :class:`.Redditor`.
-
-        :param months: Specifies the number of months to gild up to 36 (default: ``1``).
-
-        For example, to gild :class:`.Redditor` u/spez for 1 month:
-
-        .. code-block:: python
-
-            redditor = await reddit.redditor("spez")
-            await redditor.gild(months=1)
-
-        """
-        if months < 1 or months > 36:
-            msg = "months must be between 1 and 36"
-            raise TypeError(msg)
-        await self._reddit.post(
-            API_PATH["gild_user"].format(username=self), data={"months": months}
-        )
 
     async def moderated(self) -> list[asyncpraw.models.Subreddit]:
         """Return a list of the redditor's moderated subreddits.
@@ -390,7 +402,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         """
         return list(await self._reddit.get(API_PATH["trophies"].format(user=self)))
 
-    async def trust(self):
+    async def trust(self) -> None:
         """Add the :class:`.Redditor` to your whitelist of trusted users.
 
         Trusted users will always be able to send you PMs.
@@ -430,7 +442,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         """
         await self._reddit.post(API_PATH["add_whitelisted"], data={"name": self.name})
 
-    async def unblock(self):
+    async def unblock(self) -> None:
         """Unblock the :class:`.Redditor`.
 
         For example, to unblock :class:`.Redditor` u/spez:
@@ -442,6 +454,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
 
         """
         container = await self._reddit.user.me()
+        assert container is not None
         data = {
             "container": container.fullname,
             "name": str(self),
@@ -450,7 +463,7 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
         url = API_PATH["unfriend"].format(subreddit="all")
         await self._reddit.post(url, data=data)
 
-    async def unfriend(self):
+    async def unfriend(self) -> None:
         """Unfriend the :class:`.Redditor`.
 
         For example, to unfriend :class:`.Redditor` u/spez:
@@ -462,57 +475,3 @@ class Redditor(MessageableMixin, RedditorListingMixin, FullnameMixin, RedditBase
 
         """
         await self._friend(data={"id": str(self)}, method="DELETE")
-
-
-class RedditorStream:
-    """Provides submission and comment streams."""
-
-    def __init__(self, redditor: asyncpraw.models.Redditor):
-        """Initialize a :class:`.RedditorStream` instance.
-
-        :param redditor: The redditor associated with the streams.
-
-        """
-        self.redditor = redditor
-
-    def comments(
-        self, **stream_options: str | int | dict[str, str]
-    ) -> AsyncGenerator[asyncpraw.models.Comment, None]:
-        """Yield new comments as they become available.
-
-        Comments are yielded oldest first. Up to 100 historical comments will initially
-        be returned.
-
-        Keyword arguments are passed to :func:`.stream_generator`.
-
-        For example, to retrieve all new comments made by redditor u/spez, try:
-
-        .. code-block:: python
-
-            redditor = await reddit.redditor("spez")
-            async for comment in redditor.stream.comments():
-                print(comment)
-
-        """
-        return stream_generator(self.redditor.comments.new, **stream_options)
-
-    def submissions(
-        self, **stream_options: str | int | dict[str, str]
-    ) -> AsyncGenerator[asyncpraw.models.Submission, None]:
-        """Yield new submissions as they become available.
-
-        Submissions are yielded oldest first. Up to 100 historical submissions will
-        initially be returned.
-
-        Keyword arguments are passed to :func:`.stream_generator`.
-
-        For example, to retrieve all new submissions made by redditor u/spez, try:
-
-        .. code-block:: python
-
-            redditor = await reddit.redditor("spez")
-            async for submission in redditor.stream.submissions():
-                print(submission)
-
-        """
-        return stream_generator(self.redditor.submissions.new, **stream_options)

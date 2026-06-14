@@ -1,6 +1,6 @@
 [project]
 name = "telegramify-markdown"
-version = "1.1.5"
+version = "1.2.0"
 description = "Convert Markdown to Telegram plain text + MessageEntity pairs"
 authors = [
     { name = "sudoskys", email = "coldlando@hotmail.com" },
@@ -22,6 +22,9 @@ mermaid = [
 tests = [
     "pyTelegramBotAPI>=4.22.0",
     "python-dotenv>=1.0.1",
+    "PyYAML>=6.0.3",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
 ]
 
 [project.urls]
@@ -38,3 +41,20 @@ distribution = true
 
 [tool.pdm.scripts]
 test = "python -m unittest discover -s ./tests -p test_*.py"
+test-rich = "python -m unittest tests.test_rich"
+test-stream = "pytest tests/test_stream.py -v"
+
+[tool.pdm.scripts.test-live-rich]
+cmd = "python -m unittest tests.test_server.TelegramRichMessageLiveTest"
+
+[tool.pdm.scripts.test-live-rich.env]
+TELEGRAM_LIVE_REQUIRED = "1"
+
+[tool.pdm.scripts.test-live-stream]
+cmd = "python -m unittest tests.test_server.TelegramStreamDraftLiveTest"
+
+[tool.pdm.scripts.test-live-stream.env]
+TELEGRAM_LIVE_REQUIRED = "1"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

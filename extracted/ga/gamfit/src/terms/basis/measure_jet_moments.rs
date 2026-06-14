@@ -1,16 +1,18 @@
-//! Measure-jet V∞ §2 data interface: per-cell Gaussian-weighted moment
-//! tables with an exact binomial-shift merge monoid
+//! Measure-jet V∞ §2 data interface: per-cell frozen-weight polynomial
+//! moment tables with a binomial-shift merge monoid
 //! (`docs/measure_jet_v_infinity.md`, §2 "Data interface: moments or
 //! nothing").
 //!
-//! This module is the ONLY thing that ever touches the n data rows. Every
-//! downstream V∞ consumer — design products (Gram entries, XᵀWX), prior
-//! assembly, every ψ-jet, the support curve, the spectrum report — reads
-//! closed-form couplings of the tables stored here; none of them re-walk
-//! points. Truncation does NOT live here either: the caller computes the
-//! Gaussian weights `w_i` (mass × kernel profile, with whatever cutoff its
-//! explicit `e^{−ρ²/2}` tolerance budget licenses) and this module only
-//! aggregates what it is handed.
+//! This module aggregates caller-computed weights into order-0..2 coordinate
+//! moments. Those tables exactly determine polynomial couplings under the
+//! same frozen weights, including the local affine sufficient statistics used
+//! by `measure_jet_smooth.rs`. They do NOT exactly determine Gaussian
+//! transforms at moved kernel centers: support curves, Gaussian Gram entries,
+//! and Gaussian `XᵀWX` products need their own kernel pass or a separately
+//! controlled approximation. Truncation does NOT live here either: the caller
+//! computes the Gaussian weights `w_i` (mass × kernel profile, with whatever
+//! cutoff its explicit `e^{−ρ²/2}` tolerance budget licenses) and this module
+//! only aggregates what it is handed.
 //!
 //! # The monoid
 //!
@@ -22,9 +24,11 @@
 //!   μ′_α = Σ_{β ≤ α}  C(α, β) (c − c′)^{α−β} μ_β
 //! ```
 //!
-//! re-expresses a table about any other center `c′` EXACTLY — a finite
-//! polynomial identity, no kernel re-evaluation, no quadrature. Merging two
-//! tables is therefore "recenter to a common reference, add componentwise":
+//! re-expresses the same frozen-weight polynomial table about any other
+//! center `c′` exactly as a finite polynomial identity. It does not move the
+//! Gaussian kernel center or recompute weights. Merging two tables with
+//! already-compatible frozen weights is therefore "recenter to a common
+//! reference, add componentwise":
 //! an associative, commutative monoid whose identity is the empty (all-zero)
 //! table at any center. Exact distributed fitting, exact online updates, and
 //! bit-reproducibility under sorted reduction are corollaries of that one
@@ -58,14 +62,15 @@
 //!
 //! # 1:1 contract with `assemble_weighted_forms`
 //!
-//! [`jet_sufficient_stats`] reproduces, in closed form from a stored table,
-//! exactly the local-fit quantities the V0 workhorse
+//! [`jet_sufficient_stats`] reproduces, in closed form from a stored table
+//! whose weights were computed for the same center and scale, exactly the
+//! local-fit quantities the V0 workhorse
 //! (`measure_jet_smooth.rs::assemble_weighted_forms`) computes from raw
 //! points per (center, scale) block: the kernel mass `q`, the dimensionless
 //! weighted feature mean `a_mean`, the dimensionless slope Gram
-//! `G = Φ̃ᵀWΦ̃/q`, the weighted channel mean `uᵀv`, and the local-fit
-//! right-hand side `Bᵀv/q` — so the substrate can later replace the point
-//! loop without changing a single number.
+//! `G = Φ̃ᵀWΦ̃/q`, the weighted channel mean `uᵀv`, and the exact-projection
+//! right-hand side `Bᵀv/q` — so the substrate can later replace that
+//! same-center point loop without changing a single number.
 
 use std::cmp::Ordering;
 use std::ops::Range;
@@ -314,8 +319,10 @@ pub fn accumulate_moment_table(
     })
 }
 
-/// EXACT recentering via the binomial shift: the same table re-expressed
-/// about `new_center`, with no kernel re-evaluation.
+/// Exact recentering via the binomial shift: the same frozen-weight
+/// polynomial table re-expressed about `new_center`, with no kernel
+/// re-evaluation. This is not a moving-kernel identity; if the Gaussian
+/// center changes, the caller must recompute or approximate the weights.
 ///
 /// Derivation (per channel; write `Δ = c − c′` so `x − c′ = (x − c) + Δ`):
 ///
@@ -327,9 +334,9 @@ pub fn accumulate_moment_table(
 /// which is the multi-index binomial identity
 /// `μ′_α = Σ_{β≤α} C(α,β)(c−c′)^{α−β} μ_β` specialized to `|α| ≤ 2`. Every
 /// term is a finite product of stored moments and `Δ`, so the shift is an
-/// algebraic identity of the table — exact up to floating-point rounding,
-/// and EXACTLY exact whenever the arithmetic is (dyadic lattices; pinned in
-/// the tests).
+/// algebraic identity of the frozen-weight table — exact up to floating-point
+/// rounding, and exactly exact whenever the arithmetic is (dyadic lattices;
+/// pinned in the tests).
 ///
 /// Bit-determinism: the order-2 entry is evaluated in the ONE fixed order
 /// `((μ_2 + Δ_k·μ_{1,l}) + μ_{1,k}·Δ_l) + (Δ_k·Δ_l)·μ_0`; same inputs always
@@ -390,8 +397,9 @@ fn lex_cmp_centers(a: &Array1<f64>, b: &Array1<f64>) -> Ordering {
     Ordering::Equal
 }
 
-/// Monoid merge: recenter onto a common reference, then add componentwise.
-/// Exact (pure binomial shift, no kernel re-evaluation) and deterministic.
+/// Monoid merge: recenter compatible frozen-weight tables onto a common
+/// reference, then add componentwise. Exact for those polynomial moments
+/// (pure binomial shift, no kernel re-evaluation) and deterministic.
 ///
 /// Canonical orientation: the merged table lives at the lexicographically
 /// SMALLER of the two operand centers ([`lex_cmp_centers`]), and the other
@@ -432,7 +440,8 @@ pub fn merge_moment_tables(
 
 /// The local jet-fit sufficient statistics read off one table — exactly the
 /// per-block quantities `assemble_weighted_forms` (measure_jet_smooth.rs)
-/// computes from raw points, reproduced in closed form from stored moments.
+/// computes from raw points when the table weights are frozen at the same
+/// center and scale, reproduced in closed form from stored moments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeasureJetJetStats {
     /// Kernel mass `q = Σ w_i` (unit-channel zeroth moment).
@@ -443,7 +452,7 @@ pub struct MeasureJetJetStats {
     /// `ā = m1[0]/(qε)` (`Φ` rows are `(x_i − c)/ε`).
     pub gram: Array2<f64>,
     /// Local-fit right-hand side `Bᵀv/q = m1[ch]/(qε) − ā·(m0[ch]/q)` — the
-    /// vector the τ-ridged slope solve `(G + τI) b̂ = Bᵀv/q` consumes.
+    /// vector the exact weighted affine projection consumes.
     pub cross: Array1<f64>,
 }
 
@@ -461,7 +470,7 @@ pub struct MeasureJetJetStats {
 ///   projection `Cv = v − (uᵀv)·1` of the constant-annihilation contract),
 /// - `cross_k = m1[ch,k]/(q·ε) − ā_k·mean`    ↔ `Bᵀv/q` with
 ///   `B = WΦ − w·aᵀ` (column-centering makes `Φ̃ᵀW·1 = 0`, so
-///   `Φ̃ᵀWCv/q = Bᵀv/q` — the exact RHS of the ridged local fit).
+///   `Φ̃ᵀWCv/q = Bᵀv/q` — the exact RHS of the local affine projection).
 ///
 /// For `channel == 0` (the unit channel) `mean` is exactly `1.0` and `cross`
 /// is identically `+0.0` (the same division is subtracted from itself) —
@@ -827,6 +836,123 @@ mod tests {
             assert_eq!(
                 unit_stats.cross[k], 0.0,
                 "unit-channel cross[{k}] must be exactly zero"
+            );
+        }
+    }
+
+    /// LEVEL/TILT truth-recovery gate (#1041). The deficit pattern flagged in
+    /// the 8-dataset benchmark — worst on pooled/pointwise risk (RMSE/Brier/R²)
+    /// but only mid-pack on calibration SLOPE — is the fingerprint of a biased
+    /// affine projection: a systematic shift in the recovered LEVEL `c₀` or a
+    /// TILT in the recovered gradient `g`. The local affine sufficient statistic
+    /// this module computes (`mean`, `G`, `cross`) is the exact object that
+    /// projection consumes, so a bias there would surface here.
+    ///
+    /// Construct a channel value that is EXACTLY affine in the coordinates,
+    /// `v(x) = c₀ + gᵀ(x − center)`, under ARBITRARY (non-symmetric) weights.
+    /// The weighted affine projection must then recover `(c₀, g)` with ZERO
+    /// residual — the curved/higher-order energy is empty, so any nonzero level
+    /// or tilt error is pure projection bias, not a smoothing artifact. We
+    /// assert this across SHRINKING kernel widths ε (concentrating the weights),
+    /// the regime where a level/tilt bias in the centered second moment `G` or
+    /// the centered cross `Bᵀv/q` would be amplified.
+    #[test]
+    fn affine_projection_recovers_level_and_tilt_without_bias() {
+        // Asymmetric, off-center point cloud so the weighted barycenter does
+        // NOT coincide with the reference center: this is exactly where a
+        // mis-centered (biased) projection would leak the level into the tilt
+        // and vice versa.
+        let pts = ndarray::array![
+            [0.10, -0.30],
+            [0.62, 0.05],
+            [-0.18, 0.44],
+            [0.37, 0.51],
+            [-0.46, -0.22],
+            [0.71, 0.33],
+            [0.05, 0.62],
+            [-0.33, 0.14],
+        ];
+        // Strictly positive, deliberately uneven masses (no symmetry to lean on).
+        let masses = ndarray::array![0.31, 0.07, 0.22, 0.05, 0.19, 0.11, 0.27, 0.13];
+        let center = ndarray::array![0.05, 0.10];
+        let m = pts.nrows();
+        let d = pts.ncols();
+
+        // Exact affine truth in ambient coordinates: level c0, gradient g.
+        let c0 = 1.37_f64;
+        let g = ndarray::array![-0.85_f64, 0.42_f64];
+        let mut v = Array1::<f64>::zeros(m);
+        for j in 0..m {
+            let mut acc = c0;
+            for k in 0..d {
+                acc += g[k] * (pts[(j, k)] - center[k]);
+            }
+            v[j] = acc;
+        }
+
+        let ones = Array1::<f64>::ones(m);
+        // Tighten the kernel across several scales: shrinking eps concentrates
+        // the Gaussian weights and amplifies any centering/projection bias.
+        for &eps in &[1.0_f64, 0.5, 0.25, 0.12, 0.06] {
+            let inv_two_eps2 = 1.0 / (2.0 * eps * eps);
+            let mut w = Array1::<f64>::zeros(m);
+            for j in 0..m {
+                let mut dist2 = 0.0_f64;
+                for k in 0..d {
+                    let dlt = pts[(j, k)] - center[k];
+                    dist2 += dlt * dlt;
+                }
+                w[j] = masses[j] * (-dist2 * inv_two_eps2).exp();
+            }
+
+            let table = accumulate_moment_table(
+                pts.view(),
+                w.view(),
+                &[ones.view(), v.view()],
+                center.view(),
+            )
+            .expect("moment table");
+            let stats = jet_sufficient_stats(&table, eps, 1).expect("affine jet stats");
+
+            // The weighted affine projection solves `G b̂ = cross` for the
+            // ε-scaled slope; the ambient gradient is b̂/ε and the recovered
+            // LEVEL is `mean − āᵀ b̂` (the weighted mean minus the slope's
+            // contribution at the weighted barycenter). For an exactly affine
+            // truth both must equal the truth with zero residual.
+            //
+            // Solve the 2×2 SPD system directly (no external solver) so the
+            // test pins the projection math, not a library inverse.
+            let g00 = stats.gram[(0, 0)];
+            let g01 = stats.gram[(0, 1)];
+            let g11 = stats.gram[(1, 1)];
+            let det = g00 * g11 - g01 * g01;
+            assert!(
+                det > 1e-10,
+                "centered slope Gram must stay nondegenerate at eps={eps}; det={det}"
+            );
+            let b0 = (g11 * stats.cross[0] - g01 * stats.cross[1]) / det;
+            let b1 = (-g01 * stats.cross[0] + g00 * stats.cross[1]) / det;
+            // Ambient gradient = scaled slope / eps (Φ rows are (x−c)/ε).
+            let grad = [b0 / eps, b1 / eps];
+
+            // Recovered weighted barycenter offset ā (ambient) = a_mean·ε.
+            // Level at the reference center = mean − gradᵀ·(barycenter − center)
+            //                               = mean − (b̂ᵀ ā).
+            let a_mean0 = table.m1[(0, 0)] / (stats.q * eps);
+            let a_mean1 = table.m1[(0, 1)] / (stats.q * eps);
+            let level = stats.mean - (b0 * a_mean0 + b1 * a_mean1);
+
+            // TILT: the recovered gradient must match the truth — no systematic
+            // rotation/scaling of the slope channel.
+            assert!(
+                (grad[0] - g[0]).abs() <= 1e-9 && (grad[1] - g[1]).abs() <= 1e-9,
+                "TILT bias at eps={eps}: recovered gradient {grad:?} vs truth {g:?}"
+            );
+            // LEVEL: the recovered intercept at the reference center must match
+            // the truth — no systematic offset of the reconstructed surface.
+            assert!(
+                (level - c0).abs() <= 1e-9,
+                "LEVEL bias at eps={eps}: recovered {level} vs truth {c0}"
             );
         }
     }

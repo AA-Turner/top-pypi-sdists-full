@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -20,7 +21,7 @@ from botocore.config import Config
 from cloudsplaining import set_log_level
 
 if TYPE_CHECKING:
-    from mypy_boto3_iam import IAMClient
+    from types_boto3_iam import IAMClient
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
     "-o",
     "--output",
     type=click.Path(exists=True),
-    default=os.getcwd(),
+    default=os.getcwd(),  # noqa: PTH109
     help="Path to store the output. Defaults to current directory.",
 )
 @click.option(
@@ -61,14 +62,15 @@ def download(profile: str, output: str, include_non_default_policy_versions: boo
     default_region = "us-east-1"
     session_data = {"region_name": default_region}
 
+    output_path = Path(output)
     if profile:
         session_data["profile_name"] = profile
-        output_filename = os.path.join(output, f"{profile}.json")
+        output_filename = output_path / f"{profile}.json"
     else:
-        output_filename = os.path.join(output, "default.json")
+        output_filename = output_path / "default.json"
 
     results = get_account_authorization_details(session_data, include_non_default_policy_versions)
-    with open(output_filename, "w", encoding="utf-8") as f:
+    with output_filename.open("w", encoding="utf-8") as f:
         json.dump(results, f, indent=4, default=str)
     # output_filename.write_text(json.dumps(results, indent=4, default=str))
     print(f"Saved results to {output_filename}")
@@ -79,7 +81,7 @@ def get_account_authorization_details(
     session_data: dict[str, str], include_non_default_policy_versions: bool
 ) -> dict[str, list[Any]]:
     """Runs aws-iam-get-account-authorization-details"""
-    session = boto3.Session(**session_data)  # type:ignore[arg-type]
+    session = boto3.Session(**session_data)  # ty: ignore[invalid-argument-type]
     config = Config(connect_timeout=5, retries={"max_attempts": 10})
     iam_client: IAMClient = session.client("iam", config=config)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from json import dumps
 from typing import TYPE_CHECKING
 
-from ..const import API_PATH
+from asyncpraw.const import API_PATH
 
 if TYPE_CHECKING:  # pragma: no cover
     import asyncpraw
@@ -35,7 +35,7 @@ class Preferences:
         """
         return await self._reddit.get(API_PATH["preferences"])
 
-    def __init__(self, reddit: asyncpraw.Reddit):
+    def __init__(self, reddit: asyncpraw.Reddit) -> None:
         """Initialize a :class:`.Preferences` instance.
 
         :param reddit: The :class:`.Reddit` instance.
@@ -43,9 +43,7 @@ class Preferences:
         """
         self._reddit = reddit
 
-    async def update(
-        self, **preferences: bool | int | str
-    ) -> dict[str, bool | int | str]:
+    async def update(self, **preferences: bool | int | str) -> dict[str, bool | int | str]:
         """Modify the specified settings.
 
         :param accept_pms: Who can send you personal messages (one of ``"everyone"`` or
@@ -58,8 +56,6 @@ class Preferences:
         :param clickgadget: Show me links I've recently viewed.
         :param collapse_read_messages: Collapse messages after I've read them.
         :param compress: Compress the link display.
-        :param creddit_autorenew: Use a creddit to automatically renew my gold if it
-            expires.
         :param default_comment_sort: Default comment sort (one of ``"confidence"``,
             ``"top"``, ``"new"``, ``"controversial"``, ``"old"``, ``"random"``,
             ``"qa"``, or ``"live"``).
@@ -205,6 +201,4 @@ class Preferences:
             await reddit.user.preferences.update(**{"third_party_data_personalized_ads": False})
 
         """
-        return await self._reddit.patch(
-            API_PATH["preferences"], data={"json": dumps(preferences)}
-        )
+        return await self._reddit.patch(API_PATH["preferences"], data={"json": dumps(preferences)})

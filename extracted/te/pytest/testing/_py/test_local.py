@@ -620,7 +620,8 @@ class TestLocalPath(CommonFSTests):
         p = path1.ensure("dir_to_be_removed", dir=1)
         p.chdir()
         p.remove()
-        pytest.raises(error.ENOENT, local)
+        with pytest.raises(error.ENOENT):
+            local()
         assert path1.chdir() is None
         assert os.getcwd() == str(path1)
 
@@ -734,12 +735,8 @@ class TestLocalPath(CommonFSTests):
     def test_setmtime(self):
         import tempfile
 
-        try:
-            fd, name = tempfile.mkstemp()
-            os.close(fd)
-        except AttributeError:
-            name = tempfile.mktemp()
-            open(name, "w").close()
+        fd, name = tempfile.mkstemp()
+        os.close(fd)
         try:
             # Do not use _pytest.timing here, as we do not want time mocking to affect this test.
             mtime = int(time.time()) - 100
@@ -993,8 +990,10 @@ class TestExecution:
                 assert numdir.new(ext=str(j)).check()
 
     def test_error_preservation(self, path1):
-        pytest.raises(EnvironmentError, path1.join("qwoeqiwe").mtime)
-        pytest.raises(EnvironmentError, path1.join("qwoeqiwe").read)
+        with pytest.raises(EnvironmentError):
+            path1.join("qwoeqiwe").mtime()
+        with pytest.raises(EnvironmentError):
+            path1.join("qwoeqiwe").read()
 
     # def test_parentdirmatch(self):
     #    local.parentdirmatch('std', startmodule=__name__)
@@ -1094,7 +1093,8 @@ class TestImport:
         pseudopath = tmpdir.ensure(name + "123.py")
         mod.__file__ = str(pseudopath)
         monkeypatch.setitem(sys.modules, name, mod)
-        excinfo = pytest.raises(pseudopath.ImportMismatchError, p.pyimport)
+        with pytest.raises(pseudopath.ImportMismatchError) as excinfo:
+            p.pyimport()
         modname, modfile, orig = excinfo.value.args
         assert modname == name
         assert modfile == pseudopath
@@ -1392,7 +1392,8 @@ class TestPOSIXLocalPath:
 
     def test_stat_non_raising(self, tmpdir):
         path1 = tmpdir.join("file")
-        pytest.raises(error.ENOENT, lambda: path1.stat())
+        with pytest.raises(error.ENOENT):
+            path1.stat()
         res = path1.stat(raising=False)
         assert res is None
 

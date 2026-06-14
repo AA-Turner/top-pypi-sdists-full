@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.22.1
+Version: 0.23.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -53,13 +53,13 @@ Requires-Dist: partial-json-parser
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.17.0
-Requires-Dist: mistral_common[image]>=1.11.2
+Requires-Dist: mistral_common[image]>=1.11.3
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
 Requires-Dist: setuptools<81.0.0,>=77.0.3; python_version > "3.11"
 Requires-Dist: einops
-Requires-Dist: compressed-tensors==0.15.0.1
+Requires-Dist: compressed-tensors==0.17.0
 Requires-Dist: depyf==0.20.0
 Requires-Dist: cloudpickle
 Requires-Dist: watchfiles
@@ -81,16 +81,16 @@ Requires-Dist: numba==0.65.0
 Requires-Dist: torch==2.11.0
 Requires-Dist: torchaudio==2.11.0
 Requires-Dist: torchvision==0.26.0
-Requires-Dist: flashinfer-python==0.6.11.post2
-Requires-Dist: flashinfer-cubin==0.6.11.post2
+Requires-Dist: flashinfer-python==0.6.12
+Requires-Dist: flashinfer-cubin==0.6.12
 Requires-Dist: apache-tvm-ffi==0.1.9
 Requires-Dist: tilelang==0.1.9
-Requires-Dist: nvidia-cudnn-frontend<1.19.0,>=1.13.0
-Requires-Dist: fastsafetensors>=0.2.2
+Requires-Dist: nvidia-cudnn-frontend>=1.19.1
+Requires-Dist: fastsafetensors>=0.3.2
 Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2
 Requires-Dist: quack-kernels>=0.3.3
 Requires-Dist: tokenspeed-mla==0.1.2
-Requires-Dist: humming-kernels[cu13]==0.1.2
+Requires-Dist: humming-kernels[cu13]==0.1.4
 Provides-Extra: zen
 Requires-Dist: zentorch==2.11.0.0; extra == "zen"
 Provides-Extra: bench
@@ -103,7 +103,7 @@ Requires-Dist: plotly; extra == "bench"
 Provides-Extra: tensorizer
 Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors
-Requires-Dist: fastsafetensors>=0.2.2; extra == "fastsafetensors"
+Requires-Dist: fastsafetensors>=0.3.2; extra == "fastsafetensors"
 Provides-Extra: instanttensor
 Requires-Dist: instanttensor>=0.1.5; extra == "instanttensor"
 Provides-Extra: runai

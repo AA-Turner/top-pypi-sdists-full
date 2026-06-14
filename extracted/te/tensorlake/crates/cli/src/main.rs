@@ -19,7 +19,7 @@ use error::CliError;
 #[derive(Parser)]
 #[command(
     name = "tl",
-    about = "Tensorlake CLI",
+    about = concat!("Tensorlake CLI v", env!("CARGO_PKG_VERSION")),
     version,
     infer_subcommands = true,
     after_help = "\
@@ -61,10 +61,6 @@ struct Cli {
     #[arg(long, env = "TENSORLAKE_PROJECT_ID")]
     project: Option<String>,
 
-    /// Print the trace ID for this command to stderr (for APM correlation)
-    #[arg(long, env = "TENSORLAKE_SHOW_TRACE_ID", global = true)]
-    show_trace_id: bool,
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -77,6 +73,9 @@ enum OutputFormat {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Print the CLI version
+    Version,
+
     /// Login to TensorLake
     Login,
 
@@ -782,11 +781,55 @@ enum ImageCommands {
         json: bool,
     },
 
+    /// Import a registry image directly into a sandbox image (no Dockerfile,
+    /// no Docker daemon — the image's layers are written straight into the
+    /// rootfs)
+    Import {
+        /// Registry image reference to import (e.g. ubuntu:24.04,
+        /// pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime, ghcr.io/org/app:v1)
+        image_reference: String,
+
+        /// Registered image name (defaults to the image's last path segment)
+        #[arg(short = 'n', long)]
+        registered_name: Option<String>,
+
+        /// Root disk size in MB for the generated sandbox image (default: 10240)
+        #[arg(long = "disk_mb")]
+        disk_mb: Option<u64>,
+
+        /// Root disk size in MB for the temporary builder sandbox
+        #[arg(long = "builder_disk_mb")]
+        builder_disk_mb: Option<u64>,
+
+        /// CPUs for the temporary build sandbox
+        #[arg(long)]
+        cpus: Option<f64>,
+
+        /// Memory in MB for the temporary build sandbox
+        #[arg(long)]
+        memory: Option<i64>,
+
+        /// Make this sandbox image publicly accessible
+        #[arg(short, long)]
+        public: bool,
+
+        /// Print the registered sandbox image JSON response to stdout
+        #[arg(long = "json", hide = true)]
+        json: bool,
+    },
+
     /// List all sandbox images
     Ls,
 
     /// Show details for a sandbox image
     Describe {
+        /// Image name or ID
+        name_or_id: String,
+    },
+
+    /// Delete a sandbox image
+    #[command(alias = "delete")]
+    Rm {
         /// Image name or ID
         name_or_id: String,
     },
@@ -960,7 +1003,6 @@ async fn main() {
         cli.organization.as_deref(),
         cli.project.as_deref(),
         cli.debug,
-        cli.show_trace_id,
     );
 
     let mut ctx = CliContext::from_resolved(resolved);
@@ -974,10 +1016,6 @@ async fn main() {
     };
 
     let result = run_command(&mut ctx, command).await;
-
-    if ctx.show_trace_id {
-        eprintln!("Trace-ID: {}", ctx.trace_id);
-    }
 
     if let Err(e) = result {
         match &e {
@@ -1001,6 +1039,10 @@ fn missing_subcommand_error() -> &'static str {
 
 async fn run_command(ctx: &mut CliContext, command: Commands) -> error::Result<()> {
     match command {
+        Commands::Version => {
+            println!("tl {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
         Commands::Login => commands::login::run(ctx).await,
         Commands::Whoami { output } => {
             commands::whoami::run(ctx, matches!(output, OutputFormat::Json)).await
@@ -1372,9 +1414,35 @@ async fn run_command(ctx: &mut CliContext, command: Commands) -> error::Result<(
                             )
                             .await
                         }
+                        ImageCommands::Import {
+                            image_reference,
+                            registered_name,
+                            disk_mb,
+                            builder_disk_mb,
+                            cpus,
+                            memory,
+                            public,
+                            json,
+                        } => {
+                            commands::sbx::image::import::run(
+                                ctx,
+                                &image_reference,
+                                registered_name.as_deref(),
+                                disk_mb,
+                                builder_disk_mb,
+                                cpus,
+                                memory,
+                                public,
+                                json,
+                            )
+                            .await
+                        }
                         ImageCommands::Ls => commands::sbx::image::ls::run(ctx).await,
                         ImageCommands::Describe { name_or_id } => {
                             commands::sbx::image::describe::run(ctx, &name_or_id).await
+                        }
+                        ImageCommands::Rm { name_or_id } => {
+                            commands::sbx::image::rm::run(ctx, &name_or_id).await
                         }
                     },
                     SbxCommands::Tunnel {

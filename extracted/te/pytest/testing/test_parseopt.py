@@ -24,7 +24,8 @@ def parser() -> parseopt.Parser:
 class TestParser:
     def test_no_help_by_default(self) -> None:
         parser = parseopt.Parser(usage="xyz", _ispytest=True)
-        pytest.raises(UsageError, lambda: parser.parse(["-h"]))
+        with pytest.raises(UsageError):
+            parser.parse(["-h"])
 
     def test_custom_prog(self, parser: parseopt.Parser) -> None:
         """Custom prog can be set for `argparse.ArgumentParser`."""
@@ -34,42 +35,44 @@ class TestParser:
         assert parser.optparser.prog == "custom-prog"
 
     def test_argument(self) -> None:
-        with pytest.raises(parseopt.ArgumentError):
-            # need a short or long option
-            argument = parseopt.Argument()
-        argument = parseopt.Argument("-t")
-        assert argument._short_opts == ["-t"]
-        assert argument._long_opts == []
-        assert argument.dest == "t"
-        argument = parseopt.Argument("-t", "--test")
-        assert argument._short_opts == ["-t"]
-        assert argument._long_opts == ["--test"]
-        assert argument.dest == "test"
-        argument = parseopt.Argument("-t", "--test", dest="abc")
+        parser = argparse.ArgumentParser()
+
+        action = parser.add_argument("-a")
+        argument = parseopt.Argument(action)
+        assert argument.names() == ["-a"]
+        assert argument.dest == "a"
+
+        action = parser.add_argument("-b", "--boop")
+        argument = parseopt.Argument(action)
+        assert argument.names() == ["-b", "--boop"]
+        assert argument.dest == "boop"
+
+        action = parser.add_argument("-c", "--coop", dest="abc")
+        argument = parseopt.Argument(action)
         assert argument.dest == "abc"
-        assert str(argument) == (
-            "Argument(_short_opts: ['-t'], _long_opts: ['--test'], dest: 'abc')"
+        assert (
+            str(argument)
+            == "Argument(opts: ['-c', '--coop'], dest: 'abc', default: None)"
         )
 
     def test_argument_type(self) -> None:
-        argument = parseopt.Argument("-t", dest="abc", type=int)
+        parser = argparse.ArgumentParser()
+
+        action = parser.add_argument("-a", dest="aa", type=int)
+        argument = parseopt.Argument(action)
         assert argument.type is int
-        argument = parseopt.Argument("-t", dest="abc", type=str)
-        assert argument.type is str
-        argument = parseopt.Argument("-t", dest="abc", type=float)
-        assert argument.type is float
-        argument = parseopt.Argument(
-            "-t", dest="abc", type=str, choices=["red", "blue"]
-        )
+
+        action = parser.add_argument("-b", dest="bb", type=str)
+        argument = parseopt.Argument(action)
         assert argument.type is str
 
-    def test_argument_processopt(self) -> None:
-        argument = parseopt.Argument("-t", type=int)
-        argument.default = 42
-        argument.dest = "abc"
-        res = argument.attrs()
-        assert res["default"] == 42
-        assert res["dest"] == "abc"
+        action = parser.add_argument("-c", dest="cc", type=float)
+        argument = parseopt.Argument(action)
+        assert argument.type is float
+
+        action = parser.add_argument("-d", dest="dd", type=str, choices=["red", "blue"])
+        argument = parseopt.Argument(action)
+        assert argument.type is str
 
     def test_group_add_and_get(self, parser: parseopt.Parser) -> None:
         group = parser.getgroup("hello")
@@ -190,24 +193,6 @@ class TestParser:
         assert getattr(args, parseopt.FILE_OR_DIR) == ["4", "2"]
         assert args.R is True
         assert args.S is False
-
-    def test_parse_defaultgetter(self) -> None:
-        def defaultget(option):
-            if not hasattr(option, "type"):
-                return
-            if option.type is int:
-                option.default = 42
-            elif option.type is str:
-                option.default = "world"
-
-        parser = parseopt.Parser(processopt=defaultget, _ispytest=True)
-        parser.addoption("--this", dest="this", type=int, action="store")
-        parser.addoption("--hello", dest="hello", type=str, action="store")
-        parser.addoption("--no", dest="no", action="store_true")
-        option = parser.parse([])
-        assert option.hello == "world"
-        assert option.this == 42
-        assert option.no is False
 
     def test_drop_short_helper(self) -> None:
         parser = argparse.ArgumentParser(
@@ -356,3 +341,25 @@ def test_argcomplete(pytester: Pytester, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("COMP_POINT", str(len("pytest " + arg)))
     result = pytester.run("bash", str(script), arg)
     result.stdout.fnmatch_lines(["test_argcomplete", "test_argcomplete.d/"])
+
+
+def test_argument_repr_uninitialized() -> None:
+    """Argument.__repr__ should not crash if _action is not set yet."""
+    arg = parseopt.Argument.__new__(parseopt.Argument)
+    assert repr(arg) == "Argument(<uninitialized>)"
+
+
+def test_argument_repr_initialized(parser: parseopt.Parser) -> None:
+    """Argument.__repr__ with properly initialized options."""
+    # Without type
+    parser.addoption("--myflag", dest="myflag", help="test flag")
+    option = parser._anonymous.options[-1]
+    assert repr(option) == "Argument(opts: ['--myflag'], dest: 'myflag', default: None)"
+
+    # With type
+    parser.addoption("--count", type=int, dest="count", help="count")
+    option = parser._anonymous.options[-1]
+    assert (
+        repr(option)
+        == "Argument(opts: ['--count'], dest: 'count', type: <class 'int'>, default: None)"
+    )

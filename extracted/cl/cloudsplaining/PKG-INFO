@@ -1,30 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cloudsplaining
-Version: 0.8.2
-Summary: AWS IAM Security Assessment tool that identifies violations of least privilege and generates a risk-prioritized HTML report.
-Home-page: https://github.com/salesforce/cloudsplaining
+Version: 0.9.0
+Summary: AWS IAM Security Assessment tool that identifies violations of least privilege and generates a risk-prioritized HTML report
+Keywords: aws,iam,roles,policy,policies,privileges,security
 Author: Kinnaird McQuade
-Author-email: kinnairdm@gmail.com
-License: UNKNOWN
-Project-URL: Documentation, https://policy-sentry.readthedocs.io/
-Project-URL: Example Report, https://opensource.salesforce.com/cloudsplaining
-Project-URL: Code, https://github.com/salesforce/cloudsplaining/
-Project-URL: Twitter, https://twitter.com/kmcquade3
-Project-URL: Red Team Report, https://opensource.salesforce.com/policy_sentry
-Keywords: aws iam roles policy policies privileges security
-Platform: UNKNOWN
+Author-email: Kinnaird McQuade <kinnairdm@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Classifier: Typing :: Typed
+Requires-Dist: boto3>=1.41.0,<2.0.0
+Requires-Dist: botocore>=1.41.0,<2.0.0
+Requires-Dist: click>=8.1.0,<9.0.0
+Requires-Dist: click-option-group>=0.5.9,<0.6.0
+Requires-Dist: jinja2>=3.1.0,<4.0.0
+Requires-Dist: policy-sentry>=0.15.0,<0.16.0
+Requires-Dist: pyyaml>=6.0.0,<7.0.0
+Requires-Dist: schema>=0.7.0,<0.8.0
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/salesforce/cloudsplaining
+Project-URL: Repository, https://github.com/salesforce/cloudsplaining
+Project-URL: Code, https://github.com/salesforce/cloudsplaining
+Project-URL: Documentation, https://cloudsplaining.readthedocs.io/
+Project-URL: Example Report, https://opensource.salesforce.com/cloudsplaining
+Project-URL: Red Team Report, https://opensource.salesforce.com/policy_sentry
+Project-URL: Twitter, https://twitter.com/kmcquade3
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
 ## NOTE: This repo/project has been restored by Salesforce.
 
@@ -454,5 +461,3 @@ Try upgrading to the latest version of Cloudsplaining. This error was fixed in v
 * [AWS Privilege Escalation Methods](https://github.com/RhinoSecurityLabs/AWS-IAM-Privilege-Escalation) by [Spencer Gietzen](https://twitter.com/SpenGietz) at Rhino Security Labs
 * [Understanding Access Level Summaries within Policy Summaries](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_understand-policy-summary-access-level-summaries.html)
 * [Leveraging next-generation blockchain-based AI across multiple service meshes to transparently automate multi-cloud IAM wizardry :mage_man:](http://kmcquade.com/rick.html)
-
-

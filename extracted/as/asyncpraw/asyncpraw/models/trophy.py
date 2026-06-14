@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .base import AsyncPRAWBase
+from asyncpraw.models.base import AsyncPRAWBase, DynamicAttributes
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import asyncpraw
 
 
-class Trophy(AsyncPRAWBase):
+class Trophy(DynamicAttributes, AsyncPRAWBase):
     """Represent a trophy.
 
     End users should not instantiate this class directly. :meth:`.Redditor.trophies` can
@@ -31,13 +31,19 @@ class Trophy(AsyncPRAWBase):
 
     """
 
+    name: str
+
     def __eq__(self, other: Trophy | Any) -> bool:
         """Check if two Trophies are equal."""
         if isinstance(other, self.__class__):
             return self.name == other.name
         return super().__eq__(other)
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash(self.name)
+
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.Trophy` instance.
 
         :param reddit: An instance of :class:`.Reddit`.

@@ -1,5 +1,8 @@
 import { GuardHarnessActionError } from "./guard-api";
 import type { PackageFirewallStatusResponse } from "./guard-types";
+import { isSupplyChainAuditIncomplete, resolveSupplyChainAuditFailure } from "./supply-chain-audit-result";
+
+export { isSupplyChainAuditIncomplete, resolveSupplyChainAuditFailure };
 
 export const SUPPLY_CHAIN_AUDIT_CONNECT_ERROR_CODES = [
   "guard_cloud_connect_required",
@@ -80,4 +83,20 @@ export function supplyChainAuditConnectUserMessage(error: unknown): string | nul
     return "Reconnect HOL Guard Cloud, then run the workspace audit again.";
   }
   return "Sign in to HOL Guard Cloud on this machine, then run the workspace audit.";
+}
+
+export function supplyChainAuditUserMessage(error: unknown): string | null {
+  if (error instanceof GuardHarnessActionError) {
+    if (error.payload?.error === "workspace_dir_required") {
+      return (
+        error.payload.message ??
+        "Guard needs a connected app project folder with package manifests before it can run the workspace audit."
+      );
+    }
+    return supplyChainAuditConnectUserMessage(error);
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return null;
 }

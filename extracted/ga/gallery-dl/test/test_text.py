@@ -633,6 +633,10 @@ class TestText(unittest.TestCase):
         self.assertEqual(f({"foo": "1"}), "foo=1")
         self.assertEqual(f({"foo": "1", "bar": "2"}), "foo=1&bar=2")
 
+        # bytes values
+        self.assertEqual(f({"foo": b"1"}), "foo=1")
+        self.assertEqual(f({"foo": b"1", "bar": "2"}), "foo=1&bar=2")
+
         # int values
         self.assertEqual(f({"foo": 1}), "foo=1")
         self.assertEqual(f({"foo": 1, "bar": "2"}), "foo=1&bar=2")

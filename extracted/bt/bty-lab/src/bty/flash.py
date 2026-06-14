@@ -919,12 +919,21 @@ def _flash_img(
     progress: ProgressCallback | None = None,
     total_bytes: int | None = None,
 ) -> None:
-    """Write a raw .img to a block device with ``dd``."""
+    """Write a raw .img to a block device with ``dd``.
+
+    ``oflag=direct`` + ``conv=fsync`` are both required: O_DIRECT
+    bypasses the kernel page cache so the running OS's binaries
+    aren't shadowed by stale-pre-flash pages if the target happens
+    to be the disk we booted from, and conv=fsync makes dd return
+    only when its writes have hit disk. Combining the two is the
+    only way an in-place reflash leaves a consistent on-disk state.
+    """
     cmd = [
         "dd",
         f"if={image}",
         f"of={target}",
         "bs=4M",
+        "oflag=direct",
         "conv=fsync",
         "status=progress",
     ]
@@ -979,6 +988,7 @@ def _flash_compressed(
                 "dd",
                 f"of={target}",
                 "bs=4M",
+                "oflag=direct",
                 "conv=fsync",
                 "status=progress",
             ],
@@ -1195,7 +1205,7 @@ def _flash_img_from_url(
     try:
         stderr = subprocess.PIPE if progress is not None else None
         dd_proc = subprocess.Popen(
-            ["dd", f"of={target}", "bs=4M", "conv=fsync", "status=progress"],
+            ["dd", f"of={target}", "bs=4M", "oflag=direct", "conv=fsync", "status=progress"],
             stdin=curl_proc.stdout,
             stderr=stderr,
             text=True,
@@ -1279,7 +1289,7 @@ def _flash_compressed_from_url(
         try:
             stderr = subprocess.PIPE if progress is not None else None
             dd_proc = subprocess.Popen(
-                ["dd", f"of={target}", "bs=4M", "conv=fsync", "status=progress"],
+                ["dd", f"of={target}", "bs=4M", "oflag=direct", "conv=fsync", "status=progress"],
                 stdin=decomp_proc.stdout,
                 stderr=stderr,
                 text=True,
@@ -1576,10 +1586,14 @@ def _parse_gzip_listing(gzip_output: str) -> int | None:
 
     Skips the header line and any lines that don't have at least
     two integer columns. Returns the second integer column.
-    Returns ``None`` if parsing fails. Note: gzip stores the
-    uncompressed size mod 4 GiB in the file trailer, so for files
-    >= 4 GiB this returns a wrapped (wrong) value -- the caller
-    treats it as a best-effort hint, not authoritative.
+    Returns ``None`` if parsing fails OR if the reported uncompressed
+    size has wrapped past 2^32 (gzip stores uncompressed size mod
+    4 GiB in the file trailer): when the reported uncompressed value
+    is smaller than the compressed value, the wrap definitely
+    happened, the number is a lie, and ``validate_plan`` would be
+    fooled into thinking a too-big image fits a too-small disk. A
+    None return tells ``validate_plan`` to skip the size-fits check
+    with a note instead of trusting a wrapped value.
     """
     for line in gzip_output.splitlines():
         stripped = line.strip()
@@ -1589,9 +1603,16 @@ def _parse_gzip_listing(gzip_output: str) -> int | None:
         if len(cells) < 2:
             continue
         try:
-            return int(cells[1])
+            compressed = int(cells[0])
+            uncompressed = int(cells[1])
         except ValueError:
             continue
+        if uncompressed < compressed:
+            # 4 GiB wrap: the trailer's stored size is smaller than
+            # the on-disk compressed bytes. Refuse the lie.
+            return None
+        return uncompressed
+    return None
     return None
 
 

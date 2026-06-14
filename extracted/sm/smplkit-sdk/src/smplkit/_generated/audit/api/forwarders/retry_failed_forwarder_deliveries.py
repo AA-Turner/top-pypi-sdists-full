@@ -5,15 +5,20 @@ from urllib.parse import quote
 import httpx
 
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import Response, UNSET
 from ... import errors
 
+from ...models.retry_failed_deliveries_request import RetryFailedDeliveriesRequest
 from ...models.retry_failed_deliveries_summary import RetryFailedDeliveriesSummary
+from ...types import Unset
 
 
 def _get_kwargs(
     forwarder_id: str,
+    *,
+    body: RetryFailedDeliveriesRequest | Unset = UNSET,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -22,6 +27,12 @@ def _get_kwargs(
         ),
     }
 
+    if not isinstance(body, Unset):
+        _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -54,19 +65,22 @@ def sync_detailed(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    body: RetryFailedDeliveriesRequest | Unset = UNSET,
 ) -> Response[RetryFailedDeliveriesSummary]:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder in the resolved environment.
+     Retry every failed delivery for this forwarder in the target environment.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header): only
-    that environment's failed deliveries are re-attempted, each using the
-    forwarder's effective configuration for that environment and the
-    original event. Returns the counts.
+    Targets a single environment: name it in the request body's `environment`
+    field, or omit it and a single-environment credential implies it (a
+    multi-environment credential must name it). Only that environment's failed
+    deliveries are re-attempted, each using the forwarder's effective
+    configuration for that environment and the original event. Returns the
+    counts.
 
     Args:
         forwarder_id (str):
+        body (RetryFailedDeliveriesRequest | Unset): Inputs to the retry-failed-deliveries action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -78,6 +92,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         forwarder_id=forwarder_id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -91,19 +106,22 @@ def sync(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    body: RetryFailedDeliveriesRequest | Unset = UNSET,
 ) -> RetryFailedDeliveriesSummary | None:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder in the resolved environment.
+     Retry every failed delivery for this forwarder in the target environment.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header): only
-    that environment's failed deliveries are re-attempted, each using the
-    forwarder's effective configuration for that environment and the
-    original event. Returns the counts.
+    Targets a single environment: name it in the request body's `environment`
+    field, or omit it and a single-environment credential implies it (a
+    multi-environment credential must name it). Only that environment's failed
+    deliveries are re-attempted, each using the forwarder's effective
+    configuration for that environment and the original event. Returns the
+    counts.
 
     Args:
         forwarder_id (str):
+        body (RetryFailedDeliveriesRequest | Unset): Inputs to the retry-failed-deliveries action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -116,6 +134,7 @@ def sync(
     return sync_detailed(
         forwarder_id=forwarder_id,
         client=client,
+        body=body,
     ).parsed
 
 
@@ -123,19 +142,22 @@ async def asyncio_detailed(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    body: RetryFailedDeliveriesRequest | Unset = UNSET,
 ) -> Response[RetryFailedDeliveriesSummary]:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder in the resolved environment.
+     Retry every failed delivery for this forwarder in the target environment.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header): only
-    that environment's failed deliveries are re-attempted, each using the
-    forwarder's effective configuration for that environment and the
-    original event. Returns the counts.
+    Targets a single environment: name it in the request body's `environment`
+    field, or omit it and a single-environment credential implies it (a
+    multi-environment credential must name it). Only that environment's failed
+    deliveries are re-attempted, each using the forwarder's effective
+    configuration for that environment and the original event. Returns the
+    counts.
 
     Args:
         forwarder_id (str):
+        body (RetryFailedDeliveriesRequest | Unset): Inputs to the retry-failed-deliveries action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,6 +169,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         forwarder_id=forwarder_id,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -158,19 +181,22 @@ async def asyncio(
     forwarder_id: str,
     *,
     client: AuthenticatedClient,
+    body: RetryFailedDeliveriesRequest | Unset = UNSET,
 ) -> RetryFailedDeliveriesSummary | None:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder in the resolved environment.
+     Retry every failed delivery for this forwarder in the target environment.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header): only
-    that environment's failed deliveries are re-attempted, each using the
-    forwarder's effective configuration for that environment and the
-    original event. Returns the counts.
+    Targets a single environment: name it in the request body's `environment`
+    field, or omit it and a single-environment credential implies it (a
+    multi-environment credential must name it). Only that environment's failed
+    deliveries are re-attempted, each using the forwarder's effective
+    configuration for that environment and the original event. Returns the
+    counts.
 
     Args:
         forwarder_id (str):
+        body (RetryFailedDeliveriesRequest | Unset): Inputs to the retry-failed-deliveries action.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,5 +210,6 @@ async def asyncio(
         await asyncio_detailed(
             forwarder_id=forwarder_id,
             client=client,
+            body=body,
         )
     ).parsed

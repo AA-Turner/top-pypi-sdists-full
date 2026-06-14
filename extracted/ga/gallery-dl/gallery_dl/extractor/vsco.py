@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2025 Mike Fährmann
+# Copyright 2019-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,6 +23,7 @@ class VscoExtractor(Extractor):
     filename_fmt = "{id}.{extension}"
     archive_fmt = "{id}"
     browser = "firefox"
+    tls12 = False
 
     def __init__(self, match):
         Extractor.__init__(self, match)
@@ -79,13 +80,21 @@ class VscoExtractor(Extractor):
 
     def _extract_preload_state(self, url):
         page = self.request(url, notfound=self.subcategory).text
-        return util.json_loads(text.extr(page, "__PRELOADED_STATE__ = ", "<")
+        data = util.json_loads(text.extr(page, "__PRELOADED_STATE__ = ", "<")
                                .replace('":undefined', '":null'))
+        self._tkn = data["users"]["currentUser"]["tkn"]
+        return data
 
-    def _pagination(self, url, params, token, key, extra=None):
+    def _extract_site(self, data):
+        site = data["sites"]["siteByUsername"][self.user]["site"]
+        self.kwdict["site_id"] = site["id"]
+        self.kwdict["user_id"] = site["userId"]
+        return site
+
+    def _pagination(self, url, params, key, extra=None):
         headers = {
             "Referer"          : f"{self.root}/{self.user}",
-            "Authorization"    : "Bearer " + token,
+            "Authorization"    : "Bearer " + self._tkn,
             "X-Client-Platform": "web",
             "X-Client-Build"   : "1",
         }
@@ -153,10 +162,14 @@ class VscoGalleryExtractor(VscoExtractor):
     example = "https://vsco.co/USER/gallery"
 
     def images(self):
-        url = f"{self.root}/{self.user}/gallery"
-        data = self._extract_preload_state(url)
-        tkn = data["users"]["currentUser"]["tkn"]
-        sid = str(data["sites"]["siteByUsername"][self.user]["site"]["id"])
+        if self.user.startswith("id:"):
+            url = self.root + "/vsco/gallery"
+            data = self._extract_preload_state(url)
+            self.kwdict["site_id"] = sid = self.user[3:]
+        else:
+            url = f"{self.root}/{self.user}/gallery"
+            data = self._extract_preload_state(url)
+            sid = self._extract_site(data)["id"]
 
         url = self.root + "/api/3.0/medias/profile"
         params = {
@@ -165,7 +178,7 @@ class VscoGalleryExtractor(VscoExtractor):
             "cursor"   : None,
         }
 
-        return self._pagination(url, params, tkn, "media")
+        return self._pagination(url, params, "media")
 
 
 class VscoCollectionExtractor(VscoExtractor):
@@ -179,17 +192,14 @@ class VscoCollectionExtractor(VscoExtractor):
     def images(self):
         url = f"{self.root}/{self.user}/collection/1"
         data = self._extract_preload_state(url)
-
-        tkn = data["users"]["currentUser"]["tkn"]
-        cid = (data["sites"]["siteByUsername"][self.user]
-               ["site"]["siteCollectionId"])
+        cid = self._extract_site(data)["siteCollectionId"]
+        collection = data["collections"]["byId"][cid]["1"]["collection"]
 
         url = f"{self.root}/api/2.0/collections/{cid}/medias"
         params = {"page": 2, "size": "20"}
-        return self._pagination(url, params, tkn, "medias", (
+        return self._pagination(url, params, "medias", (
             data["medias"]["byId"][mid["id"]]["media"]
-            for mid in data
-            ["collections"]["byId"][cid]["1"]["collection"]
+            for mid in collection
         ))
 
 
@@ -205,27 +215,24 @@ class VscoSpaceExtractor(VscoExtractor):
         url = f"{self.root}/spaces/{self.user}"
         data = self._extract_preload_state(url)
 
-        tkn = data["users"]["currentUser"]["tkn"]
-        sid = self.user
-
         posts = data["entities"]["posts"]
         images = data["entities"]["postImages"]
         for post in posts.values():
             post["image"] = images[post["image"]]
 
-        space = data["spaces"]["byId"][sid]
+        space = data["spaces"]["byId"][self.user]
         space["postsList"] = [posts[pid] for pid in space["postsList"]]
 
-        url = f"{self.root}/grpc/spaces/{sid}/posts"
+        url = f"{self.root}/grpc/spaces/{self.user}/posts"
         params = {}
-        return self._pagination(url, params, tkn, space)
+        return self._pagination(url, params, space)
 
-    def _pagination(self, url, params, token, data):
+    def _pagination(self, url, params, data):
         headers = {
             "Accept"       : "application/json",
             "Referer"      : f"{self.root}/spaces/{self.user}",
             "Content-Type" : "application/json",
-            "Authorization": "Bearer " + token,
+            "Authorization": "Bearer " + self._tkn,
         }
 
         while True:
@@ -251,15 +258,13 @@ class VscoSpacesExtractor(VscoExtractor):
     def items(self):
         url = f"{self.root}/{self.user}/spaces"
         data = self._extract_preload_state(url)
-
-        tkn = data["users"]["currentUser"]["tkn"]
-        uid = data["sites"]["siteByUsername"][self.user]["site"]["userId"]
+        uid = self._extract_site(data)["userId"]
 
         headers = {
             "Accept"       : "application/json",
             "Referer"      : url,
             "Content-Type" : "application/json",
-            "Authorization": "Bearer " + tkn,
+            "Authorization": "Bearer " + self._tkn,
         }
         # this would theoretically need to be paginated
         url = f"{self.root}/grpc/spaces/user/{uid}"
@@ -280,8 +285,8 @@ class VscoAvatarExtractor(VscoExtractor):
 
     def images(self):
         url = f"{self.root}/{self.user}/gallery"
-        page = self.request(url).text
-        piid = text.extr(page, '"profileImageId":"', '"')
+        data = self._extract_preload_state(url)
+        piid = self._extract_site(data)["profileImageId"]
 
         url = "https://im.vsco.co/" + piid
         # needs GET request, since HEAD does not redirect to full URL

@@ -94,7 +94,16 @@ def handle_complete_phase(args: list[str], fs: Filesystem, tm: TaskManager,
     guard = Guard(fs, cfg)
     guard_result = guard.check_artifacts(task, task.phase)
     if not guard_result.passed:
-        _raise_guard_error(fs, task, guard_result, "guard check")
+        # v0.186: Soft warning instead of hard block. Real missing artifacts
+        # still surface as warnings in result, but experimentation / A-B
+        # testing scenarios aren't blocked. Hard errors reserved for
+        # checkpoint guards (see below).
+        import sys as _sys
+        _sys.stderr.write(
+            f"⚠ WARNING: guard check failed for {task.id} (proceeding anyway):\n"
+            + "\n".join(f"  - {f}" for f in guard_result.failures)
+            + "\n"
+        )
     # Checkpoint step guard (#v0.84)
     from kanban_framework.domain.step_registry import build_step_dag
     from kanban_framework.domain.state_machine import load_progress

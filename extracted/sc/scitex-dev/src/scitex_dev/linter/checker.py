@@ -313,8 +313,28 @@ class SciTeXChecker(
         self._add(_lk("STX-S004"), node.lineno, node.col_offset, line)
 
     def _check_injected_params(self, node: ast.FunctionDef) -> None:
-        """Check that @stx.session function declares all INJECTED parameters."""
-        declared = {arg.arg for arg in node.args.args}
+        """Check that @stx.session function declares all INJECTED parameters.
+
+        Considers positional, positional-only, AND keyword-only args — the
+        injected pattern can legitimately live behind a ``*`` separator
+        (e.g. ``def main(data: str, *, CONFIG=stx.session.INJECTED, ...)``).
+        The previous ``args.args``-only scan missed kwonly INJECTED decls
+        and produced false-positive S006s on neurovista-style scripts.
+
+        Argument *values/annotations* are never dereferenced here — only
+        the bare ``arg.arg`` name string is read. This avoids the
+        ``AttributeError: 'NoneType' object has no attribute 'id'`` NPE
+        the legacy ``scitex._linter_plugin`` S006 raised on annotated
+        injected params (#60).
+        """
+        declared = {
+            arg.arg
+            for arg in (
+                list(node.args.args)
+                + list(node.args.kwonlyargs)
+                + list(getattr(node.args, "posonlyargs", []))
+            )
+        }
         missing = sorted(self._REQUIRED_INJECTED - declared)
         if missing:
             line = self._get_source(node.lineno)
@@ -382,12 +402,32 @@ class SciTeXChecker(
         if rule is None:
             return
         if rule.requires and rule.requires not in self._available:
+            # Pillar-0 fail-loud (#TBD): tally the silent-skip so the
+            # health module can emit an L2 stderr summary the first
+            # time the count goes non-zero. Without this the
+            # `requires=` gate evaporates IO0xx coverage with zero
+            # indication — exactly the 2026-06-12 ripple-wm class.
+            try:
+                from ._health import record_rule_skip
+
+                record_rule_skip(rule.requires)
+            except Exception:  # pragma: no cover
+                pass
             return
         if rule.id in self.config.disable:
             return
         if _is_allowed_by_comment(source_line, rule.id):
             return
         sev = self.config.per_rule_severity.get(rule.id)
+        if not sev:
+            # Pillar 3 (#TBD) — category-wide severity override (e.g.
+            # research project-type flips io/path from warning→error).
+            # Per-rule override (above) still wins; category map is the
+            # floor not the ceiling. See LinterConfig.
+            cat_override = getattr(
+                self.config, "category_severity_override", {}
+            ) or {}
+            sev = cat_override.get(rule.category)
         if sev:
             rule = replace(rule, severity=sev)
         self.issues.append(

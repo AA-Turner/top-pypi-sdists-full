@@ -1,7 +1,7 @@
 """Layered config for bty-web.
 
 Replaces the v0.41-era ``envvars``-shell-file + ~17 ``$BTY_*`` env-var
-reads scattered across the codebase. v0.42+: every operator-tunable
+reads scattered across the codebase. every operator-tunable
 knob is a key in :class:`Config`, sourced from (in increasing
 priority):
 
@@ -133,8 +133,7 @@ class NetbootConfig:
     explicitly only when the TFTP daemon lives somewhere else (e.g. a
     co-located host install -> ``127.0.0.1``, or the LAN router). See
     :meth:`Config.effective_tftp_probe_host`.
-    Env: ``BTY_NETBOOT_TFTP_PROBE_HOST`` (legacy alias:
-    ``BTY_TFTP_PROBE_HOST``).
+    Env: ``BTY_NETBOOT_TFTP_PROBE_HOST``.
     """
 
     tftp_probe_host: str = ""

@@ -1,0 +1,411 @@
+# ruff: noqa : E402
+import torch
+
+from openequivariance._torch import extlib
+
+import collections
+from typing import Dict, Optional, Union, List
+
+from e3nn import o3
+from e3nn.util.codegen import CodeGenMixin
+from e3nn.util.jit import compile_mode
+
+_TP = collections.namedtuple("_TP", "op, args")
+_INPUT = collections.namedtuple("_INPUT", "tensor, start, stop")
+
+
+def _wigner_nj(
+    irrepss: List[o3.Irreps],
+    normalization: str = "component",
+    filter_ir_mid=None,
+    dtype=None,
+):
+    irrepss = [o3.Irreps(irreps) for irreps in irrepss]
+    if filter_ir_mid is not None:
+        filter_ir_mid = [o3.Irrep(ir) for ir in filter_ir_mid]
+
+    if len(irrepss) == 1:
+        (irreps,) = irrepss
+        ret = []
+        e = torch.eye(irreps.dim, dtype=dtype)
+        i = 0
+        for mul, ir in irreps:
+            for _ in range(mul):
+                sl = slice(i, i + ir.dim)
+                ret += [(ir, _INPUT(0, sl.start, sl.stop), e[sl])]
+                i += ir.dim
+        return ret
+
+    *irrepss_left, irreps_right = irrepss
+    ret = []
+    for ir_left, path_left, C_left in _wigner_nj(
+        irrepss_left,
+        normalization=normalization,
+        filter_ir_mid=filter_ir_mid,
+        dtype=dtype,
+    ):
+        i = 0
+        for mul, ir in irreps_right:
+            for ir_out in ir_left * ir:
+                if filter_ir_mid is not None and ir_out not in filter_ir_mid:
+                    continue
+
+                C = o3.wigner_3j(ir_out.l, ir_left.l, ir.l, dtype=dtype)
+                if normalization == "component":
+                    C *= ir_out.dim**0.5
+                if normalization == "norm":
+                    C *= ir_left.dim**0.5 * ir.dim**0.5
+
+                C = torch.einsum("jk,ijl->ikl", C_left.flatten(1), C)
+                C = C.reshape(
+                    ir_out.dim, *(irreps.dim for irreps in irrepss_left), ir.dim
+                )
+                for u in range(mul):
+                    E = torch.zeros(
+                        ir_out.dim,
+                        *(irreps.dim for irreps in irrepss_left),
+                        irreps_right.dim,
+                        dtype=dtype,
+                    )
+                    sl = slice(i + u * ir.dim, i + (u + 1) * ir.dim)
+                    E[..., sl] = C
+                    ret += [
+                        (
+                            ir_out,
+                            _TP(
+                                op=(ir_left, ir, ir_out),
+                                args=(
+                                    path_left,
+                                    _INPUT(len(irrepss_left), sl.start, sl.stop),
+                                ),
+                            ),
+                            E,
+                        )
+                    ]
+            i += mul * ir.dim
+    return sorted(ret, key=lambda x: x[0])
+
+
+def U_matrix_real(
+    irreps_in: Union[str, o3.Irreps],
+    irreps_out: Union[str, o3.Irreps],
+    correlation: int,
+    normalization: str = "component",
+    filter_ir_mid=None,
+    dtype=None,
+):
+    irreps_out = o3.Irreps(irreps_out)
+    irrepss = [o3.Irreps(irreps_in)] * correlation
+
+    if correlation == 4:
+        filter_ir_mid = [(i, 1 if i % 2 == 0 else -1) for i in range(12)]
+
+    wigners = _wigner_nj(irrepss, normalization, filter_ir_mid, dtype)
+
+    current_ir = wigners[0][0]
+    out = []
+    stack = torch.tensor([])
+
+    for ir, _, base_o3 in wigners:
+        if ir in irreps_out and ir == current_ir:
+            stack = torch.cat((stack, base_o3.squeeze().unsqueeze(-1)), dim=-1)
+            last_ir = current_ir
+        elif ir in irreps_out and ir != current_ir:
+            if len(stack) != 0:
+                out += [last_ir, stack]
+            stack = base_o3.squeeze().unsqueeze(-1)
+            current_ir, last_ir = ir, ir
+        else:
+            current_ir = ir
+    out += [last_ir, stack]
+    return out
+
+
+class GroupMM:
+    def __init__(self, dtype, num_elements, batch_size):
+        self.num_elements = num_elements
+        self.batch_size = batch_size
+
+    def forward(self, weights, vectors, bincounts):
+        return torch.ops.libtorch_tp_jit.group_gemm(
+            weights,
+            vectors,
+            bincounts,
+            self.num_elements,
+            self.batch_size,
+            weights.shape[2],
+            weights.shape[3],
+            0,
+        )
+
+
+@compile_mode("script")
+class Contraction(torch.nn.Module):
+    def __init__(
+        self,
+        irreps_in: o3.Irreps,
+        irrep_out: o3.Irreps,
+        correlation: int,
+        internal_weights: bool = True,
+        num_elements: Optional[int] = None,
+        weights: Optional[torch.Tensor] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        super().__init__()
+
+        self.num_elements = num_elements
+        self.num_features = irreps_in.count((0, 1))
+        self.coupling_irreps = o3.Irreps([irrep.ir for irrep in irreps_in])
+        self.correlation = correlation
+        if dtype is None:
+            dtype = torch.get_default_dtype()
+
+        for nu in range(1, correlation + 1):
+            U_matrix = U_matrix_real(
+                irreps_in=self.coupling_irreps,
+                irreps_out=irrep_out,
+                correlation=nu,
+                dtype=dtype,
+            )[-1]
+            self.register_buffer(f"U_matrix_{nu}", U_matrix)
+
+        # Tensor contraction equations
+        self.contractions_weighting = torch.nn.ModuleList()
+        self.contractions_features = torch.nn.ModuleList()
+
+        # Create weight for product basis
+        self.weights = torch.nn.ParameterList([])
+        self.groupMM = GroupMM(dtype, num_elements, self.num_features)
+        self.num_equivariance = 2 * irrep_out.lmax + 1
+
+        for i in range(correlation, 0, -1):
+            # Shapes defining
+            num_params = self.U_tensors(i).size()[-1]
+
+            if i == correlation:
+                # Parameters for the product basis
+                w = torch.nn.Parameter(
+                    torch.randn(
+                        (num_elements, num_params, self.num_features), dtype=dtype
+                    )
+                    / num_params
+                )
+                self.weights_max = w
+            else:
+                # Parameters for the product basis
+                w = torch.nn.Parameter(
+                    torch.randn(
+                        (num_elements, num_params, self.num_features), dtype=dtype
+                    )
+                    / num_params
+                )
+                self.weights.append(w)
+
+        if not internal_weights:
+            self.weights = weights[:-1]
+            self.weights_max = weights[-1]
+
+        # Permute the U matrices
+        for i in range(correlation, 0, -1):
+            U = self.U_tensors(i)
+            num_params = U.shape[-1]
+            permutation = [U.dim() - 1] + list(range(U.dim()))[:-1]
+            U_permuted = U.permute(permutation).reshape(num_params, -1)
+            self.register_buffer(f"U_permuted_{i}", U_permuted)
+
+    def forward(
+        self, x: torch.Tensor, bincount: torch.Tensor, sorted_indices: torch.Tensor
+    ):
+        U = self.U_tensors(self.correlation)
+        num_params = U.shape[-1]
+        num_ell = U.shape[-2]
+        U_weights = self.weights_max.transpose(1, 2).reshape(
+            -1, num_params
+        ) @ self.U_permuted(self.correlation)
+
+        out = self.groupMM.forward(
+            U_weights.view(self.num_elements, self.num_features, -1, num_ell),
+            x,
+            bincount,
+        )
+        out = out.view([x.shape[0], self.num_features] + list(U.shape[:-2]))
+
+        for i, weight in enumerate(self.weights):
+            U = self.U_tensors(self.correlation - i - 1)
+            U_perm = self.U_permuted(self.correlation - i - 1)
+            c_tensor = weight.transpose(1, 2).reshape(-1, weight.shape[1]) @ U_perm
+            c_tensor = c_tensor.view(
+                [weight.shape[0], weight.shape[2]] + list(U.shape[:-1])
+            )
+            c_tensor = c_tensor[sorted_indices] + out
+
+            s = c_tensor.shape
+            out = torch.sum(
+                c_tensor.view(s[0] * s[1], -1, s[-1]) * x.view(s[0] * s[1], 1, s[-1]),
+                dim=2,
+            ).view(s[:-1])
+            # out = torch.bmm(c_tensor.view(s[0] * s[1], -1, s[-1]), x.view(s[0] * s[1], s[-1], 1)).view(s[:-1])
+
+        return out.view(out.shape[0], -1)
+
+    def U_tensors(self, nu: int):
+        return dict(self.named_buffers())[f"U_matrix_{nu}"]
+
+    def U_permuted(self, nu: int):
+        return dict(self.named_buffers())[f"U_permuted_{nu}"]
+
+
+@compile_mode("script")
+class SymmetricContraction(CodeGenMixin, torch.nn.Module):
+    def __init__(
+        self,
+        irreps_in: o3.Irreps,
+        irreps_out: o3.Irreps,
+        correlation: Union[int, Dict[str, int]],
+        irrep_normalization: str = "component",
+        path_normalization: str = "element",
+        internal_weights: Optional[bool] = None,
+        shared_weights: Optional[bool] = None,
+        num_elements: Optional[int] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        super().__init__()
+
+        self.num_elements = num_elements
+        self.dtype = dtype if dtype is not None else torch.get_default_dtype()
+        if irrep_normalization is None:
+            irrep_normalization = "component"
+
+        if path_normalization is None:
+            path_normalization = "element"
+
+        assert irrep_normalization in ["component", "norm", "none"]
+        assert path_normalization in ["element", "path", "none"]
+
+        self.irreps_in = o3.Irreps(irreps_in)
+        self.irreps_out = o3.Irreps(irreps_out)
+
+        del irreps_in, irreps_out
+
+        if not isinstance(correlation, tuple):
+            corr = correlation
+            correlation = {}
+            for irrep_out in self.irreps_out:
+                correlation[irrep_out] = corr
+
+        assert shared_weights or not internal_weights
+
+        if internal_weights is None:
+            internal_weights = True
+
+        self.internal_weights = internal_weights
+        self.shared_weights = shared_weights
+
+        del internal_weights, shared_weights
+
+        self.contractions = torch.nn.ModuleList()
+        for irrep_out in self.irreps_out:
+            self.contractions.append(
+                Contraction(
+                    irreps_in=self.irreps_in,
+                    irrep_out=o3.Irreps(str(irrep_out.ir)),
+                    correlation=correlation[irrep_out],
+                    internal_weights=self.internal_weights,
+                    num_elements=num_elements,
+                    weights=self.shared_weights,
+                    dtype=self.dtype,
+                )
+            )
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        indices = torch.argmax(y, dim=1)
+        bincount = torch.bincount(indices, minlength=self.num_elements).to("cpu")
+        permutation = torch.argsort(indices)
+        inverse_perm = torch.argsort(permutation)
+        sorted_indices = indices[permutation]
+        x = x[permutation]
+        outs = [
+            contraction(x, bincount, sorted_indices)
+            for contraction in self.contractions
+        ]
+        outs_cat = torch.cat(outs, dim=-1)[inverse_perm]
+        return outs_cat
+
+
+def register_torch_fakes():
+    @torch.library.register_fake("libtorch_tp_jit::group_gemm")
+    def fake_group_gemm(A, B, ragged_counts, num_W, batch_size, m, k, ragged_inner):
+        if ragged_inner == 0:
+            return A.new_empty(B.shape[0], batch_size, m)
+        else:
+            return A.new_empty(num_W, batch_size, m, k)
+
+
+def register_autograd():
+    op = torch.ops.libtorch_tp_jit.group_gemm
+
+    def setup_context(ctx, inputs, output):
+        (
+            ctx.A,
+            ctx.B,
+            ctx.ragged_counts,
+            ctx.num_W,
+            ctx.batch_size,
+            ctx.m,
+            ctx.k,
+            ctx.ragged_inner,
+        ) = inputs
+
+    def backward(ctx, grad_output):
+        if ctx.ragged_inner == 0:
+            grad_A = op(
+                grad_output,
+                ctx.B,
+                ctx.ragged_counts,
+                ctx.num_W,
+                ctx.batch_size,
+                ctx.m,
+                ctx.k,
+                1,
+            )
+            grad_B = op(
+                ctx.A.transpose(2, 3),
+                grad_output,
+                ctx.ragged_counts,
+                ctx.num_W,
+                ctx.batch_size,
+                ctx.k,
+                ctx.m,
+                0,
+            )
+        else:
+            grad_A = op(
+                grad_output,
+                ctx.B,
+                ctx.ragged_counts,
+                ctx.num_W,
+                ctx.batch_size,
+                ctx.m,
+                ctx.k,
+                0,
+            )
+            grad_B = op(
+                grad_output.transpose(2, 3),
+                ctx.A,
+                ctx.ragged_counts,
+                ctx.num_W,
+                ctx.batch_size,
+                ctx.k,
+                ctx.m,
+                0,
+            )
+        return grad_A, grad_B, None, None, None, None, None, None
+
+    torch.library.register_autograd(
+        "libtorch_tp_jit::group_gemm", backward, setup_context=setup_context
+    )
+
+
+if extlib.BUILT_EXTENSION:
+    register_torch_fakes()
+    register_autograd()

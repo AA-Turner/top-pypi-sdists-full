@@ -5,6 +5,7 @@ import hashlib
 import json
 import sys
 import time
+from pathlib import Path
 
 
 def _is_pre_release(version: str) -> bool:
@@ -23,11 +24,113 @@ def _version_key(v: str):
 
 
 def _cmd_stats(args: list[str]) -> dict:
-    """Return token/time stats via the configured StatsBackend."""
+    """Return token/time stats via the configured StatsBackend.
+
+    Flags:
+      --task TASK-ID          Per-task stats (legacy backend)
+      --llm-task TASK-ID      Per-task LLM call attribution (command-segment)
+      --breakdown TASK-ID     Per-command segment breakdown for one task
+      --by-mode               Per-mode aggregation (LLM call attribution)
+      --top-tasks [N]         Top N tasks by LLM calls (default 10)
+      --sort calls|tokens     Sort key for --top-tasks (default: calls)
+      --days N                Global stats window (default 30 days)
+    """
     from kanban_framework.infra.filesystem import Filesystem
-    from kanban_framework.infra.stats_backend import resolve_stats_backend
 
     fs = Filesystem(Filesystem.find_project_root())
+
+    # New LLM call attribution via command-segment analysis
+    for i, a in enumerate(args):
+        if a == "--llm-task" and i + 1 < len(args):
+            from kanban_framework.domain.llm_stats import LLMStatsReader
+            reader = LLMStatsReader(fs.kanban_dir.parent)
+            # v0.190: Use two-step region+filter algorithm for accurate counts
+            data = reader.get_task_api_calls(args[i + 1])
+            data["meta"] = {
+                "command": "stats --llm-task",
+                "scope": "task",
+                "truncated": False,
+                "total_available": 1,
+            }
+            return data
+        if a == "--task-issues" and i + 1 < len(args):
+            from kanban_framework.domain.llm_stats import LLMStatsReader
+            reader = LLMStatsReader(fs.kanban_dir.parent)
+            return reader.get_task_issues(args[i + 1])
+        if a == "--export-logs" and i + 1 < len(args):
+            from kanban_framework.domain.llm_stats import LLMStatsReader
+            reader = LLMStatsReader(fs.kanban_dir.parent)
+            task_id = args[i + 1]
+            output_dir = fs.kanban_dir / "tasks" / task_id / "logs"
+            return reader.export_task_logs(task_id, output_dir)
+        if a == "--breakdown" and i + 1 < len(args):
+            from kanban_framework.domain.llm_stats import LLMStatsReader
+            reader = LLMStatsReader(fs.kanban_dir.parent)
+            task_id = args[i + 1]
+            # Optional --max N: limit returned segments (top N by tokens)
+            max_n = None
+            for j, b in enumerate(args):
+                if b == "--max" and j + 1 < len(args) and args[j + 1].isdigit():
+                    max_n = int(args[j + 1])
+                    break
+            breakdown = reader.get_task_breakdown(task_id)
+            full_count = len(breakdown["segments"])
+            if max_n is not None and max_n > 0:
+                full = sorted(
+                    breakdown["segments"],
+                    key=lambda s: s["input_tokens"] + s["output_tokens"],
+                    reverse=True,
+                )
+                truncated = len(full) > max_n
+                breakdown["segments"] = full[:max_n]
+            else:
+                truncated = False
+            # v0.186.1: standardized fields (kept legacy names as aliases)
+            breakdown["truncated"] = truncated
+            breakdown["total_segments_available"] = full_count
+            breakdown["total_available"] = full_count  # standardized alias
+            breakdown["meta"] = {
+                "command": "stats --breakdown",
+                "scope": "task_breakdown",
+                "truncated": truncated,
+                "total_available": full_count,
+            }
+            return breakdown
+        if a == "--by-mode":
+            from kanban_framework.domain.llm_stats import LLMStatsReader
+            reader = LLMStatsReader(fs.kanban_dir.parent)
+            mode_stats = reader.get_mode_stats()
+            total_calls = sum(s.total_calls for s in mode_stats.values())
+            total_tasks = sum(s.task_count for s in mode_stats.values())
+            return {
+                "modes": {m: s.to_dict() for m, s in mode_stats.items()},
+                "summary": {
+                    "total_tasks_attributed": total_tasks,
+                    "total_calls": total_calls,
+                },
+                # v0.186.1: standardized meta block
+                "meta": {
+                    "command": "stats --by-mode",
+                    "scope": "mode",
+                    "truncated": False,
+                    "total_available": len(mode_stats),
+                },
+            }
+        if a == "--top-tasks":
+            # Optional N argument after the flag (default 10)
+            limit = 10
+            if i + 1 < len(args) and args[i + 1].isdigit():
+                limit = int(args[i + 1])
+            sort_by = "calls"
+            for j, b in enumerate(args):
+                if b == "--sort" and j + 1 < len(args):
+                    if args[j + 1] in ("calls", "tokens"):
+                        sort_by = args[j + 1]
+                    break
+            return _build_top_tasks(fs, limit, sort_by)
+
+    # Legacy backend (token/time from JSONL estimation)
+    from kanban_framework.infra.stats_backend import resolve_stats_backend
     cfg = {}
     try:
         cfg_path = fs.config_file()
@@ -44,8 +147,72 @@ def _cmd_stats(args: list[str]) -> dict:
         if a == "--task" and i + 1 < len(args):
             return backend.get_task_stats(args[i + 1])
 
-    days = int(stats_cfg.get("days", 30))
-    return backend.get_stats(days=days)
+
+def _build_top_tasks(fs, limit: int, sort_by: str) -> dict:
+    """Build the --top-tasks response by aggregating LLM call attribution.
+
+    Reuses LLMStatsReader.list_attributable_tasks() for the ranking, then
+    enriches each top task with full stats + mode (from task.json).
+    """
+    import json as _json
+    from kanban_framework.domain.llm_stats import LLMStatsReader
+
+    reader = LLMStatsReader(fs.kanban_dir.parent)
+    ranked = reader.list_attributable_tasks()  # {task_id: call_count}, sorted desc
+
+    # Build mode lookup from active + archived task.json files
+    mode_lookup: dict[str, str] = {}
+    for tasks_dir in [fs.kanban_dir / "tasks", fs.kanban_dir / "archive"]:
+        if not tasks_dir.is_dir():
+            continue
+        for task_dir in tasks_dir.iterdir():
+            if not task_dir.is_dir():
+                continue
+            tj = task_dir / "task.json"
+            if not tj.is_file():
+                continue
+            try:
+                data = _json.loads(tj.read_text(encoding="utf-8"))
+                mode_lookup[task_dir.name] = data.get("mode") or "unknown"
+            except (_json.JSONDecodeError, OSError):
+                continue
+
+    top_items = list(ranked.items())[:limit]
+    top_tasks = []
+    for task_id, _call_count in top_items:
+        stats = reader.get_task_stats(task_id)
+        top_tasks.append({
+            "task_id": task_id,
+            "mode": mode_lookup.get(task_id, "unknown"),
+            "total_calls": stats.total_calls,
+            "main_agent_calls": stats.main_agent_calls,
+            "sub_agent_calls": stats.sub_agent_calls,
+            "tokens_total": stats.input_tokens + stats.output_tokens,
+            "input_tokens": stats.input_tokens,
+            "output_tokens": stats.output_tokens,
+            "kanban_commands": stats.kanban_commands,
+            "sessions_count": stats.sessions_count,
+            "first_activity_at": stats.first_activity_at,
+            "last_activity_at": stats.last_activity_at,
+        })
+
+    # Apply secondary sort if user requested tokens
+    if sort_by == "tokens":
+        top_tasks.sort(key=lambda x: x["tokens_total"], reverse=True)
+
+    return {
+        "top_tasks": top_tasks,
+        "sort_by": sort_by,
+        "limit": limit,
+        "total_tasks_considered": len(ranked),  # legacy alias (kept for compat)
+        "total_available": len(ranked),  # v0.186.1: standardized name
+        "meta": {
+            "command": "stats --top-tasks",
+            "scope": "top_tasks",
+            "truncated": len(top_tasks) < len(ranked),
+            "total_available": len(ranked),
+        },
+    }
 
 
 def _cmd_help(args: list[str], cmd_map: dict) -> dict:
@@ -236,7 +403,7 @@ def _check_agent_sync() -> list[str]:
     return issues
 
 
-def _files_equal(a: 'Path', b: 'Path') -> bool:
+def _files_equal(a: Path, b: Path) -> bool:
     return hashlib.md5(a.read_bytes()).hexdigest() == hashlib.md5(b.read_bytes()).hexdigest()
 
 

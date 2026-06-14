@@ -172,7 +172,11 @@ BACKEND_REGISTRY = {
 
 
 def resolve_backend(name: str, knowledge_manager):
-    """Resolve a backend name to an instance. Falls back to builtin."""
+    """Resolve a backend name to an instance. Falls back to builtin.
+
+    If chromadb is configured but not installed, gracefully falls back
+    to builtin with a one-time stderr hint showing how to install.
+    """
     import sys as _sys
     cls = BACKEND_REGISTRY.get(name)
     if cls is None:
@@ -184,4 +188,16 @@ def resolve_backend(name: str, knowledge_manager):
                "Use 'builtin' (default) for production.")
         print(f"⚠️  {msg}", file=_sys.stderr)
         return cls()
+    # Graceful fallback: chromadb configured but not installed
+    if cls is ChromaDBBackend:
+        try:
+            import chromadb  # noqa: F401
+            return cls(knowledge_manager)
+        except ImportError:
+            _sys.stderr.write(
+                "⚠ KB: chromadb backend configured but not installed. "
+                "Falling back to builtin (FTS5 keyword search).\n"
+                "  For semantic search: pip install chromadb\n"
+            )
+            return BuiltinBackend(knowledge_manager)
     return cls(knowledge_manager)

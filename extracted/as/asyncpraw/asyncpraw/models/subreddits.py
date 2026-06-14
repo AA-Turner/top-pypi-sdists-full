@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, AsyncIterator
-from warnings import warn
+from typing import TYPE_CHECKING, Any
 
-from ..const import API_PATH
-from ..util import _deprecate_args
-from . import Subreddit
-from .base import AsyncPRAWBase
-from .listing.generator import ListingGenerator
-from .util import stream_generator
+from asyncpraw.const import API_PATH
+from asyncpraw.models import Subreddit
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.generator import ListingGenerator
+from asyncpraw.models.util import stream_generator
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
 
 
@@ -23,68 +23,41 @@ class Subreddits(AsyncPRAWBase):
     def _to_list(subreddit_list: list[str | asyncpraw.models.Subreddit]) -> str:
         return ",".join([str(x) for x in subreddit_list])
 
-    def default(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def default(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Return a :class:`.ListingGenerator` for default subreddits.
 
         Additional keyword arguments are passed in the initialization of
         :class:`.ListingGenerator`.
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["subreddits_default"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["subreddits_default"], **generator_kwargs)
 
-    def gold(
-        self, **generator_kwargs: Any
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
-        """Alias for :meth:`.premium` to maintain backwards compatibility."""
-        warn(
-            "'subreddits.gold' has be renamed to 'subreddits.premium'.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.premium(**generator_kwargs)
-
-    def new(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def new(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Return a :class:`.ListingGenerator` for new subreddits.
 
         Additional keyword arguments are passed in the initialization of
         :class:`.ListingGenerator`.
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["subreddits_new"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["subreddits_new"], **generator_kwargs)
 
-    def popular(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def popular(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Return a :class:`.ListingGenerator` for popular subreddits.
 
         Additional keyword arguments are passed in the initialization of
         :class:`.ListingGenerator`.
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["subreddits_popular"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["subreddits_popular"], **generator_kwargs)
 
-    def premium(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def premium(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Return a :class:`.ListingGenerator` for premium subreddits.
 
         Additional keyword arguments are passed in the initialization of
         :class:`.ListingGenerator`.
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["subreddits_gold"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["subreddits_premium"], **generator_kwargs)
 
     async def recommended(
         self,
@@ -106,16 +79,11 @@ class Subreddits(AsyncPRAWBase):
             msg = "omit_subreddits must be a list or None"
             raise TypeError(msg)
 
-        params = {"omit": self._to_list(omit_subreddits or [])}
+        params: dict[str, str | int] = {"omit": self._to_list(omit_subreddits or [])}
         url = API_PATH["sub_recommended"].format(subreddits=self._to_list(subreddits))
-        return [
-            Subreddit(self._reddit, sub["sr_name"])
-            for sub in await self._reddit.get(url, params=params)
-        ]
+        return [Subreddit(self._reddit, sub["sr_name"]) for sub in await self._reddit.get(url, params=params)]
 
-    def search(
-        self, query: str, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def search(self, query: str, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Return a :class:`.ListingGenerator` of subreddits matching ``query``.
 
         Subreddits are searched by both their title and description.
@@ -131,18 +99,15 @@ class Subreddits(AsyncPRAWBase):
 
         """
         self._safely_add_arguments(arguments=generator_kwargs, key="params", q=query)
-        return ListingGenerator(
-            self._reddit, API_PATH["subreddits_search"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["subreddits_search"], **generator_kwargs)
 
-    @_deprecate_args("query", "include_nsfw", "exact")
     async def search_by_name(
         self,
         query: str,
         *,
         include_nsfw: bool = True,
         exact: bool = False,
-    ) -> list[asyncpraw.models.Subreddit]:
+    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
         r"""Return list of :class:`.Subreddit`\ s whose names begin with ``query``.
 
         :param query: Search for subreddits beginning with this string.
@@ -157,30 +122,7 @@ class Subreddits(AsyncPRAWBase):
         for result in results["names"]:
             yield await self._reddit.subreddit(result)
 
-    async def search_by_topic(
-        self, query: str
-    ) -> AsyncIterator[
-        asyncpraw.models.Subreddit
-    ]:  # pragma: no cover; TODO: not currently working
-        """Return list of Subreddits whose topics match ``query``.
-
-        :param query: Search for subreddits relevant to the search topic.
-
-        .. note::
-
-            As of 09/01/2020, this endpoint always returns 404.
-
-        """
-        results = await self._reddit.get(
-            API_PATH["subreddits_by_topic"], params={"query": query}
-        )
-        for result in results:
-            subreddit = await self._reddit.subreddit(result["name"])
-            yield subreddit
-
-    def stream(
-        self, **stream_options: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def stream(self, **stream_options: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Yield new subreddits as they are created.
 
         Subreddits are yielded oldest first. Up to 100 historical subreddits will

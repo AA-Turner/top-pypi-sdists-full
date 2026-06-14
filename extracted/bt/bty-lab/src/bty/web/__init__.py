@@ -28,7 +28,7 @@ def _run_portability(args: argparse.Namespace) -> None:
     inventory bundle. Server-free: needs only stdlib + ``bty.web``,
     so it works without the ``[web]`` extra.
 
-    v0.33.2+: the bundle is just ``<dest>/inventory.json`` -- no
+    the bundle is just ``<dest>/inventory.json`` -- no
     image bytes. The image-store disk and the catalog handle bytes
     separately.
     """
@@ -109,9 +109,7 @@ def _resolve_secret_key(state_dir: Path) -> str:
         configured = (_cfg().server.session_secret or "").strip()
     except RuntimeError:
         # No active config (direct-call test path that didn't boot
-        # main(), or a hypothetical pre-init caller). Read the
-        # canonical env name only; the v0.42 legacy alias was
-        # removed in v0.45.
+        # main(), or a hypothetical pre-init caller). Read the env.
         configured = (os.environ.get("BTY_SERVER_SESSION_SECRET") or "").strip()
     if configured:
         return configured
@@ -248,18 +246,18 @@ def main(argv: list[str] | None = None) -> None:
         port = int(raw_port)
     except ValueError:
         # Pre-1.0 policy: no read-side leniency for invalid config.
-        # A typo'd BTY_WEB_PORT exits with a clear error rather than
-        # silently binding 8080 -- the operator's intent isn't
+        # A typo'd BTY_SERVER_PORT exits with a clear error rather
+        # than silently binding 8080 -- the operator's intent isn't
         # "default" but "fix my typo".
         print(
-            f"bty-web: BTY_WEB_PORT={raw_port!r} is not an integer; "
+            f"bty-web: BTY_SERVER_PORT={raw_port!r} is not an integer; "
             f"set it to a number between 1 and 65535 (default 8080)",
             file=sys.stderr,
         )
         sys.exit(2)
     if not (1 <= port <= 65535):
         print(
-            f"bty-web: BTY_WEB_PORT={port} is out of range (must be 1-65535; default 8080)",
+            f"bty-web: BTY_SERVER_PORT={port} is out of range (must be 1-65535; default 8080)",
             file=sys.stderr,
         )
         sys.exit(2)

@@ -2,21 +2,29 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING
 
-from ....const import API_PATH
-from ...base import AsyncPRAWBase
-from ..generator import ListingGenerator
+from asyncpraw.const import API_PATH
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.generator import ListingGenerator
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import AsyncIterator
+
+    from typing_extensions import Unpack
+
     import asyncpraw.models
+    from asyncpraw.models.listing.generator import ListingGeneratorKwargs
 
 
 class SubmissionListingMixin(AsyncPRAWBase):
     """Adds additional methods pertaining to :class:`.Submission` instances."""
 
+    if TYPE_CHECKING:
+        id: str
+
     def duplicates(
-        self, **generator_kwargs: str | int | dict[str, str]
+        self, **generator_kwargs: Unpack[ListingGeneratorKwargs]
     ) -> AsyncIterator[asyncpraw.models.Submission]:
         """Return a :class:`.ListingGenerator` for the submission's duplicates.
 

@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
-from ....const import API_PATH
-from ....util import _deprecate_args
+from typing import TYPE_CHECKING
+
+from asyncpraw.const import API_PATH
+
+if TYPE_CHECKING:
+    import asyncpraw
 
 
 class SavableMixin:
     """Interface for :class:`.RedditBase` classes that can be saved."""
 
-    @_deprecate_args("category")
-    async def save(self, *, category: str | None = None):
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: asyncpraw.Reddit
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    async def save(self, *, category: str | None = None) -> None:
         """Save the object.
 
         :param category: The category to save to. If the authenticated user does not
@@ -31,11 +41,9 @@ class SavableMixin:
             :meth:`.unsave`
 
         """
-        await self._reddit.post(
-            API_PATH["save"], data={"category": category, "id": self.fullname}
-        )
+        await self._reddit.post(API_PATH["save"], data={"category": category, "id": self.fullname})
 
-    async def unsave(self):
+    async def unsave(self) -> None:
         """Unsave the object.
 
         Example usage:

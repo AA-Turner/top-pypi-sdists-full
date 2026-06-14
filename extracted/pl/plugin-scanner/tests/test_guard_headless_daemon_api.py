@@ -29,6 +29,7 @@ from codex_plugin_scanner.guard.models import GuardApprovalRequest
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
 from codex_plugin_scanner.guard.shims import install_package_shims
 from codex_plugin_scanner.guard.store import GuardStore
+from tests.test_guard_supply_chain_evaluator import WORKSPACE_ID, _bundle_response, _package
 
 
 def _read_json_response_details(
@@ -921,21 +922,60 @@ def test_supply_chain_package_firewall_paid_install_and_test_roundtrip(
 def test_supply_chain_audit_scans_workspace_manifests(tmp_path: Path) -> None:
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
+    audit_now = "2026-05-27T16:00:00.000Z"
     (workspace_dir / "package.json").write_text(
-        json.dumps({"name": "demo", "version": "1.0.0"}),
+        json.dumps({"name": "demo", "version": "1.0.0", "dependencies": {"minimist": "^1.2.0"}}),
+        encoding="utf-8",
+    )
+    (workspace_dir / "package-lock.json").write_text(
+        json.dumps(
+            {
+                "packages": {
+                    "": {"dependencies": {"minimist": "^1.2.0"}},
+                    "node_modules/minimist": {"version": "1.2.8"},
+                }
+            }
+        ),
         encoding="utf-8",
     )
     store = GuardStore(tmp_path / "guard-home")
     store.set_sync_credentials(
         "https://hol.org/api/guard/receipts/sync",
         "cloud-token",
-        "2026-05-27T16:00:00.000Z",
-        workspace_id="workspace-1",
+        audit_now,
+        workspace_id=WORKSPACE_ID,
+    )
+    bundle_response = _bundle_response(
+        packages=[
+            _package(
+                ecosystem="npm",
+                name="minimist",
+                version="1.2.8",
+                default_action="block",
+                recommended_fix_version="1.2.9",
+            )
+        ]
+    )
+    store.cache_supply_chain_bundle(WORKSPACE_ID, bundle_response, audit_now)
+    store.set_sync_payload(
+        "supply_chain_bundle_summary",
+        {
+            "advisory_count": 1,
+            "bundle_version": "1747612800000-deadbeef",
+            "feed_snapshot_hash": "feed-snapshot-1",
+            "package_count": 1,
+            "policy_hash": "policy-hash-1",
+            "status": "synced",
+            "synced_at": audit_now,
+            "tier": "premium",
+            "workspace_id": WORKSPACE_ID,
+        },
+        audit_now,
     )
     store.set_sync_payload(
         "supply_chain_bundle_entitlement",
-        {"tier": "premium", "workspace_id": "workspace-1"},
-        "2026-05-27T16:00:00.000Z",
+        {"tier": "premium", "workspace_id": WORKSPACE_ID},
+        audit_now,
     )
     daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
     daemon.start()
@@ -2391,3 +2431,38 @@ def test_headless_generic_action_error_omits_unstructured_detail() -> None:
             "retryable": True,
         },
     }
+
+
+def test_policy_cloud_exceptions_endpoint(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.runtime.runner import _persist_cloud_exceptions
+
+    store = GuardStore(tmp_path / "guard-home")
+    _persist_cloud_exceptions(
+        store,
+        sync_exceptions=[
+            {
+                "exceptionId": "artifact:codex:demo",
+                "scope": "artifact",
+                "harness": "codex",
+                "owner": "owner@example.com",
+                "expiresAt": "2099-01-01T00:00:00Z",
+            }
+        ],
+        now="2026-06-13T00:00:00Z",
+    )
+    daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon.start()
+    try:
+        token = _dashboard_token_for(store)
+        status, payload = _read_json_response(
+            _request(daemon.port, "/v1/policy", method="GET", token=token),
+        )
+        assert status == 200
+        assert len(payload["cloud_exceptions"]) == 1
+        dedicated_status, dedicated_payload = _read_json_response(
+            _request(daemon.port, "/v1/policy/cloud-exceptions", method="GET", token=token),
+        )
+        assert dedicated_status == 200
+        assert dedicated_payload["items"][0]["id"] == "artifact:codex:demo"
+    finally:
+        daemon.stop()

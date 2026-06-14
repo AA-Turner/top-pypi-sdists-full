@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: pytest
-Version: 9.0.3
+Version: 9.1.0
 Summary: pytest: simple powerful testing with Python
-Author: Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Freya Bruhin, Others (See AUTHORS)
+Author: Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt
 License-Expression: MIT
 Project-URL: Changelog, https://docs.pytest.org/en/stable/changelog.html
 Project-URL: Contact, https://docs.pytest.org/en/stable/contact.html
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
@@ -197,9 +198,7 @@ Save time, reduce risk, and improve code health, while paying the maintainers of
 Security
 ^^^^^^^^
 
-pytest has never been associated with a security vulnerability, but in any case, to report a
-security vulnerability please use the `Tidelift security contact <https://tidelift.com/security>`_.
-Tidelift will coordinate the fix and disclosure.
+If you have found an issue that you believe is a security vulnerability, please do not create an issue -- instead, report it via a `new security advisory <https://github.com/pytest-dev/pytest/security/advisories/new>`__.
 
 
 License

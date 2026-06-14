@@ -2,28 +2,30 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from ..base import AsyncPRAWBase
+from asyncpraw.models.base import AsyncPRAWBase
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Iterator
+
     import asyncpraw
 
 
 class BaseList(AsyncPRAWBase):
     """An abstract class to coerce a list into an :class:`.AsyncPRAWBase`."""
 
-    CHILD_ATTRIBUTE = None
+    CHILD_ATTRIBUTE: ClassVar[str | None] = None
 
     def __contains__(self, item: Any) -> bool:
         """Test if item exists in the list."""
-        return item in getattr(self, self.CHILD_ATTRIBUTE)
+        return item in getattr(self, self._child_attribute())
 
     def __getitem__(self, index: int) -> Any:
         """Return the item at position index in the list."""
-        return getattr(self, self.CHILD_ATTRIBUTE)[index]
+        return getattr(self, self._child_attribute())[index]
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.BaseList` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
@@ -31,22 +33,25 @@ class BaseList(AsyncPRAWBase):
         """
         super().__init__(reddit, _data=_data)
 
-        if self.CHILD_ATTRIBUTE is None:
-            msg = "BaseList must be extended."
-            raise NotImplementedError(msg)
-
-        child_list = getattr(self, self.CHILD_ATTRIBUTE)
+        child_list = getattr(self, self._child_attribute())
         for index, item in enumerate(child_list):
-            child_list[index] = reddit._objector.objectify(item)
+            child_list[index] = reddit._objector.objectify(data=item)
 
     def __iter__(self) -> Iterator[Any]:
         """Return an iterator to the list."""
-        return getattr(self, self.CHILD_ATTRIBUTE).__iter__()
+        return getattr(self, self._child_attribute()).__iter__()
 
     def __len__(self) -> int:
         """Return the number of items in the list."""
-        return len(getattr(self, self.CHILD_ATTRIBUTE))
+        return len(getattr(self, self._child_attribute()))
 
     def __str__(self) -> str:
         """Return a string representation of the list."""
-        return str(getattr(self, self.CHILD_ATTRIBUTE))
+        return str(getattr(self, self._child_attribute()))
+
+    def _child_attribute(self) -> str:
+        """Return ``CHILD_ATTRIBUTE``, ensuring it has been set by a subclass."""
+        if self.CHILD_ATTRIBUTE is None:
+            msg = "BaseList must be extended."
+            raise NotImplementedError(msg)
+        return self.CHILD_ATTRIBUTE

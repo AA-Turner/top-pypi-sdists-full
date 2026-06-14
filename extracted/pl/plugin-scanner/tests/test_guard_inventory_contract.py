@@ -48,6 +48,7 @@ def test_inventory_snapshot_serialization_redacts_raw_secrets(tmp_path: Path) ->
                 item_id="skill-danger",
                 item_kind="skill",
                 display_name="Danger skill",
+                description="Danger skill instructions for testing redaction.",
                 source_fingerprint=fingerprint_path_tree(skill_dir, home_dir=tmp_path / "home"),
                 content_hash=fingerprint_text((skill_dir / "SKILL.md").read_text()),
                 capability_categories=("reads_secrets", "network_egress"),
@@ -123,6 +124,7 @@ def test_inventory_snapshot_serialization_preserves_free_form_metadata_keys() ->
                 item_id="cursor:mcp:local",
                 item_kind="mcp_server",
                 display_name="Local MCP",
+                description="Local MCP server for schema preservation tests.",
                 source_fingerprint="sha256:source",
                 content_hash="sha256:content",
                 capability_categories=(),
@@ -196,6 +198,7 @@ def test_fingerprint_path_tree_skips_large_ignored_and_path_objects(tmp_path: Pa
                 item_id="item",
                 item_kind="repository",
                 display_name="Repo",
+                description="Repository inventory item for path object serialization.",
                 source_fingerprint=fingerprint,
                 content_hash=fingerprint_text("repo"),
                 capability_categories=("reads_files",),
@@ -333,6 +336,7 @@ def test_inventory_snapshot_attaches_cisco_skill_trust_layer(tmp_path: Path) -> 
     )
     skill_item = next(item for item in snapshot.items if item.item_kind == "skill")
     trust_layers = skill_item.metadata.get("trustLayers")
+    local_security = skill_item.metadata.get("localSecurity")
     encoded = json.dumps(serialize_inventory_snapshot(snapshot), sort_keys=True)
 
     assert isinstance(trust_layers, list)
@@ -340,6 +344,17 @@ def test_inventory_snapshot_attaches_cisco_skill_trust_layer(tmp_path: Path) -> 
         layer for layer in trust_layers if isinstance(layer, dict) and layer.get("layerType") == "cisco_skill_scanner"
     )
     assert cisco_layer.get("trustScore") == 88
+    assert isinstance(local_security, dict)
+    assert local_security.get("entityType") == "skill"
+    assert local_security.get("provider") == "cisco-skill-scanner"
+    safety = local_security.get("safety")
+    assert isinstance(safety, dict)
+    assert safety.get("score") == 88
+    assert safety.get("label") == "review"
+    findings = local_security.get("findings")
+    assert isinstance(findings, list)
+    assert findings[0].get("severity") == "high"
+    assert findings[0].get("file") == "SKILL.md"
     assert str(skill_dir) not in encoded
 
 
@@ -707,3 +722,23 @@ def test_inventory_snapshot_maps_cisco_findings_to_redacted_inventory_evidence(t
     assert payload["sources"][-1]["sourceType"] == "scanner"
     assert "fixture_secretvalue" not in encoded
     assert str(tmp_path) not in encoded
+
+
+def test_inventory_snapshot_preserves_antigravity_agent_type(tmp_path: Path) -> None:
+    detection = HarnessDetection(
+        harness="antigravity",
+        installed=True,
+        command_available=True,
+        config_paths=(str(tmp_path / ".gemini" / "antigravity" / "mcp_config.json"),),
+        artifacts=(),
+        warnings=(),
+    )
+    snapshot = inventory_snapshot_from_detection(
+        detection,
+        generated_at="2026-06-13T00:00:00Z",
+        home_dir=tmp_path,
+    )
+    payload = cast(dict[str, Any], serialize_inventory_snapshot(snapshot))
+
+    assert snapshot.agent_type == "antigravity"
+    assert payload["agentType"] == "antigravity"

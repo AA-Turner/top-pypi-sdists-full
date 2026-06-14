@@ -1,12 +1,38 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: asyncpraw
-Version: 7.8.1
+Version: 8.0.0
 Summary: Asynchronous Python Reddit API Wrapper.
-Keywords: reddit,api,wrapper,asyncpraw,praw,async,asynchronous
+Project-URL: Change Log, https://asyncpraw.readthedocs.io/en/latest/package_info/change_log.html
+Project-URL: Documentation, https://asyncpraw.readthedocs.io/
+Project-URL: Issue Tracker, https://github.com/praw-dev/asyncpraw/issues
+Project-URL: Source Code, https://github.com/praw-dev/asyncpraw
 Author-email: Joel Payne <lilspazjoekp@gmail.com>
-Maintainer-email: Joel Payne <lilspazjoekp@gmail.com>
-Requires-Python: ~=3.8
-Description-Content-Type: text/x-rst
+Maintainer-email: Joel Payne <lilspazjoekp@gmail.com>, Bryce Boe <bbzbryce@gmail.com>
+License: Copyright (c) 2020, Joel Payne
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: AUTHORS.rst
+License-File: LICENSE.txt
+Keywords: api,async,asynchronous,asyncpraw,praw,reddit,wrapper
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -15,45 +41,25 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
 Requires-Dist: aiofiles
-Requires-Dist: aiohttp <4
-Requires-Dist: aiosqlite <=0.17.0
-Requires-Dist: asyncprawcore >=2.4, <3
-Requires-Dist: update_checker >=0.18
-Requires-Dist: coveralls ; extra == "ci"
-Requires-Dist: packaging ; extra == "dev"
-Requires-Dist: asyncpraw[lint] ; extra == "dev"
-Requires-Dist: asyncpraw[test] ; extra == "dev"
-Requires-Dist: asyncpraw[readthedocs] ; extra == "lint"
-Requires-Dist: pre-commit ; extra == "lint"
-Requires-Dist: ruff >=0.0.292 ; extra == "lint"
-Requires-Dist: furo ; extra == "readthedocs"
-Requires-Dist: sphinx ; extra == "readthedocs"
-Requires-Dist: sphinxcontrib-trio ; extra == "readthedocs"
-Requires-Dist: mock ==4.* ; extra == "test"
-Requires-Dist: pytest ==7.* ; extra == "test"
-Requires-Dist: pytest-asyncio ==0.18.* ; extra == "test"
-Requires-Dist: pytest-vcr ==1.* ; extra == "test"
-Requires-Dist: urllib3 ==1.* ; extra == "test"
-Requires-Dist: vcrpy ==4.2.1 ; extra == "test"
-Project-URL: Change Log, https://asyncpraw.readthedocs.io/en/latest/package_info/change_log.html
-Project-URL: Documentation, https://asyncpraw.readthedocs.io/
-Project-URL: Issue Tracker, https://github.com/praw-dev/asyncpraw/issues
-Project-URL: Source Code, https://github.com/praw-dev/asyncpraw
-Provides-Extra: ci
-Provides-Extra: dev
-Provides-Extra: lint
-Provides-Extra: readthedocs
-Provides-Extra: test
+Requires-Dist: aiohttp<4
+Requires-Dist: asyncprawcore<5,>=4
+Requires-Dist: defusedxml==0.7.1
+Requires-Dist: typing-extensions; python_version <= '3.10'
+Requires-Dist: update-checker[async]<2.0,>=1.0
+Description-Content-Type: text/x-rst
 
-Async PRAW: The Asynchronous Python Reddit API Wrapper
-======================================================
+########################################################
+ Async PRAW: The Asynchronous Python Reddit API Wrapper
+########################################################
 
 .. image:: https://img.shields.io/pypi/v/asyncpraw.svg
     :alt: Latest Async PRAW Version
@@ -70,10 +76,6 @@ Async PRAW: The Asynchronous Python Reddit API Wrapper
 .. image:: https://github.com/praw-dev/asyncpraw/actions/workflows/ci.yml/badge.svg?event=push
     :alt: GitHub Actions Status
     :target: https://github.com/praw-dev/asyncpraw/actions/workflows/ci.yml
-
-.. image:: https://coveralls.io/repos/github/praw-dev/asyncpraw/badge.svg
-    :alt: Coveralls Coverage
-    :target: https://coveralls.io/github/praw-dev/asyncpraw?branch=master
 
 .. image:: https://api.securityscorecards.dev/projects/github.com/praw-dev/asyncpraw/badge
     :alt: OpenSSF Scorecard
@@ -100,11 +102,19 @@ you're set.
 
 .. _installation:
 
-Installation
-------------
+**************
+ Installation
+**************
 
-Async PRAW is supported on Python 3.8+. The recommended way to install Async PRAW is via
-`pip <https://pypi.python.org/pypi/pip>`_.
+Async PRAW is supported on Python 3.10+. The recommended way to install Async PRAW is
+with `uv <https://docs.astral.sh/uv/>`_.
+
+.. code-block:: bash
+
+    uv add asyncpraw
+
+Alternatively, Async PRAW can be installed via `pip
+<https://pypi.python.org/pypi/pip>`_:
 
 .. code-block:: bash
 
@@ -114,13 +124,14 @@ To install the latest development version of Async PRAW run the following instea
 
 .. code-block:: bash
 
-    pip install --upgrade https://github.com/praw-dev/asyncpraw/archive/master.zip
+    pip install --upgrade https://github.com/praw-dev/asyncpraw/archive/main.zip
 
 For instructions on installing Python and pip see "The Hitchhiker's Guide to Python"
 `Installation Guides <https://docs.python-guide.org/en/latest/starting/installation/>`_.
 
-Quickstart
-----------
+************
+ Quickstart
+************
 
 Assuming you already have a credentials for a script-type OAuth application you can
 instantiate an instance of Async PRAW like so:
@@ -169,8 +180,9 @@ With the ``reddit`` instance you can then interact with Reddit:
 Please see Async PRAW's `documentation <https://asyncpraw.readthedocs.io/>`_ for more
 examples of what you can do with Async PRAW.
 
-Async PRAW Discussion and Support
----------------------------------
+***********************************
+ Async PRAW Discussion and Support
+***********************************
 
 For those new to Python, or would otherwise consider themselves a Python beginner,
 please consider asking questions on the `r/learnpython
@@ -185,7 +197,7 @@ please tag submissions with *[Async PRAW]*. Please perform a search on the subre
 first to see if anyone has similar questions.
 
 Real-time chat can be conducted via the `PRAW Slack Organization
-<https://join.slack.com/t/praw/shared_invite/enQtOTUwMDcxOTQ0NzY5LWVkMGQ3ZDk5YmQ5MDEwYTZmMmJkMTJkNjBkNTY3OTU0Y2E2NGRlY2ZhZTAzMWZmMWRiMTMwYjdjODkxOGYyZjY>`_
+<https://join.slack.com/t/praw/shared_invite/zt-3d5lbcs51-VB1xRhRok0OZ1vyYquWb2A>`_
 (please create an issue if that invite link has expired).
 
 Please do not directly message any of the contributors via Reddit, email, or Slack
@@ -204,13 +216,15 @@ welcome.
     <https://github.com/praw-dev/.github/blob/main/CODE_OF_CONDUCT.md>`_. By
     participating in this project you agree to abide by its terms.
 
-Documentation
--------------
+***************
+ Documentation
+***************
 
 Async PRAW's documentation is located at https://asyncpraw.readthedocs.io/.
 
-History
--------
+*********
+ History
+*********
 
 `February 2019
 <https://github.com/praw-dev/asyncpraw/commit/55480eb3d59dc7bc3d1480d83b98c95effc77181>`_:
@@ -221,11 +235,11 @@ PRAW.
 <https://github.com/praw-dev/asyncpraw/commit/b8b8a4bf3618639968e8be379e85e2ff84f2307a>`_:
 Async PRAW was moved into the praw-dev namespace.
 
-License
--------
+*********
+ License
+*********
 
 Async PRAW's source (v7.1.1+) is provided under the `Simplified BSD License
 <https://github.com/praw-dev/asyncpraw/blob/30796acc29b4ba2335cf0eab414477702c29452f/LICENSE.txt>`_.
 
 - Copyright ©, 2020, Joel Payne
-

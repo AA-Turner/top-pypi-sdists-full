@@ -989,7 +989,6 @@ class BtyTui:
         self._refresh_images()
         self._console.clear()
         self._print_header(stage=2, title="Pick an image to flash")
-        self._print_source_summary()
         if self._state._images:
             self._print_image_table(self._state._images)
         else:
@@ -1033,7 +1032,6 @@ class BtyTui:
         self._refresh_disks()
         self._console.clear()
         self._print_header(stage=3, title="Pick a target disk")
-        self._print_selection_so_far()
         if self._state._disks:
             self._print_disk_table(self._state._disks)
         else:
@@ -1092,7 +1090,6 @@ class BtyTui:
         disk_path = Path(str(disk.get("path") or disk.get("name") or ""))
         self._console.clear()
         self._print_header(stage=4, title="Confirm flash plan")
-        self._print_selection_so_far()
 
         # Probe both ends with a spinner so the screen isn't blank
         # during the lsblk + qemu-img info round-trips.
@@ -1228,10 +1225,26 @@ class BtyTui:
                     # without corrupting it.
                     self._console.print(f"[{_MUTED}]{ev.note}[/]")
 
+            # ``cancel_event`` lets the main thread (which holds
+            # KeyboardInterrupt) tell the worker thread's flash pipeline
+            # to SIGTERM its subprocesses. Without this, hitting Ctrl+C
+            # during a flash interrupts only the main thread's join();
+            # the daemon worker keeps its dd/curl/zstd children running
+            # and the operator's "abort" leaves a partial-write in flight
+            # on the target disk with no cleanup.
+            cancel_event = threading.Event()
+
             def _runner() -> None:
                 try:
-                    flash.execute_plan(plan, progress=_on_progress)
+                    flash.execute_plan(
+                        plan,
+                        progress=_on_progress,
+                        cancel=cancel_event.is_set,
+                    )
                     shared["result"] = "ok"
+                except flash.FlashCancelled as exc:
+                    shared["result"] = "cancelled"
+                    shared["error"] = str(exc)
                 except flash.FlashError as exc:
                     shared["result"] = "failed"
                     shared["error"] = str(exc)
@@ -1241,7 +1254,20 @@ class BtyTui:
 
             t = threading.Thread(target=_runner, name="bty-flash", daemon=True)
             t.start()
-            t.join()
+            try:
+                t.join()
+            except KeyboardInterrupt:
+                # Operator pressed Ctrl+C while the flash was running.
+                # Set the cancel flag; ``execute_plan``'s watchdog will
+                # SIGTERM its subprocesses (1s grace then SIGKILL) and
+                # the runner will land ``FlashCancelled`` on shared.
+                # Re-join with no timeout so we don't return while the
+                # subprocesses are still tearing down: a partially-killed
+                # dd that's still flushing the page cache wedges the
+                # screen redraw if we race past it.
+                cancel_event.set()
+                self._console.print(f"[{_MUTED}]Cancelling -- waiting for dd/curl to exit...[/]")
+                t.join()
 
         # Defensive: Rich's ``Live`` (which ``Progress`` uses) hides
         # the cursor while running via ANSI ``\033[?25l`` and is
@@ -1262,6 +1288,22 @@ class BtyTui:
             self._register_uefi_boot_entry(plan)
             self._post_pxe_done_if_configured()
             self._state.post_flash = True
+        elif shared["result"] == "cancelled":
+            # Surface cancellation distinctly from a pipeline failure
+            # so the operator knows the disk is in a partial-write
+            # state that needs a re-flash (vs. a true error they'd
+            # report). dd's subprocesses were SIGTERM'd; the on-disk
+            # state is the prefix that dd had written + flushed.
+            self._console.print(
+                Panel(
+                    f"[{_DANGER}]Flash cancelled.[/]\n\n"
+                    f"[{_MUTED}]The target disk holds a partial write. "
+                    f"Re-flash before booting.[/]",
+                    border_style=_DANGER,
+                    title="Cancelled",
+                )
+            )
+            self._pause_for_ack()
         else:
             self._console.print(
                 Panel(
@@ -1457,29 +1499,6 @@ class BtyTui:
         if self._catalog_load_error:
             self._console.print(f"[{_DANGER}]catalog load failed: {self._catalog_load_error}[/]")
         self._console.print()
-
-    def _print_source_summary(self) -> None:
-        """No-op shim kept for screen call sites.
-
-        Source summary used to be a separate line block printed
-        below ``_print_header``. As of the Panel-header rework it
-        lives inside the header Panel itself, so screens that still
-        call this method get no extra output. Kept (instead of
-        deleted) to avoid churning every screen call site for a
-        no-op.
-        """
-
-    def _print_selection_so_far(self) -> None:
-        """No-op shim kept for screen call sites.
-
-        Selection-so-far (selected image / disk) used to print as
-        a separate line block below the header. As of the Panel-
-        header rework it lives inside the header Panel itself (the
-        ``state_lines`` block in :meth:`_print_header`), so screens
-        that still call this method get no extra output. Kept
-        (instead of deleted) to avoid churning every call site for
-        a no-op.
-        """
 
     def _print_image_table(self, rows: list[_TuiImage]) -> None:
         table = Table(

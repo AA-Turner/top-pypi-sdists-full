@@ -9,15 +9,8 @@ import re
 from copy import copy
 from itertools import islice
 from logging import getLogger
-from typing import (
-    IO,
-    TYPE_CHECKING,
-    Any,
-    AsyncGenerator,
-    Iterable,
-)
+from typing import IO, TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
-from warnings import warn
 
 from asyncprawcore import (
     Authorizer,
@@ -32,32 +25,28 @@ from asyncprawcore import (
 )
 from asyncprawcore.exceptions import BadRequest
 
-from . import models
-from .config import Config
-from .const import API_PATH, USER_AGENT_FORMAT, __version__
-from .exceptions import (
-    ClientException,
-    MissingRequiredAttributeException,
-    RedditAPIException,
-)
-from .models.util import deprecate_lazy
-from .objector import Objector
-from .util import _deprecate_args
+from asyncpraw import models
+from asyncpraw.config import Config
+from asyncpraw.const import API_PATH, USER_AGENT_FORMAT, __version__
+from asyncpraw.exceptions import ClientException, MissingRequiredAttributeException, RedditAPIException
+from asyncpraw.objector import Objector
 
 try:
-    from update_checker import update_check
+    from update_checker import async_update_check
 
     UPDATE_CHECKER_MISSING = False
 except ImportError:  # pragma: no cover
+    async_update_check = None
     UPDATE_CHECKER_MISSING = True
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Iterable, Iterator
+
     import asyncprawcore
+    from asyncprawcore.auth import BaseAuthenticator
 
-    import asyncpraw
     import asyncpraw.models
-
-    from .util.token_manager import BaseTokenManager
+    from asyncpraw.exceptions import RedditErrorItem
 
 Comment = models.Comment
 Redditor = models.Redditor
@@ -112,43 +101,16 @@ class Reddit:
         if value:
             self._core = self._read_only_core
         elif self._authorized_core is None:
-            msg = (
-                "read_only cannot be unset as only the ReadOnlyAuthorizer is available."
-            )
+            msg = "read_only cannot be unset as only the ReadOnlyAuthorizer is available."
             raise ClientException(msg)
         else:
             self._core = self._authorized_core
-
-    @property
-    def validate_on_submit(self) -> bool:
-        """Get validate_on_submit.
-
-        .. deprecated:: 7.0
-
-            If property :attr:`.validate_on_submit` is set to ``False``, the behavior is
-            deprecated by Reddit. This attribute will be removed around May-June 2020.
-
-        """
-        value = self._validate_on_submit
-        if value is False:
-            warn(
-                "Reddit will check for validation on all posts around May-June 2020. It"
-                " is recommended to check for validation by setting"
-                " reddit.validate_on_submit to True.",
-                category=DeprecationWarning,
-                stacklevel=3,
-            )
-        return value
-
-    @validate_on_submit.setter
-    def validate_on_submit(self, val: bool):
-        self._validate_on_submit = val
 
     async def __aenter__(self):  # noqa: ANN204
         """Handle the context manager open."""
         return self
 
-    async def __aexit__(self, *_: object):
+    async def __aexit__(self, *_: object) -> None:
         """Handle the context manager close."""
         await self.close()
 
@@ -163,45 +125,15 @@ class Reddit:
             memodict = {}  # pragma: no cover
         return copy(self)
 
-    def __enter__(self):  # noqa: ANN204
-        """Handle the context manager open.
-
-        .. deprecated:: 7.1.1
-
-            Using this class as a synchronous context manager is deprecated and will be
-            removed in the next release. Use this class as an asynchronous context
-            manager instead.
-
-        """
-        warn(
-            "Using this class as a synchronous context manager is deprecated and will"
-            " be removed in the next release. Use this class as an asynchronous context"
-            " manager instead.",
-            category=DeprecationWarning,
-            stacklevel=3,
-        )
-        return self  # pragma: no cover
-
-    def __exit__(self, *_args: object):
-        """Handle the context manager close."""
-
-    @_deprecate_args(
-        "site_name",
-        "config_interpolation",
-        "requestor_class",
-        "requestor_kwargs",
-        "token_manager",
-    )
     def __init__(
         self,
         site_name: str | None = None,
         *,
         config_interpolation: str | None = None,
-        requestor_class: type[asyncprawcore.requestor.Requestor] | None = None,
+        requestor_class: type[asyncprawcore.requestor.Requestor] | None = None,  # pyright: ignore[reportAttributeAccessIssue]
         requestor_kwargs: dict[str, Any] | None = None,
-        token_manager: BaseTokenManager | None = None,
         **config_settings: str | bool | int | None,
-    ):
+    ) -> None:
         """Initialize a :class:`.Reddit` instance.
 
         :param site_name: The name of a section in your ``praw.ini`` file from which to
@@ -217,10 +149,6 @@ class Reddit:
             set, use ``asyncprawcore.Requestor`` (default: ``None``).
         :param requestor_kwargs: Dictionary with additional keyword arguments used to
             initialize the requestor (default: ``None``).
-        :param token_manager: When provided, the passed instance, a subclass of
-            :class:`.BaseTokenManager`, will manage tokens via two callback functions.
-            This parameter must be provided in order to work with refresh tokens
-            (default: ``None``).
 
         Additional keyword arguments will be used to initialize the :class:`.Config`
         object. This can be used to specify configuration settings during instantiation
@@ -284,18 +212,14 @@ class Reddit:
 
         """
         self._core = self._authorized_core = self._read_only_core = None
-        self._objector = None
-        self._token_manager = token_manager
+        self._objector: Objector
         self._unique_counter = 0
-        self._validate_on_submit = False
 
         try:
             config_section = (
                 site_name or os.getenv("praw_site") or "DEFAULT"  # noqa: SIM112
             )
-            self.config = Config(
-                config_section, config_interpolation, **config_settings
-            )
+            self.config = Config(config_section, config_interpolation, **config_settings)
         except configparser.NoSectionError as exc:
             help_message = (
                 "You provided the name of a praw.ini configuration which does not"
@@ -314,18 +238,13 @@ class Reddit:
             " constructor, or as an environment variable."
         )
         for attribute in ("client_id", "user_agent"):
-            if getattr(self.config, attribute) in (self.config.CONFIG_NOT_SET, None):
-                raise MissingRequiredAttributeException(
-                    required_message.format(attribute)
-                )
+            if getattr(self.config, attribute) in {self.config.CONFIG_NOT_SET, None}:
+                raise MissingRequiredAttributeException(required_message.format(attribute))
         if self.config.client_secret is self.config.CONFIG_NOT_SET:
             msg = f"{required_message.format('client_secret')}\nFor installed applications this value must be set to None via a keyword argument to the Reddit class constructor."
             raise MissingRequiredAttributeException(msg)
-        self._check_for_update()
         self._prepare_objector()
-        self.requestor = self._prepare_asyncprawcore(
-            requestor_class=requestor_class, requestor_kwargs=requestor_kwargs
-        )
+        self.requestor = self._prepare_asyncprawcore(requestor_class=requestor_class, requestor_kwargs=requestor_kwargs)
 
         self.auth = models.Auth(self, None)
         """An instance of :class:`.Auth`.
@@ -335,6 +254,27 @@ class Reddit:
         .. seealso::
 
             :ref:`auth_url`
+
+        """
+
+        self.announcements = models.AnnouncementHelper(self, None)
+        r"""An instance of :class:`.AnnouncementHelper`.
+
+        Provides the interface for working with :class:`.Announcement`\ s for the
+        currently authenticated user.
+
+        For example, to iterate through announcements:
+
+        .. code-block:: python
+
+            async for announcement in reddit.announcements():
+                print(announcement.subject)
+
+        To mark all announcements as read:
+
+        .. code-block:: python
+
+            await reddit.announcements.mark_all_read()
 
         """
 
@@ -519,16 +459,16 @@ class Reddit:
 
         """
 
-    def _check_for_update(self):
-        if UPDATE_CHECKER_MISSING:
+    async def _check_for_update(self) -> None:
+        if UPDATE_CHECKER_MISSING or async_update_check is None:
             return
         if not Reddit.update_checked and self.config.check_for_updates:
-            update_check(__package__, __version__)
+            await async_update_check(package_name=__package__ or "asyncpraw", package_version=__version__)
             Reddit.update_checked = True
 
     def _handle_rate_limit(self, exception: RedditAPIException) -> int | float | None:
         for item in exception.items:
-            if item.error_type == "RATELIMIT":
+            if item.error_type == "RATELIMIT" and item.message is not None:
                 amount_search = self._ratelimit_regex.search(item.message)
                 if not amount_search:
                     break
@@ -544,11 +484,11 @@ class Reddit:
     async def _objectify_request(
         self,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         files: dict[str, IO] | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
         method: str = "",
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
         path: str = "",
     ) -> Any:
         """Run a request through the ``Objector``.
@@ -567,7 +507,7 @@ class Reddit:
 
         """
         return self._objector.objectify(
-            await self.request(
+            data=await self.request(
                 data=data,
                 files=files,
                 json=json,
@@ -580,16 +520,16 @@ class Reddit:
     def _prepare_asyncprawcore(
         self,
         *,
-        requestor_class: type[Requestor] = None,
-        requestor_kwargs: Any | None = None,
+        requestor_class: type[Requestor] | None = None,
+        requestor_kwargs: dict[str, Any] | None = None,
     ) -> Requestor:
         requestor_class = requestor_class or Requestor
         requestor_kwargs = requestor_kwargs or {}
 
         requestor = requestor_class(
-            USER_AGENT_FORMAT.format(self.config.user_agent),
-            self.config.oauth_url,
-            self.config.reddit_url,
+            oauth_url=self.config.oauth_url,
+            reddit_url=self.config.reddit_url,
+            user_agent=USER_AGENT_FORMAT.format(self.config.user_agent),
             **requestor_kwargs,
         )
 
@@ -600,39 +540,15 @@ class Reddit:
 
         return requestor
 
-    def _prepare_common_authorizer(
-        self, authenticator: asyncprawcore.auth.BaseAuthenticator
-    ):
-        if self._token_manager is not None:
-            warn(
-                "Token managers have been deprecated and will be removed in the near"
-                " future. See https://www.reddit.com/r/redditdev/comments/olk5e6/"
-                "followup_oauth2_api_changes_regarding_refresh/ for more details.",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            if self.config.refresh_token:
-                msg = "'refresh_token' setting cannot be provided when providing 'token_manager'"
-                raise TypeError(msg)
-
-            self._token_manager.reddit = self
-            authorizer = Authorizer(
-                authenticator,
-                post_refresh_callback=self._token_manager.post_refresh_callback,
-                pre_refresh_callback=self._token_manager.pre_refresh_callback,
-            )
-        elif self.config.refresh_token:
-            authorizer = Authorizer(
-                authenticator, refresh_token=self.config.refresh_token
-            )
+    def _prepare_common_authorizer(self, authenticator: BaseAuthenticator) -> None:
+        if self.config.refresh_token:
+            authorizer = Authorizer(authenticator=authenticator, refresh_token=self.config.refresh_token)
         else:
             self._core = self._read_only_core
             return
-        self._core = self._authorized_core = session(
-            authorizer=authorizer, window_size=self.config.window_size
-        )
+        self._core = self._authorized_core = session(authorizer=authorizer, window_size=self.config.window_size)
 
-    def _prepare_objector(self):
+    def _prepare_objector(self) -> None:
         mappings = {
             self.config.kinds["comment"]: models.Comment,
             self.config.kinds["message"]: models.Message,
@@ -642,8 +558,11 @@ class Reddit:
             self.config.kinds["trophy"]: models.Trophy,
             "Button": models.Button,
             "Collection": models.Collection,
+            "Announcement": models.Announcement,
+            "AnnouncementListing": models.AnnouncementListing,
             "Draft": models.Draft,
             "DraftList": models.DraftList,
+            "ann": models.Announcement,
             "Image": models.Image,
             "LabeledMulti": models.Multireddit,
             "Listing": models.Listing,
@@ -680,21 +599,21 @@ class Reddit:
         }
         self._objector = Objector(self, mappings)
 
-    def _prepare_trusted_asyncprawcore(self, requestor: Requestor):
+    def _prepare_trusted_asyncprawcore(self, requestor: Requestor) -> None:
+        # Only reached when client_secret is set (see _prepare_asyncprawcore).
+        assert self.config.client_secret is not None
         authenticator = TrustedAuthenticator(
-            requestor,
-            self.config.client_id,
-            self.config.client_secret,
-            self.config.redirect_uri,
+            requestor=requestor,
+            client_id=self.config.client_id,
+            client_secret=self.config.client_secret,
+            redirect_uri=self.config.redirect_uri,
         )
-        read_only_authorizer = ReadOnlyAuthorizer(authenticator)
-        self._read_only_core = session(
-            authorizer=read_only_authorizer, window_size=self.config.window_size
-        )
+        read_only_authorizer = ReadOnlyAuthorizer(authenticator=authenticator)
+        self._read_only_core = session(authorizer=read_only_authorizer, window_size=self.config.window_size)
 
         if self.config.username and self.config.password:
             script_authorizer = ScriptAuthorizer(
-                authenticator, self.config.username, self.config.password
+                authenticator=authenticator, password=self.config.password, username=self.config.username
             )
             self._core = self._authorized_core = session(
                 authorizer=script_authorizer, window_size=self.config.window_size
@@ -702,14 +621,12 @@ class Reddit:
         else:
             self._prepare_common_authorizer(authenticator)
 
-    def _prepare_untrusted_asyncprawcore(self, requestor: Requestor):
+    def _prepare_untrusted_asyncprawcore(self, requestor: Requestor) -> None:
         authenticator = UntrustedAuthenticator(
-            requestor, self.config.client_id, self.config.redirect_uri
+            requestor=requestor, client_id=self.config.client_id, redirect_uri=self.config.redirect_uri
         )
-        read_only_authorizer = DeviceIDAuthorizer(authenticator)
-        self._read_only_core = session(
-            authorizer=read_only_authorizer, window_size=self.config.window_size
-        )
+        read_only_authorizer = DeviceIDAuthorizer(authenticator=authenticator)
+        self._read_only_core = session(authorizer=read_only_authorizer, window_size=self.config.window_size)
         self._prepare_common_authorizer(authenticator)
 
     async def _resolve_share_url(self, url: str) -> str:
@@ -719,22 +636,21 @@ class Reddit:
             try:
                 await self.get(url)
             except Redirect as e:
-                return e.response.headers.get("location")
+                location = e.response.headers.get("location")
+                assert location is not None
+                return location
         return url
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the requestor."""
         await self.requestor.close()
 
-    @_deprecate_args("id", "url", "fetch")
-    @deprecate_lazy
     async def comment(
         self,
         id: str | None = None,
         *,
         fetch: bool = True,
         url: str | None = None,
-        **_,
     ) -> models.Comment:
         """Return an instance of :class:`.Comment`.
 
@@ -765,14 +681,13 @@ class Reddit:
             await comment._fetch()
         return comment
 
-    @_deprecate_args("path", "data", "json", "params")
     async def delete(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a DELETE request to ``path``.
 
@@ -785,9 +700,7 @@ class Reddit:
         :param params: The query parameters to add to the request (default: ``None``).
 
         """
-        return await self._objectify_request(
-            data=data, json=json, method="DELETE", params=params, path=path
-        )
+        return await self._objectify_request(data=data, json=json, method="DELETE", params=params, path=path)
 
     def domain(self, domain: str) -> models.DomainListing:
         """Return an instance of :class:`.DomainListing`.
@@ -797,12 +710,11 @@ class Reddit:
         """
         return models.DomainListing(self, domain)
 
-    @_deprecate_args("path", "params")
     async def get(
         self,
         path: str,
         *,
-        params: str | dict[str, str | int] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a GET request to ``path``.
 
@@ -812,7 +724,6 @@ class Reddit:
         """
         return await self._objectify_request(method="GET", params=params, path=path)
 
-    @_deprecate_args("fullnames", "url", "subreddits")
     def info(
         self,
         *,
@@ -820,9 +731,7 @@ class Reddit:
         subreddits: Iterable[asyncpraw.models.Subreddit | str] | None = None,
         url: str | None = None,
     ) -> AsyncGenerator[
-        asyncpraw.models.Subreddit
-        | asyncpraw.models.Comment
-        | asyncpraw.models.Submission,
+        asyncpraw.models.Subreddit | asyncpraw.models.Comment | asyncpraw.models.Submission,
         None,
     ]:
         """Fetch information about each item in ``fullnames``, ``url``, or ``subreddits``.
@@ -851,8 +760,8 @@ class Reddit:
             ``"https://www.youtube.com"`` will provide a different set of submissions.
 
         """
-        none_count = (fullnames, url, subreddits).count(None)
-        if none_count != 2:
+        set_count = sum(1 for value in (fullnames, url, subreddits) if value is not None)
+        if set_count != 1:
             msg = "Either 'fullnames', 'url', or 'subreddits' must be provided."
             raise TypeError(msg)
 
@@ -866,36 +775,45 @@ class Reddit:
 
             api_parameter_name = "id" if is_using_fullnames else "sr_name"
 
-            async def generator(names: Iterable[str | asyncpraw.models.Subreddit]):
-                if is_using_fullnames:
-                    iterable = iter(names)
-                else:
-                    iterable = iter([str(item) for item in names])
+            async def name_generator(
+                names: Iterable[str | asyncpraw.models.Subreddit],
+            ) -> AsyncGenerator[
+                asyncpraw.models.Subreddit | asyncpraw.models.Comment | asyncpraw.models.Submission,
+                None,
+            ]:
+                iterable: Iterator[str] = (
+                    iter(str(item) for item in names) if is_using_fullnames else iter([str(item) for item in names])
+                )
                 while True:
                     chunk = list(islice(iterable, 100))
                     if not chunk:
                         break
-                    params = {api_parameter_name: ",".join(chunk)}
+                    params: dict[str, str | int] = {api_parameter_name: ",".join(chunk)}
                     for result in await self.get(API_PATH["info"], params=params):
                         yield result
 
-            return generator(ids_or_names)
+            return name_generator(ids_or_names)
 
-        async def generator(_url: str):
-            params = {"url": _url}
+        async def url_generator(
+            _url: str,
+        ) -> AsyncGenerator[
+            asyncpraw.models.Subreddit | asyncpraw.models.Comment | asyncpraw.models.Submission,
+            None,
+        ]:
+            params: dict[str, str | int] = {"url": _url}
             for result in await self.get(API_PATH["info"], params=params):
                 yield result
 
-        return generator(url)
+        assert url is not None
+        return url_generator(url)
 
-    @_deprecate_args("path", "data", "json")
     async def patch(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a PATCH request to ``path``.
 
@@ -908,19 +826,16 @@ class Reddit:
         :param params: The query parameters to add to the request (default: ``None``).
 
         """
-        return await self._objectify_request(
-            data=data, json=json, method="PATCH", params=params, path=path
-        )
+        return await self._objectify_request(data=data, json=json, method="PATCH", params=params, path=path)
 
-    @_deprecate_args("path", "data", "files", "params", "json")
     async def post(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         files: dict[str, IO] | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a POST request to ``path``.
 
@@ -939,7 +854,7 @@ class Reddit:
             data = data or {}
 
         attempts = 3
-        last_exception = None
+        last_exception: RedditAPIException | None = None
         while attempts > 0:
             attempts -= 1
             try:
@@ -957,18 +872,16 @@ class Reddit:
                 if seconds is None:
                     break
                 second_string = "second" if seconds == 1 else "seconds"
-                logger.debug(
-                    "Rate limit hit, sleeping for %d %s", seconds, second_string
-                )
+                logger.debug("Rate limit hit, sleeping for %d %s", seconds, second_string)
                 await asyncio.sleep(seconds)
+        assert last_exception is not None
         raise last_exception
 
-    @_deprecate_args("path", "data", "json")
     async def put(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
     ) -> Any:
         """Return parsed objects returned from a PUT request to ``path``.
@@ -981,31 +894,8 @@ class Reddit:
             provided, ``data`` should not be.
 
         """
-        return await self._objectify_request(
-            data=data, json=json, method="PUT", path=path
-        )
+        return await self._objectify_request(data=data, json=json, method="PUT", path=path)
 
-    @_deprecate_args("nsfw")
-    async def random_subreddit(
-        self, *, nsfw: bool = False
-    ) -> asyncpraw.models.Subreddit:
-        """Return a random instance of :class:`.Subreddit`.
-
-        :param nsfw: Return a random NSFW (not safe for work) subreddit (default:
-            ``False``).
-
-        """
-        url = API_PATH["subreddit"].format(subreddit="randnsfw" if nsfw else "random")
-        path = None
-        try:
-            await self.get(url, params={"unique": self._next_unique})
-        except Redirect as redirect:
-            path = redirect.path
-        subreddit = models.Subreddit(self, path.split("/")[2])
-        await subreddit._fetch()
-        return subreddit
-
-    @_deprecate_args("name", "fullname", "fetch")
     async def redditor(
         self,
         name: str | None = None,
@@ -1028,15 +918,14 @@ class Reddit:
             await redditor._fetch()
         return redditor
 
-    @_deprecate_args("method", "path", "params", "data", "files", "json")
     async def request(
         self,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         files: dict[str, IO] | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
         method: str,
-        params: str | dict[str, str | int] | None = None,
+        params: dict[str, str | int] | None = None,
         path: str,
     ) -> Any:
         """Return the parsed JSON data returned from a request to URL.
@@ -1054,9 +943,11 @@ class Reddit:
         :param path: The path to fetch.
 
         """
+        await self._check_for_update()
         if data and json:
             msg = "At most one of 'data' or 'json' is supported."
             raise ClientException(msg)
+        assert self._core is not None
         try:
             return await self._core.request(
                 data=data,
@@ -1067,35 +958,36 @@ class Reddit:
                 path=path,
             )
         except BadRequest as exception:
+            error_data: dict[str, Any]
             try:
-                data = await exception.response.json(content_type=None)
+                error_data = await exception.response.json(content_type=None)
             except ValueError:
                 text = await exception.response.text()
                 if text:
-                    data = {"reason": text}
+                    error_data = {"reason": text}
                 else:
                     raise exception from None
-            if set(data) == {"error", "message"}:
+            if set(error_data) == {"error", "message"}:
                 raise
-            explanation = data.get("explanation")
-            if "fields" in data:
-                assert len(data["fields"]) == 1
-                field = data["fields"][0]
+            explanation = error_data.get("explanation")
+            if "fields" in error_data:
+                assert len(error_data["fields"]) == 1
+                field = error_data["fields"][0]
             else:
                 field = None
             raise RedditAPIException(
-                [data["reason"], explanation, field]
+                cast(
+                    "list[RedditErrorItem | list[str] | str]",
+                    [error_data["reason"], explanation, field],
+                )
             ) from exception
 
-    @_deprecate_args("id", "url", "fetch")
-    @deprecate_lazy
     async def submission(
         self,
         id: str | None = None,
         *,
         fetch: bool = True,
         url: str | None = None,
-        **_,
     ) -> asyncpraw.models.Submission:
         """Return an instance of :class:`.Submission`.
 
@@ -1132,6 +1024,4 @@ class Reddit:
             await reddit.username_available("bboe")
 
         """
-        return await self._objectify_request(
-            method="GET", params={"user": name}, path=API_PATH["username_available"]
-        )
+        return await self._objectify_request(method="GET", params={"user": name}, path=API_PATH["username_available"])

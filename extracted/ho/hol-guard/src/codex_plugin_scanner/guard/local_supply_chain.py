@@ -378,11 +378,36 @@ def _workspace_has_project_markers(workspace_dir: Path) -> bool:
     return any((resolved / marker).exists() for marker in _MANIFEST_CANDIDATES)
 
 
+def managed_install_audit_workspace_dirs(store: GuardStore) -> tuple[str, ...]:
+    installs = store.list_managed_installs()
+    ordered = sorted(
+        installs,
+        key=lambda item: (
+            1 if bool(item.get("active")) else 0,
+            str(item.get("updated_at") or ""),
+        ),
+        reverse=True,
+    )
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for install in ordered:
+        workspace = install.get("workspace")
+        if not isinstance(workspace, str):
+            continue
+        normalized = workspace.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        candidates.append(normalized)
+    return tuple(candidates)
+
+
 def resolve_supply_chain_audit_workspace_dir(
     *,
     workspace_dir_value: object,
     workspace_value: object,
     allowed_roots: tuple[Path, ...],
+    managed_workspace_dirs: Sequence[str] | None = None,
 ) -> Path | None:
     for candidate in (workspace_dir_value, workspace_value):
         if isinstance(candidate, str):
@@ -405,12 +430,19 @@ def resolve_supply_chain_audit_workspace_dir(
     try:
         cwd = Path.cwd().resolve()
     except OSError:
-        return None
-    if not _workspace_has_project_markers(cwd):
-        return None
-    for root in allowed_roots:
-        if resolves_within_root(root, cwd, require_exists=True):
-            return cwd
+        cwd = None
+    if cwd is not None and _workspace_has_project_markers(cwd):
+        for root in allowed_roots:
+            if resolves_within_root(root, cwd, require_exists=True):
+                return cwd
+    for managed_workspace in managed_workspace_dirs or ():
+        resolved = resolve_path_within_allowed_roots(
+            managed_workspace,
+            allowed_roots,
+            require_exists=True,
+        )
+        if resolved is not None and _workspace_has_project_markers(resolved):
+            return resolved
     return None
 
 
@@ -491,6 +523,69 @@ def workspace_audit_path_hashes(
     }
 
 
+def _resolve_empty_audit_outcome(
+    *,
+    manifest_paths: Sequence[str],
+    lockfile_paths: Sequence[str],
+    posture: dict[str, object],
+) -> tuple[str, str]:
+    supply_status = str(posture.get("status") or "")
+    supply_detail = str(posture.get("detail") or _posture_detail(supply_status))
+    if supply_status == "sync_required":
+        return (
+            "sync_required",
+            "Sync Guard supply-chain intel on this device before auditing workspace packages.",
+        )
+    if supply_status in {"not_connected", "workspace_required", "expired", "degraded"}:
+        return (supply_status, supply_detail)
+    if lockfile_paths or manifest_paths:
+        return (
+            "inventory_empty",
+            "Guard found project files but could not index any packages for audit.",
+        )
+    return (
+        "no_project_files",
+        "No supported manifests or lockfiles found in this workspace.",
+    )
+
+
+def _incomplete_audit_receipt_metadata(
+    result: dict[str, object],
+    *,
+    workspace_dir: Path | None = None,
+) -> dict[str, object]:
+    message = str(result.get("message") or "Workspace audit did not complete.")
+    outcome = str(result.get("audit_outcome") or "incomplete")
+    manifest_raw = result.get("manifest_paths")
+    manifest_paths = (
+        [str(path) for path in manifest_raw if isinstance(path, str)] if isinstance(manifest_raw, (list, tuple)) else []
+    )
+    lockfile_raw = result.get("lockfile_paths")
+    lockfile_paths = (
+        [str(path) for path in lockfile_raw if isinstance(path, str)] if isinstance(lockfile_raw, (list, tuple)) else []
+    )
+    path_hashes = workspace_audit_path_hashes(workspace_dir, manifest_paths, lockfile_paths)
+    policy_decision = "ask" if outcome in {"sync_required", "inventory_empty", "no_project_files"} else "monitor"
+    return {
+        "policy_decision": policy_decision,
+        "capabilities_summary": message,
+        "artifact_name": "Workspace supply-chain audit",
+        "scanner_evidence": {
+            "operation": "audit",
+            "audit_status": "incomplete",
+            "audit_outcome": outcome,
+            "audit_decision": "monitor",
+            "blocked_package_count": 0,
+            "total_packages": 0,
+            "manifest_paths": manifest_paths,
+            "lockfile_paths": lockfile_paths,
+            "manifest_hashes": path_hashes["manifest_hashes"],
+            "lockfile_hashes": path_hashes["lockfile_hashes"],
+            "package_findings": [],
+        },
+    }
+
+
 def audit_receipt_metadata(
     result: dict[str, object],
     *,
@@ -498,7 +593,7 @@ def audit_receipt_metadata(
 ) -> dict[str, object]:
     evaluation = result.get("evaluation")
     if not isinstance(evaluation, dict):
-        return {}
+        return _incomplete_audit_receipt_metadata(result, workspace_dir=workspace_dir)
     decision = str(evaluation.get("decision") or "monitor")
     packages = evaluation.get("packages")
     package_items = [item for item in packages if isinstance(item, dict)] if isinstance(packages, list) else []
@@ -580,6 +675,11 @@ def build_workspace_audit_payload(
             sbom_paths=sbom_paths,
         )
     if not inventory:
+        audit_outcome, message = _resolve_empty_audit_outcome(
+            manifest_paths=manifest_paths,
+            lockfile_paths=lockfile_paths,
+            posture=posture,
+        )
         return (
             {
                 "generated_at": now,
@@ -587,7 +687,9 @@ def build_workspace_audit_payload(
                 "manifest_paths": list(manifest_paths),
                 "lockfile_paths": list(lockfile_paths),
                 "sbom_paths": list(resolved_sbom_paths),
-                "message": "No supported manifests or lockfiles found in this workspace.",
+                "audit_outcome": audit_outcome,
+                "audit_status": "incomplete",
+                "message": message,
                 "supply_chain": posture,
             },
             1,

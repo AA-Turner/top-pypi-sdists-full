@@ -1,12 +1,26 @@
 """Provide the InboxToggleableMixin class."""
 
-from ....const import API_PATH
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from asyncpraw.const import API_PATH
+
+if TYPE_CHECKING:
+    import asyncpraw
 
 
 class InboxToggleableMixin:
     """Interface for classes that can optionally receive inbox replies."""
 
-    async def disable_inbox_replies(self):
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: asyncpraw.Reddit
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    async def disable_inbox_replies(self) -> None:
         """Disable inbox replies for the item.
 
         .. note::
@@ -28,11 +42,9 @@ class InboxToggleableMixin:
             :meth:`.enable_inbox_replies`
 
         """
-        await self._reddit.post(
-            API_PATH["sendreplies"], data={"id": self.fullname, "state": False}
-        )
+        await self._reddit.post(API_PATH["sendreplies"], data={"id": self.fullname, "state": False})
 
-    async def enable_inbox_replies(self):
+    async def enable_inbox_replies(self) -> None:
         """Enable inbox replies for the item.
 
         .. note::
@@ -54,6 +66,4 @@ class InboxToggleableMixin:
             :meth:`.disable_inbox_replies`
 
         """
-        await self._reddit.post(
-            API_PATH["sendreplies"], data={"id": self.fullname, "state": True}
-        )
+        await self._reddit.post(API_PATH["sendreplies"], data={"id": self.fullname, "state": True})

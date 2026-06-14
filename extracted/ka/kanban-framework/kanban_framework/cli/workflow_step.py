@@ -7,6 +7,8 @@ step execution parameters.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.infra.scheduler import Scheduler
 from kanban_framework.infra.consts import Consts

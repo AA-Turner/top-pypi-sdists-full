@@ -2,30 +2,37 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
-from ....util import _deprecate_args
-from ...base import AsyncPRAWBase
-from ..generator import ListingGenerator
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.generator import ListingGenerator
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from typing_extensions import Unpack
+
+    from asyncpraw.models.listing.generator import ListingGeneratorKwargs
 
 
 class BaseListingMixin(AsyncPRAWBase):
     """Adds minimum set of methods that apply to all listing objects."""
 
-    VALID_TIME_FILTERS = {"all", "day", "hour", "month", "week", "year"}
+    VALID_TIME_FILTERS = frozenset({"all", "day", "hour", "month", "week", "year"})
+
+    if TYPE_CHECKING:
+        _path: str
 
     @staticmethod
-    def _validate_time_filter(time_filter: str):
+    def _validate_time_filter(time_filter: str) -> None:
         """Validate ``time_filter``.
 
         :raises: :py:class:`ValueError` if ``time_filter`` is not valid.
 
         """
         if time_filter not in BaseListingMixin.VALID_TIME_FILTERS:
-            valid_time_filters = ", ".join(
-                map("{!r}".format, BaseListingMixin.VALID_TIME_FILTERS)
-            )
+            valid_time_filters = ", ".join(map("{!r}".format, BaseListingMixin.VALID_TIME_FILTERS))
             msg = f"'time_filter' must be one of: {valid_time_filters}"
             raise ValueError(msg)
 
@@ -36,12 +43,11 @@ class BaseListingMixin(AsyncPRAWBase):
             return self._path
         return urljoin(self._path, sort)
 
-    @_deprecate_args("time_filter")
     def controversial(
         self,
         *,
         time_filter: str = "all",
-        **generator_kwargs: str | int | dict[str, str],
+        **generator_kwargs: Unpack[ListingGeneratorKwargs],
     ) -> AsyncIterator[Any]:
         """Return a :class:`.ListingGenerator` for controversial items.
 
@@ -76,13 +82,12 @@ class BaseListingMixin(AsyncPRAWBase):
 
         """
         self._validate_time_filter(time_filter)
-        self._safely_add_arguments(
-            arguments=generator_kwargs, key="params", t=time_filter
-        )
-        url = self._prepare(arguments=generator_kwargs, sort="controversial")
-        return ListingGenerator(self._reddit, url, **generator_kwargs)
+        arguments: dict[str, Any] = dict(generator_kwargs)
+        self._safely_add_arguments(arguments=arguments, key="params", t=time_filter)
+        url = self._prepare(arguments=arguments, sort="controversial")
+        return ListingGenerator(self._reddit, url, **arguments)
 
-    def hot(self, **generator_kwargs: str | int | dict[str, str]) -> AsyncIterator[Any]:
+    def hot(self, **generator_kwargs: Unpack[ListingGeneratorKwargs]) -> AsyncIterator[Any]:
         """Return a :class:`.ListingGenerator` for hot items.
 
         Additional keyword arguments are passed in the initialization of
@@ -110,11 +115,12 @@ class BaseListingMixin(AsyncPRAWBase):
             subreddit.hot()
 
         """
-        generator_kwargs.setdefault("params", {})
-        url = self._prepare(arguments=generator_kwargs, sort="hot")
-        return ListingGenerator(self._reddit, url, **generator_kwargs)
+        arguments: dict[str, Any] = dict(generator_kwargs)
+        arguments.setdefault("params", {})
+        url = self._prepare(arguments=arguments, sort="hot")
+        return ListingGenerator(self._reddit, url, **arguments)
 
-    def new(self, **generator_kwargs: str | int | dict[str, str]) -> AsyncIterator[Any]:
+    def new(self, **generator_kwargs: Unpack[ListingGeneratorKwargs]) -> AsyncIterator[Any]:
         """Return a :class:`.ListingGenerator` for new items.
 
         Additional keyword arguments are passed in the initialization of
@@ -142,16 +148,16 @@ class BaseListingMixin(AsyncPRAWBase):
             subreddit.new()
 
         """
-        generator_kwargs.setdefault("params", {})
-        url = self._prepare(arguments=generator_kwargs, sort="new")
-        return ListingGenerator(self._reddit, url, **generator_kwargs)
+        arguments: dict[str, Any] = dict(generator_kwargs)
+        arguments.setdefault("params", {})
+        url = self._prepare(arguments=arguments, sort="new")
+        return ListingGenerator(self._reddit, url, **arguments)
 
-    @_deprecate_args("time_filter")
     def top(
         self,
         *,
         time_filter: str = "all",
-        **generator_kwargs: str | int | dict[str, str],
+        **generator_kwargs: Unpack[ListingGeneratorKwargs],
     ) -> AsyncIterator[Any]:
         """Return a :class:`.ListingGenerator` for top items.
 
@@ -186,8 +192,7 @@ class BaseListingMixin(AsyncPRAWBase):
 
         """
         self._validate_time_filter(time_filter)
-        self._safely_add_arguments(
-            arguments=generator_kwargs, key="params", t=time_filter
-        )
-        url = self._prepare(arguments=generator_kwargs, sort="top")
-        return ListingGenerator(self._reddit, url, **generator_kwargs)
+        arguments: dict[str, Any] = dict(generator_kwargs)
+        self._safely_add_arguments(arguments=arguments, key="params", t=time_filter)
+        url = self._prepare(arguments=arguments, sort="top")
+        return ListingGenerator(self._reddit, url, **arguments)

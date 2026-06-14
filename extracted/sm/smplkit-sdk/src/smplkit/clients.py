@@ -178,8 +178,9 @@ class SmplClient:
             metrics=self._metrics,
         )
         # Audit's full surface on one client; this runtime instance carries
-        # the configured environment as ``X-Smplkit-Environment`` and owns its
-        # own transport (closed in ``close()``).
+        # the configured environment on the event body when recording and as
+        # the default ``filter[environment]`` on reads, and owns its own
+        # transport (closed in ``close()``).
         self.audit = AuditClient(
             api_key=cfg.api_key,
             base_url=audit_url,

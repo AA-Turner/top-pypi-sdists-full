@@ -151,6 +151,13 @@ class BlueskyExtractor(Extractor):
                     files.append(self._extract_media(image, "image"))
                 except Exception:
                     pass
+        if "items" in media:
+            for item in media["items"]:
+                try:
+                    files.append(self._extract_media(
+                        item, "image" if "image" in item else "video"))
+                except Exception:
+                    pass
         if "video" in media and self.videos:
             try:
                 files.append(self._extract_media(media, "video"))

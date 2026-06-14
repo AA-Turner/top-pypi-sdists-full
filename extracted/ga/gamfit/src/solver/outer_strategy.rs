@@ -40,6 +40,233 @@ fn outer_strategy_contract_panic(message: impl Into<String>) -> ! {
     std::panic::panic_any(message.into())
 }
 
+/// Per-θ component of an outer-gradient finite-difference audit.
+#[derive(Clone, Debug)]
+pub struct OuterGradientFdComponent {
+    /// Human label for the block this coordinate belongs to (e.g. "timewiggle").
+    pub block: String,
+    /// Flat θ index.
+    pub index: usize,
+    /// Analytic ∂V/∂θ_i returned by the family evaluator.
+    pub analytic: f64,
+    /// Central finite-difference of the outer criterion in θ_i.
+    pub fd: f64,
+}
+
+impl OuterGradientFdComponent {
+    /// Absolute analytic−FD gap.
+    pub fn abs_gap(&self) -> f64 {
+        (self.analytic - self.fd).abs()
+    }
+    /// analytic/fd ratio (None when fd≈0). A clean −1 signals a sign
+    /// convention; a stable constant ≠1 signals a dropped/extra additive term.
+    pub fn ratio(&self) -> Option<f64> {
+        if self.fd.abs() > 1e-12 {
+            Some(self.analytic / self.fd)
+        } else {
+            None
+        }
+    }
+}
+
+/// Result of a component-by-component finite-difference audit of an outer
+/// REML/LAML gradient at a fixed θ, plus the outer-Hessian eigenvalues.
+///
+/// This is the discriminating diagnostic that forks the two failure modes of a
+/// non-terminating outer loop: an **objective↔gradient desync** (analytic ≠ FD
+/// on some component → the trust region chases a phantom descent direction
+/// forever) versus **weak identifiability** (analytic ≈ FD everywhere but a
+/// near-zero outer-Hessian eigenvalue → a genuinely flat valley the optimizer
+/// crawls along). It is family-agnostic: any path that exposes an outer
+/// evaluator closure `θ ↦ (V, ∇V, H)` can call it.
+#[derive(Clone, Debug)]
+pub struct OuterGradientFdAudit {
+    /// Outer criterion value at θ₀.
+    pub value: f64,
+    /// Per-coordinate analytic-vs-FD comparison.
+    pub components: Vec<OuterGradientFdComponent>,
+    /// Eigenvalues of the (symmetrized) outer Hessian at θ₀, ascending. Empty
+    /// when no analytic/operator Hessian was available.
+    pub hessian_eigenvalues: Vec<f64>,
+}
+
+impl OuterGradientFdAudit {
+    /// Per-block L2 norm of the analytic gradient.
+    pub fn analytic_block_norms(&self) -> Vec<(String, f64)> {
+        let mut order: Vec<String> = Vec::new();
+        let mut acc: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+        for c in &self.components {
+            if !acc.contains_key(&c.block) {
+                order.push(c.block.clone());
+            }
+            *acc.entry(c.block.clone()).or_insert(0.0) += c.analytic * c.analytic;
+        }
+        order
+            .into_iter()
+            .map(|b| {
+                let v = acc.get(&b).copied().unwrap_or(0.0).sqrt();
+                (b, v)
+            })
+            .collect()
+    }
+
+    /// Worst per-coordinate analytic−FD gap and its component.
+    pub fn worst_component(&self) -> Option<&OuterGradientFdComponent> {
+        self.components.iter().max_by(|a, b| {
+            a.abs_gap()
+                .partial_cmp(&b.abs_gap())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    }
+
+    /// Smallest-magnitude outer-Hessian eigenvalue (flatness proxy).
+    pub fn min_abs_eigenvalue(&self) -> Option<f64> {
+        self.hessian_eigenvalues
+            .iter()
+            .map(|e| e.abs())
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+    }
+
+    /// Emit a single human-readable verdict block to the log.
+    pub fn log_verdict(&self, context: &str) {
+        log::warn!("[OUTER-FD-AUDIT/{context}] value={:.6e}", self.value);
+        for (block, norm) in self.analytic_block_norms() {
+            log::warn!("[OUTER-FD-AUDIT/{context}] block={block} |g_analytic|={norm:.6e}");
+        }
+        for c in &self.components {
+            let ratio = c
+                .ratio()
+                .map(|r| format!("{r:.4}"))
+                .unwrap_or_else(|| "n/a".to_string());
+            log::warn!(
+                "[OUTER-FD-AUDIT/{context}] block={} i={} analytic={:.6e} fd={:.6e} gap={:.3e} ratio={}",
+                c.block,
+                c.index,
+                c.analytic,
+                c.fd,
+                c.abs_gap(),
+                ratio
+            );
+        }
+        if !self.hessian_eigenvalues.is_empty() {
+            let evs: Vec<String> = self
+                .hessian_eigenvalues
+                .iter()
+                .map(|e| format!("{e:.4e}"))
+                .collect();
+            log::warn!(
+                "[OUTER-FD-AUDIT/{context}] hessian_eigenvalues=[{}] min_abs={:.4e}",
+                evs.join(", "),
+                self.min_abs_eigenvalue().unwrap_or(f64::NAN)
+            );
+        }
+        match self.worst_component() {
+            Some(w) if w.abs_gap() > 1e-3 && w.abs_gap() > 1e-3 * w.fd.abs().max(1.0) => {
+                log::warn!(
+                    "[OUTER-FD-AUDIT/{context}] VERDICT=DESYNC worst_block={} worst_i={} gap={:.3e} (analytic gradient disagrees with FD of the criterion: fix the derivative)",
+                    w.block,
+                    w.index,
+                    w.abs_gap()
+                );
+            }
+            _ => {
+                let flat = self.min_abs_eigenvalue().map(|m| m < 1e-6).unwrap_or(false);
+                if flat {
+                    log::warn!(
+                        "[OUTER-FD-AUDIT/{context}] VERDICT=FLATNESS min_abs_eig={:.3e} (analytic≈FD but the outer Hessian is near-singular: weak identifiability, fix termination not the gradient)",
+                        self.min_abs_eigenvalue().unwrap_or(f64::NAN)
+                    );
+                } else {
+                    log::warn!(
+                        "[OUTER-FD-AUDIT/{context}] VERDICT=CLEAN analytic≈FD and outer Hessian well-conditioned at this θ"
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Run a component-by-component central finite-difference audit of an outer
+/// REML/LAML gradient at a fixed θ₀.
+///
+/// `eval` is the family's outer evaluator: `θ, mode ↦ (V, ∇V, H)` where the
+/// gradient is honored at `ValueAndGradient`/`ValueGradientHessian` and `H` at
+/// `ValueGradientHessian`. `block_for_index` labels each flat θ coordinate
+/// (used only to group the report). `h` is the FD step.
+///
+/// Cost: one `ValueGradientHessian` eval at θ₀ plus `2·len(θ)` `ValueOnly`
+/// evals. The caller is responsible for only invoking this on a
+/// diagnostic-sized problem (it is not part of the production hot loop).
+pub fn outer_gradient_fd_audit<EvalF>(
+    theta0: &Array1<f64>,
+    h: f64,
+    block_for_index: impl Fn(usize) -> String,
+    mut eval: EvalF,
+) -> Result<OuterGradientFdAudit, String>
+where
+    EvalF: FnMut(
+        &Array1<f64>,
+        crate::solver::estimate::reml::unified::EvalMode,
+    ) -> Result<(f64, Array1<f64>, HessianResult), String>,
+{
+    use crate::solver::estimate::reml::unified::EvalMode;
+    let (value, analytic_grad, hess) = eval(theta0, EvalMode::ValueGradientHessian)?;
+    if analytic_grad.len() != theta0.len() {
+        return Err(format!(
+            "outer_gradient_fd_audit: analytic gradient length {} != theta length {}",
+            analytic_grad.len(),
+            theta0.len()
+        ));
+    }
+    let mut components = Vec::with_capacity(theta0.len());
+    for i in 0..theta0.len() {
+        let mut tp = theta0.clone();
+        tp[i] += h;
+        let mut tm = theta0.clone();
+        tm[i] -= h;
+        let (vp, _, _) = eval(&tp, EvalMode::ValueOnly)?;
+        let (vm, _, _) = eval(&tm, EvalMode::ValueOnly)?;
+        let fd = (vp - vm) / (2.0 * h);
+        components.push(OuterGradientFdComponent {
+            block: block_for_index(i),
+            index: i,
+            analytic: analytic_grad[i],
+            fd,
+        });
+    }
+    let hessian_eigenvalues = match hess.materialize_dense() {
+        Ok(Some(mut hmat)) => {
+            // Symmetrize defensively before the self-adjoint solve.
+            let n = hmat.nrows();
+            if n == hmat.ncols() && n > 0 {
+                for r in 0..n {
+                    for c in (r + 1)..n {
+                        let avg = 0.5 * (hmat[[r, c]] + hmat[[c, r]]);
+                        hmat[[r, c]] = avg;
+                        hmat[[c, r]] = avg;
+                    }
+                }
+                match crate::linalg::faer_ndarray::FaerEigh::eigh(&hmat, faer::Side::Lower) {
+                    Ok((vals, _)) => {
+                        let mut v: Vec<f64> = vals.to_vec();
+                        v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                        v
+                    }
+                    Err(_) => Vec::new(),
+                }
+            } else {
+                Vec::new()
+            }
+        }
+        _ => Vec::new(),
+    };
+    Ok(OuterGradientFdAudit {
+        value,
+        components,
+        hessian_eigenvalues,
+    })
+}
+
 /// One recorded ContinuationPath demotion: a structural defect that, for a
 /// continuation-entry objective, routes a seed to a heavier path regime instead
 /// of disqualifying it. Carried in the seed-loop ledger so the startup stats
@@ -2458,6 +2685,10 @@ pub struct ClosureObjective<
     /// Optional inner-state seeding closure. Objectives with PIRLS / Newton
     /// inner state install cached β here before the first outer eval.
     pub(crate) seed_fn: Option<Fseed>,
+    /// Whether a seed hook should also opt the objective into generic
+    /// continuation pre-warm. High-dimensional REML keeps the seed hook for
+    /// cache/warm-start replay but declines the expensive rho-anneal pre-pass.
+    pub(crate) continuation_prewarm: bool,
 }
 
 impl<S, Fc, Fe, Fr, Fefs, Feo, Fsp, Fseed> OuterObjective
@@ -2534,7 +2765,7 @@ where
     }
 
     fn allow_continuation_prewarm(&self) -> bool {
-        self.seed_fn.is_some()
+        self.continuation_prewarm && self.seed_fn.is_some()
     }
 
     fn reset(&mut self) {
@@ -2570,6 +2801,7 @@ where
             efs_fn: self.efs_fn,
             screening_proxy_fn: self.screening_proxy_fn,
             seed_fn: Some(seed_fn),
+            continuation_prewarm: self.continuation_prewarm,
         }
     }
 }
@@ -4922,6 +5154,7 @@ pub struct OuterProblem {
     cache_session: Option<Arc<CacheSession>>,
     cache_mirror_sessions: Vec<Arc<CacheSession>>,
     rho_uncertainty_problem_size: crate::inference::rho_uncertainty::RhoUncertaintyProblemSize,
+    continuation_prewarm: bool,
 }
 
 impl OuterProblem {
@@ -4955,6 +5188,7 @@ impl OuterProblem {
             cache_mirror_sessions: Vec::new(),
             rho_uncertainty_problem_size:
                 crate::inference::rho_uncertainty::RhoUncertaintyProblemSize::default(),
+            continuation_prewarm: true,
         }
     }
 
@@ -5036,6 +5270,13 @@ impl OuterProblem {
     }
     pub fn with_initial_rho(mut self, rho: Array1<f64>) -> Self {
         self.initial_rho = Some(rho);
+        self
+    }
+    /// Toggle the generic rho-continuation seed pre-warm. This does not affect
+    /// objectives that require an explicit continuation path; it only controls
+    /// the cheap-by-default pre-pass gated by `allow_continuation_prewarm()`.
+    pub fn with_continuation_prewarm(mut self, enabled: bool) -> Self {
+        self.continuation_prewarm = enabled;
         self
     }
     pub fn with_screening_cap(mut self, screening_cap: Arc<AtomicUsize>) -> Self {
@@ -5249,6 +5490,7 @@ impl OuterProblem {
             efs_fn,
             screening_proxy_fn: None::<fn(&mut S, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<(), EstimationError>>,
+            continuation_prewarm: self.continuation_prewarm,
         }
     }
 
@@ -5284,6 +5526,7 @@ impl OuterProblem {
             efs_fn,
             screening_proxy_fn: None::<fn(&mut S, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<(), EstimationError>>,
+            continuation_prewarm: self.continuation_prewarm,
         }
     }
 
@@ -5321,6 +5564,7 @@ impl OuterProblem {
             efs_fn,
             screening_proxy_fn: Some(screening_proxy_fn),
             seed_fn: None::<fn(&mut S, &Array1<f64>) -> Result<(), EstimationError>>,
+            continuation_prewarm: self.continuation_prewarm,
         }
     }
 
@@ -5359,7 +5603,7 @@ impl OuterProblem {
                     );
                     let mut result =
                         OuterResult::new(rho, final_value, iterations, true, plan_used);
-                    result.rho_uncertainty_certificate = Some(compute_rho_uncertainty_certificate(
+                    result.rho_uncertainty_diagnostic = Some(compute_rho_uncertainty_diagnostic(
                         obj, &config, context, &result,
                     ));
                     return Ok(result);
@@ -5568,11 +5812,11 @@ pub struct OuterResult {
     /// when an audit probe failed to evaluate. Populated once by
     /// [`run_outer`] after the solver ladder returns, outside all hot loops.
     pub criterion_certificate: Option<CriterionCertificate>,
-    /// Post-fit PSIS certificate for whether smoothing-parameter uncertainty
-    /// makes plug-in REML/LAML intervals unreliable. Populated once by
-    /// [`run_outer`] when the exact rho Hessian is cheap enough to use.
-    pub rho_uncertainty_certificate:
-        Option<crate::inference::rho_uncertainty::RhoUncertaintyCertificate>,
+    /// Post-fit PSIS diagnostic for whether sampled smoothing-parameter weights
+    /// show evidence that plug-in REML/LAML intervals are unreliable. Populated
+    /// once by [`run_outer`] when the exact rho Hessian is cheap enough to use.
+    pub rho_uncertainty_diagnostic:
+        Option<crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic>,
 }
 
 impl OuterResult {
@@ -5595,7 +5839,7 @@ impl OuterResult {
             operator_trust_radius: None,
             operator_stop_reason: None,
             criterion_certificate: None,
-            rho_uncertainty_certificate: None,
+            rho_uncertainty_diagnostic: None,
         }
     }
 
@@ -5928,12 +6172,12 @@ fn audit_first_order_optimality(
     Some(certificate)
 }
 
-fn compute_rho_uncertainty_certificate(
+fn compute_rho_uncertainty_diagnostic(
     obj: &mut dyn OuterObjective,
     config: &OuterConfig,
     context: &str,
     result: &OuterResult,
-) -> crate::inference::rho_uncertainty::RhoUncertaintyCertificate {
+) -> crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic {
     let cap = obj.capability();
     let layout = cap.theta_layout();
     let rho_dim = layout.rho_dim();
@@ -5942,10 +6186,10 @@ fn compute_rho_uncertainty_certificate(
         problem_size: config.rho_uncertainty_problem_size,
     };
     if let Err(reason) = crate::inference::rho_uncertainty::cost_gate_allows(rho_dim, gate) {
-        return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(reason, 0);
+        return crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(reason, 0);
     }
     if result.rho.len() != layout.n_params {
-        return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+        return crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
             format!(
                 "final outer point length {} does not match objective dimension {}",
                 result.rho.len(),
@@ -5958,7 +6202,7 @@ fn compute_rho_uncertainty_certificate(
     let final_eval = match obj.eval_with_order(&result.rho, OuterEvalOrder::ValueGradientHessian) {
         Ok(eval) => eval,
         Err(err) => {
-            return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+            return crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
                 format!("final exact Hessian evaluation failed: {err}"),
                 1,
             );
@@ -5967,20 +6211,20 @@ fn compute_rho_uncertainty_certificate(
     let hessian = match final_eval.hessian.materialize_dense() {
         Ok(Some(hessian)) => hessian,
         Ok(None) => {
-            return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+            return crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
                 "exact outer Hessian unavailable at fitted rho",
                 1,
             );
         }
         Err(message) => {
-            return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+            return crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
                 format!("exact outer Hessian materialization failed: {message}"),
                 1,
             );
         }
     };
     if hessian.nrows() != layout.n_params || hessian.ncols() != layout.n_params {
-        return crate::inference::rho_uncertainty::RhoUncertaintyCertificate::skipped(
+        return crate::inference::rho_uncertainty::RhoUncertaintyDiagnostic::skipped(
             format!(
                 "exact outer Hessian shape {}x{} does not match objective dimension {}",
                 hessian.nrows(),
@@ -6000,7 +6244,7 @@ fn compute_rho_uncertainty_certificate(
     let theta_hat = result.rho.clone();
     let cost_hat = final_eval.cost;
     let final_beta_hint = final_eval.inner_beta_hint.clone();
-    let certificate = {
+    let diagnostic = {
         let mut served_hat_cost = false;
         let mut criterion = |rho: &Array1<f64>| -> Option<f64> {
             let is_hat = rho.len() == rho_hat.len()
@@ -6023,7 +6267,7 @@ fn compute_rho_uncertainty_certificate(
             }
             obj.eval_cost(&theta).ok()
         };
-        crate::inference::rho_uncertainty::rho_uncertainty_certificate(
+        crate::inference::rho_uncertainty::rho_uncertainty_diagnostic(
             &rho_hat,
             &hessian_rho,
             gate,
@@ -6034,31 +6278,29 @@ fn compute_rho_uncertainty_certificate(
         && let Err(err) = obj.seed_inner_state(beta)
     {
         log::debug!(
-            "[RHO uncertainty] {context}: final inner-state restore skipped after certificate ({err})"
+            "[RHO uncertainty] {context}: final inner-state restore skipped after diagnostic ({err})"
         );
     }
-    match &certificate.verdict {
-        crate::inference::rho_uncertainty::RhoUncertaintyVerdict::CertifiedAdequate => {
+    match &diagnostic.status {
+        crate::inference::rho_uncertainty::RhoUncertaintyStatus::NoEvidenceOfHeavyTails => {
             log::info!(
-                "[RHO uncertainty] {context}: certified adequate k_hat={:.3} evals={}",
-                certificate.k_hat.unwrap_or(f64::NAN),
-                certificate.n_evaluations,
+                "[RHO uncertainty] {context}: no heavy-tail evidence at sampled rho proposals k_hat={:.3} evals={}",
+                diagnostic.k_hat.unwrap_or(f64::NAN),
+                diagnostic.n_evaluations,
             );
         }
-        crate::inference::rho_uncertainty::RhoUncertaintyVerdict::RhoUncertaintyMatters {
-            k_hat,
-        } => {
+        crate::inference::rho_uncertainty::RhoUncertaintyStatus::HeavyTailsDetected { k_hat } => {
             log::warn!(
-                "[RHO uncertainty] {context}: rho uncertainty matters k_hat={:.3} evals={}",
+                "[RHO uncertainty] {context}: heavy rho-importance tail detected k_hat={:.3} evals={}",
                 k_hat,
-                certificate.n_evaluations,
+                diagnostic.n_evaluations,
             );
         }
-        crate::inference::rho_uncertainty::RhoUncertaintyVerdict::Skipped { reason } => {
+        crate::inference::rho_uncertainty::RhoUncertaintyStatus::Skipped { reason } => {
             log::info!("[RHO uncertainty] {context}: skipped ({reason})");
         }
     }
-    certificate
+    diagnostic
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -6103,7 +6345,7 @@ fn run_outer(
     // is warm-start residue O(h) from the optimum — every caller recovers
     // its fitted state from `result.rho`, not from last-eval residue.
     result.criterion_certificate = audit_first_order_optimality(obj, config, context, &result);
-    result.rho_uncertainty_certificate = Some(compute_rho_uncertainty_certificate(
+    result.rho_uncertainty_diagnostic = Some(compute_rho_uncertainty_diagnostic(
         obj, config, context, &result,
     ));
     Ok(result)
@@ -6700,6 +6942,26 @@ fn run_outer_with_plan(
     // defect; recoverable cert refusals such as phantom multipliers are
     // not eligible for this key.
     const STRUCTURAL_EARLY_EXIT_MIN_COUNT: usize = 2;
+    // Generic cross-seed structural-failure bail (#1036). The structural
+    // early-exit above only fires for genuinely structural `CertRefused`
+    // diagnoses; it never sees the `RemlConvergenceError` / non-PD per-row
+    // H_tt / KKT-stuck class, which classifies as Budget/TrustRegion/Other and
+    // burned all 12 seeds (sphere: 3.5h for one failed candidate). This
+    // detector keys on the generic `(variant, signed-order-of-magnitude
+    // pivot/KKT bucket)` signature: when the LAST `n_struct` seeds reject with
+    // an identical *quantified* signature, the blocker is the design, not the
+    // warm-start, so we bail and skip the remaining seeds. A single deviating
+    // signature breaks the trailing run, so genuine seed-luck still runs the
+    // full cascade.
+    const GENERIC_STRUCTURAL_BAIL_MIN_RUN: usize = 3;
+    // `Some((signature, run_len))` once the generic detector has fired on a
+    // trailing run of identical quantified signatures. Drives the aggregated
+    // "structural: <signature> on seeds a..b; remaining N seeds skipped" note.
+    let mut generic_structural_bail: Option<(
+        crate::solver::startup_stats::GenericFailureSignature,
+        usize,
+        usize,
+    )> = None;
 
     'seed_attempts: for (seed_idx, seed) in seeds.iter().enumerate() {
         if started_seeds == seed_budget {
@@ -6766,6 +7028,34 @@ fn run_outer_with_plan(
                     structural_early_exit_key = Some(key);
                     break;
                 }
+            }
+        }
+        // Generic cross-seed structural bail (#1036): only for objectives that
+        // do NOT enter through the continuation path. Continuation-entry
+        // objectives demote to a heavier regime on any uniform structural
+        // signal (handled above) and must never empty their candidate set on a
+        // failure signature, so they opt out of the generic bail entirely.
+        if structural_early_exit_key.is_none()
+            && generic_structural_bail.is_none()
+            && continuation_path.is_none()
+        {
+            if let Some((sig, run_len)) =
+                crate::solver::startup_stats::consecutive_generic_signature(
+                    &seed_rejections,
+                    GENERIC_STRUCTURAL_BAIL_MIN_RUN,
+                )
+            {
+                let first_seed = seed_rejections[seed_rejections.len() - run_len].seed_idx;
+                let last_seed = seed_rejections[seed_rejections.len() - 1].seed_idx;
+                let label = crate::solver::startup_stats::generic_signature_label(&sig);
+                log::warn!(
+                    "[OUTER] {context}: generic structural bail after {run_len} consecutive \
+                     identical failure signatures ({label}) on seeds {first_seed}..{last_seed}; \
+                     skipping remaining {} seed(s)",
+                    seeds.len().saturating_sub(seed_idx),
+                );
+                generic_structural_bail = Some((sig, first_seed, last_seed));
+                break;
             }
         }
         crate::solver::estimate::reml::runtime::record_current_outer_iter_for_ift(0);
@@ -8012,6 +8302,13 @@ fn run_outer_with_plan(
         let mut early_exit_note = if structural_early_exit_key.is_some() {
             "early-exit triggered: every observed seed reported the same structural rejection"
                 .to_string()
+        } else if let Some((sig, first_seed, last_seed)) = generic_structural_bail.as_ref() {
+            let label = crate::solver::startup_stats::generic_signature_label(sig);
+            let skipped = seeds.len().saturating_sub(*last_seed + 1);
+            format!(
+                "structural: {label} on seeds {first_seed}..{last_seed}; \
+                 remaining {skipped} seeds skipped"
+            )
         } else if stopped_early_due_to_limit {
             format!(
                 "stopped early after {unsuccessful_expensive_seeds} consecutive non-converged \
@@ -8140,7 +8437,7 @@ mod tests {
     }
 
     #[test]
-    fn rho_uncertainty_certificate_does_not_change_outer_solution() {
+    fn rho_uncertainty_diagnostic_does_not_change_outer_solution() {
         let center = array![0.25];
         let seed_config = crate::seeding::SeedConfig {
             max_seeds: 1,
@@ -8155,7 +8452,7 @@ mod tests {
             .with_problem_size(8, 3);
         let config = problem.config();
 
-        let mut without_certificate = problem.build_objective(
+        let mut without_diagnostic = problem.build_objective(
             (),
             {
                 let center = center.clone();
@@ -8179,7 +8476,7 @@ mod tests {
             None::<fn(&mut ())>,
             None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
         );
-        let mut with_certificate = problem.build_objective(
+        let mut with_diagnostic = problem.build_objective(
             (),
             {
                 let center = center.clone();
@@ -8204,23 +8501,20 @@ mod tests {
             None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
         );
 
-        let baseline = run_outer_uncertified(
-            &mut without_certificate,
-            &config,
-            "rho-certificate-baseline",
-        )
-        .expect("baseline outer run");
-        let certified = run_outer(&mut with_certificate, &config, "rho-certificate-certified")
-            .expect("certified outer run");
+        let baseline =
+            run_outer_uncertified(&mut without_diagnostic, &config, "rho-diagnostic-baseline")
+                .expect("baseline outer run");
+        let diagnosed = run_outer(&mut with_diagnostic, &config, "rho-diagnostic-run")
+            .expect("diagnostic outer run");
 
-        assert_eq!(baseline.rho, certified.rho);
+        assert_eq!(baseline.rho, diagnosed.rho);
         assert_eq!(
             baseline.final_value.to_bits(),
-            certified.final_value.to_bits()
+            diagnosed.final_value.to_bits()
         );
-        assert_eq!(baseline.iterations, certified.iterations);
-        assert_eq!(baseline.final_grad_norm, certified.final_grad_norm);
-        assert!(certified.rho_uncertainty_certificate.is_some());
+        assert_eq!(baseline.iterations, diagnosed.iterations);
+        assert_eq!(baseline.final_grad_norm, diagnosed.final_grad_norm);
+        assert!(diagnosed.rho_uncertainty_diagnostic.is_some());
     }
 
     /// The desync bug genus (#748/#752/#901): the gradient path optimizes a
@@ -8881,6 +9175,7 @@ mod tests {
             efs_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<EfsEval, EstimationError>>,
             screening_proxy_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut i32, &Array1<f64>) -> Result<(), EstimationError>>,
+            continuation_prewarm: true,
         };
         assert_eq!(obj.capability().n_params, 1);
         assert_eq!(obj.eval_cost(&Array1::zeros(1)).unwrap(), 1.0);
@@ -8922,6 +9217,7 @@ mod tests {
                 fn(&mut Vec<f64>, &Array1<f64>) -> Result<f64, EstimationError>,
             >,
             seed_fn: None::<fn(&mut Vec<f64>, &Array1<f64>) -> Result<(), EstimationError>>,
+            continuation_prewarm: true,
         }
         .with_seed_inner_state(|state: &mut Vec<f64>, beta: &Array1<f64>| {
             state.extend(beta.iter().copied());
@@ -8986,6 +9282,7 @@ mod tests {
             }),
             screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
             seed_fn: None::<fn(&mut (), &Array1<f64>) -> Result<(), EstimationError>>,
+            continuation_prewarm: true,
         };
         let mut bridge = OuterFixedPointBridge {
             obj: &mut obj,

@@ -6,7 +6,12 @@ import json
 from typing import Any, cast
 
 from cloudsplaining.scan.policy_document import PolicyDocument
-from cloudsplaining.shared.constants import ISSUE_SEVERITY, RISK_DEFINITION
+from cloudsplaining.shared.constants import (
+    ISSUE_SEVERITY,
+    PRIVILEGE_ESCALATION_GLOSSARY_URL,
+    PRIVILEGE_ESCALATION_PATHFINDING_PATHS,
+    RISK_DEFINITION,
+)
 from cloudsplaining.shared.exclusions import DEFAULT_EXCLUSIONS, Exclusions
 from cloudsplaining.shared.utils import get_non_provider_id
 
@@ -69,8 +74,9 @@ class InlinePolicy:
     def getFindingLinks(self, findings: list[dict[str, Any]]) -> dict[str, str]:  # noqa: N802
         links = {}
         for finding in findings:
-            links[finding["type"]] = (
-                f"https://cloudsplaining.readthedocs.io/en/latest/glossary/privilege-escalation/#{finding['type']}"
+            method = finding["type"]
+            links[method] = PRIVILEGE_ESCALATION_PATHFINDING_PATHS.get(method) or (
+                f"{PRIVILEGE_ESCALATION_GLOSSARY_URL}#{method}"
             )
         return links
 
@@ -91,12 +97,12 @@ class InlinePolicy:
     @property
     def json(self) -> dict[str, Any]:
         """Return JSON output for high risk actions"""
-        result = dict(
-            PolicyName=self.policy_name,
-            PolicyId=self.policy_id,
-            PolicyDocument=self.policy_document.json,
-            AttachedTo=self.getAttached,
-            PrivilegeEscalation={
+        return {
+            "PolicyName": self.policy_name,
+            "PolicyId": self.policy_id,
+            "PolicyDocument": self.policy_document.json,
+            "AttachedTo": self.getAttached,
+            "PrivilegeEscalation": {
                 "severity": ISSUE_SEVERITY["PrivilegeEscalation"],
                 "description": RISK_DEFINITION["PrivilegeEscalation"],
                 "findings": (
@@ -110,7 +116,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            DataExfiltration={
+            "DataExfiltration": {
                 "severity": ISSUE_SEVERITY["DataExfiltration"],
                 "description": RISK_DEFINITION["DataExfiltration"],
                 "findings": (
@@ -119,7 +125,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            ResourceExposure={
+            "ResourceExposure": {
                 "severity": ISSUE_SEVERITY["ResourceExposure"],
                 "description": RISK_DEFINITION["ResourceExposure"],
                 "findings": (
@@ -128,7 +134,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            ServiceWildcard={
+            "ServiceWildcard": {
                 "severity": ISSUE_SEVERITY["ServiceWildcard"],
                 "description": RISK_DEFINITION["ServiceWildcard"],
                 "findings": (
@@ -137,7 +143,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            CredentialsExposure={
+            "CredentialsExposure": {
                 "severity": ISSUE_SEVERITY["CredentialsExposure"],
                 "description": RISK_DEFINITION["CredentialsExposure"],
                 "findings": (
@@ -146,19 +152,18 @@ class InlinePolicy:
                     else []
                 ),
             },
-            is_excluded=self.is_excluded,
-        )
-        return result
+            "is_excluded": self.is_excluded,
+        }
 
     @property
     def json_large(self) -> dict[str, Any]:
         """Return JSON output - including Infra Modification actions, which can be large"""
-        result = dict(
-            PolicyName=self.policy_name,
-            PolicyId=self.policy_id,
-            PolicyDocument=self.policy_document.json,
-            AttachedTo=self.getAttached,
-            PrivilegeEscalation={
+        return {
+            "PolicyName": self.policy_name,
+            "PolicyId": self.policy_id,
+            "PolicyDocument": self.policy_document.json,
+            "AttachedTo": self.getAttached,
+            "PrivilegeEscalation": {
                 "severity": ISSUE_SEVERITY["PrivilegeEscalation"],
                 "description": RISK_DEFINITION["PrivilegeEscalation"],
                 "findings": (
@@ -172,7 +177,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            DataExfiltration={
+            "DataExfiltration": {
                 "severity": ISSUE_SEVERITY["DataExfiltration"],
                 "description": RISK_DEFINITION["DataExfiltration"],
                 "findings": (
@@ -181,7 +186,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            ResourceExposure={
+            "ResourceExposure": {
                 "severity": ISSUE_SEVERITY["ResourceExposure"],
                 "description": RISK_DEFINITION["ResourceExposure"],
                 "findings": (
@@ -190,7 +195,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            ServiceWildcard={
+            "ServiceWildcard": {
                 "severity": ISSUE_SEVERITY["ServiceWildcard"],
                 "description": RISK_DEFINITION["ServiceWildcard"],
                 "findings": (
@@ -199,7 +204,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            CredentialsExposure={
+            "CredentialsExposure": {
                 "severity": ISSUE_SEVERITY["CredentialsExposure"],
                 "description": RISK_DEFINITION["CredentialsExposure"],
                 "findings": (
@@ -208,7 +213,7 @@ class InlinePolicy:
                     else []
                 ),
             },
-            InfrastructureModification={
+            "InfrastructureModification": {
                 "severity": ISSUE_SEVERITY["InfrastructureModification"],
                 "description": RISK_DEFINITION["InfrastructureModification"],
                 "findings": (
@@ -218,6 +223,5 @@ class InlinePolicy:
                     else []
                 ),
             },
-            is_excluded=self.is_excluded,
-        )
-        return result
+            "is_excluded": self.is_excluded,
+        }

@@ -13,7 +13,7 @@ kanban_framework = ["dashboard/node_modules/**", "dashboard/package-lock.json"]
 
 [project]
 name = "kanban-framework"
-version = "0.183.0"
+version = "0.191.1"
 description = "Kanban multi-agent orchestration framework for Claude Code"
 requires-python = ">=3.10"
 dependencies = [
@@ -34,6 +34,7 @@ kanban = "kanban_framework.cli.main:main"
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov"]
 code-index = ["code-review-graph>=0.1.0"]
+chromadb = ["chromadb>=0.5.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     FilePath,
     HttpUrl,
     ValidationError,
@@ -106,6 +107,21 @@ class About(TypesBaseModel):
     former_usernames: Optional[str] = ""
 
 
+class AddressBookPhone(TypesBaseModel):
+    phone_number: str
+
+
+class AddressBookEmail(TypesBaseModel):
+    email_address: str
+
+
+class AddressBookContact(TypesBaseModel):
+    phone_numbers: List[AddressBookPhone] = Field(default_factory=list)
+    email_addresses: List[AddressBookEmail] = Field(default_factory=list)
+    first_name: str = ""
+    last_name: str = ""
+
+
 class Account(TypesBaseModel):
     pk: str
     username: str
@@ -144,10 +160,10 @@ class UserShort(TypesBaseModel):
     profile_pic_url: Optional[HttpUrl] = None
     profile_pic_url_hd: Optional[HttpUrl] = None
     is_private: Optional[bool] = None
+    stories: List = Field(default_factory=list)
     is_verified: Optional[bool] = None
     latest_reel_media: Optional[int] = None
     has_anonymous_profile_picture: Optional[bool] = None
-    # stories: List = [] # not found in fbsearch_suggested_profiles
 
 
 class Viewer(UserShort):

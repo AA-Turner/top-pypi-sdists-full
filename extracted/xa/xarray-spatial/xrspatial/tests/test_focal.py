@@ -245,6 +245,99 @@ def test_hotspots_rejects_oversize_kernel_1284():
             hotspots(raster, kernel)
 
 
+def test_apply_oversize_kernel_accounts_for_float64_3223():
+    # Regression for #3223: the guard budgeted 4 bytes/cell (float32) but
+    # apply() preserves float64 input since #2805, so float64 combos could
+    # pass the guard and then allocate twice the estimate. With 1 MB
+    # "available", a (201, 201) kernel on a 10x10 raster needs ~338 KB in
+    # float32 (within the 50% threshold) but ~676 KB in float64, which
+    # must be rejected.
+    kernel = np.ones((201, 201), dtype=np.float32)
+    raster64 = xr.DataArray(np.zeros((10, 10), dtype=np.float64))
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        with pytest.raises(MemoryError, match=r"apply\(\): kernel of shape"):
+            apply(raster64, kernel)
+
+    # The same combination with float32 input stays within budget.
+    raster32 = xr.DataArray(np.zeros((10, 10), dtype=np.float32))
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        out = apply(raster32, kernel)
+    assert out.shape == (10, 10)
+
+
+def test_focal_stats_oversize_kernel_accounts_for_float64_3223():
+    # Regression for #3223: same float64 budget check for focal_stats.
+    kernel = np.ones((201, 201), dtype=np.float32)
+    raster64 = xr.DataArray(np.zeros((10, 10), dtype=np.float64))
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        with pytest.raises(MemoryError,
+                           match=r"focal_stats\(\): kernel of shape"):
+            focal_stats(raster64, kernel, stats_funcs=['mean'])
+
+
+def test_hotspots_float64_keeps_float32_budget_3223():
+    # hotspots() computes in float32 on every backend, so float64 input
+    # must stay on the 4 bytes/cell budget and not be over-rejected with
+    # the 8-byte budget apply()/focal_stats() use for float64.
+    kernel = np.ones((201, 201), dtype=np.float32)
+    data = np.random.default_rng(3223).random((10, 10)).astype(np.float64)
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        out = hotspots(xr.DataArray(data), kernel)
+    assert out.shape == (10, 10)
+
+
+@dask_array_available
+@pytest.mark.parametrize("entry_point", [
+    lambda agg, kernel: apply(agg, kernel),
+    lambda agg, kernel: focal_stats(agg, kernel, stats_funcs=['mean']),
+    lambda agg, kernel: hotspots(agg, kernel),
+])
+def test_memory_guard_accepts_large_dask_raster_3218(entry_point):
+    # Regression for #3218: the guard budgeted the padded FULL raster on
+    # every backend, so a dask raster bigger than ~half host RAM was
+    # rejected at graph-build time even though map_overlap only ever
+    # materializes one padded chunk per task. With 1 MB "available", the
+    # full padded raster (~4 MB) would trip the old guard; the padded
+    # 100x100 chunk (~42 KB) must pass.
+    data = da.zeros((1000, 1000), chunks=(100, 100), dtype=np.float32)
+    agg = xr.DataArray(data, dims=['y', 'x'])
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float32)
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        result = entry_point(agg, kernel)
+    assert isinstance(result.data, da.Array)
+
+
+def test_memory_guard_numpy_raster_still_rejected_3218():
+    # The numpy path really does allocate full-size arrays, so the
+    # full-raster budget must keep firing for in-memory input.
+    agg = xr.DataArray(np.zeros((1000, 1000), dtype=np.float32),
+                       dims=['y', 'x'])
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float32)
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        with pytest.raises(MemoryError, match="padded raster"):
+            apply(agg, kernel)
+
+
+@dask_array_available
+def test_memory_guard_dask_oversize_kernel_still_rejected_3218():
+    # An oversized kernel must still be rejected on the dask path: the
+    # kernel itself plus one padded chunk blows the per-task budget. The
+    # message reports the chunk, not the raster.
+    data = da.zeros((1000, 1000), chunks=(100, 100), dtype=np.float32)
+    agg = xr.DataArray(data, dims=['y', 'x'])
+    kernel = np.ones((301, 301), dtype=np.float32)
+    with patch('xrspatial.focal._available_memory_bytes',
+               return_value=1_000_000):
+        with pytest.raises(MemoryError, match="padded chunk"):
+            apply(agg, kernel)
+
+
 def test_apply_small_kernel_not_rejected_1284():
     # The guard must not fire for realistic kernel + raster combos.
     raster = xr.DataArray(np.ones((50, 50), dtype=np.float32))
@@ -443,6 +536,80 @@ def test_apply_cupy(data_apply):
         equal_nan=True, rtol=1e-4)
 
 
+def test_apply_default_func_numpy_3215(data_apply):
+    # default func=None resolves to _calc_mean on the numpy backend
+    from xrspatial.focal import _calc_mean
+
+    data, kernel, _ = data_apply
+    numpy_agg = create_test_raster(data)
+    default_apply = apply(numpy_agg, kernel)
+    explicit_apply = apply(numpy_agg, kernel, _calc_mean)
+    general_output_checks(numpy_agg, default_apply)
+    np.testing.assert_allclose(
+        default_apply.data, explicit_apply.data, equal_nan=True)
+
+
+@dask_array_available
+def test_apply_default_func_dask_numpy_3215(data_apply):
+    from xrspatial.focal import _calc_mean
+
+    data, kernel, _ = data_apply
+    dask_numpy_agg = create_test_raster(data, backend='dask')
+    default_apply = apply(dask_numpy_agg, kernel)
+    explicit_apply = apply(dask_numpy_agg, kernel, _calc_mean)
+    general_output_checks(dask_numpy_agg, default_apply)
+    np.testing.assert_allclose(
+        default_apply.data.compute(), explicit_apply.data.compute(),
+        equal_nan=True)
+
+
+@cuda_and_cupy_available
+def test_apply_default_func_cupy_3215(data_apply):
+    # apply(cupy_agg, kernel) used to raise TypeError because the default
+    # func was the @ngjit _calc_mean, which cannot be launched as a CUDA
+    # kernel. The default now resolves to _focal_mean_cuda on GPU backends.
+    from xrspatial.focal import _focal_mean_cuda
+
+    data, kernel, _ = data_apply
+    numpy_default = apply(create_test_raster(data), kernel)
+
+    cupy_agg = create_test_raster(data, backend='cupy')
+    cupy_default = apply(cupy_agg, kernel)
+    explicit_apply = apply(cupy_agg, kernel, _focal_mean_cuda)
+    general_output_checks(cupy_agg, cupy_default)
+
+    np.testing.assert_allclose(
+        cupy_default.data.get(), explicit_apply.data.get(), equal_nan=True)
+    # default funcs on both backends compute the same focal mean
+    np.testing.assert_allclose(
+        numpy_default.data, cupy_default.data.get(),
+        equal_nan=True, rtol=1e-4)
+
+
+@dask_array_available
+@cuda_and_cupy_available
+def test_apply_default_func_dask_cupy_3215():
+    rng = np.random.default_rng(7)
+    data = rng.random((20, 24)).astype(np.float64)
+    kernel = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+
+    cupy_default = apply(create_test_raster(data, backend='cupy'), kernel)
+
+    dask_cupy_agg = create_test_raster(data, backend='dask+cupy',
+                                       chunks=(10, 12))
+    dask_cupy_default = apply(dask_cupy_agg, kernel)
+    general_output_checks(dask_cupy_agg, dask_cupy_default,
+                          verify_attrs=False)
+
+    # Compare interior (boundary='nan' causes edge differences between
+    # cupy single-GPU bounds-clamping and dask map_overlap NaN-padding)
+    pad = kernel.shape[0] // 2
+    np.testing.assert_allclose(
+        cupy_default.data[pad:-pad, pad:-pad].get(),
+        dask_cupy_default.data[pad:-pad, pad:-pad].compute().get(),
+        equal_nan=True, rtol=1e-4)
+
+
 @dask_array_available
 @cuda_and_cupy_available
 def test_apply_dask_cupy():
@@ -574,6 +741,26 @@ def test_focal_stats_dask_cupy():
         cupy_focalstats.data[:, pad:-pad, pad:-pad].get(),
         dask_cupy_focalstats.data[:, pad:-pad, pad:-pad].compute().get(),
         equal_nan=True, rtol=1e-4)
+
+
+@cuda_and_cupy_available
+def test_focal_stats_cupy_casts_input_once_3231():
+    # Regression for #3231: the cupy stats loop re-ran agg.data.astype()
+    # (a full-raster device copy, even for an unchanged dtype) once per
+    # stat. The input cast is now hoisted above the loop, so
+    # _promote_float runs once for the input plus once per stat for the
+    # output allocation inside _focal_stats_func_cupy, plus one
+    # dtype-only call in the memory guard at the entry point (#3223).
+    import xrspatial.focal as focal_module
+    data = np.arange(48, dtype=np.float64).reshape(6, 8)
+    agg = create_test_raster(data, backend='cupy')
+    kernel = custom_kernel(np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+    stats = ['mean', 'sum', 'min', 'max']
+    with patch.object(focal_module, '_promote_float',
+                      wraps=focal_module._promote_float) as spy:
+        result = focal_stats(agg, kernel, stats_funcs=stats)
+    assert result.shape == (len(stats), 6, 8)
+    assert spy.call_count == len(stats) + 2
 
 
 # --- float64 preservation (issue-2769) ------------------------------------
@@ -762,6 +949,98 @@ def test_apply_keeps_float32(backend):
     result = apply(agg, kernel, func)
 
     assert _compute_dtype(result) == np.float32
+
+
+# --- mean dtype preservation (issue-3214) ----------------------------------
+# mean() used to cast to float64 on numpy/dask+numpy (agg.data.astype(float))
+# and to float32 on cupy/dask+cupy, so the output dtype depended on the
+# backend and float64 rasters lost precision on GPU. It now follows the same
+# _promote_float contract as apply()/focal_stats() (#2769) and convolve_2d()
+# (#1096): float dtypes are preserved, ints promote to float32.
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+def test_mean_preserves_float64_3214(backend):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float64).reshape(4, 5)
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+    result = mean(agg)
+    assert _compute_dtype(result) == np.float64
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy', 'dask+numpy', 'dask+cupy'])
+def test_mean_keeps_float32_3214(backend):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = np.arange(20, dtype=np.float32).reshape(4, 5)
+    agg = create_test_raster(data, backend=backend, chunks=(2, 3))
+    result = mean(agg)
+    assert _compute_dtype(result) == np.float32
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy'])
+def test_mean_int_promotes_to_float32_3214(backend):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+
+    data = np.arange(20, dtype=np.int32).reshape(4, 5)
+    agg = create_test_raster(data, backend=backend)
+    result = mean(agg)
+    assert _compute_dtype(result) == np.float32
+
+
+@cuda_and_cupy_available
+def test_mean_large_offset_gpu_matches_numpy_3214():
+    """GPU mean() must not collapse on large-offset float64 rasters (#3214).
+
+    The old cupy path cast float64 input to float32. At an offset of 1e7
+    the float32 resolution (~1) exceeds the spread of the true focal means
+    (~0.4), so the GPU result carried no signal. Computing in float64 keeps
+    the two backends in agreement.
+    """
+    import cupy
+    rng = np.random.default_rng(1)
+    data = (1e7 + rng.random((8, 8))).astype(np.float64)
+
+    numpy_mean = mean(xr.DataArray(data))
+    cupy_mean = mean(xr.DataArray(cupy.asarray(data)))
+
+    np.testing.assert_allclose(
+        numpy_mean.data, cupy_mean.data.get(), rtol=1e-12, equal_nan=True)
+    # the focal-mean variation must survive the round trip
+    spread = numpy_mean.data.max() - numpy_mean.data.min()
+    gpu_spread = cupy_mean.data.get().max() - cupy_mean.data.get().min()
+    assert spread > 0.1
+    assert abs(gpu_spread - spread) < 1e-6
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy'])
+def test_mean_excludes_match_in_working_dtype_3214(backend):
+    # excludes are cast to the working dtype before matching, so a float32
+    # raster cell equal to float32(0.1) is excluded even though
+    # float64(0.1) != float32(0.1). The cupy path casts excludes separately
+    # in _mean_cupy, so both backends are checked.
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+
+    data = np.full((4, 4), 5.0, dtype=np.float32)
+    data[1, 1] = np.float32(0.1)
+    agg = create_test_raster(data, backend=backend)
+    result = mean(agg, excludes=[0.1])
+    out = result.data.get() if hasattr(result.data, 'get') else result.data
+    # the excluded cell is passed through unchanged
+    assert out[1, 1] == np.float32(0.1)
 
 
 # --- focal_stats NaN handling (issue-1092) --------------------------------
@@ -1064,7 +1343,8 @@ def test_hotspots_zero_global_std():
 
 
 # Degenerate inputs: constant raster (std == 0), all-NaN raster (n == 0),
-# and a single valid cell (n == 1). The numpy/cupy paths raise eagerly via
+# a single valid cell (n == 1), and a raster containing Inf, which makes
+# the global std NaN (issue #3219). The numpy/cupy paths raise eagerly via
 # _gistar_global_stats; the dask paths must raise the same error at compute
 # time instead of silently classifying to all zeros (issue #2843).
 def _hotspots_degenerate_cases():
@@ -1075,12 +1355,23 @@ def _hotspots_degenerate_cases():
     single_valid = np.full((10, 10), np.nan, dtype=np.float32)
     single_valid[0, 0] = 5.0
 
+    # A single Inf of either sign poisons nanstd the same way (std == NaN);
+    # both signs are pinned so neither regresses independently.
+    pos_inf = np.arange(100, dtype=np.float32).reshape(10, 10)
+    pos_inf[4, 4] = np.inf
+
+    neg_inf = np.arange(100, dtype=np.float32).reshape(10, 10)
+    neg_inf[4, 4] = -np.inf
+
     std_msg = "Standard deviation of the input raster values is 0."
     n_msg = "needs at least 2 valid"
+    finite_msg = "Standard deviation of the input raster values is not finite"
     return [
         ('constant', constant, ZeroDivisionError, std_msg),
         ('all_nan', all_nan, ValueError, n_msg),
         ('single_valid', single_valid, ValueError, n_msg),
+        ('pos_inf', pos_inf, ValueError, finite_msg),
+        ('neg_inf', neg_inf, ValueError, finite_msg),
     ]
 
 
@@ -1881,6 +2172,95 @@ def test_hotspots_name_consistent_across_backends(backend):
     assert result.name == 'hotspots'
 
 
+# --- output dtype consistency across backends (issue #3217) -------------
+#
+# Regression: mean() hardcoded float32 on the cupy and dask+cupy paths
+# while the numpy and dask+numpy paths returned float64, so a float64
+# raster silently lost precision on the GPU (fixed on main via the
+# duplicate issue #3214: mean() now follows the _promote_float contract,
+# preserving float dtypes and promoting ints to float32). The dask paths
+# of mean, apply, and focal_stats also passed an untyped meta to
+# map_overlap, so the lazy DataArray advertised float64 while .compute()
+# returned the promoted float32 for float32/integer input.
+
+
+def _computed_dtype(result):
+    data = result.data
+    if da is not None and isinstance(data, da.Array):
+        data = data.compute()
+    return data.dtype
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy', 'dask+cupy'])
+@pytest.mark.parametrize("in_dtype", [np.float64, np.float32, np.int32])
+def test_mean_dtype_consistent_across_backends_3217(backend, in_dtype):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+    data = (np.arange(16).reshape(4, 4) + 0.5).astype(in_dtype)
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    result = mean(agg)
+    # mean() promotes via _promote_float before dispatch (#3214); every
+    # backend must keep that dtype, lazily and computed.
+    expected = np.float64 if in_dtype == np.float64 else np.float32
+    assert result.dtype == expected
+    assert _computed_dtype(result) == expected
+
+
+@cuda_and_cupy_available
+def test_mean_gpu_matches_cpu_float64_3217():
+    # The old float32 cast on the GPU paths produced ~1e-4 relative error
+    # against the CPU result. In float64 the two backends agree exactly.
+    import cupy
+    data = np.random.default_rng(7).random((16, 16))
+    cpu = mean(xr.DataArray(data))
+    gpu = mean(xr.DataArray(cupy.asarray(data)))
+    np.testing.assert_array_equal(cpu.data, gpu.data.get())
+
+
+@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+@pytest.mark.parametrize("in_dtype", [np.float64, np.float32, np.int32])
+def test_apply_dask_advertised_dtype_matches_computed_3217(backend, in_dtype):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if da is None:
+        pytest.skip("Requires Dask")
+
+    data = (np.arange(16).reshape(4, 4) + 0.5).astype(in_dtype)
+    kernel = custom_kernel(np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    if 'cupy' in backend:
+        from xrspatial.focal import _focal_mean_cuda
+        result = apply(agg, kernel, func=_focal_mean_cuda)
+    else:
+        result = apply(agg, kernel)
+    expected = np.float64 if in_dtype == np.float64 else np.float32
+    assert result.dtype == expected
+    assert _computed_dtype(result) == expected
+
+
+@pytest.mark.parametrize("backend", ['dask+numpy', 'dask+cupy'])
+@pytest.mark.parametrize("in_dtype", [np.float64, np.float32, np.int32])
+def test_focal_stats_dask_advertised_dtype_matches_computed_3217(backend, in_dtype):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if da is None:
+        pytest.skip("Requires Dask")
+
+    data = (np.arange(16).reshape(4, 4) + 0.5).astype(in_dtype)
+    kernel = custom_kernel(np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]]))
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    result = focal_stats(agg, kernel, stats_funcs=['mean', 'std'])
+    expected = np.float64 if in_dtype == np.float64 else np.float32
+    assert result.dtype == expected
+    assert _computed_dtype(result) == expected
+
+
 # ---------------------------------------------------------------------------
 # API-consistency regressions (issue #2689)
 # ---------------------------------------------------------------------------
@@ -1994,3 +2374,247 @@ def test_hotspots_name_gpu():
     assert hotspots(agg, _api_kernel).name == 'hotspots'
     with pytest.warns(DeprecationWarning, match="raster"):
         hotspots(raster=agg, kernel=_api_kernel)
+
+
+# ---------------------------------------------------------------------------
+# Coverage-gap regressions from the test-coverage sweep (issue #3220):
+# Inf inputs, mean() NaN / excludes / passes behavior, 1x1 and strip rasters,
+# empty rasters, and dask+cupy boundary modes.
+# ---------------------------------------------------------------------------
+
+ALL_BACKENDS = ['numpy', 'cupy', 'dask+numpy', 'dask+cupy']
+
+_sweep_cross_kernel = np.array(
+    [[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.float64)
+
+
+def _skip_unavailable_backend(backend):
+    from xrspatial.tests.general_checks import has_cuda_and_cupy
+    if 'cupy' in backend and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+    if 'dask' in backend and da is None:
+        pytest.skip("Requires Dask")
+
+
+def _materialize(data):
+    """Bring any backend's array back to a host numpy array."""
+    if hasattr(data, 'compute'):
+        data = data.compute()
+    if hasattr(data, 'get'):
+        data = data.get()
+    return np.asarray(data)
+
+
+def _apply_func_for(backend):
+    if 'cupy' in backend:
+        from xrspatial.focal import _focal_mean_cuda
+        return _focal_mean_cuda
+    from xrspatial.focal import _calc_mean
+    return _calc_mean
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+def test_mean_nan_input_3220(backend):
+    # mean()'s default excludes=[np.nan] gives NaN cells specific semantics:
+    # the NaN cell itself is left unchanged, while neighbors compute a
+    # nanmean that skips it. No prior test fed mean() a NaN on any backend.
+    _skip_unavailable_backend(backend)
+    data = np.array([
+        [1., 2., 3.],
+        [4., np.nan, 6.],
+        [7., 8., 9.],
+    ])
+    expected = np.array([
+        [7 / 3, 16 / 5, 11 / 3],
+        [22 / 5, np.nan, 28 / 5],
+        [19 / 3, 34 / 5, 23 / 3],
+    ])
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    result = mean(agg)
+    np.testing.assert_allclose(
+        _materialize(result.data), expected, equal_nan=True, rtol=1e-4)
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+def test_mean_excludes_sentinel_3220(backend):
+    # excludes had no behavioral test: a cell matching an exclude value must
+    # be left unchanged, and (per the documented semantics) the sentinel
+    # still participates in its neighbors' window means.
+    _skip_unavailable_backend(backend)
+    data = np.array([
+        [1., 2., 3.],
+        [4., -9999., 6.],
+        [7., 8., 9.],
+    ])
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    result = _materialize(mean(agg, excludes=[-9999.]).data)
+    assert result[1, 1] == -9999.0
+    # (0, 0) window is [1, 2, 4, -9999] -> mean -2498
+    np.testing.assert_allclose(result[0, 0], -2498.0, rtol=1e-6)
+
+    numpy_agg = create_test_raster(data, backend='numpy')
+    expected = mean(numpy_agg, excludes=[-9999.]).data
+    np.testing.assert_allclose(result, expected, equal_nan=True, rtol=1e-4)
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+def test_mean_passes_3220(backend):
+    # passes was only ever tested at its default of 1. passes=2 must equal
+    # mean(mean(x)) and agree across backends.
+    _skip_unavailable_backend(backend)
+    data = np.zeros((5, 5), dtype=np.float64)
+    data[2, 2] = 9.0
+
+    numpy_agg = create_test_raster(data, backend='numpy')
+    expected = mean(mean(numpy_agg)).data
+
+    agg = create_test_raster(data, backend=backend, chunks=(3, 3))
+    result = mean(agg, passes=2)
+    np.testing.assert_allclose(
+        _materialize(result.data), expected, equal_nan=True, rtol=1e-4)
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+def test_mean_inf_input_3220(backend):
+    # No focal test exercised Inf at all. For mean(), Inf is not excluded
+    # (only NaN is by default), so every window touching it goes to +Inf.
+    _skip_unavailable_backend(backend)
+    data = np.array([
+        [1., 2., 3.],
+        [4., np.inf, 6.],
+        [7., 8., 9.],
+    ])
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    result = _materialize(mean(agg).data)
+    # every 3x3 window on this raster contains the Inf center
+    assert np.all(np.isinf(result)) and np.all(result > 0)
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+def test_focal_stats_inf_input_3220(backend):
+    # Inf propagates through mean/sum/max/range, is ignored by min when a
+    # smaller finite value exists, and poisons std/var to NaN (the window
+    # mean is Inf, so deviations are NaN). All four backends must agree.
+    # hotspots() with Inf is NOT pinned here: it silently classifies
+    # everything to 0 today, which is tracked as a bug in issue #3219.
+    _skip_unavailable_backend(backend)
+    data = np.array([
+        [1., 2., 3.],
+        [4., np.inf, 6.],
+        [7., 8., 9.],
+    ])
+    stats = ['mean', 'sum', 'min', 'max', 'range', 'std', 'var']
+    agg = create_test_raster(data, backend=backend, chunks=(2, 2))
+    result = focal_stats(agg, custom_kernel(_sweep_cross_kernel),
+                         stats_funcs=stats)
+    out = _materialize(result.data)
+
+    by_stat = dict(zip(stats, out))
+    # center cell: cross window is [2, 4, inf, 6, 8]
+    assert np.isinf(by_stat['mean'][1, 1])
+    assert np.isinf(by_stat['sum'][1, 1])
+    assert by_stat['min'][1, 1] == 2.0
+    assert np.isinf(by_stat['max'][1, 1])
+    assert np.isinf(by_stat['range'][1, 1])
+    assert np.isnan(by_stat['std'][1, 1])
+    assert np.isnan(by_stat['var'][1, 1])
+    # corner cell (0, 0): cross window is [1, 2, 4], fully finite
+    np.testing.assert_allclose(by_stat['mean'][0, 0], 7 / 3, rtol=1e-4)
+    assert np.isfinite(by_stat['std'][0, 0])
+
+    numpy_agg = create_test_raster(data, backend='numpy')
+    expected = focal_stats(numpy_agg, custom_kernel(_sweep_cross_kernel),
+                           stats_funcs=stats).data
+    np.testing.assert_allclose(out, expected, equal_nan=True, rtol=1e-4)
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+def test_focal_1x1_raster_3220(backend):
+    # Degenerate single-pixel raster with a 3x3 kernel: the window clamps
+    # to the one real cell on every backend.
+    _skip_unavailable_backend(backend)
+    data = np.array([[5.0]])
+    agg = create_test_raster(data, backend=backend, chunks=(3, 3))
+
+    mean_result = _materialize(mean(agg).data)
+    np.testing.assert_allclose(mean_result, [[5.0]])
+
+    apply_result = _materialize(
+        apply(agg, _sweep_cross_kernel, _apply_func_for(backend)).data)
+    np.testing.assert_allclose(apply_result, [[5.0]])
+
+    fs = focal_stats(agg, custom_kernel(_sweep_cross_kernel),
+                     stats_funcs=['mean', 'sum', 'std'])
+    np.testing.assert_allclose(
+        _materialize(fs.data).ravel(), [5.0, 5.0, 0.0], atol=1e-6)
+
+
+@pytest.mark.parametrize("backend", ALL_BACKENDS)
+@pytest.mark.parametrize("shape,chunks", [((1, 6), (1, 3)), ((6, 1), (3, 1))])
+def test_focal_strip_raster_3220(backend, shape, chunks):
+    # Nx1 / 1xN strips exercise the kernel-window clamping on a raster
+    # thinner than the kernel. The cross kernel reduces to a 1D window
+    # along the strip, so both orientations share one expected result.
+    _skip_unavailable_backend(backend)
+    data = np.arange(6, dtype=np.float64).reshape(shape)
+    expected = np.array([0.5, 1., 2., 3., 4., 4.5]).reshape(shape)
+    agg = create_test_raster(data, backend=backend, chunks=chunks)
+
+    mean_result = _materialize(mean(agg).data)
+    np.testing.assert_allclose(mean_result, expected, rtol=1e-6)
+
+    apply_result = _materialize(
+        apply(agg, _sweep_cross_kernel, _apply_func_for(backend)).data)
+    np.testing.assert_allclose(apply_result, expected, rtol=1e-6)
+
+    fs = focal_stats(agg, custom_kernel(_sweep_cross_kernel),
+                     stats_funcs=['mean'])
+    np.testing.assert_allclose(
+        _materialize(fs.data).reshape(shape), expected, rtol=1e-6)
+
+
+def test_focal_empty_raster_numpy_3220():
+    # A 0-row raster passes through the numpy backend with its shape
+    # preserved. The cupy and dask backends currently crash on empty
+    # input (issue #3225), so only the numpy behavior is pinned here.
+    data = np.empty((0, 5))
+    agg = create_test_raster(data, backend='numpy')
+    assert mean(agg).shape == (0, 5)
+    assert apply(agg, _sweep_cross_kernel).shape == (0, 5)
+    fs = focal_stats(agg, custom_kernel(_sweep_cross_kernel),
+                     stats_funcs=['mean'])
+    assert fs.shape == (1, 0, 5)
+
+
+@dask_array_available
+@cuda_and_cupy_available
+@pytest.mark.parametrize("boundary", ['nearest', 'reflect', 'wrap'])
+def test_focal_boundary_dask_cupy_3220(boundary):
+    # The dask+cupy backend was never exercised with a non-default boundary
+    # mode. Unlike boundary='nan' (where the single-array and map_overlap
+    # paths legitimately differ on the outer ring), the padded modes must
+    # match numpy on every cell.
+    from xrspatial.focal import _focal_mean_cuda
+    rng = np.random.default_rng(42)
+    data = rng.random((8, 10)).astype(np.float64)
+    numpy_agg = create_test_raster(data, backend='numpy')
+    dask_cupy_agg = create_test_raster(data, backend='dask+cupy',
+                                       chunks=(4, 5))
+
+    np_mean = mean(numpy_agg, boundary=boundary).data
+    dc_mean = _materialize(mean(dask_cupy_agg, boundary=boundary).data)
+    np.testing.assert_allclose(dc_mean, np_mean, equal_nan=True, rtol=1e-4)
+
+    np_apply = apply(numpy_agg, _sweep_cross_kernel, boundary=boundary).data
+    dc_apply = _materialize(
+        apply(dask_cupy_agg, _sweep_cross_kernel, _focal_mean_cuda,
+              boundary=boundary).data)
+    np.testing.assert_allclose(dc_apply, np_apply, equal_nan=True, rtol=1e-4)
+
+    stats = ['mean', 'std']
+    np_fs = focal_stats(numpy_agg, custom_kernel(_sweep_cross_kernel),
+                        stats_funcs=stats, boundary=boundary).data
+    dc_fs = _materialize(
+        focal_stats(dask_cupy_agg, custom_kernel(_sweep_cross_kernel),
+                    stats_funcs=stats, boundary=boundary).data)
+    np.testing.assert_allclose(dc_fs, np_fs, equal_nan=True, rtol=1e-4)

@@ -49,14 +49,16 @@ pub use measure_jet_moments::{
     MeasureJetJetStats, MeasureJetMomentTable, accumulate_moment_table, jet_sufficient_stats,
     merge_moment_tables, recenter_moment_table,
 };
-pub use measure_jet_predict::measure_jet_extrapolation_variance;
+pub use measure_jet_predict::{
+    MeasureJetExtrapolationSpectrum, measure_jet_extrapolation_variance,
+};
 pub use measure_jet_smooth::{
     MeasureJetBand, MeasureJetBasisSpec, MeasureJetEnergyJets, MeasureJetFrozenQuadrature,
     MeasureJetIdentifiability, build_measure_jet_basis, build_measure_jet_basis_psi_derivatives,
     measure_jet_band, measure_jet_center_masses, measure_jet_design_matrix,
     measure_jet_energy_form, measure_jet_energy_form_with_jets, measure_jet_energy_forms_per_scale,
-    measure_jet_quadrature_nodes, measure_jet_scale_spectrum, measure_jet_support_curve,
-    realized_measure_jet_length_scale,
+    measure_jet_multiscale_mode, measure_jet_quadrature_nodes, measure_jet_scale_spectrum,
+    measure_jet_support_curve, realized_measure_jet_length_scale,
 };
 pub use sphere_spec::{
     SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
@@ -2555,13 +2557,17 @@ pub enum BasisMetadata {
         constraint_transform: Option<Array2<f64>>,
     },
     /// Measure-jet spline smooth: multiscale local-jet-residual energy of the
-    /// empirical measure, quadratured on the center set. The penalty depends
-    /// on the FIT data through `masses` and the realized `eps_band`, so both
-    /// are persisted and replayed verbatim by predict-time (and future
-    /// per-ψ-trial) rebuilds — recomputing either from predict rows would
-    /// change the penalty the coefficients were estimated under.
-    /// `constraint_transform` is the composed `z · z_parametric` frozen by
-    /// the global identifiability pipeline (#532 pattern).
+    /// empirical measure, quadratured on the center set. `centers` are the
+    /// REALIZED barycenter nodes; `order_s` stores the spec's order sentinel
+    /// verbatim as the mode marker (0.0 = per-level/spectral, > 0 = fused
+    /// pin — persisting a realized default would flip the rebuilt mode). The
+    /// penalty depends on the FIT data through `masses`, the realized
+    /// `eps_band`, the support anchors, and the normalization scales, so all
+    /// are persisted and replayed verbatim by
+    /// predict-time (and per-ψ-trial) rebuilds — recomputing either from
+    /// predict rows would change the penalty the coefficients were estimated
+    /// under. `constraint_transform` is the composed `z · z_parametric`
+    /// frozen by the global identifiability pipeline (#532 pattern).
     MeasureJet {
         centers: Array2<f64>,
         input_scales: Option<Vec<f64>>,
@@ -2571,6 +2577,10 @@ pub enum BasisMetadata {
         alpha: f64,
         tau0: f64,
         masses: Array1<f64>,
+        support_means: Vec<f64>,
+        penalty_normalization_scales: Vec<f64>,
+        raw_penalty_normalization_scales: Vec<f64>,
+        fused_penalty_normalization_scale: Option<f64>,
         constraint_transform: Option<Array2<f64>>,
     },
     Matern {
@@ -13246,17 +13256,31 @@ fn bessel_k_integer_order(n: usize, z: f64) -> f64 {
 
 #[inline(always)]
 fn bessel_k_half_integer_order(l: usize, z: f64) -> f64 {
-    // K_{l+1/2}(z) = sqrt(pi/(2z)) exp(-z) * sum_{j=0}^l c_j (1/(2z))^j
-    // where c_j = (l+j)! / (j! (l-j)!).
+    // Exact closed-form seeds and the stable upward recurrence
+    //   K_{1/2}(z) = sqrt(π/(2z))·e^{−z},
+    //   K_{3/2}(z) = K_{1/2}(z)·(1 + 1/z),
+    //   K_{ν+1}(z) = K_{ν−1}(z) + (2ν/z)·K_ν(z)   (ν = 1/2 + m, m ≥ 1).
+    // Equivalent to the closed-form polynomial sum, but uses EXACT integer
+    // coefficients via the recurrence instead of approximate Lanczos-gamma
+    // values for `c_j = (l+j)!/(j!(l−j)!)`. The Lanczos approximation is
+    // accurate to ~1 ULP at integer arguments; that error gets amplified
+    // through catastrophic cancellation in derivative lattices of the
+    // r^μ·K_μ(κr) family. Matching the [`BesselKLadder`] arithmetic byte-
+    // for-byte also ensures the ladder/per-call paths agree exactly.
     let zz = z.max(1e-300);
-    let inv2z = 0.5 / zz;
-    let mut sum = 0.0_f64;
-    for j in 0..=l {
-        let coeff = gamma_lanczos((l + j + 1) as f64)
-            / (gamma_lanczos((j + 1) as f64) * gamma_lanczos((l - j + 1) as f64));
-        sum += coeff * inv2z.powi(j as i32);
+    let k_half = (std::f64::consts::PI / (2.0 * zz)).sqrt() * (-zz).exp();
+    if l == 0 {
+        return k_half;
     }
-    (std::f64::consts::PI / (2.0 * zz)).sqrt() * (-zz).exp() * sum
+    let mut km1 = k_half;
+    let mut k = k_half * (1.0 + 1.0 / zz);
+    for m in 1..l {
+        let nu = m as f64 + 0.5;
+        let kp1 = km1 + 2.0 * nu * k / zz;
+        km1 = k;
+        k = kp1;
+    }
+    k
 }
 
 #[inline(always)]
@@ -14384,9 +14408,56 @@ pub fn initial_aniso_contrasts(centers: ArrayView2<'_, f64>) -> Vec<f64> {
         .collect()
 }
 
-/// Detect the all-zero sentinel from `--scale-dimensions` and replace with
-/// knot-cloud-derived contrasts. Non-zero or absent aniso is passed through.
-fn maybe_initialize_aniso_contrasts(
+/// Pure forward transform of the supplied anisotropy log-scales: subtract the
+/// mean (so Σ η = 0) and zero tiny residuals. `None` (or a 1-D problem, where
+/// centering is a no-op) means *no* anisotropy.
+///
+/// This is a **continuous function of η with no hidden data dependence**: an
+/// explicit all-zero vector centers to all-zero, i.e. the isotropic metric
+/// (weights `exp(2·0) = 1`, Euclidean radius). It is therefore identical, as a
+/// design, to the `None` path through `η = 0`, and is continuous across it —
+/// `[1e-9, -1e-9]` and `[0, 0]` map to neighboring designs, not a jump.
+///
+/// The Matérn input-location jet/Hessian (`matern_metric_weights`, the public
+/// `matern_input_location_first_jet`/`_hessian` FFI) and the `UserProvided`-center
+/// forward design both apply *this* transform, so the jet differentiates exactly
+/// the function the public design evaluates (#437), and an explicit isotropic
+/// request reduces to the closed-form isotropic Matérn kernel rather than a
+/// data-driven anisotropic one (#1042).
+///
+/// Auto-initialization of `η` from knot-cloud geometry is a *separate* concern
+/// handled by [`auto_seed_aniso_contrasts`]; it is reserved for callers that
+/// opt into data-derived geometry (the κ-optimizer's data-driven center
+/// strategies and the pure-Duchon `scale_dims` path), selected by
+/// [`resolve_matern_forward_aniso`].
+fn centered_aniso_contrasts(aniso: Option<&[f64]>) -> Option<Vec<f64>> {
+    use crate::terms::smooth::center_aniso_log_scales as center;
+
+    match aniso {
+        Some(v) if v.len() > 1 => Some(center(v)),
+        Some(v) => Some(v.to_vec()),
+        None => None,
+    }
+}
+
+/// Auto-seed anisotropy contrasts from knot-cloud geometry for callers that use
+/// an all-zero vector as the "initialize me" sentinel.
+///
+/// Used by (a) the pure-Duchon `scale_dims` path, where `η` is a FIXED,
+/// geometry-derived basis parameter that is never enrolled as a REML hyper-axis
+/// (see `spatial_term_supports_hyper_optimization`): "standardize the geometry,
+/// then learn the smoothness"; and (b) the Matérn forward design when the term
+/// uses a **data-driven** center strategy, i.e. the κ-optimizer's seeding
+/// sentinel (the optimizer's analytic ψ-gradient is computed against the same
+/// auto-seeded design, so the pair stays consistent). A non-zero (or absent)
+/// vector is honored verbatim (centered, exactly like [`centered_aniso_contrasts`]);
+/// only an *exactly* all-zero vector is replaced by `initial_aniso_contrasts(centers)`.
+///
+/// A `UserProvided`-center Matérn term does NOT use this — its geometry is fully
+/// caller-specified, so an explicit all-zero η must be honored literally; folding
+/// the geometry seed into that path made the public design discontinuous at
+/// `η = 0` and hijacked explicit isotropic requests (#1042).
+fn auto_seed_aniso_contrasts(
     centers: ArrayView2<'_, f64>,
     aniso: Option<&[f64]>,
 ) -> Option<Vec<f64>> {
@@ -14406,6 +14477,42 @@ fn maybe_initialize_aniso_contrasts(
         Some(center(eta))
     } else {
         Some(center(&contrasts))
+    }
+}
+
+/// How the Matérn forward design build interprets an *exactly all-zero*
+/// `aniso_log_scales` vector.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AnisoSeedMode {
+    /// All-zero `η` is the κ-optimizer / `scale_dims` seeding sentinel: replace
+    /// it with geometry-derived contrasts from the knot cloud
+    /// ([`auto_seed_aniso_contrasts`]). This is the default for every internal
+    /// build entry; the optimizer's analytic ψ-gradient is computed against the
+    /// same auto-seeded design, so value/gradient stay consistent. Note that by
+    /// the time the κ-optimizer rebuilds a frozen design the center strategy has
+    /// usually been resolved to `UserProvided`, so center provenance cannot be
+    /// used to distinguish this from a genuine literal request — the mode must
+    /// be carried explicitly.
+    AutoSeedFromGeometry,
+    /// All-zero `η` is an explicit isotropic request and is honored literally
+    /// ([`centered_aniso_contrasts`]): the design reduces to the closed-form
+    /// isotropic Matérn and varies continuously through `η = 0`. The public
+    /// `matern_basis` FFI (and its input-location jet/Hessian) selects this so a
+    /// caller's explicit isotropic request is not hijacked into a data-driven
+    /// anisotropic kernel (#1042).
+    Literal,
+}
+
+/// Resolve the anisotropy contrasts the Matérn forward design build applies,
+/// dispatching on the explicit [`AnisoSeedMode`].
+fn resolve_matern_forward_aniso(
+    mode: AnisoSeedMode,
+    centers: ArrayView2<'_, f64>,
+    aniso: Option<&[f64]>,
+) -> Option<Vec<f64>> {
+    match mode {
+        AnisoSeedMode::Literal => centered_aniso_contrasts(aniso),
+        AnisoSeedMode::AutoSeedFromGeometry => auto_seed_aniso_contrasts(centers, aniso),
     }
 }
 
@@ -15844,10 +15951,33 @@ pub fn build_matern_basis(
     build_matern_basiswithworkspace(data, spec, &mut workspace)
 }
 
+/// Public forward Matérn design that honors an explicit all-zero
+/// `aniso_log_scales` **literally** as the isotropic metric, rather than the
+/// κ-optimizer's geometry-seeding sentinel. This is what the public
+/// `matern_basis` FFI evaluates, so a caller's explicit isotropic request is not
+/// silently hijacked into a data-driven anisotropic kernel (#1042). For every
+/// internal/fit build, use [`build_matern_basis`] (auto-seed).
+pub fn build_matern_basis_literal_aniso(
+    data: ArrayView2<'_, f64>,
+    spec: &MaternBasisSpec,
+) -> Result<BasisBuildResult, BasisError> {
+    let mut workspace = BasisWorkspace::default();
+    build_matern_basis_seeded(data, spec, &mut workspace, AnisoSeedMode::Literal)
+}
+
 pub fn build_matern_basiswithworkspace(
     data: ArrayView2<'_, f64>,
     spec: &MaternBasisSpec,
     workspace: &mut BasisWorkspace,
+) -> Result<BasisBuildResult, BasisError> {
+    build_matern_basis_seeded(data, spec, workspace, AnisoSeedMode::AutoSeedFromGeometry)
+}
+
+fn build_matern_basis_seeded(
+    data: ArrayView2<'_, f64>,
+    spec: &MaternBasisSpec,
+    workspace: &mut BasisWorkspace,
+    aniso_seed_mode: AnisoSeedMode,
 ) -> Result<BasisBuildResult, BasisError> {
     let selected_centers = select_centers_by_strategy(data, &spec.center_strategy)?;
     // Drop redundant centers when an over-specified `centers=K` exceeds the
@@ -15856,8 +15986,11 @@ pub fn build_matern_basiswithworkspace(
     // periodic replication, the identifiability transform, and the penalty all
     // built from the same full-rank center subset. The contrasts used for the
     // rank Gram come from the selected centers so anisotropy is honored.
-    let reduce_aniso =
-        maybe_initialize_aniso_contrasts(selected_centers.view(), spec.aniso_log_scales.as_deref());
+    let reduce_aniso = resolve_matern_forward_aniso(
+        aniso_seed_mode,
+        selected_centers.view(),
+        spec.aniso_log_scales.as_deref(),
+    );
     let original_centers = matern_rank_reduce_centers(
         data,
         &selected_centers,
@@ -15866,9 +15999,16 @@ pub fn build_matern_basiswithworkspace(
         reduce_aniso.as_deref(),
     )?;
     let centers = expand_periodic_centers(&original_centers, spec.periodic.as_deref())?;
-    // Initialize anisotropy contrasts from knot cloud geometry when the caller
-    // enabled scale-dimensions but left η at the zero default.
-    let aniso = maybe_initialize_aniso_contrasts(centers.view(), spec.aniso_log_scales.as_deref());
+    // Resolve the anisotropy contrasts for the forward design (see
+    // `resolve_matern_forward_aniso` / [`AnisoSeedMode`]): `Literal` honors an
+    // explicit all-zero η as the isotropic metric (#1042), while
+    // `AutoSeedFromGeometry` (the default for internal/fit builds) seeds η from
+    // the knot cloud — the κ-optimizer's seeding sentinel.
+    let aniso = resolve_matern_forward_aniso(
+        aniso_seed_mode,
+        centers.view(),
+        spec.aniso_log_scales.as_deref(),
+    );
     let z_opt = matern_identifiability_transform(centers.view(), &spec.identifiability)?;
     let identifiability_transform = z_opt.clone();
     let full_transform = z_opt.as_ref().map(|z| {
@@ -21336,20 +21476,17 @@ pub fn matern_radial_second_derivative_nd(
 /// `ChunkedKernelDesignOperator`) applies, **bit-for-bit**.
 ///
 /// The forward path centres the supplied anisotropy log-scales through
-/// [`maybe_initialize_aniso_contrasts`] (subtract the mean, zero tiny
-/// residuals; auto-initialise from center geometry only when every entry is
-/// the zero default) and then squares `exp(ψ_a)`. Replicating that exact
-/// transform here is what lets the input-location jet/Hessian differentiate
-/// the *same* function the forward evaluates under anisotropy.
+/// [`centered_aniso_contrasts`] (subtract the mean, zero tiny residuals) and
+/// then squares `exp(ψ_a)`. Replicating that exact transform here is what lets
+/// the input-location jet/Hessian differentiate the *same* function the forward
+/// evaluates under anisotropy. Like the forward design, this is a pure function
+/// of the supplied `η`: an explicit all-zero vector yields the isotropic
+/// all-ones metric, matching the closed-form isotropic Matérn (#437, #1042).
 ///
 /// `None` (or a 1-D problem, where the centred contrast is a no-op) yields the
 /// isotropic all-ones metric.
-fn matern_metric_weights(
-    centers: ArrayView2<'_, f64>,
-    dim: usize,
-    aniso: Option<&[f64]>,
-) -> Vec<f64> {
-    match maybe_initialize_aniso_contrasts(centers, aniso) {
+fn matern_metric_weights(dim: usize, aniso: Option<&[f64]>) -> Vec<f64> {
+    match centered_aniso_contrasts(aniso) {
         Some(psi) => psi.iter().map(|&v| (2.0 * v).exp()).collect(),
         None => vec![1.0; dim],
     }
@@ -21403,7 +21540,7 @@ pub fn matern_input_location_jet_nd(
             dim
         );
     }
-    let weights = matern_metric_weights(centers, dim, aniso_log_scales);
+    let weights = matern_metric_weights(dim, aniso_log_scales);
     let mut out = Array3::<f64>::zeros((n_rows, n_centers, dim));
     for n in 0..n_rows {
         for k in 0..n_centers {
@@ -21474,7 +21611,7 @@ pub fn matern_input_location_hessian_nd(
             dim
         );
     }
-    let weights = matern_metric_weights(centers, dim, aniso_log_scales);
+    let weights = matern_metric_weights(dim, aniso_log_scales);
     let mut out = Array4::<f64>::zeros((n_rows, n_centers, dim, dim));
     for n in 0..n_rows {
         for k in 0..n_centers {
@@ -23212,8 +23349,11 @@ pub fn build_duchon_basiswithworkspace(
         duchon_effective_nullspace_order(centers.view(), spec.nullspace_order);
     let p_order = duchon_p_from_nullspace_order(effective_nullspace_order);
     // Initialize anisotropy contrasts from knot cloud geometry when the caller
-    // enabled scale-dimensions but left η at the zero default.
-    let aniso = maybe_initialize_aniso_contrasts(centers.view(), spec.aniso_log_scales.as_deref());
+    // enabled scale-dimensions but left η at the zero default. Duchon η is a
+    // FIXED, geometry-derived basis parameter (never a REML hyper-axis), so the
+    // all-zero auto-seed sentinel is the intended seeding mechanism here — unlike
+    // the Matérn forward path, whose η is optimized and must be honored literally.
+    let aniso = auto_seed_aniso_contrasts(centers.view(), spec.aniso_log_scales.as_deref());
     // The native reproducing-norm Gram penalty (`Primary`) is assembled from
     // kernel VALUES at the center pairs (K_CC), not from collocated D1/D2
     // derivative operators, so the build only requires the pointwise kernel to
@@ -34963,11 +35103,12 @@ mod tests {
         assert_abs_diff_eq!(eta[0].abs(), 10.0_f64.ln() / 2.0, epsilon = 1e-12);
     }
 
-    // ── maybe_initialize_aniso_contrasts tests ──────────────────────────
+    // ── auto_seed_aniso_contrasts tests (Duchon scale_dims seeding) ──────
 
     #[test]
-    fn test_maybe_initialize_replaces_zeros() {
-        // Input: Some(&[0.0, 0.0, 0.0]) → should be replaced with knot-derived values.
+    fn test_auto_seed_replaces_zeros() {
+        // Input: Some(&[0.0, 0.0, 0.0]) → the Duchon scale_dims seeding sentinel:
+        // replaced with knot-derived geometry contrasts.
         use ndarray::Array2;
         let centers = Array2::from_shape_vec(
             (5, 3),
@@ -34978,7 +35119,7 @@ mod tests {
         )
         .unwrap();
         let zeros = vec![0.0, 0.0, 0.0];
-        let result = maybe_initialize_aniso_contrasts(centers.view(), Some(&zeros));
+        let result = auto_seed_aniso_contrasts(centers.view(), Some(&zeros));
         let eta = result.expect("should return Some");
         assert_eq!(eta.len(), 3);
         // Should NOT be all zeros any more — should match initial_aniso_contrasts
@@ -34989,7 +35130,7 @@ mod tests {
     }
 
     #[test]
-    fn test_maybe_initialize_preserves_nonzero() {
+    fn test_auto_seed_preserves_nonzero() {
         // Input: Some(&[0.1, -0.05, -0.05]) → should be returned unchanged.
         use ndarray::Array2;
         let centers = Array2::from_shape_vec(
@@ -35000,18 +35141,62 @@ mod tests {
         )
         .unwrap();
         let input = vec![0.1, -0.05, -0.05];
-        let result = maybe_initialize_aniso_contrasts(centers.view(), Some(&input));
+        let result = auto_seed_aniso_contrasts(centers.view(), Some(&input));
         let eta = result.expect("should return Some");
         assert_eq!(eta, input);
     }
 
+    // ── centered_aniso_contrasts tests (pure Matérn forward transform) ───
+
     #[test]
-    fn test_maybe_initialize_preserves_none() {
+    fn test_centered_aniso_honors_explicit_all_zero_as_isotropic() {
+        // The pure forward transform must NOT reinterpret an explicit all-zero
+        // vector as a geometry-seeding sentinel: [0,0,0] → [0,0,0] (isotropic),
+        // independent of any center geometry. This is the unit-level guard for
+        // the discontinuity-at-η=0 bug (#1042); the geometry-driven override is
+        // exclusively the Duchon-only `auto_seed_aniso_contrasts` behavior.
+        let zeros = vec![0.0, 0.0, 0.0];
+        let eta = centered_aniso_contrasts(Some(&zeros)).expect("should return Some");
+        assert_eq!(eta, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_centered_aniso_subtracts_mean() {
+        // A non-zero vector is centered (Σ η = 0), zeroing tiny residuals.
+        let input = vec![0.5, 0.5];
+        let eta = centered_aniso_contrasts(Some(&input)).expect("should return Some");
+        // mean is 0.5, so both center to 0 → isotropic, matching the all-zero case.
+        assert_eq!(eta, vec![0.0, 0.0]);
+
+        let input = vec![0.3, -0.1, -0.2];
+        let eta = centered_aniso_contrasts(Some(&input)).expect("should return Some");
+        assert_abs_diff_eq!(eta.iter().sum::<f64>(), 0.0, epsilon = 1e-15);
+        // Already zero-sum, so returned essentially unchanged.
+        for (a, b) in eta.iter().zip(input.iter()) {
+            assert_abs_diff_eq!(a, b, epsilon = 1e-15);
+        }
+    }
+
+    #[test]
+    fn test_centered_aniso_preserves_none() {
+        assert!(centered_aniso_contrasts(None).is_none());
+    }
+
+    #[test]
+    fn test_centered_aniso_one_d_is_passthrough() {
+        // A 1-D contrast is a no-op (anisotropy is meaningless for d=1).
+        let input = vec![0.7];
+        let eta = centered_aniso_contrasts(Some(&input)).expect("should return Some");
+        assert_eq!(eta, vec![0.7]);
+    }
+
+    #[test]
+    fn test_auto_seed_preserves_none() {
         // Input: None → should remain None.
         use ndarray::Array2;
         let centers =
             Array2::from_shape_vec((4, 2), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]).unwrap();
-        let result = maybe_initialize_aniso_contrasts(centers.view(), None);
+        let result = auto_seed_aniso_contrasts(centers.view(), None);
         assert!(result.is_none());
     }
 

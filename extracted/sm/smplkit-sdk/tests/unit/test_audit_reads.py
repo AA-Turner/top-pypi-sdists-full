@@ -582,14 +582,16 @@ class TestModels:
 
 
 # ---------------------------------------------------------------------------
-# X-Smplkit-Environment header injection on runtime audit ops (ADR-055)
+# Environment routing on runtime audit ops (ADR-055): the configured
+# environment travels on the event request body when recording and as the
+# default ``filter[environment]`` on reads — never as a request header.
 # ---------------------------------------------------------------------------
 
 
 def _env_client(handler, *, environment: str | None, extra_headers=None) -> AuditClient:
-    # Build the real AuditClient so the env-header wiring on ``_auth`` runs,
-    # then back it with a MockTransport-backed httpx client that *preserves*
-    # the auth client's headers (set_httpx_client would otherwise drop them).
+    # Build the real AuditClient (so the configured environment threads into
+    # the sub-clients), then back it with a MockTransport-backed httpx client
+    # that preserves the auth client's headers.
     client = AuditClient(
         api_key="sk_api_test",
         base_url="https://audit.example.com",
@@ -606,59 +608,74 @@ def _env_client(handler, *, environment: str | None, extra_headers=None) -> Audi
     return client
 
 
-class TestEnvironmentHeaderInjection:
+class TestEnvironmentRouting:
     HDR = "X-Smplkit-Environment"
 
-    def test_list_carries_configured_environment(self):
-        seen: list[str | None] = []
+    def test_no_header_is_ever_sent(self):
+        # The legacy header must not ride on any runtime op anymore.
+        seen: list[bool] = []
 
         def handler(req: httpx.Request) -> httpx.Response:
-            seen.append(req.headers.get(self.HDR))
+            seen.append(self.HDR in req.headers)
             return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
 
         client = _env_client(handler, environment="production")
         try:
             client.events.list()
-            assert seen == ["production"]
+            assert seen == [False]
         finally:
             client._close()
 
-    def test_get_carries_configured_environment(self):
-        # GET /events/{id} ignores the header server-side, but the SDK sends
-        # one client-level default for all runtime ops — simplest and benign.
-        seen: list[str | None] = []
+    def test_list_scopes_to_configured_environment(self):
+        seen: list[str] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            seen.append(str(req.url))
+            return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
+
+        client = _env_client(handler, environment="production")
+        try:
+            client.events.list()
+            assert "filter%5Benvironment%5D=production" in seen[0]
+        finally:
+            client._close()
+
+    def test_get_sends_no_environment_filter(self):
+        # GET /events/{id} is a global-by-id lookup — no environment scoping.
+        seen: list[str] = []
         eid = "11111111-2222-3333-4444-555555555555"
 
         def handler(req: httpx.Request) -> httpx.Response:
-            seen.append(req.headers.get(self.HDR))
+            seen.append(str(req.url))
             return httpx.Response(200, json={"data": _event_resource(eid)})
 
         client = _env_client(handler, environment="staging")
         try:
             client.events.get(eid)
-            assert seen == ["staging"]
+            assert "filter%5Benvironment%5D" not in seen[0]
         finally:
             client._close()
 
-    def test_record_carries_configured_environment(self):
-        seen: list[str | None] = []
+    def test_record_stamps_environment_on_body(self):
+        bodies: list[str] = []
 
         def handler(req: httpx.Request) -> httpx.Response:
-            seen.append(req.headers.get(self.HDR))
+            bodies.append(req.content.decode())
             return httpx.Response(201, json={"data": _event_resource()})
 
         client = _env_client(handler, environment="production")
         try:
             client.events.record("user.created", "user", "u-1", flush=True)
-            assert seen and all(h == "production" for h in seen)
+            assert bodies
+            assert any('"environment":"production"' in b.replace(" ", "") for b in bodies)
         finally:
             client._close()
 
-    def test_discovery_listings_carry_configured_environment(self):
-        seen: list[str | None] = []
+    def test_discovery_listings_scope_to_configured_environment(self):
+        seen: list[str] = []
 
         def handler(req: httpx.Request) -> httpx.Response:
-            seen.append(req.headers.get(self.HDR))
+            seen.append(str(req.url))
             return httpx.Response(200, json={"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}})
 
         client = _env_client(handler, environment="production")
@@ -666,41 +683,42 @@ class TestEnvironmentHeaderInjection:
             client.resource_types.list()
             client.event_types.list()
             client.categories.list()
-            assert seen == ["production", "production", "production"]
+            assert all("filter%5Benvironment%5D=production" in u for u in seen)
         finally:
             client._close()
 
-    def test_no_environment_sends_no_header(self):
-        seen: list[bool] = []
+    def test_no_environment_omits_filter_and_body(self):
+        captured: list[tuple[str, str]] = []
 
         def handler(req: httpx.Request) -> httpx.Response:
-            seen.append(self.HDR in req.headers)
+            captured.append((str(req.url), req.content.decode()))
+            if req.method == "POST":
+                return httpx.Response(201, json={"data": _event_resource()})
             return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
 
         client = _env_client(handler, environment=None)
         try:
             client.events.list()
-            assert seen == [False]
+            client.events.record("user.created", "user", "u-1", flush=True)
+            list_url = captured[0][0]
+            record_body = captured[1][1]
+            assert "filter%5Benvironment%5D" not in list_url
+            assert '"environment"' not in record_body.replace(" ", "")
         finally:
             client._close()
 
-    def test_extra_headers_override_environment_header(self):
-        # An explicit X-Smplkit-Environment in extra_headers wins over the
-        # configured environment — caller intent is honored.
-        seen: list[str | None] = []
+    def test_explicit_environments_override_configured_default(self):
+        seen: list[str] = []
 
         def handler(req: httpx.Request) -> httpx.Response:
-            seen.append(req.headers.get(self.HDR))
+            seen.append(str(req.url))
             return httpx.Response(200, json={"data": [], "meta": {"page_size": 50}})
 
-        client = _env_client(
-            handler,
-            environment="production",
-            extra_headers={self.HDR: "explicit-env"},
-        )
+        client = _env_client(handler, environment="production")
         try:
-            client.events.list()
-            assert seen == ["explicit-env"]
+            client.events.list(environments=["staging"])
+            assert "filter%5Benvironment%5D=staging" in seen[0]
+            assert "production" not in seen[0]
         finally:
             client._close()
 
@@ -941,9 +959,9 @@ def test_async_client_exposes_async_namespaces():
         asyncio.run(client.aclose())
 
 
-def test_async_client_stamps_environment_on_own_transport():
-    """The async client stamps the configured environment on its own
-    transport (no sync-delegate inner client anymore)."""
+def test_async_client_threads_environment_without_header():
+    """The async client records the configured environment and threads it into
+    the env-scoped sub-clients — without stamping the legacy request header."""
     client = AsyncAuditClient(
         api_key="sk_api_test",
         base_url="https://audit.example.com",
@@ -951,7 +969,9 @@ def test_async_client_stamps_environment_on_own_transport():
     )
     try:
         assert client._environment == "production"
-        assert client._auth._headers["X-Smplkit-Environment"] == "production"
+        assert "X-Smplkit-Environment" not in client._auth._headers
+        assert client.events._environment == "production"
+        assert client.resource_types._environment == "production"
         assert client._owns_transport is True
     finally:
         import asyncio

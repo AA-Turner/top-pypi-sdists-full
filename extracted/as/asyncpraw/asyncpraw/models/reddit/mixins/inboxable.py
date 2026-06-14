@@ -1,12 +1,27 @@
 """Provide the InboxableMixin class."""
 
-from ....const import API_PATH
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
+
+from asyncpraw.const import API_PATH
+
+if TYPE_CHECKING:
+    import asyncpraw
+    from asyncpraw import models
 
 
 class InboxableMixin:
     """Interface for :class:`.RedditBase` subclasses that originate from the inbox."""
 
-    async def block(self):
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: asyncpraw.Reddit
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    async def block(self) -> None:
         """Block the user who sent the item.
 
         .. note::
@@ -27,7 +42,7 @@ class InboxableMixin:
         """
         await self._reddit.post(API_PATH["block"], data={"id": self.fullname})
 
-    async def collapse(self):
+    async def collapse(self) -> None:
         """Mark the item as collapsed.
 
         .. note::
@@ -50,9 +65,9 @@ class InboxableMixin:
             :meth:`.uncollapse`
 
         """
-        await self._reddit.inbox.collapse([self])
+        await self._reddit.inbox.collapse([cast("models.Message", self)])
 
-    async def mark_read(self):
+    async def mark_read(self) -> None:
         """Mark a single inbox item as read.
 
         .. note::
@@ -77,9 +92,9 @@ class InboxableMixin:
         :meth:`.Inbox.mark_all_read`
 
         """
-        await self._reddit.inbox.mark_read([self])
+        await self._reddit.inbox.mark_read([cast("models.Comment | models.Message", self)])
 
-    async def mark_unread(self):
+    async def mark_unread(self) -> None:
         """Mark the item as unread.
 
         .. note::
@@ -101,38 +116,9 @@ class InboxableMixin:
             :meth:`.mark_read`
 
         """
-        await self._reddit.inbox.mark_unread([self])
+        await self._reddit.inbox.mark_unread([cast("models.Comment | models.Message", self)])
 
-    async def unblock_subreddit(self):
-        """Unblock a subreddit.
-
-        .. note::
-
-            This method pertains only to objects which were retrieved via the inbox.
-
-        For example, to unblock all blocked subreddits that you can find by going
-        through your inbox:
-
-        .. code-block:: python
-
-            from asyncpraw.models import SubredditMessage
-
-            subs = set()
-            async for item in reddit.inbox.messages(limit=None):
-                if isinstance(item, SubredditMessage):
-                    if (
-                        item.subject == "[message from blocked subreddit]"
-                        and str(item.subreddit) not in subs
-                    ):
-                        item.unblock_subreddit()
-                        subs.add(str(item.subreddit))
-
-        """
-        await self._reddit.post(
-            API_PATH["unblock_subreddit"], data={"id": self.fullname}
-        )
-
-    async def uncollapse(self):
+    async def uncollapse(self) -> None:
         """Mark the item as uncollapsed.
 
         .. note::
@@ -155,4 +141,4 @@ class InboxableMixin:
             :meth:`.collapse`
 
         """
-        await self._reddit.inbox.uncollapse([self])
+        await self._reddit.inbox.uncollapse([cast("models.Message", self)])

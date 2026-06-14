@@ -115,11 +115,13 @@ class LeakgalleryPostExtractor(LeakgalleryExtractor):
             page = self.request(url).text
             video_urls = text.re(
                 r"https://cdn\.leakgallery\.com/content[^/?#]*/"
+                r"(?!profile_pic/)[^/?#]+/"
                 r"(?:compressed_)?watermark_[^\"]+\."
                 r"(?:mp4|mov|m4a|webm)"
             ).findall(page)
             image_urls = text.re(
                 r"https://cdn\.leakgallery\.com/content[^/?#]*/"
+                r"(?!profile_pic/)[^/?#]+/"
                 r"watermark_[^\"]+\.(?:jpe?g|png)"
             ).findall(page)
 

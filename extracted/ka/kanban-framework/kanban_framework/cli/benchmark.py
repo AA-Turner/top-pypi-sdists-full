@@ -142,10 +142,10 @@ def _build_markdown_report(report: dict) -> str:
         best = report.get("best_mode", "")
         worst = report.get("worst_mode", "")
 
-        lines.append("## Mode 对比")
+        lines.append("## Mode 对比（质量 + 效率）")
         lines.append("")
-        lines.append("| Mode | 平均分 | 通过 | 失败 | 待执行 | 平均耗时 |")
-        lines.append("|------|--------|------|------|--------|---------|")
+        lines.append("| Mode | 平均分 | 通过 | 失败 | 平均 calls | 质量/call | Cache% | 耗时 |")
+        lines.append("|------|--------|------|------|-----------|----------|--------|------|")
         for m in modes:
             s = by_mode.get(m, {})
             badge = ""
@@ -154,11 +154,34 @@ def _build_markdown_report(report: dict) -> str:
             elif m == worst:
                 badge = " ⬇ 最差"
             elapsed = s.get('avg_elapsed_seconds', 0)
+            calls = s.get('avg_llm_calls', 0)
+            qpc = s.get('avg_quality_per_call', 0)
+            cache = s.get('avg_cache_efficiency', 0)
+            cache_pct = f"{cache*100:.0f}%" if cache > 0 else "—"
             lines.append(
                 f"| {m}{badge} | {s.get('avg_score', 0)} | {s.get('passed', 0)} | "
-                f"{s.get('failed', 0)} | {s.get('pending', 0)} | {elapsed}s |"
+                f"{s.get('failed', 0)} | {calls} | {qpc} | {cache_pct} | {elapsed}s |"
             )
         lines.append("")
+
+        # Cost-effectiveness ranking
+        cost_eff = report.get("cost_effectiveness", {})
+        if cost_eff:
+            ranking = cost_eff.get("ranking", [])
+            lines.append("### 性价比排名")
+            lines.append("")
+            lines.append("| Mode | 分数 | 平均 calls | 质量/call | 评价 |")
+            lines.append("|------|------|-----------|----------|------|")
+            for r in ranking:
+                lines.append(
+                    f"| {r['mode']} | {r['avg_score']} | {r['avg_calls']} | "
+                    f"{r['avg_quality_per_call']} | {r['verdict']} |"
+                )
+            lines.append("")
+            rec = cost_eff.get("recommendation", "")
+            if rec:
+                lines.append(f"> 💡 **推荐**: {rec}")
+                lines.append("")
 
     # Mode deltas: per-case score differences between modes
     mode_deltas = report.get("mode_deltas", [])
@@ -223,13 +246,13 @@ def _build_markdown_report(report: dict) -> str:
         lines.append("")
 
         if is_multi and "results_by_mode" in case:
-            # Multi-mode: table per case
-            lines.append("| Mode | Verdict | Score | KB合规 | 验收匹配 |")
-            lines.append("|------|---------|-------|--------|---------|")
+            # Multi-mode: table per case with LLM efficiency
+            lines.append("| Mode | Verdict | Score | KB合规 | 验收 | Calls | Tokens | 质量/call |")
+            lines.append("|------|---------|-------|--------|------|-------|--------|----------|")
             results = case.get("results_by_mode", {})
             for m in modes:
                 if m not in results:
-                    lines.append(f"| {m} | — | — | — | — |")
+                    lines.append(f"| {m} | — | — | — | — | — | — | — |")
                     continue
                 v = results[m]
                 verdict = v.get("verdict", "?")
@@ -238,7 +261,15 @@ def _build_markdown_report(report: dict) -> str:
                 dims = v.get("dimensions", {})
                 kb = dims.get("kb_compliance", "—")
                 acc = dims.get("acceptance_match", "—")
-                lines.append(f"| {m} | {icon} {verdict} | {score} | {kb} | {acc} |")
+                calls = v.get("llm_calls", 0)
+                tokens = v.get("llm_tokens_effective", 0)
+                tokens_str = f"{tokens:,}" if tokens > 0 else "—"
+                qpc = v.get("llm_quality_per_call", 0)
+                qpc_str = f"{qpc}" if qpc > 0 else "—"
+                lines.append(
+                    f"| {m} | {icon} {verdict} | {score} | {kb} | {acc} | "
+                    f"{calls} | {tokens_str} | {qpc_str} |"
+                )
             lines.append("")
 
             # Dimensions detail for first mode (representative)

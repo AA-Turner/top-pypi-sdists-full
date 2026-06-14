@@ -10,38 +10,11 @@ All other exceptions are subclassed from :class:`.ClientException`.
 
 from __future__ import annotations
 
-import sys
-from typing import Any
-from warnings import warn
-
-from .util import _deprecate_args
+from typing import cast
 
 
-class AsyncPRAWException(Exception):
+class AsyncPRAWException(Exception):  # noqa: N818
     """The base Async PRAW Exception that all other exception classes extend."""
-
-
-PRAWException = AsyncPRAWException
-
-
-# Adapted from https://stackoverflow.com/a/40546615
-class ExceptionWrapper:
-    """Wrapper to facilitate showing depreciation for PRAWException class rename."""
-
-    def __getattr__(self, attribute: str) -> Any:
-        """Return the value of `attribute`."""
-        if attribute == "PRAWException":
-            warn(
-                "PRAWException as been renamed to AsyncPRAWException. PRAWException "
-                " will be removed in the next version Async PRAW.",
-                category=DeprecationWarning,
-                stacklevel=3,
-            )
-        return getattr(self.wrapped, attribute)
-
-    def __init__(self, wrapped: Any):
-        """Initialize Wrapper instance."""
-        self.wrapped = wrapped
 
 
 class RedditErrorItem:
@@ -57,7 +30,7 @@ class RedditErrorItem:
             error_str += f" on field {self.field!r}"
         return error_str
 
-    def __eq__(self, other: RedditErrorItem | list[str]) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check for equality."""
         if isinstance(other, RedditErrorItem):
             return (self.error_type, self.message, self.field) == (
@@ -67,14 +40,17 @@ class RedditErrorItem:
             )
         return super().__eq__(other)
 
-    @_deprecate_args("error_type", "message", "field")
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash((self.error_type, self.message, self.field))
+
     def __init__(
         self,
         error_type: str,
         *,
         field: str | None = None,
         message: str | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.RedditErrorItem` instance.
 
         :param error_type: The error type set on Reddit's end.
@@ -89,8 +65,7 @@ class RedditErrorItem:
     def __repr__(self) -> str:
         """Return an object initialization representation of the instance."""
         return (
-            f"{self.__class__.__name__}(error_type={self.error_type!r},"
-            f" message={self.message!r}, field={self.field!r})"
+            f"{self.__class__.__name__}(error_type={self.error_type!r}, message={self.message!r}, field={self.field!r})"
         )
 
     def __str__(self) -> str:
@@ -105,18 +80,17 @@ class ClientException(AsyncPRAWException):
 class DuplicateReplaceException(ClientException):
     """Indicate exceptions that involve the replacement of :class:`.MoreComments`."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize a :class:`.DuplicateReplaceException` instance."""
         super().__init__(
-            "A duplicate comment has been detected. Are you attempting to call"
-            " 'replace_more_comments' more than once?"
+            "A duplicate comment has been detected. Are you attempting to call 'replace_more_comments' more than once?"
         )
 
 
 class InvalidFlairTemplateID(ClientException):
     """Indicate exceptions where an invalid flair template ID is given."""
 
-    def __init__(self, template_id: str):
+    def __init__(self, template_id: str) -> None:
         """Initialize an :class:`.InvalidFlairTemplateID` instance."""
         super().__init__(
             f"The flair template ID '{template_id}' is invalid. If you are trying to"
@@ -127,7 +101,7 @@ class InvalidFlairTemplateID(ClientException):
 class InvalidImplicitAuth(ClientException):
     """Indicate exceptions where an implicit auth type is used incorrectly."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an :class:`.InvalidImplicitAuth` instance."""
         super().__init__("Implicit authorization can only be used with installed apps.")
 
@@ -135,8 +109,7 @@ class InvalidImplicitAuth(ClientException):
 class InvalidURL(ClientException):
     """Indicate exceptions where an invalid URL is entered."""
 
-    @_deprecate_args("url", "message")
-    def __init__(self, url: str, *, message: str = "Invalid URL: {}"):
+    def __init__(self, url: str, *, message: str = "Invalid URL: {}") -> None:
         """Initialize an :class:`.InvalidURL` instance.
 
         :param url: The invalid URL.
@@ -158,8 +131,7 @@ class ReadOnlyException(ClientException):
 class TooLargeMediaException(ClientException):
     """Indicate exceptions from uploading media that's too large."""
 
-    @_deprecate_args("maximum_size", "actual")
-    def __init__(self, *, actual: int, maximum_size: int):
+    def __init__(self, *, actual: int, maximum_size: int) -> None:
         """Initialize a :class:`.TooLargeMediaException` instance.
 
         :param actual: The actual size of the uploaded media.
@@ -169,71 +141,36 @@ class TooLargeMediaException(ClientException):
         self.maximum_size = maximum_size
         self.actual = actual
         super().__init__(
-            f"The media that you uploaded was too large (maximum size is {maximum_size}"
-            f" bytes, uploaded {actual} bytes)"
+            f"The media that you uploaded was too large (maximum size is {maximum_size} bytes, uploaded {actual} bytes)"
         )
 
 
 class WebSocketException(ClientException):
     """Indicate exceptions caused by use of WebSockets."""
 
-    @property
-    def original_exception(self) -> Exception:
-        """Access the ``original_exception`` attribute (now deprecated)."""
-        warn(
-            "Accessing the attribute 'original_exception' is deprecated. Please rewrite"
-            " your code in such a way that this attribute does not need to be used. It"
-            " will be removed in Async PRAW 8.0.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._original_exception
-
-    @original_exception.setter
-    def original_exception(self, value: Exception):
-        self._original_exception = value
-
-    @original_exception.deleter
-    def original_exception(self):
-        del self._original_exception
-
-    def __init__(self, message: str, exception: Exception | None):
+    def __init__(self, message: str) -> None:
         """Initialize a :class:`.WebSocketException` instance.
 
         :param message: The exception message.
-        :param exception: The exception thrown by the websocket library.
-
-            .. note::
-
-                This parameter is deprecated. It will be removed in Async PRAW 8.0.
 
         """
         super().__init__(message)
-        self._original_exception = exception
 
 
 class MediaPostFailed(WebSocketException):
     """Indicate exceptions where media uploads failed.."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize a :class:`.MediaPostFailed` instance."""
         super().__init__(
             "The attempted media upload action has failed. Possible causes include the"
             " corruption of media files. Check that the media file can be opened on"
             " your local machine.",
-            None,
         )
 
 
-class APIException(AsyncPRAWException):
-    """Old class preserved for alias purposes.
-
-    .. deprecated:: 7.0
-
-        Class :class:`.APIException` has been deprecated in favor of
-        :class:`.RedditAPIException`. This class will be removed in Async PRAW 8.0.
-
-    """
+class RedditAPIException(AsyncPRAWException):
+    """Container for error messages from Reddit's API."""
 
     @staticmethod
     def parse_exception_list(
@@ -253,83 +190,16 @@ class APIException(AsyncPRAWException):
             for exception in exceptions
         ]
 
-    @property
-    def error_type(self) -> str:
-        """Get error_type.
-
-        .. deprecated:: 7.0
-
-            Accessing attributes through instances of :class:`.RedditAPIException` is
-            deprecated. This behavior will be removed in Async PRAW 8.0. Check out the
-            :ref:`PRAW 7 Migration tutorial <Exception_Handling>` on how to migrate code
-            from this behavior.
-
-        """
-        return self._get_old_attr("error_type")
-
-    @property
-    def field(self) -> str:
-        """Get field.
-
-        .. deprecated:: 7.0
-
-            Accessing attributes through instances of :class:`.RedditAPIException` is
-            deprecated. This behavior will be removed in Async PRAW 8.0. Check out the
-            :ref:`PRAW 7 Migration tutorial <Exception_Handling>` on how to migrate code
-            from this behavior.
-
-        """
-        return self._get_old_attr("field")
-
-    @property
-    def message(self) -> str:
-        """Get message.
-
-        .. deprecated:: 7.0
-
-            Accessing attributes through instances of :class:`.RedditAPIException` is
-            deprecated. This behavior will be removed in Async PRAW 8.0. Check out the
-            :ref:`Async PRAW 7 Migration tutorial <Exception_Handling>` on how to
-            migrate code from this behavior.
-
-        """
-        return self._get_old_attr("message")
-
-    def __init__(
-        self,
-        items: list[RedditErrorItem | list[str] | str] | str,
-        *optional_args: str,
-    ):
+    def __init__(self, items: list[RedditErrorItem | list[str] | str]) -> None:
         """Initialize a :class:`.RedditAPIException` instance.
 
         :param items: Either a list of instances of :class:`.RedditErrorItem` or a list
             containing lists of unformed errors.
-        :param optional_args: Takes the second and third arguments that
-            :class:`.APIException` used to take.
 
         """
-        if isinstance(items, str):
-            items = [[items, *optional_args]]
-        elif isinstance(items, list) and isinstance(items[0], str):
-            items = [items]
-        self.items = self.parse_exception_list(items)
+        if isinstance(items, list) and isinstance(items[0], str):
+            parsed_items: list[RedditErrorItem | list[str]] = [cast("list[str]", items)]
+        else:
+            parsed_items = cast("list[RedditErrorItem | list[str]]", items)
+        self.items = self.parse_exception_list(parsed_items)
         super().__init__(*self.items)
-
-    def _get_old_attr(self, attrname: str) -> Any:
-        warn(
-            f"Accessing attribute '{attrname}' through APIException is deprecated."
-            " This behavior will be removed in Async PRAW 8.0. Check out"
-            " https://praw.readthedocs.io/en/latest/package_info/praw7_migration.html"
-            " to learn how to migrate your code.",
-            category=DeprecationWarning,
-            stacklevel=3,
-        )
-        return getattr(self.items[0], attrname)
-
-
-class RedditAPIException(APIException):
-    """Container for error messages from Reddit's API."""
-
-
-if "sphinx" not in sys.modules:
-    sys.modules[__name__] = ExceptionWrapper(sys.modules[__name__])

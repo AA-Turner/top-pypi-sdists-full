@@ -273,6 +273,40 @@ class BenchmarkRunner:
 
         verdict.task_id = task_id
         verdict.task_dir = task_dir or ""
+
+        # v0.188: Inject LLM efficiency stats from Claude Code JSONL logs.
+        # This gives each verdict cost/efficiency dimensions alongside
+        # quality dimensions, enabling "quality per call" analysis.
+        try:
+            from kanban_framework.domain.llm_stats import LLMStatsReader
+            reader = LLMStatsReader(root)
+            llm_stats = reader.get_task_api_calls(task_id)
+            # get_task_api_calls returns dict (not TaskLLMStats object)
+            _calls = llm_stats.get("total_calls", 0)
+            _inp = llm_stats.get("tokens", {}).get("input", 0)
+            _out = llm_stats.get("tokens", {}).get("output", 0)
+            _cache = llm_stats.get("tokens", {}).get("cache_read", 0)
+            verdict.llm_calls = _calls
+            verdict.llm_tokens_input = _inp
+            verdict.llm_tokens_output = _out
+            verdict.llm_tokens_cache_read = _cache
+            verdict.llm_tokens_effective = _inp + _out
+            if _calls > 0 and verdict.score > 0:
+                verdict.llm_quality_per_call = round(
+                    verdict.score / _calls, 3
+                )
+            if verdict.llm_tokens_effective > 0 and verdict.score > 0:
+                verdict.llm_score_per_1k_tokens = round(
+                    verdict.score / (verdict.llm_tokens_effective / 1000), 3
+                )
+            total_input = _cache + _inp
+            if total_input > 0:
+                verdict.llm_cache_efficiency = round(
+                    _cache / total_input, 3
+                )
+        except Exception:
+            pass  # LLM stats not available (no JSONL, reader error, etc.)
+
         return verdict
 
     # Standard 5-dimension scoring + kb_compliance (LLM judge, optional)
@@ -424,6 +458,11 @@ class BenchmarkRunner:
                     "evidence": v.evidence,
                     "task_id": v.task_id,
                     "task_dir": v.task_dir,
+                    # v0.188: LLM efficiency per case per mode
+                    "llm_calls": v.llm_calls,
+                    "llm_tokens_effective": v.llm_tokens_effective,
+                    "llm_quality_per_call": v.llm_quality_per_call,
+                    "llm_cache_efficiency": v.llm_cache_efficiency,
                 }
 
             case_entry = {
@@ -461,12 +500,22 @@ class BenchmarkRunner:
                 if isinstance(v.dimensions.get("efficiency", {}), dict)
             ]
             valid_times = [t for t in m_times if t > 0]
+            # v0.188: LLM efficiency aggregation per mode
+            m_calls = [v.llm_calls for v in mode_verdicts if v.llm_calls > 0]
+            m_tokens = [v.llm_tokens_effective for v in mode_verdicts if v.llm_tokens_effective > 0]
+            m_qpc = [v.llm_quality_per_call for v in mode_verdicts if v.llm_quality_per_call > 0]
+            m_cache = [v.llm_cache_efficiency for v in mode_verdicts if v.llm_cache_efficiency > 0]
             by_mode[mode] = {
                 "avg_score": round(sum(m_scores) / len(m_scores), 1) if m_scores else 0,
                 "passed": sum(1 for v in mode_verdicts if v.verdict == "pass"),
                 "failed": sum(1 for v in mode_verdicts if v.verdict == "fail"),
                 "pending": sum(1 for v in mode_verdicts if v.verdict == "pending"),
                 "avg_elapsed_seconds": round(sum(valid_times) / len(valid_times), 1) if valid_times else 0,
+                # v0.188: LLM efficiency dimensions
+                "avg_llm_calls": round(sum(m_calls) / len(m_calls), 1) if m_calls else 0,
+                "avg_llm_tokens": round(sum(m_tokens) / len(m_tokens)) if m_tokens else 0,
+                "avg_quality_per_call": round(sum(m_qpc) / len(m_qpc), 3) if m_qpc else 0,
+                "avg_cache_efficiency": round(sum(m_cache) / len(m_cache), 3) if m_cache else 0,
             }
 
         # best/worst mode by avg_score
@@ -555,6 +604,40 @@ class BenchmarkRunner:
             if mode_deltas:
                 report["mode_deltas"] = mode_deltas
 
+        # v0.188: Cost-effectiveness analysis — which mode gives best
+        # quality per LLM call? Answers "is the extra calls worth it?"
+        cost_eff: list[dict] = []
+        for mode in effective_modes:
+            mv = [cr["mode_results"][mode] for cr in case_results if mode in cr["mode_results"]]
+            valid = [v for v in mv if v.llm_calls > 0 and v.score > 0]
+            if not valid:
+                continue
+            avg_calls = sum(v.llm_calls for v in valid) / len(valid)
+            avg_score = sum(v.score for v in valid) / len(valid)
+            avg_qpc = sum(v.llm_quality_per_call for v in valid) / len(valid)
+            cost_eff.append({
+                "mode": mode,
+                "avg_score": round(avg_score, 1),
+                "avg_calls": round(avg_calls, 1),
+                "avg_quality_per_call": round(avg_qpc, 3),
+                "verdict": (
+                    "高性价比" if avg_qpc >= 0.4 else
+                    "中等效率" if avg_qpc >= 0.2 else
+                    "高质量但低效率"
+                ),
+            })
+        cost_eff.sort(key=lambda x: -x["avg_quality_per_call"])
+        if cost_eff:
+            report["cost_effectiveness"] = {
+                "ranking": cost_eff,
+                "best_efficiency_mode": cost_eff[0]["mode"],
+                "recommendation": (
+                    f"{cost_eff[0]['mode']} 模式效率最高（"
+                    f"{cost_eff[0]['avg_quality_per_call']} score/call），"
+                    f"在 {cost_eff[0]['avg_score']} 分下只花 {cost_eff[0]['avg_calls']} calls"
+                ),
+            }
+
         return report
 
 
@@ -566,6 +649,42 @@ def compare_reports(current: dict, previous_path: Path) -> dict:
         return {"error": f"Previous report not found: {previous_path}"}
 
     previous = _json.loads(previous_path.read_text())
+
+    # v0.186.2 (#643): defensively handle non-dict previous file.
+    # Previously crashed with AttributeError when user passed a JSON list
+    # (e.g., `[]`) or other non-dict format. Now returns a friendly error
+    # explaining the expected format.
+    if not isinstance(previous, dict):
+        actual_type = type(previous).__name__
+        if isinstance(previous, list):
+            return {
+                "error": (
+                    f"Previous report ({previous_path}) is a JSON list, "
+                    f"expected a dict with 'cases' key. "
+                    f"Did you pass the wrong file? Expected output of "
+                    f"`kanban benchmark run --output FILE`."
+                ),
+                "expected_format": "dict with 'cases' key",
+                "actual_format": f"list (length {len(previous)})",
+            }
+        return {
+            "error": (
+                f"Previous report ({previous_path}) is {actual_type}, "
+                f"expected a dict with 'cases' key."
+            ),
+            "expected_format": "dict with 'cases' key",
+            "actual_format": actual_type,
+        }
+
+    # Also defend against current being non-dict (symmetric protection)
+    if not isinstance(current, dict):
+        return {
+            "error": (
+                f"Current report is {type(current).__name__}, "
+                f"expected a dict with 'cases' key."
+            ),
+            "expected_format": "dict with 'cases' key",
+        }
 
     prev_cases = {c["id"]: c for c in previous.get("cases", [])}
     curr_cases = {c["id"]: c for c in current.get("cases", [])}

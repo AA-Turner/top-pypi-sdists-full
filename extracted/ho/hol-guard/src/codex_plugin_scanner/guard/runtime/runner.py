@@ -34,6 +34,14 @@ from ..cli.oauth_client import (
     resolve_guard_oauth_client_config,
     validate_guard_sync_endpoint,
 )
+from ..cloud_exceptions import (
+    build_cloud_exceptions_from_policy_bundle,
+    build_cloud_exceptions_from_stored_items,
+    build_cloud_exceptions_from_sync_payload,
+    cloud_exception_to_dict,
+    dedupe_cloud_exceptions,
+    stored_receipt_sync_cloud_exceptions,
+)
 from ..config import GuardConfig
 from ..consumer import detect_harness, evaluate_detection
 from ..edge_events import build_runtime_session_event
@@ -1135,6 +1143,7 @@ def sync_receipts(
     receipts_stored_total = 0
     advisories_payload: list[dict[str, object]] = []
     exceptions_payload: list[dict[str, object]] = []
+    exceptions_sync_payload_provided = False
     policy_payload: dict[str, object] | None = None
     policy_bundle_payload: dict[str, object] | None = None
     policy_bundle_sync_payload: dict[str, object] | None = None
@@ -1215,6 +1224,7 @@ def sync_receipts(
             team_policy_pack_payload = team_policy_pack
         exceptions = payload.get("exceptions")
         if isinstance(exceptions, list):
+            exceptions_sync_payload_provided = True
             exceptions_payload.extend(item for item in exceptions if isinstance(item, dict))
         remote_decisions.update(_build_remote_policy_decisions(payload))
     now = _sync_timestamp(payload)
@@ -1226,6 +1236,7 @@ def sync_receipts(
     )
     deduped_advisories = _dedupe_sync_payload_items(advisories_payload)
     deduped_exceptions = _dedupe_sync_payload_items(exceptions_payload)
+    sync_exceptions_for_persist = deduped_exceptions if exceptions_sync_payload_provided else None
     advisories_stored = 0
     if deduped_advisories:
         advisories_stored = store.cache_advisories(deduped_advisories, now)
@@ -1340,6 +1351,15 @@ def sync_receipts(
         store.set_sync_payload("team_policy_pack", team_policy_pack_payload, now)
     else:
         store.set_sync_payload("team_policy_pack", {}, now)
+    active_policy_bundle_payload = store.get_sync_payload("policy_bundle")
+    active_policy_bundle = active_policy_bundle_payload if isinstance(active_policy_bundle_payload, dict) else None
+    cloud_exception_items = _persist_cloud_exceptions(
+        store,
+        device_id=device_id,
+        sync_exceptions=sync_exceptions_for_persist,
+        policy_bundle=active_policy_bundle,
+        now=now,
+    )
     remote_policies_stored = len(remote_decisions)
     remote_policy_sync_blocked = False
     try:
@@ -1370,6 +1390,7 @@ def sync_receipts(
         "receipts_stored": receipts_stored_total,
         "advisories_stored": advisories_stored,
         "exceptions_stored": len(deduped_exceptions),
+        "cloud_exceptions_stored": len(cloud_exception_items),
         "remote_policies_stored": remote_policies_stored,
         "pain_signals_uploaded": pain_signals_uploaded,
         "receipts": len(receipts),
@@ -2035,6 +2056,51 @@ def sync_pain_signals(
         if len(candidates) < 500:
             break
     return uploaded_count
+
+
+def _persist_cloud_exceptions(
+    store: GuardStore,
+    *,
+    device_id: str | None = None,
+    sync_exceptions: list[dict[str, object]] | None = None,
+    policy_bundle: dict[str, object] | None = None,
+    now: str,
+) -> list[dict[str, object]]:
+    resolved_device_id = device_id
+    if resolved_device_id is None:
+        resolved_device_id, _device_name = _guard_device_metadata(store)
+    bundle_ack_payload = store.get_sync_payload("policy_bundle_ack")
+    bundle_ack = bundle_ack_payload if isinstance(bundle_ack_payload, dict) else None
+    bundle_hash = non_empty_string(policy_bundle.get("bundleHash")) if isinstance(policy_bundle, dict) else None
+    ack_status = non_empty_string(bundle_ack.get("status")) if bundle_ack else None
+    items = []
+    if sync_exceptions is not None:
+        items.extend(
+            build_cloud_exceptions_from_sync_payload(
+                sync_exceptions,
+                bundle_hash=bundle_hash,
+                ack_status=ack_status,
+            )
+        )
+    else:
+        existing_payload = store.get_sync_payload("cloud_exceptions")
+        if isinstance(existing_payload, list):
+            stored_items = [item for item in existing_payload if isinstance(item, dict)]
+            if isinstance(policy_bundle, dict):
+                items.extend(stored_receipt_sync_cloud_exceptions(stored_items))
+            else:
+                items.extend(build_cloud_exceptions_from_stored_items(stored_items))
+    if isinstance(policy_bundle, dict):
+        items.extend(
+            build_cloud_exceptions_from_policy_bundle(
+                policy_bundle,
+                device_id=resolved_device_id,
+                policy_bundle_ack=bundle_ack,
+            )
+        )
+    serialized = [cloud_exception_to_dict(item) for item in dedupe_cloud_exceptions(items)]
+    store.set_cloud_exceptions(serialized, now)
+    return serialized
 
 
 def _build_remote_policy_decisions(payload: dict[str, object]) -> list[PolicyDecision]:
@@ -3316,14 +3382,14 @@ def _cloud_sync_receipt_payload(
     artifact_id = _optional_string(receipt.get("artifact_id")) or f"guard:local-receipt:{receipt_fingerprint[:24]}"
     artifact_name = _optional_string(receipt.get("artifact_name")) or artifact_id
     policy_decision = _optional_string(receipt.get("policy_decision")) or "review"
-    changed_capabilities = [str(item) for item in receipt.get("changed_capabilities", []) if isinstance(item, str)]
     capabilities_summary = _optional_string(receipt.get("capabilities_summary"))
-    if changed_capabilities:
+    explicit_capabilities = receipt.get("capabilities")
+    if isinstance(explicit_capabilities, list):
         capabilities = [
-            _cloud_sync_sanitize_text(item, fallback="redacted-capability") for item in changed_capabilities
+            _cloud_sync_sanitize_text(item, fallback="redacted-capability")
+            for item in explicit_capabilities
+            if isinstance(item, str)
         ]
-    elif capabilities_summary is not None:
-        capabilities = [_cloud_sync_sanitize_text(capabilities_summary, fallback="redacted-capability")]
     else:
         capabilities = []
     summary_input = (
@@ -3332,6 +3398,13 @@ def _cloud_sync_receipt_payload(
         or f"Guard recorded a {policy_decision} decision."
     )
     summary = _cloud_sync_sanitize_text(summary_input, fallback=f"Guard recorded a {policy_decision} decision.")
+    explicit_changed_since_last_approval = receipt.get("changedSinceLastApproval")
+    if not isinstance(explicit_changed_since_last_approval, bool):
+        explicit_changed_since_last_approval = receipt.get("changed_since_last_approval")
+    changed_since_last_approval = explicit_changed_since_last_approval is True
+    # Review-tier decisions always remain changed, even if an explicit false is present.
+    if policy_decision in {"review", "require-reapproval", "sandbox-required"}:
+        changed_since_last_approval = True
     payload: dict[str, object] = {
         "receiptId": _optional_string(receipt.get("receipt_id")) or f"guard-receipt-{receipt_fingerprint}",
         "artifactId": artifact_id,
@@ -3342,8 +3415,7 @@ def _cloud_sync_receipt_payload(
         or hashlib.sha256(artifact_id.encode("utf-8")).hexdigest(),
         "capabilities": capabilities,
         "capturedAt": _optional_string(receipt.get("timestamp")) or _now(),
-        "changedSinceLastApproval": bool(changed_capabilities)
-        or policy_decision in {"review", "require-reapproval", "sandbox-required"},
+        "changedSinceLastApproval": changed_since_last_approval,
         "deviceId": device_id,
         "deviceName": device_name,
         "harness": _optional_string(receipt.get("harness")) or "unknown",

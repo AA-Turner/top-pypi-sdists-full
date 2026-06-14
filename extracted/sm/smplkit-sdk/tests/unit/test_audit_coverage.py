@@ -235,7 +235,9 @@ def test_audit_client_standalone_resolves_transport() -> None:
     ``_audit_transport`` (resolves the audit URL from base_domain)."""
     client = AuditClient(api_key="sk_api_test", base_domain="example.com", scheme="https", environment="prod")
     assert client._owns_transport is True
-    assert client._auth._headers["X-Smplkit-Environment"] == "prod"
+    # Environment routes through the body / filter[environment], not a header.
+    assert "X-Smplkit-Environment" not in client._auth._headers
+    assert client._environment == "prod"
     assert "audit.example.com" in str(client._auth._base_url)
     client._close()
 

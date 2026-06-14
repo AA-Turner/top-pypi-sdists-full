@@ -302,7 +302,10 @@ class Flag:
         """
         if self._values is None:
             return self
-        self._values = [v for v in self._values if v.value != value]
+        for idx, entry in enumerate(self._values):
+            if entry.value == value:
+                del self._values[idx]
+                break
         return self
 
     def clear_values(self) -> None:
@@ -651,7 +654,10 @@ class AsyncFlag:
         """
         if self._values is None:
             return self
-        self._values = [v for v in self._values if v.value != value]
+        for idx, entry in enumerate(self._values):
+            if entry.value == value:
+                del self._values[idx]
+                break
         return self
 
     def clear_values(self) -> None:

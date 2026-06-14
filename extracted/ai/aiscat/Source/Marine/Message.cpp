@@ -24,7 +24,18 @@
 namespace AIS
 {
 
-	int Message::ID = 0;
+	std::atomic<int> Message::ID{0};
+
+	int Message::nextSeqId()
+	{
+		int current = ID.load(std::memory_order_relaxed);
+		for (;;)
+		{
+			int next = (current + 1) % 10;
+			if (ID.compare_exchange_weak(current, next, std::memory_order_relaxed))
+				return current;
+		}
+	}
 
 	static int NMEAchecksum(const std::string &s)
 	{
@@ -184,13 +195,22 @@ namespace AIS
 
 	int Message::getNMEATagBlock(std::string &out, const char *suffix) const
 	{
-		static int groupId = 0;
+		static std::atomic<int> groupId{0};
 
 		int total = sentences().size();
 		int seq = 1;
 
+		int group = 0;
 		if (total > 1)
-			groupId = (groupId % 9999) + 1;
+		{
+			int current = groupId.load(std::memory_order_relaxed);
+			for (;;)
+			{
+				group = (current % 9999) + 1;
+				if (groupId.compare_exchange_weak(current, group, std::memory_order_relaxed))
+					break;
+			}
+		}
 
 		JSON::Writer w(out);
 
@@ -235,7 +255,7 @@ namespace AIS
 				w.append('-');
 				w.append_int((long long)total);
 				w.append('-');
-				w.append_int((long long)groupId);
+				w.append_int((long long)group);
 			}
 
 			// Calculate checksum over tag block content (between backslashes).
@@ -432,7 +452,7 @@ namespace AIS
 
 	void Message::getText(int start, int len, std::string &str) const
 	{
-		if (start < 0 || start + len > MAX_AIS_LENGTH)
+		if (start < 0 || len <= 0 || start + len > MAX_AIS_LENGTH)
 		{
 			str.resize(0);
 			return;
@@ -548,7 +568,7 @@ namespace AIS
 		const int IDX_NUMBER = 9;
 
 		if (id >= 0 && id < 10)
-			ID = id;
+			ID.store(id, std::memory_order_relaxed);
 
 		int nAISletters = (length + 6 - 1) / 6;
 		int nSentences = (nAISletters == 0) ? 1 : (nAISletters + MAX_NMEA_CHARS - 1) / MAX_NMEA_CHARS;
@@ -562,9 +582,7 @@ namespace AIS
 		static constexpr char hex[] = "0123456789ABCDEF";
 		const char own = own_mmsi == mmsi() ? 'O' : 'M';
 		const char count = (char)(nSentences + '0');
-		const char seq = (nSentences > 1) ? (char)(ID + '0') : 0;
-		if (nSentences > 1)
-			ID = (ID + 1) % 10;
+		const char seq = (nSentences > 1) ? (char)(nextSeqId() + '0') : 0;
 
 		for (int s = 0, l = 0; s < nSentences; s++)
 		{
@@ -685,6 +703,9 @@ namespace AIS
 
 		if (endBits > MAX_AIS_LENGTH)
 			count = (MAX_AIS_LENGTH - pos * 6) / 6;
+
+		if (count < 0)
+			return;
 
 		const uint8_t *usrc = (const uint8_t *)src;
 		int i = 0;

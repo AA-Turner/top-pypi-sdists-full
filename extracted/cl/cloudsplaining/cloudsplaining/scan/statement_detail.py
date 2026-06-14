@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
+from functools import cached_property
 from typing import Any
 
-from cached_property import cached_property
 from policy_sentry.analysis.expand import determine_actions_to_expand
 from policy_sentry.querying.actions import (
     get_actions_matching_arn,
@@ -166,19 +166,19 @@ class StatementDetail:
         return False
 
     @cached_property
-    def expanded_actions(self) -> list[str] | None:
+    def expanded_actions(self) -> list[str]:
         """Expands the full list of allowed actions from the Policy/"""
 
         if self.actions:
             expanded: list[str] = determine_actions_to_expand(self.actions)
             expanded.sort()
             return expanded
-        elif self.not_action:
-            return self.not_action_effective_actions
-        else:
-            raise Exception(  # pragma: no cover
-                "The Policy should include either NotAction or Action in the statement."
-            )
+        if self.not_action:
+            return self.not_action_effective_actions or []
+
+        raise Exception(  # pragma: no cover
+            "The Policy should include either NotAction or Action in the statement."
+        )
 
     @property
     def effect_deny(self) -> bool:
@@ -292,7 +292,7 @@ class StatementDetail:
             pass
         if len(self.resources) == 1 and self.resources[0] == "*":
             return True
-        elif len(self.resources) > 1:  # pragma: no cover
+        if len(self.resources) > 1:  # pragma: no cover
             # It's possible that someone writes a bad policy that includes both a resource ARN as well as a wildcard.
             return any(resource == "*" for resource in self.resources)
         return False

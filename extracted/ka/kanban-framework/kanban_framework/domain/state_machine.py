@@ -66,6 +66,29 @@ def _output_dir_hint(output_dir: str) -> str:
     return f"保存到 {output_dir}/" if output_dir else "在现有目录中修改文件"
 
 
+# Threshold: execution_summary.md below this line count = small change →
+# skip capture_knowledge + collect_issues (saves ~6-8 LLM calls).
+_SMALL_CHANGE_THRESHOLD_LINES = 50
+
+
+def _should_skip_evaluate_extras(fs: Filesystem, task_id: str) -> bool:
+    """Check if evaluate extras (capture_knowledge + collect_issues) should
+    be auto-skipped for small changes.
+
+    Returns True when execution_summary.md is short (< 50 lines), indicating
+    a small code change that doesn't warrant full knowledge extraction or
+    framework issue collection. The spawn_review step still runs.
+    """
+    try:
+        summary_path = fs.task_dir(task_id) / "execution_summary.md"
+        if not summary_path.is_file():
+            return False  # don't skip if no summary (let normal flow handle)
+        line_count = sum(1 for _ in summary_path.open(encoding="utf-8"))
+        return line_count < _SMALL_CHANGE_THRESHOLD_LINES
+    except (OSError, UnicodeDecodeError):
+        return False  # on any file error, don't skip
+
+
 
 
 def _load_extension(config: Config):
@@ -161,6 +184,16 @@ def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
                         return result
                     mark_step(fs, task.id, "execute.spawn")
                     continue
+
+            # v0.187: Skip evaluate extras for small changes (< 50 lines
+            # in execution_summary.md). capture_knowledge + collect_issues
+            # add ~6-8 calls for marginal value on trivial changes.
+            if (
+                step.id in ("evaluate.capture_knowledge", "evaluate.collect_issues")
+                and _should_skip_evaluate_extras(fs, task.id)
+            ):
+                mark_step(fs, task.id, step.id)
+                continue
 
             return _build_step_result(fs, config, task, step, i, phase_steps, phase_value)
 

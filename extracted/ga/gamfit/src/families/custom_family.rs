@@ -169,23 +169,22 @@ impl PenaltyMatrix {
         }
     }
 
-    /// Compute S * v using the Kronecker vec trick when factored:
-    ///   (A ⊗ B) vec(V) = vec(B V Aᵀ)
-    /// where V = reshape(v, (p_right, p_left)).
+    /// Compute S * v using the row-major Kronecker vec trick when factored:
+    ///   (A ⊗ B) vec_rm(V) = vec_rm(A V Bᵀ)
+    /// where V = reshape(v, (p_left, p_right)).
     pub fn dot(&self, v: &Array1<f64>) -> Array1<f64> {
         match self {
             Self::Dense(m) => m.dot(v),
             Self::KroneckerFactored { left, right } => {
                 let p_left = left.nrows();
                 let p_right = right.nrows();
-                // v is (p_left * p_right,).  Reshape as (p_right, p_left).
+                // v is ordered by i_left * p_right + i_right.
                 let v_mat =
-                    ndarray::ArrayView2::from_shape((p_right, p_left), v.as_slice().unwrap())
+                    ndarray::ArrayView2::from_shape((p_left, p_right), v.as_slice().unwrap())
                         .unwrap();
-                // result = B V A' then flatten.
-                let bv = right.dot(&v_mat);
-                let bva = bv.dot(&left.t());
-                Array1::from_iter(bva.iter().copied())
+                let avbt = left.dot(&v_mat).dot(&right.t());
+                let standard = avbt.as_standard_layout();
+                Array1::from_iter(standard.iter().copied())
             }
             Self::Blockwise {
                 local,
@@ -14701,11 +14700,41 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
     let coupled_exact_joint_required = specs.len() >= 2
         && !family.likelihood_blocks_uncoupled()
         && (family.has_explicit_joint_hessian() || has_workspace_source);
-    // Multi-block families have always taken the joint path when an exact
-    // joint Hessian is available. Single-block families also take it when a
-    // coefficient-Hessian workspace is wired; dense vs. operator form is a
-    // later representation choice, not a cache-construction gate.
-    let use_joint_newton = has_joint_exacthessian && (specs.len() >= 2 || has_workspace_source);
+    // When the family declares its likelihood blocks UNCOUPLED
+    // (`∂²L/∂β_a∂β_b = 0` for every a ≠ b) the joint penalized objective is
+    // fully separable across blocks: the joint Hessian is exactly
+    // block-diagonal and each block carries only its own penalty. On a
+    // separable objective block-coordinate descent solves each block's
+    // (possibly inequality-constrained) subproblem to its own exact optimum —
+    // it IS the joint solve, and each block gets its OWN trust radius, its OWN
+    // active-set QP, and its OWN KKT certificate.
+    //
+    // Forcing the coupled joint-Newton onto such a problem instead couples two
+    // independent blocks under ONE shared trust radius and ONE concatenated
+    // KKT residual. That is actively harmful when the blocks differ sharply in
+    // conditioning — the competing-risks twin time-basis fit (#1025) is the
+    // canonical case: two cause-specific baselines share the same I-spline
+    // evaluated at the same event times, but one cause sits near its
+    // monotonicity-constraint boundary with an O(1e5) hazard-derivative
+    // gradient while the other is interior. The shared globalization cannot
+    // satisfy both blocks' KKT conditions at once; the joint residual stalls
+    // far above tolerance, the inner solve burns its whole cycle budget on
+    // every outer ρ-eval, and the fit only survives by falling through to the
+    // block-coordinate path anyway (which then converges in a handful of
+    // cycles). Route uncoupled multi-block specs straight to that exact
+    // separable path. `coupled_exact_joint_required` is already gated the same
+    // way (uncoupled families are designed to fall through to blockwise), so
+    // this only stops the engine from attempting — and grinding on — a joint
+    // solve it was never required to run.
+    //
+    // Single-block families and genuinely coupled multi-block families are
+    // unaffected: the former never had cross-block coupling to begin with, the
+    // latter still take the joint path (their objective is NOT separable, so
+    // block-coordinate descent would drop the cross-block ∂²L/∂β_a∂β_b
+    // curvature).
+    let blocks_separable = specs.len() >= 2 && family.likelihood_blocks_uncoupled();
+    let use_joint_newton =
+        has_joint_exacthessian && (specs.len() >= 2 || has_workspace_source) && !blocks_separable;
     let joint_workspace_requested = use_joint_newton && has_workspace_source;
     let inner_tol = options.inner_tol;
     let inner_max_cycles_base = options.inner_max_cycles;
@@ -15088,6 +15117,16 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         const RESIDUAL_STALL_IMPROVEMENT_FACTOR: f64 = 0.9;
         const RESIDUAL_STALL_BLOCK_GRADIENT_FACTOR: f64 = 50.0;
         let mut best_residual_seen: f64 = f64::INFINITY;
+        // Smallest *certified* stationarity residual the solve actually computed,
+        // tracked independently of `best_residual_seen` (whose updates are bound
+        // to the residual-stall counters at the post-step site below and so are
+        // skipped by every head-of-cycle / pre-line-search certificate exit). The
+        // terminal verdict reports THIS so a legitimate early-certificate exit
+        // (e.g. the cycle-0 pre-line-search KKT exit on intercept-only / already-
+        // stationary data) reports the finite residual it certified on instead of
+        // the sentinel `inf` — converged=true must never be paired with a non-
+        // finite residual in the log (#1040 inner-report truthfulness).
+        let mut min_certified_residual: f64 = f64::INFINITY;
         let mut cycles_since_residual_improved: usize = 0;
         // Number of consecutive non-improving cycles after which the
         // conditioning-based self-vanishing Levenberg–Marquardt damping is
@@ -15478,6 +15517,9 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 &block_constraints,
                 Some(cached_active_sets.as_slice()),
             )?;
+            if current_kkt_norm.is_finite() {
+                min_certified_residual = min_certified_residual.min(current_kkt_norm);
+            }
             let pcg_rel_tol = joint_pcg_eisenstat_walker_forcing(prev_kkt_norm, current_kkt_norm);
 
             let solve_joint_constraints_dense = joint_constraints.is_some()
@@ -17113,6 +17155,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // Record this cycle's KKT residual for the steady-geometric-descent
             // test at the certificate-refusal gate below (gam#787 centers≥20).
             if residual.is_finite() {
+                min_certified_residual = min_certified_residual.min(residual);
                 residual_descent_history.push_back(residual);
                 while residual_descent_history.len() > RESIDUAL_DESCENT_WINDOW {
                     residual_descent_history.pop_front();
@@ -18088,6 +18131,54 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 && tr_clamped_during_stall
                 && all_block_stationarity_small
             {
+                // Penalty-null-space certificate at the STALL exit (gam#1040).
+                // The survival marginal-slope joint block carries free gauge
+                // directions (the #892 flexible-regime warp family) with no
+                // curvature and no constraint: the optimizer drifts along them
+                // with zero objective change, the Newton step never shrinks to
+                // step_tol (nothing pins it), so the constrained-stationary
+                // certificate's step-exhausted precondition is UNSATISFIABLE
+                // and every full-budget solve used to exit here unconverged —
+                // the outer REML then rejects ρ-evaluation after ρ-evaluation
+                // and cycles for hours (#1040: matern/duchon/measure-jet all
+                // time out; binary-MS, which has no such direction, fits in
+                // seconds). Stationarity on the identifiable subspace is the
+                // honest convergence statement: if the projected residual's
+                // component in the RANGE of H_pen is at tolerance, the stalled
+                // mass lives in ker(H_pen) — exactly what the outer IFT
+                // projects out before the envelope correction (gam#553) — and
+                // the iterate is accepted. A residual with genuine range-space
+                // mass (a real defect) still exits unconverged below.
+                if objective_change <= objective_tol
+                    && let Some(range_residual) = projected_residual_range_space_inf(
+                        &projected_residual_vec,
+                        &joint_hessian_source,
+                        &ranges,
+                        &s_lambdas,
+                        ridge,
+                        options.ridge_policy,
+                        total_p,
+                    )
+                    && range_residual <= 4.0 * residual_tol
+                {
+                    log::info!(
+                        "[PIRLS/joint-Newton convergence] cycle {:>3} | residual-stall range-space certificate (gam#1040): \
+                         total projected residual={:.3e} > tol={:.3e} stalled for {} cycles, but its range-space component={:.3e} \
+                         ≤ 4×tol={:.3e} and |Δobjective|={:.3e} ≤ obj_tol={:.3e}; the stalled mass is a free \
+                         ker(H_pen) gauge direction the outer IFT pseudo-inverse projects out — accepting as stationary \
+                         on the identifiable subspace.",
+                        cycle,
+                        residual,
+                        residual_tol,
+                        cycles_since_residual_improved,
+                        range_residual,
+                        4.0 * residual_tol,
+                        objective_change,
+                        objective_tol,
+                    );
+                    converged = true;
+                    break;
+                }
                 let last_math_summary = last_joint_math
                     .as_ref()
                     .map(|math| {
@@ -18149,7 +18240,54 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 converged = true;
                 break;
             }
-            obj_flat_streak.note(objective_change <= objective_tol);
+            // Scale-invariant objective-plateau exit (gam#1040). The flatness
+            // predicate is RELATIVE — `objective_tol = inner_tol·(1+|obj|)` —
+            // so it fires identically whether the survival NLL objective is
+            // O(1) or O(1e4); a fixed absolute ε never trips at the ~6e4
+            // magnitude of a marginal-slope survival fit. When the objective
+            // has been relative-flat for the full `FlatStreak` window the
+            // iterate has stopped moving in value. On a genuinely flat REML
+            // valley along the weakly-identified time-wiggle ρ the Newton
+            // step is tiny because the gradient is tiny (not because the
+            // trust region truncated it), so the `tr_clamped_during_stall`
+            // precondition of the residual-stall range-space certificate
+            // above is UNSATISFIED and that exit never fires — the loop used
+            // to grind to `inner_loop_hard_ceiling` every outer eval, which
+            // is the #1040 hang (outer REML rejects ρ after ρ for hours).
+            // The honest convergence statement is identical to the tr-clamped
+            // path: if the projected residual's component in range(H_pen) is
+            // at tolerance, the un-moved mass lives in ker(H_pen) — the free
+            // gauge directions the outer IFT pseudo-inverse projects out
+            // (gam#553) — and the iterate IS the REML optimum on the
+            // identifiable subspace. Report converged.
+            let plateau_verdict = obj_flat_streak.note(objective_change <= objective_tol);
+            if plateau_verdict == crate::solver::loop_guard::LoopVerdict::Plateaued
+                && all_block_stationarity_small
+                && let Some(range_residual) = projected_residual_range_space_inf(
+                    &projected_residual_vec,
+                    &joint_hessian_source,
+                    &ranges,
+                    &s_lambdas,
+                    ridge,
+                    options.ridge_policy,
+                    total_p,
+                )
+                && range_residual <= 4.0 * residual_tol
+            {
+                log::info!(
+                    "[JN-EXIT] cycle={cycle} reason=relative_objective_plateau (gam#1040): \
+                     |Δobjective|={objective_change:.3e} ≤ obj_tol={objective_tol:.3e} for {} \
+                     consecutive cycles (scale-invariant rel-flat streak); total projected \
+                     residual={residual:.3e} > tol={residual_tol:.3e} but its range-space \
+                     component={range_residual:.3e} ≤ 4×tol={:.3e} — the un-moved mass is a free \
+                     ker(H_pen) gauge direction the outer IFT projects out; accepting as stationary \
+                     on the identifiable subspace.",
+                    obj_flat_streak.streak(),
+                    4.0 * residual_tol,
+                );
+                converged = true;
+                break;
+            }
             // Carry the KKT-stationarity / objective-stagnation signals
             // into the next cycle so the line-search-failure path above
             // can recognise a true KKT optimum on a rank-deficient null
@@ -18208,6 +18346,19 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // `per_block_resid` (which block stalls) and the existing TR line
             // (ρ gain-ratio + decision: model infidelity vs TR throttling), a
             // single RUST_LOG=info run separates all four #979 candidates.
+            //
+            // Report `min_certified_residual` (the smallest stationarity residual
+            // the solve actually computed) rather than the stall-tracker
+            // `best_residual_seen`: the latter is only written at the post-step
+            // residual site, so a head-of-cycle / pre-line-search certificate exit
+            // (cycle-0 KKT exit on already-stationary data) left it at the sentinel
+            // `inf` and the line read `converged=true … best_residual_inf=inf`, a
+            // self-contradicting status (#1040 inner-report truthfulness). A
+            // converged exit always certified on a finite residual ≤ tol, so the
+            // reported residual is finite whenever `converged` (every converged=true
+            // path is gated on a `≤ tol` check of a residual recorded above).
+            let reported_residual_below_tol = last_cycle_residual_below_tol
+                || (converged && min_certified_residual <= last_residual_tol);
             let verdict = format!(
                 "[PIRLS/joint-Newton terminal] converged={} terminator={} cycles={}/{} \
                  solve_wall={:.3}s best_residual_inf={:.3e} (tol={:.3e}) last_residual_below_tol={} \
@@ -18219,9 +18370,9 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 cycles_done,
                 inner_max_cycles,
                 inner_started.elapsed().as_secs_f64(),
-                best_residual_seen,
+                min_certified_residual,
                 last_residual_tol,
-                last_cycle_residual_below_tol,
+                reported_residual_below_tol,
                 last_cycle_obj_change_below_tol,
                 lastobjective,
             );
@@ -27419,6 +27570,62 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         outer.seed_cached_beta(n_rho, specs, beta)
     });
 
+    // ── Discriminating outer-gradient FD audit (issue #1040) ──
+    //
+    // The survival marginal-slope (and every custom-family) outer ρ-REML loop
+    // is driven HERE by `problem.run`, with `outerobjectivegradienthessian_labeled`
+    // as the θ↦(V,∇V,H) evaluator. On a diagnostic-sized problem, central-
+    // difference the outer criterion component-by-component against the analytic
+    // gradient at the seed ρ₀ and report the outer-Hessian spectrum — the single
+    // test that forks a non-terminating outer loop into objective↔gradient
+    // DESYNC (analytic ≠ FD ⇒ the trust region chases a phantom descent forever)
+    // vs weak IDENTIFIABILITY (analytic ≈ FD but a ~0 outer-Hessian eigenvalue ⇒
+    // a flat valley). Gated to small problems so it never taxes a production fit.
+    {
+        const OUTER_FD_AUDIT_MAX_N: usize = 4_000;
+        const OUTER_FD_AUDIT_MAX_RHO_DIM: usize = 32;
+        let audit_n = specs.iter().map(|s| s.design.nrows()).max().unwrap_or(0);
+        if n_rho >= 1 && n_rho <= OUTER_FD_AUDIT_MAX_RHO_DIM && audit_n <= OUTER_FD_AUDIT_MAX_N {
+            log::warn!(
+                "[OUTER-FD-AUDIT/custom-family] gate eligible n={audit_n} n_rho={n_rho} need_outer_hessian={need_outer_hessian}"
+            );
+            let mut eval_at = |rho: &Array1<f64>,
+                               mode: EvalMode|
+             -> Result<
+                (
+                    f64,
+                    Array1<f64>,
+                    crate::solver::outer_strategy::HessianResult,
+                ),
+                String,
+            > {
+                let e = outerobjectivegradienthessian_labeled(
+                    family,
+                    specs,
+                    &outer_options,
+                    &label_layout,
+                    rho,
+                    None,
+                    &rho_prior,
+                    mode,
+                )?;
+                if !e.inner_converged {
+                    return Err("inner solve did not converge at audit rho".to_string());
+                }
+                Ok((e.objective, e.gradient, e.outer_hessian))
+            };
+            match crate::solver::outer_strategy::outer_gradient_fd_audit(
+                &rho0,
+                1e-4,
+                |i| format!("rho[{i}]"),
+                &mut eval_at,
+            ) {
+                Ok(audit) => audit.log_verdict("custom-family"),
+                Err(e) => log::warn!("[OUTER-FD-AUDIT/custom-family] skipped: {e}"),
+            }
+        }
+    }
+
     let outer_result = problem.run(&mut obj, "custom family");
 
     let last_error_detail = obj
@@ -28109,6 +28316,59 @@ mod tests {
     use approx::assert_relative_eq;
     use faer::sparse::{SparseColMat, Triplet};
     use ndarray::{Array1, Array2, array};
+
+    fn assert_kronecker_factored_matches_dense(
+        left: Array2<f64>,
+        right: Array2<f64>,
+        vectors: Vec<Array1<f64>>,
+    ) {
+        let penalty = PenaltyMatrix::KroneckerFactored { left, right };
+        let dense = penalty.to_dense();
+        for v in vectors {
+            let factored_dot = penalty.dot(&v);
+            let dense_dot = dense.dot(&v);
+            for i in 0..v.len() {
+                assert!(
+                    (factored_dot[i] - dense_dot[i]).abs() <= 1.0e-14,
+                    "Kronecker dot mismatch at component {i}: factored={}, dense={}",
+                    factored_dot[i],
+                    dense_dot[i],
+                );
+            }
+
+            let factored_quad = penalty.quadratic_form(&v);
+            let dense_quad = v.dot(&dense_dot);
+            assert!(
+                (factored_quad - dense_quad).abs() <= 1.0e-14,
+                "Kronecker quadratic form mismatch: factored={factored_quad}, dense={dense_quad}",
+            );
+        }
+    }
+
+    #[test]
+    fn kronecker_factored_dot_and_quadratic_form_match_dense_row_major_operator() {
+        let left_diag = array![[10.0, 0.0], [0.0, 100.0]];
+        let right_diag = array![[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]];
+        let mut diag_vectors = Vec::new();
+        for i in 0..6 {
+            let mut v = Array1::<f64>::zeros(6);
+            v[i] = 1.0;
+            diag_vectors.push(v);
+        }
+        diag_vectors.push(array![0.25, -1.5, 2.0, 0.75, -0.5, 3.25]);
+        assert_kronecker_factored_matches_dense(left_diag, right_diag, diag_vectors);
+
+        let left_nondiag = array![[1.0, 2.0], [3.0, 4.0]];
+        let right_nondiag = array![[0.0, 1.0], [1.0, 0.0]];
+        let mut nondiag_vectors = Vec::new();
+        for i in 0..4 {
+            let mut v = Array1::<f64>::zeros(4);
+            v[i] = 1.0;
+            nondiag_vectors.push(v);
+        }
+        nondiag_vectors.push(array![1.25, -0.75, 2.5, -3.0]);
+        assert_kronecker_factored_matches_dense(left_nondiag, right_nondiag, nondiag_vectors);
+    }
 
     /// The marker-free coupled-joint-Hessian gate (#727, #729) trusts a family
     /// that returns a genuinely coupled joint Hessian — nonzero off-diagonal

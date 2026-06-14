@@ -20,6 +20,19 @@ _QUICK_SIGNALS = [
     "同步", "sync",
     "常量", "constant",
     "添加常量", "add constant",
+    # v0.186: more small-surface-area signals (CLI flag, single test, etc.)
+    # Real-world data showed tasks like "add --since flag" or "add unit test"
+    # were misrouted to lightweight because they didn't match any quick signal.
+    "add flag", "加 flag", "加参数", "add option", "加选项",
+    "cli flag", "命令行参数",
+    "docstring", "doc string",
+    "error message", "错误信息", "error msg",
+    "help text", "帮助文本",
+    "unit test", "单元测试", "add test", "加测试",
+    "smoke test", "冒烟测试",
+    "regression test", "回归测试",
+    "type hint", "类型注解",
+    "log", "日志", "logging",
 ]
 
 # Keywords that signal "this needs full FSM with multi-role review"

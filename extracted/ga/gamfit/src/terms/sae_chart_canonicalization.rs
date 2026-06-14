@@ -56,6 +56,9 @@ use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 use crate::linalg::faer_ndarray::{FaerCholesky, fast_ab, fast_ata, fast_atb};
 use crate::terms::sae_manifold::{SaeBasisEvaluator, solve_design_least_squares};
 
+/// Number of integration cells for the fitted-turning quadrature (#1026).
+const TURNING_QUADRATURE_CELLS: usize = 256;
+
 /// Number of grid CELLS for the arc-length quadrature and the decoder
 /// recomposition least squares. Each cell carries a node, a midpoint, and the
 /// next node (composite Simpson), so the speed field is sampled at
@@ -1000,4 +1003,529 @@ pub fn torus_isometry_flow_reparameterization(
         min_flow_jacobian_det,
         recomposition_residual: recomposition.recomposition_residual,
     }))
+}
+
+/// Scale-invariant isometry defect of a fitted `d = 2` **sphere** atom's
+/// `(lat, lon)` chart against the round-sphere reference metric (#1019 stage 2,
+/// sphere arm).
+///
+/// # Why a measurement and not a full flow-pinning (the hairy-ball obstruction)
+///
+/// The torus path canonicalizes by minimizing the isometry defect over a global
+/// truncated Fourier vector-field flow `φ_θ` and committing the minimizer. The
+/// sphere has **no global pole-free flow basis** (every smooth tangent field on
+/// `S²` has a zero — the hairy-ball theorem), and the `(lat, lon)` chart is
+/// itself singular at the poles, so the torus-style flow-pin construction does
+/// not transfer. What DOES transfer exactly is the *measurement*: the issue's
+/// acceptance criterion is "the planted warped sphere-patch recovers
+/// uniform-speed coords (defect within 10% of optimum)", and the defect itself
+/// is well-defined at the fitted chart with no flow basis at all. Reporting it
+/// turns the honest "left as fitted" sphere arm into a *measurable* one — a
+/// fitted chart that is already round-isometric (a true `O(3)` representative)
+/// scores `≈ 0`, while a warped chart scores large, so the diagnostic
+/// quantifies exactly the chart dishonesty #1019 exists to expose. The pinning
+/// (committing a minimizing harmonic-map flow with pole-aware basis) is the
+/// remaining seam; this is the certified defect functional it would minimize.
+///
+/// # The defect functional
+///
+/// For the round sphere, the `(lat, lon)` chart's reference first fundamental
+/// form is `g_ref(lat) = diag(1, cos²lat)` (a unit-radius sphere; the lon
+/// circumference shrinks as `cos lat`). The fitted decoder's pullback metric at
+/// row `i` is `G_i = J(t_i)ᵀ J(t_i)` from the exact `(Φ, ∂Φ)` jet, exactly as
+/// in the torus path. The chart is isometric to the round sphere up to a global
+/// scale `c` iff `G_i ≡ c · g_ref(lat_i)` for all `i`. Measuring the residual
+/// with `c` analytically profiled (the exact argmin over the global scale),
+///
+/// ```text
+/// E = Σ_i ‖ Ĝ_i − c · ĝ_ref,i ‖²_F ,
+/// c = Σ_i ⟨Ĝ_i, ĝ_ref,i⟩_F / Σ_i ‖ĝ_ref,i‖²_F ,
+/// ```
+///
+/// where both metrics are normalized by the geometric-mean fitted metric scale
+/// `ḡ = exp(mean_i ½ log det G_i)` so the defect is scale-invariant (a chart
+/// isometric up to ANY global scale scores 0). The Frobenius norm on symmetric
+/// `2×2` matrices uses the `[m00, m11, m01]` storage with the off-diagonal
+/// weighted by 2 (matching the torus path).
+///
+/// Returns `None` on a degenerate chart (empty/non-finite, rank-deficient
+/// pullback metric anywhere, or a degenerate profiled scale) — an honest
+/// refusal, never a fabricated zero. The returned defect is the scale-invariant
+/// `E` above; `0` means the fitted chart is already a round-isometric `O(3)`
+/// representative.
+pub fn sphere_chart_isometry_defect(
+    evaluator: &dyn SaeBasisEvaluator,
+    decoder: ArrayView2<'_, f64>,
+    row_coords: ArrayView2<'_, f64>,
+) -> Result<Option<f64>, String> {
+    let n = row_coords.nrows();
+    let m = decoder.nrows();
+    let p = decoder.ncols();
+    if row_coords.ncols() != 2 {
+        return Err(format!(
+            "sphere_chart_isometry_defect: expected (n, 2) row coordinates; got {:?}",
+            row_coords.dim()
+        ));
+    }
+    if n == 0 || m == 0 || p == 0 {
+        return Ok(None);
+    }
+    for &t in row_coords.iter() {
+        if !t.is_finite() {
+            return Ok(None);
+        }
+    }
+
+    // Fitted pullback metric G_i = J(t_i)ᵀJ(t_i) from the exact jet — identical
+    // extraction to the torus path (axis 0 = lat, axis 1 = lon).
+    let (row_phi, row_jet) = evaluator.evaluate(row_coords)?;
+    if row_phi.ncols() != m || row_jet.dim() != (n, m, 2) {
+        return Err(format!(
+            "sphere_chart_isometry_defect: evaluator returned basis {:?} / jet {:?}; expected width {m}, latent_dim 2",
+            row_phi.dim(),
+            row_jet.dim()
+        ));
+    }
+    let mut g_rows: Vec<[f64; 3]> = Vec::with_capacity(n);
+    let mut log_det_sum = 0.0_f64;
+    let mut tangent0 = vec![0.0_f64; p];
+    let mut tangent1 = vec![0.0_f64; p];
+    for row in 0..n {
+        for slot in tangent0.iter_mut() {
+            *slot = 0.0;
+        }
+        for slot in tangent1.iter_mut() {
+            *slot = 0.0;
+        }
+        for bm in 0..m {
+            let d0 = row_jet[[row, bm, 0]];
+            let d1 = row_jet[[row, bm, 1]];
+            if d0 == 0.0 && d1 == 0.0 {
+                continue;
+            }
+            for j in 0..p {
+                let b = decoder[[bm, j]];
+                tangent0[j] += d0 * b;
+                tangent1[j] += d1 * b;
+            }
+        }
+        let mut g00 = 0.0_f64;
+        let mut g11 = 0.0_f64;
+        let mut g01 = 0.0_f64;
+        for j in 0..p {
+            g00 += tangent0[j] * tangent0[j];
+            g11 += tangent1[j] * tangent1[j];
+            g01 += tangent0[j] * tangent1[j];
+        }
+        let det = g00 * g11 - g01 * g01;
+        if !(det.is_finite() && det > 0.0) {
+            return Ok(None);
+        }
+        log_det_sum += 0.5 * det.ln();
+        g_rows.push([g00, g11, g01]);
+    }
+    let g_bar = (log_det_sum / n as f64).exp();
+    if !(g_bar.is_finite() && g_bar > 0.0) {
+        return Ok(None);
+    }
+
+    // Reference metric ĝ_ref,i = diag(1, cos²lat_i) (round sphere, lat = axis 0).
+    // Both G and g_ref are normalized by ḡ; g_ref carries no fitted scale so the
+    // profiled `c` absorbs the absolute size. The reference's own determinant is
+    // cos²lat, which can vanish near the poles — guard it so a pole-adjacent row
+    // does not inject a degenerate reference direction.
+    let mut ghat: Vec<[f64; 3]> = Vec::with_capacity(n);
+    let mut gref: Vec<[f64; 3]> = Vec::with_capacity(n);
+    let mut gref_norm_sq = 0.0_f64;
+    let mut cross = 0.0_f64;
+    for (row, g) in g_rows.iter().enumerate() {
+        let lat = row_coords[[row, 0]];
+        let cos_lat = lat.cos();
+        let r11 = cos_lat * cos_lat;
+        // A pole-adjacent reference column (cos lat → 0) carries no transverse
+        // metric content; treating it as part of the defect would falsely
+        // reward squeezing the lon direction. Refuse charts sitting on the
+        // pole singularity rather than fabricate a defect there.
+        if !(r11.is_finite() && r11 > 0.0) {
+            return Ok(None);
+        }
+        let h = [g[0] / g_bar, g[1] / g_bar, g[2] / g_bar];
+        let r = [1.0_f64, r11, 0.0_f64];
+        cross += h[0] * r[0] + h[1] * r[1] + 2.0 * h[2] * r[2];
+        gref_norm_sq += r[0] * r[0] + r[1] * r[1] + 2.0 * r[2] * r[2];
+        ghat.push(h);
+        gref.push(r);
+    }
+    if !(gref_norm_sq.is_finite() && gref_norm_sq > 0.0) {
+        return Ok(None);
+    }
+    let c = cross / gref_norm_sq;
+    if !(c.is_finite() && c > 0.0) {
+        return Ok(None);
+    }
+    let mut defect = 0.0_f64;
+    for (h, r) in ghat.iter().zip(gref.iter()) {
+        let r00 = h[0] - c * r[0];
+        let r11 = h[1] - c * r[1];
+        let r01 = h[2] - c * r[2];
+        defect += r00 * r00 + r11 * r11 + 2.0 * r01 * r01;
+    }
+    if !defect.is_finite() {
+        return Ok(None);
+    }
+    Ok(Some(defect))
+}
+
+/// Total fitted turning `Θ = ∫ κ ds` of a `d = 1` atom's decoded curve (#1026).
+///
+/// # Why this is the discriminating measurement
+///
+/// The hybrid-vs-shatter question — does a curved atom genuinely earn its
+/// curvature, or is it just more linear directions in disguise — is answered by
+/// pairing each atom's EV contribution with its fitted **turning** `Θ`
+/// (integrated curvature). A linear SAE shatters a curved feature of total
+/// turning `Θ` into `N(ε) ≈ Θ/(2√(2ε))` rank-1 atoms at relative error `ε`
+/// (radius cancels — relative error is scale-free), so the curved win is
+/// concentrated on high-`Θ` features and vanishes as `Θ → 0`. A near-linear
+/// atom (`Θ ≈ 0`) contributing EV is a linear direction wearing a curved basis;
+/// a high-`Θ` atom contributing EV is a genuine curved family. Reporting EV-per-
+/// atom vs `Θ` (not EV vs K) directly shows which.
+///
+/// # The functional
+///
+/// For the decoded curve `γ(t) = Φ(t)·B` the unsigned total curvature is
+///
+/// ```text
+/// Θ = ∫ κ(t) ‖γ'(t)‖ dt ,   κ = ‖γ'(t) ∧ γ''(t)‖ / ‖γ'(t)‖³ ,
+/// ```
+///
+/// so `Θ = ∫ ‖γ' ∧ γ''‖ / ‖γ'‖² dt`, where the wedge norm in `ℝ^p` is the
+/// parallelogram area `‖γ'∧γ''‖ = √(‖γ'‖²‖γ''‖² − ⟨γ',γ''⟩²)` (Lagrange). `Θ`
+/// is reparameterization-invariant (it is an integral of `κ ds`), so it is the
+/// honest chart-free geometric content. Integrated by Simpson's rule over a
+/// uniform grid spanning the fitted coordinate range from the exact `(γ', γ'')`
+/// jets. Units: radians of total turning (a full hue circle ≈ `2π`).
+///
+/// Returns `None` on a degenerate atom (no rows, no second jet, a collapsed
+/// coordinate range, or a non-finite integrand) — an honest refusal, never a
+/// fabricated number.
+pub fn d1_atom_fitted_turning(
+    evaluator: &dyn SaeBasisEvaluator,
+    decoder: ArrayView2<'_, f64>,
+    row_coords: ArrayView1<'_, f64>,
+) -> Result<Option<f64>, String> {
+    let m = decoder.nrows();
+    let p = decoder.ncols();
+    if m == 0 || p == 0 || row_coords.is_empty() {
+        return Ok(None);
+    }
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &t in row_coords.iter() {
+        if !t.is_finite() {
+            return Ok(None);
+        }
+        lo = lo.min(t);
+        hi = hi.max(t);
+    }
+    if !(hi > lo) {
+        return Ok(None);
+    }
+    let cells = TURNING_QUADRATURE_CELLS;
+    let nodes = 2 * cells + 1; // node, midpoint, node per cell (Simpson)
+    let h = (hi - lo) / (nodes - 1) as f64;
+    let mut grid = Array2::<f64>::zeros((nodes, 1));
+    for (i, mut row) in grid.outer_iter_mut().enumerate() {
+        row[0] = lo + h * i as f64;
+    }
+    let (_phi, jet) = evaluator.evaluate(grid.view())?;
+    if jet.dim() != (nodes, m, 1) {
+        return Err(format!(
+            "d1_atom_fitted_turning: evaluator returned jet {:?}; expected ({nodes}, {m}, 1)",
+            jet.dim()
+        ));
+    }
+    let Some(hess_result) = evaluator.second_jet_dyn(grid.view()) else {
+        // No analytic second jet for this basis family → no honest turning.
+        return Ok(None);
+    };
+    let hess = hess_result?;
+    if hess.dim() != (nodes, m, 1, 1) {
+        return Err(format!(
+            "d1_atom_fitted_turning: second_jet returned {:?}; expected ({nodes}, {m}, 1, 1)",
+            hess.dim()
+        ));
+    }
+    // Per-node curvature integrand f(t) = ‖γ'∧γ''‖/‖γ'‖² (= κ·‖γ'‖).
+    let mut integrand = vec![0.0_f64; nodes];
+    let mut g1 = vec![0.0_f64; p];
+    let mut g2 = vec![0.0_f64; p];
+    for node in 0..nodes {
+        for slot in g1.iter_mut() {
+            *slot = 0.0;
+        }
+        for slot in g2.iter_mut() {
+            *slot = 0.0;
+        }
+        for bm in 0..m {
+            let d1 = jet[[node, bm, 0]];
+            let d2 = hess[[node, bm, 0, 0]];
+            if d1 == 0.0 && d2 == 0.0 {
+                continue;
+            }
+            for j in 0..p {
+                let b = decoder[[bm, j]];
+                g1[j] += d1 * b;
+                g2[j] += d2 * b;
+            }
+        }
+        let mut n1 = 0.0_f64; // ‖γ'‖²
+        let mut n2 = 0.0_f64; // ‖γ''‖²
+        let mut dot = 0.0_f64; // ⟨γ',γ''⟩
+        for j in 0..p {
+            n1 += g1[j] * g1[j];
+            n2 += g2[j] * g2[j];
+            dot += g1[j] * g2[j];
+        }
+        if !(n1 > 0.0) {
+            // Zero speed at a node: the curve is momentarily stationary in this
+            // chart; the curvature integrand is undefined there. A genuinely
+            // collapsed curve has no honest turning.
+            return Ok(None);
+        }
+        // Wedge norm² = ‖γ'‖²‖γ''‖² − ⟨γ',γ''⟩² (Lagrange identity); clamp tiny
+        // negative round-off to 0 before the sqrt.
+        let wedge_sq = (n1 * n2 - dot * dot).max(0.0);
+        integrand[node] = wedge_sq.sqrt() / n1;
+        if !integrand[node].is_finite() {
+            return Ok(None);
+        }
+    }
+    // Composite Simpson over `cells` cells: each cell [2i, 2i+1, 2i+2] gets
+    // (h/3)(f0 + 4 f_mid + f1).
+    let mut theta = 0.0_f64;
+    for cell in 0..cells {
+        let f0 = integrand[2 * cell];
+        let fm = integrand[2 * cell + 1];
+        let f1 = integrand[2 * cell + 2];
+        theta += h / 3.0 * (f0 + 4.0 * fm + f1);
+    }
+    if !(theta.is_finite() && theta >= 0.0) {
+        return Ok(None);
+    }
+    Ok(Some(theta))
+}
+
+#[cfg(test)]
+mod sphere_defect_tests {
+    use super::*;
+    use ndarray::{Array2, Array3, ArrayView2};
+
+    /// Mock sphere-chart evaluator: `m = p = 2`, identity decoder, with a jet
+    /// whose per-row decoded tangents are `∂γ/∂lat = (1, 0)` and
+    /// `∂γ/∂lon = (0, warp·cos lat)`. With `warp = 1` the pullback metric is
+    /// exactly the round-sphere reference `diag(1, cos²lat)` (defect 0); any
+    /// `warp ≠ 1` rescales the lon direction uniformly — still a global rescale
+    /// of the lon column, but NOT a global rescale of the whole metric, so it
+    /// registers as a genuine anisotropic defect.
+    #[derive(Debug)]
+    struct MockSphereEvaluator {
+        warp: f64,
+    }
+
+    impl SaeBasisEvaluator for MockSphereEvaluator {
+        fn evaluate(
+            &self,
+            coords: ArrayView2<'_, f64>,
+        ) -> Result<(Array2<f64>, Array3<f64>), String> {
+            let n = coords.nrows();
+            // Basis Φ is unused by the defect (only the jet enters G); return a
+            // well-formed (n, 2) zero basis.
+            let phi = Array2::<f64>::zeros((n, 2));
+            let mut jet = Array3::<f64>::zeros((n, 2, 2));
+            for row in 0..n {
+                let lat = coords[[row, 0]];
+                // basis col 0 carries the lat tangent (1, 0): ∂/∂lat = 1 on
+                // output 0; basis col 1 carries the lon tangent
+                // (0, warp·cos lat): ∂/∂lon = warp·cos lat on output 1.
+                jet[[row, 0, 0]] = 1.0; // d(col0)/d(lat)
+                jet[[row, 1, 1]] = self.warp * lat.cos(); // d(col1)/d(lon)
+            }
+            Ok((phi, jet))
+        }
+
+        // This mock supplies only the first jet that the chart-defect test
+        // exercises; it carries no analytic second/third jet, so it declares
+        // that capability absent (`None`) per the trait contract rather than
+        // fabricating one — after validating the (lat, lon) coordinate shape
+        // it is contracted on, mirroring the sanctioned `TestPeriodicEvaluator`
+        // higher-jet stubs.
+        fn second_jet_dyn(
+            &self,
+            coords: ArrayView2<'_, f64>,
+        ) -> Option<Result<ndarray::Array4<f64>, String>> {
+            if coords.ncols() != 2 {
+                return Some(Err(format!(
+                    "MockSphereEvaluator::second_jet_dyn: expected (lat, lon) coords, got {} cols",
+                    coords.ncols()
+                )));
+            }
+            None
+        }
+
+        fn third_jet_dyn(
+            &self,
+            coords: ArrayView2<'_, f64>,
+        ) -> Option<Result<ndarray::Array5<f64>, String>> {
+            if coords.ncols() != 2 {
+                return Some(Err(format!(
+                    "MockSphereEvaluator::third_jet_dyn: expected (lat, lon) coords, got {} cols",
+                    coords.ncols()
+                )));
+            }
+            None
+        }
+    }
+
+    fn coords(lats: &[f64]) -> Array2<f64> {
+        let n = lats.len();
+        let mut c = Array2::<f64>::zeros((n, 2));
+        for (i, &lat) in lats.iter().enumerate() {
+            c[[i, 0]] = lat;
+            c[[i, 1]] = 0.1 * i as f64; // lon, irrelevant to the metric
+        }
+        c
+    }
+
+    #[test]
+    fn round_isometric_chart_has_zero_defect() {
+        let ev = MockSphereEvaluator { warp: 1.0 };
+        let decoder = Array2::<f64>::eye(2);
+        let c = coords(&[-0.6, -0.2, 0.0, 0.3, 0.7]);
+        let defect = sphere_chart_isometry_defect(&ev, decoder.view(), c.view())
+            .expect("defect must evaluate")
+            .expect("non-degenerate round chart must return Some");
+        assert!(
+            defect < 1e-10,
+            "a chart whose pullback metric is exactly diag(1, cos²lat) is round-isometric; \
+             defect should be ~0, got {defect:.3e}"
+        );
+    }
+
+    #[test]
+    fn warped_chart_has_large_defect() {
+        // warp = 2.5 stretches the lon direction by a lat-independent factor,
+        // so the pullback metric is diag(1, (2.5·cos lat)²) — NOT a global
+        // rescale of diag(1, cos²lat), so the profiled-scale residual is
+        // strictly positive.
+        let ev = MockSphereEvaluator { warp: 2.5 };
+        let decoder = Array2::<f64>::eye(2);
+        let c = coords(&[-0.6, -0.2, 0.0, 0.3, 0.7]);
+        let defect = sphere_chart_isometry_defect(&ev, decoder.view(), c.view())
+            .expect("defect must evaluate")
+            .expect("non-degenerate warped chart must return Some");
+        assert!(
+            defect > 1e-2,
+            "an anisotropically warped chart must register a sizeable defect, got {defect:.3e}"
+        );
+    }
+
+    #[test]
+    fn pole_singularity_is_refused_not_fabricated() {
+        // A row sitting exactly on the pole (lat = π/2, cos lat = 0) makes the
+        // reference metric's lon column vanish; the function must refuse (None)
+        // rather than fabricate a defect on the chart singularity.
+        let ev = MockSphereEvaluator { warp: 1.0 };
+        let decoder = Array2::<f64>::eye(2);
+        let base = coords(&[0.0, 0.3]);
+        // Append a pole row (lat = π/2).
+        let mut c3 = Array2::<f64>::zeros((3, 2));
+        c3.slice_mut(ndarray::s![0..2, ..]).assign(&base);
+        c3[[2, 0]] = std::f64::consts::FRAC_PI_2;
+        let out = sphere_chart_isometry_defect(&ev, decoder.view(), c3.view())
+            .expect("defect must evaluate");
+        // At the exact pole the decoded lon tangent (cos lat = 0) also collapses
+        // the pullback metric (det G = 0), so this refuses via the rank-deficient
+        // metric guard — either way an honest None, never a fabricated number.
+        assert!(
+            out.is_none(),
+            "a pole-singular chart row must be refused, got {out:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod turning_tests {
+    use super::*;
+    use crate::terms::sae::basis::PeriodicHarmonicEvaluator;
+    use ndarray::{Array1, Array2};
+    use std::f64::consts::TAU;
+
+    /// A unit circle `γ(t) = (cos 2πt, sin 2πt)` traversed once over `t ∈ [0,1]`
+    /// has constant curvature κ = 1 and speed 2π, so the total turning is
+    /// `Θ = ∫₀¹ κ·‖γ'‖ dt = 2π`.
+    #[test]
+    fn full_circle_turning_is_two_pi() {
+        let ev = PeriodicHarmonicEvaluator::new(3).expect("3-basis circle");
+        // Basis [1, sin2πt, cos2πt]; B maps cos→x (output 0), sin→y (output 1).
+        let mut decoder = Array2::<f64>::zeros((3, 2));
+        decoder[[2, 0]] = 1.0; // cos -> x
+        decoder[[1, 1]] = 1.0; // sin -> y
+        // Span the full period [0, 1]; the integral runs over [min, max] of the
+        // supplied coordinates, so the endpoint t = 1 must be present to close
+        // the loop (the circle's speed 2π is nonzero everywhere, no stationary
+        // point at the seam).
+        let coords = Array1::from_iter((0..=50).map(|i| i as f64 / 50.0));
+        let theta = d1_atom_fitted_turning(&ev, decoder.view(), coords.view())
+            .expect("turning must evaluate")
+            .expect("a non-degenerate circle must return Some");
+        assert!(
+            (theta - TAU).abs() < 1e-6,
+            "a full unit circle has total turning 2π; got {theta:.9}"
+        );
+    }
+
+    /// A half circle (`t ∈ [0, 0.5]`) turns through π.
+    #[test]
+    fn half_circle_turning_is_pi() {
+        let ev = PeriodicHarmonicEvaluator::new(3).expect("3-basis circle");
+        let mut decoder = Array2::<f64>::zeros((3, 2));
+        decoder[[2, 0]] = 1.0;
+        decoder[[1, 1]] = 1.0;
+        let coords = Array1::from_iter((0..=25).map(|i| 0.5 * i as f64 / 25.0));
+        let theta = d1_atom_fitted_turning(&ev, decoder.view(), coords.view())
+            .expect("turning must evaluate")
+            .expect("a non-degenerate half-circle must return Some");
+        assert!(
+            (theta - std::f64::consts::PI).abs() < 1e-6,
+            "a half circle turns through π; got {theta:.9}"
+        );
+    }
+
+    /// A straight line (only the constant + one linear-in-image direction, no
+    /// genuine curvature) has zero turning — exactly the `Θ → 0` linear-tail
+    /// signature the EV-vs-Θ measurement uses to flag a curved atom that is
+    /// really just a linear direction. Here the decoder uses a SINGLE harmonic
+    /// pair scaled so the image is a 1-D segment (x and y both ∝ cos 2πt), i.e.
+    /// the decoded curve lies on a line through the origin → wedge ≡ 0.
+    #[test]
+    fn straight_line_image_has_zero_turning() {
+        let ev = PeriodicHarmonicEvaluator::new(3).expect("3-basis circle");
+        let mut decoder = Array2::<f64>::zeros((3, 2));
+        // Both outputs ∝ cos 2πt → the image is the line y = 2x, γ collinear with
+        // γ', γ'' at every t, so the wedge norm vanishes identically.
+        decoder[[2, 0]] = 1.0;
+        decoder[[2, 1]] = 2.0;
+        // Span a coordinate range strictly inside (0, 0.25) so the speed
+        // `‖γ'‖ ∝ |sin 2πt|` never hits the stationary zero at t = 0 (where the
+        // turning integrand is genuinely undefined and the function refuses).
+        let coords = Array1::from_iter((0..=20).map(|i| 0.05 + 0.15 * i as f64 / 20.0));
+        let theta = d1_atom_fitted_turning(&ev, decoder.view(), coords.view())
+            .expect("turning must evaluate")
+            .expect("a non-degenerate segment must return Some");
+        assert!(
+            theta < 1e-9,
+            "a straight-line image has zero turning (the linear-tail signature); got {theta:.3e}"
+        );
+    }
 }

@@ -3,9 +3,11 @@ from __future__ import annotations
 import os
 import warnings
 from ctypes import (
+    CFUNCTYPE,
     c_bool,
     c_char_p,
     c_int,
+    c_int64,
     c_uint8,
     c_uint32,
     c_size_t,
@@ -62,6 +64,9 @@ mtmd_context_p_ctypes = c_void_p
 mtmd_bitmap_p = NewType("mtmd_bitmap_p", int)
 mtmd_bitmap_p_ctypes = c_void_p
 
+mtmd_helper_video_p = NewType("mtmd_helper_video_p", int)
+mtmd_helper_video_p_ctypes = c_void_p
+
 mtmd_image_tokens_p = NewType("mtmd_image_tokens_p", int)
 mtmd_image_tokens_p_ctypes = c_void_p
 
@@ -70,6 +75,9 @@ mtmd_input_chunk_p_ctypes = c_void_p
 
 mtmd_input_chunks_p = NewType("mtmd_input_chunks_p", int)
 mtmd_input_chunks_p_ctypes = c_void_p
+
+mtmd_batch_p = NewType("mtmd_batch_p", int)
+mtmd_batch_p_ctypes = c_void_p
 
 # Enums
 MTMD_INPUT_CHUNK_TYPE_TEXT = 0
@@ -97,6 +105,7 @@ class mtmd_context_params(Structure):
         image_max_tokens: int
         cb_eval: llama_cpp.ggml_backend_sched_eval_callback
         cb_eval_user_data: c_void_p
+        batch_max_tokens: int
 
     _fields_ = [
         ("use_gpu", c_bool),
@@ -110,6 +119,7 @@ class mtmd_context_params(Structure):
         ("image_max_tokens", c_int),
         ("cb_eval", llama_cpp.ggml_backend_sched_eval_callback),
         ("cb_eval_user_data", c_void_p),
+        ("batch_max_tokens", c_int),
     ]
 
 
@@ -148,6 +158,60 @@ class mtmd_caps(Structure):
     _fields_ = [
         ("inp_vision", c_bool),
         ("inp_audio", c_bool),
+    ]
+
+
+mtmd_bitmap_lazy_callback = CFUNCTYPE(
+    c_int,
+    c_size_t,
+    c_void_p,
+    POINTER(mtmd_bitmap_p_ctypes),
+    POINTER(c_char_p),
+)
+
+
+class mtmd_helper_bitmap_wrapper(Structure):
+    """Bitmap wrapper returned by MTMD helper media loaders."""
+
+    if TYPE_CHECKING:
+        bitmap: Optional[mtmd_bitmap_p]
+        video_ctx: Optional[mtmd_helper_video_p]
+
+    _fields_ = [
+        ("bitmap", mtmd_bitmap_p_ctypes),
+        ("video_ctx", mtmd_helper_video_p_ctypes),
+    ]
+
+
+class mtmd_helper_video_info(Structure):
+    """Metadata for a decoded video stream."""
+
+    if TYPE_CHECKING:
+        width: int
+        height: int
+        fps: float
+        n_frames: int
+
+    _fields_ = [
+        ("width", c_uint32),
+        ("height", c_uint32),
+        ("fps", c_float),
+        ("n_frames", c_int),
+    ]
+
+
+class mtmd_helper_video_init_params(Structure):
+    """Parameters for initializing an MTMD helper video stream."""
+
+    if TYPE_CHECKING:
+        fps_target: float
+        ffmpeg_bin_dir: Optional[bytes]
+        timestamp_interval_ms: int
+
+    _fields_ = [
+        ("fps_target", c_float),
+        ("ffmpeg_bin_dir", c_char_p),
+        ("timestamp_interval_ms", c_int64),
     ]
 
 
@@ -231,6 +295,13 @@ def mtmd_support_audio(ctx: mtmd_context_p, /) -> bool:
 @ctypes_function("mtmd_get_audio_sample_rate", [mtmd_context_p_ctypes], c_int)
 def mtmd_get_audio_sample_rate(ctx: mtmd_context_p, /) -> int:
     """Get the audio sample rate in Hz. Returns -1 if audio is not supported."""
+    ...
+
+
+# MTMD_API const char * mtmd_get_marker(const mtmd_context * ctx);
+@ctypes_function("mtmd_get_marker", [mtmd_context_p_ctypes], c_char_p)
+def mtmd_get_marker(ctx: mtmd_context_p, /) -> Optional[bytes]:
+    """Get the current media marker string."""
     ...
 
 
@@ -322,6 +393,26 @@ def mtmd_bitmap_get_id(bitmap: mtmd_bitmap_p, /) -> Optional[bytes]:
 @ctypes_function("mtmd_bitmap_set_id", [mtmd_bitmap_p_ctypes, c_char_p], None)
 def mtmd_bitmap_set_id(bitmap: mtmd_bitmap_p, id: Optional[bytes], /):
     """Set the optional bitmap identifier."""
+    ...
+
+
+# MTMD_API mtmd_bitmap * mtmd_bitmap_init_lazy(mtmd_context * ctx,
+#                                              const char * id,
+#                                              void * user_data,
+#                                              mtmd_bitmap_lazy_callback callback);
+@ctypes_function(
+    "mtmd_bitmap_init_lazy",
+    [mtmd_context_p_ctypes, c_char_p, c_void_p, mtmd_bitmap_lazy_callback],
+    mtmd_bitmap_p_ctypes,
+)
+def mtmd_bitmap_init_lazy(
+    ctx: mtmd_context_p,
+    id: Optional[bytes],
+    user_data: c_void_p,
+    callback: mtmd_bitmap_lazy_callback,
+    /,
+) -> Optional[mtmd_bitmap_p]:
+    """Initialize a lazy MTMD bitmap."""
     ...
 
 
@@ -510,7 +601,7 @@ def mtmd_image_tokens_get_decoder_pos(
     c_int,
 )
 def mtmd_encode(ctx: mtmd_context_p, image_tokens: mtmd_image_tokens_p, /) -> int:
-    """Run an MTMD encode pass for image tokens."""
+    """Run a deprecated MTMD encode pass for image tokens."""
     ...
 
 
@@ -529,6 +620,55 @@ def mtmd_encode_chunk(ctx: mtmd_context_p, chunk: mtmd_input_chunk_p, /) -> int:
 @ctypes_function("mtmd_get_output_embd", [mtmd_context_p_ctypes], POINTER(c_float))
 def mtmd_get_output_embd(ctx: mtmd_context_p, /) -> Optional[CtypesArray[c_float]]:
     """Get output embeddings from the last encode pass."""
+    ...
+
+
+# MTMD_API mtmd_batch * mtmd_batch_init(mtmd_context * ctx);
+@ctypes_function("mtmd_batch_init", [mtmd_context_p_ctypes], mtmd_batch_p_ctypes)
+def mtmd_batch_init(ctx: mtmd_context_p, /) -> Optional[mtmd_batch_p]:
+    """Initialize an MTMD media chunk batch for a context."""
+    ...
+
+
+# MTMD_API void mtmd_batch_free(mtmd_batch * batch);
+@ctypes_function("mtmd_batch_free", [mtmd_batch_p_ctypes], None)
+def mtmd_batch_free(batch: mtmd_batch_p, /): ...
+
+
+# MTMD_API int32_t mtmd_batch_add_chunk(mtmd_batch * batch, const mtmd_input_chunk * chunk);
+@ctypes_function(
+    "mtmd_batch_add_chunk",
+    [mtmd_batch_p_ctypes, mtmd_input_chunk_p_ctypes],
+    c_int,
+)
+def mtmd_batch_add_chunk(
+    batch: mtmd_batch_p,
+    chunk: mtmd_input_chunk_p,
+    /,
+) -> int:
+    """Add a media chunk to an MTMD batch."""
+    ...
+
+
+# MTMD_API int32_t mtmd_batch_encode(mtmd_batch * batch);
+@ctypes_function("mtmd_batch_encode", [mtmd_batch_p_ctypes], c_int)
+def mtmd_batch_encode(batch: mtmd_batch_p, /) -> int:
+    """Run an MTMD encode pass for all chunks in a batch."""
+    ...
+
+
+# MTMD_API float * mtmd_batch_get_output_embd(mtmd_batch * batch, const mtmd_input_chunk * chunk);
+@ctypes_function(
+    "mtmd_batch_get_output_embd",
+    [mtmd_batch_p_ctypes, mtmd_input_chunk_p_ctypes],
+    POINTER(c_float),
+)
+def mtmd_batch_get_output_embd(
+    batch: mtmd_batch_p,
+    chunk: mtmd_input_chunk_p,
+    /,
+) -> Optional[CtypesArray[c_float]]:
+    """Get output embeddings for a chunk from the last batch encode pass."""
     ...
 
 
@@ -551,32 +691,63 @@ def mtmd_test_create_input_chunks() -> Optional[mtmd_input_chunks_p]:
 ################################################
 
 
-# MTMD_API mtmd_bitmap * mtmd_helper_bitmap_init_from_file(mtmd_context * ctx, const char * fname, bool placeholder);
+# MTMD_API bool mtmd_helper_support_video(mtmd_context * ctx);
+@ctypes_function(
+    "mtmd_helper_support_video",
+    [mtmd_context_p_ctypes],
+    c_bool,
+)
+def mtmd_helper_support_video(ctx: mtmd_context_p, /) -> bool:
+    """Check whether MTMD helper video support is available."""
+    ...
+
+
+# MTMD_API struct mtmd_helper_bitmap_wrapper mtmd_helper_bitmap_init_from_file(mtmd_context * ctx, const char * fname, bool placeholder);
 @ctypes_function(
     "mtmd_helper_bitmap_init_from_file",
     [mtmd_context_p_ctypes, c_char_p, c_bool],
-    mtmd_bitmap_p_ctypes,
+    mtmd_helper_bitmap_wrapper,
 )
+def mtmd_helper_bitmap_init_from_file_wrapper(
+    ctx: mtmd_context_p, fname: bytes, placeholder: Union[c_bool, bool], /
+) -> mtmd_helper_bitmap_wrapper:
+    """Initialize an MTMD bitmap wrapper from a file."""
+    ...
+
+
 def mtmd_helper_bitmap_init_from_file(
     ctx: mtmd_context_p, fname: bytes, placeholder: Union[c_bool, bool], /
 ) -> Optional[mtmd_bitmap_p]:
     """Initialize an MTMD bitmap from a file."""
-    ...
+    return mtmd_helper_bitmap_init_from_file_wrapper(ctx, fname, placeholder).bitmap
 
 
-# MTMD_API mtmd_bitmap * mtmd_helper_bitmap_init_from_buf(mtmd_context * ctx, const unsigned char * buf, size_t len, bool placeholder);
+# MTMD_API struct mtmd_helper_bitmap_wrapper mtmd_helper_bitmap_init_from_buf(mtmd_context * ctx, const unsigned char * buf, size_t len, bool placeholder);
 @ctypes_function(
     "mtmd_helper_bitmap_init_from_buf",
     [mtmd_context_p_ctypes, POINTER(c_uint8), c_size_t, c_bool],
-    mtmd_bitmap_p_ctypes,
+    mtmd_helper_bitmap_wrapper,
 )
+def mtmd_helper_bitmap_init_from_buf_wrapper(
+    ctx: mtmd_context_p,
+    buf: CtypesArray[c_uint8],
+    length: Union[c_size_t, int],
+    placeholder: Union[c_bool, bool],
+    /,
+) -> mtmd_helper_bitmap_wrapper: ...
+
+
 def mtmd_helper_bitmap_init_from_buf(
     ctx: mtmd_context_p,
     buf: CtypesArray[c_uint8],
     length: Union[c_size_t, int],
     placeholder: Union[c_bool, bool],
     /,
-) -> Optional[mtmd_bitmap_p]: ...
+) -> Optional[mtmd_bitmap_p]:
+    """Initialize an MTMD bitmap from a buffer."""
+    return mtmd_helper_bitmap_init_from_buf_wrapper(
+        ctx, buf, length, placeholder
+    ).bitmap
 
 
 # MTMD_API size_t mtmd_helper_get_n_tokens(const mtmd_input_chunks * chunks);
@@ -716,6 +887,94 @@ def mtmd_helper_decode_image_chunk(
     /,
 ) -> int:
     """Decode a pre-encoded image chunk."""
+    ...
+
+
+# MTMD_API struct mtmd_helper_video_init_params mtmd_helper_video_init_params_default(void);
+@ctypes_function(
+    "mtmd_helper_video_init_params_default", [], mtmd_helper_video_init_params
+)
+def mtmd_helper_video_init_params_default() -> mtmd_helper_video_init_params:
+    """Return the default MTMD helper video initialization parameters."""
+    ...
+
+
+# MTMD_API mtmd_helper_video * mtmd_helper_video_init(
+#                     struct mtmd_context * mctx,
+#                     const char * path,
+#                     struct mtmd_helper_video_init_params params);
+@ctypes_function(
+    "mtmd_helper_video_init",
+    [mtmd_context_p_ctypes, c_char_p, mtmd_helper_video_init_params],
+    mtmd_helper_video_p_ctypes,
+)
+def mtmd_helper_video_init(
+    ctx: mtmd_context_p,
+    path: bytes,
+    params: mtmd_helper_video_init_params,
+    /,
+) -> Optional[mtmd_helper_video_p]:
+    """Initialize an MTMD helper video stream from a file path."""
+    ...
+
+
+# MTMD_API mtmd_helper_video * mtmd_helper_video_init_from_buf(
+#                     struct mtmd_context * mctx,
+#                     const unsigned char * buf, size_t len,
+#                     struct mtmd_helper_video_init_params params);
+@ctypes_function(
+    "mtmd_helper_video_init_from_buf",
+    [mtmd_context_p_ctypes, POINTER(c_uint8), c_size_t, mtmd_helper_video_init_params],
+    mtmd_helper_video_p_ctypes,
+)
+def mtmd_helper_video_init_from_buf(
+    ctx: mtmd_context_p,
+    buf: CtypesArray[c_uint8],
+    length: Union[c_size_t, int],
+    params: mtmd_helper_video_init_params,
+    /,
+) -> Optional[mtmd_helper_video_p]:
+    """Initialize an MTMD helper video stream from a buffer."""
+    ...
+
+
+# MTMD_API void mtmd_helper_video_free(mtmd_helper_video * ctx);
+@ctypes_function("mtmd_helper_video_free", [mtmd_helper_video_p_ctypes], None)
+def mtmd_helper_video_free(ctx: mtmd_helper_video_p, /):
+    """Free an MTMD helper video stream."""
+    ...
+
+
+# MTMD_API struct mtmd_helper_video_info mtmd_helper_video_get_info(const mtmd_helper_video * ctx);
+@ctypes_function(
+    "mtmd_helper_video_get_info",
+    [mtmd_helper_video_p_ctypes],
+    mtmd_helper_video_info,
+)
+def mtmd_helper_video_get_info(ctx: mtmd_helper_video_p, /) -> mtmd_helper_video_info:
+    """Get metadata for an MTMD helper video stream."""
+    ...
+
+
+# MTMD_API int32_t mtmd_helper_video_read_next(mtmd_helper_video * ctx,
+#             mtmd_bitmap ** out_bitmap,
+#             char ** out_text);
+@ctypes_function(
+    "mtmd_helper_video_read_next",
+    [
+        mtmd_helper_video_p_ctypes,
+        POINTER(mtmd_bitmap_p_ctypes),
+        POINTER(c_char_p),
+    ],
+    c_int,
+)
+def mtmd_helper_video_read_next(
+    ctx: mtmd_helper_video_p,
+    out_bitmap: "_Pointer[mtmd_bitmap_p_ctypes]",
+    out_text: "_Pointer[c_char_p]",
+    /,
+) -> int:
+    """Read the next bitmap or text chunk from an MTMD helper video stream."""
     ...
 
 

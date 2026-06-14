@@ -1,12 +1,26 @@
 """Provide the ReportableMixin class."""
 
-from ....const import API_PATH
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from praw.const import API_PATH
+
+if TYPE_CHECKING:
+    import praw
 
 
 class ReportableMixin:
     """Interface for :class:`.RedditBase` classes that can be reported."""
 
-    def report(self, reason: str):
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: praw.Reddit
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    def report(self, reason: str) -> None:
         """Report this object to the moderators of its subreddit.
 
         :param reason: The reason for reporting.
@@ -25,6 +39,4 @@ class ReportableMixin:
             comment.report("report reason")
 
         """
-        self._reddit.post(
-            API_PATH["report"], data={"id": self.fullname, "reason": reason}
-        )
+        self._reddit.post(API_PATH["report"], data={"id": self.fullname, "reason": reason})

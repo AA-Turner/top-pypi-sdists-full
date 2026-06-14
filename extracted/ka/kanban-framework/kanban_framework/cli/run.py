@@ -314,6 +314,14 @@ def cmd_decide(args: list[str]) -> dict:
             sync_result = _record_score(fs, tm, task_id)
             if sync_result.get("recorded"):
                 task = tm.show(task_id)
+        # #649: Extract knowledge BEFORE archive — successful tasks have the
+        # most valuable lessons. Previously only abort path called this,
+        # which was backwards.
+        try:
+            from kanban_framework.cli.workflow_knowledge import extract_knowledge
+            extract_knowledge(task, fs)
+        except Exception:
+            pass  # don't block archive on extraction failure
         tm.update(task_id, phase="archive", status="archived")
         time_summary = _get_time_summary(task_id)
         # Write artifacts BEFORE moving directory (#262)
@@ -333,12 +341,22 @@ def cmd_decide(args: list[str]) -> dict:
             result["inbox_archived"] = inbox_result.get("archived_count")
         return result
     elif action == "abort":
+        # #646: Extract knowledge BEFORE archive, same as approve_and_archive.
+        # Aborted tasks may have valuable pitfalls/decisions worth recording.
+        # Previously this was skipped, losing all knowledge from failed tasks.
+        try:
+            from kanban_framework.cli.workflow_knowledge import extract_knowledge
+            extract_knowledge(task, fs)
+        except Exception:
+            pass  # don't block abort on extraction failure
+        _append_time_to_retrospective(task_id)
+        _knowledge_health_on_archive(task_id)
         tm.update(task_id, phase="archive", status="archived")
         _move_to_archive(fs, task_id)
         return {
             "task_id": task_id,
             "action": action,
-            "message": f"task {task_id} aborted and archived",
+            "message": f"task {task_id} aborted and archived (knowledge extracted)",
         }
     elif action == "feedback_and_restart":
         inbox_path = fs.task_dir(task_id) / "inbox.md"

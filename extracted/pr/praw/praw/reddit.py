@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import configparser
 import os
 import re
 import time
 from itertools import islice
 from logging import getLogger
-from typing import IO, TYPE_CHECKING, Any, Generator, Iterable
+from typing import IO, TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
-from warnings import warn
 
 from prawcore import (
     Authorizer,
@@ -26,16 +26,15 @@ from prawcore import (
 )
 from prawcore.exceptions import BadRequest
 
-from . import models
-from .config import Config
-from .const import API_PATH, USER_AGENT_FORMAT, __version__
-from .exceptions import (
+from praw import models
+from praw.config import Config
+from praw.const import API_PATH, USER_AGENT_FORMAT, __version__
+from praw.exceptions import (
     ClientException,
     MissingRequiredAttributeException,
     RedditAPIException,
 )
-from .objector import Objector
-from .util import _deprecate_args
+from praw.objector import Objector
 
 try:
     from update_checker import update_check
@@ -45,12 +44,21 @@ except ImportError:  # pragma: no cover
     update_check = None
     UPDATE_CHECKER_MISSING = True
 
-if TYPE_CHECKING:  # pragma: no cover
-    import prawcore
+if TYPE_CHECKING:
+    import sys
 
-    import praw.models
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
-    from .util.token_manager import BaseTokenManager
+    from collections.abc import Generator, Iterable, Iterator
+
+    import prawcore.auth
+    import prawcore.requestor
+
+    from praw.exceptions import RedditErrorItem
+
 
 Comment = models.Comment
 Redditor = models.Redditor
@@ -95,7 +103,7 @@ class Reddit:
         return self._core == self._read_only_core
 
     @read_only.setter
-    def read_only(self, value: bool):
+    def read_only(self, value: bool) -> None:
         """Set or unset the use of the ReadOnlyAuthorizer.
 
         :raises: :class:`.ClientException` when attempting to unset ``read_only`` and
@@ -105,52 +113,18 @@ class Reddit:
         if value:
             self._core = self._read_only_core
         elif self._authorized_core is None:
-            msg = (
-                "read_only cannot be unset as only the ReadOnlyAuthorizer is available."
-            )
+            msg = "read_only cannot be unset as only the ReadOnlyAuthorizer is available."
             raise ClientException(msg)
         else:
             self._core = self._authorized_core
 
-    @property
-    def validate_on_submit(self) -> bool:
-        """Get validate_on_submit.
-
-        .. deprecated:: 7.0
-
-            If property :attr:`.validate_on_submit` is set to ``False``, the behavior is
-            deprecated by Reddit. This attribute will be removed around May-June 2020.
-
-        """
-        value = self._validate_on_submit
-        if value is False:
-            warn(
-                "Reddit will check for validation on all posts around May-June 2020. It"
-                " is recommended to check for validation by setting"
-                " reddit.validate_on_submit to True.",
-                category=DeprecationWarning,
-                stacklevel=3,
-            )
-        return value
-
-    @validate_on_submit.setter
-    def validate_on_submit(self, val: bool):
-        self._validate_on_submit = val
-
-    def __enter__(self):  # noqa: ANN204
+    def __enter__(self) -> Self:
         """Handle the context manager open."""
         return self
 
-    def __exit__(self, *_: object):
+    def __exit__(self, *_: object) -> None:
         """Handle the context manager close."""
 
-    @_deprecate_args(
-        "site_name",
-        "config_interpolation",
-        "requestor_class",
-        "requestor_kwargs",
-        "token_manager",
-    )
     def __init__(
         self,
         site_name: str | None = None,
@@ -158,9 +132,8 @@ class Reddit:
         config_interpolation: str | None = None,
         requestor_class: type[prawcore.requestor.Requestor] | None = None,
         requestor_kwargs: dict[str, Any] | None = None,
-        token_manager: BaseTokenManager | None = None,
         **config_settings: str | bool | int | None,
-    ):
+    ) -> None:
         """Initialize a :class:`.Reddit` instance.
 
         :param site_name: The name of a section in your ``praw.ini`` file from which to
@@ -176,10 +149,6 @@ class Reddit:
             set, use ``prawcore.Requestor`` (default: ``None``).
         :param requestor_kwargs: Dictionary with additional keyword arguments used to
             initialize the requestor (default: ``None``).
-        :param token_manager: When provided, the passed instance, a subclass of
-            :class:`.BaseTokenManager`, will manage tokens via two callback functions.
-            This parameter must be provided in order to work with refresh tokens
-            (default: ``None``).
 
         Additional keyword arguments will be used to initialize the :class:`.Config`
         object. This can be used to specify configuration settings during instantiation
@@ -198,13 +167,12 @@ class Reddit:
 
         .. |Session| replace:: ``Session``
 
-        .. _session: https://2.python-requests.org/en/master/api/#requests.Session
+        .. _session: https://requests.readthedocs.io/en/stable/api/#request-sessions
 
         .. code-block:: python
 
             import json
 
-            import betamax
             import requests
             from prawcore import Requestor
 
@@ -218,25 +186,21 @@ class Reddit:
                     return response
 
 
-            my_session = betamax.Betamax(requests.Session())
+            my_session = requests.Session()
             reddit = Reddit(
                 ..., requestor_class=JSONDebugRequestor, requestor_kwargs={"session": my_session}
             )
 
         """
         self._core = self._authorized_core = self._read_only_core = None
-        self._objector = None
-        self._token_manager = token_manager
+        self._objector: Objector
         self._unique_counter = 0
-        self._validate_on_submit = False
 
         try:
             config_section = (
                 site_name or os.getenv("praw_site") or "DEFAULT"  # noqa: SIM112
             )
-            self.config = Config(
-                config_section, config_interpolation, **config_settings
-            )
+            self.config = Config(config_section, config_interpolation, **config_settings)
         except configparser.NoSectionError as exc:
             help_message = (
                 "You provided the name of a praw.ini configuration which does not"
@@ -255,19 +219,15 @@ class Reddit:
             " constructor, or as an environment variable."
         )
         for attribute in ("client_id", "user_agent"):
-            if getattr(self.config, attribute) in (self.config.CONFIG_NOT_SET, None):
-                raise MissingRequiredAttributeException(
-                    required_message.format(attribute)
-                )
+            if getattr(self.config, attribute) in {self.config.CONFIG_NOT_SET, None}:
+                raise MissingRequiredAttributeException(required_message.format(attribute))
         if self.config.client_secret is self.config.CONFIG_NOT_SET:
             msg = f"{required_message.format('client_secret')}\nFor installed applications this value must be set to None via a keyword argument to the Reddit class constructor."
             raise MissingRequiredAttributeException(msg)
 
         self._check_for_update()
         self._prepare_objector()
-        self._prepare_prawcore(
-            requestor_class=requestor_class, requestor_kwargs=requestor_kwargs
-        )
+        self._prepare_prawcore(requestor_class=requestor_class, requestor_kwargs=requestor_kwargs)
 
         self.auth = models.Auth(self, None)
         """An instance of :class:`.Auth`.
@@ -277,6 +237,27 @@ class Reddit:
         .. seealso::
 
             :ref:`auth_url`
+
+        """
+
+        self.announcements = models.AnnouncementHelper(self, None)
+        r"""An instance of :class:`.AnnouncementHelper`.
+
+        Provides the interface for working with :class:`.Announcement`\ s for the
+        currently authenticated user.
+
+        For example, to iterate through announcements:
+
+        .. code-block:: python
+
+            for announcement in reddit.announcements():
+                print(announcement.subject)
+
+        To mark all announcements as read:
+
+        .. code-block:: python
+
+            reddit.announcements.mark_all_read()
 
         """
 
@@ -391,7 +372,7 @@ class Reddit:
         """An instance of :class:`.SubredditHelper`.
 
         Provides the interface to working with :class:`.Subreddit` instances. For
-        example to create a :class:`.Subreddit` run:
+        example, to create a :class:`.Subreddit` run:
 
         .. code-block:: python
 
@@ -430,7 +411,7 @@ class Reddit:
         """An instance of :class:`.User`.
 
         Provides the interface to the currently authorized :class:`.Redditor`. For
-        example to get the name of the current user run:
+        example, to get the name of the current user run:
 
         .. code-block:: python
 
@@ -438,15 +419,12 @@ class Reddit:
 
         """
 
-    def _check_for_async(self):
+    def _check_for_async(self) -> None:
         if self.config.check_for_async:  # pragma: no cover
-            try:
-                # noinspection PyUnresolvedReferences
-                shell = get_ipython().__class__.__name__
-                if shell == "ZMQInteractiveShell":
-                    return
-            except NameError:
-                pass
+            # IPython injects get_ipython into builtins; it is absent outside IPython.
+            get_ipython = getattr(builtins, "get_ipython", None)
+            if get_ipython is not None and get_ipython().__class__.__name__ == "ZMQInteractiveShell":
+                return
             in_async = False
             try:
                 asyncio.get_running_loop()
@@ -463,16 +441,16 @@ class Reddit:
                     " for more info.\n",
                 )
 
-    def _check_for_update(self):
-        if UPDATE_CHECKER_MISSING:
+    def _check_for_update(self) -> None:
+        if UPDATE_CHECKER_MISSING or update_check is None:
             return
         if not Reddit.update_checked and self.config.check_for_updates:
-            update_check(__package__, __version__)
+            update_check(package_name=__package__ or "praw", package_version=__version__)
             Reddit.update_checked = True
 
     def _handle_rate_limit(self, exception: RedditAPIException) -> int | float | None:
         for item in exception.items:
-            if item.error_type == "RATELIMIT":
+            if item.error_type == "RATELIMIT" and item.message is not None:
                 amount_search = self._ratelimit_regex.search(item.message)
                 if not amount_search:
                     break
@@ -488,11 +466,11 @@ class Reddit:
     def _objectify_request(
         self,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         files: dict[str, IO] | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
         method: str = "",
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
         path: str = "",
     ) -> Any:
         """Run a request through the ``Objector``.
@@ -511,7 +489,7 @@ class Reddit:
 
         """
         return self._objector.objectify(
-            self.request(
+            data=self.request(
                 data=data,
                 files=files,
                 json=json,
@@ -521,39 +499,15 @@ class Reddit:
             )
         )
 
-    def _prepare_common_authorizer(
-        self, authenticator: prawcore.auth.BaseAuthenticator
-    ):
-        if self._token_manager is not None:
-            warn(
-                "Token managers have been deprecated and will be removed in the near"
-                " future. See https://www.reddit.com/r/redditdev/comments/olk5e6/"
-                "followup_oauth2_api_changes_regarding_refresh/ for more details.",
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            if self.config.refresh_token:
-                msg = "'refresh_token' setting cannot be provided when providing 'token_manager'"
-                raise TypeError(msg)
-
-            self._token_manager.reddit = self
-            authorizer = Authorizer(
-                authenticator,
-                post_refresh_callback=self._token_manager.post_refresh_callback,
-                pre_refresh_callback=self._token_manager.pre_refresh_callback,
-            )
-        elif self.config.refresh_token:
-            authorizer = Authorizer(
-                authenticator, refresh_token=self.config.refresh_token
-            )
+    def _prepare_common_authorizer(self, authenticator: prawcore.auth.BaseAuthenticator) -> None:
+        if self.config.refresh_token:
+            authorizer = Authorizer(authenticator=authenticator, refresh_token=self.config.refresh_token)
         else:
             self._core = self._read_only_core
             return
-        self._core = self._authorized_core = session(
-            authorizer=authorizer, window_size=self.config.window_size
-        )
+        self._core = self._authorized_core = session(authorizer=authorizer, window_size=self.config.window_size)
 
-    def _prepare_objector(self):
+    def _prepare_objector(self) -> None:
         mappings = {
             self.config.kinds["comment"]: models.Comment,
             self.config.kinds["message"]: models.Message,
@@ -565,6 +519,9 @@ class Reddit:
             "Collection": models.Collection,
             "Draft": models.Draft,
             "DraftList": models.DraftList,
+            "Announcement": models.Announcement,
+            "AnnouncementListing": models.AnnouncementListing,
+            "ann": models.Announcement,
             "Image": models.Image,
             "LabeledMulti": models.Multireddit,
             "Listing": models.Listing,
@@ -604,16 +561,16 @@ class Reddit:
     def _prepare_prawcore(
         self,
         *,
-        requestor_class: type[prawcore.requestor.Requestor] = None,
-        requestor_kwargs: Any | None = None,
-    ):
+        requestor_class: type[prawcore.requestor.Requestor] | None = None,
+        requestor_kwargs: dict[str, Any] | None = None,
+    ) -> None:
         requestor_class = requestor_class or Requestor
         requestor_kwargs = requestor_kwargs or {}
 
         requestor = requestor_class(
-            USER_AGENT_FORMAT.format(self.config.user_agent),
-            self.config.oauth_url,
-            self.config.reddit_url,
+            oauth_url=self.config.oauth_url,
+            reddit_url=self.config.reddit_url,
+            user_agent=USER_AGENT_FORMAT.format(self.config.user_agent),
             **requestor_kwargs,
         )
 
@@ -622,21 +579,21 @@ class Reddit:
         else:
             self._prepare_untrusted_prawcore(requestor)
 
-    def _prepare_trusted_prawcore(self, requestor: prawcore.requestor.Requestor):
+    def _prepare_trusted_prawcore(self, requestor: prawcore.requestor.Requestor) -> None:
+        # Only reached when client_secret is set (see _prepare_prawcore).
+        assert self.config.client_secret is not None
         authenticator = TrustedAuthenticator(
-            requestor,
-            self.config.client_id,
-            self.config.client_secret,
-            self.config.redirect_uri,
+            requestor=requestor,
+            client_id=self.config.client_id,
+            client_secret=self.config.client_secret,
+            redirect_uri=self.config.redirect_uri,
         )
-        read_only_authorizer = ReadOnlyAuthorizer(authenticator)
-        self._read_only_core = session(
-            authorizer=read_only_authorizer, window_size=self.config.window_size
-        )
+        read_only_authorizer = ReadOnlyAuthorizer(authenticator=authenticator)
+        self._read_only_core = session(authorizer=read_only_authorizer, window_size=self.config.window_size)
 
         if self.config.username and self.config.password:
             script_authorizer = ScriptAuthorizer(
-                authenticator, self.config.username, self.config.password
+                authenticator=authenticator, password=self.config.password, username=self.config.username
             )
             self._core = self._authorized_core = session(
                 authorizer=script_authorizer, window_size=self.config.window_size
@@ -644,14 +601,12 @@ class Reddit:
         else:
             self._prepare_common_authorizer(authenticator)
 
-    def _prepare_untrusted_prawcore(self, requestor: prawcore.requestor.Requestor):
+    def _prepare_untrusted_prawcore(self, requestor: prawcore.requestor.Requestor) -> None:
         authenticator = UntrustedAuthenticator(
-            requestor, self.config.client_id, self.config.redirect_uri
+            requestor=requestor, client_id=self.config.client_id, redirect_uri=self.config.redirect_uri
         )
-        read_only_authorizer = DeviceIDAuthorizer(authenticator)
-        self._read_only_core = session(
-            authorizer=read_only_authorizer, window_size=self.config.window_size
-        )
+        read_only_authorizer = DeviceIDAuthorizer(authenticator=authenticator)
+        self._read_only_core = session(authorizer=read_only_authorizer, window_size=self.config.window_size)
         self._prepare_common_authorizer(authenticator)
 
     def _resolve_share_url(self, url: str) -> str:
@@ -661,13 +616,13 @@ class Reddit:
             try:
                 self.get(url)
             except Redirect as e:
-                return e.response.next.url
+                next_request = e.response.next
+                assert next_request is not None
+                assert next_request.url is not None
+                return next_request.url
         return url
 
-    @_deprecate_args("id", "url")
-    def comment(
-        self, id: str | None = None, *, url: str | None = None
-    ) -> models.Comment:
+    def comment(self, id: str | None = None, *, url: str | None = None) -> models.Comment:
         """Return a lazy instance of :class:`.Comment`.
 
         :param id: The ID of the comment.
@@ -683,14 +638,13 @@ class Reddit:
             url = self._resolve_share_url(url)
         return models.Comment(self, id=id, url=url)
 
-    @_deprecate_args("path", "data", "json", "params")
     def delete(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a DELETE request to ``path``.
 
@@ -703,9 +657,7 @@ class Reddit:
         :param params: The query parameters to add to the request (default: ``None``).
 
         """
-        return self._objectify_request(
-            data=data, json=json, method="DELETE", params=params, path=path
-        )
+        return self._objectify_request(data=data, json=json, method="DELETE", params=params, path=path)
 
     def domain(self, domain: str) -> models.DomainListing:
         """Return an instance of :class:`.DomainListing`.
@@ -715,12 +667,11 @@ class Reddit:
         """
         return models.DomainListing(self, domain)
 
-    @_deprecate_args("path", "params")
     def get(
         self,
         path: str,
         *,
-        params: str | dict[str, str | int] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a GET request to ``path``.
 
@@ -730,15 +681,14 @@ class Reddit:
         """
         return self._objectify_request(method="GET", params=params, path=path)
 
-    @_deprecate_args("fullnames", "url", "subreddits")
     def info(
         self,
         *,
         fullnames: Iterable[str] | None = None,
-        subreddits: Iterable[praw.models.Subreddit | str] | None = None,
+        subreddits: Iterable[models.Subreddit | str] | None = None,
         url: str | None = None,
     ) -> Generator[
-        praw.models.Subreddit | praw.models.Comment | praw.models.Submission,
+        models.Subreddit | models.Comment | models.Submission,
         None,
         None,
     ]:
@@ -768,8 +718,8 @@ class Reddit:
             ``"https://www.youtube.com"`` will provide a different set of submissions.
 
         """
-        none_count = (fullnames, url, subreddits).count(None)
-        if none_count != 2:
+        set_count = sum(1 for value in (fullnames, url, subreddits) if value is not None)
+        if set_count != 1:
             msg = "Either 'fullnames', 'url', or 'subreddits' must be provided."
             raise TypeError(msg)
 
@@ -783,34 +733,45 @@ class Reddit:
 
             api_parameter_name = "id" if is_using_fullnames else "sr_name"
 
-            def generator(names: Iterable[str | praw.models.Subreddit]):
-                if is_using_fullnames:
-                    iterable = iter(names)
-                else:
-                    iterable = iter([str(item) for item in names])
+            def name_generator(
+                names: Iterable[str | models.Subreddit],
+            ) -> Generator[
+                models.Subreddit | models.Comment | models.Submission,
+                None,
+                None,
+            ]:
+                iterable: Iterator[str] = (
+                    iter(str(item) for item in names) if is_using_fullnames else iter([str(item) for item in names])
+                )
                 while True:
                     chunk = list(islice(iterable, 100))
                     if not chunk:
                         break
-                    params = {api_parameter_name: ",".join(chunk)}
+                    params: dict[str, str | int] = {api_parameter_name: ",".join(chunk)}
                     yield from self.get(API_PATH["info"], params=params)
 
-            return generator(ids_or_names)
+            return name_generator(ids_or_names)
 
-        def generator(_url: str):
-            params = {"url": _url}
+        def url_generator(
+            _url: str,
+        ) -> Generator[
+            models.Subreddit | models.Comment | models.Submission,
+            None,
+            None,
+        ]:
+            params: dict[str, str | int] = {"url": _url}
             yield from self.get(API_PATH["info"], params=params)
 
-        return generator(url)
+        assert url is not None
+        return url_generator(url)
 
-    @_deprecate_args("path", "data", "json")
     def patch(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a PATCH request to ``path``.
 
@@ -823,19 +784,16 @@ class Reddit:
         :param params: The query parameters to add to the request (default: ``None``).
 
         """
-        return self._objectify_request(
-            data=data, json=json, method="PATCH", params=params, path=path
-        )
+        return self._objectify_request(data=data, json=json, method="PATCH", params=params, path=path)
 
-    @_deprecate_args("path", "data", "files", "params", "json")
     def post(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         files: dict[str, IO] | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
-        params: str | dict[str, str] | None = None,
+        params: dict[str, str | int] | None = None,
     ) -> Any:
         """Return parsed objects returned from a POST request to ``path``.
 
@@ -854,7 +812,7 @@ class Reddit:
             data = data or {}
 
         attempts = 3
-        last_exception = None
+        last_exception: RedditAPIException | None = None
         while attempts > 0:
             attempts -= 1
             try:
@@ -872,18 +830,16 @@ class Reddit:
                 if seconds is None:
                     break
                 second_string = "second" if seconds == 1 else "seconds"
-                logger.debug(
-                    "Rate limit hit, sleeping for %d %s", seconds, second_string
-                )
+                logger.debug("Rate limit hit, sleeping for %d %s", seconds, second_string)
                 time.sleep(seconds)
+        assert last_exception is not None
         raise last_exception
 
-    @_deprecate_args("path", "data", "json")
     def put(
         self,
         path: str,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
     ) -> Any:
         """Return parsed objects returned from a PUT request to ``path``.
@@ -898,26 +854,7 @@ class Reddit:
         """
         return self._objectify_request(data=data, json=json, method="PUT", path=path)
 
-    @_deprecate_args("nsfw")
-    def random_subreddit(self, *, nsfw: bool = False) -> praw.models.Subreddit:
-        """Return a random lazy instance of :class:`.Subreddit`.
-
-        :param nsfw: Return a random NSFW (not safe for work) subreddit (default:
-            ``False``).
-
-        """
-        url = API_PATH["subreddit"].format(subreddit="randnsfw" if nsfw else "random")
-        path = None
-        try:
-            self.get(url, params={"unique": self._next_unique})
-        except Redirect as redirect:
-            path = redirect.path
-        return models.Subreddit(self, path.split("/")[2])
-
-    @_deprecate_args("name", "fullname")
-    def redditor(
-        self, name: str | None = None, *, fullname: str | None = None
-    ) -> praw.models.Redditor:
+    def redditor(self, name: str | None = None, *, fullname: str | None = None) -> models.Redditor:
         """Return a lazy instance of :class:`.Redditor`.
 
         :param name: The name of the redditor.
@@ -928,15 +865,14 @@ class Reddit:
         """
         return models.Redditor(self, name=name, fullname=fullname)
 
-    @_deprecate_args("method", "path", "params", "data", "files", "json")
     def request(
         self,
         *,
-        data: dict[str, str | Any] | bytes | IO | str | None = None,
+        data: dict[str, Any] | bytes | IO | str | None = None,
         files: dict[str, IO] | None = None,
         json: dict[Any, Any] | list[Any] | None = None,
         method: str,
-        params: str | dict[str, str | int] | None = None,
+        params: dict[str, str | int] | None = None,
         path: str,
     ) -> Any:
         """Return the parsed JSON data returned from a request to URL.
@@ -959,6 +895,7 @@ class Reddit:
         if data and json:
             msg = "At most one of 'data' or 'json' is supported."
             raise ClientException(msg)
+        assert self._core is not None
         try:
             return self._core.request(
                 data=data,
@@ -969,29 +906,30 @@ class Reddit:
                 path=path,
             )
         except BadRequest as exception:
+            error_data: dict[str, Any]
             try:
-                data = exception.response.json()
+                error_data = exception.response.json()
             except ValueError:
                 if exception.response.text:
-                    data = {"reason": exception.response.text}
+                    error_data = {"reason": exception.response.text}
                 else:
                     raise exception from None
-            if set(data) == {"error", "message"}:
+            if set(error_data) == {"error", "message"}:
                 raise
-            explanation = data.get("explanation")
-            if "fields" in data:
-                assert len(data["fields"]) == 1
-                field = data["fields"][0]
+            explanation = error_data.get("explanation")
+            if "fields" in error_data:
+                assert len(error_data["fields"]) == 1
+                field = error_data["fields"][0]
             else:
                 field = None
             raise RedditAPIException(
-                [data["reason"], explanation, field]
+                cast(
+                    "list[RedditErrorItem | list[str] | str]",
+                    [error_data["reason"], explanation, field],
+                )
             ) from exception
 
-    @_deprecate_args("id", "url")
-    def submission(
-        self, id: str | None = None, *, url: str | None = None
-    ) -> praw.models.Submission:
+    def submission(self, id: str | None = None, *, url: str | None = None) -> models.Submission:
         """Return a lazy instance of :class:`.Submission`.
 
         :param id: A Reddit base36 submission ID, e.g., ``"2gmzqe"``.
@@ -1014,6 +952,4 @@ class Reddit:
             reddit.username_available("bboe")
 
         """
-        return self._objectify_request(
-            method="GET", params={"user": name}, path=API_PATH["username_available"]
-        )
+        return self._objectify_request(method="GET", params={"user": name}, path=API_PATH["username_available"])

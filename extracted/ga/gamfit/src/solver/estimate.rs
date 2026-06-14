@@ -65,6 +65,27 @@ use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use std::sync::Arc;
 
+/// Exact REML outer Hessians are pairwise in the smoothing coordinates. At or
+/// above this dimension the per-eval eigensolve/reparameterization work
+/// dominates wall-clock for spectral multi-penalty smooths; analytic-gradient
+/// BFGS reaches the same optimum with lower total work. Low-dimensional classic
+/// fits keep exact second-order geometry.
+const REML_SECOND_ORDER_RHO_CAP: usize = 4;
+/// Continuation prewarm is a seed-polishing pass, not part of the REML
+/// objective. It can be useful for tiny rho spaces where one or two warm
+/// solves amortize, but it scales with the number of starts and runs full
+/// inner solves before the real optimizer even begins. Moderate/high-rho
+/// smooths (measure-jet spectral candidates are the motivating profile) start
+/// directly from the seed lattice; the optimizer's own line search owns
+/// globalization.
+const REML_CONTINUATION_PREWARM_RHO_CAP: usize = 4;
+/// Above this rho dimension, startup work must be linear in "one real solve",
+/// not "rank a seed lattice with capped PIRLS solves". The heuristic seed is
+/// deterministic and already centered on the current penalty scale; BFGS/ARC
+/// globalizes from there. Low-dimensional classic smooths keep screening
+/// because the extra probes are cheap and sometimes useful.
+const REML_SEED_SCREENING_RHO_CAP: usize = 4;
+
 /// Programmatic prior mean for a coefficient penalty block.
 ///
 /// The mean is evaluated once during penalty canonicalization and then enters
@@ -2069,6 +2090,10 @@ pub struct ExternalOptimOptions {
     pub sas_link: Option<SasLinkSpec>,
     pub optimize_sas: bool,
     pub compute_inference: bool,
+    /// Internal lifecycle knob for fits whose result will be immediately
+    /// superseded. Keeps ordinary inference work but skips the live-objective
+    /// rho posterior certificate/escalation until the returned model is known.
+    pub skip_rho_posterior_inference: bool,
     pub max_iter: usize,
     pub tol: f64,
     pub nullspace_dims: Vec<usize>,
@@ -2946,6 +2971,15 @@ pub(crate) struct ExternalJointHyperEvaluator<'a> {
     /// revision yet recorded" — every subsequent call is treated as a
     /// fresh-canonical case and the slow path runs.
     last_canonical_revision: Option<u64>,
+    /// Certified Chebyshev-in-ψ Gram tensor for the SINGLE design-moving
+    /// hyperparameter (#1033b, isotropic spatial κ): when present and the
+    /// trial ψ lies inside the certified window, `prepare_eval_state`
+    /// installs the n-free assembled `GaussianFixedCache` after
+    /// `reset_surface`, replacing the per-trial O(n·p²) Gram re-stream. Built
+    /// in the conditioned frame by `build_and_set_psi_gram_tensor` (the same
+    /// fixed column transform the streamed Gram uses), so the installed
+    /// statistics are frame-exact against the streamed ones.
+    psi_gram_tensor: Option<std::sync::Arc<crate::solver::psi_gram_tensor::PsiGramTensor>>,
 }
 
 impl<'a> ExternalJointHyperEvaluator<'a> {
@@ -3010,6 +3044,7 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             kronecker_factored: opts.kronecker_factored.clone(),
             reml_state,
             last_canonical_revision: None,
+            psi_gram_tensor: None,
         })
     }
 
@@ -3055,6 +3090,63 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             &self.reml_state,
             values,
         );
+    }
+
+    /// Build and attach a certified ψ-Gram tensor (#1033b) for the single
+    /// design-moving hyperparameter ψ over `[psi_lo, psi_hi]`.
+    ///
+    /// `eval_raw_design(psi)` returns the EXACT realized design at `psi` in the
+    /// raw (user) column frame — the same realizer the per-trial path uses.
+    /// This method threads it through THIS evaluator's parametric column
+    /// conditioning before the tensor sees it, so the tensor's assembled
+    /// `XᵀWX(ψ)` lives in the SAME conditioned frame as the streamed
+    /// `gaussian_fixed_cache_if_eligible` (which forms its Gram from
+    /// `x_fit = conditioning.apply_to_design(x)`). The conditioning is a fixed,
+    /// ψ-invariant column transform (means/scales frozen from the baseline
+    /// design at construction), so applying it inside the build keeps the
+    /// expansion analytic and the per-trial installed cache frame-exact —
+    /// without restricting to identity conditioning. Returns whether a
+    /// certified tensor was attached; `false` keeps the exact per-trial path.
+    pub(crate) fn build_and_set_psi_gram_tensor(
+        &mut self,
+        mut eval_raw_design: impl FnMut(f64) -> Result<DesignMatrix, String>,
+        weights: ArrayView1<'_, f64>,
+        z: ArrayView1<'_, f64>,
+        psi_lo: f64,
+        psi_hi: f64,
+    ) -> bool {
+        // Clone the (cheap) conditioning so the build closure borrows it
+        // without aliasing `self` while we set the field afterward.
+        let conditioning = self.conditioning.clone();
+        let tensor = crate::solver::psi_gram_tensor::PsiGramTensor::build(
+            |psi| {
+                let raw = eval_raw_design(psi)?;
+                Ok(conditioning.apply_to_design(&raw).to_dense())
+            },
+            weights,
+            z,
+            psi_lo,
+            psi_hi,
+        );
+        match tensor {
+            Some(tensor) => {
+                self.psi_gram_tensor = Some(std::sync::Arc::new(tensor));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// True when a certified ψ-Gram tensor is installed AND `psi` lies inside
+    /// its certified GRADIENT sub-window — i.e. the n-free k-space ψ-derivatives
+    /// `(∂G/∂ψ, ∂b/∂ψ)` will serve the Gaussian gradient HyperCoord, so the
+    /// caller's per-trial n×k ∂X/∂ψ slab is redundant (#1033). The value lane
+    /// (`contains`) spans the full window; the gradient lane is the narrower
+    /// interior where the Chebyshev derivative reconstruction is bit-tight.
+    pub(crate) fn psi_gram_tensor_covers_gradient(&self, psi: f64) -> bool {
+        self.psi_gram_tensor
+            .as_ref()
+            .is_some_and(|t| t.contains_for_gradient(psi))
     }
 
     fn prepare_eval_state(
@@ -3148,6 +3240,46 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             .set_penalty_shrinkage_floor(self.penalty_shrinkage_floor);
         self.reml_state.setwarm_start_original_beta(warm_start_beta);
         self.last_canonical_revision = design_revision;
+        // #1033b: single design-moving ψ with a certified tensor — install the
+        // n-free assembled Gaussian sufficient statistics so the inner PLS and
+        // the sparse scatter skip the per-trial O(n·p²) Gram re-stream
+        // (`reset_surface` above just cleared the slot for the new design).
+        // Off-window, multi-ψ, ineligible family, or shape mismatch all fall
+        // through to the streamed builder unchanged.
+        if let Some(tensor) = self.psi_gram_tensor.as_ref()
+            && theta.len() == rho_dim + 1
+        {
+            let psi = theta[rho_dim];
+            if tensor.contains(psi)
+                && self
+                    .reml_state
+                    .install_gaussian_fixed_cache(Arc::new(tensor.gaussian_fixed_cache_at(psi)))
+            {
+                log::debug!(
+                    "[psi-gram-tensor] installed n-free Gaussian sufficient statistics at psi={psi:.6}"
+                );
+                // #1033b: install the conditioned-frame exact ψ-derivatives so
+                // the Gaussian ψ-gradient HyperCoord is assembled from these
+                // k×k objects instead of the n×k ∂X/∂ψ slab — retiring the
+                // second per-trial n-pass. Same conditioned column frame as the
+                // installed Gram; the hyper-coord builder applies the per-eval
+                // Qs/free-basis transform. Failure here just keeps the slab
+                // gradient path (still correct, only slower). Only install on
+                // the certified gradient SUB-window: near the ψ-window edges the
+                // Chebyshev derivative reconstruction (T_d′ ∼ d²) is not
+                // bit-tight, so those trials keep the exact slab gradient.
+                if tensor.contains_for_gradient(psi)
+                    && self.reml_state.install_gaussian_psi_gram_deriv(Arc::new((
+                        tensor.dgram_dpsi(psi),
+                        tensor.drhs_dpsi(psi),
+                    )))
+                {
+                    log::debug!(
+                        "[psi-gram-tensor] installed n-free ψ-gradient derivatives at psi={psi:.6}"
+                    );
+                }
+            }
+        }
         Ok(hyper_dirs)
     }
 
@@ -3528,6 +3660,20 @@ where
 
 fn external_reml_seed_config(k: usize, link: LinkFunction) -> SeedConfig {
     let gaussian = matches!(link, LinkFunction::Identity);
+    if k >= REML_SEED_SCREENING_RHO_CAP {
+        return SeedConfig {
+            bounds: (-12.0, 12.0),
+            max_seeds: 1,
+            seed_budget: 1,
+            risk_profile: if gaussian {
+                SeedRiskProfile::Gaussian
+            } else {
+                SeedRiskProfile::GeneralizedLinear
+            },
+            screen_max_inner_iterations: SeedConfig::default().screen_max_inner_iterations,
+            num_auxiliary_trailing: 0,
+        };
+    }
     SeedConfig {
         bounds: (-12.0, 12.0),
         max_seeds: if gaussian && k <= 4 {
@@ -3854,6 +4000,20 @@ where
         // and their gradient is not on an O(n) scale.
         let gaussian_identity = matches!(cfg.link_function(), LinkFunction::Identity);
         let n_obs = y_o.len();
+        let prefer_gradient_only = k >= REML_SECOND_ORDER_RHO_CAP;
+        let continuation_prewarm = k < REML_CONTINUATION_PREWARM_RHO_CAP;
+        if prefer_gradient_only {
+            log::info!(
+                "[OUTER] rho_dim {k} reaches exact REML Hessian budget \
+                   ({REML_SECOND_ORDER_RHO_CAP}); routing analytic-gradient quasi-Newton"
+            );
+        }
+        if !continuation_prewarm {
+            log::info!(
+                "[OUTER] rho_dim {k} reaches continuation-prewarm budget \
+                   ({REML_CONTINUATION_PREWARM_RHO_CAP}); starting optimizer directly from seeds"
+            );
+        }
         let problem = OuterProblem::new(k)
             .with_gradient(Derivative::Analytic)
             .with_hessian(if analytic_outer_hessian_available {
@@ -3861,6 +4021,8 @@ where
             } else {
                 DeclaredHessianForm::Unavailable
             })
+            .with_prefer_gradient_only(prefer_gradient_only)
+            .with_continuation_prewarm(continuation_prewarm)
             .with_barrier(
                 crate::solver::estimate::reml::unified::BarrierConfig::from_constraints(
                     fit_linear_constraints.as_ref(),
@@ -4098,13 +4260,33 @@ where
         let aux_dim_outer = if use_mixture { mixture_dim } else { sas_dim };
         let mut reml_seed_config_mix = reml_seed_config;
         reml_seed_config_mix.num_auxiliary_trailing = aux_dim_outer;
+        if theta_dim >= REML_SEED_SCREENING_RHO_CAP {
+            reml_seed_config_mix.max_seeds = 1;
+            reml_seed_config_mix.seed_budget = 1;
+        }
         use crate::solver::outer_strategy::{
             DeclaredHessianForm, Derivative, HessianResult, OuterEval, OuterProblem,
         };
         let initial_link_kind = cfg.link_kind.clone();
+        let prefer_gradient_only = theta_dim >= REML_SECOND_ORDER_RHO_CAP;
+        let continuation_prewarm = theta_dim < REML_CONTINUATION_PREWARM_RHO_CAP;
+        if prefer_gradient_only {
+            log::info!(
+                "[OUTER] theta_dim {theta_dim} reaches exact REML Hessian budget \
+                   ({REML_SECOND_ORDER_RHO_CAP}); routing analytic-gradient quasi-Newton"
+            );
+        }
+        if !continuation_prewarm {
+            log::info!(
+                "[OUTER] theta_dim {theta_dim} reaches continuation-prewarm budget \
+                   ({REML_CONTINUATION_PREWARM_RHO_CAP}); starting optimizer directly from seeds"
+            );
+        }
         let problem = OuterProblem::new(theta_dim)
             .with_gradient(Derivative::Analytic)
             .with_hessian(DeclaredHessianForm::Either)
+            .with_prefer_gradient_only(prefer_gradient_only)
+            .with_continuation_prewarm(continuation_prewarm)
             .with_psi_dim(mixture_dim + sas_dim)
             .with_barrier(
                 crate::solver::estimate::reml::unified::BarrierConfig::from_constraints(
@@ -4840,11 +5022,15 @@ where
         // certificate runs against the SAME objective the fit converged on, so
         // its criterion is the fit's own bit-for-bit (no retain/rebuild). Absent
         // when there are no smoothing parameters or the outer Hessian is
-        // unavailable; never fatal. When the certificate reads Escalate, the
-        // auto-selected escalation tier (quadrature for K≤4, NUTS over ρ for
-        // K≤16, honest Unavailable beyond) runs at this same live seam.
-        (rho_posterior_certificate, rho_posterior_escalation) =
-            reml_state.rho_posterior_inference(&final_rho, None);
+        // unavailable; never fatal. Superseded intermediate fits skip this block
+        // and the caller must refit with a live objective before returning that
+        // model. When the certificate reads Escalate, the auto-selected escalation
+        // tier (quadrature for K≤4, NUTS over ρ for K≤16, honest Unavailable
+        // beyond) runs at this same live seam.
+        if !opts.skip_rho_posterior_inference {
+            (rho_posterior_certificate, rho_posterior_escalation) =
+                reml_state.rho_posterior_inference(&final_rho, None);
+        }
 
         // Standard errors: prefer the diagonal of the full inverse when
         // available; otherwise use the factorised Hessian from the EDF pass
@@ -5051,6 +5237,10 @@ pub struct FitOptions {
     pub sas_link: Option<SasLinkSpec>,
     pub optimize_sas: bool,
     pub compute_inference: bool,
+    /// Internal lifecycle knob for fits whose result will be immediately
+    /// superseded. Keeps ordinary inference work but skips the live-objective
+    /// rho posterior certificate/escalation until the returned model is known.
+    pub skip_rho_posterior_inference: bool,
     pub max_iter: usize,
     pub tol: f64,
     pub nullspace_dims: Vec<usize>,
@@ -5100,6 +5290,7 @@ impl Default for FitOptions {
             sas_link: None,
             optimize_sas: false,
             compute_inference: true,
+            skip_rho_posterior_inference: false,
             max_iter: 100,
             tol: 1e-6,
             nullspace_dims: Vec::new(),
@@ -6640,14 +6831,6 @@ pub struct SmoothTermSummary {
     pub ref_df: f64,
     pub chi_sq: Option<f64>,
     pub pvalue: Option<f64>,
-    /// Second-order (Bartlett-corrected) p-value (#939), reported alongside —
-    /// never replacing — the first-order `pvalue`. `None` when no exact
-    /// correction factor is available for this term/family.
-    pub pvalue_corrected: Option<f64>,
-    /// The Bartlett factor `c = E[W]/d` behind `pvalue_corrected`; `|c − 1|`
-    /// above [`crate::inference::higher_order::MATERIAL_DISTORTION_THRESHOLD`]
-    /// means the first-order inference is materially distorted at this `n`.
-    pub bartlett_factor: Option<f64>,
     pub continuous_order: Option<ContinuousSmoothnessOrder>,
     /// Issue #340: human-readable note describing an automatic B-spline
     /// basis-shrink performed at fit time when `n` was too small for the
@@ -7079,41 +7262,6 @@ impl fmt::Display for ModelSummary {
             )?;
         }
         writeln!(f)?;
-        // #939: second-order (Bartlett-corrected) p-values, alongside — never
-        // replacing — the first-order column above. A term is flagged when
-        // |c − 1| exceeds the material-distortion threshold: at this n the
-        // first-order χ²/F reference is too far off to trust uncorrected.
-        let bartlett_terms = self
-            .smooth_terms
-            .iter()
-            .filter_map(|t| {
-                t.bartlett_factor
-                    .zip(t.pvalue_corrected)
-                    .map(|(c, p)| (&t.name, c, p))
-            })
-            .collect::<Vec<_>>();
-        if !bartlett_terms.is_empty() {
-            writeln!(f, "Second-Order (Bartlett-Corrected) P-Values:")?;
-            for (name, c, p_corr) in bartlett_terms {
-                let flag = if (c - 1.0).abs()
-                    > crate::inference::higher_order::MATERIAL_DISTORTION_THRESHOLD
-                {
-                    "  [first-order p materially distorted at this n]"
-                } else {
-                    ""
-                };
-                writeln!(
-                    f,
-                    "{:<namew$} corrected p = {:>10}  factor c = {:.4}{}",
-                    name,
-                    format_pvalue(Some(p_corr)),
-                    c,
-                    flag,
-                    namew = smoothnamew
-                )?;
-            }
-            writeln!(f)?;
-        }
         let order_terms = self
             .smooth_terms
             .iter()
@@ -7421,6 +7569,7 @@ where
         sas_link: effective_sas_link,
         optimize_sas: opts.optimize_sas,
         compute_inference: opts.compute_inference,
+        skip_rho_posterior_inference: opts.skip_rho_posterior_inference,
         max_iter: opts.max_iter,
         tol: opts.tol,
         nullspace_dims,
@@ -8000,6 +8149,17 @@ mod estimate_policy_tests {
             cfg.seed_budget, 1,
             "standard Gaussian REML should fully optimize the best screened start by default"
         );
+    }
+
+    #[test]
+    fn high_dimensional_external_reml_skips_seed_screening() {
+        let cfg = external_reml_seed_config(REML_SEED_SCREENING_RHO_CAP, LinkFunction::Identity);
+        assert_eq!(cfg.risk_profile, SeedRiskProfile::Gaussian);
+        assert_eq!(
+            cfg.max_seeds, 1,
+            "moderate/high-dimensional REML should start from the deterministic seed directly"
+        );
+        assert_eq!(cfg.seed_budget, 1);
     }
 
     #[test]
@@ -8837,6 +8997,7 @@ mod estimate_policy_tests {
             }),
             optimize_sas: true,
             compute_inference: true,
+            skip_rho_posterior_inference: false,
             max_iter: 80,
             tol: 1e-7,
             nullspace_dims: vec![1],
@@ -9074,6 +9235,7 @@ mod estimate_policy_tests {
             }),
             optimize_sas: true,
             compute_inference: true,
+            skip_rho_posterior_inference: false,
             max_iter: 80,
             tol: 1e-7,
             nullspace_dims: vec![1],
@@ -9242,6 +9404,7 @@ mod estimate_policy_tests {
             }),
             optimize_sas: true,
             compute_inference: true,
+            skip_rho_posterior_inference: false,
             max_iter: 80,
             tol: 1e-7,
             nullspace_dims: vec![1],

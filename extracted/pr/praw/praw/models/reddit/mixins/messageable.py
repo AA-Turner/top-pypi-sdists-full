@@ -4,24 +4,27 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ....const import API_PATH
-from ....util import _deprecate_args
+from praw.const import API_PATH
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import praw
+    from praw import models
 
 
 class MessageableMixin:
     """Interface for classes that can be messaged."""
 
-    @_deprecate_args("subject", "message", "from_subreddit")
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: praw.Reddit
+
     def message(
         self,
         *,
-        from_subreddit: praw.models.Subreddit | str | None = None,
+        from_subreddit: models.Subreddit | str | None = None,
         message: str,
         subject: str,
-    ):
+    ) -> None:
         """Send a message to a :class:`.Redditor` or a :class:`.Subreddit`'s moderators (modmail).
 
         :param from_subreddit: A :class:`.Subreddit` instance or string to send the

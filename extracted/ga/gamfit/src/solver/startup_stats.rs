@@ -167,6 +167,215 @@ pub(crate) fn uniform_structural_key(
     Some(key)
 }
 
+/// Coarse discriminant of an [`InnerFailure`] variant, used as the first
+/// half of the generic cross-seed failure signature. The `uniform_structural_key`
+/// path above only fires for genuinely structural `CertRefused` diagnoses; this
+/// tag is deliberately broader so the *generic* consecutive-run detector can
+/// also catch the `RemlConvergenceError` / non-PD-pivot / KKT-stuck class
+/// (#1036) that classifies as `BudgetExhausted`, `TrustRegionFloor`, or
+/// `Other` and never reaches a structural diagnosis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FailureVariantTag {
+    CertRefused,
+    BudgetExhausted,
+    TrustRegionFloor,
+    Likelihood,
+    Identifiability,
+    Other,
+}
+
+fn variant_tag(failure: &InnerFailure) -> FailureVariantTag {
+    match failure {
+        InnerFailure::CertRefused { .. } => FailureVariantTag::CertRefused,
+        InnerFailure::BudgetExhausted { .. } => FailureVariantTag::BudgetExhausted,
+        InnerFailure::TrustRegionFloor { .. } => FailureVariantTag::TrustRegionFloor,
+        InnerFailure::LikelihoodFailure(_) => FailureVariantTag::Likelihood,
+        InnerFailure::IdentifiabilityFailure { .. } => FailureVariantTag::Identifiability,
+        InnerFailure::Other(_) => FailureVariantTag::Other,
+    }
+}
+
+/// Signed order-of-magnitude bucket of the dominant diagnostic numeric:
+/// `sign` is the value's sign (`-1`/`0`/`+1`) and `order` is
+/// `floor(log10(|value|))`. Kept as two independent fields rather than a
+/// single packed int because the magnitude order is itself signed (a tiny
+/// pivot `-6e-11` has order `-11`), so folding the value's sign into it would
+/// be ambiguous — `-6e-11` and `-6e+11` must not collide. Two seeds match
+/// only when BOTH fields agree.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MagnitudeBucket {
+    pub sign: i32,
+    pub order: i32,
+}
+
+/// Generic cross-seed failure signature: the failure-variant discriminant
+/// paired with the signed order-of-magnitude bucket of the dominant
+/// pivot/KKT numeric parsed from the message. Two seeds that reject with the
+/// same variant AND the same magnitude bucket are the "same failure class"
+/// the issue (#1036) calls structural — the per-row Hessian pivot and KKT
+/// residual reproduce to the same order of magnitude across seeds when the
+/// blocker is the design, not the warm-start. The magnitude is `Option`:
+/// a message with no parseable diagnostic numeric carries `None`, and a run
+/// of `None`-magnitude failures is NOT eligible for the generic bail (we
+/// refuse to call an unquantified failure structural).
+pub(crate) type GenericFailureSignature = (FailureVariantTag, Option<MagnitudeBucket>);
+
+/// Markers, in priority order, that precede the dominant diagnostic numeric
+/// in a bubbled inner-solver error. The first one present wins: the KKT/cert
+/// residual and the per-row Hessian pivot are the two quantities the issue
+/// names as the structural fingerprint. Each marker is matched
+/// case-insensitively on the lowercased message.
+const DOMINANT_NUMERIC_MARKERS: &[&str] = &[
+    "residual=",
+    "pivot=",
+    "pivot ~",
+    "pivot~",
+    "min_pivot=",
+    // The grid-spline factor writes `pivot {j} (value {s})`, where `{j}` is the
+    // INDEX and `{s}` is the offending diagonal value — so the value follows
+    // `(value `, which must out-rank the bare `pivot ` marker below (that would
+    // otherwise grab the integer index). Placed first so the genuine value wins.
+    "(value ",
+    // The Arrow-Schur row factor's genuinely-non-PD bail formats the pivot
+    // space-delimited — `non-PD pivot {sum} at index {i}` (arrow_schur.rs) —
+    // the exact `RemlConvergenceError` / non-PD-`H_tt` autopsy class #1036 must
+    // catch. The earlier `=`/`~`-delimited pivot markers still win when present;
+    // this bare-space form is the real solver's wording and parses `{sum}`.
+    "pivot ",
+    "kkt=",
+    "|∇l-sβ|=",
+    "|g|=",
+    // P-IRLS inner-loop non-convergence (`estimate.rs`) reports the dominant
+    // diagnostic as the final gradient norm; that scalar is the stable
+    // cross-seed fingerprint for the GLM inner-stall class.
+    "gradient norm was ",
+];
+
+/// Parse a leading floating-point number (optionally signed, optionally in
+/// scientific notation) from the start of `s`. Returns the value and the
+/// number of bytes consumed.
+fn parse_leading_f64(s: &str) -> Option<f64> {
+    let bytes = s.as_bytes();
+    let mut end = 0usize;
+    let mut seen_digit = false;
+    let mut seen_exp = false;
+    while end < bytes.len() {
+        let c = bytes[end] as char;
+        match c {
+            '0'..='9' => {
+                seen_digit = true;
+                end += 1;
+            }
+            '+' | '-' => {
+                // Sign is only valid at the very start or right after an
+                // exponent marker.
+                if end == 0 || matches!(bytes[end - 1] as char, 'e' | 'E') {
+                    end += 1;
+                } else {
+                    break;
+                }
+            }
+            '.' => end += 1,
+            'e' | 'E' if seen_digit && !seen_exp => {
+                seen_exp = true;
+                end += 1;
+            }
+            _ => break,
+        }
+    }
+    if !seen_digit {
+        return None;
+    }
+    s[..end].parse::<f64>().ok()
+}
+
+/// Extract the dominant diagnostic magnitude bucket from a bubbled inner
+/// error: the value's sign and `floor(log10(|value|))` for the first
+/// dominant-numeric marker present. `None` when no marker yields a finite,
+/// non-zero value — such a failure has no quantified fingerprint and is
+/// excluded from the generic structural bail.
+pub(crate) fn dominant_magnitude_bucket(message: &str) -> Option<MagnitudeBucket> {
+    let lower = message.to_ascii_lowercase();
+    for marker in DOMINANT_NUMERIC_MARKERS {
+        if let Some(pos) = lower.find(marker) {
+            let tail = lower[pos + marker.len()..].trim_start();
+            if let Some(value) = parse_leading_f64(tail) {
+                if value.is_finite() && value != 0.0 {
+                    return Some(MagnitudeBucket {
+                        sign: value.signum() as i32,
+                        order: value.abs().log10().floor() as i32,
+                    });
+                }
+            }
+        }
+    }
+    None
+}
+
+pub(crate) fn generic_signature(failure: &InnerFailure) -> GenericFailureSignature {
+    (
+        variant_tag(failure),
+        dominant_magnitude_bucket(failure.message()),
+    )
+}
+
+/// `Some((signature, run_len))` when the LAST `min_run` rejections all carry
+/// an identical generic signature with a *quantified* magnitude bucket —
+/// the generic cross-seed structural-failure detector (#1036). Distinct from
+/// [`uniform_structural_key`] in three ways:
+///   - it covers every failure variant, not only structural `CertRefused`;
+///   - it keys on the order-of-magnitude pivot/KKT bucket, not the
+///     `(diagnosis, carrying_block)` pair, so it fires on the
+///     `RemlConvergenceError` / non-PD-pivot class the structural-diagnosis
+///     path never sees;
+///   - it requires the run to be the *trailing* `min_run` seeds, so a single
+///     deviating signature breaks the run and the cascade keeps going (genuine
+///     seed-luck stays a full cascade).
+/// A `None`-magnitude signature is never eligible: an unquantified failure is
+/// not called structural.
+pub(crate) fn consecutive_generic_signature(
+    rejections: &[SeedRejection],
+    min_run: usize,
+) -> Option<(GenericFailureSignature, usize)> {
+    if min_run == 0 || rejections.len() < min_run {
+        return None;
+    }
+    let tail = &rejections[rejections.len() - min_run..];
+    let sig = generic_signature(&tail[0].failure);
+    // An unquantified (None-magnitude) signature is excluded by contract.
+    sig.1?;
+    for rej in &tail[1..] {
+        if generic_signature(&rej.failure) != sig {
+            return None;
+        }
+    }
+    Some((sig, min_run))
+}
+
+/// Render the generic structural-failure signature for the aggregated bail
+/// message: `"<variant>@<sign>1e<order>"`, e.g. `"budget_exhausted@1e3"` or
+/// `"other@-1e-11"` (a negative pivot of order `1e-11`). The phrasing names
+/// the variant and the signed order of magnitude so two operators reading two
+/// failed fits can tell at a glance whether they hit the same blocker.
+pub(crate) fn generic_signature_label(sig: &GenericFailureSignature) -> String {
+    let (tag, bucket) = sig;
+    let variant = match tag {
+        FailureVariantTag::CertRefused => "cert_refused",
+        FailureVariantTag::BudgetExhausted => "budget_exhausted",
+        FailureVariantTag::TrustRegionFloor => "trust_region_floor",
+        FailureVariantTag::Likelihood => "likelihood",
+        FailureVariantTag::Identifiability => "identifiability",
+        FailureVariantTag::Other => "other",
+    };
+    match bucket {
+        Some(b) => {
+            let sign = if b.sign < 0 { "-" } else { "" };
+            format!("{variant}@{sign}1e{}", b.order)
+        }
+        None => format!("{variant}@<unquantified>"),
+    }
+}
+
 /// Render a structural-cause diagnosis hint based on the agreed-upon
 /// `(diagnosis, carrying_block)` pair. The phrasing names the user's
 /// next step (reduce knots / increase λ / wait for null-space
@@ -276,6 +485,22 @@ pub(crate) fn format_no_seeds_passed(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A `RemlConvergenceError`-class rejection in the shape #1036 autopsies:
+    /// a non-PD per-row H_tt pivot and a stuck KKT residual, with no
+    /// structural `CertRefused` diagnosis. Classifies as `Other` and so is
+    /// invisible to `uniform_structural_key`, but carries a quantified
+    /// pivot/KKT fingerprint the generic detector keys on.
+    fn reml_nonpd(seed_idx: usize, pivot: &str, kkt: &str) -> SeedRejection {
+        SeedRejection::from_message(
+            seed_idx,
+            "validation",
+            format!(
+                "RemlConvergenceError: inner Newton stalled; non-PD per-row H_tt \
+                 pivot={pivot}; KKT residual=stuck (|∇L-Sβ|={kkt} > 1.0e-03 tol)"
+            ),
+        )
+    }
 
     fn cert_refused(seed_idx: usize, block: &str) -> SeedRejection {
         SeedRejection::from_message(
@@ -525,5 +750,258 @@ mod tests {
         assert!(msg.contains("diagnosis=rank_deficient_H_pen"));
         assert!(msg.contains("carrying-block=time_surface"));
         assert!(msg.contains("structural rank deficiency"));
+    }
+
+    // ─── #1036 generic cross-seed structural-failure detector ────────────
+
+    #[test]
+    fn dominant_magnitude_buckets_signed_order_of_magnitude() {
+        // Negative tiny pivot ~ -6e-11 → sign=-1, order=floor(log10(6e-11))=-11.
+        assert_eq!(
+            dominant_magnitude_bucket("non-PD pivot=-6e-11; rest"),
+            Some(MagnitudeBucket {
+                sign: -1,
+                order: -11
+            })
+        );
+        // KKT residual stuck at 1e3 → sign=+1, order=3.
+        assert_eq!(
+            dominant_magnitude_bucket("residual=5.0e+03 > 4·tol=4.0e+03"),
+            Some(MagnitudeBucket { sign: 1, order: 3 })
+        );
+        // No parseable diagnostic numeric → None (unquantified).
+        assert_eq!(dominant_magnitude_bucket("some opaque failure"), None);
+        // residual= present but non-numeric falls through to the next marker.
+        assert_eq!(
+            dominant_magnitude_bucket("residual=stuck; |∇L-Sβ|=2.5e+05 vs tol"),
+            Some(MagnitudeBucket { sign: 1, order: 5 })
+        );
+        // A negative value of order 1e+11 must NOT collide with -6e-11.
+        assert_ne!(
+            dominant_magnitude_bucket("pivot=-6e-11"),
+            dominant_magnitude_bucket("pivot=-6e+11"),
+        );
+    }
+
+    #[test]
+    fn dominant_magnitude_bucket_parses_real_solver_wordings() {
+        // #1036 regression: the ACTUAL Arrow-Schur non-PD bail is space-delimited
+        // (`non-PD pivot {sum} at index {i}`), NOT `pivot=`. The detector must
+        // parse the real wording or it never fires on the sphere autopsy class.
+        assert_eq!(
+            dominant_magnitude_bucket(
+                "row 3 H_tt is non-PD at base ridge 0e0; non-PD pivot -6e-11 at index 2 \
+                 (matrix is not positive definite)"
+            ),
+            Some(MagnitudeBucket {
+                sign: -1,
+                order: -11
+            })
+        );
+        // Grid-spline factor: `pivot {j} (value {s})` — the VALUE follows
+        // `(value `, which must out-rank the bare `pivot ` (an integer index).
+        assert_eq!(
+            dominant_magnitude_bucket(
+                "grid spline 2d: penalized system not positive definite at pivot 4 (value -2.5e-09)"
+            ),
+            Some(MagnitudeBucket {
+                sign: -1,
+                order: -9
+            })
+        );
+        // P-IRLS inner-loop stall: the final gradient norm is the fingerprint.
+        assert_eq!(
+            dominant_magnitude_bucket(
+                "The P-IRLS inner loop did not converge within 200 iterations. \
+                 Last gradient norm was 3.400000e+02."
+            ),
+            Some(MagnitudeBucket { sign: 1, order: 2 })
+        );
+    }
+
+    /// #1036 end-to-end: three seeds whose REAL Arrow-Schur non-PD message (the
+    /// space-delimited `non-PD pivot {sum}` wording the solver actually emits)
+    /// repeats at the same order-of-magnitude pivot must trigger the generic
+    /// structural bail — the exact sphere-autopsy class that previously burned
+    /// all 12 seeds because the detector keyed only on `pivot=`.
+    #[test]
+    fn generic_detector_fires_on_real_arrow_nonpd_wording() {
+        let real = |seed: usize, pivot: &str| {
+            SeedRejection::from_message(
+                seed,
+                "validation",
+                format!(
+                    "RemlConvergenceError: row 3 H_tt is non-PD at base ridge 0e0; \
+                     non-PD pivot {pivot} at index 2 (matrix is not positive definite)"
+                ),
+            )
+        };
+        // Three consecutive seeds, same signed pivot order (≈ -6e-11), with the
+        // KKT residual deliberately NOT in the message — the pivot is the stable
+        // cross-seed invariant the autopsy identified.
+        let rejections = vec![
+            real(0, "-6.1e-11"),
+            real(1, "-5.8e-11"),
+            real(2, "-6.4e-11"),
+        ];
+        let (sig, run) = consecutive_generic_signature(&rejections, 3)
+            .expect("three identical real-wording non-PD pivots must trigger the bail");
+        assert_eq!(run, 3);
+        assert_eq!(sig.0, FailureVariantTag::Other);
+        assert_eq!(
+            sig.1,
+            Some(MagnitudeBucket {
+                sign: -1,
+                order: -11
+            })
+        );
+        // The aggregated label is the human-readable bail signature.
+        assert_eq!(generic_signature_label(&sig), "other@-1e-11");
+    }
+
+    #[test]
+    fn generic_signature_pairs_variant_with_magnitude() {
+        let rej = reml_nonpd(0, "-6e-11", "1.0e+03");
+        let sig = generic_signature(&rej.failure);
+        assert_eq!(sig.0, FailureVariantTag::Other);
+        // pivot= marker wins over |∇l-sβ|=: -6e-11 → sign=-1, order=-11.
+        assert_eq!(
+            sig.1,
+            Some(MagnitudeBucket {
+                sign: -1,
+                order: -11
+            })
+        );
+        assert_eq!(generic_signature_label(&sig), "other@-1e-11");
+    }
+
+    /// The #1036 structural class: three consecutive seeds reject with the
+    /// SAME `RemlConvergenceError` non-PD-pivot signature. The generic
+    /// detector must fire at run length 3 even though none of these are a
+    /// structural `CertRefused` (so `uniform_structural_key` stays silent).
+    #[test]
+    fn generic_detector_fires_on_repeated_reml_nonpd_pivot() {
+        let rejections = vec![
+            reml_nonpd(0, "-6e-11", "1.0e+03"),
+            reml_nonpd(1, "-6e-11", "5.0e+03"),
+            reml_nonpd(2, "-6e-11", "8.0e+03"),
+        ];
+        // uniform_structural_key never sees this class.
+        assert!(
+            uniform_structural_key(&rejections, 2).is_none(),
+            "non-cert-refused RemlConvergenceError must not be a structural-diagnosis key"
+        );
+        let (sig, run) = consecutive_generic_signature(&rejections, 3)
+            .expect("three identical pivot signatures must trigger the generic bail");
+        assert_eq!(run, 3);
+        assert_eq!(
+            sig,
+            (
+                FailureVariantTag::Other,
+                Some(MagnitudeBucket {
+                    sign: -1,
+                    order: -11
+                })
+            )
+        );
+    }
+
+    /// Control: genuine seed-luck. The trailing run of identical signatures is
+    /// broken by a deviating final seed, so the generic detector must NOT fire
+    /// and the cascade keeps running every seed.
+    #[test]
+    fn generic_detector_silent_when_signatures_differ() {
+        let rejections = vec![
+            reml_nonpd(0, "-6e-11", "1.0e+03"),
+            reml_nonpd(1, "-6e-11", "5.0e+03"),
+            // Different pivot order of magnitude → different signature.
+            reml_nonpd(2, "-3e-04", "8.0e+03"),
+        ];
+        assert!(
+            consecutive_generic_signature(&rejections, 3).is_none(),
+            "a deviating trailing signature is seed-luck, not structural — full cascade must run"
+        );
+    }
+
+    /// The detector keys on the TRAILING run: an early-cascade deviation that
+    /// is later followed by `min_run` identical signatures still fires (the
+    /// blocker surfaced once the cascade settled into the structural basin).
+    #[test]
+    fn generic_detector_keys_on_trailing_run() {
+        let rejections = vec![
+            // A one-off domain miss at an exploration seed.
+            SeedRejection::from_message(
+                0,
+                "validation",
+                "likelihood evaluation failed: NaN".into(),
+            ),
+            reml_nonpd(1, "-6e-11", "1.0e+03"),
+            reml_nonpd(2, "-6e-11", "5.0e+03"),
+            reml_nonpd(3, "-6e-11", "8.0e+03"),
+        ];
+        let (sig, run) = consecutive_generic_signature(&rejections, 3)
+            .expect("trailing run of three identical signatures must fire");
+        assert_eq!(run, 3);
+        assert_eq!(sig.0, FailureVariantTag::Other);
+        assert_eq!(
+            sig.1,
+            Some(MagnitudeBucket {
+                sign: -1,
+                order: -11
+            })
+        );
+    }
+
+    /// An unquantified failure run (no parseable pivot/KKT numeric) is never
+    /// called structural — we refuse to bail on a fingerprint we cannot
+    /// quantify.
+    #[test]
+    fn generic_detector_excludes_unquantified_runs() {
+        let rejections = vec![
+            SeedRejection::from_message(0, "validation", "opaque legacy failure".into()),
+            SeedRejection::from_message(1, "validation", "opaque legacy failure".into()),
+            SeedRejection::from_message(2, "validation", "opaque legacy failure".into()),
+        ];
+        assert!(
+            consecutive_generic_signature(&rejections, 3).is_none(),
+            "an unquantified (None-magnitude) run must not trigger the generic bail"
+        );
+    }
+
+    /// Below `min_run` the detector stays silent: two structural rejections
+    /// are not yet enough to declare the candidate dead under the generic
+    /// rule (default n_struct = 3).
+    #[test]
+    fn generic_detector_needs_min_run_observations() {
+        let rejections = vec![
+            reml_nonpd(0, "-6e-11", "1.0e+03"),
+            reml_nonpd(1, "-6e-11", "5.0e+03"),
+        ];
+        assert!(consecutive_generic_signature(&rejections, 3).is_none());
+    }
+
+    #[test]
+    fn generic_signature_label_renders_signed_buckets() {
+        assert_eq!(
+            generic_signature_label(&(
+                FailureVariantTag::BudgetExhausted,
+                Some(MagnitudeBucket { sign: 1, order: 3 })
+            )),
+            "budget_exhausted@1e3"
+        );
+        assert_eq!(
+            generic_signature_label(&(
+                FailureVariantTag::CertRefused,
+                Some(MagnitudeBucket {
+                    sign: -1,
+                    order: -11
+                })
+            )),
+            "cert_refused@-1e-11"
+        );
+        assert_eq!(
+            generic_signature_label(&(FailureVariantTag::Other, None)),
+            "other@<unquantified>"
+        );
     }
 }

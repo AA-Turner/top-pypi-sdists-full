@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
-from ....const import API_PATH
+from typing import TYPE_CHECKING
+
+from asyncpraw.const import API_PATH
+
+if TYPE_CHECKING:
+    import asyncpraw
 
 
 class VotableMixin:
     """Interface for :class:`.RedditBase` classes that can be voted on."""
 
-    async def _vote(self, direction: int):
-        await self._reddit.post(
-            API_PATH["vote"], data={"dir": str(direction), "id": self.fullname}
-        )
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: asyncpraw.Reddit
 
-    async def clear_vote(self):
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    async def _vote(self, direction: int) -> None:
+        await self._reddit.post(API_PATH["vote"], data={"dir": str(direction), "id": self.fullname})
+
+    async def clear_vote(self) -> None:
         """Clear the authenticated user's vote on the object.
 
         .. note::
@@ -37,7 +47,7 @@ class VotableMixin:
         """
         await self._vote(direction=0)
 
-    async def downvote(self):
+    async def downvote(self) -> None:
         """Downvote the object.
 
         .. note::
@@ -65,7 +75,7 @@ class VotableMixin:
         """
         await self._vote(direction=-1)
 
-    async def upvote(self):
+    async def upvote(self) -> None:
         """Upvote the object.
 
         .. note::

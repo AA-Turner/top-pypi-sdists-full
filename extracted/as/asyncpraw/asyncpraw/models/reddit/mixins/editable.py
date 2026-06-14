@@ -4,16 +4,42 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ....const import API_PATH
+from asyncpraw.const import API_PATH
 
 if TYPE_CHECKING:  # pragma: no cover
-    import asyncpraw.models
+    import datetime
+    from collections.abc import Callable
+
+    from typing_extensions import Self
+
+    import asyncpraw
 
 
 class EditableMixin:
     """Interface for classes that can be edited and deleted."""
 
-    async def delete(self):
+    if TYPE_CHECKING:
+        # Provided by the host class (:class:`.RedditBase`).
+        _reddit: asyncpraw.Reddit
+        _to_local_datetime: Callable[[float], datetime.datetime]
+        edited: bool | float
+
+        @property
+        def fullname(self) -> str: ...  # noqa: D102
+
+    @property
+    def edited_datetime(self) -> datetime.datetime | None:
+        """Return the last edit time as a timezone-aware :class:`datetime.datetime`.
+
+        Returns ``None`` if the object has never been edited. The returned object is
+        localized to the system's timezone.
+
+        """
+        if self.edited is False:
+            return None
+        return self._to_local_datetime(self.edited)
+
+    async def delete(self) -> None:
         """Delete the object.
 
         Example usage:
@@ -29,9 +55,7 @@ class EditableMixin:
         """
         await self._reddit.post(API_PATH["del"], data={"id": self.fullname})
 
-    async def edit(
-        self, body: str
-    ) -> asyncpraw.models.Comment | asyncpraw.models.Submission:
+    async def edit(self, body: str) -> Self:
         """Replace the body of the object with ``body``.
 
         :param body: The Markdown formatted content for the updated object.
@@ -53,7 +77,7 @@ class EditableMixin:
         data = {
             "text": body,
             "thing_id": self.fullname,
-            "validate_on_submit": self._reddit.validate_on_submit,
+            "validate_on_submit": True,
         }
         response = await self._reddit.post(API_PATH["edit"], data=data)
         updated = response[0]

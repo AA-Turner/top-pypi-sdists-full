@@ -5,7 +5,7 @@ use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::terms::analytic_penalties::{
     AnalyticPenalty, IBPAssignmentPenalty, IbpHessianDiagThirdChannels,
-    SoftmaxAssignmentSparsityPenalty,
+    SoftmaxAssignmentSparsityPenalty, resolve_learnable_weight,
 };
 use crate::terms::latent_coord::{LatentCoordValues, LatentIdMode, LatentManifold};
 use crate::terms::sae_manifold::SaeManifoldRho;
@@ -39,25 +39,20 @@ pub(crate) const SAE_ATOM_ACTIVE_MASS_FLOOR: f64 = 1.0e-3;
 /// to adjudicate — re-seeding in a loop would fight the optimizer.
 pub(crate) const SAE_ATOM_COLLAPSE_RESEED_BUDGET: usize = 1;
 
-/// Reactivation band width (in units of the JumpReLU temperature `τ`) below the
-/// hard gate threshold. The forward gate value is hard-zero strictly below
-/// `threshold`, but an atom whose logit lies within `threshold − MARGIN·τ` is
-/// still admitted to the compact Newton active set for sparsity-prior support.
-/// Below the band the shifted-sigmoid derivative `σ'((l−θ)/τ)` is vanishingly
-/// small, so the band captures essentially all of the prior-gradient mass that
-/// could act on a gated atom (at `MARGIN = 4`, `σ((l−θ)/τ) < σ(−4) ≈ 0.018` at
-/// the band edge). Without the band the gate is an absorbing pruning rule, not a
-/// learnable gate.
-pub(crate) const JUMPRELU_REACTIVATION_MARGIN: f64 = 4.0;
+/// Machine-precision support cutoff for the smooth JumpReLU assignment prior,
+/// in units of the gate temperature below the hard threshold. The forward gate
+/// remains hard-zero at and below `threshold`, but the prior value/gradient and
+/// compact Newton layout keep every logit with `(logit - threshold)/tau > -36`.
+/// At the excluded edge `sigma(-36) ~= 2e-16`, so dropped value/gradient/Hessian
+/// terms are below f64 noise instead of creating an algorithmic discontinuity.
+pub(crate) const JUMPRELU_OPTIMIZATION_LOGIT_CUTOFF: f64 = -36.0;
 
-/// Shared band predicate for JumpReLU optimization inclusion. An atom is kept
-/// optimizable (compact-layout inclusion and prior-gradient support) when its
-/// logit is above the reactivation band's lower edge `threshold − MARGIN·τ`.
-/// This is strictly weaker than the hard forward gate `logit > threshold`,
-/// which still governs data-fit reconstruction and its logit JVP.
+/// Shared support predicate for JumpReLU optimization inclusion. This is
+/// strictly weaker than the hard forward gate `logit > threshold`, which still
+/// governs data-fit reconstruction and its logit JVP.
 #[inline]
 pub(crate) fn jumprelu_in_optimization_band(logit: f64, threshold: f64, temperature: f64) -> bool {
-    logit > threshold - JUMPRELU_REACTIVATION_MARGIN * temperature
+    (logit - threshold) / temperature > JUMPRELU_OPTIMIZATION_LOGIT_CUTOFF
 }
 
 /// Assignment prior/relaxation used by [`SaeAssignment`].
@@ -163,6 +158,21 @@ impl AssignmentMode {
             }
         }
         Ok(())
+    }
+
+    pub(crate) fn resolved_ibp_alpha(&self, rho: &SaeManifoldRho) -> Option<f64> {
+        match *self {
+            AssignmentMode::IBPMap {
+                alpha,
+                learnable_alpha,
+                ..
+            } => Some(if learnable_alpha {
+                resolve_learnable_weight(alpha, rho.log_lambda_sparse)
+            } else {
+                alpha
+            }),
+            _ => None,
+        }
     }
 }
 
@@ -280,6 +290,22 @@ impl SaeAssignment {
     }
 
     pub fn try_assignments_row(&self, row: usize) -> Result<Array1<f64>, String> {
+        self.try_assignments_row_with_alpha(row, None)
+    }
+
+    pub(crate) fn try_assignments_row_for_rho(
+        &self,
+        row: usize,
+        rho: &SaeManifoldRho,
+    ) -> Result<Array1<f64>, String> {
+        self.try_assignments_row_with_alpha(row, self.mode.resolved_ibp_alpha(rho))
+    }
+
+    fn try_assignments_row_with_alpha(
+        &self,
+        row: usize,
+        resolved_ibp_alpha: Option<f64>,
+    ) -> Result<Array1<f64>, String> {
         validate_finite_logits(self.logits.row(row), row)?;
         // Only Softmax collapses to a fixed assignment at K==1: its
         // assignment_coord_dim is K-1 = 0, so there is no free logit. IBPMap and
@@ -295,12 +321,47 @@ impl SaeAssignment {
             }
             AssignmentMode::IBPMap {
                 temperature, alpha, ..
-            } => Ok(ibp_map_row(self.logits.row(row), temperature, alpha)),
+            } => Ok(ibp_map_row(
+                self.logits.row(row),
+                temperature,
+                resolved_ibp_alpha.unwrap_or(alpha),
+            )),
             AssignmentMode::JumpReLU {
                 temperature,
                 threshold,
             } => Ok(jumprelu_row(self.logits.row(row), temperature, threshold)),
         }
+    }
+
+    pub(crate) fn persist_resolved_ibp_alpha(&mut self, rho: &SaeManifoldRho) -> bool {
+        let AssignmentMode::IBPMap {
+            temperature,
+            alpha,
+            learnable_alpha: true,
+        } = self.mode
+        else {
+            return false;
+        };
+        let resolved_alpha = resolve_learnable_weight(alpha, rho.log_lambda_sparse);
+        self.mode = AssignmentMode::IBPMap {
+            temperature,
+            alpha: resolved_alpha,
+            learnable_alpha: false,
+        };
+        true
+    }
+
+    pub(crate) fn assignments_for_rho(&self, rho: &SaeManifoldRho) -> Result<Array2<f64>, String> {
+        let n = self.n_obs();
+        let k = self.k_atoms();
+        let mut out = Array2::<f64>::zeros((n, k));
+        for row in 0..n {
+            let a = self.try_assignments_row_for_rho(row, rho)?;
+            for atom in 0..k {
+                out[[row, atom]] = a[atom];
+            }
+        }
+        Ok(out)
     }
 
     /// Flatten extension coordinates in row-major SAE layout:
@@ -475,11 +536,7 @@ pub(crate) fn ibp_stick_breaking_prior(k_atoms: usize, alpha: f64) -> Array1<f64
 /// IBP-MAP row activations: per-atom sigmoid likelihood times the truncated
 /// stick-breaking prior mass. With tied logits the prior dominates and yields
 /// strictly decreasing activations in atom index.
-pub(crate) fn ibp_map_row(
-    logits: ArrayView1<'_, f64>,
-    temperature: f64,
-    alpha: f64,
-) -> Array1<f64> {
+pub fn ibp_map_row(logits: ArrayView1<'_, f64>, temperature: f64, alpha: f64) -> Array1<f64> {
     let prior = ibp_stick_breaking_prior(logits.len(), alpha);
     let mut out = Array1::<f64>::zeros(logits.len());
     for i in 0..logits.len() {
@@ -516,11 +573,7 @@ pub fn ibp_map_row_value_grad(
     (value, grad)
 }
 
-pub(crate) fn jumprelu_row(
-    logits: ArrayView1<'_, f64>,
-    temperature: f64,
-    threshold: f64,
-) -> Array1<f64> {
+pub fn jumprelu_row(logits: ArrayView1<'_, f64>, temperature: f64, threshold: f64) -> Array1<f64> {
     let mut out = Array1::<f64>::zeros(logits.len());
     for i in 0..logits.len() {
         // Hard gate: strictly zero below threshold (the intended "jump"). Above
@@ -664,8 +717,8 @@ pub(crate) fn fill_assignment_logit_jvp_rows(
         } => {
             // Data-fit sensitivity follows the hard forward gate: rows at or
             // below the threshold have zero reconstruction value and therefore
-            // zero data-fit logit derivative. The reactivation band is a
-            // compact-layout/prior support rule, not a data-fit STE.
+            // zero data-fit logit derivative. The wider machine-precision prior
+            // support is a compact-layout/prior rule, not a data-fit STE.
             let inv_tau = 1.0 / temperature;
             for logit_col in 0..assignments.len() {
                 if logits[logit_col] <= threshold {
@@ -717,7 +770,7 @@ pub(crate) fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifo
             alpha,
             learnable_alpha,
         } => {
-            let penalty = IBPAssignmentPenalty::new(
+            let mut penalty = IBPAssignmentPenalty::new(
                 assignment.k_atoms(),
                 alpha,
                 temperature,
@@ -726,6 +779,10 @@ pub(crate) fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifo
             let rho_view = if learnable_alpha {
                 Array1::from_vec(vec![rho.log_lambda_sparse])
             } else {
+                // Keep the fixed-alpha value path on the same weighting branch as
+                // assignment_prior_grad_hdiag; that gradient path owns the
+                // lambda_sparse convention for IBP assignment sparsity.
+                penalty.weight = rho.lambda_sparse();
                 Array1::zeros(0)
             };
             penalty.value(target.view(), rho_view.view())
@@ -735,10 +792,8 @@ pub(crate) fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifo
             threshold,
         } => {
             // Sparsity penalty uses the same threshold-centered surrogate and
-            // reactivation-band support as its gradient. This makes band
-            // prior gradients part of the objective evaluated by line search,
-            // while data-fit reconstruction remains hard-gated by
-            // `jumprelu_row`.
+            // machine-precision support as its gradient/Hessian. Data-fit
+            // reconstruction remains hard-gated by `jumprelu_row`.
             let sparsity_strength = rho.lambda_sparse();
             let mut acc = 0.0;
             for &logit in target.iter() {
@@ -829,7 +884,7 @@ pub(crate) fn assignment_prior_log_strength_hdiag(
                 let activation =
                     crate::linalg::utils::stable_logistic((logit - threshold) * inv_tau);
                 let slope = activation * (1.0 - activation);
-                d[idx] = sparsity_strength * slope * slope * inv_tau2;
+                d[idx] = sparsity_strength * slope * (1.0 - 2.0 * activation) * inv_tau2;
             }
             Ok(d)
         }
@@ -838,20 +893,49 @@ pub(crate) fn assignment_prior_log_strength_hdiag(
             alpha,
             learnable_alpha,
         } => {
-            if learnable_alpha {
-                return Ok(Array1::<f64>::zeros(target.len()));
-            }
             let mut penalty = IBPAssignmentPenalty::new(
                 assignment.k_atoms(),
                 alpha,
                 temperature,
                 learnable_alpha,
             );
-            penalty.weight = rho.lambda_sparse();
-            penalty
-                .hessian_diag(target.view(), Array1::<f64>::zeros(0).view())
-                .ok_or_else(|| "IBP assignment log-strength hessian diag unavailable".to_string())
+            if learnable_alpha {
+                let rho_view = Array1::from_vec(vec![rho.log_lambda_sparse]);
+                Ok(penalty.hessian_diag_log_alpha_derivative(target.view(), rho_view.view()))
+            } else {
+                penalty.weight = rho.lambda_sparse();
+                penalty
+                    .hessian_diag(target.view(), Array1::<f64>::zeros(0).view())
+                    .ok_or_else(|| {
+                        "IBP assignment log-strength hessian diag unavailable".to_string()
+                    })
+            }
         }
+    }
+}
+
+pub(crate) fn assignment_prior_log_strength_target_mixed(
+    assignment: &SaeAssignment,
+    rho: &SaeManifoldRho,
+) -> Result<Array1<f64>, String> {
+    for row in 0..assignment.n_obs() {
+        validate_finite_logits(assignment.logits.row(row), row)?;
+    }
+    let target = flat_logits(assignment.logits.view());
+    if matches!(assignment.mode, AssignmentMode::Softmax { .. }) && assignment.k_atoms() == 1 {
+        return Ok(Array1::<f64>::zeros(target.len()));
+    }
+    match assignment.mode {
+        AssignmentMode::IBPMap {
+            temperature,
+            alpha,
+            learnable_alpha: true,
+        } => {
+            let penalty = IBPAssignmentPenalty::new(assignment.k_atoms(), alpha, temperature, true);
+            let rho_view = Array1::from_vec(vec![rho.log_lambda_sparse]);
+            Ok(penalty.log_alpha_target_mixed_derivative(target.view(), rho_view.view()))
+        }
+        _ => Ok(assignment_prior_grad_hdiag(assignment, rho)?.0),
     }
 }
 
@@ -926,11 +1010,10 @@ pub(crate) fn assignment_prior_grad_hdiag(
             temperature,
             threshold,
         } => {
-            // Gradient of the sparsity value's threshold-centered surrogate
-            // σ((l−θ)/τ). Support extends through the reactivation band
-            // (logit > θ − MARGIN·τ) so a gated-off atom near the boundary keeps
-            // prior gradient. Data-fit JVP support is narrower and follows the
-            // hard forward gate.
+            // Gradient and exact diagonal Hessian of the sparsity value's
+            // threshold-centered surrogate σ((l−θ)/τ), using the same
+            // machine-precision support as the value path. Data-fit JVP support
+            // is narrower and follows the hard forward gate.
             let sparsity_strength = rho.lambda_sparse();
             let inv_tau = 1.0 / temperature;
             let inv_tau2 = inv_tau * inv_tau;
@@ -945,7 +1028,7 @@ pub(crate) fn assignment_prior_grad_hdiag(
                     crate::linalg::utils::stable_logistic((logit - threshold) * inv_tau);
                 let slope = activation * (1.0 - activation);
                 g[idx] = sparsity_strength * slope * inv_tau;
-                d[idx] = sparsity_strength * slope * slope * inv_tau2;
+                d[idx] = sparsity_strength * slope * (1.0 - 2.0 * activation) * inv_tau2;
             }
             (g, d)
         }

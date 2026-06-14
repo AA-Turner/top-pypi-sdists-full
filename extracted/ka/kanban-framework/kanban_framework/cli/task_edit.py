@@ -148,10 +148,13 @@ def _cmd_task_edit(args: list[str]) -> dict:
     parser.add_argument("--skip-to", type=str, default=None, dest="skip_to",
                         choices=["execute", "evaluate"],
                         help="Skip plan phases and jump to a later phase. Requires plan artifacts to exist.")
+    parser.add_argument("--status", type=str, default=None,
+                        choices=["pending", "in_progress", "archived", "cancelled"],
+                        help="Override task status. Use 'cancelled' to abort a task without archiving.")
     try:
         parsed = parser.parse_args(args)
     except SystemExit:
-        return {"error": "invalid arguments, usage: kanban task edit <task_id> [--mode ...] [--skip-to execute|evaluate] [--priority N] [--auto-mode ...] [--control-mode ...]"}
+        return {"error": "invalid arguments, usage: kanban task edit <task_id> [--mode ...] [--skip-to execute|evaluate] [--priority N] [--auto-mode ...] [--control-mode ...] [--status pending|in_progress|archived|cancelled]"}
 
     _, _, tm = _resolve()
     task = tm.show(parsed.task_id)
@@ -172,6 +175,21 @@ def _cmd_task_edit(args: list[str]) -> dict:
         updates["priority"] = max(0, min(10, parsed.priority))
     if parsed.control_mode:
         updates["control_mode"] = parsed.control_mode
+
+    if parsed.status:
+        # v0.186.1: Allow status override via CLI (e.g. cancel without archive).
+        # Warn (but allow) on suspicious transitions.
+        prev_status = task.status.value if hasattr(task.status, "value") else str(task.status)
+        if parsed.status == "cancelled" and prev_status == "archived":
+            return {"error": f"Cannot cancel archived task {task.id} (already terminal)"}
+        if parsed.status == "archived" and prev_status == "in_progress":
+            # Allow but warn — should normally go through user_decision first
+            import sys as _sys
+            _sys.stderr.write(
+                f"⚠ WARNING: force-archiving {task.id} from in_progress "
+                f"(normally go through user_decision first)\n"
+            )
+        updates["status"] = parsed.status
 
     if parsed.auto_mode is not None:
         from kanban_framework.types import AutoMode

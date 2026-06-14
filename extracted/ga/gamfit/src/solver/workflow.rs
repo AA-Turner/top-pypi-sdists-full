@@ -1137,6 +1137,16 @@ pub enum FitResult {
     LatentSurvival(LatentSurvivalTermFitResult),
     LatentBinary(LatentBinaryTermFitResult),
     TransformationNormal(TransformationNormalFitResult),
+    /// Exact O(n) state-space cubic/linear/quintic smoothing-spline scan
+    /// (#1030/#1034). A scan-bearing model IS a Gaussian-identity model with a
+    /// different (exact) representation: rather than a dense design + coefficient
+    /// vector it carries the Durbin–Koopman smoother posterior directly (knots,
+    /// smoothed states, pointwise variances, σ², log λ, exact diffuse-REML EDF,
+    /// and an exact per-row `predict`). Library callers that want the fitted
+    /// posterior get it here without paying the dense O(n·k²)+O(k³) route; the
+    /// CLI/FFI save paths build the persistence payload from the same
+    /// `SplineScanFit` via `assemble_spline_scan_payload`.
+    SplineScan(crate::solver::spline_scan::SplineScanFit),
 }
 
 /// Result of a dispersion-channel GAMLSS location-scale fit (#913). Wraps the
@@ -4266,6 +4276,27 @@ pub fn fit_from_formula(
     config: &FitConfig,
 ) -> Result<FitResult, WorkflowError> {
     let mat = materialize(formula, data, config)?;
+    // Exact O(n) spline-scan fast path (#1030): when the materialized request
+    // is the single 1-D Gaussian-identity penalized-smooth shape the
+    // state-space scan solves exactly, route through it and return the
+    // scan-bearing model directly — the same penalized posterior at O(n) per
+    // λ-trial instead of the dense design/Gram route. Detection is structural
+    // and conservative (see `spline_scan_fast_path`); every other shape falls
+    // through to the dense `fit_model` path unchanged. Mirrors the CLI
+    // (main.rs run_fit) and FFI consumers, which build the persistence payload
+    // from this same `SplineScanFit`.
+    if let FitRequest::Standard(request) = &mat.request {
+        if let Some(inputs) = spline_scan_fast_path(request) {
+            let scan = crate::solver::spline_scan::fit_spline_scan(
+                &inputs.x,
+                &inputs.y,
+                &inputs.w,
+                inputs.order,
+            )
+            .map_err(|reason| WorkflowError::IntegrationFailed { reason })?;
+            return Ok(FitResult::SplineScan(scan));
+        }
+    }
     // `fit_model` already returns `WorkflowError` end-to-end; propagate it
     // directly instead of stringifying then re-wrapping.
     fit_model(mat.request)
@@ -4273,7 +4304,7 @@ pub fn fit_from_formula(
 
 /// Inputs extracted by [`spline_scan_fast_path`] for the exact O(n)
 /// state-space cubic-smoothing-spline scan
-/// ([`crate::solver::spline_scan::fit_cubic_spline_scan`]).
+/// ([`crate::solver::spline_scan::fit_spline_scan`]).
 pub struct SplineScanInputs {
     /// Abscissae of the single 1-D smooth (training rows of its feature column).
     pub x: Vec<f64>,
@@ -4281,6 +4312,11 @@ pub struct SplineScanInputs {
     pub y: Vec<f64>,
     /// Observation weights (variance is `σ²/w`).
     pub w: Vec<f64>,
+    /// Smoothing-spline order `m = penalty_order ∈ {1, 2, 3}`: `m = 1` the
+    /// random-walk/linear smoother (penalty `λ∫f′²`), `m = 2` the cubic
+    /// smoother (penalty `λ∫f″²`), `m = 3` the quintic smoother (penalty
+    /// `λ∫(f‴)²`).
+    pub order: usize,
 }
 
 /// Detection seam for the exact O(n) cubic-smoothing-spline fast path.
@@ -4372,8 +4408,15 @@ pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineS
     else {
         return None;
     };
-    if bspec.degree != 3
-        || bspec.penalty_order != 2
+    // Smoothing-spline order m = penalty_order ∈ {1, 2, 3}. The exact scan
+    // integrates the order-m integrated-Wiener prior whose natural spline has
+    // degree 2m−1 (m=1 → linear, m=2 → cubic, m=3 → quintic), so require that
+    // degree to match user intent. The de Jong exact diffuse leading-block
+    // smoother (#1044) handles the m−1 partially-diffuse leading nodes for all
+    // m ≤ MAX_ORDER; m > MAX_ORDER falls through to the dense path.
+    let order = bspec.penalty_order;
+    if !(1..=3).contains(&order)
+        || bspec.degree != 2 * order - 1
         || bspec.double_penalty
         || !bspec.boundary_conditions.is_free()
         || !matches!(bspec.boundary, crate::basis::OneDimensionalBoundary::Open)
@@ -4399,15 +4442,15 @@ pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineS
     if x.iter().any(|v| !v.is_finite()) || y.iter().any(|v| !v.is_finite()) {
         return None;
     }
-    // The diffuse `{1, x}` null space consumes two innovations; the scan
-    // needs at least one proper innovation to profile σ².
+    // The diffuse polynomial null space consumes `order` innovations; the scan
+    // needs at least one proper innovation beyond them to profile σ².
     let mut sorted = x.clone();
     sorted.sort_by(f64::total_cmp);
     sorted.dedup();
-    if sorted.len() < 3 {
+    if sorted.len() < order + 1 {
         return None;
     }
-    Some(SplineScanInputs { x, y, w })
+    Some(SplineScanInputs { x, y, w, order })
 }
 
 /// Formula-level entry for the exact O(n) cubic-smoothing-spline fast path.
@@ -4415,9 +4458,9 @@ pub fn spline_scan_fast_path(request: &StandardFitRequest<'_>) -> Option<SplineS
 /// Materializes the formula exactly like [`fit_from_formula`], then runs the
 /// [`spline_scan_fast_path`] detection on the resulting standard request.
 /// When detection fires the fit is routed through
-/// [`crate::solver::spline_scan::fit_cubic_spline_scan`] — the exact diffuse
+/// [`crate::solver::spline_scan::fit_spline_scan`] — the exact diffuse
 /// REML Kalman/RTS scan — and the full in-memory posterior
-/// ([`crate::solver::spline_scan::CubicSplineScanFit`]: knots, smoothed
+/// ([`crate::solver::spline_scan::SplineScanFit`]: knots, smoothed
 /// states, pointwise variances, lag-one gains, σ², log λ, exact EDF, and an
 /// exact `predict`) is returned. `Ok(None)` means the model is not the
 /// scan-eligible shape and the caller should use the dense
@@ -4428,7 +4471,7 @@ pub fn fit_spline_scan_from_formula(
     formula: &str,
     data: &Dataset,
     config: &FitConfig,
-) -> Result<Option<crate::solver::spline_scan::CubicSplineScanFit>, WorkflowError> {
+) -> Result<Option<crate::solver::spline_scan::SplineScanFit>, WorkflowError> {
     let mat = materialize(formula, data, config)?;
     let FitRequest::Standard(request) = mat.request else {
         return Ok(None);
@@ -4436,7 +4479,7 @@ pub fn fit_spline_scan_from_formula(
     let Some(inputs) = spline_scan_fast_path(&request) else {
         return Ok(None);
     };
-    crate::solver::spline_scan::fit_cubic_spline_scan(&inputs.x, &inputs.y, &inputs.w)
+    crate::solver::spline_scan::fit_spline_scan(&inputs.x, &inputs.y, &inputs.w, inputs.order)
         .map(Some)
         .map_err(|reason| WorkflowError::IntegrationFailed { reason })
 }
@@ -6664,6 +6707,13 @@ fn materialize_standard<'a>(
         sas_link: None,
         optimize_sas: false,
         compute_inference: true,
+        // Formula/workflow fits are the interactive/default path. Keep
+        // coefficient covariance and smoothing correction, but do not run the
+        // optional live-rho posterior certificate/escalation here: escalation can
+        // launch NUTS over rho and turns ordinary quality gates into sampler
+        // benchmarks. Lower-level callers that explicitly need the rho posterior
+        // can still opt in through `FitOptions`.
+        skip_rho_posterior_inference: true,
         max_iter: config.outer_max_iter.unwrap_or(200),
         // Outer REML/LAML smoothing-selection tolerance. The outer convergence
         // test (`outer_gradient_tolerance`) uses a `rel_cost` criterion whose

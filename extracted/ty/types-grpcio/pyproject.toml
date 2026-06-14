@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-grpcio"
-version = "1.0.0.20260607"
+version = "1.0.0.20260614"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for grpcio"
@@ -33,7 +33,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`616424285beccaa76f90e87e1e922b1dc68710ca`](https://github.com/python/typeshed/commit/616424285beccaa76f90e87e1e922b1dc68710ca).
+[`feeb9aa8dde3ae9269b13f3bae435b82d8538b76`](https://github.com/python/typeshed/commit/feeb9aa8dde3ae9269b13f3bae435b82d8538b76).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

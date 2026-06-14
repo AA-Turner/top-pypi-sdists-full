@@ -31,6 +31,7 @@ pub async fn run(
         dockerfile_path: PathBuf::from(dockerfile_path),
         dockerfile_text: None,
         context_dir: None,
+        import_image_reference: None,
         registered_name: registered_name.map(str::to_string),
         disk_mb,
         builder_disk_mb,

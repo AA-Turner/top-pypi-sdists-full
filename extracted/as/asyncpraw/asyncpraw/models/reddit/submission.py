@@ -4,25 +4,32 @@ from __future__ import annotations
 
 import re
 from json import dumps
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
-from warnings import warn
 
 from asyncprawcore import Conflict
 
-from ...const import API_PATH
-from ...exceptions import InvalidURL
-from ...util import _deprecate_args, cachedproperty
-from ..comment_forest import CommentForest
-from ..listing.listing import Listing
-from ..listing.mixins import SubmissionListingMixin
-from .base import RedditBase
-from .mixins import FullnameMixin, ModNoteMixin, ThingModerationMixin, UserContentMixin
-from .poll import PollData
-from .redditor import Redditor
-from .subreddit import Subreddit
+from asyncpraw.const import API_PATH
+from asyncpraw.exceptions import ClientException, InvalidURL
+from asyncpraw.models.comment_forest import CommentForest
+from asyncpraw.models.listing.listing import Listing
+from asyncpraw.models.listing.mixins import SubmissionListingMixin
+from asyncpraw.models.reddit.base import RedditBase
+from asyncpraw.models.reddit.mixins import (
+    CreatedMixin,
+    FullnameMixin,
+    ModNoteMixin,
+    ThingModerationMixin,
+    UserContentMixin,
+)
+from asyncpraw.models.reddit.poll import PollData
+from asyncpraw.models.reddit.redditor import Redditor
+from asyncpraw.models.reddit.subreddit import Subreddit
+from asyncpraw.util import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import asyncpraw.models
 
 INLINE_MEDIA_PATTERN = re.compile(
@@ -38,7 +45,7 @@ MEDIA_TYPE_MAPPING = {
 class SubmissionFlair:
     """Provide a set of functions pertaining to :class:`.Submission` flair."""
 
-    def __init__(self, submission: asyncpraw.models.Submission):
+    def __init__(self, submission: asyncpraw.models.Submission) -> None:
         """Initialize a :class:`.SubmissionFlair` instance.
 
         :param submission: The :class:`.Submission` associated with the flair functions.
@@ -61,13 +68,10 @@ class SubmissionFlair:
         if not self.submission._fetched:
             await self.submission._fetch()
         url = API_PATH["flairselector"].format(subreddit=self.submission.subreddit)
-        data = await self.submission._reddit.post(
-            url, data={"link": self.submission.fullname}
-        )
+        data = await self.submission._reddit.post(url, data={"link": self.submission.fullname})
         return data["choices"]
 
-    @_deprecate_args("flair_template_id", "text")
-    async def select(self, flair_template_id: str, *, text: str | None = None):
+    async def select(self, flair_template_id: str, *, text: str | None = None) -> None:
         """Select flair for submission.
 
         :param flair_template_id: The flair template to select. The possible values can
@@ -110,7 +114,10 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
 
     REMOVAL_MESSAGE_API = "removal_link_message"
 
-    def __init__(self, submission: asyncpraw.models.Submission):
+    if TYPE_CHECKING:
+        thing: asyncpraw.models.Comment | asyncpraw.models.Submission
+
+    def __init__(self, submission: asyncpraw.models.Submission) -> None:
         """Initialize a :class:`.SubmissionModeration` instance.
 
         :param submission: The submission to moderate.
@@ -118,8 +125,7 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
         """
         self.thing = submission
 
-    @_deprecate_args("state")
-    async def contest_mode(self, *, state: bool = True):
+    async def contest_mode(self, *, state: bool = True) -> None:
         """Set contest mode for the comments of this submission.
 
         :param state: ``True`` enables contest mode and ``False`` disables (default:
@@ -141,18 +147,15 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             await submission.mod.contest_mode()
 
         """
-        await self.thing._reddit.post(
-            API_PATH["contest_mode"], data={"id": self.thing.fullname, "state": state}
-        )
+        await self.thing._reddit.post(API_PATH["contest_mode"], data={"id": self.thing.fullname, "state": state})
 
-    @_deprecate_args("text", "css_class", "flair_template_id")
     async def flair(
         self,
         *,
         css_class: str = "",
         flair_template_id: str | None = None,
         text: str = "",
-    ):
+    ) -> None:
         """Set flair for the submission.
 
         :param css_class: The css class to associate with the flair html (default:
@@ -185,7 +188,7 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             url = API_PATH["select_flair"].format(subreddit=self.thing.subreddit)
         await self.thing._reddit.post(url, data=data)
 
-    async def nsfw(self):
+    async def nsfw(self) -> None:
         """Mark as not safe for work.
 
         This method can be used both by the submission author and moderators of the
@@ -204,11 +207,9 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             :meth:`.sfw`
 
         """
-        await self.thing._reddit.post(
-            API_PATH["marknsfw"], data={"id": self.thing.fullname}
-        )
+        await self.thing._reddit.post(API_PATH["marknsfw"], data={"id": self.thing.fullname})
 
-    async def set_original_content(self):
+    async def set_original_content(self) -> None:
         """Mark as original content.
 
         This method can be used by moderators of the subreddit that the submission
@@ -237,7 +238,7 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
         }
         await self.thing._reddit.post(API_PATH["set_original_content"], data=data)
 
-    async def sfw(self):
+    async def sfw(self) -> None:
         """Mark as safe for work.
 
         This method can be used both by the submission author and moderators of the
@@ -255,11 +256,9 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             :meth:`.nsfw`
 
         """
-        await self.thing._reddit.post(
-            API_PATH["unmarknsfw"], data={"id": self.thing.fullname}
-        )
+        await self.thing._reddit.post(API_PATH["unmarknsfw"], data={"id": self.thing.fullname})
 
-    async def spoiler(self):
+    async def spoiler(self) -> None:
         """Indicate that the submission contains spoilers.
 
         This method can be used both by the submission author and moderators of the
@@ -277,14 +276,9 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             :meth:`.unspoiler`
 
         """
-        await self.thing._reddit.post(
-            API_PATH["spoiler"], data={"id": self.thing.fullname}
-        )
+        await self.thing._reddit.post(API_PATH["spoiler"], data={"id": self.thing.fullname})
 
-    @_deprecate_args("state", "bottom")
-    async def sticky(
-        self, *, bottom: bool = True, state: bool = True
-    ) -> asyncpraw.models.Submission:
+    async def sticky(self, *, bottom: bool = True, state: bool = True) -> asyncpraw.models.Submission | None:
         """Set the submission's sticky state in its subreddit.
 
         :param bottom: When ``True``, set the submission as the bottom sticky. If no top
@@ -315,14 +309,11 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
         if not bottom:
             data["num"] = 1
         try:
-            return await self.thing._reddit.post(
-                API_PATH["sticky_submission"], data=data
-            )
+            return await self.thing._reddit.post(API_PATH["sticky_submission"], data=data)
         except Conflict:
             pass
 
-    @_deprecate_args("sort")
-    async def suggested_sort(self, *, sort: str = "blank"):
+    async def suggested_sort(self, *, sort: str = "blank") -> None:
         """Set the suggested sort for the comments of the submission.
 
         :param sort: Can be one of: ``"confidence"``, ``"top"``, ``"new"``,
@@ -330,11 +321,9 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             (default: ``"blank"``).
 
         """
-        await self.thing._reddit.post(
-            API_PATH["suggested_sort"], data={"id": self.thing.fullname, "sort": sort}
-        )
+        await self.thing._reddit.post(API_PATH["suggested_sort"], data={"id": self.thing.fullname, "sort": sort})
 
-    async def unset_original_content(self):
+    async def unset_original_content(self) -> None:
         """Indicate that the submission is not original content.
 
         This method can be used by moderators of the subreddit that the submission
@@ -363,7 +352,7 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
         }
         await self.thing._reddit.post(API_PATH["set_original_content"], data=data)
 
-    async def unspoiler(self):
+    async def unspoiler(self) -> None:
         """Indicate that the submission does not contain spoilers.
 
         This method can be used both by the submission author and moderators of the
@@ -382,11 +371,9 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
             :meth:`.spoiler`
 
         """
-        await self.thing._reddit.post(
-            API_PATH["unspoiler"], data={"id": self.thing.fullname}
-        )
+        await self.thing._reddit.post(API_PATH["unspoiler"], data={"id": self.thing.fullname})
 
-    async def update_crowd_control_level(self, level: int):
+    async def update_crowd_control_level(self, level: int) -> None:
         """Change the Crowd Control level of the submission.
 
         :param level: An integer between 0 and 3.
@@ -401,7 +388,7 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
                        automatically collapsed.
         2     Moderate Comments from new users and users with negative karma in the
                        subreddit are automatically collapsed.
-        3     Strict   Comments from users who haven’t joined the subreddit, new users,
+        3     Strict   Comments from users who haven't joined the subreddit, new users,
                        and users with negative karma in the subreddit are automatically
                        collapsed.
         ===== ======== ================================================================
@@ -424,7 +411,7 @@ class SubmissionModeration(ThingModerationMixin, ModNoteMixin):
         )
 
 
-class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, RedditBase):
+class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, CreatedMixin, RedditBase):
     """A class for submissions to Reddit.
 
     .. include:: ../../typical_attributes.rst
@@ -446,6 +433,9 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
     ``is_original_content``    Whether or not the submission has been set as original
                                content.
     ``is_self``                Whether or not the submission is a selfpost (text-only).
+    ``likes``                  The user's current vote status on the submission:
+                               ``True`` if upvoted, ``False`` if downvoted, and ``None``
+                               if not voted or not logged in.
     ``link_flair_template_id`` The link flair's ID.
     ``link_flair_text``        The link flair's text content, or ``None`` if not
                                flaired.
@@ -496,9 +486,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
         if "comments" not in parts and "gallery" not in parts:
             submission_id = parts[-1]
             if "r" in parts:
-                raise InvalidURL(
-                    url, message="Invalid URL (subreddit, not submission): {}"
-                )
+                raise InvalidURL(url, message="Invalid URL (subreddit, not submission): {}")
 
         elif "gallery" in parts:
             submission_id = parts[parts.index("gallery") + 1]
@@ -567,7 +555,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
         id: str | None = None,
         url: str | None = None,
         _data: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize a :class:`.Submission` instance.
 
         :param reddit: An instance of :class:`.Reddit`.
@@ -577,7 +565,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
         Either ``id`` or ``url`` can be provided, but not both.
 
         """
-        if (id, url, _data).count(None) != 2:
+        if sum(1 for value in (id, url, _data) if value is not None) != 1:
             msg = "Exactly one of 'id', 'url', or '_data' must be provided."
             raise TypeError(msg)
         self.comment_limit = 2048
@@ -609,8 +597,10 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
 
         Sort order and comment limit must be set with the ``comment_sort`` and
         ``comment_limit`` attributes before the submission and its comments are fetched,
-        including any call to :meth:`.replace_more`. The ``fetch`` argument will need to
-        set when initializing the :class:`.Submission` instance:
+        including any call to :meth:`.replace_more`. Setting either attribute after the
+        comments have been fetched raises a :class:`.ClientException`, so the ``fetch``
+        argument will need to be set to ``False`` when initializing the
+        :class:`.Submission` instance:
 
         .. code-block:: python
 
@@ -629,7 +619,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
 
         """
 
-    def __setattr__(self, attribute: str, value: Any):
+    def __setattr__(self, attribute: str, value: Any) -> None:
         """Objectify author, subreddit, and poll data attributes."""
         if attribute == "author":
             value = Redditor.from_data(self._reddit, value)
@@ -637,18 +627,13 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
             value = Subreddit(self._reddit, value)
         elif attribute == "poll_data":
             value = PollData(self._reddit, value)
-        elif (
-            attribute == "comment_sort"
-            and hasattr(self, "_fetched")
-            and self._fetched
-            and hasattr(self, "_reddit")
-            and self._reddit.config.warn_comment_sort
-        ):
-            warn(
-                "The comments for this submission have already been fetched, so the"
-                " updated comment_sort will not have any effect.",
-                stacklevel=2,
+        elif attribute in {"comment_limit", "comment_sort"} and getattr(self, "_fetched", False):
+            msg = (
+                f"Cannot update {attribute!r} because the comments for this submission"
+                " have already been fetched. Initialize the submission with `fetch=False`"
+                " to update it."
             )
+            raise ClientException(msg)
         super().__setattr__(attribute, value)
 
     def _chunk(
@@ -656,7 +641,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
         *,
         chunk_size: int,
         other_submissions: list[asyncpraw.models.Submission] | None,
-    ) -> Generator[str, None, None]:
+    ) -> Iterator[str]:
         all_submissions = [self.fullname]
         if other_submissions:
             all_submissions += [x.fullname for x in other_submissions]
@@ -705,18 +690,16 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
         """
         data = {
             "thing_id": self.fullname,
-            "validate_on_submit": self._reddit.validate_on_submit,
+            "validate_on_submit": True,
         }
         is_richtext_json = False
         if INLINE_MEDIA_PATTERN.search(body) and self.media_metadata:
             is_richtext_json = True
         if inline_media:
-            body = body.format(
-                **{
-                    placeholder: await self.subreddit._upload_inline_media(media)
-                    for placeholder, media in inline_media.items()
-                }
-            )
+            body = body.format(**{
+                placeholder: await self.subreddit._upload_inline_media(media)
+                for placeholder, media in inline_media.items()
+            })
             is_richtext_json = True
         if is_richtext_json:
             richtext_json = await self.subreddit._convert_to_fancypants(body)
@@ -742,46 +725,44 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
             self.__dict__.update(updated)
         return self
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         data = await self._fetch_data()
         submission_listing, comment_listing = data
         comment_listing = Listing(self._reddit, _data=comment_listing["data"])
 
         submission_data = submission_listing["data"]["children"][0]["data"]
         submission = type(self)(self._reddit, _data=submission_data)
-        delattr(submission, "comment_limit")
-        delattr(submission, "comment_sort")
+        del submission.comment_limit
+        del submission.comment_sort
         submission.comments = CommentForest(self)
 
         self.__dict__.update(submission.__dict__)
         self.comments._update(comment_listing.children)
         await super()._fetch()
 
-    async def _fetch_data(self):
+    async def _fetch_data(self) -> dict:
         name, fields, params = self._fetch_info()
         params.update(self._additional_fetch_params.copy())
         path = API_PATH[name].format(**fields)
         return await self._reddit.request(method="GET", params=params, path=path)
 
-    def _fetch_info(self):
+    def _fetch_info(self) -> tuple[str, dict[str, str], dict[str, int | str]]:
         return (
             "submission",
             {"id": self.id},
             {"limit": self.comment_limit, "sort": self.comment_sort},
         )
 
-    def _replace_richtext_links(self, richtext_json: dict):
+    def _replace_richtext_links(self, richtext_json: dict) -> None:
         parsed_media_types = {
-            media_id: MEDIA_TYPE_MAPPING[value["e"]]
-            for media_id, value in self.media_metadata.items()
+            media_id: MEDIA_TYPE_MAPPING[value["e"]] for media_id, value in self.media_metadata.items()
         }
 
         for index, element in enumerate(richtext_json["document"][:]):
             element_items = element.get("c")
             if isinstance(element_items, str):
-                assert element.get("e") in ["gif", "img", "video"], (
-                    "Unexpected richtext JSON schema. Please file a bug report with"
-                    " Async PRAW."
+                assert element.get("e") in {"gif", "img", "video"}, (
+                    "Unexpected richtext JSON schema. Please file a bug report with Async PRAW."
                 )  # make sure this is an inline element
                 continue  # pragma: no cover
             for item in element.get("c"):
@@ -801,11 +782,14 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
                             correct_element["c"] = item["t"]
                         richtext_json["document"][index] = correct_element
 
-    def add_fetch_param(self, key: str, value: str):
+    def add_fetch_param(self, key: str, value: str) -> None:
         """Add a parameter to be used for the next fetch.
 
         :param key: The key of the fetch parameter.
         :param value: The value of the fetch parameter.
+
+        :raises ClientException: If the submission has already been fetched, since fetch
+            parameters only affect the initial fetch and would otherwise have no effect.
 
         For example, to fetch a submission with the ``rtjson`` attribute populated:
 
@@ -817,30 +801,16 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
             print(submission.rtjson)
 
         """
-        if (
-            hasattr(self, "_fetched")
-            and self._fetched
-            and hasattr(self, "_reddit")
-            and self._reddit.config.warn_additional_fetch_params
-        ):
-            warn(
-                f"This {self.__class__.__name__.lower()} has already been fetched, so"
-                " adding additional fetch parameters will not have any effect."
-                f" Initialize the {self.__class__.__name__} instance with the parameter"
-                " `fetch=False` to use additional fetch parameters.",
-                stacklevel=2,
+        if getattr(self, "_fetched", False):
+            msg = (
+                f"Cannot add fetch parameters to this {self.__class__.__name__.lower()}"
+                f" because it has already been fetched. Initialize the"
+                f" {self.__class__.__name__} instance with `fetch=False` to add fetch"
+                " parameters."
             )
+            raise ClientException(msg)
         self._additional_fetch_params[key] = value
 
-    @_deprecate_args(
-        "subreddit",
-        "title",
-        "send_replies",
-        "flair_id",
-        "flair_text",
-        "nsfw",
-        "spoiler",
-    )
     async def crosspost(
         self,
         subreddit: asyncpraw.models.Subreddit,
@@ -898,16 +868,13 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
             "nsfw": bool(nsfw),
             "spoiler": bool(spoiler),
         }
-        for key, value in (("flair_id", flair_id), ("flair_text", flair_text)):
-            if value is not None:
-                data[key] = value
+        data.update({
+            key: value for key, value in (("flair_id", flair_id), ("flair_text", flair_text)) if value is not None
+        })
 
         return await self._reddit.post(API_PATH["submit"], data=data)
 
-    @_deprecate_args("other_submissions")
-    async def hide(
-        self, *, other_submissions: list[asyncpraw.models.Submission] | None = None
-    ):
+    async def hide(self, *, other_submissions: list[asyncpraw.models.Submission] | None = None) -> None:
         """Hide :class:`.Submission`.
 
         :param other_submissions: When provided, additionally hide this list of
@@ -926,12 +893,10 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
             :meth:`.unhide`
 
         """
-        for submissions in self._chunk(
-            chunk_size=50, other_submissions=other_submissions
-        ):
+        for submissions in self._chunk(chunk_size=50, other_submissions=other_submissions):
             await self._reddit.post(API_PATH["hide"], data={"id": submissions})
 
-    async def mark_visited(self):
+    async def mark_visited(self) -> None:
         """Mark submission as visited.
 
         This method requires a subscription to reddit premium.
@@ -947,10 +912,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
         data = {"links": self.fullname}
         await self._reddit.post(API_PATH["store_visits"], data=data)
 
-    @_deprecate_args("other_submissions")
-    async def unhide(
-        self, *, other_submissions: list[asyncpraw.models.Submission] | None = None
-    ):
+    async def unhide(self, *, other_submissions: list[asyncpraw.models.Submission] | None = None) -> None:
         """Unhide :class:`.Submission`.
 
         :param other_submissions: When provided, additionally unhide this list of
@@ -969,9 +931,7 @@ class Submission(SubmissionListingMixin, UserContentMixin, FullnameMixin, Reddit
             :meth:`.hide`
 
         """
-        for submissions in self._chunk(
-            chunk_size=50, other_submissions=other_submissions
-        ):
+        for submissions in self._chunk(chunk_size=50, other_submissions=other_submissions):
             await self._reddit.post(API_PATH["unhide"], data={"id": submissions})
 
 

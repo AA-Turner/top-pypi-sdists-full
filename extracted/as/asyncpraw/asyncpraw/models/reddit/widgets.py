@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 from json import JSONEncoder, dumps
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, cast
 
-from ...const import API_PATH
-from ...util import _deprecate_args
-from ...util.cache import cachedproperty
-from ..base import AsyncPRAWBase
-from ..list.base import BaseList
+from asyncpraw.const import API_PATH
+from asyncpraw.models.base import AsyncPRAWBase, DynamicAttributes
+from asyncpraw.models.list.base import BaseList
+from asyncpraw.util.cache import cachedproperty
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
 
-WidgetType: TypeVar = TypeVar("WidgetType", bound="Widget")
 
-
-class Button(AsyncPRAWBase):
+class Button(DynamicAttributes, AsyncPRAWBase):
     """Class to represent a single button inside a :class:`.ButtonWidget`.
 
     .. include:: ../../typical_attributes.rst
@@ -45,7 +43,7 @@ class Button(AsyncPRAWBase):
     """
 
 
-class CalendarConfiguration(AsyncPRAWBase):
+class CalendarConfiguration(DynamicAttributes, AsyncPRAWBase):
     """Class to represent the configuration of a :class:`.Calendar`.
 
     .. include:: ../../typical_attributes.rst
@@ -64,7 +62,7 @@ class CalendarConfiguration(AsyncPRAWBase):
     """
 
 
-class Hover(AsyncPRAWBase):
+class Hover(DynamicAttributes, AsyncPRAWBase):
     """Class to represent the hover data for a :class:`.ButtonWidget`.
 
     These values will take effect when the button is hovered over (the user moves their
@@ -90,7 +88,7 @@ class Hover(AsyncPRAWBase):
     """
 
 
-class Image(AsyncPRAWBase):
+class Image(DynamicAttributes, AsyncPRAWBase):
     """Class to represent an image that's part of a :class:`.ImageWidget`.
 
     .. include:: ../../typical_attributes.rst
@@ -107,7 +105,7 @@ class Image(AsyncPRAWBase):
     """
 
 
-class ImageData(AsyncPRAWBase):
+class ImageData(DynamicAttributes, AsyncPRAWBase):
     """Class for image data that's part of a :class:`.CustomWidget`.
 
     .. include:: ../../typical_attributes.rst
@@ -124,7 +122,7 @@ class ImageData(AsyncPRAWBase):
     """
 
 
-class MenuLink(AsyncPRAWBase):
+class MenuLink(DynamicAttributes, AsyncPRAWBase):
     """Class to represent a single link inside a :class:`.Menu` or :class:`.Submenu`.
 
     .. include:: ../../typical_attributes.rst
@@ -139,7 +137,7 @@ class MenuLink(AsyncPRAWBase):
     """
 
 
-class Styles(AsyncPRAWBase):
+class Styles(DynamicAttributes, AsyncPRAWBase):
     """Class to represent the style information of a widget.
 
     .. include:: ../../typical_attributes.rst
@@ -156,7 +154,7 @@ class Styles(AsyncPRAWBase):
     """
 
 
-class Submenu(BaseList):
+class Submenu(DynamicAttributes, BaseList):
     r"""Class to represent a submenu of links inside a :class:`.Menu`.
 
     .. include:: ../../typical_attributes.rst
@@ -280,13 +278,13 @@ class SubredditWidgets(AsyncPRAWBase):
         msg = f"{self.__class__.__name__!r} object has no attribute {attr!r}, did you forget to run '.refresh()'?"  # pragma: no cover
         raise AttributeError(msg)  # pragma: no cover
 
-    def __init__(self, subreddit: asyncpraw.models.Subreddit):
+    def __init__(self, subreddit: asyncpraw.models.Subreddit) -> None:
         """Initialize a :class:`.SubredditWidgets` instance.
 
         :param subreddit: The :class:`.Subreddit` the widgets belong to.
 
         """
-        self._raw_items = None
+        self._raw_items: dict[str, Any] | None = None
         self._items = None
         self._fetched = False
         self.subreddit = subreddit
@@ -298,7 +296,7 @@ class SubredditWidgets(AsyncPRAWBase):
         """Return an object initialization representation of the instance."""
         return f"SubredditWidgets(subreddit={self.subreddit!r})"
 
-    async def _fetch(self):
+    async def _fetch(self) -> None:
         data = await self._reddit.get(
             API_PATH["widgets"].format(subreddit=self.subreddit),
             params={"progressive_images": self.progressive_images},
@@ -313,7 +311,7 @@ class SubredditWidgets(AsyncPRAWBase):
     async def id_card(self) -> asyncpraw.models.IDCard:
         """Get this :class:`.Subreddit`'s :class:`.IDCard` widget."""
         items = await self.items()
-        return items[self.layout["idCardWidget"]]
+        return cast("asyncpraw.models.IDCard", items[self.layout["idCardWidget"]])
 
     async def items(self) -> dict[str, asyncpraw.models.Widget]:
         """Get this :class:`.Subreddit`'s widgets as a dict from ID to widget."""
@@ -321,17 +319,18 @@ class SubredditWidgets(AsyncPRAWBase):
             if not self._raw_items:
                 await self._fetch()
             self._items = {}
+            assert self._raw_items is not None
             for item_name, data in self._raw_items.items():
                 data["subreddit"] = self.subreddit
-                self._items[item_name] = self._reddit._objector.objectify(data)
+                self._items[item_name] = self._reddit._objector.objectify(data=data)
         return self._items
 
     async def moderators_widget(self) -> asyncpraw.models.ModeratorsWidget:
         """Get this :class:`.Subreddit`'s :class:`.ModeratorsWidget`."""
         items = await self.items()
-        return items[self.layout["moderatorWidget"]]
+        return cast("asyncpraw.models.ModeratorsWidget", items[self.layout["moderatorWidget"]])
 
-    async def refresh(self):
+    async def refresh(self) -> None:
         """Refresh the :class:`.Subreddit`'s widgets.
 
         By default, Async PRAW will not request progressively loading images from
@@ -348,20 +347,20 @@ class SubredditWidgets(AsyncPRAWBase):
         """
         await self._fetch()
 
-    async def sidebar(self) -> list[asyncpraw.models.Widget]:
+    async def sidebar(self) -> AsyncIterator[asyncpraw.models.Widget]:
         r"""Get a list of :class:`.Widget`\ s that make up the sidebar."""
         items = await self.items()
         for widget in self.layout["sidebar"]["order"]:
             yield items[widget]
 
-    async def topbar(self) -> list[asyncpraw.models.Menu]:
+    async def topbar(self) -> AsyncIterator[asyncpraw.models.Menu]:
         r"""Get a list of :class:`.Widget`\ s that make up the top bar."""
         items = await self.items()
         for widget in self.layout["topbar"]["order"]:
-            yield items[widget]
+            yield cast("asyncpraw.models.Menu", items[widget])
 
 
-class Widget(AsyncPRAWBase):
+class Widget(DynamicAttributes, AsyncPRAWBase):
     """Base class to represent a :class:`.Widget`."""
 
     @cachedproperty
@@ -383,7 +382,11 @@ class Widget(AsyncPRAWBase):
             return self.id.lower() == other.id.lower()
         return str(other).lower() == self.id.lower()
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __hash__(self) -> int:
+        """Return the hash of the current instance."""
+        return hash(self.__class__.__name__) ^ hash(self.id.lower())
+
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.Widget` instance."""
         self.subreddit = ""  # in case it isn't in _data
         self.id = ""  # in case it isn't in _data
@@ -393,6 +396,8 @@ class Widget(AsyncPRAWBase):
 
 class WidgetEncoder(JSONEncoder):
     """Class to encode widget-related objects."""
+
+    _subreddit_class: type[asyncpraw.models.Subreddit]
 
     def default(self, o: Any) -> Any:
         """Serialize ``AsyncPRAWBase`` objects."""
@@ -713,11 +718,9 @@ class CustomWidget(Widget):
 
     """
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.CustomWidget` instance."""
-        _data["imageData"] = [
-            ImageData(reddit, data) for data in _data.pop("imageData")
-        ]
+        _data["imageData"] = [ImageData(reddit, data) for data in _data.pop("imageData")]
         super().__init__(reddit, _data=_data)
 
 
@@ -946,11 +949,13 @@ class ModeratorsWidget(Widget, BaseList):
 
     CHILD_ATTRIBUTE = "mods"
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.ModeratorsWidget` instance."""
-        if self.CHILD_ATTRIBUTE not in _data:
+        child_attribute = self.CHILD_ATTRIBUTE
+        assert child_attribute is not None
+        if child_attribute not in _data:
             # .mod.update() sometimes returns payload without "mods" field
-            _data[self.CHILD_ATTRIBUTE] = []
+            _data[child_attribute] = []
         super().__init__(reddit, _data=_data)
 
 
@@ -1066,152 +1071,14 @@ class RulesWidget(Widget, BaseList):
 
     CHILD_ATTRIBUTE = "data"
 
-    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]):
+    def __init__(self, reddit: asyncpraw.Reddit, _data: dict[str, Any]) -> None:
         """Initialize a :class:`.RulesWidget` instance."""
-        if self.CHILD_ATTRIBUTE not in _data:
+        child_attribute = self.CHILD_ATTRIBUTE
+        assert child_attribute is not None
+        if child_attribute not in _data:
             # .mod.update() sometimes returns payload without "data" field
-            _data[self.CHILD_ATTRIBUTE] = []
+            _data[child_attribute] = []
         super().__init__(reddit, _data=_data)
-
-
-class TextArea(Widget):
-    """Class to represent a text area widget.
-
-    Find a text area in a subreddit:
-
-    .. code-block:: python
-
-        subreddit = await reddit.subreddit("test")
-        widgets = subreddit.widgets
-        text_area = None
-        async for widget in widgets.sidebar():
-            if isinstance(widget, asyncpraw.models.TextArea):
-                text_area = widget
-                break
-        print(text_area.text)
-
-    Create one:
-
-    .. code-block:: python
-
-        subreddit = await reddit.subreddit("test")
-        widgets = subreddit.widgets
-        styles = {"backgroundColor": "#FFFF66", "headerColor": "#3333EE"}
-        text_area = await widgets.mod.add_text_area(
-            short_name="My cool title", text="*Hello* **world**!", styles=styles
-        )
-
-    For more information on creation, see :meth:`.add_text_area`.
-
-    Update one:
-
-    .. code-block:: python
-
-        new_styles = {"backgroundColor": "#FFFFFF", "headerColor": "#FF9900"}
-        text_area = await text_area.mod.update(shortName="My fav text", styles=new_styles)
-
-    Delete one:
-
-    .. code-block:: python
-
-        await text_area.mod.delete()
-
-    .. include:: ../../typical_attributes.rst
-
-    ============= =====================================================================
-    Attribute     Description
-    ============= =====================================================================
-    ``id``        The widget ID.
-    ``kind``      The widget kind (always ``"textarea"``).
-    ``shortName`` The short name of the widget.
-    ``styles``    A ``dict`` with the keys ``"backgroundColor"`` and ``"headerColor"``.
-    ``subreddit`` The :class:`.Subreddit` the button widget belongs to.
-    ``text``      The widget's text, as Markdown.
-    ``textHtml``  The widget's text, as HTML.
-    ============= =====================================================================
-
-    """
-
-
-class WidgetModeration:
-    """Class for moderating a particular widget.
-
-    Example usage:
-
-    .. code-block:: python
-
-        subreddit = await reddit.subreddit("test")
-        sidebar = [widget async for widget in subreddit.widgets.sidebar()]
-        widget = sidebar[0]
-        await widget.mod.update(shortName="My new title")
-        await widget.mod.delete()
-
-    """
-
-    def __init__(
-        self,
-        widget: asyncpraw.models.Widget,
-        subreddit: asyncpraw.models.Subreddit | str,
-        reddit: asyncpraw.Reddit,
-    ):
-        """Initialize a :class:`.WidgetModeration` instance."""
-        self.widget = widget
-        self._reddit = reddit
-        self._subreddit = subreddit
-
-    async def delete(self):
-        """Delete the widget.
-
-        Example usage:
-
-        .. code-block:: python
-
-            await widget.mod.delete()
-
-        """
-        path = API_PATH["widget_modify"].format(
-            widget_id=self.widget.id, subreddit=self._subreddit
-        )
-        await self._reddit.delete(path)
-
-    async def update(self, **kwargs: Any) -> Widget:
-        """Update the widget. Returns the updated widget.
-
-        Parameters differ based on the type of widget. See `Reddit documentation
-        <https://www.reddit.com/dev/api#PUT_api_widget_{widget_id}>`_ or the document of
-        the particular type of widget.
-
-        :returns: The updated :class:`.Widget`.
-
-        For example, update a text widget like so:
-
-        .. code-block:: python
-
-            await text_widget.mod.update(shortName="New text area", text="Hello!")
-
-        .. note::
-
-            Most parameters follow the ``lowerCamelCase`` convention. When in doubt,
-            check the Reddit documentation linked above.
-
-        """
-        path = API_PATH["widget_modify"].format(
-            widget_id=self.widget.id, subreddit=self._subreddit
-        )
-        payload = {
-            key: value
-            for key, value in vars(self.widget).items()
-            if not key.startswith("_")
-        }
-        del payload["subreddit"]  # not JSON serializable
-        if "mod" in payload:
-            del payload["mod"]
-        payload.update(kwargs)
-        widget = await self._reddit.put(
-            path, data={"json": dumps(payload, cls=WidgetEncoder)}
-        )
-        widget.subreddit = self._subreddit
-        return widget
 
 
 class SubredditWidgetsModeration:
@@ -1236,20 +1103,19 @@ class SubredditWidgetsModeration:
 
     """
 
-    def __init__(self, subreddit: asyncpraw.models.Subreddit, reddit: asyncpraw.Reddit):
+    def __init__(self, subreddit: asyncpraw.models.Subreddit, reddit: asyncpraw.Reddit) -> None:
         """Initialize a :class:`.SubredditWidgetsModeration` instance."""
         self._subreddit = subreddit
         self._reddit = reddit
 
-    async def _create_widget(self, payload: dict[str, Any]) -> WidgetType:
+    # Returns Any: the concrete widget type is determined at runtime by objectifying the
+    # response. Each public ``add_*`` wrapper carries the precise return annotation.
+    async def _create_widget(self, payload: dict[str, Any]) -> Any:
         path = API_PATH["widget_create"].format(subreddit=self._subreddit)
-        widget = await self._reddit.post(
-            path, data={"json": dumps(payload, cls=WidgetEncoder)}
-        )
+        widget = await self._reddit.post(path, data={"json": dumps(payload, cls=WidgetEncoder)})
         widget.subreddit = self._subreddit
         return widget
 
-    @_deprecate_args("short_name", "description", "buttons", "styles")
     async def add_button_widget(
         self,
         *,
@@ -1390,9 +1256,6 @@ class SubredditWidgetsModeration:
         button_widget.update(other_settings)
         return await self._create_widget(button_widget)
 
-    @_deprecate_args(
-        "short_name", "google_calendar_id", "requires_sync", "configuration", "styles"
-    )
     async def add_calendar(
         self,
         *,
@@ -1466,7 +1329,6 @@ class SubredditWidgetsModeration:
         calendar.update(other_settings)
         return await self._create_widget(calendar)
 
-    @_deprecate_args("short_name", "data", "styles", "description")
     async def add_community_list(
         self,
         *,
@@ -1512,7 +1374,6 @@ class SubredditWidgetsModeration:
         community_list.update(other_settings)
         return await self._create_widget(community_list)
 
-    @_deprecate_args("short_name", "text", "css", "height", "image_data", "styles")
     async def add_custom_widget(
         self,
         *,
@@ -1604,7 +1465,6 @@ class SubredditWidgetsModeration:
         custom_widget.update(other_settings)
         return await self._create_widget(custom_widget)
 
-    @_deprecate_args("short_name", "data", "styles")
     async def add_image_widget(
         self,
         *,
@@ -1678,7 +1538,6 @@ class SubredditWidgetsModeration:
         image_widget.update(other_settings)
         return await self._create_widget(image_widget)
 
-    @_deprecate_args("data")
     async def add_menu(
         self,
         *,
@@ -1742,7 +1601,6 @@ class SubredditWidgetsModeration:
         menu.update(other_settings)
         return await self._create_widget(menu)
 
-    @_deprecate_args("short_name", "display", "order", "styles")
     async def add_post_flair_widget(
         self,
         *,
@@ -1792,7 +1650,6 @@ class SubredditWidgetsModeration:
         post_flair.update(other_settings)
         return await self._create_widget(post_flair)
 
-    @_deprecate_args("short_name", "text", "styles")
     async def add_text_area(
         self,
         *,
@@ -1832,8 +1689,7 @@ class SubredditWidgetsModeration:
         text_area.update(other_settings)
         return await self._create_widget(text_area)
 
-    @_deprecate_args("new_order", "section")
-    async def reorder(self, new_order: list[Widget | str], *, section: str = "sidebar"):
+    async def reorder(self, new_order: list[Widget | str], *, section: str = "sidebar") -> None:
         """Reorder the widgets.
 
         :param new_order: A list of widgets. Represented as a list that contains
@@ -1852,18 +1708,14 @@ class SubredditWidgetsModeration:
             await widgets.mod.reorder(order)
 
         """
-        order = [
-            thing.id if isinstance(thing, Widget) else str(thing) for thing in new_order
-        ]
-        path = API_PATH["widget_order"].format(
-            subreddit=self._subreddit, section=section
-        )
+        order = [thing.id if isinstance(thing, Widget) else str(thing) for thing in new_order]
+        path = API_PATH["widget_order"].format(subreddit=self._subreddit, section=section)
         await self._reddit.patch(path, data={"json": dumps(order), "section": section})
 
-    async def upload_image(self, file_path: str) -> str:
+    async def upload_image(self, media: asyncpraw.models.WidgetMedia, /) -> str:
         """Upload an image to Reddit and get the URL.
 
-        :param file_path: The path to the local file.
+        :param media: The :class:`.WidgetMedia` to upload.
 
         :returns: The URL of the uploaded image as a ``str``.
 
@@ -1875,8 +1727,10 @@ class SubredditWidgetsModeration:
 
         .. code-block:: python
 
+            from asyncpraw.models import WidgetMedia
+
             my_sub = await reddit.subreddit("test")
-            image_url = await my_sub.widgets.mod.upload_image("/path/to/image.jpg")
+            image_url = await my_sub.widgets.mod.upload_image(WidgetMedia("/path/to/image.jpg"))
             image_data = [{"width": 300, "height": 300, "url": image_url, "linkUrl": ""}]
             styles = {"backgroundColor": "#FFFF66", "headerColor": "#3333EE"}
             await my_sub.widgets.mod.add_image_widget(
@@ -1884,27 +1738,133 @@ class SubredditWidgetsModeration:
             )
 
         """
-        file = Path(file_path)
-        img_data = {
-            "filepath": file.name,
-            "mimetype": "image/jpeg",
-        }
-        if file_path.lower().endswith(".png"):
-            img_data["mimetype"] = "image/png"
+        return await media._upload(self._subreddit)
 
-        url = API_PATH["widget_lease"].format(subreddit=self._subreddit)
-        # until we learn otherwise, assume this request always succeeds
-        response = await self._reddit.post(url, data=img_data)
-        upload_lease = response["s3UploadLease"]
-        upload_data = {item["name"]: item["value"] for item in upload_lease["fields"]}
-        upload_url = f"https:{upload_lease['action']}"
 
-        # TODO(@LilSpazJoekp): This is a blocking operation. It should be made async.
-        with file.open("rb") as image:  # noqa: ASYNC230
-            upload_data["file"] = image
-            response = await self._reddit._core._requestor._http.post(
-                upload_url, data=upload_data
-            )
-        response.raise_for_status()
+class TextArea(Widget):
+    """Class to represent a text area widget.
 
-        return f"{upload_url}/{upload_data['key']}"
+    Find a text area in a subreddit:
+
+    .. code-block:: python
+
+        subreddit = await reddit.subreddit("test")
+        widgets = subreddit.widgets
+        text_area = None
+        async for widget in widgets.sidebar():
+            if isinstance(widget, asyncpraw.models.TextArea):
+                text_area = widget
+                break
+        print(text_area.text)
+
+    Create one:
+
+    .. code-block:: python
+
+        subreddit = await reddit.subreddit("test")
+        widgets = subreddit.widgets
+        styles = {"backgroundColor": "#FFFF66", "headerColor": "#3333EE"}
+        text_area = await widgets.mod.add_text_area(
+            short_name="My cool title", text="*Hello* **world**!", styles=styles
+        )
+
+    For more information on creation, see :meth:`.add_text_area`.
+
+    Update one:
+
+    .. code-block:: python
+
+        new_styles = {"backgroundColor": "#FFFFFF", "headerColor": "#FF9900"}
+        text_area = await text_area.mod.update(shortName="My fav text", styles=new_styles)
+
+    Delete one:
+
+    .. code-block:: python
+
+        await text_area.mod.delete()
+
+    .. include:: ../../typical_attributes.rst
+
+    ============= =====================================================================
+    Attribute     Description
+    ============= =====================================================================
+    ``id``        The widget ID.
+    ``kind``      The widget kind (always ``"textarea"``).
+    ``shortName`` The short name of the widget.
+    ``styles``    A ``dict`` with the keys ``"backgroundColor"`` and ``"headerColor"``.
+    ``subreddit`` The :class:`.Subreddit` the button widget belongs to.
+    ``text``      The widget's text, as Markdown.
+    ``textHtml``  The widget's text, as HTML.
+    ============= =====================================================================
+
+    """
+
+
+class WidgetModeration:
+    """Class for moderating a particular widget.
+
+    Example usage:
+
+    .. code-block:: python
+
+        subreddit = await reddit.subreddit("test")
+        sidebar = [widget async for widget in subreddit.widgets.sidebar()]
+        widget = sidebar[0]
+        await widget.mod.update(shortName="My new title")
+        await widget.mod.delete()
+
+    """
+
+    def __init__(
+        self,
+        widget: asyncpraw.models.Widget,
+        subreddit: asyncpraw.models.Subreddit | str,
+        reddit: asyncpraw.Reddit,
+    ) -> None:
+        """Initialize a :class:`.WidgetModeration` instance."""
+        self.widget = widget
+        self._reddit = reddit
+        self._subreddit = subreddit
+
+    async def delete(self) -> None:
+        """Delete the widget.
+
+        Example usage:
+
+        .. code-block:: python
+
+            await widget.mod.delete()
+
+        """
+        path = API_PATH["widget_modify"].format(widget_id=self.widget.id, subreddit=self._subreddit)
+        await self._reddit.delete(path)
+
+    async def update(self, **kwargs: Any) -> Widget:
+        """Update the widget. Returns the updated widget.
+
+        Parameters differ based on the type of widget. See `Reddit documentation
+        <https://www.reddit.com/dev/api#PUT_api_widget_{widget_id}>`_ or the document of
+        the particular type of widget.
+
+        :returns: The updated :class:`.Widget`.
+
+        For example, update a text widget like so:
+
+        .. code-block:: python
+
+            await text_widget.mod.update(shortName="New text area", text="Hello!")
+
+        .. note::
+
+            Most parameters follow the ``lowerCamelCase`` convention. When in doubt,
+            check the Reddit documentation linked above.
+
+        """
+        path = API_PATH["widget_modify"].format(widget_id=self.widget.id, subreddit=self._subreddit)
+        payload = {key: value for key, value in vars(self.widget).items() if not key.startswith("_")}
+        del payload["subreddit"]  # not JSON serializable
+        payload.pop("mod", None)
+        payload.update(kwargs)
+        widget = await self._reddit.put(path, data={"json": dumps(payload, cls=WidgetEncoder)})
+        widget.subreddit = self._subreddit
+        return widget

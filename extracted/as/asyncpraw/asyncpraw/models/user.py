@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, AsyncIterator
-from warnings import warn
+from typing import TYPE_CHECKING, Any
 
 from asyncprawcore import Conflict
 
-from ..const import API_PATH
-from ..exceptions import ReadOnlyException
-from ..models import Preferences
-from ..util import _deprecate_args
-from ..util.cache import cachedproperty
-from .base import AsyncPRAWBase
-from .listing.generator import ListingGenerator
-from .reddit.redditor import Redditor
-from .reddit.subreddit import Subreddit
+from asyncpraw.const import API_PATH
+from asyncpraw.exceptions import ReadOnlyException
+from asyncpraw.models import Preferences
+from asyncpraw.models.base import AsyncPRAWBase
+from asyncpraw.models.listing.generator import ListingGenerator
+from asyncpraw.models.reddit.redditor import Redditor
+from asyncpraw.models.reddit.subreddit import Subreddit
+from asyncpraw.util.cache import cachedproperty
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     import asyncpraw.models
 
 
@@ -54,7 +54,7 @@ class User(AsyncPRAWBase):
         """
         return Preferences(self._reddit)
 
-    def __init__(self, reddit: asyncpraw.Reddit):
+    def __init__(self, reddit: asyncpraw.Reddit) -> None:
         """Initialize an :class:`.User` instance.
 
         This class is intended to be interfaced with through ``reddit.user``.
@@ -66,9 +66,7 @@ class User(AsyncPRAWBase):
         r"""Return a :class:`.RedditorList` of blocked :class:`.Redditor`\ s."""
         return await self._reddit.get(API_PATH["blocked"])
 
-    def contributor_subreddits(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def contributor_subreddits(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         r"""Return a :class:`.ListingGenerator` of contributor :class:`.Subreddit`\ s.
 
         These are subreddits in which the user is an approved user.
@@ -84,11 +82,8 @@ class User(AsyncPRAWBase):
                 print(str(subreddit))
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["my_contributor"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["my_contributor"], **generator_kwargs)
 
-    @_deprecate_args("user")
     async def friends(
         self, *, user: str | asyncpraw.models.Redditor | None = None
     ) -> list[asyncpraw.models.Redditor] | asyncpraw.models.Redditor:
@@ -105,11 +100,7 @@ class User(AsyncPRAWBase):
             the specified :class:`.Redditor`.
 
         """
-        endpoint = (
-            API_PATH["friends"]
-            if user is None
-            else API_PATH["friend_v1"].format(user=str(user))
-        )
+        endpoint = API_PATH["friends"] if user is None else API_PATH["friend_v1"].format(user=str(user))
         return await self._reddit.get(endpoint)
 
     async def karma(self) -> dict[asyncpraw.models.Subreddit, dict[str, int]]:
@@ -134,7 +125,6 @@ class User(AsyncPRAWBase):
             karma_map[subreddit] = row
         return karma_map
 
-    @_deprecate_args("use_cache")
     async def me(self, *, use_cache: bool = True) -> asyncpraw.models.Redditor | None:
         """Return a :class:`.Redditor` instance for the authenticated user.
 
@@ -147,24 +137,8 @@ class User(AsyncPRAWBase):
             to refresh the cached value. Prefer using separate :class:`.Reddit`
             instances, however, for distinct authorizations.
 
-        .. deprecated:: 7.2
-
-            In :attr:`.read_only` mode this method returns ``None``. In Async PRAW 8
-            this method will raise :class:`.ReadOnlyException` when called in
-            :attr:`.read_only` mode. To operate in Async PRAW 8 mode, set the config
-            variable ``praw8_raise_exception_on_me`` to ``True``.
-
         """
         if self._reddit.read_only:
-            if not self._reddit.config.custom.get("praw8_raise_exception_on_me"):
-                warn(
-                    "The 'None' return value is deprecated, and will raise a"
-                    " ReadOnlyException beginning with Async PRAW 8. See"
-                    " documentation for forward compatibility options.",
-                    category=DeprecationWarning,
-                    stacklevel=2,
-                )
-                return None
             msg = "`user.me()` does not work in read_only mode"
             raise ReadOnlyException(msg)
         if "_me" not in self.__dict__ or not use_cache:
@@ -172,9 +146,7 @@ class User(AsyncPRAWBase):
             self._me = Redditor(self._reddit, _data=user_data)
         return self._me
 
-    def moderator_subreddits(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def moderator_subreddits(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         """Return a :class:`.ListingGenerator` subreddits that the user moderates.
 
         Additional keyword arguments are passed in the initialization of
@@ -192,9 +164,7 @@ class User(AsyncPRAWBase):
             :meth:`.Redditor.moderated`
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["my_moderator"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["my_moderator"], **generator_kwargs)
 
     async def multireddits(self) -> list[asyncpraw.models.Multireddit]:
         r"""Return a list of :class:`.Multireddit`\ s belonging to the user."""
@@ -204,9 +174,9 @@ class User(AsyncPRAWBase):
         self,
         submission: asyncpraw.models.Submission,
         *,
-        num: int = None,
+        num: int | None = None,
         state: bool = True,
-    ) -> asyncpraw.models.Submission:
+    ) -> asyncpraw.models.Submission | None:
         """Set the pin state of a submission on the authenticated user's profile.
 
         :param submission: An instance of :class:`.Submission` that will be
@@ -265,9 +235,7 @@ class User(AsyncPRAWBase):
         except Conflict:
             pass
 
-    def subreddits(
-        self, **generator_kwargs: str | int | dict[str, str]
-    ) -> AsyncIterator[asyncpraw.models.Subreddit]:
+    def subreddits(self, **generator_kwargs: Any) -> AsyncIterator[asyncpraw.models.Subreddit]:
         r"""Return a :class:`.ListingGenerator` of :class:`.Subreddit`\ s the user is subscribed to.
 
         Additional keyword arguments are passed in the initialization of
@@ -281,9 +249,7 @@ class User(AsyncPRAWBase):
                 print(str(subreddit))
 
         """
-        return ListingGenerator(
-            self._reddit, API_PATH["my_subreddits"], **generator_kwargs
-        )
+        return ListingGenerator(self._reddit, API_PATH["my_subreddits"], **generator_kwargs)
 
     async def trusted(self) -> list[asyncpraw.models.Redditor]:
         r"""Return a :class:`.RedditorList` of trusted :class:`.Redditor`\ s.
