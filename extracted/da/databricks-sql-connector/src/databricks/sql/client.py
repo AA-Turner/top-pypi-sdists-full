@@ -115,7 +115,21 @@ class Connection:
 
         Parameters:
             :param use_sea: `bool`, optional (default is False)
-                Use the SEA backend instead of the Thrift backend.
+                Use the native pure-Python SEA backend instead of
+                the Thrift backend.
+            :param use_kernel: `bool`, optional (default is False)
+                Route the connection through the Rust kernel
+                (``databricks-sql-kernel`` via PyO3). Requires the
+                kernel extension to be installed separately — the
+                wheel is not yet published on PyPI, so today the
+                only supported install path is a local
+                ``maturin develop --release`` build from the
+                ``databricks-sql-kernel`` repo into the same venv.
+                Raises ``ImportError`` if the extension is not
+                available. In active development — PAT auth only
+                today; OAuth / federation / external credentials
+                and native parameter binding land in follow-ups.
+                Mutually exclusive with ``use_sea``.
             :param use_hybrid_disposition: `bool`, optional (default is False)
                 Use the hybrid disposition instead of the inline disposition.
             :param server_hostname: Databricks instance host name.
@@ -1575,6 +1589,11 @@ class Cursor:
         Get columns corresponding to the catalog_name, schema_name, table_name and column_name.
 
         Names can contain % wildcards.
+
+        ``catalog_name=None`` is accepted on all backends and matches
+        columns across every catalog (the kernel issues ``SHOW COLUMNS``
+        over all catalogs).
+
         :returns self
         """
         self._check_not_closed()
@@ -1684,11 +1703,22 @@ class Cursor:
         """
         if self.active_command_id is not None:
             self.backend.cancel_command(self.active_command_id)
-        else:
-            logger.warning(
-                "Attempting to cancel a command, but there is no "
-                "currently executing command"
-            )
+            return
+        # No command id yet. A backend whose synchronous ``execute()``
+        # blocks without first publishing a command id (the kernel
+        # backend) may still have a server statement in flight. Such a
+        # backend exposes ``cancel_running_cursor(cursor)`` -> bool to
+        # cancel it; it returns True if something was actually
+        # cancelled. Opt-in via getattr so the Thrift / SEA backends
+        # (which set ``active_command_id`` before blocking) are
+        # unaffected.
+        cancel_running_cursor = getattr(self.backend, "cancel_running_cursor", None)
+        if cancel_running_cursor is not None and cancel_running_cursor(self):
+            return
+        logger.warning(
+            "Attempting to cancel a command, but there is no "
+            "currently executing command"
+        )
 
     def close(self) -> None:
         """Close cursor"""

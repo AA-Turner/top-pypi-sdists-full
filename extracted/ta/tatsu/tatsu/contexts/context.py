@@ -10,6 +10,7 @@ from ..exceptions import (
     FailedExpectingEndOfLine,
     FailedExpectingEndOfText,
     FailedLookahead,
+    FailedMeta,
     FailedParse,
     FailedPattern,
     FailedToken,
@@ -56,6 +57,15 @@ class ParseContext(ParserEngine):
 
     _fail = fail
 
+    def alert(self, message: str, level: int) -> None:
+        self.next_token()
+        self.tracer.trace_match(self, f'{"^" * level}`{message}`', failed=True)
+        # note: capture=False, nothing appended to state
+        message = self.constant(message, capture=False)
+        self.states.alert(level=level, message=message)
+
+    _aler = alert
+
     def token(self, token: str) -> str:
         self.next_token()
         if self.cursor.match(token) is None:
@@ -67,18 +77,8 @@ class ParseContext(ParserEngine):
 
     _token = token
 
-    def alert(self, message: str, level: int) -> None:
-        self.next_token()
-        self.tracer.trace_match(self, f'{"^" * level}`{message}`', failed=True)
-        # note: capture=False, nothing appended to state
-        message = self.constant(message, capture=False)
-        self.states.alert(level=level, message=message)
-
-    _aler = alert
-
     def pattern(self, pattern: str) -> Any:
-        token = self.cursor.matchre(pattern)
-        if token is None:
+        if (token := self.cursor.matchre(pattern)) is None:
             self.tracer.trace_match(self, '', pattern, failed=True)
             raise self.newexcept(f'Expecting {regexpp(pattern)}', excls=FailedPattern)
         self.tracer.trace_match(self, token, pattern)
@@ -86,6 +86,61 @@ class ParseContext(ParserEngine):
         return token
 
     _pattern = pattern
+
+    def matchname(self) -> str | None:
+        self.next_token()
+        if (token := self.cursor.matchname()) is None:
+            self.tracer.trace_match(self, '', '@name', failed=True)
+            raise self.newexcept('Expecting @name', excls=FailedMeta)
+        self.tracer.trace_match(self, token, '@name')
+        self.state.append(token)
+        return token
+
+    _matchname = matchname
+
+    def matchint(self) -> int | None:
+        self.next_token()
+        if (token := self.cursor.matchint()) is None:
+            self.tracer.trace_match(self, '', '@int', failed=True)
+            raise self.newexcept('Expecting @int', excls=FailedMeta)
+        self.tracer.trace_match(self, str(token), '@int')
+        self.state.append(token)
+        return token
+
+    _matchint = matchint
+
+    def matchuint(self) -> int | None:
+        self.next_token()
+        if (token := self.cursor.matchuint()) is None:
+            self.tracer.trace_match(self, '', '@int', failed=True)
+            raise self.newexcept('Expecting @int', excls=FailedMeta)
+        self.tracer.trace_match(self, str(token), '@int')
+        self.state.append(token)
+        return token
+
+    _matchuint = matchuint
+
+    def matchfloat(self) -> float | None:
+        self.next_token()
+        if (token := self.cursor.matchfloat()) is None:
+            self.tracer.trace_match(self, '', '@float', failed=True)
+            raise self.newexcept('Expecting @float', excls=FailedMeta)
+        self.tracer.trace_match(self, str(token), '@float')
+        self.state.append(token)
+        return token
+
+    _matchfloat = matchfloat
+
+    def matchbool(self) -> bool | None:
+        self.next_token()
+        if (token := self.cursor.matchbool()) is None:
+            self.tracer.trace_match(self, '', '@bool', failed=True)
+            raise self.newexcept('Expecting @bool', excls=FailedMeta)
+        self.tracer.trace_match(self, str(token), '@bool')
+        self.state.append(token)
+        return token
+
+    _matchbool = matchbool
 
     def eof(self) -> bool:
         return self.cursor.atend()

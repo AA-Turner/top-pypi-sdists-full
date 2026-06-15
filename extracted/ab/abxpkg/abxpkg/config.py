@@ -5,11 +5,13 @@ import json
 import os
 import shlex
 from collections.abc import Iterable, Mapping, MutableMapping
+from functools import lru_cache
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 
 DERIVED_CACHE_KEY = "ABXPKG_DERIVED_CACHE"
+_SHELL_SINGLE_QUOTE_ESCAPE = "'\"'\"'"
 
 
 @runtime_checkable
@@ -22,8 +24,45 @@ class SupportsExecEnv(Protocol):
     def ENV(self) -> dict[str, str]: ...
 
 
+def default_abxpkg_lib_dir() -> Path:
+    from platformdirs import user_config_path
+
+    return user_config_path("abx") / "lib"
+
+
+@lru_cache(maxsize=32)
+def _forbidden_convenience_lib_bins(abxpkg_lib_dir: str | None) -> frozenset[Path]:
+    lib_dirs = [Path(abxpkg_lib_dir)] if abxpkg_lib_dir else []
+    lib_dirs.append(default_abxpkg_lib_dir())
+    return frozenset((lib_dir.expanduser().absolute() / "bin") for lib_dir in lib_dirs)
+
+
+def is_forbidden_convenience_lib_bin(path: str | Path | None) -> bool:
+    """True only for flat abxpkg lib ``bin`` convenience directories.
+
+    Install flows can create that directory for humans, but abxpkg must not
+    use it for PATH-based discovery or runtime execution. Provider-owned dirs
+    like ``ABXPKG_LIB_DIR/env/bin`` and ``ABXPKG_LIB_DIR/playwright/bin``
+    remain valid runtime paths.
+    """
+    if path is None:
+        return False
+    try:
+        candidate = Path(path).expanduser().absolute()
+        forbidden_dirs = _forbidden_convenience_lib_bins(
+            os.environ.get("ABXPKG_LIB_DIR"),
+        )
+    except Exception:
+        return False
+    return candidate in forbidden_dirs
+
+
 def _split_path(path_value: str | None) -> list[str]:
-    return [entry for entry in str(path_value or "").split(":") if entry]
+    return [
+        entry
+        for entry in str(path_value or "").split(os.pathsep)
+        if entry and not is_forbidden_convenience_lib_bin(entry)
+    ]
 
 
 def apply_exec_env(
@@ -69,7 +108,7 @@ def merge_exec_path(
             seen.add(entry)
             merged.append(entry)
 
-    return ":".join(merged)
+    return os.pathsep.join(merged)
 
 
 def build_exec_env(
@@ -193,16 +232,23 @@ def load_dotenv_values(dotenv_path: Path) -> dict[str, str]:
         if not key:
             continue
         if value[:1] in {"'", '"'} and value[-1:] == value[:1]:
+            if value.startswith("'"):
+                # write_dotenv_values uses shell quoting for arbitrary strings.
+                # Single-quoted JSON must be unwrapped as shell text first:
+                # ast.literal_eval would consume JSON backslashes and corrupt
+                # nested cache keys such as ["provider","bin",...,"{\"...\"}"].
+                values[key] = value[1:-1].replace(_SHELL_SINGLE_QUOTE_ESCAPE, "'")
+                continue
+            try:
+                values[key] = str(ast.literal_eval(value))
+                continue
+            except Exception:
+                pass
             try:
                 values[key] = shlex.split(value)[0]
                 continue
             except Exception:
-                try:
-                    parsed = ast.literal_eval(value)
-                    values[key] = str(parsed)
-                    continue
-                except Exception:
-                    pass
+                pass
         values[key] = value
 
     return values

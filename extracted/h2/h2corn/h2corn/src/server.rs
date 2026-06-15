@@ -9,12 +9,11 @@ use std::task::{Context, Poll};
 
 use bytes::{Buf, BytesMut};
 use pyo3::prelude::*;
-use pyo3_async_runtimes::TaskLocals;
 #[cfg(target_os = "linux")]
 use rustix::net::sockopt::set_tcp_quickack;
 use smallvec::SmallVec;
 use tokio::fs::File;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufWriter, ReadBuf, WriteHalf, copy, split};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufWriter, ReadBuf, WriteHalf, split};
 use tokio::net::{TcpListener, TcpStream};
 #[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
@@ -25,17 +24,16 @@ use tokio_rustls::TlsAcceptor;
 use tokio_rustls::server::TlsStream;
 
 use crate::config::{BindTarget, ServerConfig};
-use crate::error::{ErrorExt, H2CornError, H2Error, ProxyError};
+use crate::error::{ErrorExt, ErrorKind, H2CornError, H2Error, ProxyError};
 use crate::frame::{self, ErrorCode, FrameReader};
-use crate::h1::{self, H1WriteTarget};
-use crate::h2::{self, H2WriteTarget};
 use crate::proxy::{
     ConnectionInfo, ConnectionPeer, ConnectionStart, DetectedProtocol, ProxyInfo,
     ProxyProtocolMode, ServerAddr, TrustedPeer, peer_is_trusted, read_h2_preface,
     read_preamble_protocol, read_proxy_v1, read_proxy_v2,
 };
 use crate::runtime::{AppState, ConnectionContext, ShutdownKind, ShutdownState};
-use crate::tls;
+use crate::sendfile::WriteTarget;
+use crate::{h1, h2, tls};
 
 macro_rules! serve_with_proxy_protocol {
     (
@@ -116,29 +114,16 @@ impl AsyncWrite for PrefixedIo {
     }
 }
 
-impl H1WriteTarget for TlsWriteHalf {
-    async fn send_file_body(
-        writer: &mut BufWriter<Self>,
-        file: &mut File,
-        _len: usize,
-    ) -> io::Result<()> {
-        writer.flush().await?;
-        copy(file, writer.get_mut()).await?;
-        Ok(())
-    }
-}
-
-impl H2WriteTarget for TlsWriteHalf {
+impl WriteTarget for TlsWriteHalf {
     const SUPPORTS_SENDFILE: bool = false;
 
-    async fn write_file_chunk(
-        _writer: &mut BufWriter<Self>,
-        _header: [u8; 9],
-        _file: &mut File,
-        _offset: &mut u64,
-        _len: usize,
+    async fn send_file(
+        writer: &mut BufWriter<Self>,
+        file: &mut File,
+        offset: &mut u64,
+        len: usize,
     ) -> io::Result<()> {
-        unreachable!("TLS H2 writer does not use direct sendfile")
+        crate::sendfile::copy_file_range_buffered(writer, file, offset, len).await
     }
 }
 
@@ -325,7 +310,7 @@ fn configure_tcp_stream(stream: &TcpStream) {
 
 fn spawn_connection<P, const HTTP1: bool, const TLS: bool>(
     tasks: &mut JoinSet<()>,
-    app: &AppState,
+    app: AppState,
     config: &'static ServerConfig,
     accepted: AcceptedConnection,
     shutdown: watch::Receiver<ShutdownState>,
@@ -339,7 +324,6 @@ fn spawn_connection<P, const HTTP1: bool, const TLS: bool>(
                 host: addr.ip().to_string().into(),
                 port: Some(addr.port()),
             });
-            let app = Arc::clone(app);
             if TLS {
                 let acceptor = config
                     .tls
@@ -386,7 +370,6 @@ fn spawn_connection<P, const HTTP1: bool, const TLS: bool>(
                 port: None,
             });
             let (reader, writer) = stream.into_split();
-            let app = Arc::clone(app);
             tasks.spawn(async move {
                 let _ = serve_connection::<_, _, P, HTTP1>(
                     reader,
@@ -433,7 +416,7 @@ where
     P: ConnectionPreamble,
 {
     let mut accept_start = 0;
-    let shutdown = shutdown_future(shutdown_trigger, app.locals.clone());
+    let shutdown = shutdown_future(shutdown_trigger, app.main_shard());
     tokio::pin!(shutdown);
     let (shutdown_tx, shutdown_rx) = watch::channel(ShutdownState::Running);
     let mut tasks = JoinSet::new();
@@ -462,7 +445,7 @@ where
         };
         accept_start = next_accept_start;
 
-        spawn_connection::<P, HTTP1, TLS>(&mut tasks, &app, config, accepted, shutdown_rx.clone());
+        spawn_connection::<P, HTTP1, TLS>(&mut tasks, app, config, accepted, shutdown_rx.clone());
     }
 
     Ok(())
@@ -515,7 +498,7 @@ async fn serve_connection<R, W, P, const HTTP1: bool>(
 ) -> Result<(), H2CornError>
 where
     R: AsyncRead + Unpin + Send + 'static,
-    W: AsyncWrite + Unpin + Send + 'static + H1WriteTarget + H2WriteTarget,
+    W: AsyncWrite + Unpin + Send + 'static + WriteTarget,
     P: ConnectionPreamble,
 {
     let mut reader = FrameReader::new(reader);
@@ -532,7 +515,12 @@ where
     .map_err(|_| H2Error::ConnectionHandshakeTimedOut)?;
     let connection_start = match connection_start {
         Ok(start) => start,
-        Err(H2CornError::Proxy(ProxyError::InvalidHttp2Preface)) => {
+        Err(err)
+            if matches!(
+                err.kind(),
+                ErrorKind::Proxy(ProxyError::InvalidHttp2Preface)
+            ) =>
+        {
             write_invalid_h2_preface_goaway(&mut writer).await?;
             return ProxyError::InvalidHttp2Preface.err();
         },
@@ -614,7 +602,7 @@ async fn serve_detected_connection<R, W>(
 ) -> Result<(), H2CornError>
 where
     R: AsyncRead + Unpin + Send + 'static,
-    W: AsyncWrite + Unpin + Send + 'static + H1WriteTarget + H2WriteTarget,
+    W: AsyncWrite + Unpin + Send + 'static + WriteTarget,
 {
     match protocol {
         DetectedProtocol::Http2 => {
@@ -638,13 +626,13 @@ where
     Ok(())
 }
 
-async fn shutdown_future(trigger: Py<PyAny>, locals: TaskLocals) -> ShutdownKind {
-    let awaitable = Python::attach(|py| {
-        pyo3_async_runtimes::into_future_with_locals(&locals, trigger.into_bound(py))
+async fn shutdown_future(trigger: Py<PyAny>, shard: crate::pyloop::Shard) -> ShutdownKind {
+    let slot = crate::pyloop::TaskSlot::new();
+    shard.push(crate::pyloop::PumpEvent::SpawnAwaitable {
+        awaitable: trigger,
+        slot: Arc::clone(&slot),
     });
-    if let Ok(future) = awaitable
-        && let Ok(value) = future.await
-    {
+    if let Ok(value) = slot.wait().await {
         return Python::attach(|py| {
             value
                 .bind(py)

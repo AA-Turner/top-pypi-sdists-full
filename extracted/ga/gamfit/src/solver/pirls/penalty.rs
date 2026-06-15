@@ -6,7 +6,7 @@ use ndarray::{Array1, Array2};
 use std::sync::Arc;
 
 /// Coordinate frame for PIRLS inner iteration.
-pub(super) enum WorkingCoordinateDesign {
+pub(crate) enum WorkingCoordinateDesign {
     OriginalSparseNative,
     TransformedExplicit {
         x_transformed: DesignMatrix,
@@ -18,7 +18,7 @@ pub(super) enum WorkingCoordinateDesign {
 }
 
 #[derive(Clone)]
-pub(super) enum WorkingReparamTransform {
+pub(crate) enum WorkingReparamTransform {
     Dense(Arc<Array2<f64>>),
     Kronecker(Arc<KroneckerQsTransform>),
 }
@@ -57,7 +57,7 @@ impl WorkingReparamTransform {
 }
 
 #[derive(Clone)]
-pub(super) enum PirlsPenalty {
+pub(crate) enum PirlsPenalty {
     Dense {
         s_transformed: Array2<f64>,
         e_transformed: Array2<f64>,
@@ -162,7 +162,7 @@ impl PirlsPenalty {
 }
 
 #[derive(Clone)]
-pub(super) struct KroneckerQsTransform {
+pub(crate) struct KroneckerQsTransform {
     pub(super) marginal_qs: Vec<Array2<f64>>,
     pub(super) dims: Vec<usize>,
     pub(super) p: usize,
@@ -187,7 +187,7 @@ impl KroneckerQsTransform {
         self.apply_internal(vector, true)
     }
 
-    fn apply_internal(&self, vector: &Array1<f64>, transpose: bool) -> Array1<f64> {
+    pub(crate) fn apply_internal(&self, vector: &Array1<f64>, transpose: bool) -> Array1<f64> {
         assert_eq!(vector.len(), self.p);
         // Ping-pong two thread-local scratch buffers across axes so we
         // allocate at most twice per thread for the whole solver lifetime
@@ -235,7 +235,7 @@ impl KroneckerQsTransform {
         symmetrize_dense_matrix(&out)
     }
 
-    fn column(&self, j: usize) -> Array1<f64> {
+    pub(crate) fn column(&self, j: usize) -> Array1<f64> {
         let mut e = Array1::<f64>::zeros(self.p);
         e[j] = 1.0;
         self.apply(&e)

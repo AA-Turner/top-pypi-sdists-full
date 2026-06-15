@@ -445,6 +445,20 @@ def test_disable_similar(initialized_linter: PyLinter) -> None:
     assert "similarities" not in [c.name for c in linter.prepare_checkers()]
 
 
+def test_disable_similar_with_reports(initialized_linter: PyLinter) -> None:
+    """Disabling R0801 should exclude the similarities checker even with reports enabled.
+
+    Regression test for https://github.com/pylint-dev/pylint/issues/3443
+    """
+    linter = initialized_linter
+    linter.set_option("reports", True)
+    linter.set_option("disable", "R0801")
+    checker_names = [c.name for c in linter.prepare_checkers()]
+    assert "similarities" not in checker_names
+    # Report-only checkers (no messages) should still be included
+    assert "metrics" in checker_names
+
+
 def test_disable_alot(linter: PyLinter) -> None:
     """Check that we disabled a lot of checkers."""
     linter.set_option("reports", False)
@@ -499,6 +513,20 @@ def test_addmessage(linter: PyLinter) -> None:
             end_column=None,
         ),
     )
+
+
+def test_addmessage_preserves_explicit_zero_col_offset(linter: PyLinter) -> None:
+    """An explicit ``col_offset=0`` from the caller must not be overwritten
+    by the node's value (``not 0`` is True so the old falsey check was buggy).
+    """
+    linter.set_reporter(testutils.GenericTestReporter())
+    linter.open()
+    linter.set_current_module("m")
+    module_node = astroid.parse("\n\nfunc(arg)", module_name="m")
+    arg_node = module_node.body[0].value.args[0]  # ``arg`` — col_offset == 5
+    assert arg_node.col_offset != 0  # sanity-check fixture
+    linter.add_message("C0321", node=arg_node, col_offset=0)
+    assert linter.reporter.messages[0].location.column == 0
 
 
 def test_addmessage_invalid(linter: PyLinter) -> None:

@@ -10,6 +10,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from collections.abc import Mapping
 from typing import ClassVar, Self
 
 from platformdirs import user_cache_path
@@ -23,6 +24,8 @@ from .base_types import (
     InstallArgs,
     PATHStr,
     abxpkg_cache_dir_default,
+    abxpkg_ephemeral_cache_dir_default,
+    abxpkg_ephemeral_cache_home_default,
     abxpkg_install_root_default,
     bin_abspath,
 )
@@ -170,6 +173,8 @@ class PnpmProvider(BinProvider):
     @property
     def cache_dir(self) -> Path:
         """Return the writable pnpm store dir, falling back to a temp dir if needed."""
+        if env_flag_is_true("ABXPKG_NO_CACHE"):
+            return abxpkg_ephemeral_cache_dir_default("pnpm")
         default_cache_dir = abxpkg_cache_dir_default("pnpm") or Path(USER_CACHE_PATH)
         if self._ensure_writable_cache_dir(default_cache_dir):
             return default_cache_dir
@@ -244,6 +249,7 @@ class PnpmProvider(BinProvider):
                     if node_loaded.loaded_binprovider is not None
                     else self.name
                 ),
+                resolved_provider=node_loaded.loaded_binprovider,
                 cache_kind="dependency",
             )
 
@@ -277,6 +283,7 @@ class PnpmProvider(BinProvider):
                         if loaded.loaded_binprovider is not None
                         else self.name
                     ),
+                    resolved_provider=loaded.loaded_binprovider,
                     cache_kind="dependency",
                 )
             self._INSTALLER_BINARY = loaded
@@ -312,6 +319,7 @@ class PnpmProvider(BinProvider):
                         if loaded.loaded_binprovider is not None
                         else self.name
                     ),
+                    resolved_provider=loaded.loaded_binprovider,
                     cache_kind="dependency",
                 )
             self._INSTALLER_BINARY = loaded
@@ -368,6 +376,10 @@ class PnpmProvider(BinProvider):
         # pnpm REQUIRES PNPM_HOME to exist for global installs to work.
         pnpm_home = Path(self.ENV["PNPM_HOME"])
         pnpm_home.mkdir(parents=True, exist_ok=True)
+        if env_flag_is_true("ABXPKG_NO_CACHE"):
+            env = dict(os.environ if kwargs.get("env") is None else kwargs["env"])
+            env["XDG_CACHE_HOME"] = str(abxpkg_ephemeral_cache_home_default())
+            kwargs["env"] = env
         return super().exec(
             bin_name=bin_name,
             cmd=cmd,
@@ -391,9 +403,45 @@ class PnpmProvider(BinProvider):
                 owner_paths=(self.install_root,),
                 preserve_root=True,
             )
-        self._ensure_writable_cache_dir(self.cache_dir)
+        if not no_cache:
+            self._ensure_writable_cache_dir(self.cache_dir)
         if self.bin_dir:
             self.bin_dir.mkdir(parents=True, exist_ok=True)
+
+    def _store_dir(self, no_cache: bool = False) -> Path:
+        if not no_cache:
+            return self.cache_dir
+        existing_store_dir = self._existing_store_dir()
+        if existing_store_dir is not None:
+            return existing_store_dir
+        return abxpkg_ephemeral_cache_dir_default("pnpm")
+
+    def _existing_store_dir(self) -> Path | None:
+        """Return pnpm's recorded store for this install root, if one exists."""
+        if self.install_root is None:
+            return None
+        modules_yaml = self.install_root / "node_modules" / ".modules.yaml"
+        try:
+            text = modules_yaml.read_text(encoding="utf-8")
+            data = json.loads(text)
+            store_dir = data.get("storeDir") if isinstance(data, dict) else None
+            if isinstance(store_dir, str) and store_dir.strip():
+                return Path(store_dir).expanduser()
+            for line in text.splitlines():
+                key, separator, value = line.partition(":")
+                if separator and key.strip().strip("'\"") == "storeDir":
+                    store_dir = value.strip().strip("'\"")
+                    return Path(store_dir).expanduser() if store_dir else None
+        except (OSError, json.JSONDecodeError):
+            return None
+        return None
+
+    def _exec_env(self, no_cache: bool = False) -> dict[str, str] | None:
+        if not no_cache:
+            return None
+        env = os.environ.copy()
+        env["XDG_CACHE_HOME"] = str(abxpkg_ephemeral_cache_home_default())
+        return env
 
     def _linked_bin_path(self, bin_name: BinName | HostBinPath) -> Path | None:
         """Return the managed shim path for a pnpm-installed executable, if any."""
@@ -426,13 +474,11 @@ class PnpmProvider(BinProvider):
                 packages.append(package)
         return packages
 
-    def cached_binary_install_args_mismatch(
+    def cached_binary_state_mismatch(
         self,
         bin_name: BinName,
-        abspath: HostBinPath,
+        cached_record: Mapping[str, object],
     ) -> bool:
-        if super().cached_binary_install_args_mismatch(bin_name, abspath):
-            return True
         if self.install_root is None:
             return False
         modules_dir = self.install_root / "node_modules"
@@ -633,10 +679,12 @@ class PnpmProvider(BinProvider):
         ):
             postinstall_scripts = False
 
+        store_dir = self._store_dir(no_cache)
+        self._ensure_writable_cache_dir(store_dir)
         cmd: list[str] = [
             "add",
             "--loglevel=error",
-            f"--store-dir={self.cache_dir}",
+            f"--store-dir={store_dir}",
         ]
         if not postinstall_scripts:
             cmd.append("--ignore-scripts")
@@ -658,7 +706,12 @@ class PnpmProvider(BinProvider):
         cmd.append(f"--dir={self.install_root}" if self.install_root else "--global")
         cmd.extend(install_args)
 
-        proc = self.exec(bin_name=installer_bin, cmd=cmd, timeout=timeout)
+        proc = self.exec(
+            bin_name=installer_bin,
+            cmd=cmd,
+            timeout=timeout,
+            env=self._exec_env(no_cache),
+        )
         if proc.returncode != 0:
             self._raise_proc_error("install", install_args, proc)
         return format_subprocess_output(proc.stdout, proc.stderr)
@@ -696,10 +749,12 @@ class PnpmProvider(BinProvider):
         ):
             postinstall_scripts = False
 
+        store_dir = self._store_dir(no_cache)
+        self._ensure_writable_cache_dir(store_dir)
         cmd: list[str] = [
             "add" if min_version is not None else "update",
             "--loglevel=error",
-            f"--store-dir={self.cache_dir}",
+            f"--store-dir={store_dir}",
         ]
         if not postinstall_scripts:
             cmd.append("--ignore-scripts")
@@ -720,7 +775,12 @@ class PnpmProvider(BinProvider):
         cmd.append(f"--dir={self.install_root}" if self.install_root else "--global")
         cmd.extend(install_args)
 
-        proc = self.exec(bin_name=installer_bin, cmd=cmd, timeout=timeout)
+        proc = self.exec(
+            bin_name=installer_bin,
+            cmd=cmd,
+            timeout=timeout,
+            env=self._exec_env(no_cache),
+        )
         if proc.returncode != 0:
             self._raise_proc_error("update", install_args, proc)
         return format_subprocess_output(proc.stdout, proc.stderr)
@@ -747,15 +807,22 @@ class PnpmProvider(BinProvider):
 
         # pnpm remove rejects --ignore-scripts and --config.minimumReleaseAge,
         # so don't pass either even if they were set as provider defaults.
+        store_dir = self._store_dir(no_cache)
+        self._ensure_writable_cache_dir(store_dir)
         cmd: list[str] = [
             "remove",
             "--loglevel=error",
-            f"--store-dir={self.cache_dir}",
+            f"--store-dir={store_dir}",
         ]
         cmd.append(f"--dir={self.install_root}" if self.install_root else "--global")
         cmd.extend(install_args)
 
-        proc = self.exec(bin_name=installer_bin, cmd=cmd, timeout=timeout)
+        proc = self.exec(
+            bin_name=installer_bin,
+            cmd=cmd,
+            timeout=timeout,
+            env=self._exec_env(no_cache),
+        )
         if proc.returncode != 0:
             self._raise_proc_error("uninstall", install_args, proc)
         return True
@@ -805,6 +872,7 @@ class PnpmProvider(BinProvider):
                     bin_name=pnpm_abspath,
                     cmd=[
                         "ls",
+                        f"--store-dir={self._store_dir(no_cache)}",
                         f"--dir={self.install_root}"
                         if self.install_root
                         else "--global",
@@ -814,6 +882,7 @@ class PnpmProvider(BinProvider):
                     ],
                     timeout=timeout,
                     quiet=True,
+                    env=self._exec_env(no_cache),
                 ).stdout.strip()
                 listing = json.loads(json_output)
                 if isinstance(listing, list):

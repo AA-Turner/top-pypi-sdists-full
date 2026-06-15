@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: h2corn
-Version: 1.4.5
+Version: 1.5.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Operating System :: POSIX
-Classifier: Operating System :: Unix
 Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Rust
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
+Requires-Dist: uvloop>=0.21.0 ; sys_platform != 'win32' and extra == 'uvloop'
+Provides-Extra: uvloop
 Summary: High-performance HTTP/2 ASGI server
 Keywords: asgi,fastapi,h2c,http,http2,server,starlette,tls,websocket
 Author-email: Kamil Monicz <kamil@monicz.dev>
@@ -51,7 +53,7 @@ downgrading to HTTP/1.1 inside your trust boundary. It is built around `h2c`
 behind a trusted reverse proxy, with optional direct TLS for TCP listeners.
 
 - **Better security** for the proxy → application connection (no HTTP/1.1 downgrade)
-- **Higher throughput** and lower latency from a Rust core on Tokio + Hyper
+- **Higher throughput** and lower latency from a Rust engine on Tokio
 - **Compatible** with any ASGI 3 application — FastAPI, Starlette, Django, Litestar
 - **Direct TLS** with Rustls and modern defaults
 - **RFC 8441 WebSockets** over HTTP/2
@@ -92,7 +94,7 @@ In local runs comparing `h2corn`, `uvicorn`, `hypercorn`, and `gunicorn`
 across baseline GETs, Unix sockets, static files, streaming, and
 WebSockets, `h2corn` leads on every scenario tested:
 
-![HTTP/1 GET, 4 workers. h2corn ~90k RPS p99 2.3ms.](https://raw.githubusercontent.com/Zaczero/pkgs/h2corn/1.4.5/h2corn/bench/results/plots/benchmark_http_1_get_4_workers.svg)
+![HTTP/1 GET, 4 workers. h2corn ~228k RPS p99 1.0ms.](https://raw.githubusercontent.com/Zaczero/pkgs/h2corn/1.5.0/h2corn/bench/results/plots/benchmark_http_1_get_4_workers.svg)
 
 Full plots and methodology: [Benchmarks](https://h2corn.monicz.dev/benchmarks/).
 

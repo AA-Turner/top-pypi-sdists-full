@@ -377,8 +377,9 @@ pub fn canonicalize_for_identifiability(
     // orthogonalisation pass before the fail-closed audit. `try_orthogonalize_
     // blocks` is self-gating (it returns `None` — and the audit runs unchanged —
     // unless there are ≥2 plain single-channel dense blocks with an actual
-    // structural overlap to remove, deferring on any family-owned-geometry block
-    // and on clean designs), so this is byte-identical wherever there is nothing
+    // structural overlap to remove, deferring on any family-owned-geometry block,
+    // any multi-channel `stacked_design` block, and on clean designs), so this is
+    // byte-identical wherever there is nothing
     // to orthogonalise.
     canonicalize_for_identifiability_inner(specs, true)
 }
@@ -626,8 +627,52 @@ fn canonicalize_for_identifiability_inner(
         return Err(CustomFamilyError::IdentifiabilityFailure { audit });
     }
 
-    let family_owned_geometry = specs.iter().any(|spec| spec.jacobian_callback.is_some());
-    if family_owned_geometry && !audit.dropped_columns.is_empty() {
+    // A block owns its effective geometry — and therefore its own raw-coordinate
+    // identifiability bookkeeping — when it carries EITHER a `jacobian_callback`
+    // (BMS marginal-slope, …: the family reconstructs the predictor from internal
+    // full-width designs the block `design` only seeds) OR a `stacked_design`
+    // (the survival location-scale / latent-survival time, threshold, and
+    // log-sigma blocks, whose solver eta is the `3·n`-row `[exit; entry; deriv]·β`
+    // operator and whose raw I-spline coordinates carry the family's warp-gauge
+    // lift `β_raw = z·β_reduced + affine_shift` (#892), its leading-fixed-column
+    // expansion, and its monotonicity constraint matrix `A·β ≥ b`). For both
+    // kinds the audit's per-column DROP is unrepresentable: dropping a raw column
+    // desynchronises the family's internal `z`/constraint/fixed-col layout (and
+    // the prediction-time design rebuilt at raw width) from the reduced β,
+    // tripping the family's own `eta length mismatch: got n, expected 3n`,
+    // `time-warp design mismatch`, and `violates represented linear constraint`
+    // shape checks (gam#1068). Keep every such block at its raw width with an
+    // identity gauge and let the Tier-B joint-Newton Jeffreys/Firth term add
+    // curvature on the weak directions WITHOUT any design surgery.
+    // The veto is needed ONLY for the column that the audit would remove from a
+    // block that *owns* its geometry: dropping a raw column from such a block
+    // (a `jacobian_callback` block, or a `stacked_design` block carrying the
+    // family's `3·n`-row z-lift / leading-fixed-column / monotonicity layout)
+    // desynchronises that internal layout from the reduced β (#1068). A column
+    // dropped from a PLAIN-DENSE block — e.g. the survival location-scale
+    // threshold / log-σ blocks for a time-INVARIANT covariate, where
+    // `stacked_design` is `None` and the design is an ordinary covariate matrix —
+    // has no such hidden layout; the per-block selection-`T_i` reduction below
+    // already column-reduces `design` (and any `stacked_design`) consistently, so
+    // applying that drop is exactly the right move. Gating the whole pass on a
+    // GLOBAL "any block owns geometry" flag was too broad: with three aliased
+    // constants across the time/threshold/log_sigma blocks, the audit attributes
+    // the two surplus-constant drops to the lower-priority PLAIN threshold and
+    // log_sigma blocks, but the presence of the time block's `stacked_design`
+    // vetoed BOTH — leaving the joint design rank-deficient by two and letting the
+    // downstream solve collapse a genuine covariate direction (a time-invariant
+    // covariate's coefficient pinned to exactly 0; gam#1110). So veto only when a
+    // dropped column is attributed to a block that actually owns its geometry.
+    let owns_geometry = |name: &str| -> bool {
+        specs.iter().any(|spec| {
+            spec.name == name && (spec.jacobian_callback.is_some() || spec.stacked_design.is_some())
+        })
+    };
+    let dropped_on_owned_block = audit
+        .dropped_columns
+        .iter()
+        .any(|drop| owns_geometry(&drop.block));
+    if dropped_on_owned_block {
         let raw_widths: Vec<usize> = specs.iter().map(|spec| spec.design.ncols()).collect();
         let dropped_summary = audit
             .dropped_columns
@@ -636,10 +681,11 @@ fn canonicalize_for_identifiability_inner(
             .collect::<Vec<_>>()
             .join(", ");
         log::info!(
-            "[CANON] width-preserving callback-owned geometry path: audit attributed \
-             dropped columns [{dropped_summary}], but at least one block owns its \
-             effective geometry via jacobian_callback; keeping raw block widths and \
-             deferring curvature on the weak directions to the robust/Firth path"
+            "[CANON] width-preserving family-owned geometry path: audit attributed \
+             dropped columns [{dropped_summary}], at least one of which falls on a block \
+             that owns its effective geometry via jacobian_callback or a multi-channel \
+             stacked_design; keeping raw block widths and deferring curvature on the weak \
+             directions to the robust/Firth path"
         );
         return Ok(CanonicalSpecs {
             reduced_specs: specs.to_vec(),
@@ -982,6 +1028,23 @@ fn try_orthogonalize_blocks(
     // no overlap to remove falls through to the audit gate byte-identically.)
     let family_owned_geometry = specs.iter().any(|s| s.jacobian_callback.is_some());
     if family_owned_geometry {
+        return Ok(None);
+    }
+
+    // Multi-channel eta blocks (`stacked_design = Some(_)`, e.g. the latent-
+    // survival / survival location-scale time-transform block whose solver eta
+    // is `[entry; exit; deriv] · β`, a `3·n`-row operator) cannot be expressed
+    // by the single-channel `X_b · V_b` reparam this path builds: that reparam
+    // only rewrites the n-row `design`, and the orthogonalised-spec builder
+    // below deliberately sets `stacked_design = None`. Dropping the stacked
+    // operator silently collapses the family's eta from `3·n` rows to `n`,
+    // which trips the family's own `eta length mismatch: got n, expected 3n`
+    // shape check (gam#1068). Defer to the audit gate so the multi-channel
+    // operator survives untouched; the audit's column-selection reduction
+    // (`canonicalize_for_identifiability_inner`) does pull `stacked_design`
+    // through correctly.
+    let multi_channel_geometry = specs.iter().any(|s| s.stacked_design.is_some());
+    if multi_channel_geometry {
         return Ok(None);
     }
 
@@ -1750,6 +1813,238 @@ mod tests {
             res.dropped,
             vec![(1, 1)],
             "one direction dropped from block 1"
+        );
+    }
+
+    /// Regression for gam#1068: a multi-channel block (`stacked_design = Some`,
+    /// the latent-survival / survival-LS time-transform layout whose solver eta
+    /// is `[entry; exit; deriv] · β` — a `3·n`-row operator) must NOT lose its
+    /// stacked operator through canonicalisation, even when it shares a column
+    /// (here the constant) with a higher-priority block that would otherwise
+    /// trigger the single-channel orthogonalisation reparam. The
+    /// orthogonalisation path sets `stacked_design = None`; if it ran on this
+    /// block the family's eta would collapse from `3·n` rows to `n` and trip
+    /// `latent survival time eta length mismatch: got n, expected 3n`. The fix
+    /// defers any spec set carrying a `stacked_design` to the column-selection
+    /// audit, which preserves the stacked operator.
+    #[test]
+    fn canonical_preserves_stacked_design_for_multichannel_block() {
+        let n = 24;
+        let x = linspace(n);
+        // Mean block (higher priority) carries the constant + a linear term.
+        let mut mean = Array2::<f64>::zeros((n, 2));
+        // Time block (lower priority) single-channel `design` is the n-row exit
+        // view; its eta-producing `stacked_design` is the 3n-row [entry; exit;
+        // deriv] stack. Both carry the shared constant column (the alias the
+        // orthogonaliser would try to remove).
+        let mut time_exit = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            mean[[i, 0]] = 1.0;
+            mean[[i, 1]] = x[i];
+            time_exit[[i, 0]] = 1.0;
+            time_exit[[i, 1]] = x[i] * x[i];
+        }
+        let mut stacked = Array2::<f64>::zeros((3 * n, 2));
+        for i in 0..n {
+            // entry channel (zeros baseline), exit channel (= design), deriv.
+            stacked[[i, 0]] = 1.0;
+            stacked[[i, 1]] = x[i] * x[i] * 0.5;
+            stacked[[n + i, 0]] = 1.0;
+            stacked[[n + i, 1]] = x[i] * x[i];
+            stacked[[2 * n + i, 0]] = 0.0;
+            stacked[[2 * n + i, 1]] = 2.0 * x[i];
+        }
+
+        let mean_spec = spec_from_dense_with_priority("mean", mean, 150);
+        let mut time_spec = spec_from_dense_with_priority("time_transform", time_exit, 200);
+        time_spec.stacked_design = Some(DesignMatrix::Dense(DenseDesignMatrix::from(stacked)));
+        time_spec.stacked_offset = Some(Array1::<f64>::zeros(3 * n));
+
+        let specs = [mean_spec, time_spec];
+        let canon = canonicalize_for_identifiability(&specs)
+            .expect("multi-channel canonicalisation must succeed (defer to audit gate)");
+
+        let time_reduced = canon
+            .reduced_specs
+            .iter()
+            .find(|s| s.name == "time_transform")
+            .expect("time block survives canonicalisation");
+        let stacked_after = time_reduced
+            .stacked_design
+            .as_ref()
+            .expect("stacked_design must survive canonicalisation (gam#1068)");
+        assert_eq!(
+            stacked_after.nrows(),
+            3 * n,
+            "stacked eta operator must keep its 3·n rows; collapsing to n is the #1068 bug",
+        );
+        assert!(
+            time_reduced.stacked_offset.is_some(),
+            "stacked_offset must survive alongside stacked_design",
+        );
+    }
+
+    /// Regression for gam#1110: the survival location-scale parametric-AFT joint
+    /// pairs a geometry-OWNING `time_transform` block (`stacked_design = Some`,
+    /// gauge priority 200 — the 3·n-row `[entry; exit; deriv]` eta operator the
+    /// family's `z`-lift / monotonicity layout depends on, #1068) with a PLAIN
+    /// `threshold` (location) block `[1, age]` at lower priority 150. The
+    /// constant columns of the two blocks are mutually aliased, so the flat
+    /// joint design is rank-deficient by one.
+    ///
+    /// The old veto was all-or-nothing: ANY block owning its geometry (the time
+    /// block does, via `stacked_design`) forced EVERY block to keep its raw
+    /// width, leaving the surplus constant in the joint design. The downstream
+    /// robust/ridge solve then resolved that residual rank deficiency by
+    /// collapsing the genuine `age` covariate direction to EXACTLY zero
+    /// (`gam_a_age = 0.00000`, the #1110 tell).
+    ///
+    /// The fix vetoes the width-preserving path ONLY when a dropped column is
+    /// attributed to a block that actually owns its geometry. The surplus
+    /// constant is attributed by gauge priority to the LOWER-priority PLAIN
+    /// `threshold` block (its intercept), so the column-selection reduction
+    /// drops it while:
+    ///   * the `time_transform` block stays at raw width with its `stacked_design`
+    ///     intact (the #1068 layout that would otherwise desync the z-lift), and
+    ///   * the genuine non-constant `age` covariate direction is KEPT — a covariate
+    ///     is never an aliased-constant partner, so it can never be the attributed
+    ///     drop. After the fix the threshold block retains its `age` column.
+    #[test]
+    fn canonical_survival_ls_aft_keeps_covariate_when_time_owns_geometry() {
+        let n = 96;
+        let x = linspace(n);
+        // age covariate, centred and clearly non-constant.
+        let age: Vec<f64> = (0..n)
+            .map(|i| (i as f64) - (n as f64 - 1.0) / 2.0)
+            .collect();
+
+        // time_transform: owns geometry via a 3·n-row stacked operator. Its
+        // n-row canonical `design` carries the shared constant (col 0) plus a
+        // monotone time column (col 1) — the additive location baseline that
+        // gauge ownership pins to the highest-priority block.
+        let mut time_exit = Array2::<f64>::zeros((n, 2));
+        let mut time_stacked = Array2::<f64>::zeros((3 * n, 2));
+        for i in 0..n {
+            time_exit[[i, 0]] = 1.0;
+            time_exit[[i, 1]] = x[i];
+            // [entry; exit; deriv] stack.
+            time_stacked[[i, 0]] = 1.0;
+            time_stacked[[i, 1]] = 0.5 * x[i];
+            time_stacked[[n + i, 0]] = 1.0;
+            time_stacked[[n + i, 1]] = x[i];
+            time_stacked[[2 * n + i, 0]] = 0.0;
+            time_stacked[[2 * n + i, 1]] = 1.0;
+        }
+
+        // threshold (location covariate) block: PLAIN `[1, age]`. The intercept
+        // (col 0) is aliased with the time block's constant; `age` (col 1) is a
+        // genuine covariate direction that MUST SURVIVE.
+        let mut threshold = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            threshold[[i, 0]] = 1.0;
+            threshold[[i, 1]] = age[i];
+        }
+
+        let mut t_spec = spec_from_dense("time_transform", time_exit);
+        t_spec.gauge_priority = 200;
+        t_spec.stacked_design = Some(DesignMatrix::Dense(DenseDesignMatrix::from(time_stacked)));
+        t_spec.stacked_offset = Some(Array1::<f64>::zeros(3 * n));
+        let mut th_spec = spec_from_dense("threshold", threshold);
+        th_spec.gauge_priority = 150;
+
+        let specs = [t_spec, th_spec];
+        let canon = canonicalize_for_identifiability(&specs).expect(
+            "survival-LS AFT aliased-constant joint with distinct gauge_priority must \
+             succeed (gauge-resolved, gam#1110)",
+        );
+
+        assert!(
+            !canon.audit.fatal,
+            "audit must be non-fatal: the surplus constant is gauge-resolvable; got {}",
+            canon.audit.summary,
+        );
+
+        // No drop may be attributed to the geometry-owning time_transform block:
+        // its raw width must be preserved so the #1068 stacked layout stays valid.
+        for drop in &canon.audit.dropped_columns {
+            assert_ne!(
+                drop.block, "time_transform",
+                "geometry-owning time_transform block must never be the attributed \
+                 drop origin (gam#1110/#1068); got {drop:?}",
+            );
+        }
+
+        // The time block keeps both raw columns AND its 3·n-row stacked operator
+        // (the all-or-nothing exemption's ONE correct effect, preserved here).
+        let time_reduced = canon
+            .reduced_specs
+            .iter()
+            .find(|s| s.name == "time_transform")
+            .expect("time_transform survives canonicalisation");
+        assert_eq!(
+            time_reduced.design.ncols(),
+            2,
+            "time_transform must keep both raw columns (raw-width owned geometry)",
+        );
+        assert_eq!(
+            time_reduced
+                .stacked_design
+                .as_ref()
+                .expect("time_transform stacked_design must survive (gam#1068)")
+                .nrows(),
+            3 * n,
+            "time_transform stacked eta operator must keep its 3·n rows",
+        );
+
+        // The crux of #1110: the threshold block must KEEP its genuine `age`
+        // covariate direction. After dropping its redundant intercept it has one
+        // surviving column, and that column must VARY across rows (it is `age`,
+        // not a constant). The old all-or-nothing veto left the joint
+        // rank-deficient and the downstream solve pinned `age` to exactly 0.
+        let threshold_reduced = canon
+            .reduced_specs
+            .iter()
+            .find(|s| s.name == "threshold")
+            .expect("threshold block survives canonicalisation");
+        let th_dense = threshold_reduced
+            .design
+            .try_to_dense_arc("threshold reduced densify")
+            .expect("dense threshold design");
+        let th_view = th_dense.as_ref();
+        assert!(
+            th_view.ncols() >= 1,
+            "threshold block must retain its `age` covariate column",
+        );
+        let has_nonconstant_column = (0..th_view.ncols()).any(|c| {
+            let col = th_view.column(c);
+            let first = col[0];
+            col.iter().any(|&v| (v - first).abs() > 1e-9)
+        });
+        assert!(
+            has_nonconstant_column,
+            "threshold block must KEEP the genuine non-constant `age` covariate \
+             direction after canonicalisation — the #1110 bug dropped/pinned it, \
+             leaving only constant columns (gam_a_age = 0.00000)",
+        );
+
+        // Joint rank: raw 2 + 2 = 4 columns, minus the one redundant constant = 3.
+        // time keeps 2, threshold keeps 1 (`age`).
+        let reduced_total: usize = canon.reduced_specs.iter().map(|s| s.design.ncols()).sum();
+        assert_eq!(
+            reduced_total,
+            3,
+            "joint rank = 4 raw columns − 1 surplus constant = 3; got {reduced_total} \
+             (per-block reduced ncols {:?})",
+            canon
+                .reduced_specs
+                .iter()
+                .map(|s| (s.name.clone(), s.design.ncols()))
+                .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            threshold_reduced.design.ncols(),
+            1,
+            "threshold keeps exactly its `age` column after the intercept drop",
         );
     }
 }

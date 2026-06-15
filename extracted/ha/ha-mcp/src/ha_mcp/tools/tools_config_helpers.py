@@ -19,14 +19,7 @@ from pydantic import AliasChoices, Field
 from ..client.rest_client import HomeAssistantAPIError
 from ..errors import ErrorCode, create_error_response
 from .auto_backup import with_auto_backup
-from .helpers import (
-    exception_to_structured_error,
-    log_tool_usage,
-    raise_tool_error,
-    register_tool_methods,
-    validate_identifier_not_empty,
-)
-from .tools_config_entry_flow import (
+from .config_entry_flow import (
     FLOW_HELPER_TYPES,
     create_flow_helper,
     fetch_helper_flow_info,
@@ -34,7 +27,15 @@ from .tools_config_entry_flow import (
     set_config_subentry,
     update_flow_helper,
 )
+from .helpers import (
+    exception_to_structured_error,
+    log_tool_usage,
+    raise_tool_error,
+    register_tool_methods,
+    validate_identifier_not_empty,
+)
 from .util_helpers import (
+    JSON_STRING_COERCION,
     apply_entity_category,
     attach_skill_content,
     augment_error_dict_with_skill_content,
@@ -573,7 +574,7 @@ def get_simple_helper_schema(helper_type: str) -> list[_HelperFieldSpec] | None:
     Callers attach the result to validation-error context as ``data_schema``
     so the LLM sees field shape inline with a 4xx response, matching the
     auto-attach pattern already in use for flow helpers (see
-    ``fetch_helper_flow_info`` in ``tools_config_entry_flow``).
+    ``fetch_helper_flow_info`` in ``config_entry_flow``).
     Returns ``None`` for any helper_type not in ``SIMPLE_HELPER_SCHEMAS``,
     so callers can write a single uniform ``if schema is not None: …`` branch.
     """
@@ -611,7 +612,7 @@ def _simple_helper_error_context(
 _MENU_ROOTED_FLOW_HELPER_TYPES: frozenset[str] = frozenset({"template", "group"})
 
 # Keys callers may pass inside ``config`` to select a menu branch — mirrors
-# ``_MENU_SELECTION_KEYS`` in ``tools_config_entry_flow.py`` (kept in parallel
+# ``_MENU_SELECTION_KEYS`` in ``config_entry_flow.py`` (kept in parallel
 # rather than imported to avoid widening that module's surface).
 _MENU_CHOICE_CONFIG_KEYS: tuple[str, ...] = (
     "group_type",
@@ -627,7 +628,7 @@ def _extract_menu_choice_from_config(
 
     Returns the value of the first ``_MENU_CHOICE_CONFIG_KEYS`` key found in
     ``config_dict`` if it's a non-empty string, else ``None``. Mirrors
-    ``_handle_menu_step`` in ``tools_config_entry_flow`` — without this,
+    ``_handle_menu_step`` in ``config_entry_flow`` — without this,
     ``_flow_helper_error_context`` falls back to ``menu_choice=None`` and
     silently omits ``data_schema`` for menu-rooted types
     (``template``/``group`` — the most common ones).
@@ -669,7 +670,7 @@ async def _flow_helper_error_context(
         )
     except Exception as e:
         # Mirror the breadcrumb in ``abort_config_flow``'s own swallow
-        # (tools_config_entry_flow), so a fetch failure here doesn't
+        # (config_entry_flow), so a fetch failure here doesn't
         # disappear silently — this PR raises the call rate by 5 sites
         # and the swallow needs an audit-trail entry.
         logger.debug(
@@ -736,12 +737,15 @@ def _validate_applicable_params(
 
     if helper_type in FLOW_HELPER_TYPES:
         # Flow types accept `config` (handled before this call) plus
-        # cross-cutting params (name/helper_id/area_id/labels/category/wait).
-        # Any simple-helper-typed param passed here is inapplicable.
+        # cross-cutting params (name/helper_id/area_id/labels/category/icon/wait).
+        # `icon` is applied to the resulting entity(ies) via the entity registry
+        # (like area_id/labels), so it is allowed even though the config-flow
+        # form has no icon field. Any other simple-helper-typed param passed
+        # here is inapplicable.
         inapplicable.extend(
             param_name
             for param_name in _ALL_TYPED_PARAMS
-            if passed.get(param_name) is not None
+            if param_name != "icon" and passed.get(param_name) is not None
         )
     else:
         applicable = _TYPE_TYPED_PARAMS.get(helper_type, frozenset())
@@ -759,7 +763,7 @@ def _validate_applicable_params(
     if helper_type in FLOW_HELPER_TYPES:
         applicable_msg = (
             "config (see data_schema on a validation error for the field set), "
-            "name, helper_id, area_id, labels, category, wait"
+            "name, helper_id, area_id, labels, category, icon, wait"
         )
     else:
         type_specific = sorted(_TYPE_TYPED_PARAMS.get(helper_type, frozenset()))
@@ -1452,7 +1456,11 @@ async def _get_entities_for_config_entry(
 
 
 async def _entity_registry_update_coro(
-    client: Any, entity_id: str, area_id: str | None, labels: list[str] | None
+    client: Any,
+    entity_id: str,
+    area_id: str | None,
+    labels: list[str] | None,
+    icon: str | None = None,
 ) -> Any:
     """Build and send a config/entity_registry/update WS message."""
     update_message: dict[str, Any] = {
@@ -1463,6 +1471,8 @@ async def _entity_registry_update_coro(
         update_message["area_id"] = area_id if area_id else None
     if labels is not None:
         update_message["labels"] = labels
+    if icon is not None:
+        update_message["icon"] = icon if icon else None
     return await client.send_websocket_message(update_message)
 
 
@@ -1481,6 +1491,7 @@ def _process_reg_update_result(
     reg_result: Any,
     area_id: str | None,
     labels: list[str] | None,
+    icon: str | None,
     applied: dict[str, Any],
     entity_id: str,
     warnings: list[str],
@@ -1494,9 +1505,21 @@ def _process_reg_update_result(
                 applied["area_id"] = area_id if area_id else None
             if labels is not None:
                 applied["labels"] = labels
+            if icon is not None:
+                applied["icon"] = icon if icon else None
         else:
+            # area_id/labels/icon share one WS message, so a rejection of any
+            # one sinks the others. Name the batched fields so the caller can
+            # tell which touchups didn't land instead of guessing.
+            sent_fields = [
+                f
+                for f, v in (("area_id", area_id), ("labels", labels), ("icon", icon))
+                if v is not None
+            ]
+            field_note = f" (fields: {', '.join(sent_fields)})" if sent_fields else ""
             warnings.append(
-                f"{entity_id}: entity registry update failed: {_ws_error_msg(reg_result)}"
+                f"{entity_id}: entity registry update failed{field_note}: "
+                f"{_ws_error_msg(reg_result)}"
             )
 
 
@@ -1522,9 +1545,10 @@ async def _apply_registry_updates_to_entity(
     area_id: str | None,
     labels: list[str] | None,
     category: str | None,
+    icon: str | None,
     warnings: list[str],
 ) -> dict[str, Any]:
-    """Apply area_id/labels (single WS call) and category (shared helper) to one entity.
+    """Apply area_id/labels/icon (single WS call) and category (shared helper) to one entity.
 
     Appends human-readable warning strings to `warnings` on any failure.
     Returns a small dict summarizing what was applied (for result building).
@@ -1535,13 +1559,13 @@ async def _apply_registry_updates_to_entity(
     # `is not None` distinguishes "not provided" from "explicit clear" (empty
     # string / empty list). A transient raise on either call is captured via
     # return_exceptions so a multi-entity flow helper can still report partial success.
-    needs_registry = area_id is not None or labels is not None
+    needs_registry = area_id is not None or labels is not None or icon is not None
     needs_category = bool(category)
     if not (needs_registry or needs_category):
         return applied
 
     reg_task = (
-        _entity_registry_update_coro(client, entity_id, area_id, labels)
+        _entity_registry_update_coro(client, entity_id, area_id, labels, icon)
         if needs_registry
         else None
     )
@@ -1556,7 +1580,7 @@ async def _apply_registry_updates_to_entity(
     cat_result = raw_results.pop(0) if needs_category else None
 
     _process_reg_update_result(
-        reg_result, area_id, labels, applied, entity_id, warnings
+        reg_result, area_id, labels, icon, applied, entity_id, warnings
     )
     _process_cat_apply_result(cat_result, entity_id, applied, warnings)
     return applied
@@ -1771,31 +1795,45 @@ async def _apply_flow_registry_updates(
     area_id: str | None,
     labels_list: list[str] | None,
     category: str | None,
+    icon: str | None,
     extras: dict[str, Any],
     warnings: list[str],
 ) -> None:
-    """Apply area/labels/category to every entity from a flow helper, in parallel."""
+    """Apply area/labels/category/icon to every entity from a flow helper, in parallel."""
     if not (
         entity_ids
-        and (area_id is not None or labels_list is not None or category is not None)
+        and (
+            area_id is not None
+            or labels_list is not None
+            or category is not None
+            or icon is not None
+        )
     ):
         return
     applied_per_entity = list(
         await asyncio.gather(
             *(
                 _apply_registry_updates_to_entity(
-                    client, eid, area_id, labels_list, category, warnings
+                    client, eid, area_id, labels_list, category, icon, warnings
                 )
                 for eid in entity_ids
             )
         )
     )
-    if area_id is not None:
+    # Echo a top-level convenience key only when it was actually applied to at
+    # least one entity. The per-entity ``applied`` dicts are the source of
+    # truth — a failed entity_registry/update leaves its key out and records a
+    # warning instead — so echoing straight from the inputs would assert
+    # success that the accompanying warnings contradict.
+    applied_keys = {k for entry in applied_per_entity for k in entry}
+    if area_id is not None and "area_id" in applied_keys:
         extras["area_id"] = area_id if area_id else None
-    if labels_list is not None:
+    if labels_list is not None and "labels" in applied_keys:
         extras["labels"] = labels_list
-    if category:
+    if category and "category" in applied_keys:
         extras["category"] = category
+    if icon is not None and "icon" in applied_keys:
+        extras["icon"] = icon if icon else None
     extras["applied"] = applied_per_entity
 
 
@@ -1809,16 +1847,17 @@ async def _handle_flow_helper(
     labels: str | list[str] | None,
     category: str | None,
     wait: bool,
+    icon: str | None = None,
     action: str | None = None,
 ) -> dict[str, Any]:
     """Create or update a flow-based helper and apply registry updates to all entities.
 
     Routes between create_flow_helper and update_flow_helper based on helper_id,
     then resolves the resulting config_entry_id to its entity(ies) and applies
-    area_id / labels / category across the full set.
+    area_id / labels / category / icon across the full set.
 
-    For utility_meter with tariffs, this means the same label/area is applied
-    to every tariff sensor (and the select entity) uniformly.
+    For utility_meter with tariffs, this means the same label/area/icon is
+    applied to every tariff sensor (and the select entity) uniformly.
 
     `action` may be passed by the caller (Bug 11 explicit-intent path) — when
     None, falls back to the legacy implicit discriminator (presence of
@@ -1902,7 +1941,7 @@ async def _handle_flow_helper(
         extras["updated"] = True
 
     await _apply_flow_registry_updates(
-        client, entity_ids, area_id, labels_list, category, extras, warnings
+        client, entity_ids, area_id, labels_list, category, icon, extras, warnings
     )
 
     return _helper_response(
@@ -3499,6 +3538,7 @@ class HelperConfigTools:
         ] = None,
         labels: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(description="Labels to categorize the helper", default=None),
         ] = None,
         min_value: Annotated[
@@ -3534,6 +3574,7 @@ class HelperConfigTools:
         ] = None,
         options: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="List of options for input_select (required for input_select)",
                 default=None,
@@ -3581,6 +3622,7 @@ class HelperConfigTools:
         ] = None,
         monday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Monday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes (e.g. {'from': '07:00', 'to': '22:00', 'data': {'mode': 'comfort'}})",
                 default=None,
@@ -3588,6 +3630,7 @@ class HelperConfigTools:
         ] = None,
         tuesday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Tuesday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes.",
                 default=None,
@@ -3595,6 +3638,7 @@ class HelperConfigTools:
         ] = None,
         wednesday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Wednesday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes.",
                 default=None,
@@ -3602,6 +3646,7 @@ class HelperConfigTools:
         ] = None,
         thursday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Thursday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes.",
                 default=None,
@@ -3609,6 +3654,7 @@ class HelperConfigTools:
         ] = None,
         friday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Friday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes.",
                 default=None,
@@ -3616,6 +3662,7 @@ class HelperConfigTools:
         ] = None,
         saturday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Saturday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes.",
                 default=None,
@@ -3623,6 +3670,7 @@ class HelperConfigTools:
         ] = None,
         sunday: Annotated[
             list[dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="Schedule time ranges for Sunday. List of {'from': 'HH:MM', 'to': 'HH:MM'} dicts. Optional 'data' dict for additional attributes.",
                 default=None,
@@ -3653,6 +3701,7 @@ class HelperConfigTools:
         ] = None,
         device_trackers: Annotated[
             list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="List of device_tracker entity IDs for person", default=None
             ),
@@ -3686,6 +3735,7 @@ class HelperConfigTools:
         ] = None,
         config: Annotated[
             dict[str, Any] | None,
+            JSON_STRING_COERCION,
             Field(
                 description=(
                     "Config dict for flow-based helper types and "
@@ -3874,7 +3924,8 @@ class HelperConfigTools:
                     labels,
                     category,
                     wait,
-                    action,
+                    icon=icon,
+                    action=action,
                 )
                 _attach_helper_skill(flow_response, MandatoryBPS)
                 return flow_response

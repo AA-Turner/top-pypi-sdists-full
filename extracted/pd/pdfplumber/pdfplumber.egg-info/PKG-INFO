@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdfplumber
-Version: 0.11.9
+Version: 0.11.10
 Summary: Plumb a PDF for detailed information about each char, rectangle, and line.
 Home-page: https://github.com/jsvine/pdfplumber
 Author: Jeremy Singer-Vine
@@ -8,16 +8,17 @@ Author-email: jsvine@gmail.com
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pdfminer.six==20251230
-Requires-Dist: Pillow>=9.1
-Requires-Dist: pypdfium2>=4.18.0
+Requires-Dist: pdfminer.six==20260107
+Requires-Dist: Pillow>=12.2.0
+Requires-Dist: pypdfium2>=5.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -37,7 +38,7 @@ Plumb a PDF for detailed information about each text character, rectangle, and l
 
 Works best on machine-generated, rather than scanned, PDFs. Built on [`pdfminer.six`](https://github.com/goulu/pdfminer). 
 
-Currently [tested](tests/) on [Python 3.8, 3.9, 3.10, 3.11](.github/workflows/tests.yml).
+Currently [tested](tests/) on [Python 3.10, 3.11, 3.12, 3.13, 3.14](.github/workflows/tests.yml).
 
 Translations of this document are available in: [Chinese (by @hbh112233abc)](https://github.com/hbh112233abc/pdfplumber/blob/stable/README-CN.md).
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugin-scanner
-Version: 2.0.673
+Version: 2.0.707
 Summary: Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard

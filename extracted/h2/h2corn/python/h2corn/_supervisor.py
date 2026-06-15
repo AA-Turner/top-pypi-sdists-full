@@ -14,6 +14,7 @@ from dataclasses import replace
 from ._cli import ImportSettings
 from ._lifespan import _cancel_task, _serve_with_lifespan
 from ._socket import (
+    _bound_addresses,
     _bound_sockets,
     _drain_fd,
     _nonblocking_pipe,
@@ -76,15 +77,44 @@ def _clone_config(config: Config, /, **overrides):
     return cloned
 
 
+def _install_parent_death_signal() -> None:
+    """Bind this worker's lifetime to the supervisor's (Linux only).
+
+    Ask the kernel to `SIGKILL` the worker the moment its supervisor dies for
+    any reason — graceful exit, crash, `SIGKILL`, or the OOM killer — so a
+    hard-killed supervisor can never leave orphaned workers behind. Must run
+    *after* any privilege drop: `setuid`/`setgid` clear `PDEATHSIG`.
+    """
+    if sys.platform != 'linux':
+        return
+    import ctypes
+
+    pr_set_pdeathsig = 1
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(pr_set_pdeathsig, signal.SIGKILL, 0, 0, 0) != 0:
+        return
+    # Close the fork→prctl race: if the supervisor already exited, the death
+    # signal was missed, so reparenting to init means we must stop now.
+    if os.getppid() == 1:
+        os._exit(0)
+
+
 def _worker_entry(
     app: ASGIApp | ImportSettings,
     config: Config,
     fds: tuple[int, ...],
     identity,
 ):
-    from ._server import Server, _drop_process_privileges, _import_target
+    from ._server import (
+        Server,
+        _drop_process_privileges,
+        _import_target,
+        _install_event_loop,
+    )
 
     _drop_process_privileges(identity)
+    _install_parent_death_signal()
+    _install_event_loop(config.loop)
     if isinstance(app, ImportSettings):
         app = _import_target(app)
     server = Server(app, _clone_config(config, workers=1))
@@ -148,7 +178,10 @@ def _serve_supervisor(app: ASGIApp | ImportSettings, config: Config):
     with _bound_sockets(config, socket_owner=(identity.uid, identity.gid)) as socks:
         from ._lib import emit_banner
 
-        emit_banner(config)
+        # Banner shows the RESOLVED addresses (meaningful when binding port 0).
+        emit_banner(
+            replace(config, bind=_bound_addresses(socks), host=None, port=None)
+        )
         fds = tuple(sock.fileno() for sock in socks)
         workers: dict[int, BaseProcess] = {}
         worker_controls: dict[int, int] = {}

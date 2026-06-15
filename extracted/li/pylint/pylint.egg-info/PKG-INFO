@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint
-Version: 4.0.5
+Version: 4.0.6
 Summary: python code static checker
 Author-email: Python Code Quality Authority <code-quality@python.org>
 License-Expression: GPL-2.0-or-later
@@ -10,7 +10,7 @@ Project-URL: Docs: Contributor Guide, https://pylint.readthedocs.io/en/latest/de
 Project-URL: Docs: User Guide, https://pylint.readthedocs.io/en/latest/
 Project-URL: homepage, https://github.com/pylint-dev/pylint
 Project-URL: Source Code, https://github.com/pylint-dev/pylint
-Project-URL: What's New, https://pylint.readthedocs.io/en/latest/whatsnew/3/
+Project-URL: What's New, https://pylint.readthedocs.io/en/latest/whatsnew/4/
 Keywords: lint,linter,python,static code analysis
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Console

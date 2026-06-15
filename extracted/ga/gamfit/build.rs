@@ -1,5 +1,5 @@
 use std::ffi::OsStr;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
@@ -257,6 +257,22 @@ fn main() {
     // = "version"` or `git = ".../"` in `Cargo.toml` instead.
     let mut vendor_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
     scan_for_vendor_directories(&manifest_dir, &manifest_dir, &mut vendor_offenders);
+
+    // Tracked-file size ban. Issue #780 keeps source/data artifacts reviewable
+    // by requiring every tracked file to stay at or below 10k newline-counted
+    // lines. This intentionally scans all Git-tracked files, not only the
+    // text extensions handled by `visit_files`, so oversized CSVs or other
+    // line-oriented assets cannot bypass the build gate.
+    let mut oversized_file_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    scan_for_oversized_tracked_files(&manifest_dir, &mut oversized_file_offenders);
+
+    // Mechanical part_NNN / *_parts/ / split_parts/ naming is banned (slop). To
+    // satisfy MAX_TRACKED_FILE_LINES, split large modules into cohesively-named
+    // submodules, never numbered parts. Scans every tracked `.rs` file repo-wide
+    // (src/, tests/, crates/, …); non-.rs dataset shards such as
+    // bench/datasets/*_parts/part_00N.csv are skipped (the audit is `.rs`-only).
+    let mut mechanical_part_offenders: Vec<(PathBuf, usize, String)> = Vec::new();
+    scan_for_mechanical_part_files(&manifest_dir, &mut mechanical_part_offenders);
 
     // Persistent unimplemented/todo/unreachable removal audit. Compares the
     // current set of marker-bearing functions against the on-disk ledger and
@@ -571,6 +587,31 @@ fn main() {
                 "`vendor/` directory present — vendoring forks upstream dependencies past the same lint gate this scanner enforces; use `[dependencies]` in Cargo.toml (crates.io version or `git = ...`) instead"
                     .to_string(),
             rows: vendor_offenders
+                .iter()
+                .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
+                .collect(),
+        });
+    }
+
+    if !oversized_file_offenders.is_empty() {
+        sections.push(Section {
+            title: "tracked file over 10k lines (split the file; issue #780 line-count gate)"
+                .to_string(),
+            rows: oversized_file_offenders
+                .iter()
+                .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
+                .collect(),
+        });
+    }
+
+    if !mechanical_part_offenders.is_empty() {
+        sections.push(Section {
+            title:
+                "mechanical file-splitting banned (`part_<NNN>.rs` / `*_parts/` / `split_parts/` \
+                    is line-count splitting, not logical decomposition — split by cohesive concern \
+                    into descriptively-named modules; numbered parts are slop)"
+                    .to_string(),
+            rows: mechanical_part_offenders
                 .iter()
                 .map(|(r, l, s)| (r.clone(), *l, None, s.clone()))
                 .collect(),
@@ -1171,10 +1212,25 @@ fn compute_test_mask(content: &str, rel: &Path) -> Vec<bool> {
         || rel_str.starts_with("bench/")
         || rel_str.starts_with("benches/")
         || rel_str.starts_with("examples/")
-        || path_matches_crates_test(&rel_str);
+        || path_matches_crates_test(&rel_str)
+        || file_stem_is_exempt_test_module(rel);
     if file_is_test {
         mask.fill(true);
         return mask;
+    }
+
+    // File-level `#![cfg(test)]` inner attribute (the Rust-idiomatic way to
+    // mark a whole module as test-only when it lives in its own file). When
+    // present, the entire file is test scope — the same way an outer
+    // `#[cfg(test)] mod foo { ... }` would gate the inlined module body.
+    // The brace-tracking loop below cannot model this on its own because
+    // an inner attribute has no following `{` to open a gate.
+    let stripped_all = strip_file_lines(content);
+    for line in &stripped_all {
+        if is_cfg_test_inner_attr_line(line) {
+            mask.fill(true);
+            return mask;
+        }
     }
 
     // Brace-tracked cfg(test) regions. We maintain a stack of entry brace
@@ -1190,7 +1246,6 @@ fn compute_test_mask(content: &str, rel: &Path) -> Vec<bool> {
     // depth drops back to this value).
     let mut gate_stack: Vec<i32> = Vec::new();
 
-    let stripped_all = strip_file_lines(content);
     for (idx, _raw) in lines.iter().enumerate() {
         let stripped = stripped_all.get(idx).cloned().unwrap_or_default();
 
@@ -1235,6 +1290,51 @@ fn compute_test_mask(content: &str, rel: &Path) -> Vec<bool> {
     }
 
     mask
+}
+
+/// True when the file's stem matches the same naming pattern that
+/// `is_exempt_test_submodule_name` accepts for `#[cfg(test)] mod ...`
+/// blocks: `tests`, `test_support`, `tests_*`, or `*_tests`. When a
+/// mechanically-split `mod foo_tests { ... }` inlined via `include!` is
+/// extracted into its own file (the cohesive-module decomposition the
+/// part-file ban demands), the module body lands in a file whose stem
+/// equals the module name. The whole file is then test scope by the
+/// same rule that exempted the inline `mod`.
+fn file_stem_is_exempt_test_module(rel: &Path) -> bool {
+    let Some(stem) = rel.file_stem().and_then(|s| s.to_str()) else {
+        return false;
+    };
+    is_exempt_test_submodule_name(stem)
+}
+
+/// Recognize `#![cfg(test)]` (inner attribute, applies to the enclosing
+/// item — at file top level, the whole module). Mirrors
+/// `is_cfg_test_attr_line` but requires the `#![` opener so the outer
+/// `#[cfg(test)] item` form (which gates only the next item) is not
+/// confused with the inner form.
+fn is_cfg_test_inner_attr_line(stripped: &str) -> bool {
+    let bytes = stripped.as_bytes();
+    let mut i = 0usize;
+    while i + 2 < bytes.len() {
+        if bytes[i] == b'#' && bytes[i + 1] == b'!' && bytes[i + 2] == b'[' {
+            let rest = &stripped[i + 3..];
+            if let Some(pos) = rest.find("cfg(") {
+                let abs = i + 3 + pos;
+                let before_ok = abs == 0 || !is_ident_byte(bytes[abs - 1]);
+                if before_ok {
+                    let args_start = abs + 4;
+                    if let Some(end) = find_matching_paren(&bytes[args_start..]) {
+                        let args = &stripped[args_start..args_start + end];
+                        if cfg_args_contain_test(args) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    false
 }
 
 /// Match `crates/<name>/tests/...` or `crates/<name>/benches/...`.
@@ -2961,6 +3061,134 @@ fn scan_for_vendor_directories(
             continue;
         }
         scan_for_vendor_directories(root, &path, offenders);
+    }
+}
+
+const MAX_TRACKED_FILE_LINES: usize = 10_000;
+
+fn scan_for_oversized_tracked_files(root: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
+    let output = Command::new("git")
+        .arg("-c")
+        .arg("safe.directory=*")
+        .arg("-C")
+        .arg(root)
+        .arg("ls-files")
+        .arg("-z")
+        .output()
+        .expect("failed to list Git-tracked files for line-count audit");
+    assert!(
+        output.status.success(),
+        "git ls-files failed during line-count audit"
+    );
+
+    for raw in output.stdout.split(|b| *b == 0) {
+        if raw.is_empty() {
+            continue;
+        }
+        let rel_text = String::from_utf8(raw.to_vec())
+            .expect("git ls-files emitted a non-UTF-8 path; repository paths must be UTF-8");
+        let rel = PathBuf::from(&rel_text);
+        let path = root.join(&rel);
+        let line_count = match count_file_lines(&path) {
+            Ok(line_count) => line_count,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(err) => {
+                panic!(
+                    "failed to read tracked file for line-count audit: {}: {err}",
+                    rel.display()
+                )
+            }
+        };
+        if line_count > MAX_TRACKED_FILE_LINES {
+            offenders.push((
+                rel,
+                line_count,
+                format!("{line_count} lines; limit is {MAX_TRACKED_FILE_LINES}"),
+            ));
+        }
+    }
+}
+
+fn count_file_lines(path: &Path) -> std::io::Result<usize> {
+    let file = fs::File::open(path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut buf = [0_u8; 64 * 1024];
+    let mut line_count = 0usize;
+    loop {
+        let read = reader.read(&mut buf)?;
+        if read == 0 {
+            return Ok(line_count);
+        }
+        line_count += buf[..read].iter().filter(|byte| **byte == b'\n').count();
+    }
+}
+
+/// Is this repo-relative path a mechanical line-count split rather than a logical
+/// module? True when the file stem is `part_<digits>` OR any ancestor directory
+/// component ends in `_parts` or is exactly `split_parts`.
+fn is_mechanical_part_path(rel: &Path) -> bool {
+    if let Some(stem) = rel.file_stem().and_then(|s| s.to_str()) {
+        let is_part_n = stem
+            .strip_prefix("part_")
+            .is_some_and(|rest| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit()));
+        if is_part_n {
+            return true;
+        }
+    }
+    for comp in rel.components() {
+        if let std::path::Component::Normal(os) = comp {
+            if let Some(name) = os.to_str() {
+                if name == "split_parts" || name.ends_with("_parts") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Ban mechanical file-splitting (`part_<NNN>.rs`, `*_parts/`, `split_parts/`).
+/// HARD ban with NO grandfathering: every such path fails the build. Split each
+/// module by cohesive concern into descriptively-named modules instead. Scans
+/// every `.rs` file tracked anywhere in the repo (src/, tests/, crates/, …), so
+/// no future mechanical split can slip in outside src/. Non-code dataset shards
+/// such as `bench/datasets/*_parts/part_00N.csv` are skipped because the audit
+/// only considers `.rs` files.
+fn scan_for_mechanical_part_files(root: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
+    let output = Command::new("git")
+        .arg("-c")
+        .arg("safe.directory=*")
+        .arg("-C")
+        .arg(root)
+        .arg("ls-files")
+        .arg("-z")
+        .output()
+        .expect("failed to list Git-tracked files for mechanical-part audit");
+    assert!(
+        output.status.success(),
+        "git ls-files failed during mechanical-part audit"
+    );
+
+    for raw in output.stdout.split(|b| *b == 0) {
+        if raw.is_empty() {
+            continue;
+        }
+        let rel_text = String::from_utf8(raw.to_vec())
+            .expect("git ls-files emitted a non-UTF-8 path; repository paths must be UTF-8");
+        if !rel_text.ends_with(".rs") {
+            continue;
+        }
+        let rel = PathBuf::from(&rel_text);
+        if !is_mechanical_part_path(&rel) {
+            continue;
+        }
+        offenders.push((
+            rel,
+            0,
+            "mechanical line-count split; decompose by cohesive concern into descriptively-named \
+             modules — this is a HARD ban, no grandfathering"
+                .to_string(),
+        ));
     }
 }
 

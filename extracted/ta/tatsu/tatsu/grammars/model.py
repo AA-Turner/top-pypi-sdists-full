@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import weakref
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from copy import copy
 from dataclasses import field
 from functools import cached_property
-from itertools import batched
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Self
@@ -176,11 +175,11 @@ class NIL(Model):
         return ctx.fail() or ()
 
     def _pretty(self, lean=False):
-        return NIL.__name__
+        return typename(self)
 
     @cached_property
     def _nullable(self) -> bool:
-        return False
+        return True
 
 
 @nodedataclass
@@ -367,7 +366,7 @@ class Rule(NamedBox):
             return repr(p)
 
     def _pretty(self, lean=False):
-        str_template = "{is_name}{name}{base}{params}:{exp}"
+        str_template = "{is_name}{no_memo}{name}{base}{params}:{exp}"
 
         if lean:
             params = ''
@@ -404,13 +403,21 @@ class Rule(NamedBox):
             base=base,
             params=params,
             exp=exp,
+            no_memo='@nomemo\n' if self.no_memo else '',
             is_name='@name\n' if self.is_name else '',
         )
 
     def optimized(self) -> Rule:
+        from .syntax import Call, Sequence
+
         assert isinstance(self.exp, Model)
+        exp = self.exp.optimized()
+        while isinstance(exp, Sequence) and len(exp.sequence) == 1:
+            exp = exp.sequence[0]
+        if isinstance(exp, Call) and exp._rule:
+            exp = exp._rule.exp.optimized()
         new = copy(self)
-        new.exp = self.exp.optimized()
+        new.exp = exp
         new._lookahead = self.lookahead()
         return new
 
@@ -428,6 +435,7 @@ class Grammar(Model):
     directives: dict[str, Any] = field(default_factory=dict)
     keywords: tuple[str, ...] = field(default_factory=tuple)
     rules: tuple[Rule, ...] = field(default_factory=tuple)
+    _optimized: Grammar | None = None
 
     def __init__(
         self,
@@ -468,7 +476,7 @@ class Grammar(Model):
         self.name = self._resolve_name(name)
         self.initialize()
 
-    def initialize(self):
+    def initialize(self) -> None:
         rulemap = {rule.name: rule for rule in self.rules}
         self._rule = SimpleNamespace(**rulemap)
         self._rulemap = self._rule.__dict__
@@ -484,18 +492,6 @@ class Grammar(Model):
     def configure(self, config: ParserConfig | None = None, **settings: Any):
         self._config.merge_config(config)
         self._config.merge(**settings)
-
-    @staticmethod
-    def load(value: Any) -> Grammar:
-        from .json import load_grammar
-
-        return load_grammar(value)
-
-    @staticmethod
-    def loads(value: str) -> Grammar:
-        from .json import loads_grammar
-
-        return loads_grammar(value)
 
     def _update_patterns(self):
         if not hasattr(self, 'patterns'):
@@ -692,24 +688,52 @@ class Grammar(Model):
             directives += '\n'
 
         keywordsets = []
-        for batch in batched(sorted(self.keywords), 8):
-            b = [repr(k) for k in batch if k and k.strip()]
-            if not b:
-                continue
-            keywordsets += [f'@@keyword :: {' '.join(b)}']
+        batch: list[str] = []
+        bfmt: str = ""
+        for k in sorted(repr(k) for k in self.keywords):
+            batch += [k]
+            bfmt = f"@@keyword :: {' '.join(batch)}"
+            if len(bfmt) >= PEP8_LLEN - 8:
+                keywordsets += [bfmt]
+                batch = []
+        if batch:
+            keywordsets += [bfmt]
+
         keywords = f"\n\n{'\n'.join(keywordsets)}\n\n" if keywordsets else ""
 
         rules = (
             '\n\n'.join(str(rule._pretty(lean=lean)) for rule in self.rules)
         ).rstrip() + '\n\n'
-        return directives + keywords + rules
+        return f"{directives}{keywords}{rules}"
 
     def optimized(self) -> Grammar:
+        if isinstance(self._optimized, Grammar):
+            return self._optimized
+
         optrules: tuple[Rule, ...] = tuple(r.optimized() for r in self.rules)
         new = copy(self)
         new.rules = optrules
         new.initialize()
+
+        self._optimized = new  # NOTE cache optimized grammar
+        new._optimized = new  # NOTE circular reference as cached
+
         return new
+
+    @classmethod
+    def __from_json__(cls: type[Self], data: Mapping[str, Any]) -> Grammar:
+        g = super().__from_json__(data)
+        # NOTE got a Grammar that used Grammar.__init__()
+        #
+        # NOTE
+        #   Copy the grammar so the configuration is unique
+        # HACK
+        return Grammar(
+            name=g.name,
+            rules=g.rules,
+            directives=g.directives,
+            keywords=g.keywords,
+        )
 
 
 class ModelContext(ParseContext):

@@ -38,8 +38,8 @@ def _title_similarity(a: str, b: str) -> float:
 
 
 def handle_add(km: KnowledgeManager, args: list[str]) -> dict:
-    # No arguments: show usage guide
-    if not args:
+    # #655: Intercept --help/-h to prevent creating empty entries
+    if not args or "--help" in args or "-h" in args:
         return {
             "help": True,
             "message": (
@@ -162,6 +162,7 @@ def handle_import(km: KnowledgeManager, args: list[str]) -> dict:
         add_kwargs: dict = dict(
             domain=e.get("domain", "infra"), category=e.get("category", "工具"),
             title=e["title"], content=e["content"],
+            code_example=e.get("code_example", ""),
             tags=e.get("tags", []), severity=e.get("severity", "medium"),
             source=e.get("source", {}),
         )

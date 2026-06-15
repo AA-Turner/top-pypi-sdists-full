@@ -37,12 +37,16 @@ const POLICY_SOURCE_FILES = [
   "policy-remembered-cloud-rules.tsx",
   "policy-remembered-rules-tab.tsx",
   "policy-remembered-rules-right-rail.tsx",
+  "policy-page-chrome.tsx",
+  "policy-guard-cloud-bundle-card.tsx",
   "policy-cloud-exceptions-tab.tsx",
   "policy-cloud-exception-request-panel.tsx",
   "policy-cloud-exceptions-utils.ts",
   "policy-cloud-exceptions-summary.tsx",
   "policy-cloud-exceptions-list.tsx",
   "policy-cloud-exception-detail-panel.tsx",
+  "policy-strict-config-tab.tsx",
+  "policy-strict-config-utils.ts",
 ];
 
 const FORBIDDEN_FIXTURE_PATTERNS = [
@@ -52,6 +56,12 @@ const FORBIDDEN_FIXTURE_PATTERNS = [
   /policy-2026-\d/,
   /receipt_[a-f0-9]{8,}/i,
   /exception_request_[a-f0-9-]{8,}/i,
+  /\bLorem ipsum\b/i,
+  /\bMock Exception\b/i,
+  /\bSample Exception\b/i,
+  /\bPlaceholder Owner\b/i,
+  /\bDemo User\b/i,
+  /\bfixture-row\b/i,
 ];
 
 const REVIEW_INBOX_DENYLIST = [

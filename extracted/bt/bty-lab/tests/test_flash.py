@@ -755,6 +755,34 @@ def test_execute_plan_dispatches_to_url_writers_for_url_images(
             assert local_marker not in calls
 
 
+def test_execute_plan_forwards_expected_sha_to_url_writer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The plan's ``image.expected_sha`` must reach the streaming writer
+    as ``expected_sha`` -- otherwise declared-sha verification is wired
+    up to a value the writer never sees."""
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(flash, "probe_target", _stub_block_target)
+    monkeypatch.setattr(
+        flash,
+        "_flash_img_from_url",
+        lambda _u, _t, **kw: seen.update(kw),
+    )
+    _stub_post_write(monkeypatch, [])
+
+    digest = "sha256:" + "ab" * 32
+    img = flash.ImageInfo(
+        path=None,
+        url="http://server.local/x.img",
+        format="img",
+        size_bytes=1024,
+        virtual_size_bytes=1024,
+        expected_sha=digest,
+    )
+    flash.execute_plan(flash.make_plan(img, _tgt()))
+    assert seen.get("expected_sha") == digest
+
+
 def test_execute_plan_refuses_when_target_no_longer_block(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1009,3 +1037,199 @@ def test_register_uefi_boot_entry_happy_path(monkeypatch: pytest.MonkeyPatch) ->
     assert any("--create-only" in c for c in calls)
     assert ["efibootmgr", "-n", "0009"] in calls
     assert not any(c[:2] == ["efibootmgr", "-o"] for c in calls)
+
+
+# ---------- Integrity: digest threading + verification -----------------------
+#
+# PR1 of issue #10: ``oras://`` references commit to a content digest, and
+# the flash pipeline verifies it on the wire via a ``tee | sha256sum``
+# splice (the bytes stay in the subprocess plane; Python only reads the
+# final ~65-byte digest line). These cover the pure logic; the end-to-end
+# pipeline behaviour lives in tests/test_flash_integration.py.
+
+
+def test_curl_args_for_source_plain_url_carries_no_digest() -> None:
+    argv, size, digest = flash._curl_args_for_source("https://example.test/x.img")
+    assert argv == ["curl", "-fsSL", "https://example.test/x.img"]
+    assert size is None
+    # No digest for a plain URL -> the caller keeps its zero-copy path.
+    assert digest is None
+
+
+def test_curl_args_for_source_oras_threads_digest(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved = flash.oras.ResolvedBlob(
+        blob_url="https://reg.test/v2/r/blobs/sha256:abc",
+        headers={"Authorization": "Bearer t"},
+        digest="sha256:" + "ab" * 32,
+        size=4096,
+        title="x.img.gz",
+    )
+    monkeypatch.setattr(flash.oras, "is_oras_url", lambda _u: True)
+    monkeypatch.setattr(flash.oras, "resolve_ref", lambda _u: resolved)
+
+    argv, size, digest = flash._curl_args_for_source("oras://reg.test/r:tag")
+    assert argv[-1] == resolved.blob_url
+    assert "-H" in argv and "Authorization: Bearer t" in argv
+    assert size == 4096
+    # The layer's frozen digest is threaded out for the streaming check.
+    assert digest == resolved.digest
+
+
+def test_verify_digest_match_is_silent() -> None:
+    d = "sha256:" + "cd" * 32
+    flash._verify_digest(d, d, "oras://x")  # must not raise
+
+
+def test_verify_digest_mismatch_raises_integrity_error() -> None:
+    with pytest.raises(flash.FlashIntegrityError) as ei:
+        flash._verify_digest("sha256:" + "00" * 32, "sha256:" + "11" * 32, "oras://x")
+    assert "integrity check failed" in str(ei.value)
+    # Integrity failures are flash failures for plain ``except FlashError``.
+    assert isinstance(ei.value, flash.FlashError)
+
+
+def test_verify_digest_none_observed_is_silent() -> None:
+    # When the tee wasn't spliced there is no observed digest; the caller
+    # only verifies when it actually ran the hash, so this is a no-op.
+    flash._verify_digest("sha256:" + "00" * 32, None, "oras://x")
+
+
+def test_spawn_hash_tee_forwards_bytes_and_hashes(tmp_path: Path) -> None:
+    import hashlib
+    import shutil as _shutil
+
+    if _shutil.which("tee") is None or _shutil.which("sha256sum") is None:
+        pytest.skip("tee / sha256sum not available")
+
+    # >64 KiB so the bytes cross a pipe buffer (proves both consumers
+    # drain concurrently; a single-buffer test could hide a deadlock).
+    payload = b"hash-tee-roundtrip\x00\x01\x02" * 4096
+    src = tmp_path / "payload.bin"
+    src.write_bytes(payload)
+
+    with src.open("rb") as fh:
+        tee_proc, sha_proc = flash._spawn_hash_tee(fh)
+        assert tee_proc.stdout is not None
+        forwarded = tee_proc.stdout.read()
+        tee_proc.stdout.close()
+        observed = flash._read_observed_digest(sha_proc)
+        assert tee_proc.wait() == 0
+        assert sha_proc.wait() == 0
+
+    # tee forwards every byte unchanged to the next stage...
+    assert forwarded == payload
+    # ...and sha256sum hashes the same bytes to the expected digest.
+    assert observed == "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def test_sha256_file_matches_hashlib(tmp_path: Path) -> None:
+    import hashlib
+    import shutil as _shutil
+
+    if _shutil.which("sha256sum") is None:
+        pytest.skip("sha256sum not available")
+
+    payload = b"qcow2-temp-file-hash" * 512
+    f = tmp_path / "blob.qcow2"
+    f.write_bytes(payload)
+    assert flash._sha256_file(f) == "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+# ---------- Integrity: declared-sha threading (issue #10 PR2) -----------------
+
+
+def test_normalize_digest_variants() -> None:
+    h = "ab" * 32
+    assert flash._normalize_digest(None) is None
+    assert flash._normalize_digest(h) == f"sha256:{h}"
+    assert flash._normalize_digest(f"sha256:{h}") == f"sha256:{h}"
+    # Catalog shas are lower-cased hex, but normalise defensively.
+    assert flash._normalize_digest(h.upper()) == f"sha256:{h}"
+
+
+class _FakeHeadResp:
+    """Minimal stand-in for ``urlopen(...)`` used as a context manager."""
+
+    headers: ClassVar[dict[str, str]] = {"Content-Length": "1024"}
+
+    def __enter__(self) -> _FakeHeadResp:
+        return self
+
+    def __exit__(self, *_a: object) -> bool:
+        return False
+
+
+def test_probe_image_url_stores_normalized_expected_sha(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("urllib.request.urlopen", lambda _req, timeout=30: _FakeHeadResp())
+    h = "cd" * 32
+    info = flash.probe_image_url("https://example.test/x.img", expected_sha=h)
+    assert info.url == "https://example.test/x.img"
+    assert info.expected_sha == f"sha256:{h}"
+
+
+def test_probe_image_url_without_sha_leaves_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("urllib.request.urlopen", lambda _req, timeout=30: _FakeHeadResp())
+    info = flash.probe_image_url("https://example.test/x.img")
+    assert info.expected_sha is None
+
+
+def test_probe_image_url_oras_ignores_expected_sha(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = flash.ImageInfo(
+        path=None,
+        url="oras://reg.test/r:tag",
+        format="img.gz",
+        size_bytes=0,
+        virtual_size_bytes=None,
+    )
+    monkeypatch.setattr(flash, "_probe_image_url_oras", lambda _u: sentinel)
+    out = flash.probe_image_url("oras://reg.test/r:tag", expected_sha="ab" * 32)
+    # oras resolves its own digest; the http declared-sha is not applied.
+    assert out is sentinel
+    assert out.expected_sha is None
+
+
+def test_redact_secrets_scrubs_bearer_tokens() -> None:
+    # An oras flash injects a bearer; curl could echo the header. The
+    # log pump must not leak the token to the progress UI / logs.
+    assert (
+        flash._redact_secrets("Authorization: Bearer abc.DEF-123_~+/=")
+        == "Authorization: Bearer <redacted>"
+    )
+    assert (
+        flash._redact_secrets("note: using bearer eyJ.foo_bar") == "note: using bearer <redacted>"
+    )
+    # Non-secret lines pass through untouched.
+    assert flash._redact_secrets("curl: (22) HTTP 404 on blob") == "curl: (22) HTTP 404 on blob"
+
+
+def test_probe_image_url_malformed_content_length_is_unknown_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _BadCLResp:
+        headers: ClassVar[dict[str, str]] = {"Content-Length": "not-a-number"}
+
+        def __enter__(self) -> _BadCLResp:
+            return self
+
+        def __exit__(self, *_a: object) -> bool:
+            return False
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda _req, timeout=30: _BadCLResp())
+    info = flash.probe_image_url("https://example.test/x.img")
+    # Malformed Content-Length folds to "unknown size" (0), no crash.
+    assert info.size_bytes == 0
+    assert info.virtual_size_bytes is None
+
+
+def test_to_dict_includes_expected_sha() -> None:
+    digest = "sha256:" + "ab" * 32
+    img = flash.ImageInfo(
+        path=None,
+        url="https://example.test/i.img",
+        format="img",
+        size_bytes=1,
+        virtual_size_bytes=1,
+        expected_sha=digest,
+    )
+    plan = flash.make_plan(img, _tgt())
+    assert plan.to_dict()["image"]["expected_sha"] == digest

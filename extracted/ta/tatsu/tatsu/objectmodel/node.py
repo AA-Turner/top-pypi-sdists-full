@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import dataclasses as dc
+import json
 import weakref
 from collections.abc import Iterable, Mapping, MutableMapping
-from typing import Any
+from typing import Any, Self
 
+from ..util.fromjson import fromjson
 from .basenode import BaseNode, nodedataclass
 
 
@@ -52,6 +54,16 @@ class Node(BaseNode):
             ancestors.append(parent)
             parent = parent.parent
         return tuple(reversed(ancestors))
+
+    @classmethod
+    def load(cls, data: Any) -> Self:
+        new = fromjson(data)
+        assert isinstance(new, cls)
+        return new
+
+    @classmethod
+    def loads(cls, data: str) -> Self:
+        return cls.load(json.loads(data))
 
     def children(self) -> tuple[Node, ...]:
         return self._cached_children()

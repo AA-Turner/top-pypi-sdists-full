@@ -666,21 +666,18 @@ fn survival_baseline_config_from_theta(
 
 /// Derivative contract for the shared baseline-θ outer optimizer.
 ///
-/// The three public baseline optimizers (`optimize_survival_baseline_config`,
-/// `…_with_gradient_only`, `…_with_gradient`) differ in exactly one axis: how
-/// much derivative information the objective closure supplies, and therefore
-/// which outer solver class and curvature declaration the `OuterProblem` must
-/// advertise. Everything else — θ↔config conversion, the ±6 log-space box,
+/// The two public baseline optimizers (`…_with_gradient_only`,
+/// `…_with_gradient`) differ in exactly one axis: how much derivative
+/// information the objective closure supplies, and therefore which curvature
+/// declaration the `OuterProblem` must advertise. Every baseline-θ path now
+/// supplies an exact analytic gradient (profile-NLL envelope gradient), so both
+/// contracts route to a gradient-based solver. Everything else — θ↔config
+/// conversion, the ±6 log-space box,
 /// the single-seed config, the `run`/convergence/error-formatting boilerplate
 /// — is identical, so it lives once in [`run_baseline_theta_optimizer`] and
 /// this enum selects the per-contract `OuterProblem` configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum BaselineDerivativeContract {
-    /// Cost-only: no analytic derivatives. Routes to the gradient-free
-    /// CompassSearch over the small baseline θ. The `eval_fn` supplied by the
-    /// adapter is unreachable under this dispatch (CompassSearch calls only
-    /// `eval_cost`), so the adapter passes the explicit "unreachable" stub.
-    CostOnly,
     /// Cost + analytic gradient, no analytic Hessian. Routes to BFGS, which
     /// builds its own quasi-Newton curvature from successive gradients.
     GradientOnly,
@@ -699,43 +696,18 @@ impl BaselineDerivativeContract {
         self,
         problem: crate::solver::outer_strategy::OuterProblem,
     ) -> crate::solver::outer_strategy::OuterProblem {
-        use crate::solver::outer_strategy::{DeclaredHessianForm, Derivative, SolverClass};
+        use crate::solver::outer_strategy::{DeclaredHessianForm, Derivative};
         match self {
-            // CompassSearch over the small baseline θ (2-dim weibull/gompertz
-            // α,λ; 3-dim gompertz-makeham α,λ,γ) at tol=1e-4 on a smooth REML
-            // surface. Every probe runs a complete inner BFGS over the
-            // smoothing log-λ from cold start (no ρ warm-start across probes),
-            // so probe count is the dominant per-fit cost for this
-            // non-linear-baseline path, which lacks the analytic baseline
-            // gradient the marginal-slope path has under `GradientHessian`.
-            //
-            // We do NOT pin a magic poll cap here. A direct search can only
-            // certify first-order stationarity once its step contracts below
-            // tol, which from init_step=1.0 takes ceil(log2(1/tol))·2·dim
-            // polls (≈56 for dim=2, ≈84 for dim=3) — so any fixed cap below
-            // that (the prior `60`) made dim≥2 baselines report spurious
-            // non-convergence. The CompassSearch dispatch now floors the
-            // budget at that contraction cost plus a descent allowance, so it
-            // is correct for every dim; `max_iter` here is only an upper
-            // request, kept generous so genuinely hard surfaces can take the
-            // descent steps they need before certifying.
-            BaselineDerivativeContract::CostOnly => problem
-                .with_solver_class(SolverClass::AuxiliaryGradientFree)
-                .with_tolerance(1e-4)
-                .with_max_iter(400),
             // BFGS on a 2–3 dim problem with an exact gradient typically
-            // converges in 5–10 outer evaluations versus the ~60 polls compass
-            // search used to spend on the same surface.
+            // converges in 5–10 outer evaluations.
             BaselineDerivativeContract::GradientOnly => problem
                 .with_gradient(Derivative::Analytic)
                 .with_hessian(DeclaredHessianForm::Unavailable)
-                .with_solver_class(SolverClass::Primary)
                 .with_tolerance(1e-4)
                 .with_max_iter(240),
             BaselineDerivativeContract::GradientHessian => problem
                 .with_gradient(Derivative::Analytic)
                 .with_hessian(DeclaredHessianForm::Either)
-                .with_solver_class(SolverClass::Primary)
                 .with_tolerance(1e-4)
                 .with_max_iter(240),
         }
@@ -878,47 +850,6 @@ where
     run_baseline_theta_optimizer(initial, context, contract, cost_fn, eval_fn)
 }
 
-/// Cost-only outer baseline-config optimizer. Thin adapter over
-/// [`run_baseline_theta_optimizer`] under the
-/// [`BaselineDerivativeContract::CostOnly`] contract: it wraps the
-/// scalar-cost objective into a θ-space `cost_fn` and supplies the explicit
-/// "unreachable" `eval_fn`, since the gradient-free CompassSearch dispatch
-/// never requests a gradient.
-pub fn optimize_survival_baseline_config<F>(
-    initial: &SurvivalBaselineConfig,
-    context: &str,
-    mut objective: F,
-) -> Result<SurvivalBaselineConfig, String>
-where
-    F: FnMut(&SurvivalBaselineConfig) -> Result<f64, String>,
-{
-    let target = initial.target;
-    let cost_fn = move |_: &mut (), theta: &Array1<f64>| {
-        let cfg = survival_baseline_config_from_theta(target, theta)
-            .map_err(crate::estimate::EstimationError::InvalidInput)?;
-        objective(&cfg).map_err(crate::estimate::EstimationError::InvalidInput)
-    };
-    let eval_fn = |_: &mut (),
-                   _: &Array1<f64>|
-     -> Result<
-        crate::solver::outer_strategy::OuterEval,
-        crate::estimate::EstimationError,
-    > {
-        Err(crate::estimate::EstimationError::InvalidInput(
-            "baseline aux optimizer: CompassSearch dispatch only calls eval_cost; \
-             eval(gradient) is unreachable by construction"
-                .to_string(),
-        ))
-    };
-    run_baseline_theta_optimizer(
-        initial,
-        context,
-        BaselineDerivativeContract::CostOnly,
-        cost_fn,
-        eval_fn,
-    )
-}
-
 /// Gradient-only outer baseline-config optimizer. Thin adapter over
 /// [`run_baseline_theta_optimizer`] under the
 /// [`BaselineDerivativeContract::GradientOnly`] contract, which advertises
@@ -928,8 +859,7 @@ where
 /// closed-form θ-gradient (`baseline_chain_rule_gradient` /
 /// `marginal_slope_baseline_chain_rule_gradient`) but no native analytic
 /// θ-Hessian; BFGS on a 2–3 dim problem with an exact gradient typically
-/// converges in 5–10 outer evaluations versus the ~60 polls compass search
-/// used to spend on the same surface.
+/// converges in 5–10 outer evaluations.
 pub fn optimize_survival_baseline_config_with_gradient_only<F>(
     initial: &SurvivalBaselineConfig,
     context: &str,
@@ -1639,72 +1569,167 @@ pub fn build_survival_time_basis(
             if penalty_basis.design.ncols() != p_time_full + 1 {
                 return Err("internal error: ispline penalty dimension mismatch".to_string());
             }
-            // I-spline curvature penalty in the *increment* space of the baseline
+            // I-spline curvature penalty in the *value* space of the baseline
             // log-cumulative-hazard, restricted to the retained (non-dropped)
             // coefficient block.
             //
-            // CURRENT STATE (#691). This emits the increment-space second-difference
-            // submatrix `S_B[1.., 1..]`, where `S_B = D₂ᵀD₂` is the underlying
-            // B-spline second-difference penalty (`penalty_basis.penalties`). The
-            // I-spline coefficient γ is the consecutive increment of the B-spline
-            // value coefficients `c` (`c = L γ`, `c_m = Σ_{k<m} γ_k`, `c_0 = 0`), so
-            // dropping the fixed `c_0 = 0` row/column of `S_B` and penalizing the
-            // remaining `(c_1, …) = (γ_0, γ_0+γ_1, …)` applies `D₂` curvature to the
-            // increments. This penalty is **full rank** and the constrained survival
-            // inner PIRLS converges robustly on it.
+            // The I-spline coefficient γ is the consecutive increment of the B-spline
+            // value coefficients `c`: `c_0 = 0`, `c_k = Σ_{j<k} γ_j = (L γ)_k`, where
+            // `L` is the `p_time × p_time` lower-triangular cumsum matrix. The
+            // second-difference penalty on the B-spline values is `S_B = D₂ᵀD₂`
+            // (the `penalty_basis.penalties` block). The correct curvature penalty
+            // on γ is the **value-space congruence transform**
             //
-            // KNOWN BIAS / open #691: the increment-space form penalizes the affine
-            // baseline slope `q = a·log t + b` (a constant γ maps to an affine `c`,
-            // which `D₂` does NOT annihilate once the `c_0 = 0` anchor is fixed), so
-            // REML over-shrinks the baseline slope and flattens the upper tail of
-            // `log Λ(t)` — gam loses to scam on net-survival tail accuracy.
+            //   `S_I = Lᵀ S_B[1:,1:] L`,
             //
-            // The principled cure is the congruent **value-space** penalty
-            //   `S_I = Lᵀ S_B L`,
-            // for which a constant γ ⇒ affine `c` ⇒ `D₂ c = 0` ⇒ `γᵀ S_I γ = 0`, so
-            // the affine trend lies in the penalty null space and REML stops
-            // over-shrinking it. That form (commit 03ae8717d) is mathematically
-            // correct but is NOT viable from the penalty level alone: its exact
-            // affine null direction is only weakly identified by the likelihood
-            // (thin upper tail under right censoring), so the penalized survival
-            // inner Hessian `Hₗᵢₖ + λ·S_I + δ_stab·I` is near-singular along it and
-            // the constrained inner PIRLS stalls (`MaxIterationsReached`,
-            // grad_norm ≈ 0.56). THREE penalty-level conditioning attempts —
-            // declaring `nullspace_dims`, unit-mean-diagonal scale normalization,
-            // and an affine-direction `δ·P_null` ridge — all left grad_norm
-            // essentially unchanged at ~0.56, empirically proving the stall is in
-            // the generic inner solver, not the penalty. The real value-space fix
-            // therefore requires the survival inner PIRLS to handle the penalty's
-            // affine null direction directly (e.g. an affine-subspace-aware inner
-            // Newton / nullspace projection in the generic constrained PIRLS — a
-            // generic-solver project, out of scope here). Until then we ship the
-            // increment-space penalty so the fit converges (with the documented
-            // tail bias), which is strictly better for users than a fit that errors
-            // out. Tracked by #691.
+            // which satisfies `γᵀ S_I γ = (Lγ)ᵀ S_B[1:,1:] (Lγ)`.
+            //
+            // A constant γ (γ_k = γ₀ ∀k) maps to the linear value sequence
+            // `c_k = k·γ₀`, which is annihilated by D₂: `D₂c = 0`. Therefore
+            // `γᵀ S_I γ = 0` for constant γ, i.e. the **affine trend lies in the
+            // penalty null space**. REML does not penalize the baseline slope
+            // `d(log Λ)/d(log t)` or the overall level, so it correctly lets the
+            // data determine these quantities without bias. The previous increment-
+            // space form `S_B[1:,1:]` (applied directly to γ instead of Lγ) did NOT
+            // have constant γ in its null space and therefore over-penalized affine
+            // baselines, causing the fitted log-cumulative-hazard to lose its tail
+            // slope to the penalty and fail quality tests (#1076).
+            //
+            // The value-space form has a 1-dimensional null space (span{(1,…,1)}),
+            // declared via `nullspace_dims` so the REML generalized-logdet picks it
+            // up. The penalized inner PIRLS is well-conditioned because the
+            // likelihood Hessian H_lik has O(n_events) curvature along the affine
+            // direction (the overall baseline level is identified by the data), and
+            // the global stabilization ridge (ridge_lambda) provides an absolute
+            // positive-definite floor.
             let mut penalties = Vec::<Array2<f64>>::new();
             for s_mat in &penalty_basis.penalties {
                 if s_mat.nrows() != p_time_full + 1 || s_mat.ncols() != p_time_full + 1 {
                     continue;
                 }
-                // Increment-space submatrix: drop the fixed `c_0 = 0` row/column
-                // (index 0) of `S_B`, then restrict the remaining `p_time_full`
-                // increment coordinates to the retained I-spline columns. Symmetrize
-                // to remove any accumulated asymmetry.
+                // I-spline value-space penalty, computed in the CORRECT order
+                // (gam#979). The B-spline value coefficients are the cumulative
+                // sum of the I-spline increment coefficients, `c = L γ_full`, where
+                // `L` is the FULL `p_time_full × p_time_full` LOWER-triangular
+                // all-ones cumsum matrix (`L[i,j] = 1 iff j ≤ i`, so
+                // `c_i = Σ_{j≤i} γ_j`). The value-space curvature penalty on the
+                // full increment vector is the symmetric congruence
+                //
+                //   `S_I_full = Lᵀ · S_B[1:,1:] · L`,
+                //
+                // which is PSD because `S_B[1:,1:]` is a principal submatrix of the
+                // PSD `S_B = D₂ᵀD₂` and congruence by any matrix preserves PSD.
+                //
+                // CRITICAL ORDERING (the gam#979 indefiniteness bug): the retained
+                // columns `keep_cols` must be selected as a PRINCIPAL SUBMATRIX of
+                // the FULL congruence `S_I_full` — i.e. congruence FIRST, selection
+                // SECOND. The previous code selected `keep_cols` from `S_B[1:,1:]`
+                // first and then applied a `p_time × p_time` cumsum to that
+                // already-reduced block. Because the cumsum `L` couples every
+                // increment, restricting the increment index set BEFORE the cumsum
+                // does NOT commute with it: the reduced operator is a different,
+                // generally INDEFINITE matrix (measured `s0_min_eval = −9.8e7`),
+                // which makes `½γᵀS_Iγ` unbounded below and the penalized survival
+                // NLL diverge (β drifts up the negative-eigenvalue mode, the inner
+                // joint-Newton follows the unbounded objective, the outer REML never
+                // terminates — the #979 hang). Doing the congruence on the full γ
+                // and then taking the `keep_cols` principal submatrix restores the
+                // PSD guarantee (a principal submatrix of a PSD matrix is PSD).
                 let s_increment = s_mat.slice(s![1.., 1..]);
+                if s_increment.nrows() != p_time_full || s_increment.ncols() != p_time_full {
+                    return Err(format!(
+                        "internal error: ispline penalty increment block must be {p_time_full}x{p_time_full}, got {}x{}",
+                        s_increment.nrows(),
+                        s_increment.ncols(),
+                    ));
+                }
+                // Symmetrize the (already-symmetric) source to absorb any
+                // accumulated floating-point asymmetry before the congruence.
+                let mut s_full = Array2::<f64>::zeros((p_time_full, p_time_full));
+                for i in 0..p_time_full {
+                    for j in 0..p_time_full {
+                        s_full[[i, j]] = 0.5 * (s_increment[[i, j]] + s_increment[[j, i]]);
+                    }
+                }
+                // S_mid = S_B[1:,1:] · L  (right-multiply by lower-triangular
+                // cumsum): (S·L)[i,j] = Σ_k S[i,k]·L[k,j] = Σ_{k≥j} S[i,k]
+                // because L[k,j] = 1 iff j ≤ k.
+                let mut s_mid_full = Array2::<f64>::zeros((p_time_full, p_time_full));
+                for i in 0..p_time_full {
+                    for j in 0..p_time_full {
+                        let mut v = 0.0;
+                        for k in j..p_time_full {
+                            v += s_full[[i, k]];
+                        }
+                        s_mid_full[[i, j]] = v;
+                    }
+                }
+                // S_I_full = Lᵀ · S_mid = Lᵀ · S · L:
+                // (Lᵀ·S_mid)[i,j] = Σ_k Lᵀ[i,k]·S_mid[k,j] = Σ_{k≥i} S_mid[k,j]
+                // because Lᵀ[i,k] = L[k,i] = 1 iff i ≤ k.
+                let mut s_full_congruent = Array2::<f64>::zeros((p_time_full, p_time_full));
+                for i in 0..p_time_full {
+                    for j in 0..p_time_full {
+                        let mut v = 0.0;
+                        for k in i..p_time_full {
+                            v += s_mid_full[[k, j]];
+                        }
+                        s_full_congruent[[i, j]] = v;
+                    }
+                }
+                // Principal submatrix on the retained (shape-varying) columns.
                 let mut local = Array2::<f64>::zeros((p_time, p_time));
                 for (i_new, &i_old) in keep_cols.iter().enumerate() {
                     for (j_new, &j_old) in keep_cols.iter().enumerate() {
-                        let v = 0.5 * (s_increment[[i_old, j_old]] + s_increment[[j_old, i_old]]);
-                        local[[i_new, j_new]] = v;
+                        // Symmetrize on the way out to absorb residual
+                        // floating-point asymmetry.
+                        local[[i_new, j_new]] = 0.5
+                            * (s_full_congruent[[i_old, j_old]] + s_full_congruent[[j_old, i_old]]);
                     }
                 }
                 penalties.push(local);
             }
 
-            // The increment-space submatrix is full rank, so the penalty carries no
-            // null space in general; compute it from the spectrum rather than
-            // hardcoding (a rank-deficient case would round-trip honestly to the
-            // generalized-determinant REML).
+            // PSD contract (gam#979). The value-space congruence Lᵀ S_B[1:,1:] L,
+            // restricted to a principal submatrix, is positive semidefinite by
+            // construction. A negative eigenvalue here means the construction has
+            // regressed to the increment-space / wrong-ordering form that made the
+            // penalized survival NLL unbounded below (the #979 divergence). Verify
+            // it here, at construction, so the defect can never silently reach the
+            // inner solver again. The tolerance is the same relative scale the
+            // nullspace detection below uses; a numerically tiny negative (round-off
+            // on the genuine 1-D null direction) is allowed, a structural one is not.
+            for (idx, s_mat) in penalties.iter().enumerate() {
+                let p = s_mat.nrows();
+                if p == 0 {
+                    continue;
+                }
+                if let Ok((evals, _)) =
+                    crate::faer_ndarray::FaerEigh::eigh(s_mat, faer::Side::Lower)
+                {
+                    let evals_slice: &[f64] = evals.as_slice().ok_or_else(|| {
+                        "internal error: ispline penalty eigenvalues not contiguous".to_string()
+                    })?;
+                    let max_ev = evals_slice
+                        .iter()
+                        .copied()
+                        .fold(0.0_f64, |a, b| a.max(b.abs()))
+                        .max(1.0);
+                    let min_ev = evals_slice.iter().copied().fold(f64::INFINITY, f64::min);
+                    let neg_tol = -100.0 * (p as f64) * f64::EPSILON * max_ev;
+                    if min_ev < neg_tol {
+                        return Err(format!(
+                            "internal error (gam#979): assembled ispline time-block penalty {idx} is \
+                             indefinite (min eigenvalue {min_ev:.3e} < tol {neg_tol:.3e}, max |eig| \
+                             {max_ev:.3e}); the value-space congruence Lᵀ S_B[1:,1:] L must be PSD"
+                        ));
+                    }
+                }
+            }
+
+            // The value-space penalty S_I = L^T S_B[1:,1:] L has a 1-dimensional
+            // null space (constant γ ↦ affine c ↦ D₂c = 0). Detect it spectrally
+            // so the REML uses the generalized logdet over the penalized subspace.
             let nullspace_dims: Vec<usize> = penalties
                 .iter()
                 .map(|s_mat| {
@@ -2110,19 +2135,23 @@ pub fn baseline_offset_theta_partials(
 ///
 ///   d[0.5·deviance + 0.5·βᵀS_λβ] / dθ_k
 ///     = Σᵢ r_X[i]·(∂o_X_i/∂θ_k) + r_D[i]·(∂o_D_i/∂θ_k) + r_E[i]·(∂o_E_i/∂θ_k)
+///       + r_R[i]·(∂o_R_i/∂θ_k)
 ///
 /// where `r_X = residuals.exit`, `r_D = residuals.derivative`, `r_E =
-/// residuals.entry` (all sampleweight-scaled already). Exit and derivative
-/// partials both come from the `age_exit[i]` evaluation; the entry partial from
-/// `age_entry[i]`. Origin-entry rows have `r_E[i] == 0` exactly, so the entry
-/// partial is skipped for those rows (avoiding the `age > 0` precondition failure
-/// when `age_entry` is 0).
+/// residuals.entry`, `r_R = residuals.right` (all sampleweight-scaled already).
+/// Exit and derivative partials both come from the `age_exit[i]` evaluation;
+/// the entry partial from `age_entry[i]`; the interval upper-bound (`R`)
+/// η-partial from `age_right[i]`. Origin-entry rows have `r_E[i] == 0` exactly
+/// and non-interval rows have `r_R[i] == 0` exactly, so those partials are
+/// skipped for those rows (avoiding the `age > 0` precondition failure when an
+/// inactive boundary age is 0 / a placeholder).
 ///
 /// Returns `Ok(None)` when the provider reports no θ-parameters.
 fn baseline_chain_rule_gradient_with_partials<F>(
     label: &'static str,
     age_entry: ndarray::ArrayView1<'_, f64>,
     age_exit: ndarray::ArrayView1<'_, f64>,
+    age_right: ndarray::ArrayView1<'_, f64>,
     cfg: &SurvivalBaselineConfig,
     residuals: &crate::families::survival::OffsetChannelResiduals,
     partials: F,
@@ -2132,17 +2161,21 @@ where
 {
     let n = age_exit.len();
     if age_entry.len() != n
+        || age_right.len() != n
         || residuals.exit.len() != n
         || residuals.entry.len() != n
         || residuals.derivative.len() != n
+        || residuals.right.len() != n
     {
         return Err(format!(
-            "{label}: length mismatch (age_entry={}, age_exit={}, r_exit={}, r_entry={}, r_deriv={})",
+            "{label}: length mismatch (age_entry={}, age_exit={}, age_right={}, r_exit={}, r_entry={}, r_deriv={}, r_right={})",
             age_entry.len(),
             n,
+            age_right.len(),
             residuals.exit.len(),
             residuals.entry.len(),
             residuals.derivative.len(),
+            residuals.right.len(),
         ));
     }
     // Probe θ-dim via any valid positive age. If the provider returns None the
@@ -2196,6 +2229,30 @@ where
                 grad[k] += r_e * partials_entry[k].0;
             }
         }
+        // Interval upper-bound (`R`) channel: `q_right = X_time(R)·β + o_R(θ)`
+        // carries its own baseline-θ η-offset evaluated at `age_right[i]`. It is
+        // an η-level offset with NO time-derivative channel (the interval
+        // likelihood `log[S(L) − S(R)]` has no hazard-derivative term), so it
+        // contracts against the η-partial `.0` only. Nonzero only for
+        // interval-censored latent rows; for every other channel/model
+        // `r_right[i] == 0` exactly, so the (possibly placeholder) `age_right[i]`
+        // partial is never consulted.
+        let r_r = residuals.right[i];
+        if r_r != 0.0 {
+            let partials_right = partials(age_right[i], cfg)?.ok_or_else(|| {
+                format!("{label}: unexpected None from partials at right boundary")
+            })?;
+            if partials_right.len() != theta_dim {
+                return Err(format!(
+                    "{label}: theta_dim drifted at right boundary ({} != {})",
+                    partials_right.len(),
+                    theta_dim
+                ));
+            }
+            for k in 0..theta_dim {
+                grad[k] += r_r * partials_right[k].0;
+            }
+        }
     }
     Ok(Some(grad))
 }
@@ -2211,27 +2268,32 @@ where
 ///     = Σᵢ (∂NLL_i/∂o_X[i])·(∂o_X_i/∂θ_k)
 ///       + (∂NLL_i/∂o_E[i])·(∂o_E_i/∂θ_k)
 ///       + (∂NLL_i/∂o_D[i])·(∂o_D_i/∂θ_k)
+///       + (∂NLL_i/∂o_R[i])·(∂o_R_i/∂θ_k)
 ///
-/// The three `∂NLL_i/∂o_channel` terms are the `exit`, `entry`, `derivative`
-/// fields of [`OffsetChannelResiduals`] (sampleweight-scaled already). The
-/// `∂o/∂θ_k` terms come from [`baseline_offset_theta_partials`] per obs at
+/// The four `∂NLL_i/∂o_channel` terms are the `exit`, `entry`, `derivative`,
+/// `right` fields of [`OffsetChannelResiduals`] (sampleweight-scaled already).
+/// The `∂o/∂θ_k` terms come from [`baseline_offset_theta_partials`] per obs at
 /// the appropriate age.
 ///
 /// Per the RP offset convention:
 ///   o_E[i] = eta_target(age_entry[i])
 ///   o_X[i] = eta_target(age_exit[i])
 ///   o_D[i] = d/dt eta_target(t) |_{t=age_exit[i]}
+///   o_R[i] = eta_target(age_right[i])   (interval upper bound `R`; η-level only)
 ///
-/// so the exit and derivative partials are both evaluated at `age_exit[i]`
-/// and the entry partial at `age_entry[i]`. The origin-entry case
-/// (`entry_at_origin[i]`) has `r_entry[i] = 0` exactly, so we skip the
-/// `baseline_offset_theta_partials(age_entry, ..)` call for those rows
-/// (avoiding the `age > 0` precondition failure when age_entry is 0).
+/// so the exit and derivative partials are both evaluated at `age_exit[i]`,
+/// the entry partial at `age_entry[i]`, and the interval-right η-partial at
+/// `age_right[i]`. The origin-entry case (`entry_at_origin[i]`) has
+/// `r_entry[i] = 0` exactly and every non-interval row has `r_right[i] = 0`
+/// exactly, so we skip the `baseline_offset_theta_partials(age, ..)` call for
+/// those rows (avoiding the `age > 0` precondition failure when an inactive
+/// boundary age is 0 / a placeholder).
 ///
 /// Returns `Ok(None)` when `cfg.target == Linear` (no θ-parameters).
 pub fn baseline_chain_rule_gradient(
     age_entry: ndarray::ArrayView1<'_, f64>,
     age_exit: ndarray::ArrayView1<'_, f64>,
+    age_right: ndarray::ArrayView1<'_, f64>,
     cfg: &SurvivalBaselineConfig,
     residuals: &crate::families::survival::OffsetChannelResiduals,
 ) -> Result<Option<Array1<f64>>, String> {
@@ -2239,6 +2301,7 @@ pub fn baseline_chain_rule_gradient(
         "baseline_chain_rule_gradient",
         age_entry,
         age_exit,
+        age_right,
         cfg,
         residuals,
         baseline_offset_theta_partials,
@@ -2257,9 +2320,13 @@ pub fn marginal_slope_baseline_chain_rule_gradient(
     cfg: &SurvivalBaselineConfig,
     residuals: &crate::families::survival::OffsetChannelResiduals,
 ) -> Result<Option<Array1<f64>>, String> {
+    // Marginal-slope has no interval upper-bound channel; `residuals.right` is
+    // all-zero, so the right channel never contracts and `age_exit` serves as an
+    // unconsulted placeholder for the (unused) `age_right` argument.
     baseline_chain_rule_gradient_with_partials(
         "marginal_slope_baseline_chain_rule_gradient",
         age_entry,
+        age_exit,
         age_exit,
         cfg,
         residuals,
@@ -3504,7 +3571,7 @@ mod tests {
         build_survival_timewiggle_from_baseline, evaluate_survival_baseline,
         evaluate_survival_marginal_slope_baseline, marginal_slope_baseline_chain_rule_gradient,
         marginal_slope_baseline_chain_rule_hessian, marginal_slope_baseline_offset_theta_partials,
-        optimize_survival_baseline_config, optimize_survival_baseline_config_with_gradient,
+        optimize_survival_baseline_config_with_gradient,
         optimize_survival_baseline_config_with_gradient_only,
         resolve_survival_marginal_slope_time_anchor_value, survival_baseline_config_from_theta,
         survival_baseline_theta_from_config,
@@ -3562,19 +3629,16 @@ mod tests {
         );
     }
 
-    /// Derivative-contract parity for the three public baseline optimizers.
+    /// Derivative-contract parity for the two public baseline optimizers.
     ///
     /// After the unification onto `run_baseline_theta_optimizer`, the
-    /// cost-only, gradient-only, and gradient+Hessian entry points differ
-    /// *only* in how much derivative information they hand the outer solver —
-    /// not in the surface they minimize. We exercise that invariant on a known
+    /// gradient-only and gradient+Hessian entry points differ *only* in how
+    /// much derivative information they hand the outer solver — not in the
+    /// surface they minimize. We exercise that invariant on a known
     /// strictly-convex quadratic in θ-space (Weibull baseline: θ = (ln scale,
     /// ln shape)) whose unique minimizer is `theta_star`, supplying the same
-    /// objective as cost-only `f`, as `(f, ∇f)`, and as `(f, ∇f, ∇²f)`. All
-    /// three contracts must recover the same minimizer config; the bounds are
-    /// driven by the shared 1e-4 outer tolerance (the gradient-free compass
-    /// certifies stationarity once its step contracts below 1e-4, so its
-    /// positional error is O(1e-4)), not weakened to pass.
+    /// objective as `(f, ∇f)` and as `(f, ∇f, ∇²f)`. Both contracts must
+    /// recover the same minimizer config, not weakened to pass.
     #[test]
     fn baseline_optimizer_contracts_agree_on_shared_surface() {
         // SPD curvature and interior minimizer in θ-space. A is well away from
@@ -3614,14 +3678,6 @@ mod tests {
             Ok(0.5 * d.dot(&ad))
         };
 
-        let cost_only = cost_at.clone();
-        let result_cost_only = optimize_survival_baseline_config(
-            &initial,
-            "baseline parity (cost-only)",
-            move |cfg| cost_only(cfg),
-        )
-        .expect("cost-only baseline optimization converges");
-
         let curvature_grad = curvature.clone();
         let star_grad = theta_star.clone();
         let cost_for_grad = cost_at.clone();
@@ -3654,15 +3710,12 @@ mod tests {
         )
         .expect("gradient+Hessian baseline optimization converges");
 
-        let theta_cost_only = recovered_theta(&result_cost_only);
         let theta_grad_only = recovered_theta(&result_grad_only);
         let theta_grad_hess = recovered_theta(&result_grad_hess);
 
-        // Each contract recovers the true minimizer. The gradient-free compass
-        // certifies at step < 1e-4, so 2e-3 is a safe, un-weakened bound;
-        // the gradient paths land far tighter but share the same assertion.
+        // Each contract recovers the true minimizer. 2e-3 is a safe,
+        // un-weakened bound; both gradient paths land far tighter.
         for (label, theta) in [
-            ("cost-only", &theta_cost_only),
             ("gradient-only", &theta_grad_only),
             ("gradient+Hessian", &theta_grad_hess),
         ] {
@@ -3681,10 +3734,6 @@ mod tests {
         let pairwise_max = |a: &Array1<f64>, b: &Array1<f64>| -> f64 {
             (a - b).mapv(f64::abs).fold(0.0_f64, |acc, &v| acc.max(v))
         };
-        assert!(
-            pairwise_max(&theta_cost_only, &theta_grad_only) <= 2e-3,
-            "cost-only vs gradient-only disagree: {theta_cost_only:?} vs {theta_grad_only:?}"
-        );
         assert!(
             pairwise_max(&theta_grad_only, &theta_grad_hess) <= 2e-3,
             "gradient-only vs gradient+Hessian disagree: {theta_grad_only:?} vs {theta_grad_hess:?}"
@@ -4020,6 +4069,7 @@ mod tests {
             entry,
             exit,
             derivative,
+            right: base.right.clone(),
         }
     }
 
@@ -4047,6 +4097,7 @@ mod tests {
             entry: array![0.2, 0.0, -0.1],
             exit: array![0.6, -0.3, 0.4],
             derivative: array![-0.5, 0.25, 0.15],
+            right: Array1::<f64>::zeros(3),
         };
         let curvatures = OffsetChannelCurvatures {
             rows: vec![
@@ -4120,6 +4171,7 @@ mod tests {
             exit: array![0.7, -0.2],
             entry: array![0.1, 0.4],
             derivative: array![1.3, -0.6],
+            right: Array1::<f64>::zeros(2),
         };
         let grad = marginal_slope_baseline_chain_rule_gradient(
             age_entry.view(),
@@ -4181,6 +4233,7 @@ mod tests {
             exit: array![0.7, -0.2, 0.45],
             entry: array![0.1, 0.0, -0.3],
             derivative: array![1.3, -0.6, 0.2],
+            right: Array1::<f64>::zeros(3),
         };
 
         // Serial reference contraction matching the original inline body. Mirrors
@@ -4219,10 +4272,15 @@ mod tests {
         };
 
         // RP-eta provider parity.
-        let rp_engine =
-            baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-                .expect("rp gradient")
-                .expect("rp nonlinear");
+        let rp_engine = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("rp gradient")
+        .expect("rp nonlinear");
         let rp_reference = reference_gradient(&baseline_offset_theta_partials);
         assert_eq!(rp_engine.len(), rp_reference.len());
         for k in 0..rp_engine.len() {
@@ -4293,12 +4351,18 @@ mod tests {
             exit: array![0.42, -0.18, 0.73, -0.91, 0.05, -0.27, 0.61, -0.34],
             entry: array![-0.12, 0.31, -0.44, 0.0, 0.16, -0.22, 0.07, -0.51],
             derivative: array![1.04, -0.65, 0.18, -1.21, 0.42, -0.13, 0.88, -0.27],
+            right: Array1::<f64>::zeros(8),
         };
 
-        let analytic =
-            baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-                .expect("analytic gradient ok")
-                .expect("GM baseline has a θ-gradient");
+        let analytic = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("analytic gradient ok")
+        .expect("GM baseline has a θ-gradient");
         assert_eq!(analytic.len(), 3, "GM θ has 3 components");
 
         // Evaluate the offset-projected loss at a perturbed θ. Mirrors the
@@ -4351,6 +4415,103 @@ mod tests {
         // Print so the deliverable can quote the exact max-error number.
         eprintln!(
             "gompertz_makeham_baseline_chain_rule_gradient_matches_finite_difference: \
+             analytic={analytic:?} fd={fd:?} max_err={max_err:.3e} \
+             analytic_inf_norm={analytic_norm:.3e} rel={rel:.3e}"
+        );
+        assert!(
+            rel < 1e-2,
+            "analytic θ-gradient disagrees with central FD beyond 1%: \
+             analytic={analytic:?}, fd={fd:?}, max_err={max_err:.3e}, \
+             rel={rel:.3e} (analytic_inf_norm={analytic_norm:.3e})"
+        );
+    }
+
+    /// Weibull (dim=2) companion to
+    /// `gompertz_makeham_baseline_chain_rule_gradient_matches_finite_difference`.
+    ///
+    /// This is the FD gate for the analytic outer θ-gradient that the
+    /// transformation/Weibull survival baseline optimizers now feed to BFGS
+    /// (`optimize_survival_baseline_config_with_gradient_only`). At a *fixed* β
+    /// the profile-NLL surface is
+    /// `L(θ) = Σ_i [ r_X[i]·η(t_exit_i;θ) + r_E[i]·η(t_entry_i;θ)
+    ///              + r_D[i]·o_D(t_exit_i;θ) ]`,
+    /// whose exact gradient is `baseline_chain_rule_gradient`. Comparing it to a
+    /// central difference of `L` over `evaluate_survival_baseline` exercises the
+    /// Weibull scale/shape partials at both entry and exit ages. If this
+    /// disagrees with FD, the workflow's outer gradient is wrong by the same
+    /// amount.
+    #[test]
+    fn weibull_baseline_chain_rule_gradient_matches_finite_difference() {
+        let cfg = SurvivalBaselineConfig {
+            target: SurvivalBaselineTarget::Weibull,
+            scale: Some(11.0),
+            shape: Some(1.4),
+            rate: None,
+            makeham: None,
+        };
+        let age_entry = array![5.0, 8.0, 12.0, 0.5, 20.0, 30.0, 45.0, 60.0];
+        let age_exit = array![10.0, 15.0, 25.0, 4.0, 35.0, 50.0, 65.0, 80.0];
+        let residuals = OffsetChannelResiduals {
+            exit: array![0.42, -0.18, 0.73, -0.91, 0.05, -0.27, 0.61, -0.34],
+            entry: array![-0.12, 0.31, -0.44, 0.0, 0.16, -0.22, 0.07, -0.51],
+            derivative: array![1.04, -0.65, 0.18, -1.21, 0.42, -0.13, 0.88, -0.27],
+            right: Array1::<f64>::zeros(8),
+        };
+
+        let analytic = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("analytic gradient ok")
+        .expect("Weibull baseline has a θ-gradient");
+        assert_eq!(analytic.len(), 2, "Weibull θ has 2 components");
+
+        let loss_at_cfg = |cfg_eval: &SurvivalBaselineConfig| -> f64 {
+            let mut acc = 0.0;
+            for i in 0..age_exit.len() {
+                let (eta_exit_i, od_exit_i) =
+                    evaluate_survival_baseline(age_exit[i], cfg_eval).expect("eval exit");
+                acc += residuals.exit[i] * eta_exit_i + residuals.derivative[i] * od_exit_i;
+                if residuals.entry[i] != 0.0 {
+                    let (eta_entry_i, _) =
+                        evaluate_survival_baseline(age_entry[i], cfg_eval).expect("eval entry");
+                    acc += residuals.entry[i] * eta_entry_i;
+                }
+            }
+            acc
+        };
+
+        let theta0 = survival_baseline_theta_from_config(&cfg)
+            .expect("theta seed")
+            .expect("Weibull has θ");
+        let delta = 1e-4;
+        let mut fd = Array1::<f64>::zeros(analytic.len());
+        for k in 0..analytic.len() {
+            let mut theta_plus = theta0.clone();
+            theta_plus[k] += delta;
+            let mut theta_minus = theta0.clone();
+            theta_minus[k] -= delta;
+            let cfg_plus =
+                survival_baseline_config_from_theta(cfg.target, &theta_plus).expect("cfg(θ+δ)");
+            let cfg_minus =
+                survival_baseline_config_from_theta(cfg.target, &theta_minus).expect("cfg(θ-δ)");
+            let lp = loss_at_cfg(&cfg_plus);
+            let lm = loss_at_cfg(&cfg_minus);
+            fd[k] = (lp - lm) / (2.0 * delta);
+        }
+
+        let analytic_norm = analytic.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+        let max_err = analytic
+            .iter()
+            .zip(fd.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f64, f64::max);
+        let rel = max_err / (analytic_norm + 1e-12);
+        eprintln!(
+            "weibull_baseline_chain_rule_gradient_matches_finite_difference: \
              analytic={analytic:?} fd={fd:?} max_err={max_err:.3e} \
              analytic_inf_norm={analytic_norm:.3e} rel={rel:.3e}"
         );
@@ -4674,11 +4835,17 @@ mod tests {
             exit: array![0.7_f64],
             entry: array![-0.2_f64],
             derivative: array![-0.4_f64],
+            right: Array1::<f64>::zeros(1),
         };
-        let grad =
-            baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-                .expect("ok")
-                .expect("non-linear");
+        let grad = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("ok")
+        .expect("non-linear");
         // Hand-compute: grad[k] = r_X·∂eta_exit/∂θ_k + r_D·∂o_D_exit/∂θ_k + r_E·∂eta_entry/∂θ_k.
         let p_exit = baseline_offset_theta_partials(age_exit[0], &cfg)
             .unwrap()
@@ -4714,12 +4881,18 @@ mod tests {
             exit: array![0.5_f64, 0.3_f64],
             entry: array![0.0_f64, -0.1_f64], // row 0 is origin-entry (r_E = 0)
             derivative: array![-0.2_f64, 0.0_f64],
+            right: Array1::<f64>::zeros(2),
         };
         // Must not error despite age_entry[0] == 0.
-        let grad =
-            baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-                .expect("must not fail on origin-entry row with r_entry=0")
-                .expect("non-linear");
+        let grad = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("must not fail on origin-entry row with r_entry=0")
+        .expect("non-linear");
         assert_eq!(grad.len(), 2);
         // Row 1's entry channel contributes, row 0's does not.
         let p_exit_0 = baseline_offset_theta_partials(10.0, &cfg).unwrap().unwrap();
@@ -4755,10 +4928,16 @@ mod tests {
             exit: array![0.1_f64],
             entry: array![0.0_f64],
             derivative: array![0.0_f64],
+            right: Array1::<f64>::zeros(1),
         };
-        let grad =
-            baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-                .expect("ok");
+        let grad = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("ok");
         assert!(grad.is_none());
     }
 
@@ -4824,11 +5003,17 @@ mod tests {
             exit: r_x.clone(),
             entry: r_e.clone(),
             derivative: r_d.clone(),
+            right: Array1::<f64>::zeros(3),
         };
-        let grad =
-            baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-                .expect("ok")
-                .expect("non-linear");
+        let grad = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect("ok")
+        .expect("non-linear");
 
         // Construct NLL(θ) with β* held to the same eta/s values by treating
         // eta_i, s_i as fixed "linear predictor" samples and shifting by
@@ -4895,9 +5080,16 @@ mod tests {
             exit: array![0.1_f64, 0.2, 0.3],
             entry: array![0.0_f64, 0.0, 0.0],
             derivative: array![0.0_f64, 0.0, 0.0],
+            right: Array1::<f64>::zeros(3),
         };
-        let err = baseline_chain_rule_gradient(age_entry.view(), age_exit.view(), &cfg, &residuals)
-            .expect_err("length mismatch must error");
+        let err = baseline_chain_rule_gradient(
+            age_entry.view(),
+            age_exit.view(),
+            age_exit.view(),
+            &cfg,
+            &residuals,
+        )
+        .expect_err("length mismatch must error");
         assert!(err.contains("length mismatch"), "err={err}");
     }
 }

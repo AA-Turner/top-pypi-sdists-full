@@ -1,7 +1,8 @@
-# type: ignore[all]
+import os
+from collections.abc import AsyncGenerator, Generator, Iterable
 from copy import deepcopy
 from enum import Enum
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Protocol, TypeVar, Union, cast
 
 import pytest
 from jiter import from_json
@@ -9,8 +10,31 @@ from pydantic import BaseModel, Field, ValidationError
 
 import instructor
 from instructor.dsl.partial import Partial, PartialLiteralMixin, _make_field_optional
-import os
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
+
+
+T_Model = TypeVar("T_Model", bound=BaseModel)
+
+
+class _PartialModelApi(Protocol[T_Model]):
+    @classmethod
+    def get_partial_model(cls) -> type[T_Model]: ...
+
+    @classmethod
+    def model_from_chunks(
+        cls, json_chunks: Iterable[Any], **kwargs: Any
+    ) -> Generator[T_Model, None, None]: ...
+
+    @classmethod
+    def model_from_chunks_async(
+        cls, json_chunks: AsyncGenerator[str, None], **kwargs: Any
+    ) -> AsyncGenerator[T_Model, None]: ...
+
+
+def _partial_api(model: type[T_Model]) -> type[_PartialModelApi[T_Model]]:
+    """Expose the classmethods dynamically added by ``Partial[T]``."""
+    return cast(type[_PartialModelApi[T_Model]], model)
+
 
 models = ["gpt-4o-mini"]
 modes = [
@@ -45,6 +69,10 @@ class UnionWithNested(BaseModel):
     c: NestedB
 
 
+class PEP604UnionField(BaseModel):
+    value: str | int
+
+
 def test_partial():
     partial = Partial[SamplePartial]
     assert partial.model_json_schema() == {
@@ -64,7 +92,7 @@ def test_partial():
         "title": "PartialSamplePartial",
         "type": "object",
     }, "Wrapped model JSON schema has changed"
-    assert partial.get_partial_model().model_json_schema() == {
+    assert _partial_api(partial).get_partial_model().model_json_schema() == {
         "$defs": {
             "PartialSampleNestedPartial": {
                 "properties": {
@@ -119,7 +147,7 @@ expected_async_models = [
 def test_partial_with_whitespace():
     partial = Partial[SamplePartial]
     # Get the actual models from chunks - must provide complete data for final validation
-    models = list(partial.model_from_chunks(partial_chunks))
+    models = list(_partial_api(partial).model_from_chunks(partial_chunks))
     assert len(models) == len(expected_sync_models)
     for i, model in enumerate(models):
         assert model.model_dump() == expected_sync_models[i]
@@ -135,7 +163,7 @@ async def test_async_partial_with_whitespace():
             yield chunk
 
     i = 0
-    async for model in partial.model_from_chunks_async(async_generator()):
+    async for model in _partial_api(partial).model_from_chunks_async(async_generator()):
         # Expected behavior: When whitespace chunks are processed, we should always get a model
         assert model.model_dump() == expected_async_models[i]
         i += 1
@@ -205,9 +233,17 @@ async def test_summary_extraction_async():
 
 def test_union_with_nested():
     partial = Partial[UnionWithNested]
-    partial.get_partial_model().model_validate_json(
+    _partial_api(partial).get_partial_model().model_validate_json(
         '{"a": [{"b": "b"}, {"d": "d"}], "b": [{"b": "b"}], "c": {"d": "d"}, "e": [1, "a"]}'
     )
+
+
+def test_partial_streaming_with_pep604_union_field():
+    partial = Partial[PEP604UnionField]
+
+    models = list(_partial_api(partial).model_from_chunks(['{"value": ', "1}"]))
+
+    assert models[-1].model_dump() == {"value": 1}
 
 
 def test_partial_with_default_factory():
@@ -225,7 +261,7 @@ def test_partial_with_default_factory():
 
     # This should not raise a validation error about both default and default_factory
     partial = Partial[ModelWithDefaultFactory]
-    partial_model = partial.get_partial_model()
+    partial_model = _partial_api(partial).get_partial_model()
 
     # Verify we can instantiate and validate
     # In Partial models, all fields are made Optional with default=None
@@ -292,7 +328,7 @@ class TestMakeFieldOptionalWorksWithPydanticV2:
             status: str
 
         PartialModel = Partial[MyModel]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # This should NOT raise ValidationError
         result = TruePartial.model_validate({})
@@ -309,7 +345,7 @@ class TestMakeFieldOptionalWorksWithPydanticV2:
             age: int
 
         PartialModel = Partial[MyModel]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Simulate streaming JSON chunks
         streaming_states = [
@@ -337,7 +373,7 @@ class TestMakeFieldOptionalWorksWithPydanticV2:
             optional_field: Optional[str]
 
         PartialModel = Partial[ComplexModel]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # All fields should validate with empty dict
         result = TruePartial.model_validate({})
@@ -367,7 +403,7 @@ class TestLiteralTypeStreaming:
             status: Literal["active", "inactive"]
 
         PartialModel = Partial[ModelWithLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # With partial_mode="trailing-strings", incomplete strings are kept
         partial_json = b'{"status": "act'
@@ -384,7 +420,7 @@ class TestLiteralTypeStreaming:
             status: Literal["active", "inactive"]
 
         PartialModel = Partial[ModelWithLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # With partial_mode="on" (enabled by PartialLiteralMixin), incomplete strings are dropped
         partial_json = b'{"status": "act'
@@ -401,7 +437,7 @@ class TestLiteralTypeStreaming:
             status: Literal["active", "inactive"]
 
         PartialModel = Partial[ModelWithLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"status": "active"})
         assert result.status == "active"
@@ -417,7 +453,7 @@ class TestLiteralTypeStreaming:
             status: Literal["active", "inactive"]
 
         PartialModel = Partial[ModelWithLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"name": "John"})
         assert result.name == "John"
@@ -433,7 +469,7 @@ class TestLiteralTypeStreaming:
 
         PartialModel = Partial[Person]
 
-        results = list(PartialModel.model_from_chunks(['{"name": "Joh']))
+        results = list(_partial_api(PartialModel).model_from_chunks(['{"name": "Joh']))
 
         assert len(results) == 1
         assert results[0].type == "Person"
@@ -447,7 +483,7 @@ class TestLiteralTypeStreaming:
             status: Literal["active", "inactive"]
 
         PartialModel = Partial[ModelWithLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # "xyz" is a complete string but not a valid Literal value
         with pytest.raises(ValidationError):
@@ -471,7 +507,7 @@ class TestPartialStreamingWithComplexTypes:
             status: Status
 
         PartialModel = Partial[ModelWithEnum]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Incomplete string is dropped with partial_mode="on"
         obj = from_json(b'{"status": "act', partial_mode="on")
@@ -489,7 +525,7 @@ class TestPartialStreamingWithComplexTypes:
             status: Status
 
         PartialModel = Partial[ModelWithEnum]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"status": "active"})
         assert result.status == Status.ACTIVE
@@ -501,7 +537,7 @@ class TestPartialStreamingWithComplexTypes:
             status: Optional[Literal["on", "off"]] = None
 
         PartialModel = Partial[ModelWithOptionalLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         obj = from_json(b'{"status": "o', partial_mode="on")
         result = TruePartial.model_validate(obj)
@@ -514,7 +550,7 @@ class TestPartialStreamingWithComplexTypes:
             status: Optional[Literal["on", "off"]] = None
 
         PartialModel = Partial[ModelWithOptionalLiteral]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"status": "on"})
         assert result.status == "on"
@@ -526,7 +562,7 @@ class TestPartialStreamingWithComplexTypes:
             value: Union[Literal["yes", "no"], int]
 
         PartialModel = Partial[ModelWithUnion]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Incomplete string is dropped
         obj = from_json(b'{"value": "ye', partial_mode="on")
@@ -540,7 +576,7 @@ class TestPartialStreamingWithComplexTypes:
             value: Union[Literal["yes", "no"], int]
 
         PartialModel = Partial[ModelWithUnion]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"value": "yes"})
         assert result.value == "yes"
@@ -553,7 +589,7 @@ class TestPartialStreamingWithComplexTypes:
             value: str | int
 
         PartialModel = Partial[MyResponse]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"value": "hello"})
         assert result.value == "hello"
@@ -568,7 +604,7 @@ class TestPartialStreamingWithComplexTypes:
             value: Union[Literal["a", "b"], Literal["x", "y"]]
 
         PartialModel = Partial[ModelWithUnionLiterals]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Both branches should work
         assert TruePartial.model_validate({"value": "a"}).value == "a"
@@ -583,7 +619,7 @@ class TestPartialStreamingWithComplexTypes:
             tags: list[Literal["admin", "user", "guest"]]
 
         PartialModel = Partial[ModelWithLiteralList]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Incomplete list item is dropped
         obj = from_json(b'{"tags": ["admin", "us', partial_mode="on")
@@ -597,7 +633,7 @@ class TestPartialStreamingWithComplexTypes:
             tags: list[Literal["admin", "user", "guest"]]
 
         PartialModel = Partial[ModelWithLiteralList]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         result = TruePartial.model_validate({"tags": ["admin", "user"]})
         assert result.tags == ["admin", "user"]
@@ -632,7 +668,7 @@ class TestDiscriminatedUnionPartial:
 
         PartialModel = Partial[PetContainer]
         with pytest.raises(PydanticUserError):
-            PartialModel.get_partial_model()
+            _partial_api(PartialModel).get_partial_model()
 
     def test_union_without_discriminator_works(self):
         """Union without discriminator works with Partial streaming."""
@@ -649,7 +685,7 @@ class TestDiscriminatedUnionPartial:
             pet: Union[Cat, Dog]  # No discriminator - works with Partial
 
         PartialModel = Partial[PetContainerNoDiscriminator]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Complete value works
         result = TruePartial.model_validate({"pet": {"pet_type": "cat", "meows": 5}})
@@ -663,7 +699,7 @@ class TestDiscriminatedUnionPartial:
             pet_type: Literal["cat"]
 
         PartialModel = Partial[Cat]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Incomplete string is dropped
         obj = from_json(b'{"pet_type": "ca', partial_mode="on")
@@ -703,7 +739,7 @@ class TestModelValidatorsDuringStreaming:
         # With completeness-based validation, incomplete JSON skips all validation
         # by using model_construct() instead of model_validate()
         chunks = ['{"status": "act']  # Incomplete JSON
-        results = list(PartialModel.model_from_chunks(chunks))
+        results = list(_partial_api(PartialModel).model_from_chunks(chunks))
         # Incomplete JSON - no validation runs, partial value stored
         assert results[0].status == "act"
         assert results[0].priority is None
@@ -723,7 +759,7 @@ class TestModelValidatorsDuringStreaming:
                 return self
 
         PartialModel = Partial[ModelWithValidator]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Valid complete data
         result = TruePartial.model_validate({"status": "active", "priority": "high"})
@@ -760,13 +796,13 @@ class TestModelValidatorsDuringStreaming:
         # because model_construct() is used instead of model_validate()
         validator_calls.clear()
         chunks = ['{"a": "x']  # Incomplete JSON
-        list(PartialModel.model_from_chunks(chunks))
+        list(_partial_api(PartialModel).model_from_chunks(chunks))
         assert validator_calls == []
 
         # Complete JSON - validators run during model_validate
         validator_calls.clear()
         chunks = ['{"a": "x", "b": "1"}']  # Complete JSON
-        list(PartialModel.model_from_chunks(chunks))
+        list(_partial_api(PartialModel).model_from_chunks(chunks))
         assert "one" in validator_calls
         assert "two" in validator_calls
 
@@ -785,7 +821,7 @@ class TestModelValidatorsDuringStreaming:
                 return self
 
         PartialModel = Partial[ModelWithValidator]
-        TruePartial = PartialModel.get_partial_model()
+        TruePartial = _partial_api(PartialModel).get_partial_model()
 
         # Without streaming context, validators run even with incomplete data
         # This is the final validation scenario
@@ -819,7 +855,7 @@ class TestFinalValidationAfterStreaming:
         chunks = ['{"name": "John"}']  # Missing 'age'
 
         with pytest.raises(ValidationError) as exc_info:
-            list(PartialModel.model_from_chunks(iter(chunks)))
+            list(_partial_api(PartialModel).model_from_chunks(iter(chunks)))
 
         # Should fail because 'age' is required but missing
         assert "age" in str(exc_info.value)
@@ -836,7 +872,7 @@ class TestFinalValidationAfterStreaming:
         # Simulate streaming that provides all required fields
         chunks = ['{"name": "John", "age": 30}']
 
-        results = list(PartialModel.model_from_chunks(iter(chunks)))
+        results = list(_partial_api(PartialModel).model_from_chunks(iter(chunks)))
         assert len(results) > 0
         final = results[-1]
         assert final.name == "John"
@@ -862,7 +898,7 @@ class TestFinalValidationAfterStreaming:
         chunks = ['{"status": "active", "priority": "low"}']
 
         with pytest.raises(ValidationError) as exc_info:
-            list(PartialModel.model_from_chunks(iter(chunks)))
+            list(_partial_api(PartialModel).model_from_chunks(iter(chunks)))
 
         assert "Active tasks must have high priority" in str(exc_info.value)
 
@@ -881,7 +917,7 @@ class TestFinalValidationAfterStreaming:
         chunks = ['{"name": "Jo', 'hn", "age": 25}']
 
         partial_objects = []
-        for obj in PartialModel.model_from_chunks(iter(chunks)):
+        for obj in _partial_api(PartialModel).model_from_chunks(iter(chunks)):
             partial_objects.append(obj)
 
         # Should have yielded partial objects during streaming
@@ -917,7 +953,9 @@ class TestFinalValidationAfterStreaming:
             yield '{"name": "John"}'  # Missing 'age'
 
         with pytest.raises(ValidationError) as exc_info:
-            async for _ in PartialModel.model_from_chunks_async(async_chunks()):
+            async for _ in _partial_api(PartialModel).model_from_chunks_async(
+                async_chunks()
+            ):
                 pass
 
         assert "age" in str(exc_info.value)
@@ -937,7 +975,7 @@ class TestRecursiveModels:
 
         # Should not raise RecursionError
         PartialTreeNode = Partial[TreeNode]
-        TruePartial = PartialTreeNode.get_partial_model()
+        TruePartial = _partial_api(PartialTreeNode).get_partial_model()
 
         # Can validate partial data
         result = TruePartial.model_validate({"value": "root"})
@@ -954,7 +992,7 @@ class TestRecursiveModels:
         TreeNode.model_rebuild()
 
         PartialTreeNode = Partial[TreeNode]
-        TruePartial = PartialTreeNode.get_partial_model()
+        TruePartial = _partial_api(PartialTreeNode).get_partial_model()
 
         # Validate with nested structure
         data = {
@@ -992,7 +1030,7 @@ class TestRecursiveModels:
         assert PartialCompany is not None
 
         # Validate partial data
-        person_partial = PartialPerson.get_partial_model()
+        person_partial = _partial_api(PartialPerson).get_partial_model()
         result = person_partial.model_validate({"name": "Alice"})
         assert result.name == "Alice"
 
@@ -1007,7 +1045,7 @@ class TestRecursiveModels:
 
         # Should not raise RecursionError
         PartialLinked = Partial[LinkedNode]
-        TruePartial = PartialLinked.get_partial_model()
+        TruePartial = _partial_api(PartialLinked).get_partial_model()
 
         # Validate chain
         data = {"value": 1, "next": {"value": 2, "next": {"value": 3}}}
@@ -1063,7 +1101,7 @@ class TestRecursiveModels:
 
         # Should not raise RecursionError
         PartialFS = Partial[FileSystemNode]
-        TruePartial = PartialFS.get_partial_model()
+        TruePartial = _partial_api(PartialFS).get_partial_model()
 
         # Complex nested structure
         data = {
@@ -1133,7 +1171,7 @@ class TestRecursiveModels:
         Container.model_rebuild()
 
         PartialContainer = Partial[Container]
-        TruePartial = PartialContainer.get_partial_model()
+        TruePartial = _partial_api(PartialContainer).get_partial_model()
 
         data = {
             "title": "Chapter 1",

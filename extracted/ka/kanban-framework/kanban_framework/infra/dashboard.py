@@ -357,7 +357,7 @@ class DashboardManager:
         # Start uvicorn with FastAPI app
         env = os.environ.copy()
         env["KANBAN_ROOT"] = str(self._kanban_dir)
-        log = open(self._log_file(), "w")
+        log = open(self._log_file(), "w", encoding="utf-8")
         kwargs = {
             "cwd": str(self._deploy_dir),
             "stdout": log,

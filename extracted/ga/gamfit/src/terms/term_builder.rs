@@ -1004,8 +1004,35 @@ fn parse_periods(
     options: &BTreeMap<String, String>,
     periodic_axes: &[bool],
 ) -> Result<Vec<Option<f64>>, String> {
-    let periods =
-        parse_optional_numeric_list(options, &["period", "periods"], periodic_axes.len())?;
+    let dim = periodic_axes.len();
+    // Broadcast a single-element `period=[v]` onto the lone periodic axis
+    // of a multi-axis smooth (e.g. `te(th, h, bc=['periodic','natural'],
+    // period=[2*pi])`): with only one periodic margin, the value can only
+    // belong there.
+    let lone_periodic_broadcast = options
+        .get("period")
+        .or_else(|| options.get("periods"))
+        .and_then(|raw| {
+            let values = split_list_option(raw);
+            if values.len() != 1 || dim <= 1 {
+                return None;
+            }
+            let mut iter = periodic_axes.iter().enumerate().filter(|(_, p)| **p);
+            let first = iter.next()?;
+            if iter.next().is_some() {
+                return None;
+            }
+            Some((first.0, values.into_iter().next().unwrap()))
+        });
+    let periods = if let Some((axis, value)) = lone_periodic_broadcast {
+        let mut out = vec![None; dim];
+        if !value.eq_ignore_ascii_case("none") {
+            out[axis] = Some(parse_numeric_expr(&value)?);
+        }
+        out
+    } else {
+        parse_optional_numeric_list(options, &["period", "periods"], dim)?
+    };
     for (axis, (periodic, period)) in periodic_axes.iter().zip(periods.iter()).enumerate() {
         if *periodic
             && let Some(value) = period
@@ -1202,10 +1229,13 @@ fn bspline_boundary_declares_periodic_axis(options: &BTreeMap<String, String>) -
 ///
 /// Aliases listed here MUST be true semantic equivalents of the canonical
 /// target, not approximations. mgcv names whose semantics differ from any
-/// gamfit smooth (e.g. `bs="cs"` shrinkage thin-plate, `bs="ad"` adaptive)
+/// gamfit smooth (e.g. `bs="ts"` shrinkage thin-plate, `bs="ad"` adaptive)
 /// are intentionally NOT mapped here — they should reach the unsupported-type
 /// path so users get a real diagnostic instead of a silent semantic
-/// substitution.
+/// substitution. mgcv's `bs="cr"`/`"cs"` (cubic regression and its shrinkage
+/// twin) are handled directly in the [`build_smooth_basis`] dispatch — they
+/// are not aliased here because the `cr`/`cs` distinction controls a default
+/// (`double_penalty`) that the canonical-name layer cannot see.
 ///
 /// Unrecognised inputs pass through unchanged so the dispatch can produce its
 /// usual "unsupported smooth type" error, preserving the existing diagnostic
@@ -1686,9 +1716,27 @@ pub fn build_smooth_basis(
                 },
             })
         }
-        "bspline" | "ps" | "p-spline" => {
+        "bspline" | "ps" | "p-spline" | "cr" | "cs" => {
+            // mgcv's `bs="cr"` (cubic regression spline) and `bs="cs"` (its
+            // shrinkage twin) are penalized cubic-regression smooths that span
+            // the same per-axis function space as gamfit's `bspline` (cubic
+            // B-spline, second-derivative penalty). Route both through the
+            // 1-D B-spline arm; the only semantic difference is whether the
+            // null space is shrunk: `cr` is the no-shrinkage form (mgcv's
+            // default) and `cs` is the shrinkage form (mgcv's `cs`/gamfit's
+            // double_penalty). Without this route, a stand-alone
+            // `s(x, bs='cr')` (which is otherwise a routine 1-D smooth in
+            // mgcv-compatible formulae) reached the dispatch's default arm
+            // and aborted the whole fit with `unsupported smooth type 'cr'`,
+            // even though the same name was already recognized as a tensor
+            // margin (`tensor_margin_bs_is_supported`).
+            let validation_name = match type_opt.as_str() {
+                "cr" => "cr",
+                "cs" => "cs",
+                _ => "bspline",
+            };
             validate_known_options(
-                "bspline",
+                validation_name,
                 options,
                 &[
                     "type",
@@ -1809,6 +1857,14 @@ pub fn build_smooth_basis(
                     parse_cyclic_boundary(options, minv, maxv)?,
                 )
             };
+            // mgcv `bs="cr"` does not shrink the linear null space; only `cs`
+            // (and the gamfit-flavoured `bspline`/`ps`) do. Honour an explicit
+            // `double_penalty=` either way.
+            let double_penalty = if type_opt == "cr" {
+                option_bool(options, "double_penalty").unwrap_or(false)
+            } else {
+                smooth_double_penalty
+            };
             Ok(SmoothBasisSpec::BSpline1D {
                 feature_col: c,
                 spec: BSplineBasisSpec {
@@ -1816,7 +1872,7 @@ pub fn build_smooth_basis(
                     penalty_order: option_usize(options, "penalty_order")
                         .unwrap_or(DEFAULT_PENALTY_ORDER),
                     knotspec,
-                    double_penalty: smooth_double_penalty,
+                    double_penalty,
                     identifiability: BSplineIdentifiability::default(),
                     boundary,
                     boundary_conditions,
@@ -2081,6 +2137,8 @@ pub fn build_smooth_basis(
                     "scales",
                     "length_scale",
                     "double_penalty",
+                    "multiscale",
+                    "learn_length_scale",
                     "id",
                     "__by_col",
                 ],
@@ -2093,7 +2151,15 @@ pub fn build_smooth_basis(
                     "measurejet smooth s must lie in (0, 2) (or be omitted for auto); got {order_s}"
                 ));
             }
-            let alpha = option_f64(options, "alpha").unwrap_or(1.0);
+            // Default to the spec Default (α = 1, density-WEIGHTED Hessian
+            // energy — the module-header default). The density-free α = 3/2
+            // (q^{−2}) over-smooths low-intrinsic-dimension manifolds where the
+            // local mass q is tiny and varies along the stratum (#1116:
+            // 13×-worse-than-matérn on a 1-D curve in 3-D); α = 1's q^{−1} is
+            // gentler and robust across intrinsic dimensions. An explicit
+            // `alpha=` still overrides for full-dimensional density-free use.
+            let alpha =
+                option_f64(options, "alpha").unwrap_or(MeasureJetBasisSpec::default().alpha);
             if !alpha.is_finite() {
                 return Err("measurejet smooth requires a finite alpha".to_string());
             }
@@ -2118,6 +2184,15 @@ pub fn build_smooth_basis(
             if centers < 3 {
                 return Err("measurejet smooth requires at least 3 centers".to_string());
             }
+            // Multiscale (per-scale spectral split + (α, lnτ) ψ dials + the
+            // affine-preserving ridge) is an explicit opt-in (#1116): default
+            // single-scale at any center count, the Duchon/Matérn footprint.
+            let multiscale = option_bool(options, "multiscale").unwrap_or(false);
+            // REML-learn the representer range ℓ as a design-moving dial
+            // (default true, #1116) — matérn's log_kappa analog; the cure for
+            // over-smoothing on low-intrinsic-dimension manifolds. An explicit
+            // positive `length_scale=` with `learn_length_scale=false` freezes ℓ.
+            let learn_length_scale = option_bool(options, "learn_length_scale").unwrap_or(true);
             Ok(SmoothBasisSpec::MeasureJet {
                 feature_cols: cols.to_vec(),
                 spec: MeasureJetBasisSpec {
@@ -2129,9 +2204,11 @@ pub fn build_smooth_basis(
                     tau0,
                     num_scales,
                     // 0.0 sentinel = auto initialization in the basis builder
-                    // (median nearest-center spacing, doubled).
+                    // (median nearest-center spacing).
                     length_scale,
                     double_penalty: smooth_double_penalty,
+                    learn_length_scale,
+                    multiscale,
                     identifiability: MeasureJetIdentifiability::CenterSumToZero,
                     frozen_quadrature: None,
                 },
@@ -2461,6 +2538,94 @@ pub fn build_smooth_basis(
                 .to_string());
             }
             let dim = cols.len();
+
+            // Genuine thin-plate tensor for explicit `te(..., bs=c('tp','tp',...))`
+            // (#1082). The default `te()` realizes B-spline marginal bases with
+            // 2nd-difference marginal penalties (the arm below). That B-spline
+            // tensor over-smooths a noisy wiggly surface relative to mgcv's
+            // thin-plate tensor: on the gaulss-tensor truth recovery mgcv reaches
+            // RMSE(mu)=0.123 while the B-spline tensor lands at 0.151, because the
+            // difference-penalty REML shrinks the genuine signal harder than
+            // thin-plate bending energy does at n=200 under noise. When the user
+            // EXPLICITLY asks for thin-plate margins (`bs=c('tp',...)`, every
+            // margin tp/tps), honor that by building gam's mature multi-D
+            // thin-plate basis (the same one `s(x,y,bs='tps')` uses — full design /
+            // bending-energy penalty / freeze / predict support) instead of
+            // substituting B-splines. This is a true root fix (match mgcv's
+            // construction), not a tune.
+            //
+            // Scope is strict: it fires ONLY for `te` (not `ti`/`t2`, whose
+            // marginal-sum-to-zero null-space semantics differ) with an explicit
+            // all-thin-plate `bs`/`type` VECTOR and no periodic axes and no
+            // B-spline-only knobs (degree / penalty_order / knot placement — those
+            // signal the user wants the B-spline tensor). Plain `te(x,z)` and every
+            // non-tp margin vector fall straight through to the unchanged B-spline
+            // tensor arm below, so the 7 passing `te_2d_*` tests and
+            // `te_tensor_2d_hifreq` are byte-identical. The only current test that
+            // passes `bs=c('tp','tp')` to gam's `te()` is the gaulss-tensor one.
+            let all_thin_plate_margins = matches!(kind, SmoothKind::Te)
+                && options
+                    .get("bs")
+                    .or_else(|| options.get("type"))
+                    .is_some_and(|raw| {
+                        bs_selector_is_vector(raw) && {
+                            let per_margin = parse_option_list(raw);
+                            per_margin.len() == dim
+                                && per_margin.iter().all(|m| {
+                                    matches!(
+                                        m.trim().to_ascii_lowercase().as_str(),
+                                        "tp" | "tps" | "thinplate" | "thin-plate"
+                                    )
+                                })
+                        }
+                    })
+                && parse_tensor_periodic_axes(options, dim)?.iter().all(|p| !p)
+                && !options.contains_key("degree")
+                && !options.contains_key("penalty_order")
+                && !options.contains_key("knot_placement")
+                && !options.contains_key("knot-placement")
+                && !options.contains_key("knotplacement");
+            if all_thin_plate_margins {
+                // mgcv's `te(tp,tp)` leaves the tensor null space unpenalized
+                // (`select = FALSE`); the multi-D thin-plate's bending penalty
+                // already spans only the range space and leaves the polynomial
+                // null space free, so no double penalty is added (an explicit
+                // user `double_penalty=`/`select=` still wins, matching the
+                // B-spline tensor arm below).
+                let tp_double_penalty = option_bool(options, "double_penalty").unwrap_or(false);
+                let plan = plan_spatial_basis(
+                    ds.values.nrows(),
+                    dim,
+                    CenterCountRequest::Default,
+                    DuchonNullspaceOrder::Linear,
+                    option_bool(options, "scale_dims").unwrap_or(false),
+                    policy,
+                )
+                .map_err(|e| e.to_string())?;
+                let centers = parse_countwith_basis_alias(
+                    options,
+                    "centers",
+                    cap_default_spatial_centers(options, plan.centers),
+                )?;
+                let center_strategy = if has_explicit_countwith_basis_alias(options, "centers") {
+                    spatial_center_strategy_for_dimension(centers, dim)
+                } else {
+                    auto_spatial_center_strategy(centers, dim)
+                };
+                return Ok(SmoothBasisSpec::ThinPlate {
+                    feature_cols: cols.to_vec(),
+                    spec: ThinPlateBasisSpec {
+                        center_strategy,
+                        periodic: parse_periodic_axes_option(options, dim)?,
+                        length_scale: option_f64(options, "length_scale").unwrap_or(0.0),
+                        double_penalty: tp_double_penalty,
+                        identifiability: parse_spatial_identifiability(options)
+                            .map_err(|e| e.to_string())?,
+                        radial_reparam: None,
+                    },
+                    input_scales: None,
+                });
+            }
             // Per-margin basis vector (`bs=c('tp','tp')` / `bs=['ps','cr']`):
             // validate each requested margin is a penalized-spline basis that
             // the tensor product realizes as a 1-D B-spline margin. mgcv's
@@ -3668,6 +3833,43 @@ mod tests {
                 num_basis: 8
             } if *data_range == (0.0, std::f64::consts::TAU)
         ));
+    }
+
+    #[test]
+    fn univariate_smooth_accepts_mgcv_cubic_regression_aliases() {
+        let ds = continuous_dataset(
+            &["y", "x"],
+            (0..32)
+                .map(|i| {
+                    let x = i as f64 / 31.0;
+                    vec![x * x, x]
+                })
+                .collect(),
+        );
+        let col_map = ds.column_map();
+
+        for (selector, expect_double_penalty) in [("cr", false), ("cs", true)] {
+            let formula = format!("y ~ s(x, bs='{selector}')");
+            let parsed = parse_formula(&formula).expect("parse cr/cs smooth");
+            let mut notes = Vec::new();
+            let terms = build_termspec(
+                &parsed.terms,
+                &ds,
+                &col_map,
+                &mut notes,
+                &crate::resource::ResourcePolicy::default_library(),
+            )
+            .unwrap_or_else(|err| panic!("bs='{selector}' must build a 1-D smooth, got: {err:?}"));
+            let SmoothBasisSpec::BSpline1D { spec, .. } = &terms.smooth_terms[0].basis else {
+                panic!("bs='{selector}' must lower to a BSpline1D; got {:?}", terms.smooth_terms[0].basis);
+            };
+            assert_eq!(
+                spec.double_penalty, expect_double_penalty,
+                "bs='{selector}' must default double_penalty to mgcv's convention \
+                 (cr=no-shrinkage, cs=shrinkage); got double_penalty={}",
+                spec.double_penalty
+            );
+        }
     }
 
     #[test]

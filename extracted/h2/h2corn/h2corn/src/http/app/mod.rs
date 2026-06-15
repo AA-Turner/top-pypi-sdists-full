@@ -2,7 +2,6 @@ mod buffered;
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 
 pub use buffered::HttpSendState;
 use bytes::Bytes;
@@ -37,43 +36,41 @@ pub struct RunningHttpRequest<F> {
 }
 
 pub fn start_asgi_http_request(
-    ctx: RequestContext,
+    ctx: Box<RequestContext>,
     request_body: HttpRequestBody,
     admission: RequestAdmission,
-) -> Result<RunningHttpRequest<impl Future<Output = Result<(), H2CornError>> + Send>, H2CornError> {
+) -> RunningHttpRequest<impl Future<Output = Result<(), H2CornError>> + Send> {
     let head_only = ctx.request.method == Method::HEAD;
     let supports_response_trailers = ctx.request.accepts_trailers();
     let (send_state, send_buffer) = HttpSendState::new();
-    let app = Arc::clone(&ctx.connection.app);
+    let app = ctx.connection.app;
 
-    let app_task = start_app_call(&app, move |py, app| {
+    let app_task = start_app_call(app, move |py, _app, shard| {
         let scope = build_http_scope(py, &ctx)?.into_any();
         let receive = match request_body {
-            HttpRequestBody::NoBody => PyHttpReceive::new_no_body(app.locals.clone()),
-            HttpRequestBody::Single(body) => PyHttpReceive::new_single(app.locals.clone(), body),
-            HttpRequestBody::Stream(stream_rx) => {
-                PyHttpReceive::new_stream(app.locals.clone(), stream_rx)
-            },
+            HttpRequestBody::NoBody => PyHttpReceive::new_no_body(shard),
+            HttpRequestBody::Single(body) => PyHttpReceive::new_single(shard, body),
+            HttpRequestBody::Stream(stream_rx) => PyHttpReceive::new_stream(shard, stream_rx),
         };
         let receive = Py::new(py, receive)?.into_bound(py).into_any();
-        let send = Py::new(py, PyHttpSend::new(app.locals.clone(), send_state))?
+        let send = Py::new(py, PyHttpSend::new(shard, send_state))?
             .into_bound(py)
             .into_any();
         Ok((scope, receive, send))
-    })?;
+    });
 
-    Ok(RunningHttpRequest {
+    RunningHttpRequest {
         state: HttpRequestState {
             response: ResponseController::new(head_only, supports_response_trailers),
             send_buffer,
             _admission: admission,
         },
         app_task,
-    })
+    }
 }
 
 pub async fn run_asgi_http_request<T>(
-    ctx: RequestContext,
+    ctx: Box<RequestContext>,
     request_body: HttpRequestBody,
     admission: RequestAdmission,
     transport: &mut T,
@@ -81,14 +78,7 @@ pub async fn run_asgi_http_request<T>(
 where
     T: HttpResponseTransport,
 {
-    let started = match start_asgi_http_request(ctx, request_body, admission) {
-        Ok(started) => started,
-        Err(err) => {
-            transport.send_internal_error_response().await?;
-            return Err(err);
-        },
-    };
-
+    let started = start_asgi_http_request(ctx, request_body, admission);
     drive_http_request(started, transport).await
 }
 

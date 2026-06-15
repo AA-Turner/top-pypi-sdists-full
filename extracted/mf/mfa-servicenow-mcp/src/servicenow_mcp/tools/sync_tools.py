@@ -167,11 +167,11 @@ class PushLocalComponentParams(BaseModel):
     )
     force: bool = Field(
         default=False,
-        description="Override a conflict (remote changed since download) and push anyway. Default false.",
+        description="Override a conflict (remote changed since download) and push anyway.",
     )
     cross_instance_deploy: bool = Field(
         default=False,
-        description="Deploy local source to a DIFFERENT instance than its origin; target record re-resolved by name.",
+        description="Deploy to a DIFFERENT instance than origin; target re-resolved by name.",
     )
 
 
@@ -990,6 +990,8 @@ def _diff_against_compare_to(path: Path, compare_to: Path, context_lines: int) -
     """Route a compare_to diff: root-vs-root (summary) or component-vs-root (bodies)."""
     if not compare_to.exists():
         return {"error": f"compare_to path does not exist: {compare_to}"}
+    if not compare_to.is_dir():
+        return {"error": f"compare_to must be a download root directory, not a file: {compare_to}"}
     if path.is_dir() and _is_download_root(path):
         if not _is_download_root(compare_to):
             return {"error": f"compare_to must be a download root when path is one: {compare_to}"}

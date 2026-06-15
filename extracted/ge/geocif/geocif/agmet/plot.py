@@ -518,14 +518,15 @@ class AgmetPlotter:
         leg.get_frame().set_linewidth(0.0)
         leg._legend_box.align = "left"
 
-        # Data Sources — position title at same y as Legend title
-        try:
-            fig.canvas.draw()
-            renderer = fig.canvas.get_renderer()
-            leg_title_bbox = leg.get_title().get_window_extent(renderer)
-            ds_y = leg_title_bbox.transformed(fig.transFigure.inverted()).y0
-        except Exception:
-            ds_y = 0.25
+        # Data Sources — fixed y, well above the body (which is anchored
+        # at 0.13). Previously computed dynamically from the Legend
+        # title's rendered bbox so the two headers would visually align;
+        # that calculation depended on the legend's handle count (FLDAS
+        # forecast handle and per-year history items aren't always
+        # present), which made it land below 0.13 on some country plots
+        # and overlap the first line of the body. A constant keeps
+        # every plot in the gallery looking the same.
+        ds_y = 0.25
         fig.text(0.83, ds_y, "Data Sources", fontsize=14, fontweight="bold")
         if self.precip_var == "chirps":
             precip_str = "Precipitation: CHIRPS\n"

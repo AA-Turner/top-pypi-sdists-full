@@ -10,7 +10,7 @@ import sys
 from abc import ABC, abstractmethod
 from concurrent.futures import BrokenExecutor, Future
 from contextvars import copy_context
-from inspect import isawaitable, iscoroutinefunction
+from inspect import isawaitable
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, final
 
 from aiologic.lowlevel import (
@@ -20,7 +20,7 @@ from aiologic.lowlevel import (
     green_checkpoint,
     once,
 )
-from aiologic.meta import DEFAULT, DefaultType
+from aiologic.meta import DEFAULT, DefaultType, generator, iscoroutinefactory
 
 from ._exceptions import (
     _CancelledError,
@@ -38,9 +38,9 @@ else:
 
 if TYPE_CHECKING:
     if sys.version_info >= (3, 9):
-        from collections.abc import Awaitable, Callable, Coroutine, Generator
+        from collections.abc import Awaitable, Callable, Coroutine
     else:
-        from typing import Awaitable, Callable, Coroutine, Generator
+        from typing import Awaitable, Callable, Coroutine
 
 _T = TypeVar("_T")
 _Ts = TypeVarTuple("_Ts")
@@ -147,13 +147,14 @@ class Task(Result[_T], ABC):
     def __bool__(self, /) -> bool:
         return self._future.running()
 
-    def __await__(self) -> Generator[Any, Any, _T]:
+    @generator
+    async def __await__(self, /) -> _T:
         if not self._future.done():
             event = create_async_event()
             self._future.add_done_callback(lambda _: event.set())
 
             try:
-                success = yield from event.__await__()
+                success = await event
             finally:
                 if event.cancelled():
                     event = create_async_event(shield=True)
@@ -161,12 +162,12 @@ class Task(Result[_T], ABC):
                     if not self._future.done():
                         self.cancel()
 
-                        yield from event.__await__()
+                        await event
 
             if not success:
                 raise get_timeout_exc_class(failback=_TimeoutError)
         else:
-            yield from async_checkpoint().__await__()
+            await async_checkpoint()
 
         try:
             return self._future.result()
@@ -285,7 +286,7 @@ def _get_threading_task_class() -> type[Task[_T]]:
             try:
                 self._started.future.set_result(True)
 
-                if isawaitable(self._func) or iscoroutinefunction(self._func):
+                if isawaitable(self._func) or iscoroutinefactory(self._func):
                     msg = f"a green function was expected, got {self._func!r}"
                     raise TypeError(msg)
 
@@ -334,7 +335,7 @@ def _get_eventlet_task_class() -> type[Task[_T]]:
             try:
                 self._started.future.set_result(True)
 
-                if isawaitable(self._func) or iscoroutinefunction(self._func):
+                if isawaitable(self._func) or iscoroutinefactory(self._func):
                     msg = f"a green function was expected, got {self._func!r}"
                     raise TypeError(msg)
 
@@ -393,7 +394,7 @@ def _get_gevent_task_class() -> type[Task[_T]]:
             try:
                 self._started.future.set_result(True)
 
-                if isawaitable(self._func) or iscoroutinefunction(self._func):
+                if isawaitable(self._func) or iscoroutinefactory(self._func):
                     msg = f"a green function was expected, got {self._func!r}"
                     raise TypeError(msg)
 
@@ -457,7 +458,7 @@ def _get_asyncio_task_class() -> type[Task[_T]]:
                 else:
                     result = self._func(*self._args)
 
-                    if iscoroutinefunction(self._func):
+                    if iscoroutinefactory(self._func):
                         result = await result
             except get_cancelled_exc_class() as exc:
                 self._cancelled_after_start = True
@@ -518,7 +519,7 @@ def _get_curio_task_class() -> type[Task[_T]]:
                 else:
                     result = self._func(*self._args)
 
-                    if iscoroutinefunction(self._func):
+                    if iscoroutinefactory(self._func):
                         result = await result
             except get_cancelled_exc_class() as exc:
                 self._cancelled_after_start = True
@@ -579,7 +580,7 @@ def _get_trio_task_class() -> type[Task[_T]]:
                 else:
                     result = self._func(*self._args)
 
-                    if iscoroutinefunction(self._func):
+                    if iscoroutinefactory(self._func):
                         result = await result
             except get_cancelled_exc_class() as exc:
                 self._cancelled_after_start = True
@@ -641,7 +642,7 @@ def _get_anyio_task_class() -> type[Task[_T]]:
                 else:
                     result = self._func(*self._args)
 
-                    if iscoroutinefunction(self._func):
+                    if iscoroutinefactory(self._func):
                         result = await result
             except get_cancelled_exc_class() as exc:
                 self._cancelled_after_start = True

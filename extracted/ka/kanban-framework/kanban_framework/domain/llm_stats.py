@@ -340,36 +340,29 @@ class LLMStatsReader:
     # ── Per-task stats ────────────────────────────────────────────────────
 
     def get_task_stats(self, task_id: str) -> TaskLLMStats:
-        """Aggregate LLM calls attributable to one task."""
+        """Aggregate LLM calls attributable to one task.
+
+        Uses two-step algorithm (region + API filter) for accurate counts.
+        Callers that need command-segment granularity use get_task_breakdown().
+        """
         stats = TaskLLMStats(task_id=task_id)
         if not task_id or not task_id.startswith("TASK-"):
             return stats
 
-        amap = self._build_attribution_map()
-        sessions = amap.get(task_id, {})
-        if not sessions:
-            return stats
-
-        stats.sessions_count = len(sessions)
-        all_ts: list[str] = []
-        for sid, attr in sessions.items():
-            stats.total_calls += attr.assistant_calls
-            stats.main_agent_calls += attr.main_calls
-            stats.sub_agent_calls += attr.sub_calls
-            stats.input_tokens += attr.input_tokens
-            stats.output_tokens += attr.output_tokens
-            stats.cache_read_tokens += attr.cache_read_tokens
-            stats.kanban_commands += attr.command_count
-            for model, n in attr.models.items():
-                stats.models[model] = stats.models.get(model, 0) + n
-            if attr.first_ts:
-                all_ts.append(attr.first_ts)
-            if attr.last_ts:
-                all_ts.append(attr.last_ts)
-
-        if all_ts:
-            stats.first_activity_at = min(all_ts)
-            stats.last_activity_at = max(all_ts)
+        # Delegate to two-step algorithm, then populate TaskLLMStats object
+        data = self.get_task_api_calls(task_id)
+        stats.total_calls = data.get("total_calls", 0)
+        stats.main_agent_calls = data.get("main_agent_calls", 0)
+        stats.sub_agent_calls = data.get("sub_agent_calls", 0)
+        tokens = data.get("tokens", {})
+        stats.input_tokens = tokens.get("input", 0)
+        stats.output_tokens = tokens.get("output", 0)
+        stats.cache_read_tokens = tokens.get("cache_read", 0)
+        stats.sessions_count = data.get("sessions_count", 0)
+        stats.first_activity_at = data.get("first_activity_at", "")
+        stats.last_activity_at = data.get("last_activity_at", "")
+        stats.kanban_commands = data.get("kanban_commands", 0)
+        stats.models = data.get("models", {})
         return stats
 
     # ── Per-task breakdown ───────────────────────────────────────────────
@@ -828,17 +821,15 @@ class LLMStatsReader:
         return task_id in text
 
     def get_task_api_calls(self, task_id: str) -> dict:
-        """Two-step accurate API call counting (v0.190 algorithm).
+        """Two-step accurate API call counting (v0.192 hybrid algorithm).
 
-        Step 1: Task Region Detection
-            Scan ALL entries mentioning TASK-NNN (not just kanban CLI commands).
-            This captures work done between kanban invocations — writing code,
-            reading files, thinking — that command-segment attribution misses.
+        Step 1: Task Region Detection (assistant-only mentions)
+            Scan ASSISTANT entries for TASK-NNN in tool_use commands.
+            User entries (tool_results) are excluded — they echo CLI output
+            that may contain OTHER task_ids, causing window overlap (#652).
 
         Step 2: API Call Filtering
-            Within the task region, only count entries with real model usage
-            (message.usage exists and has non-zero tokens). Filters out
-            <synthetic> entries and cached responses without real API calls.
+            Within the task region, count entries with real model usage.
 
         Returns same shape as TaskLLMStats.to_dict() for compatibility.
         """
@@ -847,8 +838,10 @@ class LLMStatsReader:
             return stats.to_dict()
 
         # Step 1: Find task region per session
-        # Scan all entries for TASK-NNN mentions → define time windows
-        task_windows: dict[str, tuple[str, str]] = {}  # session_id → (first_ts, last_ts)
+        # ONLY scan assistant entries (tool_use), NOT user entries (tool_results).
+        # This prevents benchmark output (which lists multiple task_ids) from
+        # inflating the region window.
+        task_windows: dict[str, tuple[str, str]] = {}
 
         for path in self._iter_jsonl_files():
             session_id = path.stem
@@ -861,8 +854,22 @@ class LLMStatsReader:
                             entry = json.loads(line)
                         except json.JSONDecodeError:
                             continue
-                        # Check if this entry mentions task_id
-                        if task_id not in line:
+                        # Only assistant entries can actively reference a task
+                        # via tool_use (kanban commands). User entries echo
+                        # tool_results which contain output from commands that
+                        # may list multiple task_ids (#652).
+                        if entry.get("type") != "assistant":
+                            continue
+                        # Check if this assistant entry references task_id
+                        # in a tool_use command (not just any text mention)
+                        sub_cmds = _extract_kanban_commands(entry)
+                        mentions_task = False
+                        if sub_cmds:
+                            for sc in sub_cmds:
+                                if task_id in sc:
+                                    mentions_task = True
+                                    break
+                        if not mentions_task:
                             continue
                         ts = entry.get("timestamp", "")
                         if not ts:
@@ -907,14 +914,13 @@ class LLMStatsReader:
                             continue
                         usage = msg.get("usage", {})
                         if not usage or not isinstance(usage, dict):
-                            continue  # no usage = not a real API call
+                            continue
 
                         inp = int(usage.get("input_tokens", 0) or 0)
                         out = int(usage.get("output_tokens", 0) or 0)
                         if inp == 0 and out == 0:
-                            continue  # zero usage = synthetic/cached
+                            continue
 
-                        # Real API call — count it
                         model = msg.get("model", "unknown")
                         cache = int(usage.get("cache_read_input_tokens", 0) or 0)
 
@@ -928,7 +934,6 @@ class LLMStatsReader:
                         stats.output_tokens += out
                         stats.cache_read_tokens += cache
 
-                        # Track kanban commands for reference
                         sub_cmds = _extract_kanban_commands(entry)
                         if sub_cmds:
                             stats.kanban_commands += len(sub_cmds)
@@ -943,9 +948,9 @@ class LLMStatsReader:
             stats.last_activity_at = max(all_ts)
 
         result = stats.to_dict()
-        result["algorithm"] = "two_step_region_filter"
+        result["algorithm"] = "hybrid_assistant_region_filter"
         result["method"] = (
-            "Step 1: task region by all TASK-NNN mentions; "
+            "Step 1: task region by ASSISTANT tool_use mentions only (not tool_results); "
             "Step 2: filter to real API calls (usage > 0)"
         )
         return result

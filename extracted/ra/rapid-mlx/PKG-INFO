@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: rapid-mlx
-Version: 0.7.3
+Version: 0.7.6
 Summary: Rapid-MLX — AI inference for Apple Silicon. Drop-in OpenAI API, 2-4x faster than Ollama.
-Author: vllm-mlx contributors
+Author: Rapid-MLX contributors
 License: Apache-2.0
 Project-URL: Homepage, https://github.com/raullenchai/Rapid-MLX
 Project-URL: Documentation, https://github.com/raullenchai/Rapid-MLX#readme
 Project-URL: Repository, https://github.com/raullenchai/Rapid-MLX
-Keywords: llm,mlx,apple-silicon,vllm,inference,transformers
+Keywords: llm,mlx,apple-silicon,inference,transformers
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -28,7 +28,6 @@ Requires-Dist: transformers>=5.0.0
 Requires-Dist: tokenizers>=0.19.0
 Requires-Dist: huggingface-hub>=0.23.0
 Requires-Dist: numpy>=1.24.0
-Requires-Dist: pillow>=10.0.0
 Requires-Dist: tqdm>=4.66.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.28.0
@@ -46,6 +45,7 @@ Requires-Dist: mlx-vlm>=0.6.3; extra == "vision"
 Requires-Dist: opencv-python>=4.8.0; extra == "vision"
 Requires-Dist: torch>=2.3.0; extra == "vision"
 Requires-Dist: torchvision>=0.18.0; extra == "vision"
+Requires-Dist: pillow>=10.0.0; extra == "vision"
 Provides-Extra: dflash
 Requires-Dist: mlx-vlm>=0.6.3; extra == "dflash"
 Provides-Extra: embeddings
@@ -58,6 +58,7 @@ Requires-Dist: mlx-vlm>=0.6.3; extra == "all"
 Requires-Dist: opencv-python>=4.8.0; extra == "all"
 Requires-Dist: torch>=2.3.0; extra == "all"
 Requires-Dist: torchvision>=0.18.0; extra == "all"
+Requires-Dist: pillow>=10.0.0; extra == "all"
 Requires-Dist: gradio>=4.0.0; extra == "all"
 Requires-Dist: pytz>=2024.1; extra == "all"
 Requires-Dist: mlx-embeddings>=0.0.5; extra == "all"

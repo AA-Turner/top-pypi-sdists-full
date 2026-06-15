@@ -1221,6 +1221,43 @@ fn fallback_projected_gradient_direction(
         .iter()
         .fold(0.0_f64, |acc, &value| acc.max(value.abs()));
     if step_inf <= 1e-12 {
+        // The projected-gradient tangent step has collapsed to ~0: the working
+        // set holds the gradient stationary, so no descent direction remains in
+        // the working tangent space. Returning `d_total` as-is is ONLY correct
+        // when the iterate `x = beta_start + d_total` is itself feasible. When
+        // `x` is infeasible (an inactive row was violated by an earlier
+        // `alpha`-clipped step and never repaired — the KKT solve only closes
+        // residuals on ACTIVE rows), returning `d_total` leaks an infeasible
+        // iterate that the downstream `check_linear_feasibility` gate rejects
+        // as an "infeasible iterate" (#1108: the interval-censored survival
+        // surrogate landed here at scaled-violation 5.7e-3..0.12 while the
+        // exact projection of the SAME point reaches ~0 violation). Project the
+        // stationary iterate onto the feasible cone and return the corresponding
+        // direction so the solve returns a feasible point. The returned result
+        // is `beta_start + dir`, and `x = beta_start + d_total`, so to return a
+        // feasible `p` the direction is `dir = d_total + (p - x)`.
+        let (worst, _) = max_linear_constraint_violation(x, constraints);
+        if worst > ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+            let projected = project_point_strictly_into_feasible_cone(x, constraints)
+                .or_else(|| {
+                    let identity = Array2::<f64>::eye(p);
+                    solve_quadratic_with_linear_constraints(&identity, x, x, constraints, None)
+                        .ok()
+                        .map(|(beta, _active)| beta)
+                })
+                .filter(|p_candidate| {
+                    max_linear_constraint_violation(p_candidate, constraints).0
+                        <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+                });
+            let Some(projected) = projected else {
+                // No feasible repair available — let the caller report honestly
+                // rather than returning an infeasible direction.
+                return Ok(None);
+            };
+            let repair = &projected - x;
+            let active = canonicalize_active_constraint_ids(&projected, constraints, &[])?;
+            return Ok(Some((d_total + &repair, active)));
+        }
         let active = canonicalize_active_constraint_ids(x, constraints, &[])?;
         return Ok(Some((d_total.clone(), active)));
     }
@@ -1663,7 +1700,41 @@ pub(crate) fn solve_quadratic_with_linear_constraints(
         &mut delta,
         Some(&mut active_hint),
     )?;
-    Ok((beta_start + &delta, active_hint))
+    let candidate = beta_start + &delta;
+    // FINAL FEASIBILITY CONTRACT (#1108). The active-set inner step computes its
+    // Newton direction only against the ACTIVE working rows and line-searches
+    // `alpha` against the inactive rows; a row whose approach rate falls inside
+    // `boundary_hit_step_fraction`'s directional tolerance is not clipped, so the
+    // returned `candidate` can overshoot a currently-inactive row and land
+    // outside the cone by a small-but-gate-failing amount (the interval-censored
+    // survival surrogate leaked 5.5e-3..2.2e-2 raw at cycles 3/9 here, accepted
+    // into `states`, then rejected by the next cycle's `check_linear_feasibility`
+    // — `infeasible iterate`). The solver's PUBLIC CONTRACT is a feasible point;
+    // enforce it at the single chokepoint every caller flows through. A genuinely
+    // converged feasible solve has `worst ~ 0`, so this is a no-op there and does
+    // not perturb a well-conditioned constrained fit. When the step did leak,
+    // project the iterate onto the feasible cone (the exact projection the #1108
+    // diag proves reaches ~0 violation: the nearest strictly-interior point) and
+    // return THAT. If no feasible repair is achievable, surface the active-set
+    // error rather than returning an infeasible point.
+    let (worst, _) = max_linear_constraint_violation(&candidate, constraints);
+    if worst <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL {
+        return Ok((candidate, active_hint));
+    }
+    let repaired = project_point_strictly_into_feasible_cone(&candidate, constraints).filter(|p| {
+        max_linear_constraint_violation(p, constraints).0 <= ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+    });
+    match repaired {
+        Some(feasible) => {
+            let active = canonicalize_active_constraint_ids(&feasible, constraints, &[])?;
+            Ok((feasible, active))
+        }
+        None => Err(EstimationError::ParameterConstraintViolation(format!(
+            "constrained quadratic solve returned an infeasible iterate \
+             (max scaled violation {worst:.3e}) and no feasible projection could be \
+             certified onto the constraint cone",
+        ))),
+    }
 }
 
 #[cfg(test)]

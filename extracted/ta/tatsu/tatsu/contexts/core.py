@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import cache
@@ -11,6 +12,7 @@ from ..config import ParserConfig
 from ..exceptions import (
     FailedLeftRecursion,
     FailedParse,
+    HeartDied,
     ParseException,
 )
 from ..input import Cursor, NullText, Text
@@ -20,6 +22,7 @@ from ..util import (
     safe_name,
 )
 from ..util.boundeddict import BoundedDict
+from ..util.heart import Heart
 from .ast import AST
 from .ctx import Ctx, Func
 from .infos import MemoKey, RuleInfo, RuleResult
@@ -80,6 +83,9 @@ class ParserCore(Ctx):
 
         self._initialize_caches()
         self.tracer: Tracer = NullTracer()
+        self.heart: Heart | None = config.heart
+        self.lastbeat_time = 0.0
+        self.lastbeat_pos: int = 0
         self.update_tracer()
 
     def _initialize_caches(self) -> None:
@@ -162,6 +168,27 @@ class ParserCore(Ctx):
 
     def _next(self) -> Any:
         return self.cursor.next()
+
+    def heartbeat(self) -> bool:
+        if self.heart is None:
+            return False
+
+        if self.heart.dead():
+            raise HeartDied("Heart is dead")
+
+        now = time.perf_counter()
+        if (now - self.lastbeat_time) <= self.config.heart_wait:
+            return False
+
+        if self.pos <= self.lastbeat_pos:
+            return False
+
+        try:
+            self.heart.beat(self.cursor.line, self.cursor.linecount)
+        finally:
+            self.lastbeat_time = now
+            self.lastbeat_pos = self.pos
+        return True
 
     def next_token(self, ri: RuleInfo | None = None) -> None:
         if not (ri and ri.is_tokn):

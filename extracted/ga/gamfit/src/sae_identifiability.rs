@@ -47,13 +47,19 @@
 //! ([`crate::inference::row_metric::MetricProvenance`]) and cannot misreport —
 //! there is only one metric object.
 
+use crate::inference::layer_transport::{ChartTopology, TransportLadderReport, transport_ladder};
+use crate::inference::probe_runner::{ProbeRunner, RealizedProbe};
+use crate::inference::riesz::{RieszInput, SmoothFunctional, debias_with_dense_hessian};
 use crate::inference::row_metric::{MetricProvenance, RowMetric};
 use crate::inference::structure_evidence::{StructureCertificate, StructureLedger};
 use crate::linalg::faer_ndarray::{
-    FaerEigh, FaerQr, FaerSvd, default_rrqr_rank_alpha, rrqr_with_permutation,
+    FaerCholesky, FaerEigh, FaerQr, FaerSvd, default_rrqr_rank_alpha, rrqr_with_permutation,
 };
+use crate::terms::sae_chart_canonicalization::CanonicalChartTopology;
+use crate::terms::sae_manifold::SaeManifoldTerm;
 use faer::Side;
 use ndarray::{Array1, Array2, Array3, Array4, ArrayView1, ArrayView2, s};
+use std::f64::consts::TAU;
 
 /// Smoothed column-2-norm of the decoder Jacobian.
 ///
@@ -869,6 +875,187 @@ pub struct FittedAtom {
     /// manifold for `d = 1` charts: rotation + reflection (`O(2)`) on the
     /// circle, reflection + translation on the interval.
     pub chart_canonicalized: bool,
+    /// Per-atom inner-decoder-smooth byproducts harvested at fit time, the
+    /// single source the post-PIRLS atom inference reports
+    /// ([`AtomFunctionalReport`] #1097, [`AtomSmoothSignificance`] #1103)
+    /// consume in [`dictionary_report`].
+    ///
+    /// The certificate path that builds `FittedSaeManifold` does so *without* a
+    /// fit harness in scope, so it leaves this `None`; callers that own the
+    /// fitted term attach it through [`FittedAtom::with_inner_fit`] (the term
+    /// builder fills it from the live per-atom basis, decoder, assignment mass,
+    /// and smoothness Gram). When `None`, both reports below are `None`: the
+    /// genuine prerequisite — the post-fit inner-smooth design, penalized
+    /// Hessian, and row scores — is simply not present on a bare
+    /// certificate-only `FittedSaeManifold`.
+    pub inner_fit: Option<AtomInnerFit>,
+}
+
+/// The fitted per-atom inner-decoder smooth, captured once at fit time so the
+/// post-PIRLS atom-inference reports reuse the *same* design, penalized Hessian,
+/// and per-row scores the identifiability certificate's curvature sees.
+///
+/// The SAE decoder reconstructs `Z_i ≈ Σ_k a_ik Φ_k(t_ik) B_k`. Holding all
+/// other atoms and the assignment fixed at the fitted optimum, atom `k`'s own
+/// contribution along a single output channel `j` is the Gaussian-identity
+/// penalized smooth `a_ik · Φ_k(t_ik)ᵀ β_{k,j}` with roughness penalty `S_k`,
+/// Gauss–Newton observation weight `w_i = a_ik²` (the assignment mass enters the
+/// channel linearly, so the normal-equation weight is its square), and
+/// dispersion the fitted reconstruction dispersion. That is an ordinary
+/// penalized WLS smooth — exactly what [`crate::inference::riesz`],
+/// [`crate::inference::lawley`], and the κ-profile machinery consume. The
+/// channel `j` is the atom's dominant decoder output direction (largest column
+/// norm of `B_k`), i.e. the channel that carries the atom's signal.
+#[derive(Debug, Clone)]
+pub struct AtomInnerFit {
+    /// `Φ_k` evaluated on the atom's active rows, `(n_active, M_k)`. The inner
+    /// GAM smooth design. Column 0 is the constant/intercept basis column.
+    pub design: Array2<f64>,
+    /// `∂Φ_k/∂t` along the atom's leading latent axis on the active rows,
+    /// `(n_active, M_k)`: the derivative design the average-derivative
+    /// functional integrates.
+    pub derivative_design: Array2<f64>,
+    /// The fitted decoder coefficients for the captured output channel,
+    /// `β_{k,j} ∈ ℝ^{M_k}`.
+    pub beta: Array1<f64>,
+    /// The atom roughness Gram `S_k`, `(M_k, M_k)`.
+    pub penalty: Array2<f64>,
+    /// The penalized Hessian `H = ΦᵀWΦ + S_k` at the fitted state, `(M_k, M_k)`.
+    pub penalized_hessian: Array2<f64>,
+    /// Per-row Gaussian-identity scores `s_i = ∂nll_i/∂β = −w_i r_i Φ_i / φ`,
+    /// `(n_active, M_k)`, on the captured channel.
+    pub row_scores: Array2<f64>,
+    /// Per-row Gauss–Newton weights `w_i = a_ik²` on the captured channel.
+    pub weights: Array1<f64>,
+    /// Fitted reconstruction dispersion `φ` (Gaussian σ²).
+    pub dispersion: f64,
+    /// Design row at the latent peak `t_peak` (largest fitted `|g_k|`).
+    pub peak_design_row: Array1<f64>,
+    /// Design row at the latent mode `t_mode` (largest assignment mass).
+    pub mode_design_row: Array1<f64>,
+}
+
+impl FittedAtom {
+    /// Attach the inner-decoder-smooth byproducts harvested at fit time. The
+    /// term builder calls this so [`dictionary_report`] can produce the three
+    /// post-PIRLS atom inference reports.
+    pub fn with_inner_fit(mut self, inner_fit: AtomInnerFit) -> Self {
+        self.inner_fit = Some(inner_fit);
+        self
+    }
+}
+
+/// Descriptive penalty-debiased POINT summaries of one fitted atom's decoder
+/// curve (#1097, narrowed under #1115). Each field is a scalar functional of the
+/// atom's inner smooth `g_k(t)`, reported as a plug-in value and a one-step
+/// penalty-debiased value (the regularization bias relative to the conditional
+/// target is removed through the atom fit's penalized Hessian). No standard
+/// error and no confidence interval are reported — by design (see below).
+///
+/// # Why these carry NO coverage claim (#1115)
+///
+/// Conditional on the fitted latent coordinates `t̂` and assignment `â`, each
+/// functional is an ordinary linear functional of the penalized-WLS coefficients
+/// `β` with a well-defined *conditional* population value, and one-step debiasing
+/// validly removes the penalty bias for that conditional target. The point
+/// estimates are therefore meaningful. A *standard error*, however, would only be
+/// honest if `t̂` and `â` were fixed/known. They are not: they are **generated
+/// regressors** estimated from the very activations that also form the response
+/// `Z`, so `Z` enters both the design (via `t̂(Z), â(Z)`) and the response. An
+/// influence-function SE built from the β-only Hessian and row scores carries no
+/// `∂t̂/∂Z` / `∂â/∂Z` channel — exactly the generated-regressor correction the
+/// marginal-slope family (#461 Stage 2) is *defined* by — so it omits a
+/// first-order variance term and is generally anti-conservative. Rather than ship
+/// an SE/CI that silently under-covers, this report exposes only the debiased
+/// point summaries; a coverage-valid interval would require either freezing the
+/// dictionary on a held-out split or propagating the generated-regressor
+/// Jacobian, neither of which the fixed inner-fit snapshot supports.
+#[derive(Debug, Clone)]
+pub struct AtomFunctionalReport {
+    /// `g(t_peak) − g(t_mode)`: the peak-vs-baseline contrast of the fitted
+    /// decoder, penalty-debiased through the inner-fit Hessian. Point summary
+    /// only (no coverage claim — see the type doc).
+    pub peak_contrast: Option<AtomFunctionalEstimate>,
+    /// `E_data[g(t_i)]`: the data-averaged decoder value over the atom's active
+    /// rows, penalty-debiased. Point summary only.
+    pub average_value: Option<AtomFunctionalEstimate>,
+    /// `E_data[∂g/∂t]` along the atom's leading latent axis: how much the fitted
+    /// decoder curve varies across the data distribution, **conditional on the
+    /// fit**. A descriptive variation measure of the fitted curve, NOT a
+    /// population "marginal slope" (the latent coordinate is itself a fitted,
+    /// generated regressor). Point summary only.
+    ///
+    /// Despite the historical `_norm` suffix this is the **signed** mass-weighted
+    /// mean derivative `E_data[∂g/∂t]` over the single leading axis, not a
+    /// magnitude — it can be negative, and a value near 0 means the average slope
+    /// cancels (a symmetric bump), not that the curve is flat. Use
+    /// [`AtomSmoothSignificance::log_e_nonconstant`] for an honest non-constancy
+    /// test; this field only describes the average local slope.
+    pub decoder_variation_norm: Option<AtomFunctionalEstimate>,
+}
+
+/// One atom decoder-functional point summary: the plug-in value and the one-step
+/// penalty-debiased value, with the removed penalty bias. Deliberately carries
+/// NO standard error / confidence interval — the conditional-on-generated-
+/// regressors variance channel is unmodelled, so any SE would under-cover
+/// (#1115). Use [`AtomSmoothSignificance`] for an honest any-n-valid structure
+/// test instead.
+#[derive(Debug, Clone, Copy)]
+pub struct AtomFunctionalEstimate {
+    /// The raw plug-in functional value `θ̂ = g·β̂`.
+    pub theta_plugin: f64,
+    /// The one-step penalty-debiased value `θ̂ − bias`, removing the
+    /// regularization bias relative to the conditional target.
+    pub theta_onestep: f64,
+    /// The removed penalty bias `(H⁻¹ g)·(Sβ̂)`.
+    pub penalty_bias: f64,
+}
+
+/// Any-n-valid structure evidence that one atom's inner smooth `h_k(t)` is
+/// genuinely non-constant (#1103): the same split-likelihood-ratio e-value the
+/// atom-birth gate uses ([`crate::inference::structure_evidence`]), under the
+/// null H0 = "the atom's decoder curve is constant in its latent coordinate".
+///
+/// This replaces the earlier Lawley–Bartlett-corrected χ² test. That correction
+/// was a category error here: the penalized smooth's null is effectively
+/// rank ≈ n, the first-order χ² is the wrong reference entirely, and an O(1/n)
+/// Bartlett factor (whose own stated size shift is ≈0.15%, flipping no admit/
+/// demote decision) does not rescue it. The split-LRT e-value is finite-sample
+/// valid with NO regularity conditions — exactly the instrument for "does this
+/// atom earn a latent dimension".
+#[derive(Debug, Clone)]
+pub struct AtomSmoothSignificance {
+    /// `log E` for "the atom's smooth is non-constant" (null = constant). A
+    /// universal-inference split-likelihood-ratio e-value: `E_{H0}[E] ≤ 1`
+    /// exactly, so `E ≥ 1/α` certifies the non-constant alternative at level α,
+    /// at any data-dependent stopping time. `None` when the split is degenerate
+    /// (too few active rows / a fold with no curvature column).
+    pub log_e_nonconstant: Option<f64>,
+}
+
+/// The post-PIRLS inference reports for one atom, paired by atom index.
+///
+/// Two reports survive #1115: the descriptive penalty-debiased point summaries
+/// of the fitted decoder curve ([`AtomFunctionalReport`], no coverage claim) and
+/// the any-n-valid split-LRT smooth-structure e-value ([`AtomSmoothSignificance`],
+/// a genuine finite-sample-valid test). The #1099 per-atom curvature *confidence
+/// interval* was removed: its target (a sup-norm extrinsic-curvature BOUND read
+/// off the fitted decoder) is not an estimand with a profiled criterion, and its
+/// delta-method SE conditioned on the generated latent coordinates as if known.
+/// The plug-in curvature point estimate itself survives — as the per-atom
+/// `kappa_hat` entries of
+/// [`crate::terms::sae_manifold::CertificateInputs::per_atom_kappa_hat`] (the
+/// #1008 empirical curved-dictionary report, surfaced to Python as
+/// `ManifoldSAE.curvature_report`), the single source of truth for the bound.
+/// It is deliberately *not* duplicated onto this report: a descriptive geometry
+/// bound is a property of the fitted decoder frames, not of the post-PIRLS
+/// inner-smooth inference snapshot this type carries.
+#[derive(Debug, Clone)]
+pub struct AtomInferenceReport {
+    pub atom_index: usize,
+    pub atom_name: String,
+    pub functionals: Option<AtomFunctionalReport>,
+    pub smooth_significance: Option<AtomSmoothSignificance>,
 }
 
 /// The fitted SAE-manifold model the certificate consumes.
@@ -2298,6 +2485,8 @@ fn residual_gauge_inner(
     // the chart-freedom downgrade itself.
     let mut canonicalized_charts = 0usize;
     let mut canonicalized_torus_charts = 0usize;
+    let mut canonicalized_patch_charts = 0usize;
+    let mut canonicalized_sphere_charts = 0usize;
     for atom in &model.atoms {
         if !atom.chart_canonicalized {
             continue;
@@ -2324,9 +2513,32 @@ fn residual_gauge_inner(
                     "Isom(T², flat) = U(1)² ⋊ D₄ (axis translations + axis swap/reflections)",
                 )
             }
-            // Canonicalization only ever applies to d = 1 charts and d = 2
-            // torus charts; a flag on any other topology is structurally
-            // inconsistent and must not fabricate a record.
+            // #1019 free-chart arm: d = 2 free/patch (Euclidean-patch) charts
+            // are pinned post-fit to the flat-reference minimum-anisotropy-
+            // defect flow representative; the surviving chart freedom is the
+            // isometry group of the flat plane.
+            AtomTopology::EuclideanPatch { latent_dim: 2 } => {
+                canonicalized_patch_charts += 1;
+                (
+                    "the flat-reference isometry-flow canonical chart",
+                    "Isom(ℝ², flat) = O(2) ⋉ ℝ² (rotation + reflection + translation)",
+                )
+            }
+            // #1019 sphere arm: d = 2 sphere (S²) charts are pinned post-fit to
+            // the round-sphere conformal-boost minimum-isometry-defect flow,
+            // which breaks the conformal (Möbius) moduli down to the round
+            // sphere's isometry group; the surviving chart freedom is O(3).
+            AtomTopology::Sphere => {
+                canonicalized_sphere_charts += 1;
+                (
+                    "the round-sphere conformal-boost isometry-flow canonical chart",
+                    "Isom(S², round) = O(3) (rotations + reflection)",
+                )
+            }
+            // Canonicalization only ever applies to d = 1 charts, d = 2 torus,
+            // d = 2 free/patch, and d = 2 sphere charts; a flag on any other
+            // topology is structurally inconsistent and must not fabricate a
+            // record.
             _ => continue,
         };
         verdicts.push(GeneratorVerdict {
@@ -2397,6 +2609,24 @@ fn residual_gauge_inner(
     } else {
         summary
     };
+    let summary = if canonicalized_patch_charts > 0 {
+        format!(
+            "{summary}; {canonicalized_patch_charts} free/patch chart(s) pinned to the \
+             flat-reference isometry-flow canonical chart by post-fit canonicalization \
+             (residual chart freedom = Isom(ℝ², flat) = O(2) ⋉ ℝ²)"
+        )
+    } else {
+        summary
+    };
+    let summary = if canonicalized_sphere_charts > 0 {
+        format!(
+            "{summary}; {canonicalized_sphere_charts} sphere chart(s) pinned to the \
+             round-sphere conformal-boost isometry-flow canonical chart by post-fit \
+             canonicalization (residual chart freedom = Isom(S², round) = O(3))"
+        )
+    } else {
+        summary
+    };
 
     Ok(ResidualGaugeReport {
         metric_provenance,
@@ -2430,6 +2660,300 @@ pub struct DictionaryReport {
     /// What the data established
     /// ([`crate::inference::structure_evidence::StructureLedger::certify`]).
     pub structure: StructureCertificate,
+    /// Per-atom inter-layer transport ladders (#1096). Empty when the caller
+    /// has not supplied at least one atom's canonical coordinates across two or
+    /// more layers. These reports are computed in the transport module's chart
+    /// convention: circle coordinates are radians on `[0, 2π)`, while SAE
+    /// canonical circle charts may use an arbitrary period and are rescaled by
+    /// [`dictionary_report_with_transport_ladders`] before fitting.
+    pub transport_ladders: Vec<AtomTransportLadderReport>,
+    /// Per-atom post-PIRLS inference reports (#1097 penalty-debiased functional
+    /// POINT summaries, #1103 split-LRT smooth-structure e-value), one entry
+    /// per atom in [`FittedSaeManifold::atoms`] order. The #1099 per-atom
+    /// curvature CI was removed under #1115 (a curvature BOUND is not an
+    /// estimand and its SE conditioned on generated regressors); the surviving
+    /// plug-in curvature point estimate lives on
+    /// [`crate::terms::sae_manifold::CertificateInputs::per_atom_kappa_hat`],
+    /// not here. Each report's
+    /// fields are computed when the atom carries its fit-time
+    /// [`AtomInnerFit`] byproducts and the relevant numerics succeed; otherwise
+    /// the field is `None` (a bare certificate-only `FittedSaeManifold` — one
+    /// built by the residual-gauge path with no fit harness — leaves every
+    /// `inner_fit` `None`, so both fields are `None`).
+    pub atom_inference: Vec<AtomInferenceReport>,
+}
+
+/// Canonical per-layer coordinates for one atom, ready for the #1096 transport
+/// ladder integration.
+///
+/// The caller owns extraction from the SAE fit: `layers[i]`, `coords[i]`, and
+/// `topologies[i]` describe the same atom at the same layer. This type keeps
+/// that extraction outside [`dictionary_report`] so the core certificate can be
+/// wired without reaching into `SaeManifoldTerm`.
+#[derive(Debug, Clone)]
+pub struct AtomTransportLadderInput {
+    /// Index into [`FittedSaeManifold::atoms`].
+    pub atom_index: usize,
+    /// Layer labels in ladder order.
+    pub layers: Vec<usize>,
+    /// One canonical coordinate vector per layer, all over the same rows.
+    pub coords: Vec<Array1<f64>>,
+    /// One canonical chart topology per layer.
+    pub topologies: Vec<CanonicalChartTopology>,
+}
+
+/// One atom's fitted inter-layer transport ladder.
+#[derive(Debug, Clone)]
+pub struct AtomTransportLadderReport {
+    pub atom_index: usize,
+    pub atom_name: String,
+    pub report: TransportLadderReport,
+}
+
+/// #1097 penalty-debiased smooth-functional POINT summaries for one atom's
+/// captured inner-decoder smooth (narrowed under #1115).
+///
+/// All three functionals are *linear* in the atom's fitted coefficient vector
+/// `β_{k,j}`, so each is one-step penalty-debiased through the SAME penalized
+/// Hessian the identifiability certificate's curvature sees
+/// ([`AtomInnerFit::penalized_hessian`]) by routing the functional gradient,
+/// the per-row scores, and the penalty gradient `S̃_k β` through
+/// [`debias_with_dense_hessian`]. Only the resulting POINT estimates (plug-in,
+/// penalty-debiased, removed bias) are kept; the influence-function SE is
+/// discarded because it conditions on the generated latent coordinates `t̂` /
+/// assignment `â` as if known and so under-covers (see
+/// [`AtomFunctionalReport`] for the full argument). A non-SPD Hessian or a
+/// degenerate functional (empty design, non-finite gradient) leaves the
+/// offending field `None`; the other two still report.
+fn atom_functional_report(fit: &AtomInnerFit) -> AtomFunctionalReport {
+    let penalty_beta = fit.penalty.dot(&fit.beta);
+
+    // A small closed-form helper: build the Riesz input for a functional
+    // gradient and penalty-debias it through the fitted penalized Hessian, then
+    // KEEP ONLY the point estimates (the SE is not honest here — #1115). The
+    // Riesz layer's own `EstimationError` is collapsed into `None` — a numerical
+    // refusal is a missing field, not a poisoned report.
+    let debias = |functional_gradient: Array1<f64>| -> Option<AtomFunctionalEstimate> {
+        let input = RieszInput {
+            beta: fit.beta.view(),
+            functional_gradient: functional_gradient.view(),
+            row_scores: fit.row_scores.view(),
+            penalty_beta: penalty_beta.view(),
+            leverage: None,
+        };
+        debias_with_dense_hessian(&input, fit.penalized_hessian.view())
+            .ok()
+            .map(|r| AtomFunctionalEstimate {
+                theta_plugin: r.theta_plugin,
+                theta_onestep: r.theta_onestep,
+                penalty_bias: r.penalty_bias,
+            })
+    };
+
+    // Peak-vs-mode contrast g(t_peak) − g(t_mode): the linear functional whose
+    // gradient is the difference of the two design rows.
+    let peak_contrast = SmoothFunctional::Contrast {
+        design_row_a: fit.peak_design_row.view(),
+        design_row_b: fit.mode_design_row.view(),
+    }
+    .gradient()
+    .ok()
+    .and_then(debias);
+
+    // E_data[g(t_i)]: the mass-weighted average decoder value over active rows.
+    let average_value = SmoothFunctional::AverageValue {
+        value_design: fit.design.view(),
+        weights: Some(fit.weights.view()),
+    }
+    .gradient()
+    .ok()
+    .and_then(debias);
+
+    // ‖E_data[∂g/∂t]‖ along the leading latent axis: the mass-weighted average
+    // of the derivative-design rows (the Gauss–Newton weights `w_i = a_ik²` are
+    // the data measure over the atom's active rows). This is the conditional-
+    // on-fit decoder-VARIATION norm, not a population marginal slope.
+    let decoder_variation_norm = SmoothFunctional::AverageDerivative {
+        derivative_design: fit.derivative_design.view(),
+        weights: Some(fit.weights.view()),
+    }
+    .gradient()
+    .ok()
+    .and_then(debias);
+
+    AtomFunctionalReport {
+        peak_contrast,
+        average_value,
+        decoder_variation_norm,
+    }
+}
+
+/// #1103 Any-n-valid structure evidence that one atom's inner smooth is
+/// non-constant, via the split-likelihood-ratio e-value.
+///
+/// The inner decoder smooth is the Gaussian-identity penalized WLS fit
+/// `a_ik · Φ_k(t)ᵀ β_{k,j}` with dispersion `φ = `[`AtomInnerFit::dispersion`],
+/// working response `z_i` reconstructed from the captured per-row scores. H0 is
+/// "the smooth is constant": only the intercept column 0 is free.
+///
+/// We compute the universal-inference e-value the atom-birth gate
+/// ([`crate::inference::structure_evidence::split_likelihood_log_e_value`]) uses:
+///
+/// * Split the active rows deterministically into an ESTIMATION fold (even
+///   index) and an EVALUATION fold (odd index).
+/// * On the estimation fold, fit the penalized smooth (the alternative) by
+///   `β̂ = (ΦᵀWΦ + S)⁻¹ ΦᵀW z` — any fitter is admissible; zero conditions.
+/// * On the evaluation fold, score the Gaussian log-likelihood under that
+///   prefit alternative, and the SUPREMUM of the evaluation-fold log-likelihood
+///   over the null class (the constant fit = weighted-mean response refit on the
+///   eval fold — the honest constrained sup on D₀).
+/// * `log E = ℓ_alt(D₀) − sup_{H0} ℓ(D₀)`, with `E_{H0}[E] ≤ 1` exactly.
+///
+/// The dispersion `φ` is held fixed at the fitted reconstruction dispersion in
+/// both log-likelihoods so it cancels structurally and the e-value isolates the
+/// mean-curvature evidence. Returns `None` when the design has no curvature
+/// column (`M_k ≤ 1`), either fold is empty, or the inner Gram is not SPD.
+fn atom_smooth_significance(fit: &AtomInnerFit) -> Option<AtomSmoothSignificance> {
+    let m = fit.design.ncols();
+    if m <= 1 || fit.beta.len() != m {
+        // No curvature column: the constant null IS the full model — there is no
+        // non-constant alternative to earn an e-value.
+        return None;
+    }
+    let n = fit.design.nrows();
+    if n == 0 || fit.weights.len() != n || fit.row_scores.nrows() != n {
+        return None;
+    }
+    let phi = if fit.dispersion.is_finite() && fit.dispersion > 0.0 {
+        fit.dispersion
+    } else {
+        return None;
+    };
+
+    // Per-row working response z_i = μ̂_i + r_i, reconstructing the scalar
+    // residual r_i from the captured score projected onto the design row
+    // (s_iᵀ Φ_i = −w_i r_i ‖Φ_i‖² / φ ⇒ r_i). Same reconstruction the previous
+    // deviance path used; here it feeds the two folds' likelihoods.
+    let mut z = Array1::<f64>::zeros(n);
+    for i in 0..n {
+        let mu_hat = fit.design.row(i).dot(&fit.beta);
+        let w_i = fit.weights[i];
+        let phi_row = fit.design.row(i);
+        let phi_norm_sq = phi_row.dot(&phi_row);
+        let r_i = if w_i > 0.0 && phi_norm_sq > 0.0 {
+            let s_dot_phi = fit.row_scores.row(i).dot(&phi_row);
+            -phi * s_dot_phi / (w_i * phi_norm_sq)
+        } else {
+            0.0
+        };
+        z[i] = mu_hat + r_i;
+    }
+
+    // Deterministic estimation/evaluation split by row parity.
+    let est: Vec<usize> = (0..n).filter(|i| i % 2 == 0).collect();
+    let eval: Vec<usize> = (0..n).filter(|i| i % 2 == 1).collect();
+    if est.is_empty() || eval.is_empty() {
+        return None;
+    }
+
+    // Penalized smooth fit on the estimation fold: β̂ = (ΦᵀWΦ + S)⁻¹ ΦᵀW z.
+    let mut a_gram = fit.penalty.clone();
+    let mut b = Array1::<f64>::zeros(m);
+    for &i in &est {
+        let w_i = fit.weights[i];
+        if !(w_i > 0.0) {
+            continue;
+        }
+        let row = fit.design.row(i);
+        for r in 0..m {
+            let xr = row[r];
+            if xr == 0.0 {
+                continue;
+            }
+            b[r] += w_i * xr * z[i];
+            for c in 0..m {
+                a_gram[[r, c]] += w_i * xr * row[c];
+            }
+        }
+    }
+    let beta_alt = a_gram.cholesky(Side::Lower).ok()?.solvevec(&b);
+
+    // Null sup on the EVALUATION fold: the weighted-mean response (the constant
+    // fit's MLE on D₀, the honest constrained sup over the null class).
+    let mut eval_mass = 0.0_f64;
+    let mut eval_wz = 0.0_f64;
+    for &i in &eval {
+        let w_i = fit.weights[i];
+        eval_mass += w_i;
+        eval_wz += w_i * z[i];
+    }
+    if !(eval_mass > 0.0) {
+        return None;
+    }
+    let null_mean = eval_wz / eval_mass;
+
+    // Gaussian log-likelihoods on the evaluation fold at fixed dispersion φ;
+    // the −½ log(2πφ) and weight-log terms are identical under both models, so
+    // log E = −(½/φ) [ Σ w(z − μ_alt)² − Σ w(z − μ_null)² ].
+    let mut sse_alt = 0.0_f64;
+    let mut sse_null = 0.0_f64;
+    for &i in &eval {
+        let w_i = fit.weights[i];
+        let mu_alt = fit.design.row(i).dot(&beta_alt);
+        let r_alt = z[i] - mu_alt;
+        let r_null = z[i] - null_mean;
+        sse_alt += w_i * r_alt * r_alt;
+        sse_null += w_i * r_null * r_null;
+    }
+    let log_lik_alt = -0.5 * sse_alt / phi;
+    let log_lik_null_sup = -0.5 * sse_null / phi;
+    let log_e = crate::inference::structure_evidence::split_likelihood_log_e_value(
+        log_lik_alt,
+        log_lik_null_sup,
+    );
+    if !log_e.is_finite() {
+        return None;
+    }
+
+    Some(AtomSmoothSignificance {
+        log_e_nonconstant: Some(log_e),
+    })
+}
+
+/// Assemble the post-PIRLS inference reports for every atom, reusing the
+/// per-atom [`AtomInnerFit`] harvested at fit time.
+///
+/// * #1097 penalty-debiased functional POINT summaries and the #1103 split-LRT
+///   smooth-structure e-value are computed from the captured inner-decoder
+///   smooth (design, penalized Hessian, row scores, roughness Gram) — they need
+///   only the fixed fitted snapshot.
+/// * The #1099 per-atom curvature *confidence interval* was removed under #1115:
+///   a sup-norm curvature BOUND is not an estimand with a profiled criterion,
+///   and its delta-method SE conditioned on generated latent coordinates as if
+///   known. The plug-in curvature point estimate survives on
+///   [`crate::terms::sae_manifold::CertificateInputs::per_atom_kappa_hat`] (the
+///   #1008 empirical curved-dictionary report), not on this report.
+pub(crate) fn atom_inference_reports(model: &FittedSaeManifold) -> Vec<AtomInferenceReport> {
+    model
+        .atoms
+        .iter()
+        .enumerate()
+        .map(|(atom_index, atom)| {
+            let (functionals, smooth_significance) = match &atom.inner_fit {
+                Some(fit) => (
+                    Some(atom_functional_report(fit)),
+                    atom_smooth_significance(fit),
+                ),
+                None => (None, None),
+            };
+            AtomInferenceReport {
+                atom_index,
+                atom_name: atom.name.clone(),
+                functionals,
+                smooth_significance,
+            }
+        })
+        .collect()
 }
 
 /// Produce the paired certificate for a fitted model: the residual-gauge
@@ -2447,13 +2971,327 @@ pub fn dictionary_report(
     Ok(DictionaryReport {
         gauge: residual_gauge(model)?,
         structure: ledger.certify(alpha),
+        transport_ladders: Vec::new(),
+        atom_inference: atom_inference_reports(model),
     })
+}
+
+// --- #1100: closed-loop probe runner FFI ---------------------------------
+// Top-level entry points exposing the steering→structure-evidence probe loop
+// (`crate::inference::probe_runner::ProbeRunner`) beside `dictionary_report`, so
+// the Python driver can design and absorb interventional probes against the same
+// fitted term and evidence ledger the certificate is built from.
+
+/// Design the next interventional probe for the most contested steerable claim
+/// in `ledger`, against the fitted SAE-manifold `term` read through its per-row
+/// output-Fisher `metric`.
+///
+/// Thin top-level wrapper over [`crate::inference::probe_runner::ProbeRunner::design_next`]:
+/// it selects the contested claim furthest from certification, realizes candidate
+/// latent moves of its atom through `crate::inference::steering::steer_delta`,
+/// and routes their doses through
+/// `crate::inference::structure_evidence::plan_probe_for_contested_claim` to pick
+/// the most discriminating one. The returned
+/// [`crate::inference::probe_runner::RealizedProbe`] carries both the experiment
+/// plan and the chosen intervention's on-manifold activation delta with its
+/// dosimetry and validity radius.
+pub fn design_probe(
+    term: &SaeManifoldTerm,
+    metric: &RowMetric,
+    ledger: &StructureLedger,
+) -> Result<RealizedProbe, String> {
+    ProbeRunner { term, metric }.design_next(ledger)
+}
+
+/// Absorb a realized probe outcome into `ledger`, banking the delivered
+/// behavioral dose (`realized_nats`, the observed output-Fisher KL of the steered
+/// response) as anytime-valid evidence for the probe's claim.
+///
+/// Thin top-level wrapper over [`crate::inference::probe_runner::ProbeRunner::absorb`].
+pub fn absorb_probe(
+    term: &SaeManifoldTerm,
+    metric: &RowMetric,
+    ledger: &mut StructureLedger,
+    probe: &RealizedProbe,
+    realized_nats: f64,
+) {
+    ProbeRunner { term, metric }.absorb(ledger, probe, realized_nats);
+}
+
+/// Produce the paired certificate plus #1096 per-atom layer-transport ladders.
+///
+/// This is the strict wiring seam for callers that already have canonical
+/// per-layer atom coordinates. It validates atom indices, topology/coordinate
+/// lengths, finite coordinates, and the circle-period convention before calling
+/// [`transport_ladder`]. Single-layer inputs are refused: no transport estimand
+/// exists without at least one adjacent layer pair.
+pub fn dictionary_report_with_transport_ladders(
+    model: &FittedSaeManifold,
+    ledger: &StructureLedger,
+    alpha: f64,
+    ladders: &[AtomTransportLadderInput],
+) -> Result<DictionaryReport, String> {
+    let mut report = dictionary_report(model, ledger, alpha)?;
+    report.transport_ladders = atom_transport_ladder_reports(model, ladders)?;
+    Ok(report)
+}
+
+/// Fit #1096 transport ladders for the supplied atom/layer coordinate blocks.
+pub fn atom_transport_ladder_reports(
+    model: &FittedSaeManifold,
+    ladders: &[AtomTransportLadderInput],
+) -> Result<Vec<AtomTransportLadderReport>, String> {
+    let mut out = Vec::with_capacity(ladders.len());
+    for input in ladders {
+        let atom = model.atoms.get(input.atom_index).ok_or_else(|| {
+            format!(
+                "atom transport ladder index {} out of range for {} fitted atoms",
+                input.atom_index,
+                model.atoms.len()
+            )
+        })?;
+        let depth = input.layers.len();
+        if depth < 2 {
+            return Err(format!(
+                "atom transport ladder for atom {} ('{}') needs at least two layers, got {depth}",
+                input.atom_index, atom.name
+            ));
+        }
+        if input.coords.len() != depth || input.topologies.len() != depth {
+            return Err(format!(
+                "atom transport ladder for atom {} ('{}') has {} layers, {} coordinate blocks, {} topologies",
+                input.atom_index,
+                atom.name,
+                depth,
+                input.coords.len(),
+                input.topologies.len()
+            ));
+        }
+
+        let mut coords = Vec::with_capacity(depth);
+        let mut topologies = Vec::with_capacity(depth);
+        for (layer_pos, (coord, topology)) in
+            input.coords.iter().zip(input.topologies.iter()).enumerate()
+        {
+            coords.push(canonical_coords_for_transport(
+                coord,
+                topology,
+                input.atom_index,
+                &atom.name,
+                input.layers[layer_pos],
+            )?);
+            topologies.push(ChartTopology::from(topology));
+        }
+
+        let report = transport_ladder(&input.layers, &coords, &topologies).map_err(|e| {
+            format!(
+                "atom transport ladder for atom {} ('{}') failed: {e}",
+                input.atom_index, atom.name
+            )
+        })?;
+        out.push(AtomTransportLadderReport {
+            atom_index: input.atom_index,
+            atom_name: atom.name.clone(),
+            report,
+        });
+    }
+    Ok(out)
+}
+
+fn canonical_coords_for_transport(
+    coords: &Array1<f64>,
+    topology: &CanonicalChartTopology,
+    atom_index: usize,
+    atom_name: &str,
+    layer: usize,
+) -> Result<Array1<f64>, String> {
+    if coords.iter().any(|v| !v.is_finite()) {
+        return Err(format!(
+            "atom transport ladder for atom {atom_index} ('{atom_name}') layer {layer} has non-finite coordinates"
+        ));
+    }
+    match topology {
+        CanonicalChartTopology::Circle { period } => {
+            if !(period.is_finite() && *period > 0.0) {
+                return Err(format!(
+                    "atom transport ladder for atom {atom_index} ('{atom_name}') layer {layer} has invalid circle period {period}"
+                ));
+            }
+            Ok(coords.mapv(|t| (t / *period) * TAU))
+        }
+        CanonicalChartTopology::Interval => Ok(coords.clone()),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// #1102 cross-checkpoint atom-dynamics FFI entry (new top-level block).
+// ----------------------------------------------------------------------------
+
+/// Run #1102 cross-checkpoint Riesz-debiased atom-trajectory dynamics for the
+/// fitted dictionary's atoms.
+///
+/// `decoder_grid` is `[n_checkpoints, n_atoms, n_grid, ambient_dim]` and
+/// `atom_names`/`checkpoint_ids`/`latent_grid` label its axes; see
+/// [`crate::inference::checkpoint_dynamics`] for the estimator and the honest
+/// accounting of which Riesz inputs the bare grid supports. This entry binds
+/// the atom axis to the fitted model: `atom_names` must name exactly the
+/// model's atoms in order, so trajectories are reported against real atoms.
+pub fn atom_checkpoint_dynamics(
+    model: &FittedSaeManifold,
+    decoder_grid: ndarray::ArrayView4<'_, f64>,
+    checkpoint_ids: &[String],
+    atom_names: &[String],
+    latent_grid: ArrayView1<'_, f64>,
+) -> Result<Vec<crate::inference::checkpoint_dynamics::AtomTrajectory>, String> {
+    if atom_names.len() != model.atoms.len() {
+        return Err(format!(
+            "atom_checkpoint_dynamics: {} atom names supplied for {} fitted atoms",
+            atom_names.len(),
+            model.atoms.len()
+        ));
+    }
+    for (idx, (supplied, fitted)) in atom_names.iter().zip(model.atoms.iter()).enumerate() {
+        if supplied != &fitted.name {
+            return Err(format!(
+                "atom_checkpoint_dynamics: atom {idx} name '{supplied}' does not match fitted atom '{}'",
+                fitted.name
+            ));
+        }
+    }
+    crate::inference::checkpoint_dynamics::checkpoint_atom_dynamics(
+        &crate::inference::checkpoint_dynamics::CheckpointDynamicsInput {
+            decoder_grid,
+            checkpoint_ids,
+            atom_names,
+            latent_grid,
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ndarray::{Array1, array};
+
+    /// #1097: the per-atom penalty-debiased functional point summaries must
+    /// reproduce the exact linear functionals of the fitted decoder smooth
+    /// (plug-in) and a finite debiased value, on a synthetic atom whose inner
+    /// smooth is an analytic polynomial. No SE/CI is asserted — none is reported
+    /// (#1115).
+    #[test]
+    fn atom_functional_report_recovers_known_functionals() {
+        use ndarray::{Array1 as A1, Array2 as A2};
+        // Polynomial basis Φ(t) = [1, t, t²] on a uniform active grid; the atom's
+        // fitted smooth is g(t) = β·Φ(t) with a known β. We assemble a genuine
+        // penalized-WLS AtomInnerFit (unit weights, identity-ish penalty) so the
+        // Riesz path runs end to end.
+        let n = 40usize;
+        let m = 3usize;
+        let beta = A1::from(vec![0.5_f64, -1.0, 2.0]);
+        let mut design = A2::<f64>::zeros((n, m));
+        let mut derivative_design = A2::<f64>::zeros((n, m));
+        let mut weights = A1::<f64>::ones(n);
+        let mut t = vec![0.0_f64; n];
+        for i in 0..n {
+            let ti = i as f64 / (n - 1) as f64;
+            t[i] = ti;
+            design[[i, 0]] = 1.0;
+            design[[i, 1]] = ti;
+            design[[i, 2]] = ti * ti;
+            // dΦ/dt = [0, 1, 2t].
+            derivative_design[[i, 0]] = 0.0;
+            derivative_design[[i, 1]] = 1.0;
+            derivative_design[[i, 2]] = 2.0 * ti;
+            weights[i] = 1.0;
+        }
+        let dispersion = 1.0_f64;
+        // Working response equals the fitted curve so residuals are zero → the
+        // plug-in is exactly the analytic functional of β; scores are zero.
+        let row_scores = A2::<f64>::zeros((n, m));
+        // Penalty S = small ridge on curvature column only; penalized Hessian
+        // H = ΦᵀWΦ + S.
+        let mut penalty = A2::<f64>::zeros((m, m));
+        penalty[[2, 2]] = 1e-3;
+        let mut xtwx = A2::<f64>::zeros((m, m));
+        for i in 0..n {
+            for a in 0..m {
+                for b in 0..m {
+                    xtwx[[a, b]] += weights[i] * design[[i, a]] * design[[i, b]];
+                }
+            }
+        }
+        let penalized_hessian = &xtwx + &penalty;
+        // Peak: |g| largest; mode: pick endpoints to give a known contrast.
+        let mut peak_slot = 0usize;
+        let mut peak_val = -1.0;
+        for i in 0..n {
+            let g = design.row(i).dot(&beta).abs();
+            if g > peak_val {
+                peak_val = g;
+                peak_slot = i;
+            }
+        }
+        let peak_design_row = design.row(peak_slot).to_owned();
+        let mode_design_row = design.row(0).to_owned();
+
+        let fit = AtomInnerFit {
+            design: design.clone(),
+            derivative_design: derivative_design.clone(),
+            beta: beta.clone(),
+            penalty,
+            penalized_hessian,
+            row_scores,
+            weights: weights.clone(),
+            dispersion,
+            peak_design_row: peak_design_row.clone(),
+            mode_design_row: mode_design_row.clone(),
+        };
+
+        let report = atom_functional_report(&fit);
+
+        // Average value E_w[g] = mean_i β·Φ(t_i): exact plug-in match.
+        let av = report.average_value.expect("average value");
+        let expected_av: f64 = (0..n).map(|i| design.row(i).dot(&beta)).sum::<f64>() / n as f64;
+        assert!(
+            (av.theta_plugin - expected_av).abs() < 1e-9,
+            "average value plug-in {} vs expected {}",
+            av.theta_plugin,
+            expected_av
+        );
+        // Point summary only: the debiased value is finite (no SE/CI is
+        // reported by design — #1115).
+        assert!(
+            av.theta_onestep.is_finite(),
+            "average-value debiased finite"
+        );
+
+        // Decoder-variation norm (conditional on fit): g'(t) = β1 + 2β2 t, mean
+        // over the grid is β1 + 2β2 * mean(t). The functional gradient is the
+        // mean derivative row; its plug-in is exactly that scalar. This is the
+        // descriptive variation of the fitted curve, not a population marginal
+        // slope.
+        let ad = report
+            .decoder_variation_norm
+            .expect("decoder variation norm");
+        let mean_t: f64 = t.iter().sum::<f64>() / n as f64;
+        let expected_ad = beta[1] + 2.0 * beta[2] * mean_t;
+        assert!(
+            (ad.theta_plugin - expected_ad).abs() < 1e-9,
+            "decoder variation plug-in {} vs expected {}",
+            ad.theta_plugin,
+            expected_ad
+        );
+
+        // Peak-vs-mode contrast g(t_peak) − g(t_mode): exact plug-in.
+        let pc = report.peak_contrast.expect("peak contrast");
+        let expected_pc = peak_design_row.dot(&beta) - mode_design_row.dot(&beta);
+        assert!(
+            (pc.theta_plugin - expected_pc).abs() < 1e-9,
+            "peak contrast plug-in {} vs expected {}",
+            pc.theta_plugin,
+            expected_pc
+        );
+    }
 
     #[test]
     fn mechanism_sparsity_jacobian_value_matches_closed_form() {

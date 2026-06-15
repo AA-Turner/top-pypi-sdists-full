@@ -35,6 +35,7 @@ from .closure import (
 )
 from .deprecated import LeftJoin, RightJoin
 from .math import _ref, ref
+from .meta import BoolMeta, FloatMeta, IntMeta, Meta, NameMeta, UIntMeta
 from .model import (
     NIL,
     Box,
@@ -70,6 +71,7 @@ __all__ = [
     'EOL_SYM',
     'Alert',
     'BasedRule',
+    'BoolMeta',
     'Call',
     'Choice',
     'Option',
@@ -92,6 +94,11 @@ __all__ = [
     'ModelContext',
     'Named',
     'NamedList',
+    'NameMeta',
+    'UIntMeta',
+    'IntMeta',
+    'FloatMeta',
+    'Meta',
     'NegativeLookahead',
     'NIL',
     'Optional',

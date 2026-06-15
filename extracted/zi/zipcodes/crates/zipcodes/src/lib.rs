@@ -56,6 +56,31 @@ pub struct Zipcode {
     pub zip_code_type: String,
 }
 
+/// Canonical field order of records in `zips.json` and of the dicts returned by
+/// the Python package. This is the base CSV's historical column order — **not**
+/// alphabetical (the struct above is declared alphabetically; serde matches by
+/// name, so the two need only agree on the field *set*, not its order).
+///
+/// `lat`/`long` are `String` here and round-trip losslessly through serde; if
+/// they ever become `f64`, the serde-based `to_dict` in the Python binding and
+/// the JSON build pipeline must be revisited together.
+pub const FIELD_ORDER: [&str; 14] = [
+    "zip_code",
+    "zip_code_type",
+    "active",
+    "city",
+    "acceptable_cities",
+    "unacceptable_cities",
+    "state",
+    "county",
+    "timezone",
+    "area_codes",
+    "world_region",
+    "country",
+    "lat",
+    "long",
+];
+
 impl Zipcode {
     /// Compare a named field against a JSON value, mirroring the Python
     /// package's `filter_by(**kwargs)` semantics: an unknown field name or a
@@ -211,7 +236,10 @@ pub fn database() -> &'static [Zipcode] {
     &ZIPCODES
 }
 
-fn clean_zipcode(zipcode: &str) -> Result<&str> {
+/// Validate and normalize a full zipcode (`"#####"`, `"#####-####"`, or
+/// `"##### ####"`): trim surrounding whitespace, require at least five
+/// characters, then take the first five and require them to be ASCII digits.
+pub fn clean_zipcode(zipcode: &str) -> Result<&str> {
     let zipcode = zipcode.trim();
     if zipcode.len() < ZIPCODE_LENGTH {
         return Err(Error::InvalidFormat);
@@ -223,10 +251,45 @@ fn clean_zipcode(zipcode: &str) -> Result<&str> {
     Ok(prefix)
 }
 
+/// Validate a partial zipcode (prefix or fragment): after trimming, require
+/// 1–5 ASCII digits. Longer input is [`Error::InvalidFormat`]; non-digits are
+/// [`Error::InvalidCharacters`]. Empty input is also rejected as
+/// [`Error::InvalidFormat`] (the Python shim guards it earlier with a
+/// `TypeError`), so this never returns `Ok("")`.
+pub fn clean_prefix(partial: &str) -> Result<&str> {
+    let partial = partial.trim();
+    if partial.is_empty() || partial.len() > ZIPCODE_LENGTH {
+        return Err(Error::InvalidFormat);
+    }
+    if !partial.chars().all(|c| c.is_ascii_digit()) {
+        return Err(Error::InvalidCharacters);
+    }
+    Ok(partial)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn field_order_matches_struct() {
+        // FIELD_ORDER must list exactly the struct's serialized fields. A field
+        // added to one but not the other fails here rather than silently
+        // dropping from the dicts the binding builds.
+        let record = &matching("06903", None).unwrap()[0];
+        let value = serde_json::to_value(record).unwrap();
+        let mut keys: Vec<&str> = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        let mut expected = FIELD_ORDER.to_vec();
+        expected.sort_unstable();
+        assert_eq!(keys, expected);
+    }
 
     #[test]
     fn should_find_real_zipcodes() {
@@ -293,6 +356,40 @@ mod tests {
             matching("1234a", None),
             Err(Error::InvalidCharacters)
         ));
+    }
+
+    #[test]
+    fn clean_zipcode_normalizes_valid_input() {
+        assert_eq!(clean_zipcode("12345").unwrap(), "12345");
+        assert_eq!(clean_zipcode("12345-6789").unwrap(), "12345");
+        assert_eq!(clean_zipcode("12345 6789").unwrap(), "12345");
+        assert_eq!(clean_zipcode("  06903  ").unwrap(), "06903");
+    }
+
+    #[test]
+    fn clean_zipcode_rejects_invalid_input() {
+        assert!(matches!(clean_zipcode("123"), Err(Error::InvalidFormat)));
+        assert!(matches!(clean_zipcode("   "), Err(Error::InvalidFormat)));
+        assert!(matches!(
+            clean_zipcode("1234a"),
+            Err(Error::InvalidCharacters)
+        ));
+    }
+
+    #[test]
+    fn clean_prefix_accepts_one_to_five_digits() {
+        for p in ["1", "12", "123", "1234", "12345"] {
+            assert_eq!(clean_prefix(p).unwrap(), p);
+        }
+        assert_eq!(clean_prefix("  10  ").unwrap(), "10");
+    }
+
+    #[test]
+    fn clean_prefix_rejects_invalid_input() {
+        assert!(matches!(clean_prefix("123456"), Err(Error::InvalidFormat)));
+        assert!(matches!(clean_prefix(""), Err(Error::InvalidFormat)));
+        assert!(matches!(clean_prefix("   "), Err(Error::InvalidFormat)));
+        assert!(matches!(clean_prefix("10a"), Err(Error::InvalidCharacters)));
     }
 
     #[test]

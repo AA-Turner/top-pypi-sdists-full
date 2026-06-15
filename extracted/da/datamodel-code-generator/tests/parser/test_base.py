@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from pydantic import BaseModel as PydanticBaseModel
 
 import datamodel_code_generator._internal_utils as internal_utils
 from datamodel_code_generator.enums import CollapseRootModelsNameStrategy
@@ -14,6 +15,8 @@ from datamodel_code_generator.imports import Imports
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures
 
 from datamodel_code_generator.model.pydantic_v2 import BaseModel, DataModelField
@@ -79,6 +82,46 @@ def test_parser() -> None:
     assert c.base_class == "Base"
     # Test schema_features property of test stub
     assert c.schema_features.prefix_items is True
+
+
+def test_local_source_cache_yields_fresh_source_objects(tmp_path: Path) -> None:
+    """Test cached local source materialization preserves fresh Source object semantics."""
+    source_path = tmp_path / "schema.json"
+    source_path.write_text("{}", encoding="utf-8")
+    parser = C(
+        data_model_type=D,
+        data_model_root_type=B,
+        data_model_field_type=DataModelFieldBase,
+        source=tmp_path,
+    )
+    parser._cache_local_sources = True
+
+    first_source = next(parser.iter_source)
+    first_source.raw_data = {"mutated": True}
+    second_source = next(parser.iter_source)
+
+    assert second_source is not first_source
+    assert second_source.raw_data is None
+    assert second_source.text == "{}"
+
+
+def test_local_source_cache_reset_clears_state(tmp_path: Path) -> None:
+    """Test local source cache reset clears cached source state."""
+    source_path = tmp_path / "schema.json"
+    source_path.write_text("{}", encoding="utf-8")
+    parser = C(
+        data_model_type=D,
+        data_model_root_type=B,
+        data_model_field_type=DataModelFieldBase,
+        source=tmp_path,
+    )
+
+    parser._cache_local_sources = True
+    parser._local_source_cache = tuple(parser._iter_source_uncached())
+    parser._reset_local_source_cache()
+
+    assert parser._cache_local_sources is False
+    assert parser._local_source_cache is None
 
 
 def test_add_model_path_to_list() -> None:
@@ -726,6 +769,16 @@ def test_get_most_of_parent_honors_type_filter() -> None:
     assert get_most_of_parent(child, int) is None
 
 
+def test_get_most_of_parent_walks_plain_parent_attributes() -> None:
+    """Test parent traversal with plain objects that expose a parent attribute."""
+    root = SimpleNamespace()
+    middle = SimpleNamespace(parent=root)
+    child = SimpleNamespace(parent=middle)
+
+    assert get_most_of_parent(child) is root
+    assert get_most_of_parent(SimpleNamespace(parent=None)) is None
+
+
 def test_to_hashable_list_and_tuple() -> None:
     """Test to_hashable with list and tuple."""
     result = to_hashable([3, 1, 2])
@@ -743,6 +796,24 @@ def test_to_hashable_dict() -> None:
     assert isinstance(result, tuple)
     # sorted by key
     assert result == (("a", 1), ("b", 2))
+
+
+def test_to_hashable_set() -> None:
+    """Test to_hashable with set."""
+    result = to_hashable({3, 1, 2})
+    assert isinstance(result, frozenset)
+    assert result == frozenset({1, 2, 3})
+
+
+def test_to_hashable_pydantic_base_model() -> None:
+    """Test to_hashable with pydantic BaseModel."""
+
+    class Item(PydanticBaseModel):
+        name: str
+        tags: set[str]
+
+    result = to_hashable(Item(name="item", tags={"blue", "red"}))
+    assert result == (("name", "item"), ("tags", frozenset({"blue", "red"})))
 
 
 def test_to_hashable_mixed_types_fallback() -> None:

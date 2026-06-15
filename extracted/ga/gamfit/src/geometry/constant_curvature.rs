@@ -241,6 +241,52 @@ impl ConstantCurvature {
         Ok(2.0 / self.chart_gauge(x)?)
     }
 
+    /// Radial Jacobian determinant `J_κ(r) = det(d exp_μ)|_{‖v‖=r}` of the
+    /// exponential map in geodesic normal coordinates — the volume element that
+    /// converts the flat tangent measure `dr` into the Riemannian volume
+    /// `dvol_κ` at geodesic radius `r` from any base point (homogeneous, so it
+    /// depends only on `r`, never on the base).
+    ///
+    /// In a space form of curvature κ the Jacobi-field solution gives
+    /// `J_κ(r) = (sn_κ(r) / r)^{d−1}` with the curvature-normalized sine
+    /// `sn_κ(r) = sin(√κ r)/√κ` (κ>0), `r` (κ=0), `sinh(√−κ r)/√−κ` (κ<0).
+    /// Writing `S(u) = sn(t)/t` with `u = κ r²` (the entire function already in
+    /// the chart's [`cs_stacks`]), this is exactly `S(κ r²)^{d−1}` — analytic
+    /// through κ = 0 with no special case. `J_κ(0) = 1`.
+    ///
+    /// On a 1-D space form (`d = 1`) the exponent is 0, so `J_κ ≡ 1`: the exp
+    /// map is a radial isometry and the volume Jacobian carries no curvature
+    /// information (consistent with #944's reduced-information d = 1 power
+    /// analysis — there κ is identified by the conformal-factor term alone).
+    ///
+    /// Past the κ>0 conjugate radius (`√κ·r > π`, the antipodal shell) `S(u)`
+    /// turns negative. The geodesic ball is no longer embedded there, so the
+    /// well-defined non-negative volume element is `max(S(u), 0)^{d−1}` — the
+    /// clamp is on `S` itself, not on the (possibly even) power, so it stays a
+    /// genuine `→ 0⁺` collapse at the shell for every `d` (an even `d−1` would
+    /// otherwise resurrect a spurious positive volume past the cut). The
+    /// `response_kappa_bounds` cap keeps the search strictly before this shell;
+    /// the clamp only hardens stray CI/LR probes.
+    ///
+    /// This is the κ-dependent volume term whose log enters the #1104 honest
+    /// change-of-variables criterion and breaks the radius/scale degeneracy of
+    /// a dispersion-only curvature criterion.
+    pub fn jacobian_radial(&self, r: f64) -> f64 {
+        // The transverse exponent d − 1. At d ≤ 1 the exp map is a radial
+        // isometry (`d = 1`) or degenerate (`d = 0`): there are no transverse
+        // Jacobi directions, so J ≡ 1 with no exponentiation. Guarding `d ≤ 1`
+        // (not just `d == 1`) keeps a stray `d = 0` probe from forming `powi(−1)`.
+        if self.dim <= 1 {
+            return 1.0;
+        }
+        let exponent = (self.dim - 1) as i32;
+        let u = self.kappa * r * r;
+        let s = cs_stacks(u).1[0]; // S(u) = sn_κ(r)/r ≥ 0 inside the chart
+        // Clamp S (not the power) at the κ>0 conjugate shell so the volume
+        // element collapses to 0⁺ there regardless of the parity of d−1.
+        s.max(0.0).powi(exponent)
+    }
+
     /// Möbius addition `x ⊕_κ y` — the chart realization of geodesic
     /// translation. Rational in κ (hence trivially κ-differentiable):
     ///
@@ -960,17 +1006,13 @@ mod tests {
     #[test]
     fn exp_map_vjp_matches_finite_differences() {
         let h = 1e-6;
-        let cases: &[(ndarray::Array1<f64>, ndarray::Array1<f64>, ndarray::Array1<f64>)] = &[
-            (
-                array![0.2, -0.1],
-                array![0.12, 0.08],
-                array![1.0, -0.5],
-            ),
-            (
-                array![-0.15, 0.22],
-                array![-0.05, 0.11],
-                array![0.3, 0.7],
-            ),
+        let cases: &[(
+            ndarray::Array1<f64>,
+            ndarray::Array1<f64>,
+            ndarray::Array1<f64>,
+        )] = &[
+            (array![0.2, -0.1], array![0.12, 0.08], array![1.0, -0.5]),
+            (array![-0.15, 0.22], array![-0.05, 0.11], array![0.3, 0.7]),
         ];
         for &kappa in &[-1.3, -0.3, 0.0, 0.4, 1.1] {
             let m = ConstantCurvature::new(2, kappa);
@@ -1009,6 +1051,55 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    /// The radial volume Jacobian `J_κ(s) = (sn_κ(s)/s)^{d−1}` is analytic and
+    /// continuous through the flat point κ = 0 and through the sign change, has
+    /// the removable value `J_κ(0) = 1` at s = 0 for every κ, reduces to the
+    /// flat `s^{d−1}/s^{d−1} = 1` (i.e. `S(0)=1`) limit, collapses to `0⁺` at the
+    /// κ>0 conjugate shell (`√κ·s = π`) regardless of the parity of `d−1`, and is
+    /// the radial isometry `J ≡ 1` at `d ≤ 1` with no exponentiation.
+    #[test]
+    fn jacobian_radial_is_stable_through_flat_and_at_d_le_1() {
+        // d = 1: radial isometry, identically 1 at every κ and radius.
+        for &kappa in &[-2.0, -1e-9, 0.0, 1e-9, 3.0] {
+            let m = ConstantCurvature::new(1, kappa);
+            for &s in &[0.0, 0.1, 1.0, 5.0] {
+                assert_eq!(m.jacobian_radial(s), 1.0, "d=1 J≡1 at κ={kappa}, s={s}");
+            }
+        }
+        // d = 0 (degenerate): the d ≤ 1 guard must NOT form powi(−1).
+        let m0 = ConstantCurvature::new(0, 0.7);
+        assert_eq!(m0.jacobian_radial(0.4), 1.0, "d=0 guarded to 1");
+
+        // d = 3: continuity through κ = 0 and J(0) = 1; the flat limit is the
+        // analytic value of S(κs²)² → 1 as κ → 0.
+        let s = 0.3_f64;
+        let flat = ConstantCurvature::new(3, 0.0).jacobian_radial(s);
+        assert!((flat - 1.0).abs() <= 1e-15, "flat J(0.3) = {flat}");
+        let near_plus = ConstantCurvature::new(3, 1e-8).jacobian_radial(s);
+        let near_minus = ConstantCurvature::new(3, -1e-8).jacobian_radial(s);
+        assert!(
+            (near_plus - 1.0).abs() <= 1e-6 && (near_minus - 1.0).abs() <= 1e-6,
+            "J continuous through κ=0: {near_plus}, {near_minus}"
+        );
+        // J(0) = 1 at every κ (removable s = 0 singularity of sn_κ/s).
+        for &kappa in &[-1.5, 0.0, 2.5] {
+            let m = ConstantCurvature::new(3, kappa);
+            assert!((m.jacobian_radial(0.0) - 1.0).abs() <= 1e-15);
+        }
+
+        // κ > 0 conjugate shell at √κ·s = π collapses to 0⁺ for both even and
+        // odd d−1 (the clamp is on S, not on the power).
+        let kappa = 1.0_f64;
+        let s_shell = std::f64::consts::PI / kappa.sqrt();
+        for &d in &[3usize, 4] {
+            let m = ConstantCurvature::new(d, kappa);
+            // Just past the shell S(u) < 0; the volume element must be exactly 0,
+            // never a spurious positive value resurrected by an even d−1 power.
+            let past = m.jacobian_radial(s_shell * 1.01);
+            assert_eq!(past, 0.0, "d={d}: J past conjugate shell must be 0");
         }
     }
 

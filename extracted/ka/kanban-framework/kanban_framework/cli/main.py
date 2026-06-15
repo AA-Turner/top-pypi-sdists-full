@@ -84,10 +84,25 @@ _TEXT_DEFAULT_COMMANDS: set[str] = {"dashboard", "init", "help", "hook"}
 
 
 def _ensure_utf8_stdout() -> None:
+    """Force UTF-8 on stdout/stderr — Windows default is cp936/gbk.
+
+    Without this, Chinese characters in JSON output show as ??? on
+    Windows cmd/Git Bash (#657). The reconfigure API is available
+    on Python 3.7+ TextIOWrapper.
+    """
+    import os
+    # Also set PYTHONIOENCODING for subprocesses (e.g. pip, sync_skill.py)
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
     for stream in (sys.stdout, sys.stderr):
         try:
             if hasattr(stream, "reconfigure"):
                 stream.reconfigure(encoding="utf-8", errors="replace")
+            elif hasattr(stream, "buffer"):
+                # Fallback for non-TextIOWrapper streams
+                import io
+                setattr(sys, "stdout" if stream is sys.stdout else "stderr",
+                        io.TextIOWrapper(stream.buffer, encoding="utf-8",
+                                         errors="replace", line_buffering=True))
         except Exception:
             pass
 

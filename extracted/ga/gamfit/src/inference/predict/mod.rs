@@ -11,7 +11,8 @@ use crate::families::marginal_slope_shared::{
     probit_frailty_scale as marginal_slope_probit_frailty_scale, scale_coeff4,
 };
 use crate::families::strategy::{
-    FamilyStrategy, strategy_for_family, strategy_for_spec, strategy_from_fit,
+    FamilyStrategy, ResolvedFamilyStrategy, strategy_for_family, strategy_for_spec,
+    strategy_from_fit,
 };
 use crate::inference::model::{
     SavedCompiledFlexBlock, SavedLatentZNormalization, SavedLinkWiggleRuntime,
@@ -747,6 +748,21 @@ pub trait PredictableModel {
         &self,
         input: &PredictInput,
     ) -> Result<Option<Array1<f64>>, EstimationError>;
+
+    /// Optional per-observation DISPERSION parameter for dispersion
+    /// location-scale families (#1125), expressed in the generative
+    /// `NoiseModel`'s own units: NB θ, Gamma shape and Beta φ are the per-row
+    /// precision `exp(eta_d(x))` directly; Tweedie φ is its reciprocal
+    /// (`Var = φ·μ^p`, precision `= 1/φ`). `None` for models without a per-row
+    /// dispersion channel — those keep the scalar dispersion the fit estimated.
+    /// This is what lets `gam generate` reproduce a fitted non-constant
+    /// dispersion surface instead of drawing homoscedastic data at the seed.
+    fn predict_dispersion_scale(
+        &self,
+        _input: &PredictInput,
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
+        Ok(None)
+    }
 
     /// Full prediction with confidence/observation intervals.
     ///
@@ -3108,13 +3124,33 @@ impl BernoulliMarginalSlopePredictor {
         self.transform_internal_eta_to_base_scale(final_eta_internal, Some(grad))
     }
 
-    fn final_eta_from_theta(
+    /// Per-row final (base-scale) linear predictor for an arbitrary
+    /// coefficient vector `theta` in the saved `[marginal | logslope |
+    /// score_warp? | link_dev?]` block order. The marginal-slope rigid
+    /// kernel is applied exactly per row, so the returned η is the same
+    /// object the point predictor consumes — only parameterised by an
+    /// external draw instead of `self.theta()`. Used by the posterior
+    /// predictive path (#1049) to map each Laplace draw to its η surface
+    /// before the shared eta→bands collapse; the response scale is the
+    /// probit inverse link `μ = Φ(η)`.
+    pub fn final_eta_from_theta(
         &self,
         input: &PredictInput,
         theta: &Array1<f64>,
     ) -> Result<Array1<f64>, EstimationError> {
         let (eta, _) = self.final_eta_and_gradient_from_theta(input, theta, false)?;
         Ok(eta)
+    }
+
+    /// Length of the concatenated coefficient vector this predictor
+    /// consumes (`marginal + logslope + score_warp? + link_dev?`). The
+    /// posterior predictive path validates each saved draw against this
+    /// before mapping it through [`Self::final_eta_from_theta`].
+    pub fn theta_len(&self) -> usize {
+        self.beta_marginal.len()
+            + self.beta_logslope.len()
+            + self.beta_score_warp.as_ref().map_or(0, Array1::len)
+            + self.beta_link_dev.as_ref().map_or(0, Array1::len)
     }
 
     fn eta_standard_error_from_covariance(
@@ -3830,6 +3866,303 @@ impl PredictableModel for GaussianLocationScalePredictor {
         } else {
             vec![BlockRole::Location, BlockRole::Scale]
         }
+    }
+}
+
+/// Dispersion location-scale predictor (#913): two blocks (mean + log-precision)
+/// for the genuine-dispersion mean families — NegativeBinomial, Gamma, Beta and
+/// Tweedie — fitted with a second `noise_formula` linear predictor on the
+/// overdispersion channel.
+///
+/// Unlike the binomial-LS threshold-scale predictor, the mean channel is a plain
+/// GLM mean through the family's inverse link (log for NB/Gamma/Tweedie, logit
+/// for Beta):
+///   eta_mu = X_mu @ beta_mu + offset
+///   mean   = g^{-1}(eta_mu)
+///
+/// The log-precision channel `eta_d = X_noise @ beta_noise + offset_noise`
+/// supplies `precision = exp(eta_d)` — `theta` for NB, the shape `nu` for Gamma,
+/// `phi` for Beta, and `1/phi` for Tweedie — which combines with the predicted
+/// mean to yield the observation-scale predictive standard deviation
+/// `sqrt(Var(y | mean, precision))` per the family's mean–variance law. The
+/// confidence interval on the mean is the delta-method propagation of the mean
+/// block's joint-covariance slice through the inverse link.
+pub struct DispersionLocationScalePredictor {
+    pub beta_mu: Array1<f64>,
+    pub beta_noise: Array1<f64>,
+    /// Persisted location-scale likelihood: its `response` selects the
+    /// mean–variance law and its link is the mean inverse link.
+    pub likelihood: LikelihoodSpec,
+    /// Resolved mean inverse link (log for NB/Gamma/Tweedie, logit for Beta).
+    /// `None` falls back to the link carried by `likelihood`.
+    pub inverse_link: Option<InverseLink>,
+    pub covariance: Option<Array2<f64>>,
+}
+
+impl DispersionLocationScalePredictor {
+    fn strategy(&self) -> ResolvedFamilyStrategy {
+        strategy_for_family(self.likelihood.clone(), self.inverse_link.as_ref())
+    }
+
+    /// Mean linear predictor `eta_mu = X_mu @ beta_mu + offset`.
+    fn eta_mean(&self, input: &PredictInput) -> Array1<f64> {
+        input.design.dot(&self.beta_mu) + &input.offset
+    }
+
+    /// Log-precision linear predictor `eta_d = X_noise @ beta_noise +
+    /// offset_noise`, mapped to `precision = exp(eta_d)`.
+    fn precision(&self, input: &PredictInput) -> Result<Array1<f64>, EstimationError> {
+        let design_noise = input.design_noise.as_ref().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "dispersion location-scale prediction requires noise design matrix".to_string(),
+            )
+        })?;
+        let mut eta_d = design_noise.dot(&self.beta_noise);
+        if let Some(offset_noise) = input.offset_noise.as_ref() {
+            if offset_noise.len() != eta_d.len() {
+                return Err(EstimationError::InvalidInput(format!(
+                    "dispersion location-scale noise offset length mismatch: expected {}, got {}",
+                    eta_d.len(),
+                    offset_noise.len()
+                )));
+            }
+            eta_d += offset_noise;
+        }
+        // `exp(eta_d)` is the precision; floor it away from zero so the
+        // mean–variance law below never divides by zero on underflow.
+        Ok(eta_d.mapv(|v| v.exp().max(f64::MIN_POSITIVE)))
+    }
+
+    /// Observation-scale predictive standard deviation `sqrt(Var(y))` from the
+    /// predicted mean and precision, per the family's mean–variance law:
+    ///   NegativeBinomial  Var = mu + mu^2 / theta,   theta     = exp(eta_d)
+    ///   Gamma             Var = mu^2 / nu,            nu        = exp(eta_d)
+    ///   Beta              Var = mu (1 - mu)/(1 + phi),phi       = exp(eta_d)
+    ///   Tweedie(p)        Var = phi mu^p,             1/phi     = exp(eta_d)
+    fn noise_sd(&self, input: &PredictInput) -> Result<Array1<f64>, EstimationError> {
+        let eta_mu = self.eta_mean(input);
+        let mean = self.strategy().inverse_link_array(eta_mu.view())?;
+        let precision = self.precision(input)?;
+        if mean.len() != precision.len() {
+            return Err(EstimationError::InvalidInput(format!(
+                "dispersion location-scale mean/precision length mismatch: {} vs {}",
+                mean.len(),
+                precision.len()
+            )));
+        }
+        let response = &self.likelihood.response;
+        let variance = Array1::from_shape_fn(mean.len(), |i| {
+            let mu = mean[i];
+            let prec = precision[i];
+            let var = match response {
+                ResponseFamily::NegativeBinomial { .. } => mu + mu * mu / prec,
+                ResponseFamily::Gamma => mu * mu / prec,
+                ResponseFamily::Beta { .. } => mu * (1.0 - mu) / (1.0 + prec),
+                ResponseFamily::Tweedie { p } => mu.powf(*p) / prec,
+                // The dispersion location-scale class only routes the four
+                // overdispersion mean families above; any other response is a
+                // classification error upstream. Report a Gaussian-style scalar
+                // variance (`1/precision`) rather than panic so a corrupt model
+                // degrades gracefully instead of aborting prediction.
+                _ => 1.0 / prec,
+            };
+            var.max(0.0)
+        });
+        Ok(variance.mapv(f64::sqrt))
+    }
+
+    /// Mean-scale point + (covariance-derived) η and mean standard errors. The η
+    /// SE is the mean block's joint-covariance slice (the noise/log-precision
+    /// columns do not enter the mean linear predictor); the mean SE is the
+    /// delta-method propagation through the inverse link.
+    fn state_from_backend(
+        &self,
+        input: &PredictInput,
+        backend: &PredictionCovarianceBackend<'_>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array1<f64>, Array1<f64>), EstimationError> {
+        let eta = self.eta_mean(input);
+        let strategy = self.strategy();
+        let (mean, dmu_deta) = inverse_link_mean_and_d1(&strategy, eta.view())?;
+        // Mean block leads the coefficient layout `[mean | noise]`, so its
+        // covariance slice needs no leading pad and is followed by the `p_d`
+        // noise columns the mean linear predictor does not touch.
+        let p_d = self.beta_noise.len();
+        let eta_se = padded_design_standard_errors_from_backend(
+            &input.design,
+            backend,
+            0,
+            p_d,
+            "dispersion location-scale",
+        )?;
+        let mean_se = delta_method_mean_se_from_d1(&dmu_deta, &eta_se);
+        Ok((eta, mean, eta_se, mean_se))
+    }
+}
+
+impl PredictionTransform for DispersionLocationScalePredictor {
+    fn point_state(&self, input: &PredictInput) -> Result<LinearState, EstimationError> {
+        let eta = self.eta_mean(input);
+        let mean = self.strategy().inverse_link_array(eta.view())?;
+        let (eta_se, mean_se) = if let Some(covariance) = self.covariance.as_ref() {
+            let backend = PredictionCovarianceBackend::from_dense(covariance.view());
+            let (_, _, eta_se, mean_se) = self.state_from_backend(input, &backend)?;
+            (Some(eta_se), Some(mean_se))
+        } else {
+            (None, None)
+        };
+        Ok(LinearState {
+            eta,
+            mean,
+            eta_se,
+            mean_se,
+            covariance_corrected_used: false,
+        })
+    }
+
+    fn linear_state(
+        &self,
+        input: &PredictInput,
+        fit: &UnifiedFitResult,
+        pass: PredictPass,
+        covariance_mode: InferenceCovarianceMode,
+    ) -> Result<LinearState, EstimationError> {
+        let p_total = self.beta_mu.len() + self.beta_noise.len();
+        let (backend, covariance_corrected_used) = match pass {
+            PredictPass::FullUncertainty => fit.select_uncertainty_backend(
+                p_total,
+                covariance_mode,
+                "dispersion location-scale",
+            )?,
+            PredictPass::PosteriorMean => (
+                require_posterior_mean_backend(
+                    fit,
+                    self.covariance.as_ref(),
+                    p_total,
+                    "dispersion location-scale posterior mean",
+                )?,
+                false,
+            ),
+        };
+        let (eta, plugin_mean, eta_se, mean_se) = self.state_from_backend(input, &backend)?;
+        let mean = match pass {
+            // Plug-in mean is correct for the symmetric-delta full-uncertainty
+            // report (the point is the inverse link of the conditional η).
+            PredictPass::FullUncertainty => plugin_mean,
+            // The curved inverse link makes `E[g^{-1}(η)] ≠ g^{-1}(E[η])`, so the
+            // posterior-mean point integrates the inverse link over the
+            // conditional η posterior `η ~ N(eta, eta_se²)`.
+            PredictPass::PosteriorMean => {
+                let strategy = self.strategy();
+                let quadctx = crate::quadrature::QuadratureContext::new();
+                eta.iter()
+                    .zip(eta_se.iter())
+                    .map(|(&e, &se)| strategy.posterior_mean(&quadctx, e, se))
+                    .collect::<Result<Array1<f64>, _>>()?
+            }
+        };
+        Ok(LinearState {
+            eta,
+            mean,
+            eta_se: Some(eta_se),
+            mean_se: Some(mean_se),
+            covariance_corrected_used,
+        })
+    }
+
+    fn response(&self, eta: &Array1<f64>) -> Result<Array1<f64>, EstimationError> {
+        self.strategy().inverse_link_array(eta.view())
+    }
+
+    fn response_jacobian_rows(&self, pass: PredictPass) -> ResponseInterval {
+        match pass {
+            // Full uncertainty reports a genuine η interval and a delta-method
+            // response interval through the inverse link.
+            PredictPass::FullUncertainty => ResponseInterval::SymmetricDelta,
+            // Posterior-mean bounds transform the η endpoints through the
+            // inverse link.
+            PredictPass::PosteriorMean => ResponseInterval::TransformEta,
+        }
+    }
+
+    fn bounds(&self) -> ResponseBounds {
+        ResponseBounds::for_family(&self.likelihood.response)
+    }
+
+    fn response_family(&self) -> ResponseFamily {
+        self.likelihood.response.clone()
+    }
+
+    fn observation_noise(
+        &self,
+        input: &PredictInput,
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
+        self.noise_sd(input).map(Some)
+    }
+}
+
+impl PredictableModel for DispersionLocationScalePredictor {
+    fn predict_plugin_response(
+        &self,
+        input: &PredictInput,
+    ) -> Result<PredictResult, EstimationError> {
+        let eta = self.eta_mean(input);
+        let mean = self.strategy().inverse_link_array(eta.view())?;
+        Ok(PredictResult { eta, mean })
+    }
+
+    fn predict_with_uncertainty(
+        &self,
+        input: &PredictInput,
+    ) -> Result<PredictionWithSE, EstimationError> {
+        predict_with_uncertainty_generic(self, input)
+    }
+
+    fn predict_noise_scale(
+        &self,
+        input: &PredictInput,
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
+        self.noise_sd(input).map(Some)
+    }
+
+    fn predict_dispersion_scale(
+        &self,
+        input: &PredictInput,
+    ) -> Result<Option<Array1<f64>>, EstimationError> {
+        // Per-row precision `exp(eta_d(x))` mapped into the generative
+        // NoiseModel's dispersion units (#1125): NB θ, Gamma shape and Beta φ
+        // ARE the precision; Tweedie φ is its reciprocal.
+        let precision = self.precision(input)?;
+        let dispersion = match self.likelihood.response {
+            ResponseFamily::Tweedie { .. } => precision.mapv(|pr| 1.0 / pr.max(f64::MIN_POSITIVE)),
+            _ => precision,
+        };
+        Ok(Some(dispersion))
+    }
+
+    fn predict_full_uncertainty(
+        &self,
+        input: &PredictInput,
+        fit: &UnifiedFitResult,
+        options: &PredictUncertaintyOptions,
+    ) -> Result<PredictUncertaintyResult, EstimationError> {
+        predict_full_uncertainty_generic(self, input, fit, options)
+    }
+
+    fn predict_posterior_mean(
+        &self,
+        input: &PredictInput,
+        fit: &UnifiedFitResult,
+        options: &PosteriorMeanOptions,
+    ) -> Result<PredictPosteriorMeanResult, EstimationError> {
+        predict_posterior_mean_generic(self, input, fit, options)
+    }
+
+    fn n_blocks(&self) -> usize {
+        2
+    }
+
+    fn block_roles(&self) -> Vec<BlockRole> {
+        vec![BlockRole::Location, BlockRole::Scale]
     }
 }
 
@@ -4989,8 +5322,11 @@ pub struct PredictPosteriorMeanResult {
     /// Response-scale observation (prediction) interval lower bound. `Some` only
     /// when the caller set [`PosteriorMeanOptions::include_observation_interval`]
     /// *and* the response family exposes a closed-form conditional variance; the
-    /// band is `μ ± z·√(Var(μ̂) + Var(Y|μ))` clamped to the response support
-    /// (built via [`family_observation_band`]).
+    /// band is `μ ± z·√(Var(μ̂) + Var(Y|μ))` clamped to the response support.
+    /// For heteroscedastic location-scale / dispersion predictors `Var(Y|μ)` is
+    /// the *per-row* noise from [`PredictionTransform::observation_noise`]; for
+    /// single-dispersion families it is the fit-level scalar built via
+    /// [`family_observation_band`].
     pub observation_lower: Option<Array1<f64>>,
     /// Response-scale observation (prediction) interval upper bound; companion of
     /// [`PredictPosteriorMeanResult::observation_lower`].
@@ -5649,6 +5985,57 @@ where
 ///
 /// Shared by [`predict_gamwith_uncertainty`] and the posterior-mean drivers so
 /// the per-family observation-noise definition has a single source of truth.
+///
+/// Per-row conditional response (observation-noise) variance `Var(Y | μ)` on the
+/// response scale, the same per-family definition [`family_observation_band`]
+/// folds into its predictive band. Returns `None` for families without a
+/// closed-form conditional variance (`RoystonParmar`), exactly mirroring the
+/// band's `(None, None)` arm.
+///
+/// This is the noise term a *prediction* interval on `Y` must carry in addition
+/// to the epistemic mean SE: the conformal auto-route normalizes its
+/// nonconformity score by the predictive SE `√(SE(μ̂)² + Var(Y|μ))`, not the
+/// mean SE alone — normalizing by the (much smaller, x-varying) epistemic mean
+/// SE injects spurious heteroscedasticity and under-covers `Y` in the
+/// data-dense interior (#1054).
+pub(crate) fn family_response_variance<S>(
+    response: &ResponseFamily,
+    mean: &Array1<f64>,
+    source: &S,
+) -> Option<Array1<f64>>
+where
+    S: UncertaintyCovarianceSource + ?Sized,
+{
+    match response {
+        ResponseFamily::Gaussian => {
+            let obsvar = source.observation_standard_deviation().max(0.0).powi(2);
+            Some(Array1::from_elem(mean.len(), obsvar))
+        }
+        ResponseFamily::Poisson => Some(mean.mapv(|mu| mu.max(0.0))),
+        ResponseFamily::NegativeBinomial { theta, .. } => {
+            let theta = source.observation_theta().unwrap_or(*theta);
+            Some(mean.mapv(|mu| mu + mu.powi(2) / theta))
+        }
+        ResponseFamily::Tweedie { p } => {
+            let phi = source.observation_phi().unwrap_or(1.0);
+            Some(mean.mapv(|mu| phi * mu.powf(*p)))
+        }
+        ResponseFamily::Gamma => {
+            let phi = source.observation_phi().unwrap_or(1.0);
+            Some(mean.mapv(|mu| phi * mu.powi(2)))
+        }
+        ResponseFamily::Beta { phi } => {
+            let phi = source.observation_phi().unwrap_or(*phi);
+            Some(mean.mapv(|mu| mu * (1.0 - mu) / (1.0 + phi)))
+        }
+        ResponseFamily::Binomial => Some(mean.mapv(|mu| {
+            let p = mu.clamp(0.0, 1.0);
+            p * (1.0 - p)
+        })),
+        ResponseFamily::RoystonParmar => None,
+    }
+}
+
 pub(crate) fn family_observation_band<S>(
     response: &ResponseFamily,
     eta: &Array1<f64>,
@@ -6274,15 +6661,59 @@ pub fn predict_full_uncertainty_conformal<M: PredictableModel + ?Sized>(
         )));
     }
 
+    // Split-conformal nonconformity must be scored on the PREDICTION scale, not
+    // the epistemic mean scale. The conformal interval covers a fresh response
+    // `Y`, whose spread is `√(SE(μ̂)² + Var(Y|μ))` — the same predictive SE the
+    // observation band uses. Normalizing by the mean SE alone (which omits the
+    // response-noise term and, for a smooth fit, is far smaller than the noise
+    // SD and varies several-fold across x) injects spurious heteroscedasticity
+    // and under-covers `Y` in the data-dense interior (#1054). When the family
+    // exposes no closed-form conditional variance (`RoystonParmar`) we fall back
+    // to the mean SE — the only available scale — which is exactly the prior
+    // behavior for that family.
+    let cal_scale = predictive_standard_error(
+        family,
+        &cal_result.mean,
+        &cal_result.mean_standard_error,
+        fit,
+    );
+    let test_scale =
+        predictive_standard_error(family, &result.mean, &result.mean_standard_error, fit);
     let calibrator = crate::inference::conformal::ConformalCalibrator::from_held_out_fold(
         calibration.y,
         cal_result.mean.view(),
-        cal_result.mean_standard_error.view(),
+        cal_scale.view(),
         alpha,
     )?;
     let bounds = ResponseBounds::for_family(&family.response);
-    calibrator.apply_to_uncertainty_result(&mut result, bounds)?;
+    let (lower, upper) = calibrator.calibrated_interval(&result.mean, &test_scale, bounds)?;
+    result.mean_lower = lower;
+    result.mean_upper = upper;
     Ok(result)
+}
+
+/// Predictive (observation-scale) standard error `√(SE(μ̂)² + Var(Y|μ))` per row,
+/// the spread of a fresh response the conformal prediction interval must cover.
+/// Falls back to the epistemic mean SE when the family has no closed-form
+/// conditional response variance ([`family_response_variance`] returns `None`).
+fn predictive_standard_error<S>(
+    family: &LikelihoodSpec,
+    mean: &Array1<f64>,
+    mean_standard_error: &Array1<f64>,
+    source: &S,
+) -> Array1<f64>
+where
+    S: UncertaintyCovarianceSource + ?Sized,
+{
+    match family_response_variance(&family.response, mean, source) {
+        Some(response_var) => Array1::from_iter(
+            mean_standard_error
+                .iter()
+                .zip(response_var.iter())
+                .map(|(&se, &var)| (se.powi(2) + var.max(0.0)).max(0.0).sqrt()),
+        ),
+        None => mean_standard_error.clone(),
+    }
 }
 
 /// Coefficient-level uncertainty and confidence intervals.
@@ -6958,6 +7389,108 @@ mod tests {
             .final_eta_and_gradient_from_theta(&input, &theta, true)
             .expect_err("non-probit marginal-slope prediction should be rejected");
         assert!(err.to_string().contains("requires link(type=probit)"));
+    }
+
+    #[test]
+    fn bernoulli_marginal_slope_point_state_emits_covariance_based_interval() {
+        // Issue #1049 oracle (Rust side): with a coefficient covariance set,
+        // the marginal-slope predictor's `point_state` must emit a non-empty
+        // η-scale SE and the matching response-scale `mean_se`, so the FFI's
+        // `predict(interval=)` path has bounds to surface. We independently
+        // reconstruct the η-scale SE from the analytic predictor gradient and
+        // the covariance (`se² = gᵀ Σ g`, i.e. the diagonal of `X Vp Xᵀ` on the
+        // η scale), and the TransformEta credible band the FFI emits
+        // (`Φ(η ± z·se)`), and assert both match to floating-point tolerance.
+        let predictor = BernoulliMarginalSlopePredictor {
+            beta_marginal: array![0.7],
+            beta_logslope: array![-0.4],
+            beta_score_warp: None,
+            beta_link_dev: None,
+            base_link: InverseLink::Standard(crate::types::StandardLink::Probit),
+            z_column: "z".to_string(),
+            latent_z_normalization: SavedLatentZNormalization { mean: 0.0, sd: 1.0 },
+            latent_measure: LatentMeasureKind::StandardNormal,
+            baseline_marginal: 0.1,
+            baseline_logslope: -0.2,
+            // Joint covariance over θ = [β_marginal | β_logslope]; non-diagonal
+            // so the gradient cross term is genuinely exercised.
+            covariance: Some(array![[0.040, 0.010], [0.010, 0.090]]),
+            score_warp_runtime: None,
+            link_deviation_runtime: None,
+            gaussian_frailty_sd: None,
+            latent_z_calibration: None,
+            latent_z_conditional_calibration: None,
+        };
+        let theta = predictor.theta();
+        assert_eq!(
+            theta.len(),
+            2,
+            "rigid marginal-slope θ is [marginal | logslope]"
+        );
+        let input = PredictInput {
+            design: DesignMatrix::from(array![[1.0], [1.0], [1.0]]),
+            offset: array![0.0, 0.05, -0.10],
+            design_noise: Some(DesignMatrix::from(array![[1.0], [1.0], [1.0]])),
+            offset_noise: Some(array![0.0, -0.1, 0.2]),
+            auxiliary_scalar: Some(array![-0.3, 1.2, 0.4]),
+            auxiliary_matrix: None,
+        };
+
+        let state = predictor
+            .point_state(&input)
+            .expect("marginal-slope point_state should evaluate with a covariance");
+        let eta = state.eta.clone();
+        let eta_se = state
+            .eta_se
+            .as_ref()
+            .expect("issue #1049: covariance-backed point_state must emit an η-scale SE");
+        let mean_se = state
+            .mean_se
+            .as_ref()
+            .expect("issue #1049: covariance-backed point_state must emit a mean SE");
+
+        // Independent η-scale SE from the analytic gradient and covariance.
+        let cov = predictor.covariance.as_ref().unwrap();
+        let (_, grad) = predictor
+            .final_eta_and_gradient_from_theta(&input, &theta, true)
+            .expect("analytic gradient");
+        let grad = grad.expect("gradient rows");
+        for i in 0..eta.len() {
+            let g = grad.row(i).to_owned();
+            let cg = cov.dot(&g);
+            let var = g.dot(&cg);
+            let se_oracle = var.max(0.0).sqrt();
+            assert!(se_oracle > 0.0, "row {i} SE collapsed to zero");
+            assert!(
+                (eta_se[i] - se_oracle).abs() <= 1e-10,
+                "row {i}: η-SE {} != oracle gᵀΣg^{{1/2}} {}",
+                eta_se[i],
+                se_oracle
+            );
+            // mean_se = eta_se · φ(η) (probit delta method).
+            let mean_se_oracle = se_oracle * normal_pdf(eta[i]);
+            assert!(
+                (mean_se[i] - mean_se_oracle).abs() <= 1e-10,
+                "row {i}: mean-SE {} != eta_se·φ(η) {}",
+                mean_se[i],
+                mean_se_oracle
+            );
+            // The FFI surfaces the TransformEta band Φ(η ± z·se); reconstruct it
+            // and check ordering + the probability clip range. z = Φ⁻¹(0.975).
+            let z = crate::probability::standard_normal_quantile(0.975).unwrap();
+            let lo = normal_cdf(eta[i] - z * se_oracle).clamp(0.0, 1.0);
+            let hi = normal_cdf(eta[i] + z * se_oracle).clamp(0.0, 1.0);
+            let mean = normal_cdf(eta[i]);
+            assert!(
+                lo <= mean + 1e-12 && hi >= mean - 1e-12,
+                "row {i}: band brackets mean"
+            );
+            assert!((0.0..=1.0).contains(&lo) && (0.0..=1.0).contains(&hi));
+            assert!(
+                hi - lo > 0.0,
+                "row {i}: TransformEta band has positive width"
+            );
+        }
     }
 
     #[test]

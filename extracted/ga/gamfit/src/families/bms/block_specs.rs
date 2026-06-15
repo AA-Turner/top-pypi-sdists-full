@@ -7,7 +7,21 @@ use crate::faer_ndarray::{FaerEigh, fast_ab, fast_atb, fast_xt_diag_x};
 use crate::families::marginal_slope_orthogonal::INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA;
 use faer::Side;
 
-const BMS_PROBIT_SEPARATION_BETA_INF: f64 = 40.0;
+/// Sup-norm of the FITTED marginal linear predictor `η = X·β` at which the
+/// probit model becomes numerically degenerate. This is the decisive
+/// separation quantity — raw coefficient magnitude is NOT, because the
+/// thin-plate / Duchon marginal bases are non-orthonormal and ill-conditioned,
+/// so a smooth, bounded fitted surface can carry large-and-cancelling
+/// coefficients (e.g. `β=[60,-60]` on two collinear columns yields a bounded
+/// `Xβ`). The probit information `φ(η)²/[Φ(η)(1−Φ(η))]` only collapses once
+/// `|η|` is enormous: `Φ(−35) ≈ 1e−268` is still representable, but by `|η|≈38`
+/// the tail probability underflows to exactly 0 in `f64` and the per-row
+/// Fisher weight vanishes. We trip the guard at 35 — comfortably inside the
+/// representable range yet far beyond any legitimately fitted predictor (a
+/// converged penalized probit surface keeps `|η|` at single/low-double digits),
+/// so a true separating direction (whose `|η|→∞`) still trips it while a
+/// well-fitted ill-conditioned surface does not.
+pub(crate) const BMS_PROBIT_SEPARATION_ETA_INF: f64 = 35.0;
 
 // ── Canonical-gauge priority ladder (issue #322) ─────────────────────────────
 //
@@ -47,7 +61,7 @@ pub(super) const GAUGE_PRIORITY_LINK_DEV: u8 = 60;
 /// the exact spatial outer loop is a coarse 1-D search over a smooth profiled
 /// objective; tightening it below this floor only burns cycles on noise in the
 /// inner-solve-reported objective without moving the selected length scale.
-const EXACT_SPATIAL_OUTER_TOL_FLOOR: f64 = 1e-6;
+pub(crate) const EXACT_SPATIAL_OUTER_TOL_FLOOR: f64 = 1e-6;
 
 // ── BlockEffectiveJacobian impls for BMS ─────────────────────────────────────
 //
@@ -286,7 +300,7 @@ impl BlockEffectiveJacobian for BmsLogslopeJacobian {
 /// `self.marginal_design` (a matched (design, β) pair) — picks them up with no
 /// kernel-site change; the widened `p_marginal` keeps every per-row Jacobian /
 /// gradient / Hessian projection consistent.
-fn widen_marginal_dense_with_influence(
+pub(crate) fn widen_marginal_dense_with_influence(
     marginal_dense: &Arc<Array2<f64>>,
     influence_columns: Option<&Array2<f64>>,
 ) -> Result<Arc<Array2<f64>>, String> {
@@ -317,7 +331,7 @@ fn widen_marginal_dense_with_influence(
 /// ~0 eigenvalue in `Gtt` (see [`build_reduced_logslope_reparam`]); this keeps
 /// the cut well above floating-point noise but well below any genuine surviving
 /// logslope curvature.
-const LOGSLOPE_REDUCED_BASIS_RELATIVE_TOL: f64 = 1.0e-6;
+pub(crate) const LOGSLOPE_REDUCED_BASIS_RELATIVE_TOL: f64 = 1.0e-6;
 
 /// An exact reduced-basis reparameterization of the BMS logslope design through
 /// the family's OWN internal `logslope_design` geometry, expressed as a single
@@ -513,7 +527,7 @@ fn build_reduced_logslope_reparam(
 ///     Gtt = G_effᵀ W G_eff − (G_effᵀ W M_eff)(M_effᵀ W M_eff + εI)⁻¹(M_effᵀ W G_eff).
 /// `T` is the orthonormal eigenbasis of `Gtt` for eigenvalues above a tolerance
 /// relative to the effective logslope energy scale.
-fn reduced_logslope_transform_effective(
+pub(crate) fn reduced_logslope_transform_effective(
     marginal: ArrayView2<'_, f64>,
     logslope: ArrayView2<'_, f64>,
     z: &Array1<f64>,
@@ -722,7 +736,7 @@ fn reparameterize_logslope_design_reduced(
 /// initial_log_lambdas)` to install on the marginal block. Fixed ridges remain
 /// in this physical penalty layout and are removed from every REML/outer
 /// coordinate vector by [`PenaltyMatrix::Fixed`].
-fn marginal_penalties_with_influence_ridge(
+pub(crate) fn marginal_penalties_with_influence_ridge(
     design: &TermCollectionDesign,
     rho_marginal: &Array1<f64>,
     influence_columns: Option<&Array2<f64>>,
@@ -762,7 +776,7 @@ fn marginal_penalties_with_influence_ridge(
 
 /// Widen an optional β warm-start hint to the influence-widened marginal
 /// dimension, zero-filling the absorber coefficients `γ` (#461).
-fn widen_marginal_beta_hint(
+pub(crate) fn widen_marginal_beta_hint(
     beta_hint: Option<Array1<f64>>,
     p_marginal_widened: usize,
 ) -> Option<Array1<f64>> {
@@ -780,200 +794,139 @@ fn widen_marginal_beta_hint(
     })
 }
 
-fn argmax_by_abs<I>(values: I) -> Option<(String, usize, f64)>
-where
-    I: IntoIterator<Item = (String, usize, f64)>,
-{
-    values
-        .into_iter()
-        .map(|(label, idx, value)| (label, idx, value.abs()))
-        .filter(|(_, _, abs)| abs.is_finite())
-        .max_by(|left, right| {
-            left.2
-                .partial_cmp(&right.2)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-}
-
-fn marginal_parametric_argmax_from_beta(
-    beta: &Array1<f64>,
-    design: &TermCollectionDesign,
-    spec: &TermCollectionSpec,
-) -> Option<(String, usize, f64)> {
-    let mut entries = Vec::<(String, usize, f64)>::new();
-    if design.intercept_range.len() == 1 {
-        let idx = design.intercept_range.start;
-        if idx < beta.len() {
-            entries.push(("intercept".to_string(), idx, beta[idx]));
+/// Sup-norm of the fitted marginal linear predictor `η = X·β` restricted to a
+/// subset of the marginal design's columns. The mask selects which columns of
+/// `design.design` (length `design.design.ncols()`) contribute; coefficients
+/// beyond `ncols` (the fixed-ridge influence absorber) never enter the marginal
+/// predictor and are excluded by construction. Returns `0.0` for an empty
+/// design. This is the decisive separation quantity: the probit Fisher weight
+/// collapses with `|η|`, not with `‖β‖` (an ill-conditioned non-orthonormal
+/// Duchon/thin-plate basis carries large cancelling coefficients on a smooth,
+/// bounded surface).
+fn marginal_fitted_eta_sup_norm(design: &TermCollectionDesign, masked_beta: &Array1<f64>) -> f64 {
+    let x = &design.design;
+    let n = x.nrows();
+    if n == 0 || x.ncols() == 0 {
+        return 0.0;
+    }
+    let mut sup = 0.0_f64;
+    for row in 0..n {
+        let eta = x.dot_row_view(row, masked_beta.view());
+        if eta.is_finite() {
+            sup = sup.max(eta.abs());
         }
     }
-    for (linear, (name, range)) in spec.linear_terms.iter().zip(design.linear_ranges.iter()) {
+    sup
+}
+
+/// Build a copy of the marginal block β truncated to `design.design.ncols()`
+/// (drops any fixed-ridge absorber tail) so it can drive `X·β`.
+fn marginal_design_beta(
+    design: &TermCollectionDesign,
+    block_beta: ArrayView1<'_, f64>,
+) -> Array1<f64> {
+    let ncols = design.design.ncols();
+    let mut masked = Array1::<f64>::zeros(ncols);
+    let copy = ncols.min(block_beta.len());
+    masked
+        .slice_mut(s![..copy])
+        .assign(&block_beta.slice(s![..copy]));
+    masked
+}
+
+/// Zero every entry of `beta` outside the parametric (penalty-nullspace)
+/// marginal columns — the intercept and the single-penalty linear terms. These
+/// are the directions an unpenalized fit can genuinely separate along (no
+/// smoothness penalty bounds them), so their fitted contribution is tested on
+/// the same η scale.
+fn mask_parametric_columns(
+    design: &TermCollectionDesign,
+    spec: &TermCollectionSpec,
+    full: &Array1<f64>,
+) -> Array1<f64> {
+    let ncols = design.design.ncols();
+    let mut masked = Array1::<f64>::zeros(ncols);
+    if design.intercept_range.len() == 1 {
+        let idx = design.intercept_range.start;
+        if idx < ncols {
+            masked[idx] = full[idx];
+        }
+    }
+    for (linear, (_, range)) in spec.linear_terms.iter().zip(design.linear_ranges.iter()) {
         if linear.double_penalty {
             continue;
         }
-        for local_col in range.clone() {
-            if local_col < beta.len() {
-                entries.push((name.clone(), local_col, beta[local_col]));
+        for col in range.clone() {
+            if col < ncols {
+                masked[col] = full[col];
             }
         }
     }
-    argmax_by_abs(entries)
+    masked
 }
 
-fn marginal_parametric_argmax_from_warm_start(
-    warm_start: &CustomFamilyWarmStart,
+/// Decide whether the converged marginal fit has genuinely separated, using the
+/// FITTED predictor sup-norm `|η|∞` (not raw `|β|∞`). Two arms share the
+/// numerical-degeneracy threshold [`BMS_PROBIT_SEPARATION_ETA_INF`]:
+///   - parametric arm: the penalty-nullspace columns' fitted contribution
+///     (an unpenalized direction can run to infinity);
+///   - full arm: the whole marginal surface's fitted predictor.
+/// The raw `|β|∞` (and its term label) is reported only as diagnostic context;
+/// it never gates the abort. When `|η|∞` is below threshold the converged
+/// penalized fit is numerically trustworthy and this returns `None` — no error,
+/// even if individual coefficients are large.
+pub(crate) fn bernoulli_marginal_slope_runaway_error_from_beta(
+    block_beta: ArrayView1<'_, f64>,
     design: &TermCollectionDesign,
     spec: &TermCollectionSpec,
-) -> Option<(String, usize, f64)> {
-    let mut entries = Vec::<(String, usize, f64)>::new();
-    if design.intercept_range.len() == 1
-        && let Some((idx, abs)) =
-            warm_start.block_beta_abs_argmax_in_range(0, design.intercept_range.clone())
-    {
-        entries.push(("intercept".to_string(), idx, abs));
-    }
-    for (linear, (name, range)) in spec.linear_terms.iter().zip(design.linear_ranges.iter()) {
-        if linear.double_penalty {
-            continue;
-        }
-        if let Some((idx, abs)) = warm_start.block_beta_abs_argmax_in_range(0, range.clone()) {
-            entries.push((name.clone(), idx, abs));
-        }
-    }
-    argmax_by_abs(entries)
-}
-
-fn marginal_full_argmax_from_beta(
-    beta: &Array1<f64>,
-    design: &TermCollectionDesign,
-) -> Option<(String, usize, f64)> {
-    let mut entries = Vec::<(String, usize, f64)>::new();
-    if design.intercept_range.len() == 1 {
-        let idx = design.intercept_range.start;
-        if idx < beta.len() {
-            entries.push(("intercept".to_string(), idx, beta[idx]));
-        }
-    }
-    for (name, range) in &design.linear_ranges {
-        for local_col in range.clone() {
-            if local_col < beta.len() {
-                entries.push((name.clone(), local_col, beta[local_col]));
-            }
-        }
-    }
-    for (name, range) in &design.random_effect_ranges {
-        for local_col in range.clone() {
-            if local_col < beta.len() {
-                entries.push((name.clone(), local_col, beta[local_col]));
-            }
-        }
-    }
-    let smooth_start = design
-        .design
-        .ncols()
-        .saturating_sub(design.smooth.total_smooth_cols());
-    for term in &design.smooth.terms {
-        let label = format!("smooth '{}'", term.name);
-        let start = smooth_start + term.coeff_range.start;
-        let end = smooth_start + term.coeff_range.end;
-        for local_col in start..end {
-            if local_col < beta.len() {
-                entries.push((label.clone(), local_col, beta[local_col]));
-            }
-        }
-    }
-    for local_col in design.design.ncols()..beta.len() {
-        entries.push((
-            "fixed-ridge influence absorber".to_string(),
-            local_col,
-            beta[local_col],
-        ));
-    }
-    argmax_by_abs(entries)
-}
-
-fn marginal_full_argmax_from_warm_start(
-    warm_start: &CustomFamilyWarmStart,
-    design: &TermCollectionDesign,
-) -> Option<(String, usize, f64)> {
-    let block_width = warm_start.block_beta_len(0)?;
-    let mut entries = Vec::<(String, usize, f64)>::new();
-    if design.intercept_range.len() == 1
-        && let Some((idx, abs)) =
-            warm_start.block_beta_abs_argmax_in_range(0, design.intercept_range.clone())
-    {
-        entries.push(("intercept".to_string(), idx, abs));
-    }
-    for (name, range) in &design.linear_ranges {
-        if let Some((idx, abs)) = warm_start.block_beta_abs_argmax_in_range(0, range.clone()) {
-            entries.push((name.clone(), idx, abs));
-        }
-    }
-    for (name, range) in &design.random_effect_ranges {
-        if let Some((idx, abs)) = warm_start.block_beta_abs_argmax_in_range(0, range.clone()) {
-            entries.push((name.clone(), idx, abs));
-        }
-    }
-    let smooth_start = design
-        .design
-        .ncols()
-        .saturating_sub(design.smooth.total_smooth_cols());
-    for term in &design.smooth.terms {
-        let range = (smooth_start + term.coeff_range.start)..(smooth_start + term.coeff_range.end);
-        if let Some((idx, abs)) = warm_start.block_beta_abs_argmax_in_range(0, range) {
-            entries.push((format!("smooth '{}'", term.name), idx, abs));
-        }
-    }
-    if block_width > design.design.ncols()
-        && let Some((idx, abs)) =
-            warm_start.block_beta_abs_argmax_in_range(0, design.design.ncols()..block_width)
-    {
-        entries.push(("fixed-ridge influence absorber".to_string(), idx, abs));
-    }
-    argmax_by_abs(entries)
-}
-
-fn bernoulli_marginal_slope_runaway_error_from_argmax(
-    parametric_argmax: Option<(String, usize, f64)>,
-    block_argmax: Option<(String, usize, f64)>,
-    inner_status: &str,
+    inner_converged: bool,
     eval_label: &str,
 ) -> Option<String> {
-    let (label, local_col, beta_abs, explanation) = if let Some((label, local_col, beta_abs)) =
-        parametric_argmax
-        && beta_abs >= BMS_PROBIT_SEPARATION_BETA_INF
-    {
+    let full_beta = marginal_design_beta(design, block_beta);
+    let parametric_beta = mask_parametric_columns(design, spec, &full_beta);
+
+    let eta_parametric = marginal_fitted_eta_sup_norm(design, &parametric_beta);
+    let eta_full = marginal_fitted_eta_sup_norm(design, &full_beta);
+
+    let (eta_inf, explanation) = if eta_parametric >= BMS_PROBIT_SEPARATION_ETA_INF {
         (
-            label,
-            local_col,
-            beta_abs,
-            "an unpenalized parametric marginal direction has no stable finite probit optimum",
+            eta_parametric,
+            "an unpenalized parametric marginal direction has no stable finite probit optimum and its fitted predictor has run to the probit underflow scale",
         )
-    } else if let Some((label, local_col, beta_abs)) = block_argmax
-        && beta_abs >= BMS_PROBIT_SEPARATION_BETA_INF
-    {
+    } else if eta_full >= BMS_PROBIT_SEPARATION_ETA_INF {
         (
-            label,
-            local_col,
-            beta_abs,
-            "a marginal smooth direction is trading off against the logslope surface; this is the under-constrained marginal/logslope coupling that appears when the score is correlated with the shared surface covariates",
+            eta_full,
+            "a marginal direction is trading off against the logslope surface; this is the under-constrained marginal/logslope coupling that appears when the score is correlated with the shared surface covariates",
         )
     } else {
+        // |η|∞ is bounded: even if raw coefficients are large (ill-conditioned
+        // non-orthonormal basis with cancellation), the converged penalized
+        // probit fit is numerically trustworthy. Do NOT abort.
         return None;
     };
-    if beta_abs < BMS_PROBIT_SEPARATION_BETA_INF {
-        return None;
-    }
+
+    let inner_status = if inner_converged {
+        "the inner solve reached a KKT certificate at this separation-scale predictor"
+    } else {
+        "the inner solve failed while already carrying a separation-scale predictor"
+    };
+    // Raw |β|∞ context (decisive quantity is |η|∞ above).
+    let beta_abs = full_beta
+        .iter()
+        .copied()
+        .filter(|v| v.is_finite())
+        .fold(0.0_f64, |acc, v| acc.max(v.abs()));
+
     Some(format!(
         "bernoulli marginal-slope probit marginal/logslope runaway detected in block \
-         'marginal_surface' during {eval_label}: term '{label}' \
-         (local column {local_col}) has \
-         |β|∞={beta_abs:.3e} (diagnostic threshold \
-         {BMS_PROBIT_SEPARATION_BETA_INF:.1}). The joint design is identifiable; \
-         {explanation}. {inner_status}. The robust Jeffreys curvature path is \
-         already installed for this fit, so this diagnostic means the current \
-         coupled surface still exposes a separation-scale direction rather than \
-         a request for an external bias-reduction prior. Reduce or \
+         'marginal_surface' during {eval_label}: the fitted marginal predictor has \
+         |η|∞={eta_inf:.3e} (numerical-degeneracy threshold \
+         {BMS_PROBIT_SEPARATION_ETA_INF:.1}; raw |β|∞={beta_abs:.3e} is reported for \
+         context only and does not gate this diagnostic). The joint design is \
+         identifiable; {explanation}. {inner_status}. The robust Jeffreys curvature \
+         path is already installed for this fit, so this diagnostic means the current \
+         coupled surface still drives the linear predictor to the probit underflow \
+         scale rather than a request for an external bias-reduction prior. Reduce or \
          reparameterize the coupled marginal/logslope surface, or use a \
          lower-dimensional logslope interaction. This is not a \
          Matérn/Duchon polynomial-nullspace or cross-block gauge-priority \
@@ -981,22 +934,19 @@ fn bernoulli_marginal_slope_runaway_error_from_argmax(
     ))
 }
 
-fn bernoulli_marginal_slope_runaway_error(
+pub(crate) fn bernoulli_marginal_slope_runaway_error(
     warm_start: &CustomFamilyWarmStart,
     design: &TermCollectionDesign,
     spec: &TermCollectionSpec,
     inner_converged: bool,
     eval_label: &str,
 ) -> Option<String> {
-    let inner_status = if inner_converged {
-        "the inner solve reached a KKT certificate at a separation-scale coefficient"
-    } else {
-        "the inner solve failed while already carrying a separation-scale coefficient"
-    };
-    bernoulli_marginal_slope_runaway_error_from_argmax(
-        marginal_parametric_argmax_from_warm_start(warm_start, design, spec),
-        marginal_full_argmax_from_warm_start(warm_start, design),
-        inner_status,
+    let block_beta = warm_start.block_beta_view(0)?;
+    bernoulli_marginal_slope_runaway_error_from_beta(
+        block_beta,
+        design,
+        spec,
+        inner_converged,
         eval_label,
     )
 }
@@ -1005,13 +955,14 @@ fn bernoulli_marginal_slope_runaway_error(
 mod runaway_tests {
     use super::*;
     use crate::faer_ndarray::{FaerArrayView, factorize_symmetricwith_fallback, fast_xt_diag_y};
+    use crate::smooth::{LinearCoefficientGeometry, LinearTermSpec};
 
     // The marginal↔logslope overlap penalty is no longer installed as a pinned
     // ridge (subsumed by the now-unconditional exact logslope orthogonalisation in
     // `build_reduced_logslope_reparam`). The geometry helper is retained here under
     // the test module because the basis-independence/weight-orthogonality unit tests
     // below exercise it directly as the canonical overlap-direction reference.
-    fn marginal_logslope_overlap_penalty(
+    pub(crate) fn marginal_logslope_overlap_penalty(
         marginal_design: &DesignMatrix,
         logslope_design: &DesignMatrix,
         z: &Array1<f64>,
@@ -1117,7 +1068,7 @@ mod runaway_tests {
     // audit must therefore drop exactly one direction (r=1), proving it removes
     // the joint-Hessian rank-soft direction the raw audit could not see.
     #[test]
-    fn effective_reduction_drops_score_weighted_confound_raw_audit_misses() {
+    pub(crate) fn effective_reduction_drops_score_weighted_confound_raw_audit_misses() {
         // G col0 = [1,2,3], col1 = [1,2,9]  (row-major rows: [1,1],[2,2],[3,9]).
         let m = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
         let g = Array2::<f64>::from_shape_vec((3, 2), vec![1.0, 1.0, 2.0, 2.0, 3.0, 9.0]).unwrap();
@@ -1173,7 +1124,7 @@ mod runaway_tests {
     // design) rather than emitting a zero-width transform that would delete the
     // score-effect surface.
     #[test]
-    fn effective_reduction_fully_confounded_single_column_returns_none() {
+    pub(crate) fn effective_reduction_fully_confounded_single_column_returns_none() {
         let m = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
         let g = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
         let z = Array1::from_vec(vec![1.0, 0.5, 1.0 / 3.0]);
@@ -1200,7 +1151,7 @@ mod runaway_tests {
     // No effective confound: both effective logslope columns stay independent of
     // M_eff, so nothing is reduced (r==p_g ⇒ None) and healthy fits are untouched.
     #[test]
-    fn effective_reduction_no_confound_returns_none() {
+    pub(crate) fn effective_reduction_no_confound_returns_none() {
         let m = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
         // diag(z)·col gives non-constant images for both columns under z below.
         let g = Array2::<f64>::from_shape_vec((3, 2), vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
@@ -1226,7 +1177,7 @@ mod runaway_tests {
     }
 
     #[test]
-    fn spatial_joint_setup_counts_only_learned_penalties_in_rho() {
+    pub(crate) fn spatial_joint_setup_counts_only_learned_penalties_in_rho() {
         let data = Array2::<f64>::zeros((3, 1));
         let empty_terms = TermCollectionSpec {
             linear_terms: Vec::new(),
@@ -1251,7 +1202,7 @@ mod runaway_tests {
     }
 
     #[test]
-    fn overlap_penalty_targets_score_weighted_logslope_span() {
+    pub(crate) fn overlap_penalty_targets_score_weighted_logslope_span() {
         let marginal = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
             Array2::from_shape_vec((4, 1), vec![0.0, 1.0, 2.0, 3.0]).unwrap(),
         ));
@@ -1281,7 +1232,7 @@ mod runaway_tests {
     }
 
     #[test]
-    fn overlap_penalty_skips_weight_orthogonal_channels() {
+    pub(crate) fn overlap_penalty_skips_weight_orthogonal_channels() {
         let marginal = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
             Array2::from_shape_vec((4, 1), vec![-1.0, 1.0, -1.0, 1.0]).unwrap(),
         ));
@@ -1308,41 +1259,187 @@ mod runaway_tests {
         assert!(penalty.is_none());
     }
 
-    #[test]
-    fn runaway_diagnostic_names_unpenalized_parametric_direction_first() {
-        let msg = bernoulli_marginal_slope_runaway_error_from_argmax(
-            Some(("sex".to_string(), 1, 52.0)),
-            Some(("smooth 'matern(PC1,PC2,PC3)'".to_string(), 7, 49.0)),
-            "inner status",
-            "unit-test eval",
-        )
-        .expect("parametric runaway should be diagnosed");
+    // ── Fitted-η separation guard fixtures ───────────────────────────────
+    //
+    // The runaway guard tests the FITTED marginal predictor sup-norm
+    // `|η|∞ = max_i |X[i,:]·β|`, not raw `|β|∞`. These helpers build minimal
+    // `TermCollectionDesign` / `TermCollectionSpec` pairs from a dense design so
+    // the criterion is exercised deterministically with no data files.
 
-        assert!(msg.contains("term 'sex'"));
+    fn dense_marginal_design(
+        x: Array2<f64>,
+        intercept_range: std::ops::Range<usize>,
+        linear_ranges: Vec<(String, std::ops::Range<usize>)>,
+    ) -> TermCollectionDesign {
+        TermCollectionDesign {
+            design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x)),
+            penalties: Vec::new(),
+            nullspace_dims: Vec::new(),
+            penaltyinfo: Vec::new(),
+            dropped_penaltyinfo: Vec::new(),
+            coefficient_lower_bounds: None,
+            linear_constraints: None,
+            intercept_range,
+            linear_ranges,
+            random_effect_ranges: Vec::new(),
+            random_effect_levels: Vec::new(),
+            smooth: crate::terms::smooth::SmoothDesign {
+                term_designs: Vec::new(),
+                penalties: Vec::new(),
+                nullspace_dims: Vec::new(),
+                penaltyinfo: Vec::new(),
+                dropped_penaltyinfo: Vec::new(),
+                terms: Vec::new(),
+                coefficient_lower_bounds: None,
+                linear_constraints: None,
+            },
+        }
+    }
+
+    fn linear_term(name: &str, feature_col: usize) -> LinearTermSpec {
+        LinearTermSpec {
+            name: name.to_string(),
+            feature_col,
+            feature_cols: vec![feature_col],
+            double_penalty: false,
+            coefficient_geometry: LinearCoefficientGeometry::default(),
+            coefficient_min: None,
+            coefficient_max: None,
+        }
+    }
+
+    fn empty_spec() -> TermCollectionSpec {
+        TermCollectionSpec {
+            linear_terms: Vec::new(),
+            random_effect_terms: Vec::new(),
+            smooth_terms: Vec::new(),
+        }
+    }
+
+    /// Regression lock for the false-positive fix: an ill-conditioned
+    /// non-orthonormal basis (two identical/collinear columns) with a large
+    /// cancelling coefficient `β=[60,-60]` yields `Xβ ≡ 0` — a perfectly
+    /// bounded fitted predictor. The guard MUST NOT fire even though raw
+    /// `|β|∞=60` is far above the old `40.0` coefficient threshold. This is the
+    /// exact pathology that aborted valid biobank fits.
+    #[test]
+    pub(crate) fn runaway_guard_silent_when_huge_beta_cancels_to_bounded_eta() {
+        // Two identical columns ⇒ Xβ = (β0+β1)·col; β=[60,-60] ⇒ Xβ ≡ 0.
+        let x = Array2::<f64>::from_shape_vec((4, 2), vec![1.0; 8]).unwrap();
+        let design = dense_marginal_design(x, 0..0, Vec::new());
+        let beta = Array1::from_vec(vec![60.0, -60.0]);
+
+        let msg = bernoulli_marginal_slope_runaway_error_from_beta(
+            beta.view(),
+            &design,
+            &empty_spec(),
+            true,
+            "regression-fixture",
+        );
+        assert!(
+            msg.is_none(),
+            "huge cancelling β with bounded fitted η must NOT trip the runaway guard; got {msg:?}"
+        );
+    }
+
+    /// A genuinely separating full marginal surface: a single column with a
+    /// large coefficient drives `|η|∞ = 40 ≥ 35`, so the guard fires and names
+    /// the marginal/logslope coupling explanation.
+    #[test]
+    pub(crate) fn runaway_guard_fires_when_fitted_eta_exceeds_threshold() {
+        let x = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        let design = dense_marginal_design(x, 0..0, Vec::new());
+        let beta = Array1::from_vec(vec![40.0]);
+
+        let msg = bernoulli_marginal_slope_runaway_error_from_beta(
+            beta.view(),
+            &design,
+            &empty_spec(),
+            true,
+            "separation-fixture",
+        )
+        .expect("fitted |η|∞=40 ≥ 35 must trip the runaway guard");
+
+        assert!(msg.contains("marginal/logslope runaway"));
+        assert!(msg.contains("|η|∞"));
+        assert!(msg.contains("4.000e1"));
+        assert!(msg.contains("score is correlated with the shared surface covariates"));
+        assert!(msg.contains("not a Matérn/Duchon polynomial-nullspace"));
+        assert!(msg.contains("KKT certificate"));
+    }
+
+    /// An unpenalized parametric direction can genuinely separate (no smoothness
+    /// penalty bounding it). When its fitted contribution reaches the η scale
+    /// the parametric arm fires first and names the parametric explanation.
+    #[test]
+    pub(crate) fn runaway_guard_names_unpenalized_parametric_direction_via_fitted_eta() {
+        let x = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        let design = dense_marginal_design(x, 0..0, vec![("sex".to_string(), 0..1)]);
+        let mut spec = empty_spec();
+        spec.linear_terms.push(linear_term("sex", 0));
+        let beta = Array1::from_vec(vec![41.0]);
+
+        let msg = bernoulli_marginal_slope_runaway_error_from_beta(
+            beta.view(),
+            &design,
+            &spec,
+            true,
+            "parametric-fixture",
+        )
+        .expect("parametric fitted |η|∞=41 ≥ 35 must trip the runaway guard");
+
         assert!(msg.contains("unpenalized parametric marginal direction"));
+        assert!(msg.contains("|η|∞"));
         assert!(msg.contains("robust Jeffreys curvature path is already installed"));
-        assert!(!msg.contains("explicit declared separation/bias-reduction prior"));
         assert!(msg.contains("not a Matérn/Duchon polynomial-nullspace"));
     }
 
+    /// A non-converged inner solve with a BOUNDED fitted predictor must NOT
+    /// surface the separation error — the non-convergence is reported through
+    /// the existing downstream path, not as a runaway.
     #[test]
-    fn runaway_diagnostic_names_marginal_logslope_coupling_when_smooth_runs_away() {
-        let msg = bernoulli_marginal_slope_runaway_error_from_argmax(
-            Some(("sex".to_string(), 1, 2.0)),
-            Some(("smooth 'marginal_surface[0]'".to_string(), 6, 51.4)),
-            "inner status",
-            "unit-test eval",
-        )
-        .expect("smooth runaway should be diagnosed");
+    pub(crate) fn runaway_guard_silent_for_nonconverged_but_bounded_eta() {
+        let x = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        let design = dense_marginal_design(x, 0..0, Vec::new());
+        let beta = Array1::from_vec(vec![5.0]);
 
-        assert!(msg.contains("marginal/logslope runaway"));
-        assert!(msg.contains("smooth 'marginal_surface[0]'"));
-        assert!(msg.contains("score is correlated with the shared surface covariates"));
-        assert!(msg.contains("not a Matérn/Duchon polynomial-nullspace"));
+        let msg = bernoulli_marginal_slope_runaway_error_from_beta(
+            beta.view(),
+            &design,
+            &empty_spec(),
+            false,
+            "nonconverged-fixture",
+        );
+        assert!(
+            msg.is_none(),
+            "bounded fitted η must not raise the separation error even when the inner solve did not converge; got {msg:?}"
+        );
+    }
+
+    /// A genuinely separating fit that ALSO failed to converge still surfaces
+    /// the runaway error, and reports the non-converged inner status.
+    #[test]
+    pub(crate) fn runaway_guard_fires_for_nonconverged_separating_eta() {
+        let x = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        let design = dense_marginal_design(x, 0..0, Vec::new());
+        let beta = Array1::from_vec(vec![50.0]);
+
+        let msg = bernoulli_marginal_slope_runaway_error_from_beta(
+            beta.view(),
+            &design,
+            &empty_spec(),
+            false,
+            "nonconverged-separating-fixture",
+        )
+        .expect("separating |η|∞ at non-convergence must still trip the guard");
+
+        assert!(msg.contains(
+            "the inner solve failed while already carrying a separation-scale predictor"
+        ));
     }
 }
 
-fn build_marginal_blockspec_bms(
+pub(crate) fn build_marginal_blockspec_bms(
     design: &TermCollectionDesign,
     baseline: f64,
     offset: &Array1<f64>,
@@ -1407,7 +1504,7 @@ fn build_marginal_blockspec_bms(
     })
 }
 
-fn build_logslope_blockspec_bms(
+pub(crate) fn build_logslope_blockspec_bms(
     design: &TermCollectionDesign,
     baseline: f64,
     offset: &Array1<f64>,
@@ -1565,6 +1662,26 @@ pub fn fit_bernoulli_marginal_slope_terms(
     let mut spec = spec;
     let data_view = data;
     validate_spec(data_view, &spec)?;
+    // Freeze the measure-jet representer length-scale dial on the coupled
+    // marginal + log-slope surfaces (#1116). A shared mjs basis feeds BOTH
+    // blocks; a design-moving ℓ on those shared covariates lets the outer
+    // search reach a sharp ℓ where a marginal smooth direction trades off
+    // against the log-slope into a separation-scale runaway (|β|→1e3). The auto
+    // (frozen) ℓ is well-conditioned here — the pre-#1116 behavior this
+    // restores. ℓ-learning stays on for single-surface (e.g. Gaussian) fits,
+    // where there is no marginal/log-slope coupling to destabilize.
+    let mjs_frozen_marginal =
+        crate::smooth::freeze_measure_jet_length_scale_learning(&mut spec.marginalspec);
+    let mjs_frozen_logslope =
+        crate::smooth::freeze_measure_jet_length_scale_learning(&mut spec.logslopespec);
+    if mjs_frozen_marginal + mjs_frozen_logslope > 0 {
+        log::info!(
+            "[BMS spatial] froze measure-jet length-scale learning on {} marginal + {} log-slope \
+             term(s): the coupled surface keeps ℓ at its conditioned auto value (#1116)",
+            mjs_frozen_marginal,
+            mjs_frozen_logslope
+        );
+    }
     let mut effective_kappa_options = kappa_options.clone();
     // Honor explicit `length_scale=X` in the user's formula: when every
     // spatial term in BOTH the marginal mean and log-slope blocks carries
@@ -2343,10 +2460,11 @@ pub fn fit_bernoulli_marginal_slope_terms(
             let family = make_family(&designs[0], &designs[1], sigma);
             let fit = inner_fit(&family, &blocks, options)?;
             if let Some(block) = fit.block_states.first()
-                && let Some(err) = bernoulli_marginal_slope_runaway_error_from_argmax(
-                    marginal_parametric_argmax_from_beta(&block.beta, &designs[0], &specs[0]),
-                    marginal_full_argmax_from_beta(&block.beta, &designs[0]),
-                    "the final inner solve produced a separation-scale coefficient",
+                && let Some(err) = bernoulli_marginal_slope_runaway_error_from_beta(
+                    block.beta.view(),
+                    &designs[0],
+                    &specs[0],
+                    fit.outer_converged,
                     "final fit",
                 )
             {
@@ -2567,28 +2685,107 @@ pub fn fit_bernoulli_marginal_slope_terms(
     // available HERE — the only quantity the seam still lacks is `s_i`.
     //
     // `s_i = ∂²ℓ_i/∂β∂ζ_i = J_iᵀ·(∂²ℓ_i/∂η_i∂ζ_i)` is the mixed `(β, ζ)` second
-    // derivative of the warped row kernel contracted through the slope Jacobian
-    // `J_i`. The GENERIC `evaluate_custom_family_joint_hyper_efs_shared` engine
-    // (shared with survival marginal-slope) applies `ζ` to the response BEFORE
-    // building the joint design and does not yet surface the per-row 2-vector
-    // `∂²ℓ_i/∂η_i∂ζ_i`. That 2-vector is exactly the #932 RowNllProgram/Tower4
-    // z-jet channel — `z` is already a row-program input, so one extra mixed
-    // `(β-direction, z-direction)` jet channel reads off `∂²ℓ/∂β∂z` at the
-    // converged `β̂`; contract it with each block's `jacobian_transpose_action`
-    // (the same `J_iᵀ` the row kernel already exposes, marginal+logslope
-    // stacked) to get `s_i` in the reduced frame. REMAINING SEAM: thread that
-    // jet channel out of the shared engine as an `n × p_β` `score_zeta_sensitivity`
-    // and call
-    //   `cal.generated_regressor_correction(s, z_norm, marginal_design, vb)`,
-    // adding the result to `solved_fit`'s reported `beta_covariance`
-    // (ConditionalLocationScale branch only). Everything downstream of `s_i` is
-    // landed and unit-tested (`generated_regressor_correction_*`).
+    // derivative of the row kernel contracted through the slope Jacobian `J_i`.
+    // The conditional location-scale gate ALWAYS selects the rigid standard-normal
+    // measure (`build_latent_measure_with_geometry` returns
+    // `LatentMeasureKind::StandardNormal` for `ConditionalLocationScale`), so the
+    // per-row kernel is the closed-form `rigid_standard_normal` tower
+    // `η = q·c(g) + g·(s·ζ)`. The mixed 2-vector `∂²ℓ_i/∂(q,g)∂ζ_i` is read off the
+    // SAME `Tower4` the value/grad/Hessian path uses (#932 row-jet machinery) by
+    // seeding `ζ` as a third jet axis
+    // (`rigid_standard_normal_mixed_z_sensitivity`); contracting it through the
+    // marginal+logslope design rows (the `J_iᵀ` the row kernel exposes via
+    // `jacobian_transpose_action`) yields `s_i` in the SAME reduced frame as
+    // `covariance_conditional` (`rigid_standard_normal_score_zeta_sensitivity`).
     let (latent_z_rank_int_calibration, latent_z_conditional_calibration) =
         match latent_z_calibration {
             LatentMeasureCalibration::None => (None, None),
             LatentMeasureCalibration::RankInverseNormal(cal) => (Some(cal), None),
             LatentMeasureCalibration::ConditionalLocationScale(cal) => (None, Some(cal)),
         };
+    // #905/#1028: apply the Murphy–Topel generated-regressor correction now that
+    // `s_i` is available. `covariance_conditional` (Vb) and `covariance_corrected`
+    // (Vp) are in the reduced logslope frame (`p_m + r`), exactly the frame
+    // `s_i`'s reduced-logslope contraction lives in, so add the PSD term
+    // `(Vb·G)·V₁·(Vb·G)ᵀ` to each. Applied only for the canonical (non-flex)
+    // standard-normal kernel: the rigid tower carries no score_warp/link_dev
+    // z-dependence, so when aux deviation blocks widen β beyond `p_m + r` the
+    // correction's deviation columns are not yet derived and the term is skipped
+    // (the conditional gate's intended kernel has no such blocks).
+    if let Some(cal) = latent_z_conditional_calibration.as_ref()
+        && let Some(vb) = solved_fit.covariance_conditional.clone()
+    {
+        let p_beta = vb.nrows();
+        let marginal_dense = marginal_design
+            .design
+            .try_to_dense_arc("bms generated-regressor marginal design")?;
+        let logslope_reduced = reduce_logslope_design(&logslope_design)?;
+        let logslope_reduced_dense = logslope_reduced
+            .design
+            .try_to_dense_arc("bms generated-regressor reduced logslope design")?;
+        let p_m = marginal_dense.ncols();
+        let r = logslope_reduced_dense.ncols();
+        if p_beta != vb.ncols() {
+            return Err(format!(
+                "bms generated-regressor: covariance_conditional must be square, got {}×{}",
+                vb.nrows(),
+                vb.ncols()
+            ));
+        }
+        // Skip when aux deviation (score_warp / link_dev) blocks are present:
+        // β is wider than the marginal+reduced-logslope frame the rigid kernel's
+        // z-channel covers. Equality ⇒ the canonical non-flex gate kernel.
+        if p_beta == p_m + r {
+            let marginal_eta = &solved_fit.block_states[0].eta;
+            let slope_eta = &solved_fit.block_states[1].eta;
+            let probit_scale = probit_frailty_scale(final_sigma_cell.get());
+            let s = rigid_standard_normal_score_zeta_sensitivity(
+                &spec.base_link,
+                marginal_eta,
+                slope_eta,
+                z.as_ref(),
+                y.as_ref(),
+                weights.as_ref(),
+                probit_scale,
+                marginal_dense.view(),
+                logslope_reduced_dense.view(),
+                p_beta,
+            )?;
+            // `generated_regressor_correction` re-derives `∂ζ_i/∂θ₁` via
+            // `zeta_theta1_jacobian_row(z_i, a_row)`, which expects the RAW
+            // normalized latent score `z_i` (it recomputes `ζ_i = (z_i − m)/√v`
+            // internally), and conditions on the marginal-index span
+            // `a(C_i)` = the RAW marginal design rows (the basis the gate was fit
+            // on). Feed `spec.z` (the standardized raw score, NOT the calibrated
+            // ζ the kernel consumed) and the raw marginal dense design.
+            let correction = cal.generated_regressor_correction(
+                s.view(),
+                spec.z.view(),
+                marginal_dense.view(),
+                vb.view(),
+            )?;
+            if let Some(cov) = solved_fit.covariance_conditional.as_mut() {
+                *cov = &*cov + &correction;
+            }
+            if let Some(cov) = solved_fit.covariance_corrected.as_mut() {
+                *cov = &*cov + &correction;
+            }
+            log::info!(
+                "[BMS latent-z] Murphy–Topel generated-regressor SE correction applied: \
+                 p_beta={p_beta} theta1_dim={} max_diag_inflation={:.3e}",
+                cal.theta1_dim(),
+                (0..p_beta)
+                    .map(|i| correction[[i, i]])
+                    .fold(0.0_f64, f64::max),
+            );
+        } else {
+            log::info!(
+                "[BMS latent-z] Murphy–Topel generated-regressor SE correction skipped: \
+                 aux deviation blocks present (p_beta={p_beta} > marginal({p_m})+logslope({r})); \
+                 rigid-kernel z-channel does not yet cover score_warp/link_dev deviations"
+            );
+        }
+    }
     // #461: PREDICT SEAM — when the Stage-1 influence absorber is active
     // (spec.score_influence_jacobian.is_some()), `fit.block_states[0].beta` is
     // the WIDENED marginal coefficient `[β_m; γ]` (length p_m + p₁), but

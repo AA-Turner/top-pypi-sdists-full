@@ -22,13 +22,13 @@ use super::*;
 /// constraint rows are O(1)-scaled deviation differences, so a few ulps of
 /// accumulation sit comfortably under this bound while any real infeasibility
 /// is orders of magnitude larger.
-const MONOTONICITY_SLACK_TOL: f64 = -1e-10;
+pub(crate) const MONOTONICITY_SLACK_TOL: f64 = -1e-10;
 
 /// Assembled inputs for the BMS flex-block spec-builder → compile pipeline.
 ///
 /// Produced by [`build_bms_flex_block_context`] and consumed by
 /// [`install_compiled_flex_block_into_runtime`].
-struct BmsFlexBlockContext {
+pub(crate) struct BmsFlexBlockContext {
     /// Densified anchor blocks in parametric-before-flex order.
     pub(super) anchor_dense_blocks: Vec<Array2<f64>>,
     /// Per-anchor predict-time tags (same order as `anchor_dense_blocks`).
@@ -61,7 +61,7 @@ struct BmsFlexBlockContext {
 /// [`identifiability_compiler::compile`].
 ///
 /// Returns `Ok(None)` when the anchor union is empty (no-anchor fast path).
-fn build_bms_flex_block_context(
+pub(crate) fn build_bms_flex_block_context(
     candidate: &DeviationPrepared,
     candidate_arg_at_training_rows: &Array1<f64>,
     parametric_anchors: &[(
@@ -592,7 +592,7 @@ pub(crate) fn validate_monotone_structural_feasible(
     runtime.monotonicity_feasible(beta, label)
 }
 
-fn max_linear_constraint_segment_alpha(
+pub(crate) fn max_linear_constraint_segment_alpha(
     current: &Array1<f64>,
     proposed: &Array1<f64>,
     constraints: &LinearInequalityConstraints,

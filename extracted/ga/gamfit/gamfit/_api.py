@@ -867,9 +867,15 @@ def fit(
     response_geometry:
         Optional manifold-valued response geometry. Use ``"spherical"`` for
         unit-sphere responses, or ``"simplex"`` / ``"clr"`` / ``"alr"`` for
-        strictly positive compositional responses. The base point is the
-        intrinsic Fréchet mean of the training responses, not an extrinsic
-        arithmetic mean.
+        strictly positive compositional responses. Curved matrix/ball manifolds
+        are also fittable: ``"spd"`` (symmetric positive-definite cone),
+        ``"grassmann(k=..)"``, ``"stiefel(k=..)"``, ``"poincare"`` (fixed
+        curvature ``< 0``), and ``"constant_curvature"`` — the unified M_κ family
+        whose curvature κ̂ is ESTIMATED from the responses (not user-supplied) by
+        the REML/evidence outer loop, reporting κ̂ with a profile-likelihood CI,
+        the geometry verdict (spherical/flat/hyperbolic), and the Wilks flatness
+        test of κ = 0. The base point is the intrinsic Fréchet mean of the
+        training responses, not an extrinsic arithmetic mean.
     response_columns:
         Sequence of response component columns used when ``response_geometry``
         is set. One scalar Gaussian GAM is fitted for each tangent coordinate.
@@ -904,7 +910,13 @@ def fit(
         turning the fit into a location-scale GAMLSS where both the mean and
         the residual spread vary smoothly with the covariates (e.g.
         ``"s(x)"``). Passing this is the request to estimate a non-constant
-        scale. Corresponds to the ``--predict-noise`` CLI path
+        scale. The family is magic-routed from ``family``: with the default
+        ``"gaussian"`` it models ``log σ``; with ``"binomial"`` it models the
+        latent-threshold scale; and with the genuine-dispersion mean families
+        ``"gamma"``, ``"beta"``, ``"nb"`` (negative-binomial) or ``"tweedie"``
+        the noise formula models that family's own overdispersion channel
+        (Gamma shape, Beta φ, NB θ, Tweedie 1/φ), giving a full dispersion
+        GAMLSS (#913). Corresponds to the ``--predict-noise`` CLI path
         (``FitConfig.noise_formula``).
     noise_offset:
         Name of a column supplying a fixed additive offset on the log-scale

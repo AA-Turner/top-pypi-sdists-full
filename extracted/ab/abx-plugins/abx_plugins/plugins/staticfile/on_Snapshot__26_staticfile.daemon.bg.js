@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+// /// script
+// ///
 /**
  * Detect static-file main responses using CDP during initial request.
  *

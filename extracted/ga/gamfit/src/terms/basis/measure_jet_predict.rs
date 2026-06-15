@@ -1,9 +1,9 @@
 //! Predict-side measure-jet honesty: the closed-form extrapolation variance
-//! of V∞ §5 (`docs/measure_jet_v_infinity.md`), slice 3.
+//! from the frame notes (`docs/measure_jet_frame.md` §5).
 //!
-//! V0's Gaussian representers decay off-support toward the parametric
-//! backbone with SMALL Vp — confident reversion, which the honesty contract
-//! forbids. The structural fix prices ignorance off the web from the SAME
+//! The current Gaussian representers decay off-support toward the parametric
+//! backbone with small posterior variance — confident reversion, which the
+//! honesty contract forbids. The structural fix prices ignorance off the web from the SAME
 //! fitted spectrum that smooths on it: every band level ℓ carries a fitted
 //! amplitude λ̂_ℓ (prior precision of the level's innovations), and a query
 //! that the level-ℓ kernel mass does not cover simply has an UNKNOWN level-ℓ
@@ -85,7 +85,7 @@ pub enum MeasureJetExtrapolationSpectrum<'a> {
     Fused(f64),
 }
 
-/// V∞ §5: closed-form extrapolation variance at a query — the price of
+/// Frame-note §5: closed-form extrapolation variance at a query — the price of
 /// ignorance off the web, read from the fitted spectrum. `ε★` = the first
 /// covering scale (smallest band scale at which the query's kernel mass
 /// clears `coverage_floor` × `q̄_ℓ`); levels finer than `ε★` contribute
@@ -212,29 +212,29 @@ mod tests {
 
     /// Shared deterministic fixture: a 5-level dyadic band with a
     /// non-constant fitted spectrum.
-    fn band() -> Vec<f64> {
+    pub(crate) fn band() -> Vec<f64> {
         vec![0.05, 0.1, 0.2, 0.4, 0.8]
     }
 
-    fn lambdas() -> Vec<f64> {
+    pub(crate) fn lambdas() -> Vec<f64> {
         vec![40.0, 11.0, 3.5, 1.25, 0.6]
     }
 
-    fn support_means(eps: &[f64]) -> Vec<f64> {
+    pub(crate) fn support_means(eps: &[f64]) -> Vec<f64> {
         vec![TOTAL; eps.len()]
     }
 
-    const FLOOR: f64 = 0.05;
-    const TOTAL: f64 = 1.0;
+    pub(crate) const FLOOR: f64 = 0.05;
+    pub(crate) const TOTAL: f64 = 1.0;
 
-    fn total_ignorance(lams: &[f64]) -> f64 {
+    pub(crate) fn total_ignorance(lams: &[f64]) -> f64 {
         lams.iter().map(|l| 1.0 / l).sum()
     }
 
     /// The exact single-unit-mass support curve at distance `d`:
     /// q_ℓ(d) = total · exp(−d²/(2ε_ℓ²)) — the physical family the support
     /// diagnostic produces for a one-center web.
-    fn support_at_distance(d: f64, eps: &[f64]) -> Array1<f64> {
+    pub(crate) fn support_at_distance(d: f64, eps: &[f64]) -> Array1<f64> {
         Array1::from_iter(eps.iter().map(|e| TOTAL * (-d * d / (2.0 * e * e)).exp()))
     }
 
@@ -243,7 +243,7 @@ mod tests {
     /// nondecreasing — including across every coverage-floor crossing in the
     /// sweep.
     #[test]
-    fn extrapolation_variance_is_monotone_in_distance() {
+    pub(crate) fn extrapolation_variance_is_monotone_in_distance() {
         let eps = band();
         let lams = lambdas();
         let q_bar = support_means(&eps);
@@ -263,7 +263,7 @@ mod tests {
             .expect("valid inputs");
             assert!(
                 v >= prev,
-                "variance decreased with distance: V({d:.3}) = {v:.12} < {prev:.12}"
+                "variance decreased with distance: variance({d:.3}) = {v:.12} < {prev:.12}"
             );
             prev = v;
         }
@@ -279,7 +279,7 @@ mod tests {
     /// that is pointwise smaller never yields smaller variance — exercised
     /// on a NON-monotone-in-ℓ row pair as well.
     #[test]
-    fn extrapolation_variance_is_monotone_under_pointwise_domination() {
+    pub(crate) fn extrapolation_variance_is_monotone_under_pointwise_domination() {
         let eps = band();
         let lams = lambdas();
         let q_bar = support_means(&eps);
@@ -321,7 +321,7 @@ mod tests {
     /// variance; near-full mass prices at most the uncovered fraction of the
     /// total prior ignorance.
     #[test]
-    fn extrapolation_variance_vanishes_on_web() {
+    pub(crate) fn extrapolation_variance_vanishes_on_web() {
         let eps = band();
         let lams = lambdas();
         let q_bar = support_means(&eps);
@@ -355,7 +355,7 @@ mod tests {
     /// (c) Off-web limit: zero support everywhere (never covered) collects
     /// the spectrum's total prior ignorance Σ 1/λ̂ EXACTLY.
     #[test]
-    fn extrapolation_variance_saturates_off_web() {
+    pub(crate) fn extrapolation_variance_saturates_off_web() {
         let eps = band();
         let lams = lambdas();
         let q_bar = support_means(&eps);
@@ -378,7 +378,7 @@ mod tests {
     /// (d) Spectrum scaling: doubling every fitted amplitude halves the
     /// variance — the λ̂⁻¹ pricing is exact, in every coverage regime.
     #[test]
-    fn extrapolation_variance_halves_when_amplitudes_double() {
+    pub(crate) fn extrapolation_variance_halves_when_amplitudes_double() {
         let eps = band();
         let lams = lambdas();
         let q_bar = support_means(&eps);
@@ -420,7 +420,7 @@ mod tests {
     /// the smooth uncovered-fraction weight while finer levels stay fully
     /// charged.
     #[test]
-    fn extrapolation_variance_gate_convention() {
+    pub(crate) fn extrapolation_variance_gate_convention() {
         let eps = band();
         let lams = lambdas();
         let q_bar = support_means(&eps);
@@ -465,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn fused_extrapolation_charges_single_band_amplitude_once() {
+    pub(crate) fn fused_extrapolation_charges_single_band_amplitude_once() {
         let eps = band();
         let q_bar = support_means(&eps);
         let lam = 2.5;

@@ -64,6 +64,21 @@ class GrammarSemantics(ModelBuilderSemantics):
         self._validate_pattern(pattern)
         return pattern
 
+    def meta(self, ast: str, *args) -> g.Meta:
+        match ast:
+            case "name":
+                return g.NameMeta()
+            case "int":
+                return g.IntMeta()
+            case "uint":
+                return g.UIntMeta()
+            case "float":
+                return g.FloatMeta()
+            case "bool":
+                return g.BoolMeta()
+            case _:
+                raise FailedSemantics(f'unknown meta: {ast}')
+
     def deprecated_regex(self, ast: str, _parseinfo: ParseInfo | None = None):
         return self.regex(ast)
         # import warnings
@@ -186,12 +201,12 @@ class GrammarSemantics(ModelBuilderSemantics):
         self.rulemap[name] = rule
         return rule
 
+    # FIXME
     def rule_include(self, ast):
         name = str(ast)
         self.known_name(name)
 
-        rule = self.rulemap[name]
-        return g.RuleInclude(ast=ast, name=name, exp=rule.exp, rule=rule)
+        return g.RuleInclude(ast=ast, name=name)
 
     def grammar(self, ast):
         directives = {d.name: d.value for d in flatten(ast.directives) if d}

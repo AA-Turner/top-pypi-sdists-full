@@ -8,6 +8,7 @@ from freezegun import freeze_time
 from streamlit.testing.v1.app_test import AppTest
 from streamlit.testing.v1.element_tree import Block, Element
 
+from demo.src import demo_apps
 from demo.src.demo_apps import simple_stqdm_in_main, stqdm_bar_format, stqdm_scopes
 
 pytestmark = pytest.mark.demo_app
@@ -87,11 +88,11 @@ def test_progress(stop_iterations: int, total_iterations: int, task_duration: fl
         task_duration_time = datetime.timedelta(seconds=task_duration)
         elapsed = str(stop_iterations * task_duration_time)[-5:]
         remaining = str((total_iterations - stop_iterations) * task_duration_time)[-5:]
-        assert (
-            progress_bars[0].text
-            # pylint: disable=line-too-long
-            == f"{stop_iterations / total_iterations:.0%} {stop_iterations}/{total_iterations} [{elapsed}<{remaining},  {task_duration:.2f}s/it]"
+        expected_progress_text = (
+            f"{stop_iterations / total_iterations:.0%} {stop_iterations}/{total_iterations} "
+            f"[{elapsed}<{remaining},  {task_duration:.2f}s/it]"
         )
+        assert progress_bars[0].text == expected_progress_text
 
 
 def test_single_entrypoint_renders_with_app_test():
@@ -100,6 +101,23 @@ def test_single_entrypoint_renders_with_app_test():
         app_test.run(timeout=5)
 
     assert not app_test.exception
+
+
+@pytest.mark.parametrize(
+    "demo_function,expected_progress_bars",
+    [
+        (demo_apps.stqdm_in_columns, 3),
+        (demo_apps.stqdm_multi_bars_in_columns, 3),
+    ],
+)
+def test_column_demos_render_progress_bars(demo_function: Callable[..., None], expected_progress_bars: int):
+    with freeze_time_and_mock_long_running_task("2024-01-01"):
+        app_test = AppTest.from_function(demo_function, kwargs={"iterations": 10, "task_duration": 0.0})
+        app_test.run(timeout=5)
+
+    assert not app_test.exception
+    progress_bars = collect_block_elements(app_test.main, should_take=lambda element: element.type == "progress")
+    assert len(progress_bars) == expected_progress_bars
 
 
 @pytest.mark.parametrize(

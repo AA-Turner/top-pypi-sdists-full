@@ -1,6 +1,7 @@
 pub mod circle;
 pub mod closure_family;
 pub mod constant_curvature;
+pub mod curvature_estimand;
 pub mod euclidean;
 pub mod grassmann;
 pub mod integrator;
@@ -10,6 +11,7 @@ pub mod manifold;
 pub mod optimizer;
 pub mod poincare;
 pub mod product;
+pub mod response_geometry;
 pub mod simplex;
 pub mod spd;
 pub mod sphere;
@@ -24,6 +26,10 @@ pub use closure_family::{
 pub use constant_curvature::{
     ConstantCurvature, distance_kappa_jet, exp_map_kappa_jet, log_map_kappa_jet,
 };
+pub use curvature_estimand::{
+    CurvatureVerdict, DesignCoordKappaJet, FlatnessTest, KappaProfileCi,
+    design_coord_kappa_derivative, flatness_lr_test, profile_ci_walk, wald_half_width,
+};
 pub use euclidean::EuclideanManifold;
 pub use grassmann::GrassmannManifold;
 pub use integrator::GeodesicIntegrator;
@@ -31,6 +37,10 @@ pub use latent_seed::laplacian_eigenmap_coords;
 pub use manifold::{GeometryError, GeometryResult, ManifoldSpec, RiemannianManifold};
 pub use optimizer::{RiemannianLBFGS, RiemannianObjective, RiemannianTrustRegion};
 pub use product::ProductManifold;
+pub use response_geometry::{
+    ResponseCurvatureFit, ResponseManifold, fit_response_curvature, response_curvature_criterion,
+    response_exp_map, response_frechet_mean, response_log_map,
+};
 pub use spd::{SpdManifold, spd_frechet_mean};
 pub use sphere::SphereManifold;
 pub use stiefel::StiefelManifold;

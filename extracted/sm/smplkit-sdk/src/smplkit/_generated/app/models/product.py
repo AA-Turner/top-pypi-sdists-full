@@ -31,6 +31,9 @@ class Product:
         features (list[str] | Unset): Bullet-list feature highlights for the product.
         coming_soon (bool | Unset): When `true`, the product is listed but not yet available for subscription. Default:
             False.
+        metered_limits (list[str] | Unset): Limit keys on this product that are metered: each includes a monthly
+            allotment in the plan price and bills per unit beyond it at the plan's `overage_rates` rate, rather than capping
+            hard. Empty for products with no metered limits.
     """
 
     display_name: str
@@ -40,6 +43,7 @@ class Product:
     tagline: None | str | Unset = UNSET
     features: list[str] | Unset = UNSET
     coming_soon: bool | Unset = False
+    metered_limits: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -63,6 +67,10 @@ class Product:
 
         coming_soon = self.coming_soon
 
+        metered_limits: list[str] | Unset = UNSET
+        if not isinstance(self.metered_limits, Unset):
+            metered_limits = self.metered_limits
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -79,6 +87,8 @@ class Product:
             field_dict["features"] = features
         if coming_soon is not UNSET:
             field_dict["coming_soon"] = coming_soon
+        if metered_limits is not UNSET:
+            field_dict["metered_limits"] = metered_limits
 
         return field_dict
 
@@ -109,6 +119,8 @@ class Product:
 
         coming_soon = d.pop("coming_soon", UNSET)
 
+        metered_limits = cast(list[str], d.pop("metered_limits", UNSET))
+
         product = cls(
             display_name=display_name,
             description=description,
@@ -117,6 +129,7 @@ class Product:
             tagline=tagline,
             features=features,
             coming_soon=coming_soon,
+            metered_limits=metered_limits,
         )
 
         product.additional_properties = d

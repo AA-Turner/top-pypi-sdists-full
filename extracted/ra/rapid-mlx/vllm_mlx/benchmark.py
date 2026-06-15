@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Performance Benchmark for vllm-mlx.
+Performance Benchmark for rapid-mlx.
 
 Measures key performance metrics for LLM and MLLM (Multimodal Language Model) inference:
 - Time to First Token (TTFT)
@@ -45,9 +45,12 @@ try:
     import cv2
 except ImportError:
     cv2 = None  # Only needed for video benchmarks
+try:
+    from PIL import Image
+except ImportError:
+    Image = None  # Only needed for image benchmarks; ships with rapid-mlx[vision]
 import numpy as np
 import requests
-from PIL import Image
 from tabulate import tabulate
 
 try:
@@ -471,7 +474,7 @@ def run_benchmark(
     test_prompts = (prompts * ((num_prompts // len(prompts)) + 1))[:num_prompts]
 
     print(f"\n{'=' * 60}")
-    print("vllm-mlx Performance Benchmark")
+    print("Rapid-MLX Performance Benchmark")
     print(f"{'=' * 60}")
 
     # Hardware info table
@@ -676,8 +679,15 @@ class MLLMBenchmarkResult:
     mlx_memory_gb: float = 0.0
 
 
-def download_test_image(url: str, timeout: int = 30) -> Image.Image:
+def download_test_image(url: str, timeout: int = 30) -> "Image.Image":
     """Download image from URL and return PIL Image."""
+    if Image is None:
+        raise ImportError(
+            "Image benchmarks require Pillow, which is included in the "
+            "optional vision dependencies.\n"
+            "Install with:\n"
+            "    pip install 'rapid-mlx[vision]'"
+        )
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
     }
@@ -686,12 +696,12 @@ def download_test_image(url: str, timeout: int = 30) -> Image.Image:
     return Image.open(io.BytesIO(response.content))
 
 
-def resize_image(img: Image.Image, width: int, height: int) -> Image.Image:
+def resize_image(img: "Image.Image", width: int, height: int) -> "Image.Image":
     """Resize image to specified dimensions."""
     return img.resize((width, height), Image.Resampling.LANCZOS)
 
 
-def image_to_base64(img: Image.Image, format: str = "JPEG") -> str:
+def image_to_base64(img: "Image.Image", format: str = "JPEG") -> str:
     """Convert PIL Image to base64 data URL."""
     if img.mode == "RGBA":
         background = Image.new("RGB", img.size, (255, 255, 255))
@@ -711,7 +721,7 @@ def benchmark_mllm_resolution(
     model,
     processor,
     config,
-    base_image: Image.Image,
+    base_image: "Image.Image",
     width: int,
     height: int,
     max_tokens: int = 256,
@@ -857,7 +867,7 @@ def run_mllm_benchmark(
         ]
 
     print(f"\n{'=' * 70}")
-    print("vllm-mlx MLLM Performance Benchmark")
+    print("Rapid-MLX MLLM Performance Benchmark")
     print(f"{'=' * 70}")
 
     # Info table
@@ -1233,7 +1243,7 @@ def run_video_benchmark(
         ]
 
     print(f"\n{'=' * 70}")
-    print("vllm-mlx Video Performance Benchmark")
+    print("Rapid-MLX Video Performance Benchmark")
     print(f"{'=' * 70}")
 
     # Info table
@@ -1463,25 +1473,25 @@ def print_summary(summary: BenchmarkSummary):
 def main():
     """Run the benchmark."""
     parser = argparse.ArgumentParser(
-        description="vllm-mlx Performance Benchmark (LLM, MLLM Image & Video)",
+        description="Rapid-MLX Performance Benchmark (LLM, MLLM Image & Video)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
     # LLM benchmark
-    vllm-mlx-bench --model mlx-community/Llama-3.2-1B-Instruct-4bit
-    vllm-mlx-bench --model mlx-community/Llama-3.2-3B-Instruct-4bit --prompts 10
+    rapid-mlx-bench --model mlx-community/Llama-3.2-1B-Instruct-4bit
+    rapid-mlx-bench --model mlx-community/Llama-3.2-3B-Instruct-4bit --prompts 10
 
     # MLLM image benchmark (auto-detected)
-    vllm-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit
-    vllm-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --quick
+    rapid-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit
+    rapid-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --quick
 
     # MLLM video benchmark
-    vllm-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --video
-    vllm-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --video --quick
-    vllm-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --video --video-url https://example.com/video.mp4
+    rapid-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --video
+    rapid-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --video --quick
+    rapid-mlx-bench --model mlx-community/Qwen3-VL-4B-Instruct-3bit --video --video-url https://example.com/video.mp4
 
     # Force MLLM mode
-    vllm-mlx-bench --model custom-vision-model --mllm
+    rapid-mlx-bench --model custom-vision-model --mllm
         """,
     )
     parser.add_argument(

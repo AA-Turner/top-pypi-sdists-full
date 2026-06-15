@@ -10,7 +10,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import batched
 from pathlib import Path
-from typing import Any, NamedTuple
+from pickle import PickleError, PicklingError
+from threading import Event
+from typing import Any, NamedTuple, Protocol
 
 import rich  # type: ignore
 from rich.progress import (  # type: ignore
@@ -36,12 +38,35 @@ __all__ = [
 ]
 
 EOLCH = '\r' if sys.stderr.isatty() else '\n'
-sys.setrecursionlimit(2**16)
 
-type Func = Callable[[Any], Any]
+type Func = Callable[..., Any]
+type VisualFunc = Callable[..., Any]
+type ProgressPair = tuple[Progress, TaskID]
+type GetProgressFunc = Callable[[int], ProgressPair]
+
+
+class Payload(Protocol):
+    pass
+
+
+@dataclass(slots=True)
+class VisualPayload(Payload):
+    path: Path
+    payload: Any
+
+    def __hash__(self) -> int:
+        return id(self)
+
+    def __lt__(self, other: Any) -> bool:
+        return id(self) < id(other)
+
+
+class TaskStop(Exception):
+    pass
 
 
 class Task(NamedTuple):
+    stop: Event
     func: Func
     payload: Any
     pickable: Callable
@@ -50,13 +75,14 @@ class Task(NamedTuple):
     kwargs: Mapping[str, Any]
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, order=True)
 class Result:
+    stop: Event
     payload: Any
     outcome: Any = None
     exception: Any = None
     linecount: int = 0
-    time: float = 0
+    runtime: float = 0
     memory: int = 0
 
     @property
@@ -65,6 +91,22 @@ class Result:
 
     def __str__(self):
         return str(self.__dict__)
+
+
+def _build_progressbar(total: int) -> tuple[Progress, TaskID]:
+    progress = Progress(
+        TextColumn(f"[progress.description]{startscript()}"),
+        BarColumn(),
+        # *Progress.get_default_columns(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        refresh_per_second=1,
+        speed_estimate_period=30.0,
+    )
+    task = progress.add_task('', total=total)
+    return progress, task
 
 
 # NOTE: backwards compatibility
@@ -77,7 +119,7 @@ def parallel_proc(
     parallel: bool = True,
     reraise: bool = False,
     **kwargs: Any,
-):
+) -> Generator[Result | None, None, None]:
     yield from parproc(
         process,
         payloads,
@@ -97,10 +139,13 @@ def parproc(
     pickable: Func = identity,
     parallel: bool = True,
     reraise: bool = False,
+    max_workers: int | None = None,
     **kwargs: Any,
-) -> Iterable[Result | None]:
+) -> Generator[Result | None, None, None]:
+    stop = Event()
     tasks = [
         Task(
+            stop=stop,
             func=func,
             payload=payload,
             pickable=pickable,
@@ -110,155 +155,171 @@ def parproc(
         )
         for payload in payloads
     ]
-    try:
-        if len(tasks) == 1:
-            yield taskproc(tasks[0])
-            return
-
-        pmap = active_pmap() if parallel else map
-        yield from pmap(taskproc, tasks)
-    except KeyboardInterrupt:
+    if len(tasks) == 1:
+        yield taskproc(tasks[0])
         return
+
+    if not parallel:
+        yield from map(taskproc, tasks)
+    else:
+        pmap = active_pmap()
+        yield from pmap(stop, taskproc, tasks, max_workers)
 
 
 def taskproc(task: Task) -> Result:
-    start_time = time.process_time()
-    result = Result(task.payload)
+    if task.stop.is_set():
+        return Result(task.stop, task.payload)
+
+    result = Result(task.stop, task.payload)
+    outcome: Any = None
+    elapsed: float = 0.0
     try:
-        outcome = task.func(task.payload, *task.args, **task.kwargs)
-        result.memory = memory_use()
-        if hasattr(outcome, 'linecount'):
-            result.linecount = outcome.linecount
-        else:
-            count = 0
-            with Path(task.payload).open() as f:
-                for _line in f:
-                    count += 1
-            result.linecount = count
-        result.outcome = task.pickable(outcome)
-    except KeyboardInterrupt:
-        raise
+        start_time = time.thread_time()
+        try:
+            outcome = task.func(task.payload, *task.args, **task.kwargs)
+        except TypeError:
+            if not isinstance(task.payload, VisualPayload):
+                raise
+
+            # HACK add backwards compatibility
+            prev_limit = sys.getrecursionlimit()
+            sys.setrecursionlimit(2**16)
+            try:
+                outcome = task.func(task.payload.path, *task.args, **task.kwargs)
+            finally:
+                sys.setrecursionlimit(prev_limit)
+
+        elapsed = time.thread_time() - start_time
     except Exception as e:
         result.exception = e
+        if task.reraise:
+            raise
     finally:
-        result.time = time.process_time() - start_time
-
+        result.runtime = elapsed
+        result.outcome = task.pickable(outcome)
+    result.linecount = getattr(outcome, 'linecount', 0)
+    result.memory = memory_use()
     return result
 
 
-# NOTE: backwards compatibility
-def processing_loop(
-    filenames: Iterable[str],
-    process: Callable,
+def parproc_visual(
+    func: VisualFunc,
+    payloads_in: Iterable[VisualPayload | str],
     /,
+    build_progressbar: GetProgressFunc = _build_progressbar,
     *args: Any,
     pickable: Func = identity,
     parallel: bool = True,
     reraise: bool = False,
+    summary: bool = True,
+    max_workers: int | None = None,
     **kwargs: Any,
-) -> Iterable[Result]:
-    yield from parproc_visual(
-        process,
-        filenames,
+) -> Generator[Result, None, None]:
+    # note: resolve iterator now because we know that processing will do it anyway
+    payloads_in = list(payloads_in)
+
+    # HACK backwards compatibility
+    is_legacy = all(isinstance(p, str) for p in payloads_in)
+    payloads: list[VisualPayload] = (  # type: ignore # pyright: ignore[reportAssignmentType]
+        payloads_in  # type: ignore
+        if not is_legacy
+        else [VisualPayload(path=Path(str(p)), payload=None) for p in payloads_in]
+    )
+    filenames = [str(p.path) for p in payloads]
+
+    logpath = None
+    if len(filenames) > 1:
+        prefix = startscript().replace('.', '_')
+        logpath = iso_logpath(prefix=prefix)
+
+    maxwidth = max(len(Path(f).name) for f in filenames)
+
+    @contextmanager
+    def logctx() -> Generator[io.TextIOBase | Any, None, None]:
+        if isinstance(logpath, Path):
+            with logpath.open(mode="a", encoding="utf-8") as logfile:
+                yield logfile
+        else:
+            yield sys.stderr
+
+    total = len(filenames)
+    total_time = 0.0
+    run_time = 0.0
+    start_time = time.time()
+    results = parproc(
+        func,
+        payloads,
         *args,
         pickable=pickable,
         parallel=parallel,
         reraise=reraise,
+        max_workers=max_workers,
         **kwargs,
     )
+    count = 0
+    success_count = 0
+    success_linecount = 0
 
+    progress, progress_task = build_progressbar(total)
+    if is_legacy:
+        # HACK backwards compatibility: resolve the iterator
+        results = list(results)  # type: ignore
+    with progress:
+        for result in results:
+            if result is None:
+                continue
+            count += 1
 
-def parproc_visual(
-    func: Func,
-    filenames: Iterable[str],
-    /,
-    *args: Any,
-    pickable: Func = identity,
-    parallel: bool = True,
-    reraise: bool = False,
-    **kwargs: Any,
-) -> Iterable[Result]:
-    try:
-        # note: resolve iterator now because we know that processing will do it anyway
-        filenames = list(filenames)
-
-        logpath = None
-        if len(filenames) > 1:
-            prefix = startscript().replace('.', '_')
-            logpath = iso_logpath(prefix=prefix)
-
-        @contextmanager
-        def logctx() -> Generator[io.TextIOBase | Any, None, None]:
-            if isinstance(logpath, Path):
-                with logpath.open(mode="a", encoding="utf-8") as logfile:
-                    yield logfile
+            total_time = time.time() - start_time
+            filename = Path(result.payload.path).name
+            if result.exception:
+                icon = f'{U_CROSSED_SWORDS}'
+                color = '[red]'
             else:
-                yield sys.stderr
+                icon = f'{U_CHECK_MARK}'
+                color = '[green]'
 
-        total = len(filenames)
-        total_time = 0.0
-        run_time = 0.0
-        start_time = time.time()
-        results = parproc(
-            func,
-            filenames,
-            *args,
-            pickable=pickable,
-            parallel=parallel,
-            reraise=reraise,
-            **kwargs,
-        )
-        results = results or []
-        count = 0
-        success_count = 0
-        success_linecount = 0
+            progress.update(
+                progress_task,
+                advance=1,
+                description=f'{color}{filename:{maxwidth}} {icon}',
+                color='green',
+            )
 
-        progress, progress_task = _build_progressbar(total)
-        with progress:
-            for result in results:
-                if result is None:
-                    continue
-                count += 1
-
-                total_time = time.time() - start_time
-                filename = Path(result.payload).name
-                if result.exception:
-                    icon = f'[red]{U_CROSSED_SWORDS}'
-                else:
-                    icon = f'[green]{U_CHECK_MARK}'
-
-                progress.update(
-                    progress_task,
-                    advance=1,
-                    description=f'{icon} {filename}',
-                )
-
-                # with logctx() as log:
-                #     print(result.payload, file=log)
-                if result.exception:
-                    # noinspection PyBroadException
-                    try:
-                        with logctx() as log:
-                            print('ERROR:', result.payload, file=log)
-                            print(result.exception, file=log)
-                    except Exception:
-                        # in case of errors while serializing the exception
-                        with logctx() as log:
-                            print(
-                                'EXCEPTION',
-                                type(result.exception).__name__,
-                                file=log,
-                            )
-                    if reraise:
-                        raise result.exception
-                elif result.outcome is not None:
-                    success_count += 1
+            # with logctx() as log:
+            #     print(result.payload, file=log)
+            if result.exception:
+                try:
+                    with logctx() as log:
+                        print('ERROR:', result.payload, file=log)
+                        print(result.exception, file=log)
+                except Exception:
+                    # in case of errors while serializing the exception
+                    with logctx() as log:
+                        print(
+                            'EXCEPTION',
+                            type(result.exception).__name__,
+                            file=log,
+                        )
+                if reraise:
+                    raise result.exception
+            elif result.outcome is not None:
+                success_count += 1
+                if isinstance(result.linecount, int | float):
                     success_linecount += result.linecount
-                    run_time += result.time
-                    yield result
+                run_time += result.runtime
 
-            progress.update(progress_task, advance=0, description='')
-            progress.stop()
+            if result.exception and reraise:
+                raise result.exception
+            if is_legacy:
+                result.payload = result.payload.path
+            yield result
+
+        progress.update(progress_task, advance=0, description='')
+        progress.remove_task(progress_task)
+        progress.stop()
+
+    if summary or is_legacy:
         with logctx() as log:
             _file_process_summary(
                 filenames,
@@ -268,8 +329,6 @@ def parproc_visual(
                 success_linecount,
                 log,
             )
-    except KeyboardInterrupt:
-        return
 
 
 def _old_file_process_progress(
@@ -300,24 +359,8 @@ def _old_file_process_progress(
     )
 
 
-def _build_progressbar(total: int) -> tuple[Progress, TaskID]:
-    progress = Progress(
-        TextColumn(f"[progress.description]{startscript()}"),
-        BarColumn(),
-        # *Progress.get_default_columns(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        TimeRemainingColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        refresh_per_second=1,
-        speed_estimate_period=30.0,
-    )
-    task = progress.add_task('', total=total)
-    return progress, task
-
-
 def _format_minutes(result: Result) -> str:
-    return f'{result.time / 60:3.0f}:{result.time % 60:04.1f}'
+    return f'{result.runtime / 60:3.0f}:{result.runtime % 60:04.1f}'
 
 
 def _format_hours(time: float) -> str:
@@ -344,8 +387,8 @@ def _file_process_summary(
     lines_per_second = success_linecount / run_time if run_time > 0 else 0
     success_rate = 100 * success_count / filecount if filecount != 0 else 0
 
+    # ──────────────────────────────────────────────────────────────────────
     summary_text = '''\
-                ──────────────────────────────────────────────────────────────────────
                 {filecount:12,d}   files input
                 {linecount:12,d}   source lines input
         {success_linecount:12,d}   total lines processed
@@ -353,8 +396,8 @@ def _file_process_summary(
             {success_count:12,d}   successes
                  {failures:12,d}   failures
             {success_rate:12.1f}%  success rate
-           {total_time_str:>13s}   time
-             {run_time_str:>13s}   run time
+           {total_time_str:>12s}   time
+             {run_time_str:>12s}   run time
     '''
     summary_text = '\n'.join(s.strip() for s in summary_text.splitlines())
 
@@ -372,15 +415,42 @@ def _file_process_summary(
     print(summary, file=log)
     print(EOLCH + 80 * ' ', file=sys.stderr)
 
-    if log != sys.stderr:
-        print(summary, file=sys.stderr)
+    print(summary, file=sys.stderr)
     if failures:
         rich.print(f'[red bold]FAILURES: [green]{log.name}')
         print(file=sys.stderr)
         sys.exit(1)
 
 
-def active_pmap() -> Callable[[Func, Iterable[Any]], Iterable[Result]]:
+# NOTE: backwards compatibility
+def processing_loop(
+    filenames: Iterable[str],
+    process: Callable,
+    /,
+    *args: Any,
+    pickable: Func = identity,
+    parallel: bool = True,
+    reraise: bool = False,
+    max_workers: int | None = None,
+    **kwargs: Any,
+) -> Generator[Result, None, None]:
+    paths = [Path(f) for f in filenames]
+    payloads = [VisualPayload(p, p.read_text()) for p in paths]
+    yield from parproc_visual(
+        process,
+        payloads,
+        *args,
+        pickable=pickable,
+        parallel=parallel,
+        reraise=reraise,
+        max_workers=max_workers,
+        **kwargs,
+    )
+
+
+def active_pmap() -> Callable[
+    [Event, Func, Iterable[Any], int | None], Iterable[Result]
+]:
     import multiprocessing
     from concurrent.futures import (
         Executor,
@@ -391,6 +461,7 @@ def active_pmap() -> Callable[[Func, Iterable[Any]], Iterable[Result]]:
 
     def executor_pmap(
         executorcls: type[Executor],
+        stop_event: Event,
         process: Func,
         tasks: Iterable[Any],
         max_workers: int | None = None,
@@ -401,17 +472,55 @@ def active_pmap() -> Callable[[Func, Iterable[Any]], Iterable[Result]]:
             return
 
         with executorcls(max_workers=max_workers) as ex:  # type: ignore
-            futures = [ex.submit(process, task) for task in tasks]
-            for future in as_completed(futures):
-                yield future.result()
+            try:
+                futures = [ex.submit(process, task) for task in tasks]
+                for future in as_completed(futures):
+                    yield future.result()
+            except KeyboardInterrupt:
+                stop_event.set()
 
-    def thread_pmap(process: Func, tasks: Iterable[Any]) -> Iterable[Result]:
-        yield from executor_pmap(ThreadPoolExecutor, process, tasks)
+                print(file=sys.stderr)
+                print(file=sys.stderr)
+                print("Wait...", file=sys.stderr)
+                sys.stderr.flush()
 
-    def process_pmap(process: Func, tasks: Iterable[Any]) -> Iterable[Result]:
+                ex.shutdown(wait=False, cancel_futures=True)
+
+                print("           ", end="\r", file=sys.stderr)
+                sys.stderr.flush()
+
+                raise
+
+    def thread_pmap(
+        event: Event,
+        process: Func,
+        tasks: Iterable[Any],
+        max_workers: int | None = None,
+    ) -> Iterable[Result]:
         yield from executor_pmap(
-            ProcessPoolExecutor, process, tasks, max_workers=multiprocessing.cpu_count()
+            ThreadPoolExecutor,
+            event,
+            process,
+            tasks,
+            max_workers=max_workers or multiprocessing.cpu_count(),
         )
+
+    def process_pmap(
+        event: Event,
+        process: Func,
+        tasks: Iterable[Any],
+        max_workers: int | None = None,
+    ) -> Iterable[Result]:
+        try:
+            yield from executor_pmap(
+                ProcessPoolExecutor,
+                event,
+                process,
+                tasks,
+                max_workers=max_workers or multiprocessing.cpu_count(),
+            )
+        except (TypeError, PicklingError, PickleError):
+            yield from thread_pmap(event, process, tasks, max_workers)
 
     def imap_pmap(process: Func, tasks: Iterable[Any]) -> Iterable[Result]:
         tasks = list(tasks)
@@ -431,3 +540,4 @@ def active_pmap() -> Callable[[Func, Iterable[Any]], Iterable[Result]]:
             )
 
     return process_pmap
+    # return thread_pmap

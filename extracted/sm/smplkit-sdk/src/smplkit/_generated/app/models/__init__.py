@@ -147,6 +147,7 @@ from .payment_method_response import PaymentMethodResponse
 from .plan import Plan
 from .plan_definition import PlanDefinition
 from .plan_definition_limits import PlanDefinitionLimits
+from .plan_definition_overage_rates import PlanDefinitionOverageRates
 from .plan_list_response import PlanListResponse
 from .plan_resource import PlanResource
 from .plan_resource_type import PlanResourceType
@@ -371,6 +372,7 @@ __all__ = (
     "Plan",
     "PlanDefinition",
     "PlanDefinitionLimits",
+    "PlanDefinitionOverageRates",
     "PlanListResponse",
     "PlanResource",
     "PlanResourceType",

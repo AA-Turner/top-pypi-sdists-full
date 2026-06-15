@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TatSu
-Version: 5.21.0
+Version: 5.22.0
 Summary: TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.
 Project-URL: Homepage, https://github.com/neogeny/TatSu
 Project-URL: Repository, https://github.com/neogeny/TatSu
@@ -51,21 +51,22 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Compilers
 Classifier: Topic :: Text Processing :: General
 Requires-Python: >=3.12
-Provides-Extra: colorization
-Requires-Dist: colorama; extra == 'colorization'
+Provides-Extra: cling
+Requires-Dist: pygments>=2.20.0; extra == 'cling'
+Requires-Dist: rich>=15.0.0; extra == 'cling'
 Provides-Extra: diagrams
-Requires-Dist: graphviz; extra == 'diagrams'
+Requires-Dist: graphviz>=0.21; extra == 'diagrams'
 Provides-Extra: full
-Requires-Dist: colorama; extra == 'full'
-Requires-Dist: graphviz; extra == 'full'
-Requires-Dist: invoke; extra == 'full'
-Requires-Dist: rich; extra == 'full'
+Requires-Dist: graphviz>=0.21; extra == 'full'
+Requires-Dist: invoke>=2.2.1; extra == 'full'
+Requires-Dist: pygments>=2.20.0; extra == 'full'
+Requires-Dist: rich>=15.0.0; extra == 'full'
 Provides-Extra: ideps
-Requires-Dist: rich; extra == 'ideps'
+Requires-Dist: rich>=15.0.0; extra == 'ideps'
 Provides-Extra: parproc
-Requires-Dist: rich; extra == 'parproc'
+Requires-Dist: rich>=15.0.0; extra == 'parproc'
 Provides-Extra: tasks
-Requires-Dist: invoke; extra == 'tasks'
+Requires-Dist: invoke>=2.2.1; extra == 'tasks'
 Description-Content-Type: text/x-rst
 
 .. Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
@@ -81,27 +82,6 @@ Description-Content-Type: text/x-rst
 | |fury| ​ |actions| ​ |docs| ​ |installs| ​ |codspeed|
 | |sponsor|
 |
-
-  **Sibling Projects!**
-
-  Take a look at the sibling projects:
-    * `修TieXiu`_ in `Rust`
-    * `⻰OGoPEGo`_ in `Go`
-    * `꘩TS’emekwes`_ in `TypeScript`
-
-  They are functionally complete and pass all the |TatSu| test suite.
-
-  Some features are implemented differently to abide to the semantics and
-  idioms of each language (features being deprecated in |TatSu| are missing).
-
-  Prepare to be surprised at the performance differences, after thorough
-  optimization, of `Python` versus `Go`, `Rust`, and `TypeScript`.
-
-.. _修TieXiu: https://pypi.org/project/TieXiu/
-.. _`⻰OGoPEGo`: https://pypi.org/project/ogopego/
-.. _`꘩TS’emekwes`: https://github.com/neogeny/tsemekwes
-
-
 
 |TatSu|
 =======
@@ -123,6 +103,33 @@ Description-Content-Type: text/x-rst
 outputs `memoizing`_ (`Packrat`_) `PEG`_ parsers in `Python`_. The classic
 variations of EBNF_ (Tomassetti, EasyExtend, Wirth) and `ISO EBNF`_ are
 supported as input grammar formats.
+
+
+  **Sibling Projects!**
+
+  Take a look at the sibling projects:
+    * `修TieXiu`_ in `Rust`
+    * `⻰OGoPEGo`_ in `Go`
+    * `꘩TS’emekwes`_ in `TypeScript`
+
+  They are functionally complete and pass all the |TatSu| test suite.
+
+  Some features are implemented differently to abide to the semantics and
+  idioms of each language (features being deprecated in |TatSu| are missing).
+
+  Prepare to be surprised at the performance differences, after thorough
+  optimization, of `Python` versus `Go`, `Rust`, and `TypeScript`.
+
+.. _修TieXiu: https://pypi.org/project/TieXiu/
+.. _`⻰OGoPEGo`: https://pypi.org/project/ogopego/
+.. _`꘩TS’emekwes`: https://github.com/neogeny/tsemekwes
+
+The New CLI Tool
+----------------
+
+.. image:: https://vhs.charm.sh/vhs-23V9mzFKttlDbN1znR0lY6.gif
+    :alt: New CLI tool demo
+    :width: 800px
 
 Why use a `PEG`_ parser generator?
 ----------------------------------

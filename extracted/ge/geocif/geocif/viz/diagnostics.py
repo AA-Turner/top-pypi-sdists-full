@@ -15,6 +15,38 @@ logger = logging.getLogger(__name__)
 from geocif.utils import friendly_stage_label, greedy_dedup_by_mutual_corr  # noqa: F401 — re-exported for callers
 
 
+# scienceplots registers the "science" matplotlib style we use for the
+# publication-quality diagnostic plots (forest_yield_ci, mape_bar_chart,
+# mape_box_by_region, mape_choropleth, etc.). It's broken on matplotlib
+# 3.11+ because matplotlib removed the `matplotlib.style.core` submodule
+# that scienceplots imports from. Until upstream catches up, fail soft:
+# log once at import time, then fall back to matplotlib's default style
+# inside ``_science_style_context`` so the diagnostic plots still
+# produce — just with default fonts/colours instead of the "science"
+# theme.
+try:
+    import scienceplots  # noqa: F401
+    _HAS_SCIENCE_STYLE = True
+except (ImportError, AttributeError) as _exc:
+    _HAS_SCIENCE_STYLE = False
+    logger.warning(
+        f"scienceplots unavailable ({type(_exc).__name__}: {_exc}); "
+        f"diagnostic plots will use matplotlib default style"
+    )
+
+
+def _science_style_context():
+    """Return a matplotlib style context manager that uses the
+    'science' + 'no-latex' theme when scienceplots is available, else
+    matplotlib's default style. Use in place of
+    ``plt.style.context(['science', 'no-latex'])`` so the diagnostic
+    plot functions stay agnostic to whether scienceplots loaded.
+    """
+    if _HAS_SCIENCE_STYLE:
+        return plt.style.context(["science", "no-latex"])
+    return plt.style.context("default")
+
+
 # ---------------------------------------------------------------------------
 # Forest plot: predicted yield with CI, optional reference markers
 # ---------------------------------------------------------------------------
@@ -358,7 +390,7 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year"):
     r2   = r2_score(y_obs, y_pred)
 
     try:
-        with plt.style.context(["science", "no-latex"]):
+        with _science_style_context():
             fig, ax = plt.subplots(figsize=(7, 5))
     except OSError:
         fig, ax = plt.subplots(figsize=(7, 5))
@@ -498,8 +530,6 @@ def mape_bar_chart(
     if df.empty or "MAPE" not in df.columns or "Region" not in df.columns:
         return
 
-    import scienceplots  # noqa: F401
-
     df_plot = df.groupby("Region")["MAPE"].mean()
     if df_plot.empty:
         return
@@ -520,7 +550,7 @@ def mape_bar_chart(
     actual_max = float(np.nanmax(df_plot.values)) if len(df_plot) else 0.0
     do_cap = actual_max > MAPE_CAP * 1.5
 
-    with plt.style.context(["science", "no-latex"]):
+    with _science_style_context():
         fig, ax = plt.subplots(figsize=(8, max(3, len(df_plot) * 0.35)))
         plotted = np.minimum(df_plot.values, MAPE_CAP) if do_cap else df_plot.values
         bars = ax.barh(df_plot.index, plotted, color="steelblue")
@@ -576,8 +606,6 @@ def mape_box_by_region(
     if df.empty or mape_col not in df.columns or region_col not in df.columns:
         return
 
-    import scienceplots  # noqa: F401
-
     by_region: dict = {
         r: g[mape_col].dropna().values for r, g in df.groupby(region_col)
     }
@@ -617,7 +645,7 @@ def mape_box_by_region(
         for r in regions_sorted
     ]
 
-    with plt.style.context(["science", "no-latex"]):
+    with _science_style_context():
         fig, ax = plt.subplots(
             figsize=(9, max(3.5, len(regions_sorted) * 0.42)),
         )
@@ -689,8 +717,6 @@ def mape_box_by_year(
     if df.empty or mape_col not in df.columns or year_col not in df.columns:
         return
 
-    import scienceplots  # noqa: F401
-
     by_year: dict = {
         int(y): g[mape_col].dropna().values for y, g in df.groupby(year_col)
     }
@@ -710,7 +736,7 @@ def mape_box_by_year(
         for y in years_sorted
     ]
 
-    with plt.style.context(["science", "no-latex"]):
+    with _science_style_context():
         fig, ax = plt.subplots(
             figsize=(max(10, len(years_sorted) * 0.55), 5.5),
         )
@@ -788,8 +814,6 @@ def mape_by_year(
     if df.empty or year_col not in df.columns:
         return
 
-    import scienceplots  # noqa: F401
-
     use_national = (
         obs_col is not None and pred_col is not None
         and obs_col in df.columns and pred_col in df.columns
@@ -832,7 +856,7 @@ def mape_by_year(
         window=rolling_window, min_periods=rolling_window
     ).mean()
 
-    with plt.style.context(["science", "no-latex"]):
+    with _science_style_context():
         MAPE_CAP = 100.0
         actual_max = float(np.nanmax(mape_series.values))
         do_cap = actual_max > MAPE_CAP * 1.5
@@ -1061,8 +1085,6 @@ def cid_vs_yield_scatters(
         for i, y in enumerate(years_sorted)
     }
 
-    import scienceplots  # noqa: F401
-
     region_col = "Region" if "Region" in df.columns else None
 
     # Stable region colour map for the per-CID *_by_region.png companion
@@ -1108,7 +1130,7 @@ def cid_vs_yield_scatters(
         colors = [year_to_color.get(int(y), (0.5, 0.5, 0.5, 0.7))
                   for y in sub[year_col]]
 
-        with plt.style.context(["science", "no-latex"]):
+        with _science_style_context():
             fig, ax = plt.subplots(figsize=(6.5, 5))
             ax.scatter(
                 sub[col], sub[target_col],
@@ -1153,7 +1175,7 @@ def cid_vs_yield_scatters(
         # a region palette built. Regions with fewer than 3 points get
         # the scatter but no fit line (slope undefined).
         if region_col is not None and region_to_color and region_col in sub.columns:
-            with plt.style.context(["science", "no-latex"]):
+            with _science_style_context():
                 fig, ax = plt.subplots(figsize=(7.5, 5))
                 x_min = float(sub[col].min())
                 x_max = float(sub[col].max())
@@ -1263,7 +1285,7 @@ def cid_vs_yield_scatters(
         n_pruned = int((~pearson_df["kept"]).sum())
         top = pearson_df[pearson_df["kept"]].head(10)
 
-        with plt.style.context(["science", "no-latex"]):
+        with _science_style_context():
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
             # Left: stacked histogram, survivors blue + pruned grey.

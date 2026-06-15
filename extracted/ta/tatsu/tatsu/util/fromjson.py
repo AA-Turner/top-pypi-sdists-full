@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+import dataclasses
+from collections.abc import Generator, Mapping
+from types import SimpleNamespace  # noqa: F401  # pyright: ignore[reportUnusedImport]
+from typing import Any, Self
+
+from ..util.abctools import isiter
+from ..util.asjson import AsJSONMixin
+
+
+__from_json__class__: dict[str, type] = {}
+
+
+class Object:
+    pass
+
+
+def dataclass_fields(
+    cls: type,
+) -> Generator[tuple[str, dataclasses.Field], None, None]:
+    if not dataclasses.is_dataclass(cls):
+        return
+    for parent in cls.mro()[1:]:
+        yield from dataclass_fields(parent)
+    fields = dataclasses.fields(cls)
+    yield from [(f.name, f) for f in fields]
+
+
+@dataclasses.dataclass(kw_only=True)
+class JSONBase(AsJSONMixin):
+    @classmethod
+    def __from_json__(cls: type[Self], data: Mapping[str, Any]) -> Self:
+        if dataclasses.is_dataclass(cls):
+            fieldmap: dict[str, dataclasses.Field] = dict(dataclass_fields(cls))  # pyright: ignore[reportArgumentType]
+            initdata = {
+                name: value
+                for name, value in data.items()
+                if (f := fieldmap.get(name)) and f.init
+            }
+            return cls(**initdata)  # pyright: ignore[reportCallIssue]
+
+        new = cls.__new__(cls)
+        for name, value in data.items():
+            if name == "__class__":
+                continue
+            setattr(new, name, value)
+        return new
+
+    @classmethod
+    def _init_dataclass(
+        cls,
+        new: object,
+        fieldmap: dict[str, dataclasses.Field],
+        data: Mapping[str, Any],
+    ):
+        if not dataclasses.is_dataclass(cls):
+            return
+        for fname, field in fieldmap.items():
+            if field.default is not dataclasses.MISSING:
+                setattr(new, fname, field.default)
+            elif field.default_factory is not dataclasses.MISSING:
+                setattr(new, fname, field.default_factory())
+
+    def __init_subclass__(cls: type, **kwargs):
+        __from_json__class__[cls.__name__] = cls
+
+
+def fromjson(obj: Any) -> Any:
+    """
+    Transform serialized JSON into a Python object.
+    """
+
+    def dfs(node: Any) -> Any:  # noqa: PLR0911
+        if node is None or isinstance(node, int | float | str | bool):
+            return node
+
+        def mapped() -> dict[str, Any]:
+            map: dict = node
+            return {
+                name: dfs(value) for name, value in map.items() if name != "__class__"
+            }
+
+        def asobj() -> object:
+            return SimpleNamespace(**mapped())
+            # obj = Object()
+            # for name, value in mapped().items():
+            #     setattr(obj, name, value)
+            # return obj
+
+        match node:
+            case Mapping() as map:
+                typename = map.get("__class__", None)
+                if not typename:
+                    return mapped()
+                if (cls := __from_json__class__.get(typename)) is not None:
+                    assert issubclass(cls, JSONBase)
+                    return cls.__from_json__(mapped())  # NOTE the raw contents
+                return asobj()
+            case list() | tuple() | set() as seq:
+                return [dfs(e) for e in seq]
+            case _ if isiter(node):
+                return [dfs(e) for e in node]
+            case _:
+                return node
+
+    return dfs(obj)

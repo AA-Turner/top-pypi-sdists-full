@@ -11,11 +11,12 @@ from h2corn import Config, Server
 
 import hpack
 from tests._support import (
-    find_free_port,
     h2_request,
     open_h2_connection,
+    read_raw_h2_frames,
     running_server,
-    wait_for_port,
+    server_port,
+    wait_for_server,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -106,29 +107,6 @@ async def _h2_expect_error(
         await writer.wait_closed()
 
 
-async def _read_raw_h2_frames(
-    reader: asyncio.StreamReader,
-    *,
-    timeout: float = 5.0,
-    stop_at_goaway: bool = True,
-) -> list[tuple[int, int, bytes]]:
-    frames = []
-    try:
-        while True:
-            header = await asyncio.wait_for(reader.readexactly(9), timeout=timeout)
-            length = int.from_bytes(header[:3], 'big')
-            frame_type = header[3]
-            stream_id = int.from_bytes(header[5:9], 'big') & 0x7FFF_FFFF
-            payload = await asyncio.wait_for(
-                reader.readexactly(length), timeout=timeout
-            )
-            frames.append((frame_type, stream_id, payload))
-            if stop_at_goaway and frame_type == 0x07:
-                return frames
-    except (asyncio.IncompleteReadError, TimeoutError):
-        return frames
-
-
 async def _start_blocked_request_server(
     *,
     status: int,
@@ -157,12 +135,12 @@ async def _start_blocked_request_server(
         await send({'type': 'http.response.start', 'status': status, 'headers': []})
         await send({'type': 'http.response.body', 'body': body})
 
-    config = Config(port=find_free_port(), timeout_graceful_shutdown=2.0)
+    config = Config(port=0, timeout_graceful_shutdown=2.0)
     server = Server(app, config)
     server_task = asyncio.create_task(server.serve())
-    await wait_for_port(config.port)
+    await wait_for_server(server, server_task)
 
-    reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    reader, writer, conn, authority = await open_h2_connection(port=server_port(server))
     stream_id = conn.get_next_available_stream_id()
     conn.send_headers(
         stream_id,
@@ -194,9 +172,11 @@ async def test_h2_limit_concurrency_rejects_second_stream_with_503() -> None:
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': b'slow'})
 
-    config = Config(port=find_free_port(), limit_concurrency=1)
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, limit_concurrency=1)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         try:
             slow_stream_id = conn.get_next_available_stream_id()
             conn.send_headers(
@@ -274,7 +254,7 @@ async def test_shutdown_drains_inflight_stream() -> None:
     release.set()
     try:
         frames = await asyncio.wait_for(
-            _read_raw_h2_frames(reader, timeout=0.5, stop_at_goaway=False),
+            read_raw_h2_frames(reader, timeout=0.5, stop_at_goaway=False),
             timeout=5,
         )
     finally:
@@ -286,7 +266,7 @@ async def test_shutdown_drains_inflight_stream() -> None:
     body = bytearray()
     trailers = []
     decoder = hpack.Decoder()
-    for frame_type, frame_stream_id, payload in frames:
+    for frame_type, _flags, frame_stream_id, payload in frames:
         if frame_stream_id != stream_id:
             continue
         if frame_type == 0x01:
@@ -351,14 +331,14 @@ async def test_content_length_mismatch_is_rejected() -> None:
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': b'unreachable'})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
+    config = Config(port=0)
+    async with running_server(app, config) as server:
         kind, detail = await _h2_expect_error(
-            port=config.port,
+            port=server_port(server),
             headers=[
                 (b':method', b'POST'),
                 (b':scheme', b'http'),
-                (b':authority', f'127.0.0.1:{config.port}'.encode()),
+                (b':authority', f'127.0.0.1:{server_port(server)}'.encode()),
                 (b':path', b'/'),
                 (b'content-length', b'0'),
             ],
@@ -383,9 +363,11 @@ async def test_incomplete_streaming_response_resets_stream() -> None:
             'more_body': True,
         })
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         stream_id = conn.get_next_available_stream_id()
         conn.send_headers(
             stream_id,
@@ -441,9 +423,11 @@ async def test_generic_connect_is_rejected_with_501() -> None:
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': b'unreachable'})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer, _conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer, _conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         encoder = hpack.Encoder()
         headers = encoder.encode([
             (b':method', b'CONNECT'),
@@ -481,9 +465,11 @@ async def test_max_concurrent_stream_limit_is_enforced() -> None:
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': b'hello'})
 
-    config = Config(port=find_free_port(), max_concurrent_streams=1)
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, max_concurrent_streams=1)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         conn.update_settings({h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 0})
         writer.write(conn.data_to_send())
         await writer.drain()
@@ -548,22 +534,24 @@ async def test_client_must_send_settings_as_first_frame() -> None:
         await send({'type': 'http.response.start', 'status': 204, 'headers': []})
         await send({'type': 'http.response.body', 'body': b''})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer = await asyncio.open_connection('127.0.0.1', config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer = await asyncio.open_connection('127.0.0.1', server_port(server))
         writer.write(
             b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
             + _encode_h2_frame(0x06, b'\x00' * 8, stream_id=0)
         )
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(reader)
+            frames = await read_raw_h2_frames(reader)
         finally:
             writer.close()
             await writer.wait_closed()
 
     goaway = next(
-        payload for frame_type, _stream_id, payload in frames if frame_type == 0x07
+        payload
+        for frame_type, _flags, _stream_id, payload in frames
+        if frame_type == 0x07
     )
     assert int.from_bytes(goaway[4:8], 'big') == int(
         h2.errors.ErrorCodes.PROTOCOL_ERROR
@@ -575,22 +563,20 @@ async def test_server_settings_advertise_max_frame_size() -> None:
         await send({'type': 'http.response.start', 'status': 204, 'headers': []})
         await send({'type': 'http.response.body', 'body': b''})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer = await asyncio.open_connection('127.0.0.1', config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer = await asyncio.open_connection('127.0.0.1', server_port(server))
         writer.write(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' + _encode_h2_settings([]))
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
 
     settings_payload = next(
         payload
-        for frame_type, _stream_id, payload in frames
+        for frame_type, _flags, _stream_id, payload in frames
         if frame_type == 0x04 and payload
     )
     settings = _decode_h2_settings_payload(settings_payload)
@@ -605,25 +591,23 @@ async def test_server_settings_advertise_header_list_size() -> None:
         await send({'type': 'http.response.body', 'body': b''})
 
     config = Config(
-        port=find_free_port(),
+        port=0,
         max_concurrent_streams=456,
         h2_max_header_list_size=123_456,
     )
-    async with running_server(app, config):
-        reader, writer = await asyncio.open_connection('127.0.0.1', config.port)
+    async with running_server(app, config) as server:
+        reader, writer = await asyncio.open_connection('127.0.0.1', server_port(server))
         writer.write(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n' + _encode_h2_settings([]))
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
 
     settings_payload = next(
         payload
-        for frame_type, _stream_id, payload in frames
+        for frame_type, _flags, _stream_id, payload in frames
         if frame_type == 0x04 and payload
     )
     settings = _decode_h2_settings_payload(settings_payload)
@@ -636,9 +620,9 @@ async def test_invalid_ping_emits_goaway_after_valid_preface_and_settings() -> N
         await send({'type': 'http.response.start', 'status': 204, 'headers': []})
         await send({'type': 'http.response.body', 'body': b''})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer = await asyncio.open_connection('127.0.0.1', config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer = await asyncio.open_connection('127.0.0.1', server_port(server))
         writer.write(
             b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'
             + _encode_h2_settings([])
@@ -646,13 +630,15 @@ async def test_invalid_ping_emits_goaway_after_valid_preface_and_settings() -> N
         )
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(reader)
+            frames = await read_raw_h2_frames(reader)
         finally:
             writer.close()
             await writer.wait_closed()
 
     goaway = next(
-        payload for frame_type, _stream_id, payload in frames if frame_type == 0x07
+        payload
+        for frame_type, _flags, _stream_id, payload in frames
+        if frame_type == 0x07
     )
     assert int.from_bytes(goaway[4:8], 'big') == int(
         h2.errors.ErrorCodes.PROTOCOL_ERROR
@@ -666,9 +652,11 @@ async def test_response_data_frames_respect_peer_max_frame_size() -> None:
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': payload})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         conn.update_settings({h2.settings.SettingCodes.MAX_FRAME_SIZE: 32 * 1024})
         stream_id = conn.get_next_available_stream_id()
         conn.send_headers(
@@ -684,16 +672,14 @@ async def test_response_data_frames_respect_peer_max_frame_size() -> None:
         writer.write(conn.data_to_send())
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
 
     data_lengths = [
         len(frame_payload)
-        for frame_type, frame_stream_id, frame_payload in frames
+        for frame_type, _flags, frame_stream_id, frame_payload in frames
         if frame_type == 0x00 and frame_stream_id == stream_id
     ]
     assert data_lengths
@@ -709,9 +695,11 @@ async def test_response_data_frames_cap_at_server_target_when_peer_allows_more()
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': payload})
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         conn.update_settings({
             h2.settings.SettingCodes.MAX_FRAME_SIZE: 1 << 20,
             h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 1 << 20,
@@ -731,20 +719,123 @@ async def test_response_data_frames_cap_at_server_target_when_peer_allows_more()
         writer.write(conn.data_to_send())
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
 
     data_lengths = [
         len(frame_payload)
-        for frame_type, frame_stream_id, frame_payload in frames
+        for frame_type, _flags, frame_stream_id, frame_payload in frames
         if frame_type == 0x00 and frame_stream_id == stream_id
     ]
     assert data_lengths
     assert max(data_lengths) == SERVER_MAX_FRAME_SIZE
+
+
+async def test_streamed_multi_chunk_response_bytes_and_end_stream_placement() -> None:
+    """Characterizes the vectored chunk emitter: a multi-chunk streamed body
+    arrives byte-identical, every DATA frame respects the peer frame size,
+    and END_STREAM lands exactly on the final DATA frame.
+    """
+    chunks = [b'a' * (20 * 1024), b'b' * (10 * 1024), b'', b'c' * 4]
+
+    async def app(scope, receive, send):
+        await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+        for chunk in chunks[:-1]:
+            await send({
+                'type': 'http.response.body',
+                'body': chunk,
+                'more_body': True,
+            })
+        await send({'type': 'http.response.body', 'body': chunks[-1]})
+
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
+        conn.update_settings({h2.settings.SettingCodes.MAX_FRAME_SIZE: 16 * 1024})
+        stream_id = conn.get_next_available_stream_id()
+        conn.send_headers(
+            stream_id,
+            [
+                (b':method', b'GET'),
+                (b':scheme', b'http'),
+                (b':authority', authority),
+                (b':path', b'/'),
+            ],
+            end_stream=True,
+        )
+        writer.write(conn.data_to_send())
+        await writer.drain()
+        try:
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    data_frames = [
+        (flags, frame_payload)
+        for frame_type, flags, frame_stream_id, frame_payload in frames
+        if frame_type == 0x00 and frame_stream_id == stream_id
+    ]
+    assert data_frames
+    assert b''.join(payload for _, payload in data_frames) == b''.join(chunks)
+    assert all(len(payload) <= 16 * 1024 for _, payload in data_frames)
+    end_flags = [bool(flags & 0x01) for flags, _ in data_frames]
+    assert end_flags == [False] * (len(data_frames) - 1) + [True]
+
+
+async def test_rapid_reset_flood_triggers_enhance_your_calm_goaway() -> None:
+    """CVE-2023-44487 class guard: a client flooding HEADERS+RST_STREAM pairs
+    is disconnected with GOAWAY ENHANCE_YOUR_CALM; a fresh well-behaved
+    connection is unaffected.
+    """
+
+    async def app(scope, receive, send):
+        if scope['type'] != 'http':
+            return
+        await receive()
+        await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+        await send({'type': 'http.response.body', 'body': b'ok'})
+
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
+        request_headers = [
+            (b':method', b'GET'),
+            (b':scheme', b'http'),
+            (b':authority', authority),
+            (b':path', b'/'),
+        ]
+        try:
+            for _ in range(400):
+                stream_id = conn.get_next_available_stream_id()
+                conn.send_headers(stream_id, request_headers, end_stream=True)
+                conn.reset_stream(stream_id, error_code=0x8)  # CANCEL
+                writer.write(conn.data_to_send())
+            await writer.drain()
+            frames = await read_raw_h2_frames(reader, timeout=2.0)
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+        goaway_codes = [
+            int.from_bytes(payload[4:8], 'big')
+            for frame_type, _flags, _stream_id, payload in frames
+            if frame_type == 0x07
+        ]
+        assert 0x0B in goaway_codes  # ENHANCE_YOUR_CALM
+
+        # A fresh, well-behaved connection still gets served.
+        status, body = await asyncio.wait_for(
+            h2_request(port=server_port(server)), timeout=5
+        )
+        assert status == 200
+        assert body == b'ok'
 
 
 async def test_request_body_idle_timeout_only_resets_stalled_stream() -> None:
@@ -762,9 +853,11 @@ async def test_request_body_idle_timeout_only_resets_stalled_stream() -> None:
         await send({'type': 'http.response.start', 'status': 200, 'headers': []})
         await send({'type': 'http.response.body', 'body': b'fast'})
 
-    config = Config(port=find_free_port(), timeout_request_body_idle=0.1)
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, timeout_request_body_idle=0.1)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         slow_stream_id = conn.get_next_available_stream_id()
         conn.send_headers(
             slow_stream_id,
@@ -836,9 +929,11 @@ async def test_h2_header_block_size_limit_resets_stream() -> None:
     async def app(scope, receive, send):
         raise AssertionError('header block limit should reject before the app runs')
 
-    config = Config(port=find_free_port(), h2_max_header_block_size=32)
-    async with running_server(app, config):
-        reader, writer, _conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, h2_max_header_block_size=32)
+    async with running_server(app, config) as server:
+        reader, writer, _conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         encoder = hpack.Encoder()
         block = encoder.encode([
             (b':method', b'GET'),
@@ -854,9 +949,7 @@ async def test_h2_header_block_size_limit_resets_stream() -> None:
         )
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
@@ -866,7 +959,7 @@ async def test_h2_header_block_size_limit_resets_stream() -> None:
         and stream_id == 1
         and int.from_bytes(payload[:4], 'big')
         == int(h2.errors.ErrorCodes.PROTOCOL_ERROR)
-        for frame_type, stream_id, payload in frames
+        for frame_type, _flags, stream_id, payload in frames
     )
 
 
@@ -874,9 +967,11 @@ async def test_h2_single_frame_header_block_size_limit_resets_stream() -> None:
     async def app(scope, receive, send):
         raise AssertionError('single-frame header block limit should reject early')
 
-    config = Config(port=find_free_port(), h2_max_header_block_size=32)
-    async with running_server(app, config):
-        reader, writer, _conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, h2_max_header_block_size=32)
+    async with running_server(app, config) as server:
+        reader, writer, _conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         block = hpack.Encoder().encode([
             (b':method', b'GET'),
             (b':scheme', b'http'),
@@ -887,9 +982,7 @@ async def test_h2_single_frame_header_block_size_limit_resets_stream() -> None:
         writer.write(_encode_h2_frame(0x01, block, flags=0x05, stream_id=1))
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
@@ -899,7 +992,7 @@ async def test_h2_single_frame_header_block_size_limit_resets_stream() -> None:
         and stream_id == 1
         and int.from_bytes(payload[:4], 'big')
         == int(h2.errors.ErrorCodes.PROTOCOL_ERROR)
-        for frame_type, stream_id, payload in frames
+        for frame_type, _flags, stream_id, payload in frames
     )
 
 
@@ -917,9 +1010,11 @@ async def test_h2_header_field_limit_rejects_indexed_cookie_bomb() -> None:
         dispatched = True
         raise AssertionError('header field limit should reject before scope build')
 
-    config = Config(port=find_free_port(), limit_request_fields=8)
-    async with running_server(app, config):
-        reader, writer, _conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, limit_request_fields=8)
+    async with running_server(app, config) as server:
+        reader, writer, _conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         block = hpack.Encoder().encode(
             (
                 (b':method', b'GET'),
@@ -933,9 +1028,7 @@ async def test_h2_header_field_limit_rejects_indexed_cookie_bomb() -> None:
         writer.write(_encode_h2_frame(0x01, block, flags=0x05, stream_id=1))
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=0.2, stop_at_goaway=False
-            )
+            frames = await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
@@ -946,7 +1039,7 @@ async def test_h2_header_field_limit_rejects_indexed_cookie_bomb() -> None:
         frame_type == 0x01
         and stream_id == 1
         and dict(decoder.decode(payload, raw=True)).get(b':status') == b'431'
-        for frame_type, stream_id, payload in frames
+        for frame_type, _flags, stream_id, payload in frames
     )
 
 
@@ -959,9 +1052,11 @@ async def test_h2_header_fragment_timeout_resets_only_stalled_stream() -> None:
         })
         await send({'type': 'http.response.body', 'body': b'fast'})
 
-    config = Config(port=find_free_port(), timeout_request_header=0.05)
-    async with running_server(app, config):
-        reader, writer, _conn, authority = await open_h2_connection(port=config.port)
+    config = Config(port=0, timeout_request_header=0.05)
+    async with running_server(app, config) as server:
+        reader, writer, _conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         slow_block = hpack.Encoder().encode([
             (b':method', b'GET'),
             (b':scheme', b'http'),
@@ -1022,12 +1117,14 @@ async def test_h2_response_stall_timeout_resets_flow_control_blocked_stream() ->
         await send({'type': 'http.response.body', 'body': b'x' * 1024})
 
     config = Config(
-        port=find_free_port(),
+        port=0,
         h2_timeout_response_stall=0.05,
         timeout_keep_alive=10.0,
     )
-    async with running_server(app, config):
-        reader, writer, conn, authority = await open_h2_connection(port=config.port)
+    async with running_server(app, config) as server:
+        reader, writer, conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
         conn.update_settings({h2.settings.SettingCodes.INITIAL_WINDOW_SIZE: 0})
         stream_id = conn.get_next_available_stream_id()
         conn.send_headers(
@@ -1061,9 +1158,9 @@ async def test_invalid_h2_preface_emits_goaway_protocol_error() -> None:
     async def app(scope, receive, send):
         raise AssertionError('invalid preface should fail before request dispatch')
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
-        reader, writer = await asyncio.open_connection('127.0.0.1', config.port)
+    config = Config(port=0)
+    async with running_server(app, config) as server:
+        reader, writer = await asyncio.open_connection('127.0.0.1', server_port(server))
         writer.write(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\rX')
         await writer.drain()
         try:
@@ -1088,16 +1185,18 @@ async def test_h2_inbound_frame_size_limit_ignores_larger_peer_setting() -> None
             'oversized control frame should close before any request runs'
         )
 
-    config = Config(port=find_free_port(), h2_max_inbound_frame_size=16_384)
-    async with running_server(app, config):
-        reader, writer, conn, _authority = await open_h2_connection(port=config.port)
-        await _read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
+    config = Config(port=0, h2_max_inbound_frame_size=16_384)
+    async with running_server(app, config) as server:
+        reader, writer, conn, _authority = await open_h2_connection(
+            port=server_port(server)
+        )
+        await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
         conn.update_settings({h2.settings.SettingCodes.MAX_FRAME_SIZE: 32 * 1024})
         oversized_settings = [(0x01, 4096)] * 2731
         writer.write(conn.data_to_send() + _encode_h2_settings(oversized_settings))
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(reader, timeout=5, stop_at_goaway=True)
+            frames = await read_raw_h2_frames(reader, timeout=5, stop_at_goaway=True)
         finally:
             writer.close()
             await writer.wait_closed()
@@ -1106,7 +1205,7 @@ async def test_h2_inbound_frame_size_limit_ignores_larger_peer_setting() -> None
         frame_type == 0x07
         and int.from_bytes(payload[4:8], 'big')
         == int(h2.errors.ErrorCodes.FRAME_SIZE_ERROR)
-        for frame_type, _stream_id, payload in frames
+        for frame_type, _flags, _stream_id, payload in frames
     )
 
 
@@ -1114,10 +1213,12 @@ async def test_h2_padding_only_data_replenishes_flow_control_windows() -> None:
     async def app(scope, receive, send):
         await asyncio.sleep(2)
 
-    config = Config(port=find_free_port(), access_log=False)
-    async with running_server(app, config):
-        reader, writer, _conn, authority = await open_h2_connection(port=config.port)
-        await _read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
+    config = Config(port=0, access_log=False)
+    async with running_server(app, config) as server:
+        reader, writer, _conn, authority = await open_h2_connection(
+            port=server_port(server)
+        )
+        await read_raw_h2_frames(reader, timeout=0.2, stop_at_goaway=False)
 
         block = hpack.Encoder().encode([
             (b':method', b'POST'),
@@ -1137,20 +1238,20 @@ async def test_h2_padding_only_data_replenishes_flow_control_windows() -> None:
         )
         await writer.drain()
         try:
-            frames = await _read_raw_h2_frames(
-                reader, timeout=1.0, stop_at_goaway=False
-            )
+            # The slower Windows runner needs more slack to stream the WINDOW_UPDATE
+            # frames back after consuming the ~8 MB padding flood.
+            frames = await read_raw_h2_frames(reader, timeout=3.0, stop_at_goaway=False)
         finally:
             writer.close()
             await writer.wait_closed()
 
     assert any(
         frame_type == 0x08 and stream_id == 0
-        for frame_type, stream_id, _payload in frames
+        for frame_type, _flags, stream_id, _payload in frames
     )
     assert any(
         frame_type == 0x08 and stream_id == 1
-        for frame_type, stream_id, _payload in frames
+        for frame_type, _flags, stream_id, _payload in frames
     )
 
 
@@ -1162,9 +1263,9 @@ async def test_connection_specific_response_headers_are_passthrough_invalid() ->
             'headers': [(b'connection', b'close')],
         })
 
-    config = Config(port=find_free_port())
-    async with running_server(app, config):
+    config = Config(port=0)
+    async with running_server(app, config) as server:
         with pytest.raises(
             h2.exceptions.ProtocolError, match='Connection-specific header field'
         ):
-            await asyncio.wait_for(h2_request(port=config.port), timeout=5)
+            await asyncio.wait_for(h2_request(port=server_port(server)), timeout=5)

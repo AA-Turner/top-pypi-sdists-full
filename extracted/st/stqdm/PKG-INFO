@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stqdm
-Version: 0.2.0
+Version: 0.2.1
 Summary: Easy progress bar for streamlit based on the awesome streamlit.progress and tqdm
 Project-URL: Homepage, https://github.com/Wirg/stqdm
 Project-URL: Repository, https://github.com/Wirg/stqdm

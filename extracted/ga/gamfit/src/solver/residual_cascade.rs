@@ -30,10 +30,19 @@
 //! level whose supports cover it, O(qL) nonzeros — and is held in CSR. For
 //! moderate column counts (`m ≤ DENSE_GRAM_MAX`) the normal equations are
 //! solved by dense Cholesky with the EXACT log-determinant (same route as the
-//! grid sibling); beyond that the solve is level-diagonal (Jacobi/BPX-flavor)
-//! preconditioned CG — the norm equivalence is precisely what makes
-//! `P^{−1/2}(X'WX+λD)P^{−1/2}` uniformly conditioned, so the iteration count
-//! is n-independent by design (the in-test gate asserts it). Every CG solve
+//! grid sibling); beyond that the solve is preconditioned CG with the two-level
+//! additive-Schwarz coarse-space preconditioner `P = blockdiag(A_CC,
+//! diag(A_FF))`. The multilevel Wendland frame is redundant across scales — a
+//! coarse bump and the fine bumps in its support are strongly correlated — so
+//! the data-fit Gram `X'WX` couples levels and a pure-diagonal preconditioner
+//! leaves a conditioning that GROWS with the number of data-identified levels
+//! (hence with n). The coarse space `C` (polynomial layer + the data-dominated
+//! coarsest levels, see `coarse_space_cols`) is solved EXACTLY by a small dense
+//! Cholesky and the penalty-dominated fine tail `F` — where `A_ll ≈ λ d_l I` is
+//! already uniformly conditioned — by its Jacobi diagonal. That deflation is
+//! what makes `P^{−1/2}(X'WX+λD)P^{−1/2}` uniformly conditioned, so the CG
+//! iteration count is genuinely n-independent (the in-test gate asserts an
+//! ADDITIVE bound across a 4× n jump, not a multiplicative one). Every CG solve
 //! reports its relative residual `‖b − Ac‖/‖b‖`: a computable backward-error
 //! certificate (`c` solves a system perturbed by no more than that fraction)
 //! inherited by every linear functional of the solution.
@@ -115,9 +124,66 @@ const LOG_LAMBDA_TOL: f64 = 1e-6;
 
 /// PCG convergence: relative residual ‖b − Ac‖/‖b‖ (the backward-error
 /// certificate) demanded of every solve, and the iteration cap past which
-/// the solve is an error rather than a silent approximation.
-const CG_RTOL: f64 = 1e-10;
+/// the solve is an error rather than a silent approximation. The certification
+/// suite gates the iterative route at 1e-9; asking for more burns matvecs
+/// without strengthening any downstream certificate.
+const CG_RTOL: f64 = 1e-9;
 const CG_MAX_ITERS: usize = 4000;
+
+/// Coarse-space additive-Schwarz preconditioner controls (issue #1032: the
+/// "BPX/level-diagonal preconditioned CG, n-independent iters" spec).
+///
+/// The multilevel Wendland frame is redundant across scales — a coarse bump and
+/// the fine bumps inside its support are strongly correlated — so the data-fit
+/// Gram `X'WX` couples levels and a pure-diagonal (Jacobi) preconditioner leaves
+/// a conditioning that grows with the number of *data-identified* levels, hence
+/// with `n` (more rows ⇒ finer levels carry data ⇒ another collinear coarse
+/// scale the diagonal can't decouple). The cure is the textbook two-level
+/// additive Schwarz coarse space: solve the coarse block — the polynomial layer
+/// plus every level the penalty has NOT yet made diagonally dominant — EXACTLY,
+/// and precondition the remaining penalty-dominated fine levels (where
+/// `A_ll ≈ λ d_l I` is already uniformly conditioned) by their Jacobi diagonal.
+///
+/// A level is "data-dominated" while `λ d_l < COARSE_DOMINANCE · median diag
+/// (X'WX) over the level`. Because columns are laid out poly, level-0, level-1,
+/// … and `d_l` increases while the per-level data weight decreases, the
+/// data-dominated levels are exactly the coarsest prefix `[0, ncoarse)`, so the
+/// coarse space is a contiguous column prefix and the cut is a single scan. The
+/// crossover level grows only as `½ log₄(n/λ)` — `ncoarse = O(√(n/λ))` columns —
+/// so the exact coarse factorization stays small against the sparse matvecs at
+/// every n the primitive serves. [`COARSE_SPACE_MAX`] caps it as a safety valve
+/// (past the cap the finer data-dominated levels fall back to Jacobi and the
+/// iteration count rises, but the CG residual certificate still guarantees the
+/// solve); [`MIN_COARSE_LEVELS`] always deflates the two coarsest scales, which
+/// are near-collinear with the polynomial layer at every λ.
+const COARSE_DOMINANCE: f64 = 4.0;
+const COARSE_SPACE_MAX: usize = 1024;
+const MIN_COARSE_LEVELS: usize = 2;
+
+/// Quasi-uniformity guard (issue #1032, caveat 2). The BPX n-independent CG
+/// iteration bound rests on the nested ε-nets being quasi-uniform *in the
+/// metric-scaled coordinates `z = diag(metric)·x` the bumps live in*. The
+/// greedy net guarantees covering ≤ h and separation ≥ h in `z` by
+/// construction, so the only way the BPX norm-equivalence constant blows up is
+/// when the metric is so anisotropic that the metric-scaled point cloud is
+/// effectively degenerate along a direction — the data collapses onto a lower
+/// dimension in `z`, the root covering radius `h₀ = ½·max_a range_a` swamps the
+/// collapsed axis, the level-`l` bumps overlap pathologically, and the
+/// preconditioner constant (hence the iteration count) grows without an
+/// n-independent bound. The realized symptom is `solve_iters` climbing toward
+/// [`CG_MAX_ITERS`]; this guard detects the *cause* up front from the
+/// metric-scaled per-axis spread so the auto-route can fall back to the dense
+/// kernel BEFORE paying an unbounded iterative solve, rather than discovering
+/// the blow-up only after `CG_MAX_ITERS` work.
+///
+/// Condition measure: the ratio of the largest to smallest metric-scaled
+/// per-axis standard deviation (a scale-free aspect ratio of the scaled
+/// cloud). Past this threshold the net is no longer quasi-uniform in every
+/// direction and the BPX bound is not trustworthy. Derived, not a knob: a
+/// `10³` aspect ratio means the collapsed axis carries <0.1% of the dominant
+/// axis's variation, at which point its bumps span the whole cloud and the
+/// multilevel hierarchy degenerates to a single ill-conditioned level.
+const QUASI_UNIFORMITY_MAX_ASPECT: f64 = 1.0e3;
 
 /// SLQ controls: fixed Rademacher probes (shared across λ trials) and the
 /// Lanczos depth per probe (full reorthogonalization; early exit on
@@ -296,6 +362,13 @@ struct Core {
     /// Dense upper-triangular `X'WX` when `m ≤ DENSE_GRAM_MAX` (row-major
     /// m×m, lower mirror filled at solve time); None on the iterative route.
     dense_gram: Option<Vec<f64>>,
+    /// Predict-only factored precision: the lower Cholesky factor `L` of
+    /// `A = X'WX + λD` at the FIT's λ, populated only on a core rebuilt from a
+    /// persisted [`ResidualCascadeState`] (where the training CSR is dropped).
+    /// When present, `solve_coeff` replays the posterior-variance solve through
+    /// this factor instead of the absent training design; `None` on a
+    /// training-built core, which solves through `dense_gram`/PCG as usual.
+    predict_chol: Option<Vec<f64>>,
 }
 
 /// Solver route a fit took for its log-determinant.
@@ -344,6 +417,10 @@ pub struct ResidualCascadeDesign {
 /// Fitted cascade with factored-by-solve posterior access.
 pub struct ResidualCascadeFit {
     core: Arc<Core>,
+    /// Dense-route prediction factor at the fit's λ. When present, pointwise
+    /// variance uses this one Cholesky factor instead of refactoring the same
+    /// precision matrix for every prediction point.
+    predict_chol: Option<Vec<f64>>,
     /// Coefficients: `dim+1` polynomial entries, then level blocks.
     pub coeff: Vec<f64>,
     /// Selected (or supplied) log smoothing parameter `log λ = log σ²/τ²`.
@@ -360,6 +437,144 @@ pub struct ResidualCascadeFit {
     pub certificate: CascadeCertificate,
     /// Present when the fit came from the refinement loop.
     pub refinement: Option<RefinementCertificate>,
+}
+
+/// One resolution level's geometry in a persisted snapshot: the data needed to
+/// rebuild a [`Level`] (its lookup grid, bumps, and column block) without the
+/// training rows. Centers are flattened `dim`-major (`dim` floats per center).
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct LevelState {
+    pub h: f64,
+    pub delta: f64,
+    pub weight: f64,
+    pub col_offset: u64,
+    /// `dim·n_centers` scaled-coordinate floats, center-major.
+    pub centers: Vec<f64>,
+}
+
+/// Serializable snapshot of a [`ResidualCascadeFit`] (#1032 persistence
+/// prerequisite). Holds everything `predict` needs and NOTHING about the
+/// training rows:
+/// - MEAN: the nested geometry (`dim`/`metric`/box/`sobolev_s` + per-level
+///   centers/δ/weights/col-offsets) and the root polynomial layer are all that
+///   `basis_row_scaled`·`coeff` reads;
+/// - VARIANCE: the factored precision `predict_chol` — the lower Cholesky factor
+///   `L` of `A = X'WX + λD` at the fit's λ — which the posterior-variance solve
+///   `x'A⁻¹x` replays against (the training design that originally assembled `A`
+///   is dropped).
+///
+/// `from_state` rebuilds a predict-capable fit whose `Core` carries empty
+/// training CSR and `predict_chol = Some(L)`; `solve_coeff` then routes the
+/// variance solve through `L`. The reconstructed fit cannot be re-fit or
+/// resampled (it has no rows), only predicted from — exactly the persistence
+/// contract.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ResidualCascadeState {
+    pub dim: u64,
+    /// Per-axis metric scaling (length 3; trailing entries are 1 for `dim < 3`).
+    pub metric: [f64; 3],
+    pub z_lo: [f64; 3],
+    pub z_range: [f64; 3],
+    pub sobolev_s: f64,
+    pub levels: Vec<LevelState>,
+    /// Total column count `dim + 1 + Σ centers`.
+    pub m: u64,
+    /// `Σ_j log d_j` over penalized columns (kept so restored REML scalars stay
+    /// comparable across cascade depths).
+    pub pen_logdet_const: f64,
+    /// Posterior-mode coefficients (length `m`).
+    pub coeff: Vec<f64>,
+    pub log_lambda: f64,
+    pub sigma2: f64,
+    pub restricted_loglik: f64,
+    pub rss_pen: f64,
+    /// Lower Cholesky factor `L` of `A = X'WX + λD` at the fit's λ, `m × m`
+    /// row-major — the factored precision the variance solve replays through.
+    pub predict_chol: Vec<f64>,
+}
+
+/// Forward substitution `L y = b` (lower factor, row-major) into `out`.
+fn forward_sub_into(l: &[f64], p: usize, b: &[f64], out: &mut [f64]) {
+    for i in 0..p {
+        let mut s = b[i];
+        for t in 0..i {
+            s -= l[i * p + t] * out[t];
+        }
+        out[i] = s / l[i * p + i];
+    }
+}
+
+/// Back substitution `Lᵀ z = y` (lower factor, row-major) into `out`.
+fn back_sub_into(l: &[f64], p: usize, y: &[f64], out: &mut [f64]) {
+    for i in (0..p).rev() {
+        let mut s = y[i];
+        for t in i + 1..p {
+            s -= l[t * p + i] * out[t];
+        }
+        out[i] = s / l[i * p + i];
+    }
+}
+
+/// Coarse-space additive-Schwarz preconditioner for the iterative route
+/// (issue #1032). `A = X'WX + λD` is preconditioned by the symmetric positive
+/// definite block-diagonal `P = blockdiag(A_CC, diag(A_FF))`, where the coarse
+/// index set `C = [0, ncoarse)` is the polynomial layer plus the data-dominated
+/// (coarsest) levels and `F` the penalty-dominated fine tail — see the
+/// [`COARSE_DOMINANCE`]/[`COARSE_SPACE_MAX`] docs for why this delivers
+/// n-independent CG iteration counts where the pure-Jacobi diagonal does not.
+///
+/// `solve` applies `P⁻¹` (exact coarse Cholesky solve ⊕ fine Jacobi). For the
+/// SLQ log-determinant the symmetric factor `R = blockdiag(L_CC, diag√A_FF)`
+/// with `P = R Rᵀ` is exposed through `apply_r_inv`/`apply_r_inv_t`, and
+/// `log|P| = log|A_CC| + Σ_F log A_jj`.
+struct Preconditioner {
+    /// First fine column; coarse block is the principal `[0, ncoarse)` submatrix.
+    ncoarse: usize,
+    /// Lower Cholesky factor of the coarse block `A_CC` (`ncoarse × ncoarse`).
+    coarse_chol: Vec<f64>,
+    /// `log|A_CC|` (exact).
+    coarse_logdet: f64,
+    /// `1/A_jj` on the fine columns `[ncoarse, m)`.
+    inv_fine: Vec<f64>,
+    /// `1/√A_jj` on the fine columns (the `R⁻¹`/`R⁻ᵀ` fine scaling).
+    inv_sqrt_fine: Vec<f64>,
+    /// `Σ_F log A_jj` (the fine part of `log|P|`).
+    fine_logdet: f64,
+}
+
+impl Preconditioner {
+    /// `out = P⁻¹ r`: exact coarse solve on `[0, ncoarse)`, Jacobi on the tail.
+    fn solve(&self, r: &[f64], out: &mut [f64]) {
+        let nc = self.ncoarse;
+        let zc = chol_solve(&self.coarse_chol, nc, &r[..nc]);
+        out[..nc].copy_from_slice(&zc);
+        for (k, o) in out[nc..].iter_mut().enumerate() {
+            *o = r[nc + k] * self.inv_fine[k];
+        }
+    }
+
+    /// `out = R⁻ᵀ v` (coarse: `L_CCᵀ` back-solve; fine: `/√A_jj`).
+    fn apply_r_inv_t(&self, v: &[f64], out: &mut [f64]) {
+        let nc = self.ncoarse;
+        back_sub_into(&self.coarse_chol, nc, &v[..nc], &mut out[..nc]);
+        for (k, o) in out[nc..].iter_mut().enumerate() {
+            *o = v[nc + k] * self.inv_sqrt_fine[k];
+        }
+    }
+
+    /// `out = R⁻¹ v` (coarse: `L_CC` forward-solve; fine: `/√A_jj`).
+    fn apply_r_inv(&self, v: &[f64], out: &mut [f64]) {
+        let nc = self.ncoarse;
+        forward_sub_into(&self.coarse_chol, nc, &v[..nc], &mut out[..nc]);
+        for (k, o) in out[nc..].iter_mut().enumerate() {
+            *o = v[nc + k] * self.inv_sqrt_fine[k];
+        }
+    }
+
+    /// `log|P| = log|A_CC| + Σ_F log A_jj`.
+    fn logdet(&self) -> f64 {
+        self.coarse_logdet + self.fine_logdet
+    }
 }
 
 impl Core {
@@ -417,12 +632,103 @@ impl Core {
     /// Jacobi / level-diagonal preconditioner: `diag(X'WX) + λ·diag(λD)`.
     /// Levels share a constant prior weight, so this IS the level-block
     /// (BPX-flavored) diagonal in the multilevel frame.
-    fn precond_diag(&self, lambda: f64) -> Vec<f64> {
-        self.gram_diag
-            .iter()
-            .zip(self.pen_diag.iter())
-            .map(|(&g, &d)| g + lambda * d)
-            .collect()
+    /// Coarse column count of the additive-Schwarz coarse space at `λ`: the
+    /// polynomial layer plus the longest prefix of data-dominated levels
+    /// (`λ d_l < COARSE_DOMINANCE · median diag(X'WX) over the level`), with the
+    /// two coarsest levels always deflated and the total capped at
+    /// [`COARSE_SPACE_MAX`]. Because `d_l` rises while the per-level data weight
+    /// falls, the data-dominated set is a contiguous prefix, so one scan from the
+    /// coarsest level finds the cut. (See [`COARSE_DOMINANCE`].)
+    fn coarse_space_cols(&self, lambda: f64) -> usize {
+        let mut ncoarse = self.nullity();
+        let mut buf: Vec<f64> = Vec::new();
+        for (li, level) in self.levels.iter().enumerate() {
+            let a = level.col_offset;
+            let b = a + level.centers.len();
+            if b <= a {
+                continue;
+            }
+            if b > COARSE_SPACE_MAX {
+                break;
+            }
+            let dominated = if li < MIN_COARSE_LEVELS {
+                true
+            } else {
+                buf.clear();
+                buf.extend_from_slice(&self.gram_diag[a..b]);
+                buf.sort_unstable_by(|x, y| x.partial_cmp(y).unwrap());
+                let gram_median = buf[buf.len() / 2];
+                lambda * level.weight < COARSE_DOMINANCE * gram_median
+            };
+            if dominated {
+                ncoarse = b;
+            } else {
+                break;
+            }
+        }
+        // Keep at least one fine column so the split is well-defined; if every
+        // level is coarse the iterative route is degenerate anyway and the dense
+        // route would have been taken, but guard regardless.
+        ncoarse.min(self.m)
+    }
+
+    /// Build the coarse-space additive-Schwarz preconditioner at `λ`: assemble
+    /// and factor the coarse block `A_CC` from the CSR (coarse columns are the
+    /// prefix `[0, ncoarse)`, and each CSR row is column-sorted, so a row's
+    /// coarse entries are its leading run), then the Jacobi diagonal on the fine
+    /// tail. `O(n · q_C²) + O(ncoarse³)` — paid once per `λ`, not per CG step.
+    fn build_preconditioner(&self, lambda: f64) -> Result<Preconditioner, String> {
+        let m = self.m;
+        let nc = self.coarse_space_cols(lambda);
+        let mut acc = vec![0.0_f64; nc * nc];
+        for i in 0..self.w.len() {
+            let lo = self.row_ptr[i];
+            let hi = self.row_ptr[i + 1];
+            // Leading run of coarse columns (CSR rows are column-sorted).
+            let mut end = lo;
+            while end < hi && (self.col_idx[end] as usize) < nc {
+                end += 1;
+            }
+            for ea in lo..end {
+                let ca = self.col_idx[ea] as usize;
+                let va = self.w[i] * self.vals[ea];
+                for eb in ea..end {
+                    let cb = self.col_idx[eb] as usize;
+                    acc[ca * nc + cb] += va * self.vals[eb];
+                }
+            }
+        }
+        for i in 0..nc {
+            for j in i + 1..nc {
+                acc[j * nc + i] = acc[i * nc + j];
+            }
+        }
+        for i in 0..nc {
+            acc[i * nc + i] += lambda * self.pen_diag[i];
+        }
+        let coarse_logdet = cholesky_logdet(&mut acc, nc)?;
+        let mut inv_fine = Vec::with_capacity(m - nc);
+        let mut inv_sqrt_fine = Vec::with_capacity(m - nc);
+        let mut fine_logdet = 0.0;
+        for j in nc..m {
+            let p = self.gram_diag[j] + lambda * self.pen_diag[j];
+            if !(p.is_finite() && p > EIG_FLOOR) {
+                return Err(format!(
+                    "residual cascade: non-positive preconditioner diagonal {p} at column {j}"
+                ));
+            }
+            inv_fine.push(1.0 / p);
+            inv_sqrt_fine.push(1.0 / p.sqrt());
+            fine_logdet += p.ln();
+        }
+        Ok(Preconditioner {
+            ncoarse: nc,
+            coarse_chol: acc,
+            coarse_logdet,
+            inv_fine,
+            inv_sqrt_fine,
+            fine_logdet,
+        })
     }
 
     /// Preconditioned CG on `(X'WX + λD)c = b` to relative residual CG_RTOL.
@@ -434,28 +740,33 @@ impl Core {
         warm: Option<&[f64]>,
     ) -> Result<(Vec<f64>, f64, usize), String> {
         let m = self.m;
-        let prec = self.precond_diag(lambda);
-        for (j, &p) in prec.iter().enumerate() {
-            if !(p.is_finite() && p > EIG_FLOOR) {
-                return Err(format!(
-                    "residual cascade: non-positive preconditioner diagonal {p} at column {j}"
-                ));
-            }
-        }
+        let prec = self.build_preconditioner(lambda)?;
         let b_norm = b.iter().map(|v| v * v).sum::<f64>().sqrt();
         if b_norm == 0.0 {
             return Ok((vec![0.0; m], 0.0, 0));
         }
+        let mut zv = vec![0.0; m];
         let mut x = match warm {
-            Some(x0) => x0.to_vec(),
-            None => vec![0.0; m],
+            Some(x0) => {
+                if x0.len() != m {
+                    return Err(format!(
+                        "residual cascade: warm-start length {} != system size {m}",
+                        x0.len()
+                    ));
+                }
+                x0.to_vec()
+            }
+            None => {
+                prec.solve(b, &mut zv);
+                zv.clone()
+            }
         };
         let mut r = vec![0.0; m];
         self.matvec(lambda, &x, &mut r);
         for (ri, &bi) in r.iter_mut().zip(b.iter()) {
             *ri = bi - *ri;
         }
-        let mut zv: Vec<f64> = r.iter().zip(prec.iter()).map(|(&ri, &p)| ri / p).collect();
+        prec.solve(&r, &mut zv);
         let mut p_dir = zv.clone();
         let mut rz: f64 = r.iter().zip(zv.iter()).map(|(&a, &c)| a * c).sum();
         let mut ap = vec![0.0; m];
@@ -476,9 +787,7 @@ impl Core {
                 x[j] += alpha * p_dir[j];
                 r[j] -= alpha * ap[j];
             }
-            for j in 0..m {
-                zv[j] = r[j] / prec[j];
-            }
+            prec.solve(&r, &mut zv);
             let rz_new: f64 = r.iter().zip(zv.iter()).map(|(&a, &c)| a * c).sum();
             let beta = rz_new / rz;
             rz = rz_new;
@@ -488,8 +797,8 @@ impl Core {
         }
         Err(format!(
             "residual cascade: CG failed to reach relative residual {CG_RTOL} within \
-             {CG_MAX_ITERS} iterations (the norm-equivalence preconditioner should make this \
-             n-independent; this indicates a degenerate design)"
+             {CG_MAX_ITERS} iterations (the coarse-space additive-Schwarz preconditioner should \
+             make this n-independent; this indicates a degenerate design)"
         ))
     }
 
@@ -524,26 +833,23 @@ impl Core {
         cholesky_logdet(&mut a, self.m)
     }
 
-    /// SLQ log-determinant: exact diagonal control variate `Σ log P_jj` plus
-    /// stochastic Lanczos quadrature for `tr log(P^{−1/2}AP^{−1/2})` on fixed
-    /// deterministic Rademacher probes shared across every λ (common random
-    /// numbers ⇒ the REML criterion is a smooth deterministic function of λ).
+    /// SLQ log-determinant: exact control variate `log|P|` (the coarse-space
+    /// additive-Schwarz preconditioner's own log-determinant — `log|A_CC|` plus
+    /// the fine Jacobi `Σ_F log A_jj`) plus stochastic Lanczos quadrature for
+    /// `tr log(R⁻¹ A R⁻ᵀ)`, `P = R Rᵀ`, on fixed deterministic Rademacher probes
+    /// shared across every λ (common random numbers ⇒ the REML criterion is a
+    /// smooth deterministic function of λ). The same coarse deflation that makes
+    /// the PCG iteration count n-independent makes `R⁻¹ A R⁻ᵀ` uniformly
+    /// conditioned, so the Lanczos quadrature converges in a depth-independent
+    /// number of steps too.
     fn logdet_slq(&self, lambda: f64) -> Result<f64, String> {
         let m = self.m;
-        let prec = self.precond_diag(lambda);
-        let mut logdet = 0.0;
-        for (j, &p) in prec.iter().enumerate() {
-            if !(p.is_finite() && p > EIG_FLOOR) {
-                return Err(format!(
-                    "residual cascade: non-positive diagonal {p} at column {j} in SLQ"
-                ));
-            }
-            logdet += p.ln();
-        }
-        let sqrt_p: Vec<f64> = prec.iter().map(|&p| p.sqrt()).collect();
-        // M·v = P^{−1/2} A P^{−1/2} v without forming M.
+        let prec = self.build_preconditioner(lambda)?;
+        let logdet = prec.logdet();
+        // M·v = R⁻¹ A R⁻ᵀ v (eigenvalues of P^{−1/2} A P^{−1/2}) without forming M.
         let mut scratch_in = vec![0.0; m];
         let mut scratch_out = vec![0.0; m];
+        let mut vbuf = vec![0.0; m];
         let mut trace_est = 0.0;
         let steps = SLQ_LANCZOS_STEPS.min(m);
         let mut basis: Vec<Vec<f64>> = Vec::with_capacity(steps);
@@ -565,11 +871,11 @@ impl Core {
             let mut beta: Vec<f64> = Vec::with_capacity(steps);
             let mut q_prev: Option<Vec<f64>> = None;
             for _step in 0..steps {
-                for j in 0..m {
-                    scratch_in[j] = q[j] / sqrt_p[j];
-                }
+                // v = R⁻¹ A R⁻ᵀ q.
+                prec.apply_r_inv_t(&q, &mut scratch_in);
                 self.matvec(lambda, &scratch_in, &mut scratch_out);
-                let mut v: Vec<f64> = (0..m).map(|j| scratch_out[j] / sqrt_p[j]).collect();
+                prec.apply_r_inv(&scratch_out, &mut vbuf);
+                let mut v: Vec<f64> = vbuf.clone();
                 let a: f64 = v.iter().zip(q.iter()).map(|(&x, &y)| x * y).sum();
                 alpha.push(a);
                 for j in 0..m {
@@ -634,11 +940,62 @@ impl Core {
         b: &[f64],
         warm: Option<&[f64]>,
     ) -> Result<(Vec<f64>, f64, usize), String> {
+        // A core rebuilt from a persisted state carries no training design, only
+        // the factored precision `L` of `A = X'WX + λD` at the fit's λ. Replay
+        // the solve through it (exact — predict always solves at that same λ).
+        if let Some(l) = &self.predict_chol {
+            return Ok((chol_solve(l, self.m, b), 0.0, 0));
+        }
         if let Some(mut a) = self.dense_system(lambda) {
             cholesky_logdet(&mut a, self.m)?;
             return Ok((chol_solve(&a, self.m, b), 0.0, 0));
         }
         self.pcg(lambda, b, warm)
+    }
+
+    /// Assemble the lower Cholesky factor `L` of `A = X'WX + λD` as a dense
+    /// `m × m` row-major matrix — the factored precision a persisted predict
+    /// replays its posterior-variance solve through. Uses the cached dense Gram
+    /// when present; otherwise scatters the CSR row outer products into the
+    /// upper triangle (one O(nnz·q) pass), the same assembly `build` uses under
+    /// the sizing cap, just without the cap. Factoring is O(m³) — paid once at
+    /// snapshot time, not per predict.
+    fn assemble_predict_factor(&self, lambda: f64) -> Result<Vec<f64>, String> {
+        let m = self.m;
+        let mut a = vec![0.0_f64; m * m];
+        if let Some(gram) = &self.dense_gram {
+            for i in 0..m {
+                for j in i..m {
+                    let v = gram[i * m + j];
+                    a[i * m + j] = v;
+                    a[j * m + i] = v;
+                }
+            }
+        } else {
+            for i in 0..self.w.len() {
+                let lo = self.row_ptr[i];
+                let hi = self.row_ptr[i + 1];
+                for ea in lo..hi {
+                    let ca = self.col_idx[ea] as usize;
+                    let va = self.w[i] * self.vals[ea];
+                    for eb in ea..hi {
+                        let cb = self.col_idx[eb] as usize;
+                        a[ca * m + cb] += va * self.vals[eb];
+                    }
+                }
+            }
+            // Mirror the upper triangle into the lower.
+            for i in 0..m {
+                for j in i + 1..m {
+                    a[j * m + i] = a[i * m + j];
+                }
+            }
+        }
+        for (i, d) in self.pen_diag.iter().enumerate() {
+            a[i * m + i] += lambda * d;
+        }
+        cholesky_logdet(&mut a, m)?;
+        Ok(a)
     }
 
     /// Penalized residual quadratic at a solution: `y'Wy − c'X'Wy`.
@@ -982,6 +1339,7 @@ impl ResidualCascadeDesign {
                 pen_diag,
                 pen_logdet_const,
                 dense_gram,
+                predict_chol: None,
             }),
         })
     }
@@ -991,9 +1349,79 @@ impl ResidualCascadeDesign {
         self.core.levels.len()
     }
 
+    /// Aspect ratio of the metric-scaled point cloud: the ratio of the largest
+    /// to smallest per-axis standard deviation of the scaled coordinates `z`.
+    /// This is the metric-condition measure the quasi-uniformity guard (issue
+    /// #1032, caveat 2) keys on — see [`QUASI_UNIFORMITY_MAX_ASPECT`]. A value
+    /// near 1 is an isotropic (benign) cloud; a large value means the metric
+    /// has collapsed the data onto a lower-dimensional sheet in `z`, breaking
+    /// the BPX n-independent iteration bound.
+    pub fn metric_scaled_aspect_ratio(&self) -> f64 {
+        let dim = self.core.dim;
+        let n = self.core.z.len();
+        if dim == 0 || n == 0 {
+            return 1.0;
+        }
+        let mut mean = [0.0_f64; 3];
+        for p in &self.core.z {
+            for a in 0..dim {
+                mean[a] += p[a];
+            }
+        }
+        for m in mean.iter_mut().take(dim) {
+            *m /= n as f64;
+        }
+        let mut var = [0.0_f64; 3];
+        for p in &self.core.z {
+            for a in 0..dim {
+                let d = p[a] - mean[a];
+                var[a] += d * d;
+            }
+        }
+        let mut sd_lo = f64::INFINITY;
+        let mut sd_hi = 0.0_f64;
+        for v in var.iter().take(dim) {
+            let sd = (v / n as f64).sqrt();
+            sd_lo = sd_lo.min(sd);
+            sd_hi = sd_hi.max(sd);
+        }
+        if !(sd_lo > 0.0 && sd_lo.is_finite()) {
+            // A collapsed axis (zero scaled spread) is maximally degenerate.
+            return f64::INFINITY;
+        }
+        sd_hi / sd_lo
+    }
+
+    /// Quasi-uniformity certificate (issue #1032, caveat 2): `true` iff the
+    /// metric-scaled cloud is isotropic enough that the BPX n-independent CG
+    /// iteration bound is trustworthy. When this returns `false` the auto-route
+    /// MUST fall back to the dense kernel path rather than pay an iterative
+    /// solve whose iteration count is no longer n-independent — the CG residual
+    /// certificate would still *catch* a mis-solve at [`CG_MAX_ITERS`], but the
+    /// guard prevents the silent O(n·iters) blow-up up front.
+    pub fn quasi_uniformity_certified(&self) -> bool {
+        self.metric_scaled_aspect_ratio() <= QUASI_UNIFORMITY_MAX_ASPECT
+    }
+
+    /// Number of columns `ncoarse` in the additive-Schwarz coarse space at `log
+    /// λ` (the polynomial layer plus the data-dominated coarsest levels). The
+    /// iterative-route preconditioner solves the principal `[0, ncoarse)` block
+    /// of `A = X'WX + λD` exactly and Jacobi-preconditions the fine tail; exposed
+    /// so the conditioning oracle can reconstruct that block-arrow preconditioner
+    /// from the public dense system and certify it is uniformly conditioned in
+    /// depth. See [`COARSE_DOMINANCE`].
+    pub fn coarse_space_cols(&self, log_lambda: f64) -> usize {
+        self.core.coarse_space_cols(log_lambda.exp())
+    }
+
     /// Total coefficient count (`dim + 1` polynomial + all centers).
     pub fn num_coeffs(&self) -> usize {
         self.core.m
+    }
+
+    /// Number of stored nonzeros in the CSR design.
+    pub fn num_nonzeros(&self) -> usize {
+        self.core.vals.len()
     }
 
     /// Total centers across all levels.
@@ -1073,6 +1501,14 @@ impl ResidualCascadeDesign {
     /// Profiled-σ² REML criterion at `log λ` (differences across λ are exact
     /// REML differences on the dense route; SLQ-estimated past the cap).
     pub fn criterion(&self, log_lambda: f64) -> Result<f64, String> {
+        Ok(self.criterion_with_warm(log_lambda, None)?.0)
+    }
+
+    fn criterion_with_warm(
+        &self,
+        log_lambda: f64,
+        warm: Option<&[f64]>,
+    ) -> Result<(f64, Vec<f64>), String> {
         if !log_lambda.is_finite() {
             return Err(format!(
                 "residual cascade: non-finite log lambda {log_lambda}"
@@ -1080,7 +1516,7 @@ impl ResidualCascadeDesign {
         }
         let core = &self.core;
         let lambda = log_lambda.exp();
-        let (coeff, _, _) = core.solve_coeff(lambda, &core.rhs, None)?;
+        let (coeff, _, _) = core.solve_coeff(lambda, &core.rhs, warm)?;
         let rss_pen = core.rss_pen(&coeff);
         if !(rss_pen > 0.0) {
             return Err(format!(
@@ -1091,7 +1527,10 @@ impl ResidualCascadeDesign {
         let dof = (core.y.len() - core.nullity()) as f64;
         let r = (core.m - core.nullity()) as f64;
         let sigma2 = rss_pen / dof;
-        Ok(-0.5 * (logdet - r * log_lambda - core.pen_logdet_const + dof * sigma2.ln()))
+        Ok((
+            -0.5 * (logdet - r * log_lambda - core.pen_logdet_const + dof * sigma2.ln()),
+            coeff,
+        ))
     }
 
     /// Fit at a FIXED `log λ`, with σ² either supplied or profiled.
@@ -1100,6 +1539,15 @@ impl ResidualCascadeDesign {
         log_lambda: f64,
         sigma2: Option<f64>,
     ) -> Result<ResidualCascadeFit, String> {
+        self.fit_at_with_warm(log_lambda, sigma2, None)
+    }
+
+    fn fit_at_with_warm(
+        &self,
+        log_lambda: f64,
+        sigma2: Option<f64>,
+        warm: Option<&[f64]>,
+    ) -> Result<ResidualCascadeFit, String> {
         if !log_lambda.is_finite() {
             return Err(format!(
                 "residual cascade: non-finite log lambda {log_lambda}"
@@ -1107,7 +1555,7 @@ impl ResidualCascadeDesign {
         }
         let core = &self.core;
         let lambda = log_lambda.exp();
-        let (coeff, rel_res, iters) = core.solve_coeff(lambda, &core.rhs, None)?;
+        let (coeff, rel_res, iters) = core.solve_coeff(lambda, &core.rhs, warm)?;
         let rss_pen = core.rss_pen(&coeff);
         let dof = (core.y.len() - core.nullity()) as f64;
         let sigma2 = match sigma2 {
@@ -1134,8 +1582,14 @@ impl ResidualCascadeDesign {
             * (logdet - r * log_lambda - core.pen_logdet_const
                 + dof * sigma2.ln()
                 + rss_pen / sigma2);
+        let predict_chol = if core.dense_gram.is_some() {
+            Some(core.assemble_predict_factor(lambda)?)
+        } else {
+            None
+        };
         Ok(ResidualCascadeFit {
             core: Arc::clone(&self.core),
+            predict_chol,
             coeff,
             log_lambda,
             sigma2,
@@ -1157,38 +1611,45 @@ impl ResidualCascadeDesign {
     pub fn fit_reml(&self) -> Result<ResidualCascadeFit, String> {
         let mut best_i = 0usize;
         let mut best_v = f64::NEG_INFINITY;
+        let mut best_coeff = Vec::new();
+        let mut warm: Option<Vec<f64>> = None;
         let step = (LOG_LAMBDA_HI - LOG_LAMBDA_LO) / (LOG_LAMBDA_GRID - 1) as f64;
         for i in 0..LOG_LAMBDA_GRID {
             let ll = LOG_LAMBDA_LO + step * i as f64;
-            let v = self.criterion(ll)?;
+            let (v, coeff) = self.criterion_with_warm(ll, warm.as_deref())?;
             if v > best_v {
                 best_v = v;
                 best_i = i;
+                best_coeff = coeff.clone();
             }
+            warm = Some(coeff);
         }
         let mut lo = LOG_LAMBDA_LO + step * best_i.saturating_sub(1) as f64;
         let mut hi = (LOG_LAMBDA_LO + step * (best_i + 1) as f64).min(LOG_LAMBDA_HI);
         let inv_phi = 0.618_033_988_749_894_9_f64;
         let mut x1 = hi - inv_phi * (hi - lo);
         let mut x2 = lo + inv_phi * (hi - lo);
-        let mut f1 = self.criterion(x1)?;
-        let mut f2 = self.criterion(x2)?;
+        let (mut f1, mut c1) = self.criterion_with_warm(x1, Some(&best_coeff))?;
+        let (mut f2, mut c2) = self.criterion_with_warm(x2, Some(&c1))?;
         while hi - lo > LOG_LAMBDA_TOL {
             if f1 < f2 {
                 lo = x1;
                 x1 = x2;
                 f1 = f2;
+                c1 = c2;
                 x2 = lo + inv_phi * (hi - lo);
-                f2 = self.criterion(x2)?;
+                (f2, c2) = self.criterion_with_warm(x2, Some(&c1))?;
             } else {
                 hi = x2;
                 x2 = x1;
                 f2 = f1;
+                c2 = c1;
                 x1 = hi - inv_phi * (hi - lo);
-                f1 = self.criterion(x1)?;
+                (f1, c1) = self.criterion_with_warm(x1, Some(&c2))?;
             }
         }
-        self.fit_at(0.5 * (lo + hi), None)
+        let warm = if f1 >= f2 { &c1 } else { &c2 };
+        self.fit_at_with_warm(0.5 * (lo + hi), None, Some(warm))
     }
 
     /// Exact upper bound on the penalized-objective decrease available from
@@ -1288,7 +1749,11 @@ impl ResidualCascadeFit {
             dense_row[c] += v;
         }
         let lambda = self.log_lambda.exp();
-        let (zsol, _, _) = core.solve_coeff(lambda, &dense_row, None)?;
+        let zsol = if let Some(l) = &self.predict_chol {
+            chol_solve(l, core.m, &dense_row)
+        } else {
+            core.solve_coeff(lambda, &dense_row, None)?.0
+        };
         let mut quad = 0.0;
         for (a, b) in dense_row.iter().zip(zsol.iter()) {
             quad += a * b;
@@ -1338,6 +1803,263 @@ impl ResidualCascadeFit {
     pub fn num_coeffs(&self) -> usize {
         self.core.m
     }
+
+    /// Total centers across all fitted resolution levels.
+    pub fn num_centers(&self) -> usize {
+        self.core.m - self.core.nullity()
+    }
+
+    /// Snapshot the fit for persistence (#1032). Assembles the factored
+    /// precision `L` of `A = X'WX + λD` at the fit's λ (O(m³) once) and copies
+    /// the nested geometry + coefficients, dropping all training rows. The
+    /// resulting [`ResidualCascadeState`] is predict-complete: `from_state`
+    /// replays the posterior mean+variance bit-for-bit.
+    pub fn to_state(&self) -> Result<ResidualCascadeState, String> {
+        let core = &self.core;
+        let lambda = self.log_lambda.exp();
+        let predict_chol = if let Some(l) = &self.predict_chol {
+            l.clone()
+        } else if let Some(l) = &core.predict_chol {
+            l.clone()
+        } else {
+            core.assemble_predict_factor(lambda)?
+        };
+        let dim = core.dim;
+        let levels = core
+            .levels
+            .iter()
+            .map(|level| {
+                let mut centers = Vec::with_capacity(level.centers.len() * dim);
+                for c in &level.centers {
+                    centers.extend_from_slice(&c[..dim]);
+                }
+                LevelState {
+                    h: level.h,
+                    delta: level.delta,
+                    weight: level.weight,
+                    col_offset: level.col_offset as u64,
+                    centers,
+                }
+            })
+            .collect();
+        Ok(ResidualCascadeState {
+            dim: dim as u64,
+            metric: core.metric,
+            z_lo: core.z_lo,
+            z_range: core.z_range,
+            sobolev_s: core.sobolev_s,
+            levels,
+            m: core.m as u64,
+            pen_logdet_const: core.pen_logdet_const,
+            coeff: self.coeff.clone(),
+            log_lambda: self.log_lambda,
+            sigma2: self.sigma2,
+            restricted_loglik: self.restricted_loglik,
+            rss_pen: self.rss_pen,
+            predict_chol,
+        })
+    }
+
+    /// Rebuild a predict-capable fit from a snapshot (#1032). Validates shape,
+    /// finiteness, the Sobolev/Wendland window, strictly-positive level weights
+    /// and box ranges, the column accounting (`m = dim+1 + Σ centers`, matching
+    /// `col_offset`s), positive σ², and that `predict_chol` is a valid `m × m`
+    /// lower factor (positive pivots) — so a corrupt payload fails here, not in
+    /// a later `predict`. The restored `Core` has empty training CSR and
+    /// `predict_chol = Some(L)`; its `predict` reads only geometry (mean) and
+    /// the factor (variance), replaying both exactly.
+    pub fn from_state(state: &ResidualCascadeState) -> Result<Self, String> {
+        let dim = state.dim as usize;
+        if !(dim == 2 || dim == 3) {
+            return Err(format!(
+                "residual cascade state: dim must be 2 or 3, got {dim}"
+            ));
+        }
+        if !(state.sobolev_s > dim as f64 / 2.0 && state.sobolev_s <= (dim as f64 + 3.0) / 2.0) {
+            return Err(format!(
+                "residual cascade state: sobolev_s {} outside the Wendland window ({}, {}]",
+                state.sobolev_s,
+                dim as f64 / 2.0,
+                (dim as f64 + 3.0) / 2.0
+            ));
+        }
+        for a in 0..dim {
+            if !(state.metric[a].is_finite() && state.metric[a] > 0.0) {
+                return Err(format!(
+                    "residual cascade state: metric axis {a} must be finite positive, got {}",
+                    state.metric[a]
+                ));
+            }
+            if !(state.z_range[a].is_finite()
+                && state.z_range[a] > 0.0
+                && state.z_lo[a].is_finite())
+            {
+                return Err(format!(
+                    "residual cascade state: degenerate box on axis {a} (lo={}, range={})",
+                    state.z_lo[a], state.z_range[a]
+                ));
+            }
+        }
+        let m = state.m as usize;
+        let mut metric3 = [1.0_f64; 3];
+        metric3[..dim].copy_from_slice(&state.metric[..dim]);
+        let mut z_lo = [0.0_f64; 3];
+        let mut z_range = [1.0_f64; 3];
+        z_lo[..dim].copy_from_slice(&state.z_lo[..dim]);
+        z_range[..dim].copy_from_slice(&state.z_range[..dim]);
+
+        // Rebuild the levels and their lookup grids from the flattened centers,
+        // checking the column accounting matches the polynomial layer + blocks.
+        let mut levels = Vec::with_capacity(state.levels.len());
+        let mut net: Vec<[f64; 3]> = Vec::new();
+        let mut pen_diag = vec![0.0_f64; m];
+        let mut expected_offset = dim + 1;
+        for (li, ls) in state.levels.iter().enumerate() {
+            if !(ls.h.is_finite() && ls.h > 0.0 && ls.delta.is_finite() && ls.delta > 0.0) {
+                return Err(format!(
+                    "residual cascade state: level {li} has non-positive h/delta ({}, {})",
+                    ls.h, ls.delta
+                ));
+            }
+            if !(ls.weight.is_finite() && ls.weight > 0.0) {
+                return Err(format!(
+                    "residual cascade state: level {li} has non-positive prior weight {}",
+                    ls.weight
+                ));
+            }
+            if ls.centers.len() % dim != 0 {
+                return Err(format!(
+                    "residual cascade state: level {li} centers length {} not a multiple of dim {dim}",
+                    ls.centers.len()
+                ));
+            }
+            let n_centers = ls.centers.len() / dim;
+            let col_offset = ls.col_offset as usize;
+            if col_offset != expected_offset {
+                return Err(format!(
+                    "residual cascade state: level {li} col_offset {col_offset} ≠ expected {expected_offset}"
+                ));
+            }
+            let mut grid = HashGrid::new(ls.delta, dim);
+            let mut centers = Vec::with_capacity(n_centers);
+            for j in 0..n_centers {
+                let mut c = [0.0_f64; 3];
+                for a in 0..dim {
+                    let v = ls.centers[j * dim + a];
+                    if !v.is_finite() {
+                        return Err(format!(
+                            "residual cascade state: non-finite center coordinate at level {li}, center {j}"
+                        ));
+                    }
+                    c[a] = v;
+                }
+                grid.insert(j as u32, &c);
+                centers.push(c);
+                net.push(c);
+                let col = col_offset + j;
+                if col >= m {
+                    return Err(format!(
+                        "residual cascade state: level {li} column {col} exceeds m {m}"
+                    ));
+                }
+                pen_diag[col] = ls.weight;
+            }
+            expected_offset = col_offset + n_centers;
+            levels.push(Level {
+                h: ls.h,
+                delta: ls.delta,
+                weight: ls.weight,
+                centers,
+                col_offset,
+                grid,
+            });
+        }
+        if expected_offset != m {
+            return Err(format!(
+                "residual cascade state: column accounting mismatch (dim+1+Σcenters = {expected_offset} ≠ m {m})"
+            ));
+        }
+        if state.coeff.len() != m {
+            return Err(format!(
+                "residual cascade state: coeff length {} ≠ m {m}",
+                state.coeff.len()
+            ));
+        }
+        if state.predict_chol.len() != m * m {
+            return Err(format!(
+                "residual cascade state: predict_chol must be m×m = {m}² = {}, got {}",
+                m * m,
+                state.predict_chol.len()
+            ));
+        }
+        for (i, v) in state
+            .coeff
+            .iter()
+            .chain(state.predict_chol.iter())
+            .enumerate()
+        {
+            if !v.is_finite() {
+                return Err(format!("residual cascade state: non-finite entry at {i}"));
+            }
+        }
+        for g in 0..m {
+            let piv = state.predict_chol[g * m + g];
+            if !(piv.is_finite() && piv > 0.0) {
+                return Err(format!(
+                    "residual cascade state: non-positive Cholesky pivot {piv} at index {g}"
+                ));
+            }
+        }
+        if !(state.log_lambda.is_finite()
+            && state.sigma2.is_finite()
+            && state.sigma2 > 0.0
+            && state.restricted_loglik.is_finite()
+            && state.rss_pen.is_finite())
+        {
+            return Err(format!(
+                "residual cascade state: invalid scalars (log_lambda={}, sigma2={}, restricted_loglik={}, rss_pen={})",
+                state.log_lambda, state.sigma2, state.restricted_loglik, state.rss_pen
+            ));
+        }
+        let core = Core {
+            dim,
+            metric: metric3,
+            z_lo,
+            z_range,
+            sobolev_s: state.sobolev_s,
+            levels,
+            net,
+            m,
+            row_ptr: Vec::new(),
+            col_idx: Vec::new(),
+            vals: Vec::new(),
+            w: Vec::new(),
+            y: Vec::new(),
+            z: Vec::new(),
+            rhs: Vec::new(),
+            ytwy: 0.0,
+            gram_diag: Vec::new(),
+            pen_diag,
+            pen_logdet_const: state.pen_logdet_const,
+            dense_gram: None,
+            predict_chol: Some(state.predict_chol.clone()),
+        };
+        Ok(ResidualCascadeFit {
+            core: Arc::new(core),
+            predict_chol: None,
+            coeff: state.coeff.clone(),
+            log_lambda: state.log_lambda,
+            sigma2: state.sigma2,
+            restricted_loglik: state.restricted_loglik,
+            rss_pen: state.rss_pen,
+            certificate: CascadeCertificate {
+                solve_rel_residual: 0.0,
+                solve_iters: 0,
+                logdet_method: LogdetMethod::DenseExact,
+            },
+            refinement: None,
+        })
+    }
 }
 
 /// Fit the full magic-default cascade: start at [`INITIAL_LEVELS`], REML-fit,
@@ -1355,7 +2077,34 @@ pub fn fit_residual_cascade(
     let mut levels = INITIAL_LEVELS;
     loop {
         let design = ResidualCascadeDesign::build(xs, y, w, metric, sobolev_s, levels)?;
+        // Quasi-uniformity guard (issue #1032, caveat 2): if the metric has
+        // collapsed the cloud onto a near-degenerate sheet in scaled
+        // coordinates, the BPX iteration bound no longer holds. Refuse the
+        // iterative solve up front with a typed signal so the auto-route falls
+        // back to the dense kernel BEFORE paying an unbounded CG, rather than
+        // grinding to CG_MAX_ITERS. (The guard is checked at the root level
+        // only — refinement adds finer nets to the SAME scaled cloud, so the
+        // aspect ratio is invariant under added levels.)
+        if levels == INITIAL_LEVELS && !design.quasi_uniformity_certified() {
+            return Err(format!(
+                "residual cascade: metric-scaled aspect ratio {:.3e} exceeds the \
+                 quasi-uniformity ceiling {QUASI_UNIFORMITY_MAX_ASPECT:.0e}; the BPX \
+                 iteration bound is not trustworthy on this (near-degenerate) metric — \
+                 fall back to the dense kernel path",
+                design.metric_scaled_aspect_ratio()
+            ));
+        }
         let mut fit = design.fit_reml()?;
+        // The realized CG iteration count at this cascade depth is the runtime
+        // tell of the BPX n-independence bound (issue #1032 caveat: a count
+        // creeping toward CG_MAX_ITERS means the quasi-uniformity guard's static
+        // aspect-ratio check was too lenient for this cloud). It is exposed
+        // STRUCTURALLY rather than over stderr: the per-depth count and backward
+        // error ride on `fit.certificate` (`solve_iters` — 0 on the dense route,
+        // the PCG count on the iterative route — and `solve_rel_residual`), so a
+        // caller that wants to watch the bound reads them off the returned fit
+        // instead of scraping log lines. (A library solve never writes to
+        // stderr.)
         let gain = design.next_level_gain_bound(&fit)?;
         let tolerance = REFINE_TOL * fit.rss_pen;
         match gain {

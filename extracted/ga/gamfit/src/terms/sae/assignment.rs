@@ -3,6 +3,7 @@
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
+use crate::solver::evidence::{HybridAtomCandidate, HybridAtomChoice, select_hybrid_atom};
 use crate::terms::analytic_penalties::{
     AnalyticPenalty, IBPAssignmentPenalty, IbpHessianDiagThirdChannels,
     SoftmaxAssignmentSparsityPenalty, resolve_learnable_weight,
@@ -38,6 +39,33 @@ pub(crate) const SAE_ATOM_ACTIVE_MASS_FLOOR: f64 = 1.0e-3;
 /// as a terminal collapse event and left for the structure-search death move
 /// to adjudicate — re-seeding in a loop would fight the optimizer.
 pub(crate) const SAE_ATOM_COLLAPSE_RESEED_BUDGET: usize = 1;
+
+/// #976 Layer-1 guard (decoder arm): an atom whose decoder block Frobenius norm
+/// has fallen to this fraction of the dictionary's MEDIAN decoder norm carries
+/// no material reconstruction signal — it has degenerated to (near-)zero output
+/// and decodes the same nothing as every other collapsed atom. This is the
+/// real-data K>1 failure that the gate-mass floor cannot see: the assignment
+/// gates can stay spread across rows (mass guard satisfied) while the decoders
+/// all collapse to ~0, giving EV≈0 and a rank-deficient per-row coordinate
+/// Hessian on every row (the 0→K·n evidence-deflation jump). The statistic is a
+/// RATIO to the dictionary median so it is scale-free and never fires for a
+/// uniformly-small but well-conditioned decoder; only an atom that has fallen
+/// far behind its peers is caught. By construction this is a no-op for K=1
+/// (a single atom has no peer to fall behind, and the median equals its own
+/// norm), so the K=1 path is byte-for-byte unchanged.
+pub(crate) const SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO: f64 = 1.0e-3;
+
+/// #976 Layer-1 guard (simultaneous-collapse arm): the reconstruction
+/// explained-variance below which a K>=2 dictionary is judged to have
+/// CO-collapsed — every atom degenerate together, so the median-relative
+/// [`SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO`] test sees no atom "behind" its peers
+/// and stays silent. This is the real-data K=2 failure (both atoms fall into one
+/// seed/basin and the fit explains ~0 variance). The floor sits far below any
+/// healthy curved-dictionary fit (real OLMo K=1 reaches EV ~0.22, K=3 ~0.40), so
+/// only a genuinely degenerate dictionary trips it; a merely-difficult target
+/// never does. When tripped, the guard reseeds all-but-the-strongest atom onto
+/// distinct residual PCs to break the shared basin.
+pub(crate) const SAE_DICTIONARY_COLLAPSE_EV_FLOOR: f64 = 0.02;
 
 /// Machine-precision support cutoff for the smooth JumpReLU assignment prior,
 /// in units of the gate temperature below the hard threshold. The forward gate
@@ -1074,4 +1102,113 @@ pub(crate) fn ibp_assignment_third_channels(
         target.view(),
         rho_view.view(),
     )))
+}
+
+/// #1026 hybrid curved + linear-tail adjudication for one SAE atom slot.
+///
+/// A hybrid dictionary lets each atom slot be either a CURVED atom (its fitted
+/// `latent_dim ≥ 1` manifold chart, whose decoded image may turn) or its LINEAR
+/// special case (the euclidean-d=1-linear atom — one straight decoder direction,
+/// `γ(t) = t·b`, zero turning). The two are nested: the linear atom is exactly
+/// the curved family restricted to its straight sub-model, so a hybrid slot
+/// cannot lose to pure-linear at matched actives — it strictly generalizes it.
+///
+/// This is the single call the SAE fitter makes per atom to choose the split by
+/// EVIDENCE rather than fiat. It packages the atom's two already-fitted
+/// candidates — each scored on the COMMON rank-aware Laplace scale (`−V = NLE`,
+/// lower wins, identical to the union/mixture rungs) on the same rows — and
+/// routes them through [`select_hybrid_atom`]. The curved candidate's fitted
+/// turning `Θ` (from
+/// [`crate::terms::sae_chart_canonicalization::d1_atom_fitted_turning`]) enters
+/// as the decision feature: a `Θ → 0` atom yields to the cheaper linear tail by
+/// construction (the dominance floor — a curved atom buys nothing on a straight
+/// feature), a high-`Θ` atom takes the curved parameterization when its
+/// curvature lowers the NLE by more than its extra-parameter price (the `Θ/√ε`
+/// crossover).
+///
+/// `manifold` is the atom's fitted chart manifold; a non-curveable (already
+/// Euclidean-flat) chart can only present the linear candidate, which this
+/// helper enforces by ignoring any curved candidate offered for a flat chart —
+/// a flat chart has no curvature to price, so the linear special case is its
+/// only honest parameterization. Curveable charts present both candidates.
+///
+/// # Wiring into the fitter (the one call into `sae_manifold.rs`)
+///
+/// The post-fit pass in `sae_manifold.rs` already computes each d=1 atom's
+/// fitted turning `Θ` (the read-only EV-vs-Θ diagnostic). To make the split
+/// load-bearing, that pass supplies, per atom, the curved-candidate NLE +
+/// parameter count + `Θ` and the linear-candidate NLE + parameter count (both
+/// fitted on the atom's rows), and calls this helper; the returned
+/// [`HybridAtomChoice`] tells the fitter which parameterization to keep for that
+/// slot. The fitting of the two candidates lives in `sae_manifold.rs` (the
+/// manifold-chart fitter); the SELECTION/scoring lives here.
+pub fn select_hybrid_atom_parameterization(
+    manifold: &LatentManifold,
+    curved: Option<HybridAtomCandidate>,
+    linear: HybridAtomCandidate,
+) -> HybridAtomChoice {
+    // A flat (Euclidean) chart has no curvature to price: its only honest
+    // parameterization is the linear special case, so any curved candidate
+    // offered for it is dropped before the evidence comparison. Curveable charts
+    // (Circle / Sphere / Torus / curved products) present both candidates.
+    let curved = if manifold.is_euclidean() {
+        None
+    } else {
+        curved
+    };
+    let candidates: Vec<HybridAtomCandidate> = match curved {
+        Some(c) => vec![linear, c],
+        None => vec![linear],
+    };
+    // `candidates` is never empty (it always contains the linear candidate), so
+    // the selector always returns a choice.
+    select_hybrid_atom(&candidates).expect("hybrid atom slot always has the linear candidate")
+}
+
+#[cfg(test)]
+mod hybrid_split_tests {
+    use super::*;
+    use crate::solver::evidence::HybridAtomParam;
+
+    #[test]
+    fn flat_chart_drops_curved_candidate_and_keeps_linear() {
+        // A Euclidean chart has no curvature: even if a curved candidate with a
+        // lower NLE is offered, the helper drops it (a flat chart cannot honestly
+        // present a curved parameterization).
+        let linear = HybridAtomCandidate::linear(100.0, 2);
+        let curved = HybridAtomCandidate::curved(1, 1.0, 5, Some(2.0));
+        let choice =
+            select_hybrid_atom_parameterization(&LatentManifold::Euclidean, Some(curved), linear);
+        assert!(choice.param.is_linear());
+    }
+
+    #[test]
+    fn curveable_chart_selects_curved_when_turning_pays() {
+        // A Circle chart presents both candidates; a turning feature whose curved
+        // fit beats the linear secant on evidence selects curved.
+        let linear = HybridAtomCandidate::linear(100.0, 2);
+        let curved = HybridAtomCandidate::curved(1, 70.0, 5, Some(2.0 * std::f64::consts::PI));
+        let choice = select_hybrid_atom_parameterization(
+            &LatentManifold::Circle {
+                period: 2.0 * std::f64::consts::PI,
+            },
+            Some(curved),
+            linear,
+        );
+        assert_eq!(choice.param, HybridAtomParam::Curved { latent_dim: 1 });
+    }
+
+    #[test]
+    fn curveable_chart_falls_back_to_linear_when_no_curved_candidate() {
+        let linear = HybridAtomCandidate::linear(33.0, 2);
+        let choice = select_hybrid_atom_parameterization(
+            &LatentManifold::Circle {
+                period: 2.0 * std::f64::consts::PI,
+            },
+            None,
+            linear,
+        );
+        assert!(choice.param.is_linear());
+        assert_eq!(choice.num_parameters, 2);
+    }
 }

@@ -6,20 +6,33 @@
 import enum
 import sys
 
-from typing import Final, NoReturn
+from typing import Any, Final
 
-if sys.version_info >= (3, 11):  # a caching bug fix
+if sys.version_info >= (3, 11):  # python/cpython#22392 | python/cpython#93064
+    from enum import EnumType
+else:
+    from enum import EnumMeta as EnumType
+
+if sys.version_info >= (3, 9):  # various bug fixes (caching, etc.)
     from typing import Literal
 else:  # typing-extensions>=4.6.0
     from typing_extensions import Literal
 
-if sys.version_info >= (3, 11):  # runtime introspection support
+if sys.version_info >= (3, 11):  # python/cpython#30842
+    from typing import Never
+else:  # typing-extensions>=4.1.0
+    from typing_extensions import Never
+
+if sys.version_info >= (3, 11):  # python/cpython#30530: introspectable
     from typing import final
 else:  # typing-extensions>=4.1.0
     from typing_extensions import final
 
-class SingletonEnum(enum.Enum):  # type: ignore[misc]
-    def __setattr__(self, /, name: str, value: object) -> None: ...
+# `_SingletonMeta.__call__()` is omitted due to python/typing#270
+class _SingletonMeta(EnumType): ...
+
+# `SingletonEnum.__setattr__()` is omitted due to python/mypy#18325
+class SingletonEnum(enum.Enum, metaclass=_SingletonMeta):  # type: ignore[misc]
     def __repr__(self, /) -> str: ...
     def __str__(self, /) -> str: ...
 
@@ -27,14 +40,14 @@ class SingletonEnum(enum.Enum):  # type: ignore[misc]
 class DefaultType(SingletonEnum):
     DEFAULT = "DEFAULT"
 
-    def __init_subclass__(cls, /, **kwargs: object) -> NoReturn: ...
+    def __init_subclass__(cls, /, **kwargs: Any) -> Never: ...
     def __bool__(self, /) -> Literal[False]: ...
 
 @final
 class MissingType(SingletonEnum):
     MISSING = "MISSING"
 
-    def __init_subclass__(cls, /, **kwargs: object) -> NoReturn: ...
+    def __init_subclass__(cls, /, **kwargs: Any) -> Never: ...
     def __bool__(self, /) -> Literal[False]: ...
 
 DEFAULT: Final[Literal[DefaultType.DEFAULT]]

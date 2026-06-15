@@ -1,3 +1,4 @@
+import bisect
 import warnings
 from collections import namedtuple
 
@@ -53,13 +54,22 @@ class Interval:
             # Sort intervals by lower bound, closed first.
             self._intervals.sort(key=lambda i: (i.lower, i.left is Bound.OPEN))
 
-            i = 0
             # Try to merge consecutive intervals
-            while i < len(self._intervals) - 1:
+            new_intervals = []
+            i = 0
+            while i < len(self._intervals):
                 current = self._intervals[i]
-                successor = self._intervals[i + 1]
 
-                if self.__class__._mergeable(current, successor):
+                # Keep merging with consecutive intervals while possible
+                while i + 1 < len(self._intervals):
+                    # `current' is either self._intervals[i] or the result of
+                    # the last merge operation in this loop.
+                    successor = self._intervals[i + 1]
+
+                    if not self.__class__._mergeable(current, successor):
+                        break
+
+                    # Merge current with successor
                     if current.lower == successor.lower:
                         lower = current.lower
                         left = (
@@ -67,7 +77,6 @@ class Interval:
                             if current.left == Bound.CLOSED
                             else successor.left
                         )
-
                     else:
                         lower = min(current.lower, successor.lower)
                         left = (
@@ -87,12 +96,13 @@ class Interval:
                             current.right if upper == current.upper else successor.right
                         )
 
-                    union = Atomic(left, lower, upper, right)
-                    self._intervals.pop(i)  # pop current
-                    self._intervals.pop(i)  # pop successor
-                    self._intervals.insert(i, union)
-                else:
-                    i = i + 1
+                    current = Atomic(left, lower, upper, right)
+                    i += 1
+
+                new_intervals.append(current)
+                i += 1
+
+            self._intervals = new_intervals
 
     @classmethod
     def from_atomic(cls, left, lower, upper, right):
@@ -108,6 +118,7 @@ class Interval:
         right = right if upper not in [inf, -inf] else Bound.OPEN
 
         instance = cls()
+
         # Check for non-emptiness (otherwise keep instance._intervals = [])
         if lower < upper or (
             lower == upper and left == Bound.CLOSED and right == Bound.CLOSED
@@ -195,6 +206,18 @@ class Interval:
         :return: an Interval instance.
         """
         return self.__class__.from_atomic(self.left, self.lower, self.upper, self.right)
+
+    def _tail_iterator(self, value):
+        """
+        Return an iterator over this interval's atomic subintervals which skips
+        all subintervals where i.upper < value. Optimization for intersection checks.
+        """
+        if value < self.lower:
+            yield from self
+        elif value <= self.upper:
+            start = bisect.bisect_left(self._intervals, value, key=lambda i: i.upper)
+            for index in range(start, len(self._intervals)):
+                yield self.__class__.from_atomic(*self._intervals[index])
 
     def replace(
         self, left=None, lower=None, upper=None, right=None, *, ignore_inf=True
@@ -315,8 +338,8 @@ class Interval:
                 # Early out for clearly non-overlapping intervals
                 return False
 
-            i_iter = iter(self)
-            o_iter = iter(other)
+            i_iter = self._tail_iterator(other.lower)
+            o_iter = other._tail_iterator(self.lower)
             i_current = next(i_iter, None)
             o_current = next(o_iter, None)
 
@@ -429,8 +452,8 @@ class Interval:
         else:
             intersections = []
 
-            i_iter = iter(self)
-            o_iter = iter(other)
+            i_iter = self._tail_iterator(other.lower)
+            o_iter = other._tail_iterator(self.lower)
             i_current = next(i_iter, None)
             o_current = next(o_iter, None)
 
@@ -478,7 +501,7 @@ class Interval:
                 )
                 return left and right
             else:
-                selfiter = iter(self)
+                selfiter = self._tail_iterator(item.lower)
                 current = next(selfiter)
 
                 for other in item:
@@ -495,14 +518,23 @@ class Interval:
         else:
             # Item is a value
             if self.upper < item or self.lower > item:
+                # Early out
                 return False
 
-            for i in self._intervals:
-                left = (item >= i.lower) if i.left == Bound.CLOSED else (item > i.lower)
-                right = (
-                    (item <= i.upper) if i.right == Bound.CLOSED else (item < i.upper)
-                )
-                if left and right:
+            low, high = 0, len(self._intervals) - 1
+            while low <= high:
+                mid = (low + high) // 2
+                current = self._intervals[mid]
+
+                if item < current.lower or (
+                    item == current.lower and current.left is Bound.OPEN
+                ):
+                    high = mid - 1
+                elif item > current.upper or (
+                    item == current.upper and current.right is Bound.OPEN
+                ):
+                    low = mid + 1
+                else:
                     return True
             return False
 

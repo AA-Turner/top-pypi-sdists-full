@@ -91,7 +91,7 @@ from typing import Any, Optional
 logger = logging.getLogger("clawmetry.adapters.nemo")
 
 
-# ── Free-tier daily ingest cap (issue #1170) ───────────────────────────
+# ── Free-tier daily ingest cap (issue #1170) ───────────────────────────────
 #
 # NeMo Agent Toolkit users are the highest-value paid-conversion segment
 # we observe (enterprise GPU buyers). Shipping the adapter under OSS gave
@@ -630,7 +630,7 @@ class NeMoAdapter:
         return row
 
 
-# ── NemoClaw RUNTIME read-side AgentAdapter ────────────────────────────────
+# ── NemoClaw RUNTIME read-side AgentAdapter ─────────────────────────────────────────
 #
 # NemoClaw is a Free runtime alongside OpenClaw (FREE_RUNTIMES in
 # clawmetry/entitlements.py contains {"openclaw", "nemoclaw"}). It is the
@@ -649,6 +649,18 @@ class NeMoAdapter:
 # canonical runtime id per /api/runtimes + FREE_RUNTIMES is ``nemoclaw``;
 # this rename aligns /api/agents with the rest of the runtime catalogue.
 from .base import AgentAdapter, Capability, DetectResult, Event, Session
+
+
+def _extract_skill_names(raw: dict) -> list:
+    names = []
+    for entry in raw.get("skills", []):
+        if isinstance(entry, str):
+            names.append(entry)
+        elif isinstance(entry, dict):
+            name = entry.get("name") or entry.get("id") or entry.get("skillName", "")
+            if name:
+                names.append(name)
+    return names
 
 
 def _read_nemoclaw_skill_catalog() -> dict:
@@ -675,13 +687,162 @@ def _read_nemoclaw_skill_catalog() -> dict:
             return {
                 "skill_catalog_min_version": meta.get("minNemoClawVersion", ""),
                 "skill_catalog_tested_version": meta.get("testedNemoClawVersion", ""),
+                "skill_catalog_schema_version": meta.get("schemaVersion", ""),
                 "skill_catalog_export_sha256": raw.get("exportContentSha256", ""),
                 "skill_catalog_source_commit": raw.get("sourceCommit", meta.get("sourceCommit", "")),
                 "skill_catalog_source_sha256": raw.get("sourceContentSha256", meta.get("sourceContentSha256", "")),
+                "skill_catalog_skill_names": _extract_skill_names(raw),
             }
         except Exception as exc:
             logger.debug("nemoclaw skill catalog read failed (%s): %s", path, exc)
     return {}
+
+
+def _read_model_router_model_list() -> dict:
+    """Read the proxy-config YAML written by ``model-router proxy-config --output <path>``.
+
+    Tries several candidate locations in priority order, then falls back to
+    a ``model_name:`` line-regex when PyYAML is not installed. Returns a dict
+    with ``modelRouterModelList`` (list of model-name strings) and
+    ``modelRouterModelCount`` (int) when any config file is found; empty dict
+    otherwise — never raises.
+    """
+    import os
+    import re
+    from pathlib import Path
+
+    home = Path.home()
+    venv = os.environ.get("NEMOCLAW_MODEL_ROUTER_VENV") or str(
+        home / ".nemoclaw" / "model-router-venv"
+    )
+    # Explicit env-var override (harness or user can set this)
+    env_path = os.environ.get("NEMOCLAW_MODEL_ROUTER_CONFIG", "")
+    candidates = [
+        Path(env_path) if env_path else None,
+        home / ".nemoclaw" / "model-router-config.yaml",
+        home / ".nemoclaw" / "proxy-config.yaml",
+        Path(venv) / "proxy-config.yaml",
+    ]
+
+    for path in candidates:
+        if path is None or not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.debug("nemoclaw model-router config read failed (%s): %s", path, exc)
+            continue
+        try:
+            try:
+                import yaml  # type: ignore[import]
+                data = yaml.safe_load(text) or {}
+                names = [
+                    str(entry.get("model_name", ""))
+                    for entry in data.get("model_list", [])
+                    if isinstance(entry, dict) and entry.get("model_name")
+                ]
+            except ImportError:
+                # PyYAML not installed — regex fallback over raw text
+                names = re.findall(r"model_name:\s*(.+?)(?:\s|$)", text)
+            if names:
+                return {
+                    "modelRouterModelList": names,
+                    "modelRouterModelCount": len(names),
+                }
+        except Exception as exc:
+            logger.debug("nemoclaw model-router config parse failed (%s): %s", path, exc)
+    return {}
+
+
+def _read_nemoclaw_sandbox_lifecycle() -> dict:
+    """Query openshell for sandbox name, phase, and policy (issue #3117).
+
+    Tries ``openshell sandbox list --json`` first; falls back to plain-text
+    parsing of ``openshell sandbox list``.  For each sandbox, attempts
+    ``openshell sandbox get <name>`` (text) to extract the Policy field when
+    it is not already present in the JSON output.  Returns
+    ``{"sandboxes": [{name, phase, policy}, …]}`` or ``{}`` on any failure;
+    never raises.
+    """
+    import os as _os
+    import shutil as _shutil
+    import subprocess as _sub
+    import json as _j
+
+    openshell_bin: str | None = None
+    for _name in ("openshell", "openshell-cli"):
+        _p = _shutil.which(_name)
+        if _p:
+            openshell_bin = _p
+            break
+    if not openshell_bin:
+        for _c in ("/usr/local/bin/openshell", "/opt/openshell/bin/openshell", "/usr/bin/openshell"):
+            if _os.path.isfile(_c):
+                openshell_bin = _c
+                break
+    if not openshell_bin:
+        return {}
+
+    sandboxes: list[dict] = []
+    _json_succeeded = False
+
+    # Try JSON first (structured, preferred)
+    try:
+        out = _sub.check_output(
+            [openshell_bin, "sandbox", "list", "--json"],
+            stderr=_sub.DEVNULL,
+            timeout=10,
+        ).decode()
+        raw = _j.loads(out)
+        _json_succeeded = True
+        for sb in (raw if isinstance(raw, list) else []):
+            sandboxes.append({
+                "name": sb.get("name", ""),
+                "phase": sb.get("phase", sb.get("status", "Unknown")),
+                "policy": sb.get("policy", ""),
+            })
+    except Exception:
+        pass
+
+    # Fall back to text: "<name> <phase>" per line (only when JSON unavailable)
+    if not _json_succeeded:
+        try:
+            out = _sub.check_output(
+                [openshell_bin, "sandbox", "list"],
+                stderr=_sub.DEVNULL,
+                timeout=10,
+            ).decode()
+            for line in out.splitlines():
+                parts = line.split(None, 1)
+                if parts:
+                    sandboxes.append({
+                        "name": parts[0],
+                        "phase": parts[1].strip() if len(parts) > 1 else "Unknown",
+                        "policy": "",
+                    })
+        except Exception:
+            pass
+
+    # Enrich each sandbox with policy via `openshell sandbox get <name>`
+    for sb in sandboxes:
+        if sb.get("policy") or not sb.get("name"):
+            continue
+        try:
+            get_out = _sub.check_output(
+                [openshell_bin, "sandbox", "get", sb["name"]],
+                stderr=_sub.DEVNULL,
+                timeout=5,
+            ).decode()
+            for line in get_out.splitlines():
+                if line.startswith("Policy:"):
+                    sb["policy"] = line[len("Policy:"):].strip()
+                    break
+        except Exception:
+            pass
+
+    if not sandboxes:
+        return {}
+    return {"sandboxes": sandboxes}
 
 
 class NemoClawAdapter(AgentAdapter):
@@ -710,6 +871,8 @@ class NemoClawAdapter(AgentAdapter):
             logger.debug("nemoclaw detect read failed: %s", exc)
         meta: dict = {"event_count": n}
         meta.update(_read_nemoclaw_skill_catalog())
+        meta.update(_read_model_router_model_list())
+        meta.update(_read_nemoclaw_sandbox_lifecycle())
         return DetectResult(
             name=self.name,
             display_name=self.display_name,

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .. import grammars as g
@@ -30,6 +31,9 @@ def text(model: g.Model) -> str:
 def draw(model: g.Model):
     for line in tracks(model):
         print(line.rstrip())
+
+
+_MAX_PATTERN_LEN = 16
 
 
 class RailroadNodeWalker(NodeWalker):
@@ -119,6 +123,10 @@ class RailroadNodeWalker(NodeWalker):
 
     def walk_pattern(self, pattern: g.Pattern) -> Rails:
         pat = regexpp(pattern.pattern).replace("r'", "").rstrip("'")
+        pat = pat.split('\n')[0]
+        if len(pat) > _MAX_PATTERN_LEN:
+            pat = re.sub(r"(?ms)[\s\r\n]+", " ", pat)
+            pat = pat[:_MAX_PATTERN_LEN] + '...'
         return [f"/{pat}/─"]
 
     def walk_token(self, token: g.Token) -> Rails:
@@ -165,7 +173,7 @@ class RailroadNodeWalker(NodeWalker):
         return weld([' ->('], self.walk(skipto.exp), [')'])
 
     def walk_rule_include(self, include: g.RuleInclude):
-        return [f' >({include.rule.name}) ']
+        return [f' >({include.name}) ']
 
     def walk_based_rule(self, rule: g.BasedRule):
         out = [f'{rule.name} < {rule.baserule}●─']

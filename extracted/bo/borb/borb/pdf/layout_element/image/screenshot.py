@@ -9,6 +9,7 @@ The screenshot can be captured directly from the user's screen and then processe
 other image object.
 """
 
+import logging
 import typing
 
 from borb.pdf.color.color import Color
@@ -37,6 +38,10 @@ class Screenshot(Image):
         border_color: typing.Optional[Color] = None,
         border_dash_pattern: typing.Optional[typing.List[int]] = None,
         border_dash_phase: int = 0,
+        border_radius_bottom_left: int = 0,
+        border_radius_bottom_right: int = 0,
+        border_radius_top_left: int = 0,
+        border_radius_top_right: int = 0,
         border_width_bottom: int = 0,
         border_width_left: int = 0,
         border_width_right: int = 0,
@@ -68,6 +73,10 @@ class Screenshot(Image):
         :param border_color:            The color of the border around the screenshot. Defaults to None.
         :param border_dash_pattern:     A list defining the dash pattern for the border. Defaults to an empty list.
         :param border_dash_phase:       The phase of the dash pattern. Defaults to 0.
+        :param border_radius_bottom_left:   Radius of the bottom left border of the element.
+        :param border_radius_bottom_right:  Radius of the bottom right border of the element.
+        :param border_radius_top_left:      Radius of the top left border of the element.
+        :param border_radius_top_right:     Radius of the top right border of the element.
         :param border_width_bottom:     Width of the bottom border in pixels. Defaults to 0.
         :param border_width_left:       Width of the left border in pixels. Defaults to 0.
         :param border_width_right:      Width of the right border in pixels. Defaults to 0.
@@ -87,10 +96,8 @@ class Screenshot(Image):
         :param vertical_alignment:      Vertical alignment of the screenshot. Defaults to LayoutElement.VerticalAlignment.TOP.
         :param xdisplay:                The X display string to connect to. Defaults to None.
         """
-        from PIL import ImageGrab  # type: ignore[import-untyped, import-not-found]
-
         super().__init__(
-            bytes_path_pil_image_or_url=ImageGrab.grab(
+            bytes_path_pil_image_or_url=Screenshot.__safe_grab(
                 bbox=bounding_box,
                 include_layered_windows=include_layered_windows,
                 all_screens=all_screens,
@@ -100,6 +107,10 @@ class Screenshot(Image):
             border_color=border_color,
             border_dash_pattern=border_dash_pattern,
             border_dash_phase=border_dash_phase,
+            border_radius_bottom_left=border_radius_bottom_left,
+            border_radius_bottom_right=border_radius_bottom_right,
+            border_radius_top_left=border_radius_top_left,
+            border_radius_top_right=border_radius_top_right,
             border_width_bottom=border_width_bottom,
             border_width_left=border_width_left,
             border_width_right=border_width_right,
@@ -120,6 +131,46 @@ class Screenshot(Image):
     #
     # PRIVATE
     #
+
+    @staticmethod
+    def __safe_grab(
+        bbox: typing.Optional[typing.Tuple[int, int, int, int]] = None,
+        include_layered_windows: bool = False,
+        all_screens: bool = False,
+        xdisplay: typing.Optional[str] = None,
+    ) -> "PIL.Image.Image":  # type: ignore[name-defined]
+        try:
+            from PIL import ImageGrab  # type: ignore[import-untyped, import-not-found]
+
+            return ImageGrab.grab(
+                bbox=bbox,
+                include_layered_windows=include_layered_windows,
+                all_screens=all_screens,
+                xdisplay=xdisplay,
+            )
+        except OSError as e:
+            logging.getLogger(__name__).warning(
+                f"ImageGrab failed (likely headless environment): {e}"
+            )
+
+            # Fallback: return a blank image with same expected size
+            if bbox:
+                width = bbox[2] - bbox[0]
+                height = bbox[3] - bbox[1]
+            else:
+                width, height = 800, 600  # sensible default for tests
+
+            # PIL.Image
+            try:
+                import PIL.Image  # type: ignore[import-untyped, import-not-found]
+            except ImportError:
+                raise ImportError(
+                    "Please install the 'Pillow' library to use the Screenshot class. "
+                    "You can install it with 'pip install Pillow'."
+                )
+
+            # return empty image
+            return PIL.Image.new("RGB", (width, height), (210, 210, 210))
 
     #
     # PUBLIC

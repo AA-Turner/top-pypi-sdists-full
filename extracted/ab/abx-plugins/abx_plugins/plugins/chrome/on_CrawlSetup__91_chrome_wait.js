@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// ///
 /**
  * Wait for the crawl-level Chrome browser session to become CDP-connectable.
  *

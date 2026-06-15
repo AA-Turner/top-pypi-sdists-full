@@ -34,6 +34,7 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
     "lambdas",
     "coefficients",
     "smooth_terms",
+    "curvature_estimands",
     "covariance_kind",
     "covariance_n",
     "covariance_flat",
@@ -89,6 +90,13 @@ class Summary:
         Wald statistic) and ``p_value``. Random-effect smooths report ``edf``
         only. Empty when the model has no smooth terms or when the design
         could not be reconstructed to recover per-term coefficient blocks.
+
+        This ``p_value`` is the *first-order* Wald reference; computing it needs
+        only the saved model. For the **second-order-accurate**, Bartlett-corrected
+        likelihood-ratio p-value (the exact Lawley factor auto-applied whenever the
+        family carries closed-form cumulant jets, #939/#1063) call
+        :meth:`Model.smooth_significance(data) <gamfit.Model.smooth_significance>`,
+        which runs the per-term constrained refits the saved-model summary cannot.
     covariance_kind : str or None
         ``"corrected"`` or ``"conditional"`` depending on which posterior
         covariance variant was returned.
@@ -128,6 +136,11 @@ class Summary:
     lambdas: list[float] = field(default_factory=list)
     coefficients: list[dict[str, Any]] = field(default_factory=list)
     smooth_terms: list[dict[str, Any]] = field(default_factory=list)
+    #: Fitted curvature κ̂ point estimates for any ``curv(...)`` constant-curvature
+    #: smooths (#944): one dict per term with ``name``, ``term_idx``,
+    #: ``kappa_hat``, and a sign-of-κ̂ ``geometry`` tag. The profile CI and the
+    #: κ = 0 flatness p-value (which need a refit) come from ``Model.curvature``.
+    curvature_estimands: list[dict[str, Any]] = field(default_factory=list)
     covariance_kind: str | None = None
     covariance_n: int | None = None
     covariance_flat: list[float] | None = None

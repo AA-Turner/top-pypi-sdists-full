@@ -343,12 +343,56 @@ def generate_report(
     # ========================================
     from .narrative import generate_narrative
 
+    def _load_top_features(country_slug, crop_slug, top_n=10):
+        """Read the top CIDs by |Pearson r| from the cid_vs_yield EDA
+        artifact and pass them as top_features to the narrative. The
+        EDA writes pearson_summary.csv at
+            <analysis_root>/explore/cid_vs_yield/<country>/<crop>/csvs/
+                pearson_summary.csv
+        which lives a sibling of the outlook dir; try a few sensible
+        roots so this works whether dir_outlook is the analysis root or
+        the outlook subdir.
+        """
+        candidate_roots = [
+            dir_outlook.parent,    # dir_outlook = .../analysis/<today>/outlook/
+            dir_outlook,           # dir_outlook = .../analysis/<today>/
+            dir_outlook.parent.parent,  # belt-and-suspenders
+        ]
+        rel = (
+            Path("explore") / "cid_vs_yield" / country_slug / crop_slug
+            / "csvs" / "pearson_summary.csv"
+        )
+        for root in candidate_roots:
+            path = root / rel
+            if not path.is_file():
+                continue
+            try:
+                df_pr = pd.read_csv(path)
+            except Exception:
+                continue
+            # Use the kept-after-dedup rows when the EDA marked them;
+            # otherwise rank by abs_r so we get distinct strong signals.
+            if "kept" in df_pr.columns:
+                df_kept = df_pr[df_pr["kept"].astype(bool)]
+                if not df_kept.empty:
+                    df_pr = df_kept
+            if "abs_r" in df_pr.columns:
+                df_pr = df_pr.sort_values("abs_r", ascending=False)
+            elif "pearson_r" in df_pr.columns:
+                df_pr = df_pr.reindex(
+                    df_pr["pearson_r"].abs().sort_values(ascending=False).index
+                )
+            if "cid" in df_pr.columns:
+                return df_pr["cid"].head(top_n).astype(str).tolist()
+        return []
+
     paragraphs = []
     for model in models:
         for country in countries:
             csv_files = list(dir_outlook.glob(f"yield_outlook_*_{current_year}.csv"))
             yield_data = {}
             metrics_data = {}
+            other_model_predictions = {}
             if csv_files:
                 try:
                     df_csv = pd.read_csv(csv_files[0])
@@ -357,8 +401,45 @@ def generate_report(
                         yield_data = df_model.set_index("Region")["current_predicted"].to_dict()
                     if "outlook_index" in df_model.columns:
                         metrics_data["Mean Outlook Index"] = df_model["outlook_index"].mean()
+
+                    # Collect predictions from the OTHER models in this
+                    # run so the narrative can emit a Model Comparison
+                    # section. Only meaningful when models has > 1
+                    # entry; the iteration silently produces an empty
+                    # dict for single-model runs which the narrative
+                    # then uses to suppress the comparison section.
+                    if "Model" in df_csv.columns:
+                        for other_m in models:
+                            if other_m == model:
+                                continue
+                            df_other = df_csv[df_csv["Model"] == other_m]
+                            if (
+                                "current_predicted" in df_other.columns
+                                and "Region" in df_other.columns
+                                and not df_other.empty
+                            ):
+                                other_preds = (
+                                    df_other.set_index("Region")["current_predicted"]
+                                    .to_dict()
+                                )
+                                if other_preds:
+                                    other_model_predictions[other_m] = other_preds
                 except Exception:
                     pass
+
+            country_slug = country.lower().replace(" ", "_")
+            crop_slug = (crops[0] if crops else "maize").lower().replace(" ", "_")
+            top_features = _load_top_features(country_slug, crop_slug)
+            if top_features:
+                logger.info(
+                    f"Loaded {len(top_features)} top CIDs for {country_slug}/"
+                    f"{crop_slug} narrative: {top_features[:5]}..."
+                )
+            if other_model_predictions:
+                logger.info(
+                    f"Multi-model comparison: primary={model}, "
+                    f"others={list(other_model_predictions.keys())}"
+                )
 
             category = parser.get(country, "category", fallback="AMIS")
             paragraphs = generate_narrative(
@@ -366,8 +447,11 @@ def generate_report(
                 current_year=current_year,
                 yield_data=yield_data,
                 metrics=metrics_data,
+                top_features=top_features,
                 category=category,
                 parser=parser,
+                primary_model_name=model,
+                other_model_predictions=other_model_predictions,
             )
             if paragraphs:
                 break
@@ -377,9 +461,32 @@ def generate_report(
     if paragraphs:
         _section("Season Assessment", "narrative")
         _reset_subsection()
+        # Claude is now instructed to emit each section as a `## Section
+        # Name` header followed by prose paragraphs. Walk the paragraph
+        # list and render headers as PDF subsections, prose as body
+        # paragraphs. Without this, all six sections collapse into a
+        # 2-3 page wall of text — exactly what the user flagged as
+        # hard to read.
         for para in paragraphs:
-            elements.append(Paragraph(para, styles["Normal"]))
-            elements.append(Spacer(1, 10))
+            stripped = para.lstrip()
+            if stripped.startswith("## "):
+                heading = stripped[3:].strip()
+                # Some models also leave a `**Bold**` wrapper around the
+                # heading text — strip it.
+                heading = heading.strip("*").strip()
+                if heading:
+                    elements.append(Paragraph(heading, styles["SubSection"]))
+                    elements.append(Spacer(1, 4))
+            elif stripped.startswith("# "):
+                # Treat a single-hash header as a major-section heading
+                # (shouldn't happen given the prompt but defensive).
+                heading = stripped[2:].strip().strip("*").strip()
+                if heading:
+                    elements.append(Paragraph(heading, styles["SubSection"]))
+                    elements.append(Spacer(1, 4))
+            else:
+                elements.append(Paragraph(para, styles["Normal"]))
+                elements.append(Spacer(1, 10))
 
     # ========================================
     # Executive Summary

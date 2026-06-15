@@ -80,6 +80,108 @@ class ZxcvbnPasswordValidatorTest(TestCase):
             self.validator.validate("testclient@example.com", user=user)
         self.assertIn("Your password is too guessable", error.exception.messages[0])
 
+    def test_user_inputs_only_meaningful_strings(self):
+        """Only string user attributes are fed to zxcvbn.
+
+        The hashed password, Django's private '_state', and non-string values
+        (ids, booleans, datetimes) must never be passed as user_inputs.
+        """
+        captured = {}
+
+        def fake_zxcvbn(_password, user_inputs=None):
+            captured["user_inputs"] = user_inputs
+            return {
+                "score": 4,
+                "crack_times_seconds": {"offline_slow_hashing_1e4_per_second": 0},
+                "feedback": {"warning": "", "suggestions": []},
+            }
+
+        validator = ZxcvbnPasswordValidator(zxcvbn_implementation=fake_zxcvbn)
+        user = User.objects.create(
+            username="testclient",
+            first_name="Test",
+            last_name="Client",
+            email="testclient@example.com",
+            password="sha1$6efc0$f93efe9fd7542f25a7be94871ea45aa95de57161",
+        )
+        validator.validate("a-strong-enough-password", user=user)
+        user_inputs = captured["user_inputs"]
+        self.assertIn("testclient", user_inputs)
+        self.assertIn("testclient@example.com", user_inputs)
+        self.assertNotIn(user.password, user_inputs)
+        self.assertTrue(all(isinstance(value, str) for value in user_inputs))
+
+    @override_settings(LANGUAGE_CODE="en-us")
+    @override_settings(PASSWORD_MINIMAL_STRENGTH=2)
+    def test_get_strength_weak(self):
+        validator = ZxcvbnPasswordValidator()
+        strength = validator.get_strength("password")
+        self.assertEqual(strength["score"], 0)
+        self.assertEqual(strength["minimal_strength"], 2)
+        self.assertFalse(strength["acceptable"])
+        self.assertEqual(strength["crack_time_display"], "less than a second")
+        self.assertTrue(strength["suggestions"])
+
+    @override_settings(LANGUAGE_CODE="en-us")
+    @override_settings(PASSWORD_MINIMAL_STRENGTH=2)
+    def test_get_strength_strong(self):
+        validator = ZxcvbnPasswordValidator()
+        strength = validator.get_strength("A God, an alpha predator, Godzilla.")
+        self.assertGreaterEqual(strength["score"], 2)
+        self.assertTrue(strength["acceptable"])
+        self.assertEqual(strength["warning"], "")
+        self.assertEqual(strength["suggestions"], [])
+
+    @override_settings(LANGUAGE_CODE="fr")
+    @override_settings(PASSWORD_MINIMAL_STRENGTH=2)
+    def test_get_strength_is_translated(self):
+        validator = ZxcvbnPasswordValidator()
+        strength = validator.get_strength("g0dz1ll@")
+        self.assertIn("seconde", strength["crack_time_display"])
+        self.assertIn(
+            "C'est proche d'un mot de passe très courant", strength["warning"]
+        )
+
+    def test_get_strength_too_long(self):
+        validator = ZxcvbnPasswordValidator()
+        with self.assertRaises(ValidationError):
+            validator.get_strength("x" * 80)
+
+    @override_settings(PASSWORD_EXTRA_DICTIONARY=["AcmeCorp", "RocketWidget"])
+    def test_extra_dictionary_is_fed_to_zxcvbn(self):
+        captured = {}
+
+        def fake_zxcvbn(_password, user_inputs=None):
+            captured["user_inputs"] = user_inputs
+            return {
+                "score": 4,
+                "crack_times_seconds": {"offline_slow_hashing_1e4_per_second": 0},
+                "feedback": {"warning": "", "suggestions": []},
+            }
+
+        validator = ZxcvbnPasswordValidator(zxcvbn_implementation=fake_zxcvbn)
+        validator.validate("some-password")
+        self.assertIn("AcmeCorp", captured["user_inputs"])
+        self.assertIn("RocketWidget", captured["user_inputs"])
+
+    @override_settings(PASSWORD_EXTRA_DICTIONARY=["AcmeCorp"])
+    @override_settings(PASSWORD_MINIMAL_STRENGTH=2)
+    def test_extra_dictionary_weakens_matching_password(self):
+        validator = ZxcvbnPasswordValidator()
+        # A brand term from the extra dictionary must be treated as guessable.
+        self.assertFalse(validator.get_strength("AcmeCorp")["acceptable"])
+
+    @override_settings(PASSWORD_EXTRA_DICTIONARY="not-a-list")
+    def test_extra_dictionary_must_be_list(self):
+        with self.assertRaises(ImproperlyConfigured) as error:
+            ZxcvbnPasswordValidator()
+        self.assertIn("PASSWORD_EXTRA_DICTIONARY must be a list", str(error.exception))
+
+    @override_settings(PASSWORD_EXTRA_DICTIONARY=[123])
+    def test_extra_dictionary_must_be_strings(self):
+        with self.assertRaises(ImproperlyConfigured):
+            ZxcvbnPasswordValidator()
+
     @override_settings(PASSWORD_MINIMAL_STRENGTH=0)
     def test_low_strength(self):
         self.validator = ZxcvbnPasswordValidator()

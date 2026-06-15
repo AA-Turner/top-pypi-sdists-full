@@ -49,7 +49,7 @@ from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.streams import Windowed
 from chalk.streams._windows import GroupByWindowed, get_name_with_duration
 from chalk.utils import notebook
-from chalk.utils.collections import ensure_tuple
+from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
 from chalk.utils.duration import Duration, parse_chalk_duration, parse_chalk_duration_s
 from chalk.utils.metaprogramming import MISSING, set_new_attribute
 from chalk.utils.string import to_snake_case
@@ -128,24 +128,434 @@ class _AuxiliaryFieldOrigin:
         self.error_builder = error_builder
 
 
-def _register_auxiliary_class(c: Type[T], *, part_of: str) -> Type[T]:
-    """Stash an auxiliary class for later merging into its target.
+class _PendingAuxiliary:
+    """A `@features(part_of=...)` class or `add_features(...)` call whose target
+    feature class has not been decorated yet."""
 
-    Auxiliary classes declared with `@features(part_of=...)` aren't themselves
-    feature classes — their annotations and class-attribute defaults get folded
-    into the target class when it is decorated.
+    __slots__ = ("cls", "part_of", "via", "filename", "lineno")
+
+    def __init__(
+        self,
+        cls: Type[Any],
+        part_of: str,
+        via: str,
+        filename: str | None,
+        lineno: int | None,
+    ):
+        super().__init__()
+        self.cls = cls
+        self.part_of = part_of
+        self.via = via
+        self.filename = filename
+        self.lineno = lineno
+
+    def declared_at(self) -> str | None:
+        if self.filename is None:
+            return None
+        if self.lineno is None:
+            return self.filename
+        return f"{self.filename}:{self.lineno}"
+
+
+def _register_auxiliary_class(
+    c: Type[T],
+    *,
+    part_of: str,
+    via: str = "part_of",
+    filename: str | None = None,
+    lineno: int | None = None,
+) -> Type[T]:
+    """Fold an auxiliary class into its target feature class.
+
+    Auxiliary classes declared with `@features(part_of=...)` (or built by
+    `add_features(...)`) aren't themselves feature classes — their annotations
+    and class-attribute defaults get folded into the target class. If the
+    target is already registered, the fields are merged into it immediately;
+    otherwise the auxiliary is stashed and merged when the target class is
+    decorated.
     """
     target_namespace = _resolve_part_of_namespace(part_of)
     registry = CURRENT_FEATURE_REGISTRY.get()
-    if target_namespace in registry.get_feature_sets():
-        # Spike: only support the order where the auxiliary is defined *before*
-        # the target. Re-processing an already-built feature class is more work.
-        raise NotImplementedError(
-            f"Auxiliary feature class '{c.__name__}' (part_of='{part_of}') was defined after"
-            + f" its target '{target_namespace}'. Define auxiliary classes before the target."
-        )
-    _PENDING_AUXILIARY_CLASSES.setdefault(target_namespace, []).append(c)
+    existing = registry.get_feature_sets().get(target_namespace)
+    if existing is not None:
+        _extend_existing_feature_class(target=existing, aux=c, via=via)
+        return c
+    if filename is None:
+        try:
+            filename = str(Path(inspect.getfile(c)).resolve())
+        except (OSError, TypeError):
+            filename = None
+    _PENDING_AUXILIARY_CLASSES.setdefault(target_namespace, []).append(
+        _PendingAuxiliary(cls=c, part_of=part_of, via=via, filename=filename, lineno=lineno)
+    )
     return c
+
+
+def _clear_cached_classproperty(cls: Type[Any], name: str) -> None:
+    """Drop the memoized value of a `classproperty(..., cached=True)`.
+
+    `classproperty_support` installs cached classproperties on the metaclass as
+    `property(functools.partial(_cached_getter, getter=..., cache=[...]))`; the
+    one-element `cache` list is the memo, so clearing it forces a recompute on
+    next access."""
+    for klass in inspect.getmro(type(cls)):
+        prop = klass.__dict__.get(name)
+        fget = getattr(prop, "fget", None)
+        cache = getattr(fget, "keywords", {}).get("cache")
+        if cache is not None:
+            cache.clear()
+            return
+
+
+def _extend_existing_feature_class(*, target: Type[Any], aux: Type[Any], via: str) -> None:
+    """Merge the fields of auxiliary class `aux` into the already-processed
+    feature class `target`.
+
+    Unlike the pending path (auxiliary declared before its target), the target
+    here has already gone through `_process_class`, so we can't re-run the class
+    pipeline. Instead each auxiliary field is processed individually with
+    `_get_field` — the same routine `_process_class` uses — and appended to the
+    target's feature list, after which the memoized `features`/`__chalk_primary__`
+    classproperties are invalidated so they recompute with the new fields.
+    """
+    namespace = target.__chalk_namespace__
+    aux_namespace = build_namespaced_name(name=to_snake_case(aux.__name__))
+    aux_filename, aux_source, aux_class_ast, aux_error_builder = _resolve_class_source_info(aux, aux_namespace)
+    origin = _AuxiliaryFieldOrigin(
+        aux_class=aux,
+        namespace=aux_namespace,
+        filename=aux_filename,
+        source=aux_source,
+        feature_class_ast=aux_class_ast,
+        error_builder=aux_error_builder,
+    )
+    aux_annotations = aux.__annotations__ if HAS_PEP_649 else aux.__dict__.get("__annotations__", {})
+    comment_metadata: Mapping[str, FeatureFieldAST] = aux_class_ast.fields if aux_class_ast is not None else {}
+
+    new_features: List[Tuple[str, Any, Feature]] = []
+    new_aliases: Dict[str, str] = {}
+    new_additional_inits: List[str] = []
+    for attr_name, annotation in aux_annotations.items():
+        existing_attr = inspect.getattr_static(target, attr_name, None)
+        if attr_name in target.__annotations__ or isinstance(existing_attr, FeatureWrapper):
+            aux_error_builder.add_diagnostic(
+                message=(
+                    f"'{via}' for feature class '{namespace}' redefines feature '{attr_name}', which is"
+                    f" already present on '{namespace}'."
+                ),
+                code="162",
+                label="duplicate feature",
+                range=aux_error_builder.property_range(attr_name),
+                raise_error=ValueError,
+            )
+            continue
+        default = aux.__dict__.get(attr_name, MISSING)
+        if isinstance(default, GroupByWindowed):
+            aux_error_builder.add_diagnostic(
+                message=(
+                    f"Feature '{namespace}.{attr_name}' uses group_by_windowed() and cannot be added to"
+                    f" '{namespace}' after the feature class is defined. Declare it in the class body of"
+                    f" '{namespace}', or declare this '{via}' extension before the target class is defined."
+                ),
+                code="163",
+                label="group-by windowed feature in late extension",
+                range=aux_error_builder.property_range(attr_name),
+                raise_error=TypeError,
+            )
+            continue
+        if isinstance(annotation, str) and "Windowed" in annotation:
+            try:
+                annotation = parse_quoted_window_feature(annotation, aux.__module__)
+            except Exception as e:
+                aux_error_builder.add_diagnostic(
+                    message=(
+                        f"Quoted Windowed feature type annotation '{annotation}' for '{namespace}.{attr_name}'"
+                        f" could not be parsed: {e}."
+                    ),
+                    label="invalid Windowed annotation",
+                    range=aux_error_builder.property_range(attr_name),
+                    raise_error=TypeError,
+                    code="17",
+                )
+                continue
+        if isinstance(annotation, Windowed) or isinstance(default, Windowed):
+            if not isinstance(default, Windowed):
+                aux_error_builder.add_diagnostic(
+                    message=(
+                        f"Windowed feature '{namespace}.{attr_name}' is missing windows. "
+                        f"To create a windowed feature, use "
+                        f"'{attr_name}: Windowed[...] = windowed(\"10m\", ...)'"
+                    ),
+                    label="missing windowed(...) call",
+                    range=aux_error_builder.property_range(attr_name),
+                    raise_error=TypeError,
+                    code="17",
+                )
+                continue
+            _extend_windowed_field(
+                target=target,
+                aux=aux,
+                attr_name=attr_name,
+                annotation=annotation,
+                wind=default,
+                aux_error_builder=aux_error_builder,
+                comment_metadata=comment_metadata,
+                new_features=new_features,
+                new_aliases=new_aliases,
+                new_additional_inits=new_additional_inits,
+            )
+            continue
+
+        f = _get_field(
+            cls=aux,
+            error_builder=aux_error_builder,
+            annotation_name=attr_name,
+            comment_metadata=comment_metadata,
+            class_owner=target.__chalk_owner__,
+            class_tags=tuple(target.__chalk_tags__),
+            class_etl_offline_to_online=target.__chalk_etl_offline_to_online__,
+            class_max_staleness=target.__chalk_max_staleness__,
+            namespace=namespace,
+            is_singleton=target.__chalk_is_singleton__,
+            class_cache_strategy=target.__chalk_cache_strategy__,
+        )
+        if f.version is not None:
+            aux_error_builder.add_diagnostic(
+                message=(
+                    f"Versioned feature '{namespace}.{attr_name}' cannot be added to '{namespace}' after the"
+                    f" feature class is defined. Declare it in the class body of '{namespace}', or declare"
+                    f" this '{via}' extension before the target class is defined."
+                ),
+                code="163",
+                label="versioned feature in late extension",
+                range=aux_error_builder.property_range(attr_name),
+                raise_error=TypeError,
+            )
+            continue
+        if f._primary is True or f._is_feature_time is True:
+            kind = "primary key" if f._primary else "feature time"
+            aux_error_builder.add_diagnostic(
+                message=(
+                    f"Feature '{namespace}.{attr_name}' is marked as the {kind} of '{namespace}', but"
+                    f" '{namespace}' is already defined. The {kind} must be declared in the class body of"
+                    f" '{namespace}'."
+                ),
+                code="163",
+                label=f"{kind} in late extension",
+                range=aux_error_builder.property_range(attr_name),
+                raise_error=ValueError,
+            )
+            continue
+        new_features.append((attr_name, annotation, f))
+
+    for attr_name, annotation, f in new_features:
+        f.features_cls = cast(Type[Features], target)
+        f.auxiliary_namespace = origin.namespace
+        f.auxiliary_filename = origin.filename
+        f.auxiliary_source = origin.source
+        f.auxiliary_feature_class_ast = origin.feature_class_ast
+        f.auxiliary_error_builder = origin.error_builder
+        target.__annotations__[attr_name] = annotation
+        target.__chalk_features_raw__.append(f)
+        wrapper = FeatureWrapper(f)
+        type.__setattr__(target, attr_name, wrapper)
+        # Mirror the wrapper onto the auxiliary class so attribute access on it
+        # resolves to the same feature as on the target.
+        setattr(aux, attr_name, wrapper)
+
+    if new_aliases or new_additional_inits:
+        # Windowed fields introduce friendly aliases (`clicks_10m` for the
+        # bucket pseudofeature). The alias maps are baked into the closures of
+        # __init__ and __setattr__, so extend the stored maps and regenerate
+        # both methods.
+        alias_from_to = inspect.getattr_static(target, "__chalk_alias_from_to__", None)
+        additional_inits = inspect.getattr_static(target, "__chalk_additional_inits__", None)
+        if alias_from_to is None:
+            alias_from_to = {}
+            type.__setattr__(target, "__chalk_alias_from_to__", alias_from_to)
+        if additional_inits is None:
+            additional_inits = []
+            type.__setattr__(target, "__chalk_additional_inits__", additional_inits)
+        alias_from_to.update(new_aliases)
+        additional_inits.extend(new_additional_inits)
+        type.__setattr__(
+            target,
+            "__setattr__",
+            _setattr_fn(
+                bidirectional_alias={**{v: k for k, v in alias_from_to.items()}, **alias_from_to},
+            ),
+        )
+        type.__setattr__(
+            target,
+            "__init__",
+            _init_fn(
+                additional_inits=FrozenOrderedSet(additional_inits),
+                alias_from_to=alias_from_to,
+            ),
+        )
+
+    # `features` and `__chalk_primary__` memoize over `__chalk_features_raw__`;
+    # recompute them so the merged fields are visible. The feature-time caches
+    # are left alone: late extensions cannot contribute a feature time (rejected
+    # above), so the resolved ts feature cannot change.
+    _clear_cached_classproperty(target, "features")
+    _clear_cached_classproperty(target, "__chalk_primary__")
+    Feature._from_root_fqn.cache_clear()
+
+
+def _extend_windowed_field(
+    *,
+    target: Type[Any],
+    aux: Type[Any],
+    attr_name: str,
+    annotation: Any,
+    wind: Windowed,
+    aux_error_builder: FeatureClassErrorBuilder,
+    comment_metadata: Mapping[str, FeatureFieldAST],
+    new_features: List[Tuple[str, Any, Feature]],
+    new_aliases: Dict[str, str],
+    new_additional_inits: List[str],
+) -> None:
+    """Merge one windowed field into an already-processed feature class.
+
+    Mirrors the non-versioned windowed handling of `_process_class`: validates
+    the buckets, registers one pseudofeature per bucket directly on the target,
+    and hands the root feature back through `new_features` so the caller's
+    commit loop wires it up like any other merged field. Bucket aliases are
+    accumulated in `new_aliases`/`new_additional_inits` for __init__/__setattr__
+    regeneration.
+    """
+    namespace = target.__chalk_namespace__
+    if isinstance(annotation, Windowed) and annotation is not wind:
+        if wind._kind is None and annotation._kind is not None:
+            wind.kind = annotation.kind
+        elif wind._kind is not None and annotation._kind is not None and wind._kind is not annotation._kind:
+            aux_error_builder.add_diagnostic(
+                message=(
+                    f"Windowed feature '{namespace}.{attr_name}' specifies conflicting types: "
+                    f"'Windowed[{getattr(annotation.kind, '__name__', None) or str(annotation.kind)}]' in the annotation and "
+                    f"'typ={getattr(wind._kind, '__name__', None) or str(wind._kind)}' in the windowed() call."
+                ),
+                label="conflicting windowed types",
+                code="17",
+                range=aux_error_builder.property_range(attr_name),
+                raise_error=TypeError,
+            )
+            return
+    if wind._kind is None:
+        aux_error_builder.add_diagnostic(
+            message=(
+                f"Windowed feature '{namespace}.{attr_name}' has no type. Annotate it with"
+                f" 'Windowed[...]' or specify 'windowed(..., typ=...)'."
+            ),
+            label="missing windowed type",
+            range=aux_error_builder.property_range(attr_name),
+            raise_error=TypeError,
+            code="17",
+        )
+        return
+    if wind._name is None:
+        wind._name = attr_name
+    if wind._version is not None:
+        aux_error_builder.add_diagnostic(
+            message=(
+                f"Versioned windowed feature '{namespace}.{attr_name}' cannot be added to '{namespace}'"
+                f" after the feature class is defined. Declare it in the class body of '{namespace}', or"
+                f" declare the extension before the target class is defined."
+            ),
+            code="163",
+            label="versioned feature in late extension",
+            range=aux_error_builder.property_range(attr_name),
+            raise_error=TypeError,
+        )
+        return
+    if isinstance(annotation, Windowed):
+        annotation._buckets = wind._buckets
+
+    valid_bucket_seconds = _validate_windowed(
+        wind=wind,
+        namespace=namespace,
+        name=attr_name,
+        annotation_kind_name=getattr(wind.kind, "__name__", None) or str(wind.kind),
+        error_builder=aux_error_builder,
+    )
+
+    # Mirror _process_class: keep only parseable buckets and remember the
+    # original bucket strings for friendly alias generation.
+    seconds_to_bucket_str: Dict[int, str] = {}
+    valid_buckets: List[str] = []
+    for b in wind._buckets:
+        try:
+            s = parse_chalk_duration_s(b)
+            valid_buckets.append(b)
+            if s not in seconds_to_bucket_str:
+                seconds_to_bucket_str[s] = b
+        except ValueError:
+            pass
+    wind._buckets = valid_buckets
+
+    for bucket_seconds in sorted(valid_bucket_seconds):
+        try:
+            feat = wind._to_feature(bucket=bucket_seconds)
+        except ValueError as e:
+            aux_error_builder.add_diagnostic(
+                message=f"Invalid window found for feature '{namespace}.{attr_name}'. {e.args[0]}",
+                label="invalid duration",
+                range=aux_error_builder.property_value_range(attr_name) or aux_error_builder.property_range(attr_name),
+                code="18",
+            )
+            continue
+        feat.namespace = namespace
+        if not feat.is_typ_set():
+            feat.typ = ParsedAnnotation(underlying=wind.kind)
+        feat.features_cls = cast(Type[Features], target)
+        feat.attribute_name = feat.name
+        feat.unversioned_attribute_name = feat.name
+        feat.is_singleton = target.__chalk_is_singleton__
+        _process_field(
+            f=feat,
+            comment_metadata=comment_metadata,
+            class_owner=target.__chalk_owner__,
+            class_tags=tuple(target.__chalk_tags__),
+            class_etl_offline_to_online=target.__chalk_etl_offline_to_online__,
+            class_max_staleness=target.__chalk_max_staleness__,
+            class_cache_strategy=target.__chalk_cache_strategy__,
+            error_builder=aux_error_builder,
+        )
+        if feat.window_materialization is not None:
+            target.__chalk_materialized_windows__.append(feat)
+        elif feat.underscore_expression is not None:
+            target.__chalk_expression_windows__.append(feat)
+        # Bucket pseudofeatures are committed directly: they are not part of the
+        # auxiliary class's annotations, so they get no provenance tagging and no
+        # mirror onto the auxiliary class — matching the pending-merge path.
+        target.__annotations__[feat.name] = wind.kind
+        target.__chalk_features_raw__.append(feat)
+        type.__setattr__(target, feat.name, FeatureWrapper(feat))
+
+        bucket_str = seconds_to_bucket_str.get(bucket_seconds)
+        if bucket_str is not None:
+            alias = f"{attr_name}_{bucket_str}"
+            new_additional_inits.append(alias)
+            new_aliases[get_name_with_duration(name_or_fqn=attr_name, duration=bucket_seconds)] = alias
+
+    # The root feature flows through the same `_get_field` routine the class
+    # pipeline uses (its Windowed branch builds the root with window_durations
+    # spanning every bucket); the caller's commit loop wires it to the target.
+    root = _get_field(
+        cls=aux,
+        error_builder=aux_error_builder,
+        annotation_name=attr_name,
+        comment_metadata=comment_metadata,
+        class_owner=target.__chalk_owner__,
+        class_tags=tuple(target.__chalk_tags__),
+        class_etl_offline_to_online=target.__chalk_etl_offline_to_online__,
+        class_max_staleness=target.__chalk_max_staleness__,
+        namespace=namespace,
+        is_singleton=target.__chalk_is_singleton__,
+        class_cache_strategy=target.__chalk_cache_strategy__,
+    )
+    new_features.append((attr_name, annotation, root))
 
 
 def _merge_auxiliary_classes_into(
@@ -238,10 +648,56 @@ def _apply_auxiliary_origins(
                 setattr(origin.aux_class, aux_attr, wrapper)
 
 
-# Auxiliary feature classes (declared with `@features(part_of="User")`) defined before
-# their target gets stashed here, keyed by the target's namespace, and merged when the
-# target class is decorated.
-_PENDING_AUXILIARY_CLASSES: Dict[str, List[Type[Any]]] = {}
+# Auxiliary feature classes (declared with `@features(part_of="User")` or built by
+# `add_features(...)`) defined before their target gets stashed here, keyed by the
+# target's namespace, and merged when the target class is decorated. Entries still
+# here at export time reference a feature class that was never defined; see
+# `validate_no_unmerged_auxiliary_classes`.
+_PENDING_AUXILIARY_CLASSES: Dict[str, List[_PendingAuxiliary]] = {}
+
+
+def validate_no_unmerged_auxiliary_classes(features_registry: Optional[Mapping[str, Any]] = None) -> None:
+    """Report `@features(part_of=...)` classes and `add_features(...)` calls whose
+    target feature class was never defined.
+
+    Without this check the auxiliary fields would silently vanish from the graph:
+    they are only merged when the target class is decorated, which never happens
+    for a mistyped or missing target.
+    """
+    import difflib
+
+    if not _PENDING_AUXILIARY_CLASSES:
+        return
+    if features_registry is None:
+        features_registry = CURRENT_FEATURE_REGISTRY.get().get_feature_sets()
+    known_namespaces = sorted(features_registry.keys())
+    for target_namespace in sorted(_PENDING_AUXILIARY_CLASSES):
+        for pending in _PENDING_AUXILIARY_CLASSES[target_namespace]:
+            close = difflib.get_close_matches(target_namespace, known_namespaces, n=1)
+            hint = f" Did you mean '{close[0]}'?" if close else ""
+            declared_at = pending.declared_at()
+            where = f" (defined at {declared_at})" if declared_at is not None else ""
+            if pending.via == "add_features":
+                message = (
+                    f"add_features('{pending.part_of}', ...){where} expects a feature class with"
+                    f" namespace '{target_namespace}', but no @features class with that namespace"
+                    f" was ever defined.{hint}"
+                )
+            else:
+                message = (
+                    f"Feature class '{pending.cls.__name__}'{where} was declared with"
+                    f" @features(part_of='{pending.part_of}'), but no @features class with namespace"
+                    f" '{target_namespace}' was ever defined.{hint}"
+                )
+            _, _, _, error_builder = _resolve_class_source_info(pending.cls, target_namespace)
+            error_builder.add_diagnostic(
+                message=message,
+                code="164",
+                label="unknown feature class",
+                range=error_builder.decorator_kwarg_value_range(kwarg="part_of")
+                or error_builder.class_definition_range(),
+                raise_error=ValueError,
+            )
 
 
 @overload
@@ -384,7 +840,7 @@ def features(
         pending = _PENDING_AUXILIARY_CLASSES.pop(namespace, None)
         aux_origins: Dict[str, _AuxiliaryFieldOrigin] = {}
         if pending:
-            aux_origins = _merge_auxiliary_classes_into(target=c, auxiliaries=pending)
+            aux_origins = _merge_auxiliary_classes_into(target=c, auxiliaries=[p.cls for p in pending])
 
         class_filename, class_source, feature_class_ast, error_builder = _resolve_class_source_info(c, namespace)
         nonlocal max_staleness
@@ -504,37 +960,93 @@ def features(
 
 def add_features(
     namespace: str,
-    *fields: Feature,
+    *fields: Union[Feature, Windowed],
     owner: Optional[str] = None,
     tags: Optional[Tags] = None,
-    etl_offline_to_online: bool = False,
+    etl_offline_to_online: Optional[bool] = None,
     max_staleness: Optional[Duration] = None,
-    singleton: bool = False,
-    online_store_config: Optional[OnlineStoreConfig] = None,
-    cache_nulls: CacheNullsType = True,
-    cache_defaults: CacheDefaultsType = True,
     class_name: Optional[str] = None,
-    description: Optional[str] = None,
-) -> Type[Features]:
-    """Programmatically build a `@features` class without writing one.
+) -> Type[Any]:
+    """Programmatically add features to an existing `@features` class.
 
-    Each `feature(...)` passed in must specify both `name=` (the attribute
-    name in the resulting class) and `typ=` (the Python type), since there
-    is no class body to derive these from.
+    `namespace` references the target feature class, either by class name
+    (`"User"`) or by namespace (`"user"`). The target may be defined in any
+    file of the project, before or after this call; if it is never defined,
+    the deployment fails with an error pointing at this call.
+
+    Each `feature(...)` or `windowed(...)` passed in must specify both
+    `name=` (the attribute name on the target class) and `typ=` (the Python
+    type), since there is no class body to derive these from.
+
+    Returns a handle class whose attributes resolve to the same features as
+    the target class once the target is defined.
+
+    Parameters
+    ----------
+    namespace
+        The class name or namespace of the `@features` class to extend.
+    fields
+        The `feature(...)` or `windowed(...)` definitions to add to the
+        target class.
+    owner
+        Default owner for the added features; features that set their own
+        `owner=` keep it.
+    tags
+        Tags appended to every added feature.
+    etl_offline_to_online
+        Default `etl_offline_to_online` for the added features.
+    max_staleness
+        Default `max_staleness` for the added features.
+    class_name
+        Name of the returned handle class, for repr/debugging purposes.
 
     Examples
     --------
-    >>> from chalk.features import add_features, feature
-    >>> User = add_features(
+    >>> from chalk.features import add_features, feature, features
+    >>> from chalk.streams import windowed
+    >>> @features
+    ... class User:
+    ...     id: int
+    >>> UserRiskFeatures = add_features(
     ...     "user",
-    ...     feature(name="id", typ=int, primary=True),
     ...     feature(name="age", typ=int),
-    ...     feature(name="name", typ=str),
+    ...     feature(name="risk_score", typ=float),
+    ...     windowed("10m", "1h", name="login_count", typ=int),
     ... )
     """
     annotations: Dict[str, Any] = {}
     attrs: Dict[str, Any] = {}
     for f in fields:
+        if isinstance(f, Windowed):
+            # The Windowed object serves as both the annotation and the
+            # class-attribute value; the class pipeline (and the late-extension
+            # path) read the kind from the annotation, here supplied via typ=.
+            attr_name = f._name
+            if not attr_name:
+                raise ValueError("Each windowed() passed to add_features() must specify name=.")
+            if f._kind is None:
+                raise ValueError(
+                    f"Windowed feature with name={attr_name!r} must specify typ= when used with"
+                    + " add_features(), like windowed('10m', name='login_count', typ=int)."
+                )
+            if owner is not None and f._owner is None:
+                f._owner = owner
+            if tags is not None:
+                f._tags = (
+                    list(ensure_tuple(tags)) if f._tags is None else [*ensure_tuple(f._tags), *ensure_tuple(tags)]
+                )
+            if max_staleness is not None and f._max_staleness is ...:
+                f._max_staleness = max_staleness
+            if etl_offline_to_online is not None and f._etl_offline_to_online is None:
+                f._etl_offline_to_online = etl_offline_to_online
+            annotations[attr_name] = f
+            attrs[attr_name] = f
+            continue
+        if not isinstance(f, Feature):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError(
+                f"add_features() arguments must be feature() or windowed() definitions; got {f!r}. "
+                + "For example: add_features('user', feature(name='age', typ=int))."
+            )
         attr_name = getattr(f, "name", None)
         if not attr_name:
             raise ValueError("Each feature() passed to add_features() must specify name=.")
@@ -542,35 +1054,50 @@ def add_features(
             raise ValueError(
                 f"Feature with name={attr_name!r} must specify typ= when used with add_features()."
             )
+        if owner is not None and f.owner is None:
+            f.owner = owner
+        if tags is not None:
+            f.tags = list(ensure_tuple(tags)) if f.tags is None else [*f.tags, *ensure_tuple(tags)]
+        if max_staleness is not None and not hasattr(f, "max_staleness"):
+            f.max_staleness = parse_chalk_duration(max_staleness)
+        if etl_offline_to_online is not None and not hasattr(f, "etl_offline_to_online"):
+            f.etl_offline_to_online = etl_offline_to_online
         annotations[attr_name] = f.typ.parsed_annotation
         attrs[attr_name] = f
 
     if class_name is None:
-        class_name = "".join(part.capitalize() for part in namespace.split("_")) or "_AddFeatures"
+        # Suffix the derived name so the handle class is distinguishable from the
+        # target class (`User` vs `UserAddedFeatures`) in reprs and tracebacks.
+        camel = "".join(part.capitalize() for part in namespace.split("_"))
+        class_name = f"{camel}AddedFeatures" if camel else "_AddFeatures"
+
+    # Capture the caller's module and call site: the module so string annotations
+    # resolve in the caller's namespace, the file:line for the never-defined-target
+    # diagnostic at export time.
+    caller_module = "chalk.features._add_features"
+    caller_filename: str | None = None
+    caller_lineno: int | None = None
+    caller_frame = sys._getframe().f_back
+    if caller_frame is not None:
+        caller_module = caller_frame.f_globals.get("__name__", caller_module)
+        caller_filename = caller_frame.f_code.co_filename
+        caller_lineno = caller_frame.f_lineno
 
     cls = type(
         class_name,
         (object,),
         {
             "__annotations__": annotations,
-            "__module__": "chalk.features._add_features",
+            "__module__": caller_module,
             **attrs,
         },
     )
-    return cast(
-        Type[Features],
-        features(
-            name=namespace,
-            owner=owner,
-            tags=tags,
-            etl_offline_to_online=etl_offline_to_online,
-            max_staleness=max_staleness,
-            singleton=singleton,
-            online_store_config=online_store_config,
-            cache_nulls=cache_nulls,
-            cache_defaults=cache_defaults,
-            description=description,
-        )(cls),
+    return _register_auxiliary_class(
+        cls,
+        part_of=namespace,
+        via="add_features",
+        filename=caller_filename,
+        lineno=caller_lineno,
     )
 
 
@@ -645,7 +1172,7 @@ _getattribute_fn.__name__ = "__getattribute__"
 
 
 def _init_fn(
-    additional_inits: frozenset[str],
+    additional_inits: FrozenOrderedSet[str],
     alias_from_to: Mapping[str, str],
 ):
     def _init(self: Features, /, *args: object, **kwargs: object):
@@ -1260,9 +1787,12 @@ def _process_class(
                 default_wind = windowed_versions[default_ver]
                 max_ver = wind.version.maximum
 
-                # Set kind and _name on all version Windowed instances
+                # Set kind and _name on all version Windowed instances. The kind
+                # setter forbids assigning twice, so skip instances that already
+                # carry a kind from `windowed(typ=...)`.
                 for v_wind in windowed_versions.values():
-                    v_wind.kind = annotation.kind
+                    if v_wind._kind is None:
+                        v_wind.kind = annotation.kind
                     if v_wind._name is None:
                         v_wind._name = name
 
@@ -1397,7 +1927,23 @@ def _process_class(
                     code="17",
                 )
 
-            wind.kind = annotation.kind
+            # `wind._kind` is already set when the windowed() call specified `typ=`
+            # (and when the annotation and the value are the same object, as with
+            # add_features); the kind setter forbids assigning twice.
+            if wind._kind is None:
+                wind.kind = annotation.kind
+            elif annotation._kind is not None and wind._kind is not annotation._kind:
+                error_builder.add_diagnostic(
+                    message=(
+                        f"Windowed feature '{namespace}.{name}' specifies conflicting types: "
+                        f"'Windowed[{getattr(annotation.kind, '__name__', None) or str(annotation.kind)}]' in the annotation and "
+                        f"'typ={getattr(wind._kind, '__name__', None) or str(wind._kind)}' in the windowed() call."
+                    ),
+                    label="conflicting windowed types",
+                    range=error_builder.property_range(name),
+                    raise_error=TypeError,
+                    code="17",
+                )
             if wind._name is None:
                 wind._name = name
             annotation._buckets = wind._buckets
@@ -1902,10 +2448,16 @@ def _process_class(
         cls=cls,
         name="__init__",
         value=_init_fn(
-            additional_inits=frozenset(additional_inits),
+            additional_inits=FrozenOrderedSet(additional_inits),
             alias_from_to=alias_from_to,
         ),
     )
+
+    # Stored so late extensions (add_features / part_of after the class is
+    # defined) can add windowed alias entries and regenerate __init__ and
+    # __setattr__, whose alias maps are otherwise frozen in their closures.
+    set_new_attribute(cls=cls, name="__chalk_alias_from_to__", value=alias_from_to)
+    set_new_attribute(cls=cls, name="__chalk_additional_inits__", value=additional_inits)
 
     for f in cls_fields:
         assert f.attribute_name is not None

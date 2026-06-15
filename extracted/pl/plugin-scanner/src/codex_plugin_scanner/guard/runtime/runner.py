@@ -261,7 +261,13 @@ class GuardSyncNotConfiguredError(RuntimeError):
 
 
 class GuardSyncNotAvailableError(RuntimeError):
-    """Raised when the sync endpoint returns 403 (free-plan restriction)."""
+    """Raised when Guard Cloud sync is blocked by plan limits or temporary outages."""
+
+    retryable: bool
+
+    def __init__(self, message: str, *, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class GuardSyncAuthorizationExpiredError(GuardSyncNotConfiguredError):
@@ -1427,6 +1433,35 @@ def sync_receipts(
     return summary
 
 
+def _guard_cloud_http_error_details(error: urllib.error.HTTPError) -> tuple[str, bool]:
+    try:
+        raw_body = error.read().decode("utf-8", errors="replace")
+    except OSError:
+        raw_body = ""
+    retryable = error.code in {503, 524}
+    payload: object = None
+    if raw_body:
+        try:
+            payload = json.loads(raw_body)
+        except json.JSONDecodeError:
+            payload = None
+    message: str | None = None
+    if isinstance(payload, dict):
+        message = _read_guard_cloud_error_message(payload)
+        guard_error = payload.get("guardError")
+        if isinstance(guard_error, dict):
+            if guard_error.get("retryable") is True:
+                retryable = True
+            guard_code = guard_error.get("code")
+            unavailable_codes = {"guard_unavailable", "guard_cloud_unavailable"}
+            if isinstance(guard_code, str) and guard_code.strip().lower() in unavailable_codes:
+                retryable = True
+    if message is None:
+        normalized_body = raw_body.strip()
+        message = normalized_body or f"HTTP Error {error.code}: {error.reason}"
+    return message, retryable
+
+
 def _fetch_supply_chain_bundle_payload(request: urllib.request.Request) -> dict[str, object]:
     try:
         return _urlopen_json_with_timeout_retry(
@@ -1440,7 +1475,10 @@ def _fetch_supply_chain_bundle_payload(request: urllib.request.Request) -> dict[
             if is_plan_restricted:
                 raise GuardSyncNotAvailableError(message) from error
             raise RuntimeError(message) from error
-        raise RuntimeError(_sync_http_error_message(error)) from error
+        message, retryable = _guard_cloud_http_error_details(error)
+        if retryable:
+            raise GuardSyncNotAvailableError(message, retryable=True) from error
+        raise RuntimeError(message) from error
     except OSError as error:
         raise RuntimeError(_sync_url_error_message(error)) from error
 
@@ -2382,11 +2420,13 @@ def clear_revoked_guard_oauth_sign_in(store: GuardStore) -> bool:
             credentials = store.get_oauth_local_credentials(allow_primary=True)
             if credentials is None:
                 return False
-            _resolve_guard_sync_auth_context_from_oauth_credentials(store, credentials)
-    except GuardSyncAuthorizationExpiredError as error:
-        if _oauth_authorization_error_requires_fresh_sign_in(error):
-            return store.get_oauth_local_credentials(allow_primary=True) is None
-        return False
+            try:
+                _resolve_guard_sync_auth_context_from_oauth_credentials(store, credentials)
+            except GuardSyncAuthorizationExpiredError as error:
+                if _oauth_authorization_error_requires_fresh_sign_in(error):
+                    store.clear_oauth_local_credentials()
+                    return True
+                return False
     except (RuntimeError, OSError, TimeoutError):
         return False
     return False
@@ -2580,17 +2620,12 @@ def _resolve_guard_sync_auth_context_from_oauth_credentials(
         oauth_client = resolve_guard_oauth_client_config(issuer)
     except ValueError as error:
         raise GuardSyncAuthorizationExpiredError(f"{_guard_oauth_reauthorization_message()} {error}") from error
-    try:
-        refreshed = _refresh_guard_oauth_access_token(
-            token_endpoint=oauth_client.token_endpoint,
-            client_id=client_id,
-            refresh_token=refresh_token,
-            dpop_key_material=dpop_key_material,
-        )
-    except GuardSyncAuthorizationExpiredError as error:
-        if _oauth_authorization_error_requires_fresh_sign_in(error):
-            store.clear_oauth_local_credentials()
-        raise
+    refreshed = _refresh_guard_oauth_access_token(
+        token_endpoint=oauth_client.token_endpoint,
+        client_id=client_id,
+        refresh_token=refresh_token,
+        dpop_key_material=dpop_key_material,
+    )
     rotated_refresh_token = str(refreshed["refresh_token"])
     package_firewall_entitlement = (
         refreshed["package_firewall_entitlement"]

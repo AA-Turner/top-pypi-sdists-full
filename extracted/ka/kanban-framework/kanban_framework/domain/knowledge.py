@@ -174,7 +174,7 @@ class KnowledgeManager:
     # ── CRUD ──────────────────────────────────────────────────────────────
 
     MAX_CONTENT_LENGTH = 3000
-    MAX_CODE_EXAMPLE_LENGTH = 2000
+    MAX_CODE_EXAMPLE_LENGTH = 8000
 
     def add_entry(self, *, domain, category, title, content,
                   tags=None, severity="medium", source=None, code_example="",
@@ -186,6 +186,13 @@ class KnowledgeManager:
         if len(content) > self.MAX_CONTENT_LENGTH:
             content = content[:self.MAX_CONTENT_LENGTH]
         if len(code_example) > self.MAX_CODE_EXAMPLE_LENGTH:
+            import sys
+            print(
+                f"WARNING: code_example truncated from {len(code_example)} to "
+                f"{self.MAX_CODE_EXAMPLE_LENGTH} chars. "
+                f"Consider splitting into multiple entries.",
+                file=sys.stderr,
+            )
             code_example = code_example[:self.MAX_CODE_EXAMPLE_LENGTH]
         if category not in VALID_CATEGORIES:
             raise ValueError(

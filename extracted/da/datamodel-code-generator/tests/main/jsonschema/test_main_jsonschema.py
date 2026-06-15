@@ -21,8 +21,10 @@ from datamodel_code_generator import (
     PythonVersion,
     PythonVersionMin,
     TargetPydanticVersion,
+    _clear_parser_source_data_cache,
     chdir,
     generate,
+    load_data_from_path,
 )
 from datamodel_code_generator.__main__ import Exit
 from datamodel_code_generator.format import is_supported_in_black
@@ -33,6 +35,7 @@ from tests.conftest import (
     MockHttpxResponse,
     assert_directory_content,
     assert_httpx_get_kwargs,
+    create_assert_file_content,
     freeze_time,
     validate_generated_code,
 )
@@ -48,6 +51,8 @@ from tests.main.conftest import (
     TIMESTAMP,
     assert_generated_model_json_invalid,
     assert_generated_model_json_validation,
+    assert_path_cache_invalidates_after_write,
+    assert_path_cache_reuses_value,
     run_generate_and_assert,
     run_generate_file_and_assert,
     run_main_and_assert,
@@ -156,6 +161,50 @@ def test_main_root_ref(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file="root_ref.py",
         extra_args=["--disable-timestamp", "--skip-root-model", "--target-python-version", "3.10"],
+    )
+
+
+def test_main_string_min_max_items_compat(output_file: Path) -> None:
+    """A string field carrying minItems/maxItems generates a usable constr().
+
+    Compatibility case: minItems/maxItems are inapplicable to strings in JSON
+    Schema, but when present they map to constr(min_length=, max_length=).
+    Mapping them to min_items/max_items produced constr(min_items=...), which
+    raises TypeError the moment the generated pydantic v2 model is built.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "string_min_max_items_compat.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="string_min_max_items_compat.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_array_uri_items_preserves_min_items(output_file: Path) -> None:
+    """An array of URI-formatted strings keeps array length constraints."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "array_uri_items_min_items.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="array_uri_items_min_items.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
     )
 
 
@@ -2182,6 +2231,41 @@ def test_main_generate(output_file: Path) -> None:
     )
 
 
+def test_main_generate_with_parsed_source_cache(output_file: Path) -> None:
+    """Test code generation function with process-local parsed source cache enabled."""
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="general.py",
+    )
+
+
+def test_load_data_from_path_caches_json_source(tmp_path: Path) -> None:
+    """Reuse parsed JSON file data by path and content hash for local reference loading."""
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text((JSON_SCHEMA_DATA_PATH / "person.json").read_text(encoding="utf-8"), encoding="utf-8")
+    _clear_parser_source_data_cache()
+
+    assert_path_cache_reuses_value(load_data_from_path, schema_path, warmups=1)
+
+
+def test_load_data_from_path_invalidates_updated_json_source(tmp_path: Path) -> None:
+    """Reload parsed JSON data when a cached local reference file changes."""
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text((JSON_SCHEMA_DATA_PATH / "person.json").read_text(encoding="utf-8"), encoding="utf-8")
+    _clear_parser_source_data_cache()
+
+    assert_path_cache_invalidates_after_write(
+        load_data_from_path,
+        schema_path,
+        (JSON_SCHEMA_DATA_PATH / "simple_string.json").read_text(encoding="utf-8"),
+        ["s"],
+        expected_value_path=("required",),
+    )
+
+
 def test_main_generate_non_pydantic_output(output_file: Path) -> None:
     """Test generation with non-Pydantic output models (see issue #1452)."""
     run_generate_file_and_assert(
@@ -2200,6 +2284,109 @@ def test_main_generate_without_input_file_type(output_file: Path) -> None:
         output_path=output_file,
         assert_func=assert_file_content,
         expected_file="general.py",
+    )
+
+
+def test_generate_keeps_cached_yaml_root_original_unchanged(tmp_path: Path) -> None:
+    """Keep cached parsed YAML root unchanged while ignoring root self metadata."""
+    schema_path = tmp_path / "schema.yaml"
+    output_path = tmp_path / "output.py"
+    expected_path = tmp_path / "expected.py"
+    schema_path.write_text(
+        """
+self:
+  version: metadata
+title: Root
+type: object
+properties:
+  name:
+    type: string
+""".lstrip(),
+        encoding="utf-8",
+    )
+    cached_schema = load_data_from_path(schema_path.resolve(), "utf-8")
+    expected_path.write_text(
+        """# generated by datamodel-codegen:
+#   filename:  schema.yaml
+
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class Root(BaseModel):
+    name: str | None = None
+""",
+        encoding="utf-8",
+    )
+
+    run_generate_file_and_assert(
+        input_path=schema_path,
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=create_assert_file_content(tmp_path),
+        expected_file=expected_path.name,
+        disable_timestamp=True,
+        unchanged_inputs={"cached schema.yaml": cached_schema},
+    )
+
+
+def test_generate_keeps_cached_yaml_ref_original_unchanged(tmp_path: Path) -> None:
+    """Keep cached parsed YAML references unchanged while resolving JSON Schema refs."""
+    schema_path = tmp_path / "schema.yaml"
+    child_path = tmp_path / "child.yaml"
+    output_path = tmp_path / "output.py"
+    expected_path = tmp_path / "expected.py"
+    schema_path.write_text(
+        """
+title: Root
+type: object
+properties:
+  child:
+    $ref: child.yaml#
+""".lstrip(),
+        encoding="utf-8",
+    )
+    child_path.write_text(
+        """
+self:
+  version: metadata
+title: Child
+type: object
+properties:
+  name:
+    type: string
+""".lstrip(),
+        encoding="utf-8",
+    )
+    cached_child_schema = load_data_from_path(child_path.resolve(), "utf-8")
+    expected_path.write_text(
+        """# generated by datamodel-codegen:
+#   filename:  schema.yaml
+
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class Child(BaseModel):
+    name: str | None = None
+
+
+class Root(BaseModel):
+    child: Child | None = None
+""",
+        encoding="utf-8",
+    )
+
+    run_generate_file_and_assert(
+        input_path=schema_path,
+        output_path=output_path,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=create_assert_file_content(tmp_path),
+        expected_file=expected_path.name,
+        disable_timestamp=True,
+        unchanged_inputs={"cached child.yaml": cached_child_schema},
     )
 
 
@@ -3348,6 +3535,74 @@ def test_main_jsonschema_default_factory_rejects_unsafe_value(
     )
 
 
+@pytest.mark.parametrize(
+    ("schema", "expected_error"),
+    [
+        (
+            {
+                "type": "object",
+                "properties": {"payload": {"$ref": "#/$defs/Payload"}},
+                "$defs": {
+                    "Payload": {
+                        "type": "object",
+                        "x-python-import": {
+                            "module": "os",
+                            "name": "getcwd\nprint('DMCG_EXEC')",
+                        },
+                    }
+                },
+            },
+            "x-python-import must be a dotted Python identifier path",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "payload": {
+                        "customTypePath": "os.getcwd\nprint('DMCG_EXEC')",
+                    }
+                },
+            },
+            "customTypePath must be a dotted Python identifier path",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"payload": {"$ref": "#/$defs/Payload"}},
+                "$defs": {
+                    "Payload": {
+                        "type": "object",
+                        "x-python-import": {
+                            "module": "os",
+                        },
+                    }
+                },
+            },
+            "x-python-import requires both module and name",
+        ),
+    ],
+)
+def test_main_jsonschema_rejects_unsafe_python_import_extensions(
+    schema: dict[str, object],
+    expected_error: str,
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Reject schema-controlled import paths that would break generated import statements."""
+    input_file = output_file.with_suffix(".json")
+    input_file.write_text(json.dumps(schema), encoding="utf-8")
+
+    run_main_and_assert(
+        input_path=input_file,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+        capsys=capsys,
+        expected_stderr_contains=expected_error,
+    )
+
+
 @pytest.mark.parametrize("ref_template", ["../secret/leak.json", "{file_uri}"])
 def test_main_jsonschema_warns_local_ref_outside_base_path(
     ref_template: str,
@@ -4277,6 +4532,17 @@ def test_main_jsonschema_oneof_const_enum_nullable(output_file: Path) -> None:
         input_file_type="jsonschema",
         assert_func=assert_file_content,
         expected_file="oneof_const_enum_nullable.py",
+    )
+
+
+def test_main_jsonschema_oneof_const_enum_int_nullable(output_file: Path) -> None:
+    """Test nullable integer oneOf with const values does not emit a None enum member."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "oneof_const_enum_int_nullable.yaml",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="oneof_const_enum_int_nullable.py",
     )
 
 
@@ -10691,6 +10957,7 @@ def test_main_use_root_model_type_alias(output_file: Path) -> None:
     )
 
 
+@pytest.mark.isolate_builtin_formatter_config
 def test_main_jsonschema_schema_id(
     capsys: pytest.CaptureFixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -11621,6 +11888,7 @@ def test_jsonschema_classvar_extra_pydantic_v2(output_file: Path) -> None:
     )
 
 
+@pytest.mark.isolate_builtin_formatter_config
 def test_jsonschema_classvar_field_str_custom_template(
     capsys: pytest.CaptureFixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -11886,6 +12154,29 @@ def test_main_jsonschema_recursive_ref_in_defs_pydantic_v2(output_file: Path) ->
         assert_func=assert_file_content,
         expected_file="recursive_ref_in_defs_pydantic_v2.py",
         extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+
+
+def test_main_jsonschema_recursive_ref_in_defs_pydantic_v2_no_future_imports(
+    output_file: Path,
+) -> None:
+    """Self-referencing fields must be quoted when --disable-future-imports is used.
+
+    Without ``from __future__ import annotations``, a self-reference such as
+    ``children: list[TreeNode]`` inside ``class TreeNode`` is an undefined name
+    at class-body evaluation time (Python < 3.14).  The generator must emit a
+    quoted forward reference (``list["TreeNode"]``) in that case so that both
+    static analysers (Ruff F821) and runtimes without PEP 649 are satisfied.
+
+    Regression test for https://github.com/koxudaxi/datamodel-code-generator/issues/2973
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "recursive_ref_in_defs.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="recursive_ref_in_defs_pydantic_v2_no_future_imports.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--disable-future-imports"],
     )
 
 

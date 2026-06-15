@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import typing
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, TypeAlias
@@ -164,6 +165,18 @@ class _LazyFrameConstructor:
 
     kwargs: dict[str, Any]
     """The kwargs to pass to the DataFrame function."""
+
+
+class WriteConfigLike(typing.Protocol):
+    """Structural type for a chalkdf ``WriteConfig`` (``KeyValueOnlineStoreConfig``,
+    ``VectorStoreConfig``, ``SnowflakeWarehouseConfig``, ...).
+
+    chalkpy cannot import the concrete config types -- they live in chalkdf, which
+    depends on chalkpy, not the reverse -- so ``write_to`` accepts anything that can
+    serialize itself to a proto-friendly wire mapping via ``to_wire``.
+    """
+
+    def to_wire(self) -> dict[str, Any]: ...
 
 
 class LazyFramePlaceholder:
@@ -1845,38 +1858,46 @@ class LazyFramePlaceholder:
             return_table_write_result=return_table_write_result,
         )
 
-    def write_to(self, destination: str, **kwargs: typing.Any) -> "LazyFramePlaceholder":
-        """Record a write to a named destination on this lazy plan.
+    def write_to(self, config: "Mapping[str, Any] | WriteConfigLike") -> "LazyFramePlaceholder":
+        """Record a write to a typed destination config on this lazy plan.
 
         The chalkdf-side ``DataFrame.write_to`` records a recording-only entry
         on the lazy frame so the resulting ``DataFramePlan`` proto carries the
-        intent (destination + per-call primitives) across the wire. Runtime
+        intent (destination + per-call config) across the wire. Runtime
         resolution of the destination — looking up the live writer against the
         active ``BindingRegistry`` — happens later, at libchalk plan compile
         time, via the ``BindNodeResources`` rewriter.
 
-        Only primitive ``kwargs`` are supported here. Runtime handles must not
-        be passed in; they cannot be encoded as proto operands.
+        ``config`` is a chalkdf ``WriteConfig`` (e.g. ``KeyValueOnlineStoreConfig``,
+        ``VectorStoreConfig``, ``SnowflakeWarehouseConfig``). It owns its serialized
+        form: ``config.to_wire()`` returns a ``kind``-tagged mapping of
+        proto-friendly primitives, which is what gets recorded. On replay the
+        recorder hands the mapping back (as a plain ``dict``) and
+        ``DataFrame.write_to`` rebuilds the typed config. Runtime handles must not
+        appear in the wire mapping; they cannot be encoded as proto operands.
+
+        ``config`` is typed structurally -- a ``Mapping`` (the replay wire form) or
+        any object exposing ``to_wire`` -- because the concrete ``WriteConfig`` types
+        live in chalkdf, which chalkpy does not depend on.
 
         Parameters
         ----------
-        destination
-            String identifier for the destination (e.g.
-            ``"redis_online_store"``). Round-trips through the proto.
-        **kwargs
-            Additional primitive options (namespace, pkey column, ts column,
-            column-to-feature map, ttl seconds, etc.) that round-trip through
-            the proto.
+        config
+            A chalkdf ``WriteConfig`` on the recording path, or its ``to_wire``
+            mapping (a ``dict``) on the replay path.
 
         Returns
         -------
         LazyFramePlaceholder with the ``write_to`` op appended.
         """
+        # ``config`` is a WriteConfig when recording and the wire mapping itself
+        # when replaying (the recorder round-trips primitives, not objects);
+        # normalize to the wire form either way.
+        wire = config if isinstance(config, Mapping) else config.to_wire()
         return self._construct(
             self_dataframe=self,
             function_name="write_to",
-            destination=destination,
-            **kwargs,
+            config=wire,
         )
 
     def rename(self, new_names: typing.Mapping[str | Underscore, str]) -> LazyFramePlaceholder:

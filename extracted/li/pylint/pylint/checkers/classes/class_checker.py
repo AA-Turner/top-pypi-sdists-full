@@ -49,7 +49,6 @@ if TYPE_CHECKING:
 _AccessNodes: TypeAlias = nodes.Attribute | nodes.AssignAttr
 
 INVALID_BASE_CLASSES = {"bool", "range", "slice", "memoryview"}
-ALLOWED_PROPERTIES = {"bultins.property", "functools.cached_property"}
 BUILTIN_DECORATORS = {"builtins.property", "builtins.classmethod"}
 ASTROID_TYPE_COMPARATORS = {
     nodes.Const: lambda a, b: a.value == b.value,
@@ -431,6 +430,8 @@ def _called_in_methods(
         except astroid.NotFoundError:
             continue
         for infer_method in inferred:
+            if not isinstance(infer_method, nodes.NodeNG):
+                continue
             for call in infer_method.nodes_of_class(nodes.Call):
                 try:
                     bound = next(call.func.infer())
@@ -935,7 +936,7 @@ a metaclass class method.",
             self.add_message("duplicate-bases", args=node.name, node=node)
 
     def _check_enum_base(self, node: nodes.ClassDef, ancestor: nodes.ClassDef) -> None:
-        match ancestor.getattr("__members__"):
+        match ancestor.locals.get("__members__", []):
             case [nodes.Dict(items=items), *_] if items:
                 for _, name_node in items:
                     # Exempt type annotations without value assignments
@@ -1262,7 +1263,7 @@ a metaclass class method.",
                                 "attribute-defined-outside-init", args=attr, node=node
                             )
 
-    # pylint: disable = too-many-branches
+    # pylint: disable = too-many-branches, too-many-return-statements
     def visit_functiondef(self, node: nodes.FunctionDef) -> None:
         """Check method arguments, overriding."""
         # ignore actual functions
@@ -1301,11 +1302,8 @@ a metaclass class method.",
                     case nodes.Attribute(attrname="getter" | "setter" | "deleter"):
                         # attribute affectation will call this method, not hiding it
                         return
-                    case nodes.Name():
-                        if decorator.name in ALLOWED_PROPERTIES:
-                            # attribute affectation will either call a setter or raise
-                            # an attribute error, anyway not hiding the function
-                            return
+                    case nodes.Name(name="property"):
+                        return
                     case nodes.Attribute():
                         if self._check_functools_or_not(decorator):
                             return
@@ -1313,6 +1311,11 @@ a metaclass class method.",
                 # Infer the decorator and see if it returns something useful
                 inferred = safe_infer(decorator)
                 if not inferred:
+                    return
+                if (
+                    isinstance(inferred, nodes.ClassDef)
+                    and inferred.qname() == "functools.cached_property"
+                ):
                     return
                 if isinstance(inferred, nodes.FunctionDef):
                     # Okay, it's a decorator, let's see what it can infer.

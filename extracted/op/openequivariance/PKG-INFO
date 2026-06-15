@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openequivariance
-Version: 0.6.7
+Version: 0.6.8
 Summary: A fast GPU JIT kernel generator for the Clebsch-Gordon Tensor Product
 Author: Austin Glover, Vivek Bharadwaj, Aydin Buluc, James Demmel
 License-Expression: BSD-3-Clause

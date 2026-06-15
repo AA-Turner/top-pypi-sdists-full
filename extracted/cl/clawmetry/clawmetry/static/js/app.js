@@ -7786,6 +7786,47 @@ async function loadSecurityPage(silent) {
   // Tamper-evident integrity + Enterprise audit feed (both node-wide).
   loadSecurityIntegrity();
   loadSecurityAudit();
+  try {
+    var cd = await fetchJsonWithTimeout('/api/security/credential-scan', 10000);
+    var badgeEl = document.getElementById('credential-scan-badge');
+    var scanListEl = document.getElementById('credential-scan-list');
+    var leaks = cd.leaks || [];
+    var leakCount = cd.count || 0;
+    if (badgeEl) {
+      if (leakCount > 0) {
+        badgeEl.textContent = leakCount + ' leak' + (leakCount === 1 ? '' : 's');
+        badgeEl.style.background = '#dc2626';
+        badgeEl.style.color = '#fff';
+      } else {
+        badgeEl.textContent = 'Clean';
+        badgeEl.style.background = 'rgba(34,197,94,0.15)';
+        badgeEl.style.color = '#86efac';
+      }
+    }
+    if (scanListEl) {
+      if (!leaks.length) {
+        scanListEl.innerHTML = '<div style="color:#86efac;padding:10px;font-size:11px;">&#10003; No API key leaks detected in recent session events.</div>';
+      } else {
+        var _patternLabel = {openai:'OpenAI',anthropic:'Anthropic',aws:'AWS',github:'GitHub',generic:'Generic'};
+        var chtml = '';
+        leaks.slice(0, 30).forEach(function(lk) {
+          var pLabel = _patternLabel[lk.pattern] || lk.pattern;
+          chtml += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">';
+          chtml += '<span style="font-size:13px;flex-shrink:0;">&#128273;</span>';
+          chtml += '<div style="flex:1;min-width:0;">';
+          chtml += '<span style="font-size:11px;font-weight:600;color:#dc2626;">api_key_leak</span>';
+          chtml += ' <span style="font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(220,38,38,0.12);color:#fca5a5;">' + escHtml(pLabel) + '</span>';
+          if (lk.redacted) chtml += ' <code style="font-size:10px;background:var(--bg-primary);padding:1px 4px;border-radius:3px;color:#a78bfa;">' + escHtml(lk.redacted) + '</code>';
+          chtml += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">event #' + lk.line + (lk.file ? ' · session ' + escHtml(String(lk.file).slice(0, 24)) : '') + '</div>';
+          chtml += '</div></div>';
+        });
+        scanListEl.innerHTML = chtml;
+      }
+    }
+  } catch(e) {
+    var csl = document.getElementById('credential-scan-list');
+    if (csl && !silent) csl.innerHTML = '<div style="color:var(--text-muted);padding:12px;font-size:11px;">Credential scan unavailable.</div>';
+  }
   if (_securityRefreshTimer) clearTimeout(_securityRefreshTimer);
   if (document.getElementById('page-security') && document.getElementById('page-security').classList.contains('active')) {
     _securityRefreshTimer = setTimeout(function() { loadSecurityPage(true); }, 30000);
@@ -12956,8 +12997,12 @@ async function loadUsage() {
     loadHeatmap();
     // Load prompt cache analytics (GH #979)
     loadCacheAnalytics();
+    // Load cache re-read tax card (issue #2839)
+    loadCacheRisk();
     // Load cost forecast (issue #1413)
     loadCostForecast();
+    // Load per-agent / per-team cost attribution (issue #3000)
+    loadUsageByTeam();
     // Load spend optimization recommendations (issue #1415)
     loadSpendOptimization();
     // NeMo daily-cap banner (issue #1170) — only visible when a free-tier
@@ -13085,6 +13130,49 @@ function renderTopSessionsByCost(rows) {
   });
   html += '</tbody>';
   el.innerHTML = html;
+}
+
+async function loadCacheRisk() {
+  // Issue #2839 Part 1 — surface the prompt-cache re-read tax on the Usage tab.
+  // Data: sum of idle-gap expiries + cache-write cost across all sessions in DuckDB.
+  try {
+    var d = await fetch('/api/usage/cache-risk').then(function(r) { return r.json(); });
+    var title = document.getElementById('cache-risk-title');
+    var card = document.getElementById('cache-risk-card');
+    if (!title || !card) return;
+    var expiries = Number(d.total_expiry_count) || 0;
+    var writeCost = Number(d.total_write_cost_usd) || 0;
+    var savedUsd = Number(d.total_saved_usd) || 0;
+    var affected = Number(d.affected_sessions) || 0;
+    var maxGap = Number(d.max_idle_gap_sec) || 0;
+    if (!expiries && !writeCost) return;
+    title.style.display = '';
+    card.style.display = '';
+    var gapMin = maxGap > 0 ? Math.round(maxGap / 60) : 0;
+    var netTax = writeCost - savedUsd;
+    var html = '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">'
+      + '<div style="min-width:160px;">'
+      + '<div style="font-size:28px;font-weight:700;color:' + (netTax > 0.01 ? '#ef4444' : '#f59e0b') + ';">'
+      + (writeCost > 0 ? '$' + writeCost.toFixed(3) : expiries + '') + '</div>'
+      + '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">'
+      + (writeCost > 0 ? 'paid to rebuild the cache' : 'cache expiries') + '</div>'
+      + '</div>'
+      + '<div style="flex:1;min-width:220px;font-size:13px;color:var(--text-secondary);">'
+      + '<div style="margin-bottom:6px;">'
+      + '<strong>' + expiries + ' cache ' + (expiries === 1 ? 'expiry' : 'expiries') + '</strong>'
+      + (affected > 0 ? ' across <strong>' + affected + ' session' + (affected === 1 ? '' : 's') + '</strong>' : '')
+      + ' — idle gaps crossed the 5-min cache TTL so context was re-derived from scratch.</div>';
+    if (writeCost > 0 && savedUsd > 0) {
+      html += '<div style="margin-bottom:6px;">Paid <strong>$' + writeCost.toFixed(3) + '</strong> to rebuild; only saved <strong>$' + savedUsd.toFixed(3) + '</strong> on reads'
+        + (netTax > 0 ? ' — <strong style="color:#ef4444;">$' + netTax.toFixed(3) + ' net re-read tax</strong>' : '') + '.</div>';
+    }
+    if (gapMin > 0) {
+      html += '<div style="color:var(--text-muted);font-size:12px;">Longest idle gap: ' + (gapMin >= 60 ? Math.round(gapMin/60) + 'h ' + (gapMin % 60) + 'm' : gapMin + ' min') + '</div>';
+    }
+    html += '<div style="margin-top:8px;font-size:12px;color:var(--text-muted);">Keep sessions warm — batch turns within the 5-min TTL so context is read at ~0.1× instead of re-written at full price.</div>'
+      + '</div></div>';
+    document.getElementById('cache-risk-content').innerHTML = html;
+  } catch(e) {}
 }
 
 async function loadCacheAnalytics() {
@@ -13322,6 +13410,41 @@ function renderSpendOptimization(data) {
 }
 
 // ===== Cost Forecast (issue #1413) =====
+// ── Per-agent / per-team cost attribution (issue #3000) ──────────────────────
+async function loadUsageByTeam() {
+  var title = document.getElementById('usage-by-team-title');
+  var card = document.getElementById('usage-by-team-card');
+  var el = document.getElementById('usage-by-team-content');
+  if (!card || !el) return;
+  try {
+    var d = await fetch('/api/usage/by-team?window=7').then(function(r){return r.json();});
+    var teams = (d && d.teams) || [];
+    if (!teams.length) return;
+    var totalCost = teams.reduce(function(s, t) { return s + (t.cost_usd || 0); }, 0);
+    var rows = teams.map(function(t) {
+      var pct = totalCost > 0 ? Math.round((t.cost_usd / totalCost) * 100) : 0;
+      var rts = (t.runtimes || []).join(', ');
+      return '<tr>'
+        + '<td style="padding:4px 8px;font-weight:500;">' + (t.label || '—') + '</td>'
+        + '<td style="padding:4px 8px;text-align:right;">$' + (t.cost_usd || 0).toFixed(4) + '</td>'
+        + '<td style="padding:4px 8px;text-align:right;color:var(--text-muted);">' + pct + '%</td>'
+        + '<td style="padding:4px 8px;text-align:right;color:var(--text-muted);">' + (t.sessions || 0) + ' sessions</td>'
+        + '<td style="padding:4px 8px;font-size:11px;color:var(--text-muted);">' + rts + '</td>'
+        + '</tr>';
+    }).join('');
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse;">'
+      + '<thead><tr style="font-size:11px;color:var(--text-muted);">'
+      + '<th style="padding:2px 8px;text-align:left;">Team / Agent</th>'
+      + '<th style="padding:2px 8px;text-align:right;">Cost (7d)</th>'
+      + '<th style="padding:2px 8px;text-align:right;">Share</th>'
+      + '<th style="padding:2px 8px;text-align:right;">Sessions</th>'
+      + '<th style="padding:2px 8px;text-align:left;">Runtimes</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    title.style.display = '';
+    card.style.display = '';
+  } catch(e) { /* non-fatal */ }
+}
+
 async function loadCostForecast() {
   var title = document.getElementById('cost-forecast-title');
   var card = document.getElementById('cost-forecast-card');

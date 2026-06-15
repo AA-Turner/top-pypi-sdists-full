@@ -1,9 +1,5 @@
 #  Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
 #  SPDX-License-Identifier: BSD-4-Clause
-#
-
-# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
-# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
 import importlib
@@ -57,7 +53,15 @@ __all__ = ['draw']
 
 
 def available() -> bool:
-    return moduletools.module_available('graphviz') and misc.platform_has_command('dot')
+    if not moduletools.module_available('graphviz'):
+        return False
+    if not misc.platform_has_command('dot'):
+        return False
+    try:
+        graphviz = importlib.import_module('graphviz')
+        return bool(graphviz)
+    except ImportError:
+        return False
 
 
 def draw(filename, grammar):
@@ -251,6 +255,10 @@ class DiagramNodeWalker(NodeWalker):
         n = self.ref_node(rr.name)
         return n, n
 
+    def walk_rule_include(self, rr):
+        n = self.ref_node(rr.name)
+        return n, n
+
     def walk_pattern(self, p):
         n = self.tnode(p.pattern)
         return n, n
@@ -283,6 +291,26 @@ class DiagramNodeWalker(NodeWalker):
 
     def walk_fail(self, _v):
         return None, None
+
+    def walk_name_meta(self, _v):
+        n = self.tnode('@name')
+        return n, n
+
+    def walk_int_meta(self, _v):
+        n = self.tnode('@int')
+        return n, n
+
+    def walk_uint_meta(self, _v):
+        n = self.tnode('@int')
+        return n, n
+
+    def walk_float_meta(self, _v):
+        n = self.tnode('@float')
+        return n, n
+
+    def walk_bool_meta(self, _v):
+        n = self.tnode('@bool')
+        return n, n
 
     def ENDRULE(self, _ast):
         return None, None

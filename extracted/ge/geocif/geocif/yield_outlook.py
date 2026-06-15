@@ -2663,6 +2663,33 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("XAI (do_xai)",
                 str(parser.getboolean("ML", "do_xai", fallback=False))),
         ]
+
+        # Claude narrative status — resolved at startup so the operator
+        # sees whether the PDF report will include the AI-generated
+        # narrative section before the run consumes time. Three gates:
+        #   1. [ML] generate_report — master switch for the PDF
+        #   2. ANTHROPIC_API_KEY env var — required for the API call
+        #   3. anthropic SDK installed — required for the client
+        # When all three pass, the model from [NARRATIVE] claude_model
+        # is reported (default: claude-sonnet-4-6).
+        _gen_report = parser.getboolean("ML", "generate_report", fallback=False)
+        if not _gen_report:
+            _narr_status = "No — [ML] generate_report = False"
+        elif not os.environ.get("ANTHROPIC_API_KEY", ""):
+            _narr_status = "No — ANTHROPIC_API_KEY not set"
+        else:
+            try:
+                import anthropic  # noqa: F401
+                _claude_model = "claude-sonnet-4-6"
+                if parser.has_section("NARRATIVE"):
+                    _claude_model = parser.get(
+                        "NARRATIVE", "claude_model", fallback=_claude_model,
+                    )
+                _narr_status = f"Yes — model={_claude_model}"
+            except ImportError:
+                _narr_status = "No — anthropic SDK not installed"
+        params.append(("Claude narrative", _narr_status))
+
         for c, yf in yield_files.items():
             params.append((f"  {c} yield file", yf))
         ut.display_run_summary("GeoCIF Yield Outlook", params, wait=10)

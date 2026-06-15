@@ -35,6 +35,7 @@ from rich.console import Console
 from rich.traceback import Traceback, install as install_rich_traceback
 
 from . import __init__conf__
+from .typed_click import option, version_option
 from .behaviors import emit_greeting, raise_intentional_failure
 from .lib_detect_testenv import (
     is_doctest_active,
@@ -56,12 +57,12 @@ console = Console()
     context_settings=CLICK_CONTEXT_SETTINGS,
     invoke_without_command=True,
 )
-@click.version_option(
+@version_option(
     version=__init__conf__.version,
     prog_name=__init__conf__.shell_command,
     message=f"{__init__conf__.shell_command} version {__init__conf__.version}",
 )
-@click.option(
+@option(
     "--traceback/--no-traceback",
     is_flag=True,
     default=True,
@@ -97,13 +98,13 @@ def cli_info() -> None:
 
 
 @cli.command("check", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--quiet",
     "-q",
     is_flag=True,
     help="Suppress output, use exit code only",
 )
-@click.option(
+@option(
     "--arg-string",
     type=str,
     default=None,
@@ -139,13 +140,13 @@ def cli_check(quiet: bool, arg_string: Optional[str]) -> None:
 
 
 @cli.command("pytest", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--quiet",
     "-q",
     is_flag=True,
     help="Suppress output, use exit code only",
 )
-@click.option(
+@option(
     "--arg-string",
     type=str,
     default=None,
@@ -181,13 +182,13 @@ def cli_pytest(quiet: bool, arg_string: Optional[str]) -> None:
 
 
 @cli.command("doctest", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--quiet",
     "-q",
     is_flag=True,
     help="Suppress output, use exit code only",
 )
-@click.option(
+@option(
     "--arg-string",
     type=str,
     default=None,
@@ -223,19 +224,19 @@ def cli_doctest(quiet: bool, arg_string: Optional[str]) -> None:
 
 
 @cli.command("setup", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--quiet",
     "-q",
     is_flag=True,
     help="Suppress output, use exit code only",
 )
-@click.option(
+@option(
     "--arg-string",
     type=str,
     default=None,
     help="Custom argument string to check instead of sys.argv",
 )
-@click.option(
+@option(
     "--test-only",
     is_flag=True,
     help="Check for 'setup.py test' specifically (not just setup.py)",

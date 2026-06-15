@@ -103,7 +103,7 @@ def _build_unix_socket(
 
     sock = socket.socket(
         socket.AF_UNIX,
-        socket.SOCK_STREAM | (socket.SOCK_NONBLOCK if sys.platform == 'linux' else 0),
+        socket.SOCK_STREAM | getattr(socket, 'SOCK_NONBLOCK', 0),
     )
     sock.bind(uds_path)
     if owner_uid is not None or owner_gid is not None:
@@ -115,7 +115,7 @@ def _build_unix_socket(
     sock.listen(config.backlog)
     if config.uds_permissions is not None:
         os.chmod(uds_path, config.uds_permissions)
-    if sys.platform != 'linux':
+    if not getattr(socket, 'SOCK_NONBLOCK', 0):
         sock.setblocking(False)
     return sock
 
@@ -126,9 +126,18 @@ def _adopt_socket(fd: int):
     return sock
 
 
-def _prepare_tcp_listener(sock: socket.socket):
+def _prepare_tcp_listener(sock: socket.socket, *, reuse_port: bool = False):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.setsockopt(socket.SOL_TCP, socket.TCP_FASTOPEN, 512)
+
+    if reuse_port:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+    value = 512 if sys.platform == 'linux' else 1
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_FASTOPEN, value)
+    except (OSError, AttributeError):
+        pass
+
     if sys.platform == 'linux':
         try:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_DEFER_ACCEPT, 1)
@@ -138,7 +147,7 @@ def _prepare_tcp_listener(sock: socket.socket):
 
 def _finish_bound_socket(sock: socket.socket, backlog: int):
     sock.listen(backlog)
-    if sys.platform != 'linux':
+    if not getattr(socket, 'SOCK_NONBLOCK', 0):
         sock.setblocking(False)
     return sock
 
@@ -153,8 +162,7 @@ def _build_tcp_socket(host: str, port: int, config: Config):
     ):
         sock = socket.socket(
             family,
-            socket.SOCK_STREAM
-            | (socket.SOCK_NONBLOCK if sys.platform == 'linux' else 0),
+            socket.SOCK_STREAM | getattr(socket, 'SOCK_NONBLOCK', 0),
         )
         try:
             if family == socket.AF_INET6:
@@ -162,7 +170,7 @@ def _build_tcp_socket(host: str, port: int, config: Config):
                     sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
                 except OSError:
                     pass
-            _prepare_tcp_listener(sock)
+            _prepare_tcp_listener(sock, reuse_port=config.reuse_port)
             sock.bind(sockaddr)
             return _finish_bound_socket(sock, config.backlog)
         except OSError as exc:
@@ -205,17 +213,20 @@ def _build_sockets(
                             owner_gid=owner_gid,
                         )
                     )
-                    resolved_binds.append(f'unix:{path}')
+                    resolved_binds.append(f'unix:{path.as_posix()}')
                     owned_socket_paths.append(path)
                     bind_fd_is_unix.append(False)
                 case FdBindSpec(fd):
                     sock = _adopt_socket(fd)
-                    if config.certfile is not None and sock.family == socket.AF_UNIX:
+                    # AF_UNIX is absent on Windows; an adopted fd there is never
+                    # a unix socket, so a missing constant compares unequal.
+                    af_unix = getattr(socket, 'AF_UNIX', None)
+                    if config.certfile is not None and sock.family == af_unix:
                         sock.close()
                         raise OSError('TLS is supported only on TCP listeners')
                     sockets.append(sock)
                     resolved_binds.append(f'fd://{fd}')
-                    bind_fd_is_unix.append(sock.family == socket.AF_UNIX)
+                    bind_fd_is_unix.append(sock.family == af_unix)
                 case bind_spec:
                     assert_never(bind_spec)
     except Exception:
@@ -225,6 +236,22 @@ def _build_sockets(
     object.__setattr__(config, '_bind_fd_is_unix', tuple(bind_fd_is_unix))
     _sync_bind_convenience_fields(config)
     return tuple(sockets), tuple(owned_socket_paths)
+
+
+def _bound_addresses(sockets) -> tuple[str, ...]:
+    """Resolved bind addresses of `sockets`, in `Config.bind` string form.
+
+    Unlike the configured bind strings, these carry the port the kernel
+    actually assigned — meaningful when binding port 0.
+    """
+    addresses = []
+    for sock in sockets:
+        name = sock.getsockname()
+        if sock.family in {socket.AF_INET, socket.AF_INET6}:
+            addresses.append(_format_tcp_bind(name[0], name[1]))
+        else:
+            addresses.append(f'unix:{os.fsdecode(name)}')
+    return tuple(addresses)
 
 
 @contextmanager

@@ -58,7 +58,8 @@ class Model:
         self,
         data: Any,
         *,
-        interval: float | None = None,
+        interval: float | str | None = None,
+        conformal_level: float = 0.9,
         covariance_mode: str | None = None,
         observation_interval: bool = False,
         return_type: str | None = None,
@@ -73,7 +74,7 @@ class Model:
             (``pandas.DataFrame``, ``pyarrow.Table``, ``polars.DataFrame``,
             ``dict`` of columns, ``list`` of record dicts, ...). Columns must
             cover every predictor referenced by the fitted formula.
-        interval : float or None, default None
+        interval : float, "conformal", "full_conformal", or None, default None
             Single uncertainty knob. ``None`` returns the point prediction(s)
             only. A float in ``(0, 1)`` (e.g. ``0.95``) requests the full
             uncertainty decomposition at that pointwise coverage; the output
@@ -83,6 +84,29 @@ class Model:
             collapsed the previous overlapping ``with_uncertainty`` boolean
             into this single flag (use ``interval=0.95`` for the SE-only
             case).
+
+            Pass ``interval="conformal"`` to use exact distribution-free
+            jackknife+ prediction intervals (Barber et al. 2021) — no
+            held-out calibration fold is required. The coverage level is
+            controlled by ``conformal_level`` (default ``0.9``). This path
+            requires a Gaussian-identity model fitted without prior weights,
+            offsets, or a link wiggle; use :meth:`predict_conformal` for
+            split-conformal intervals on other families.
+
+            Pass ``interval="full_conformal"`` for the EXACT full-conformal
+            set (#942 Layer 1): every observation is used for both fitting and
+            calibration, the exact prediction set is computed from one Cholesky
+            per test point with zero refits, and the output additionally gains a
+            ``frozen_rho_certified`` column reporting the Layer-3 frozen-ρ
+            self-diagnostic (whether freezing the global smoothing parameter is
+            certified equal to the honest ρ-re-selecting set). Same eligibility
+            as ``"conformal"``; ``mean_lower`` / ``mean_upper`` report the outer
+            envelope of the (possibly multi-interval) exact set.
+        conformal_level : float, default 0.9
+            Target marginal coverage in ``(0, 1)`` when ``interval="conformal"``
+            or ``interval="full_conformal"``
+            (e.g. ``0.95`` for a 95% interval). Ignored when ``interval`` is a
+            float or ``None``.
         covariance_mode : {"conditional", "smoothing", "required"}, optional
             Posterior covariance source for the interval (CLI<->Python parity
             with ``gam predict --covariance-mode``). ``"conditional"`` uses the
@@ -159,6 +183,53 @@ class Model:
         """
         headers, rows, table_kind = normalize_table(data)
         row_ids = extract_row_ids(headers, rows, id_column)
+        # #1054: interval='conformal' routes to the exact Gaussian jackknife+
+        # path (no held-out fold needed, finite-sample ≥conformal_level
+        # marginal coverage). The returned JSON has the same column schema as
+        # the model-based predict path so shape_predict_response is unchanged.
+        if interval == "conformal":
+            try:
+                raw = rust_module().predict_table_jackknife_plus(
+                    self._model_bytes, headers, rows, conformal_level
+                )
+            except Exception as exc:
+                raise map_exception(exc) from exc
+            return shape_predict_response(
+                raw,
+                headers=headers,
+                rows=rows,
+                table_kind=table_kind,
+                training_table_kind=self._training_table_kind,
+                interval=conformal_level,
+                return_type=return_type,
+                id_column=id_column,
+                row_ids=row_ids,
+                restore=restore_output_table,
+            )
+        # #1098: interval='full_conformal' routes to the EXACT Gaussian
+        # full-conformal set (no held-out fold; finite-sample ≥conformal_level
+        # marginal coverage; #942 Layer 1). One Cholesky per test point, zero
+        # refits. The returned JSON carries the same column schema plus a
+        # `frozen_rho_certified` column (the Layer-3 self-diagnostic).
+        if interval == "full_conformal":
+            try:
+                raw = rust_module().predict_table_full_conformal(
+                    self._model_bytes, headers, rows, conformal_level
+                )
+            except Exception as exc:
+                raise map_exception(exc) from exc
+            return shape_predict_response(
+                raw,
+                headers=headers,
+                rows=rows,
+                table_kind=table_kind,
+                training_table_kind=self._training_table_kind,
+                interval=conformal_level,
+                return_type=return_type,
+                id_column=id_column,
+                row_ids=row_ids,
+                restore=restore_output_table,
+            )
         opts_json = rust_module().build_model_predict_payload_json(
             self._model_bytes,
             headers,
@@ -333,6 +404,153 @@ class Model:
             raise map_exception(exc) from exc
         return SchemaCheck.from_dict(payload)
 
+    def curvature(self, data: Any, *, level: float = 0.95) -> list[dict[str, Any]]:
+        """Curvature-as-an-estimand report for every ``curv(...)`` smooth (#944).
+
+        For each constant-curvature (``curv(...)``) smooth in the model this
+        returns the fitted signed sectional curvature ``kappa_hat``, its
+        profile-likelihood confidence interval ``(ci_lo, ci_hi)``, the geometry
+        ``verdict`` from the CI sign (``"spherical"`` / ``"hyperbolic"`` /
+        ``"flat"`` / ``"indistinguishable"``), and the interior :math:`\\kappa=0`
+        likelihood-ratio flatness test (``flatness_lr_stat``,
+        ``flatness_p_value`` — full :math:`\\chi^2_1`, since :math:`\\kappa=0`
+        is an interior point of the :math:`S^d \\leftarrow \\mathbb{R}^d \\to H^d`
+        family). This turns "we chose hyperbolic space" into
+        ":math:`\\hat\\kappa = -1.8` (95% CI ...), flat rejected at p = ...".
+
+        ``kappa_hat`` alone is also surfaced in :meth:`summary` with no refit;
+        the CI and flatness test re-profile the criterion over :math:`\\kappa`,
+        which is why they require the training ``data``.
+
+        Returns an empty list when the model has no ``curv(...)`` smooth.
+        """
+        headers, rows, _ = normalize_table(data)
+        try:
+            raw = rust_module().curvature_inference_json(
+                self._model_bytes, headers, rows, level
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        payload = json.loads(raw)
+        return list(payload.get("curvature_terms", []))
+
+    def smooth_significance(self, data: Any) -> list[dict[str, Any]]:
+        """Per-term likelihood-ratio significance for every penalized smooth (#1063).
+
+        :meth:`summary` reports Wood's rank-truncated *Wald* statistic
+        :math:`T = \\hat\\beta'\\hat\\Sigma^- \\hat\\beta`. The exact Lawley /
+        Bartlett factor corrects the *likelihood-ratio* statistic, and under
+        penalization the Wald form is already a weighted :math:`\\chi^2` whose
+        second-order mean is not :math:`d + \\Delta\\varepsilon`, so dividing
+        :math:`T` by the LR factor would correct the wrong statistic. This method
+        instead computes a genuine per-term LR statistic
+        :math:`W = 2(\\ell_{\\text{full}} - \\ell_{\\text{null}})` by a
+        constrained refit dropping the smooth, then Bartlett-corrects *that*:
+        :math:`W^* = W / c`, :math:`c = 1 + \\Delta\\varepsilon / d`.
+
+        For each penalized (shape-unconstrained) smooth term it returns
+        ``statistic_lr`` (the raw :math:`W`), ``ref_df`` (the Wood truncation
+        :math:`d`, the same reference the Wald row uses), ``bartlett_factor``
+        :math:`c`, ``statistic_corrected`` :math:`W^*`, ``p_value_uncorrected``,
+        ``p_value_corrected`` (the magic-by-default value), and
+        ``correction_provenance`` — ``"lawley_lr"`` when the family carries
+        closed-form cumulant jets (gaussian / poisson / binomial / gamma) and the
+        null refit converged, else ``"none"`` (the uncorrected
+        :math:`\\chi^2_d` stands, never weakened).
+
+        Needs the training ``data`` for the per-term null refits, exactly as
+        :meth:`curvature` does. Returns an empty list when the model has no
+        penalized smooth term.
+        """
+        headers, rows, _ = normalize_table(data)
+        try:
+            raw = rust_module().smooth_term_lr_inference_json(
+                self._model_bytes, headers, rows
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        payload = json.loads(raw)
+        return list(payload.get("smooth_terms", []))
+
+    def debiased_functional(
+        self,
+        data: Any,
+        target: str,
+        *,
+        x0: dict[str, Any] | None = None,
+        x1: dict[str, Any] | None = None,
+        weights: list[float] | None = None,
+        deriv_var: str | None = None,
+    ) -> dict[str, float]:
+        """Riesz-representer debiased / Neyman-orthogonal estimate of a smooth
+        functional (#1055).
+
+        Computes a second-order-accurate point estimate of a smooth functional
+        ``θ = g(m)`` using the Riesz-representer one-step bias correction —
+        the standard Neyman-orthogonal / doubly-robust estimator for penalized
+        regression functionals. The orthogonal correction is always applied
+        (it strictly improves coverage under regularization; no flag).
+
+        Currently restricted to Gaussian/identity-link models (exact per-row
+        score contributions). For other families supply raw arrays via the
+        low-level ``gamfit._rust.debiased_functional(...)`` call.
+
+        Parameters
+        ----------
+        data : table-like
+            The **training** data used to fit this model, in any format
+            accepted by :meth:`predict`. Required to reconstruct the per-row
+            score contributions ``∂nll_i/∂β``.
+        target : str
+            The named functional estimand:
+
+            * ``"point"`` — ``m(x0)``, the smooth evaluated at a query point.
+              Requires ``x0``.
+            * ``"contrast"`` — ``m(x0) − m(x1)`` (a treatment contrast).
+              Requires ``x0`` and ``x1``.
+            * ``"average_value"`` — ``mean_i w_i m(x_i)`` over training rows.
+              Optional ``weights``.
+            * ``"average_derivative"`` — ``mean_i w_i (∂m/∂x)(x_i)`` over
+              training rows. Optional ``weights``.
+        x0, x1 : dict or None
+            Query-point column dicts for ``"point"`` and ``"contrast"``
+            targets.  Keys must match the model's predictor column names.
+        weights : list of float or None
+            Per-row importance weights for ``"average_value"`` /
+            ``"average_derivative"`` (length == number of training rows).
+        deriv_var : str or None
+            For ``"average_derivative"`` only: the covariate column to
+            differentiate with respect to. Auto-selected when the model has a
+            smooth over a single covariate; supply it explicitly when the model
+            has smooths over more than one covariate.
+
+        Returns
+        -------
+        dict
+            ``theta_plugin`` (plug-in estimate without debiasing),
+            ``theta_debiased`` (Neyman-orthogonal one-step estimate),
+            ``se`` (influence-function standard error),
+            ``penalty_bias`` (estimated regularization bias removed),
+            ``ci_lower`` / ``ci_upper`` (95% normal-approximation CI).
+        """
+        headers, rows, _ = normalize_table(data)
+        spec: dict[str, Any] = {"target": target}
+        if x0 is not None:
+            spec["x0"] = {k: v for k, v in x0.items()}
+        if x1 is not None:
+            spec["x1"] = {k: v for k, v in x1.items()}
+        if weights is not None:
+            spec["weights"] = list(weights)
+        if deriv_var is not None:
+            spec["deriv_var"] = deriv_var
+        try:
+            raw = rust_module().model_debiased_functional_json(
+                self._model_bytes, headers, rows, json.dumps(spec)
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return dict(json.loads(raw))
+
     def report(self, path: str | Path | None = None) -> str:
         """Generate a standalone HTML report of the fitted model."""
         try:
@@ -371,6 +589,114 @@ class Model:
         except Exception as exc:
             raise map_exception(exc) from exc
         return PosteriorSamples.from_ffi_json(raw, model_bytes=self._model_bytes)
+
+    def sample_replicates(
+        self,
+        data: Any,
+        n_draws: int = 100,
+        *,
+        seed: int = 0,
+    ) -> Any:
+        """Draw posterior-predictive replicate responses at ``data`` (#1057).
+
+        Each of the ``n_draws`` rows is a fresh synthetic response vector drawn
+        from the fitted predictive distribution — the family-aware observation
+        noise (Gaussian / Poisson / Bernoulli / Gamma / Beta / Tweedie /
+        Negative-Binomial) wrapped around the plug-in mean ``g^{-1}(X·beta_hat)``.
+        This is the *observation* replicate path (distinct from :meth:`sample`,
+        which draws the *parameter* posterior) and is the engine for
+        posterior-predictive checks, synthetic-data generation, and
+        simulation-based calibration. The family and fitted dispersion are read
+        from the saved model — there is no family flag.
+
+        Parameters
+        ----------
+        data : table-like
+            New rows in any format accepted by :meth:`predict`. Must cover every
+            predictor referenced by the fitted formula (the response column, if
+            present, is ignored).
+        n_draws : int, default 100
+            Number of replicate response vectors to draw.
+        seed : int, default 0
+            Seed for the deterministic draw stream.
+
+        Returns
+        -------
+        numpy.ndarray
+            An ``(n_draws, n_rows)`` array of synthetic responses.
+        """
+        n_draws = int(n_draws)
+        if n_draws < 1:
+            raise ValueError(f"n_draws must be >= 1, got {n_draws}")
+        headers, rows, _ = normalize_table(data)
+        try:
+            return rust_module().generative_replicates(
+                self._model_bytes, headers, rows, n_draws, int(seed)
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+
+    def posterior_predictive_check(
+        self,
+        data: Any,
+        *,
+        n_draws: int = 200,
+        seed: int = 0,
+    ) -> dict[str, float]:
+        """Posterior-predictive Bayesian p-values per discrepancy statistic (#1057).
+
+        Draws ``n_draws`` replicate datasets at ``data`` (which must include the
+        fitted response column), then for each summary statistic ``T`` reports
+        the posterior-predictive p-value ``P(T(y_rep) >= T(y_obs))`` — the
+        fraction of replicates whose statistic is at least as extreme as the
+        observed one. Values near 0 or 1 flag a statistic the model fails to
+        reproduce; values near 0.5 indicate calibration on that statistic.
+
+        Parameters
+        ----------
+        data : table-like
+            New rows including the response column (so ``T(y_obs)`` is defined).
+        n_draws : int, default 200
+            Number of replicate datasets used to estimate each p-value.
+        seed : int, default 0
+            Seed for the deterministic draw stream.
+
+        Returns
+        -------
+        dict[str, float]
+            Bayesian p-value per statistic (``mean``, ``sd``, ``min``, ``max``).
+        """
+        import numpy as np
+
+        response = self.response_name
+        if response is None:
+            raise ValueError(
+                "posterior_predictive_check requires a model with a named response "
+                "column; this model's formula does not expose one"
+            )
+        headers, rows, _ = normalize_table(data)
+        if response not in headers:
+            raise ValueError(
+                f"posterior_predictive_check requires the response column "
+                f"'{response}' in data so the observed statistics are defined"
+            )
+        col = headers.index(response)
+        y_obs = np.asarray([float(r[col]) for r in rows], dtype=float)
+        reps = self.sample_replicates(data, n_draws, seed=seed)
+        reps = np.asarray(reps, dtype=float)
+
+        statistics = {
+            "mean": np.mean,
+            "sd": np.std,
+            "min": np.min,
+            "max": np.max,
+        }
+        out: dict[str, float] = {}
+        for name, fn in statistics.items():
+            t_obs = float(fn(y_obs))
+            t_rep = np.asarray([float(fn(reps[d])) for d in range(reps.shape[0])])
+            out[name] = float(np.mean(t_rep >= t_obs))
+        return out
 
     def design_matrix(self, data: Any) -> Any:
         """Materialised design matrix for ``data`` against the saved model."""
@@ -633,6 +959,38 @@ class Model:
         return self.report()
 
 
+class MultinomialPrediction:
+    """Multinomial class-probability prediction with delta-method uncertainty.
+
+    Returned by :meth:`MultinomialModel.predict` with ``interval='confidence'``
+    (#1101). Every array is ``(N, K)`` with columns aligned to :attr:`classes`
+    (column ``j`` is class ``classes[j]``):
+
+    * :attr:`mean` — fitted class probabilities (rows sum to 1);
+    * :attr:`std_error` — delta-method per-class probability standard error
+      ``SE(p_c)`` from the softmax Jacobian and the joint posterior covariance;
+    * :attr:`mean_lower` / :attr:`mean_upper` — simplex-clamped band
+      ``p_c ± z·SE(p_c)`` at the requested :attr:`level`.
+    """
+
+    __slots__ = ("classes", "mean", "std_error", "mean_lower", "mean_upper", "level")
+
+    def __init__(self, *, classes, mean, std_error, mean_lower, mean_upper, level):
+        self.classes = list(classes)
+        self.mean = mean
+        self.std_error = std_error
+        self.mean_lower = mean_lower
+        self.mean_upper = mean_upper
+        self.level = float(level)
+
+    def __repr__(self) -> str:
+        n = getattr(self.mean, "shape", ["?"])[0]
+        return (
+            f"MultinomialPrediction(n={n}, classes={self.classes!r}, "
+            f"level={self.level})"
+        )
+
+
 class MultinomialModel:
     """Fitted penalized multinomial-logit GAM.
 
@@ -698,21 +1056,88 @@ class MultinomialModel:
         return int(self._metadata["iterations"])
 
     # ------------------------------------------------------------------ predict
-    def predict(self, data: Any) -> Any:
+    def predict(self, data: Any, *, interval: str | None = None, level: float = 0.95) -> Any:
         """Predict class probabilities for new rows.
 
-        Returns an ``(N, K)`` numpy array whose columns are aligned with
-        :attr:`classes_` (column ``j`` is ``P(Y = self.classes_[j] | x)``).
-        Rows sum to 1.
+        With ``interval=None`` (default) returns an ``(N, K)`` numpy array whose
+        columns are aligned with :attr:`classes_` (column ``j`` is
+        ``P(Y = self.classes_[j] | x)``); rows sum to 1.
+
+        With ``interval='confidence'`` returns a
+        :class:`MultinomialPrediction` carrying the same ``(N, K)`` ``mean``
+        probabilities plus delta-method per-class probability standard errors
+        (``std_error``) and simplex-clamped confidence bounds (``mean_lower`` /
+        ``mean_upper``) at the requested ``level``. The bounds come from the
+        softmax-Jacobian delta method ``p_c ± z·SE(p_c)`` against the joint
+        Laplace posterior covariance ``H⁻¹`` (#1101). Available only for
+        REML-fitted models (which carry the covariance); a model without stored
+        covariance raises.
         """
         headers, rows, _ = normalize_table(data)
+        if interval is None:
+            try:
+                probs = rust_module().predict_multinomial_formula_pyfunc(
+                    self._model_bytes, headers, rows
+                )
+            except Exception as exc:
+                raise map_exception(exc) from exc
+            return probs
+        if interval != "confidence":
+            raise ValueError(
+                f"MultinomialModel.predict: interval={interval!r} is not supported; "
+                "use None or 'confidence'"
+            )
+        if not (0.0 < level < 1.0):
+            raise ValueError(f"level must be in (0, 1), got {level}")
+        # Two-sided normal quantile for the requested level.
         try:
-            probs = rust_module().predict_multinomial_formula_pyfunc(
-                self._model_bytes, headers, rows
+            from statistics import NormalDist
+
+            z = NormalDist().inv_cdf(0.5 + level / 2.0)
+        except Exception:  # pragma: no cover - statistics is stdlib
+            z = 1.959963984540054
+        try:
+            out = rust_module().predict_multinomial_intervals_pyfunc(
+                self._model_bytes, headers, rows, z
             )
         except Exception as exc:
             raise map_exception(exc) from exc
-        return probs
+        if out.get("prob_se") is None:
+            raise ValueError(
+                "MultinomialModel.predict(interval='confidence'): this model carries no "
+                "posterior covariance (refit with the current REML path to enable intervals)"
+            )
+        return MultinomialPrediction(
+            classes=self.classes_,
+            mean=out["probs"],
+            std_error=out["prob_se"],
+            mean_lower=out["mean_lower"],
+            mean_upper=out["mean_upper"],
+            level=level,
+        )
+
+    def std_error(self, data: Any) -> Any:
+        """Delta-method per-class probability standard errors for new rows.
+
+        Returns an ``(N, K)`` numpy array column-aligned with :attr:`classes_`.
+        Equivalent to ``predict(data, interval='confidence').std_error``.
+        """
+        return self.predict(data, interval="confidence").std_error
+
+    def smooth_significance(self) -> list[dict]:
+        """Wood rank-truncated Wald smooth-term significance table (#1101).
+
+        One row per ``(active class, smooth term)`` with keys ``class``,
+        ``term``, ``edf``, ``ref_df``, ``statistic``, ``p_value`` — the same
+        kernel the scalar :meth:`Model.summary` smooth-term p-values use. Empty
+        when the model has no smooth terms or no stored covariance.
+        """
+        try:
+            return list(
+                rust_module().multinomial_smooth_significance_pyfunc(self._model_bytes)
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
 
     # ------------------------------------------------------------------ summary
     def summary(self) -> str:
@@ -755,6 +1180,29 @@ class MultinomialModel:
             lines.append(
                 f"    class {levels[a]!r} vs ref: " + ", ".join(row_bits)
             )
+        # Wood rank-truncated Wald smooth-term significance table (#1101): the
+        # same kernel the scalar `Model.summary` uses. Present only for
+        # REML-fitted models carrying covariance + smooth terms.
+        try:
+            sig = self.smooth_significance()
+        except Exception:
+            sig = []
+        if sig:
+            lines.append("  smooth terms (Wood rank-truncated Wald):")
+            lines.append(
+                "    class                 term            edf   ref.df    chi.sq   p-value"
+            )
+            for r in sig:
+                lines.append(
+                    "    {cls:<20} {term:<14} {edf:6.3g} {ref:7.3g} {stat:9.4g} {p:9.3g}".format(
+                        cls=str(r["class"])[:20],
+                        term=str(r["term"])[:14],
+                        edf=float(r["edf"]),
+                        ref=float(r["ref_df"]),
+                        stat=float(r["statistic"]),
+                        p=float(r["p_value"]),
+                    )
+                )
         return "\n".join(lines)
 
     # ------------------------------------------------------------------ identity / repr
@@ -773,6 +1221,7 @@ __all__ = [
     "CompetingRisksPrediction",
     "Model",
     "MultinomialModel",
+    "MultinomialPrediction",
     "SurvivalPrediction",
     "TermBlock",
     "competing_risks_cif",

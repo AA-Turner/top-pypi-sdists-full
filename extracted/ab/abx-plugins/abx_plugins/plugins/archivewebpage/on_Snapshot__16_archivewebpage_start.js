@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+// /// script
+// ///
 /**
  * Start an ArchiveWeb.page WACZ recording before the page navigates.
  *

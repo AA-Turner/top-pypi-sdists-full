@@ -151,6 +151,98 @@ def _model_router_fingerprint() -> dict:
         return {}
 
 
+def _discover_model_router_port() -> Optional[int]:
+    """Find the ``--port`` of a running ``model-router proxy`` process.
+
+    Harness onboarding starts the proxy via ``model-router proxy --port <n>``
+    (port ``44000 + pid % 10000``), so the port is not derivable without the
+    pid — we read it back off the live process command line. psutil with a
+    ``/proc`` fallback, mirroring ``clawmetry.cli``. Returns ``None`` when no
+    such process is running. Read-only, never raises.
+    """
+    def _port_from_cmd(cmd: str) -> Optional[int]:
+        if "model-router" not in cmd or "proxy" not in cmd:
+            return None
+        toks = cmd.split()
+        for i, t in enumerate(toks):
+            if t == "--port" and i + 1 < len(toks) and toks[i + 1].isdigit():
+                return int(toks[i + 1])
+            if t.startswith("--port=") and t.split("=", 1)[1].isdigit():
+                return int(t.split("=", 1)[1])
+        return None
+
+    try:
+        import psutil  # type: ignore
+        for p in psutil.process_iter(["cmdline"]):
+            try:
+                port = _port_from_cmd(" ".join(p.info.get("cmdline") or []))
+                if port is not None:
+                    return port
+            except Exception:
+                pass
+        return None
+    except ImportError:
+        pass
+    try:
+        for pid_str in os.listdir("/proc"):
+            if not pid_str.isdigit():
+                continue
+            try:
+                with open(f"/proc/{pid_str}/cmdline") as fh:
+                    cmd = fh.read().replace("\x00", " ")
+                port = _port_from_cmd(cmd)
+                if port is not None:
+                    return port
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return None
+
+
+def _model_router_health_ok(port: int) -> bool:
+    """True if the model-router ``/health`` endpoint answers 2xx on localhost.
+
+    Falls back to a raw TCP connect (port accepting connections) when the HTTP
+    probe errors, so a wedged-but-listening router still reads as up. Short
+    timeouts keep detect() fast. Never raises.
+    """
+    try:
+        import urllib.request as _u
+        req = _u.Request(f"http://127.0.0.1:{port}/health", method="GET")
+        with _u.urlopen(req, timeout=0.3) as resp:  # nosec B310 - localhost only
+            status = getattr(resp, "status", None) or resp.getcode()
+            return 200 <= int(status) < 300
+    except Exception:
+        pass
+    try:
+        import socket as _sock
+        s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+        s.settimeout(0.2)
+        rc = s.connect_ex(("127.0.0.1", port))
+        s.close()
+        return rc == 0
+    except Exception:
+        return False
+
+
+def _model_router_live() -> dict:
+    """Runtime-liveness signal for the NemoClaw model-router proxy (#2795).
+
+    ``_model_router_fingerprint`` only proves the router was *installed*;
+    without a runtime probe a crashed router is indistinguishable from a
+    healthy one. This discovers the live proxy and polls its ``/health``
+    endpoint, surfacing the distinct liveness signal on ``DetectResult.meta``.
+
+    Returns ``{"modelRouterRunning": bool}`` (plus ``modelRouterPort`` when the
+    listening port is discoverable). Read-only, best-effort, never raises.
+    """
+    port = _discover_model_router_port()
+    if port is None:
+        return {"modelRouterRunning": False}
+    return {"modelRouterPort": port, "modelRouterRunning": _model_router_health_ok(port)}
+
+
 # NOTE (#2610, deferred): NemoClaw's skill-catalog version/provenance lives in
 # ``skills/catalog-metadata.json`` (min/tested NemoClaw version, content shas),
 # but that file is a SOURCE-repo build artifact — it is not shipped in the npm
@@ -312,6 +404,12 @@ class OpenClawAdapter(AgentAdapter):
             # OpenClaw, so meta is unchanged there. (#2610 skill-catalog deferred
             # — see note above: no host-readable on-disk location.)
             meta.update(_model_router_fingerprint())
+            # Runtime liveness (#2795). The fingerprint above only proves the
+            # router was INSTALLED; probe /health so a crashed router is no
+            # longer indistinguishable from a healthy one. Only meaningful when
+            # a model-router install is actually present.
+            if "modelRouterFingerprint" in meta:
+                meta.update(_model_router_live())
             _tc_enabled = _nemoclaw_tool_catalog_state()
             if _tc_enabled is not None:
                 meta["nemoclawToolCatalogEnabled"] = _tc_enabled
@@ -367,6 +465,17 @@ class OpenClawAdapter(AgentAdapter):
                 extra["nemoclawToolCatalogEnabled"] = _tc_enabled
             if _tc_kind is not None:
                 extra["openclawToolCatalogKind"] = _tc_kind
+            tok_total = int(s.get("totalTokens") or 0)
+            tok_in = int(s.get("inputTokens") or 0)
+            tok_out = int(s.get("outputTokens") or 0)
+            tok_cr = int(s.get("cacheReadTokens") or 0)
+            tok_cw = int(s.get("cacheWriteTokens") or 0)
+            # #2794: prefer explicit reasoning field; fall back to totalTokens
+            # residual so reasoning_tokens is never silently zero for
+            # extended-thinking sessions that don't emit a separate key.
+            tok_reasoning: Optional[int] = s.get("reasoningTokens") or s.get("reasoning_tokens")
+            if tok_reasoning is None and tok_total:
+                tok_reasoning = max(0, tok_total - (tok_in + tok_out + tok_cr + tok_cw))
             out.append(
                 Session(
                     agent=self.name,
@@ -375,13 +484,15 @@ class OpenClawAdapter(AgentAdapter):
                     model=s.get("model") or "",
                     source=s.get("channel") or "",
                     started_at=started_at,
-                    total_tokens=int(s.get("totalTokens") or 0),
-                    input_tokens=int(s.get("inputTokens") or 0),
-                    output_tokens=int(s.get("outputTokens") or 0),
-                    cache_read_tokens=int(s.get("cacheReadTokens") or 0),
-                    cache_write_tokens=int(s.get("cacheWriteTokens") or 0),
-                    reasoning_tokens=_reasoning_tokens(s),
+                    total_tokens=tok_total,
+                    input_tokens=tok_in,
+                    output_tokens=tok_out,
+                    cache_read_tokens=tok_cr,
+                    cache_write_tokens=tok_cw,
+                    reasoning_tokens=int(tok_reasoning or 0),
                     cost_usd=float(s["costUsd"]) if s.get("costUsd") is not None else None,
+                    end_reason=s.get("endReason") or s.get("end_reason") or "",
+                    parent_id=s.get("parentId") or None,
                     extra=extra,
                 )
             )
@@ -443,10 +554,84 @@ class OpenClawAdapter(AgentAdapter):
                             raw_data = bytes(raw_data).decode("utf-8", "replace")
                         obj = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
                         if isinstance(obj, dict):
-                            for _field in ("channel", "hostname"):
+                            # Surface gateway log-record top-level structured
+                            # fields. channel/hostname keep their names; the
+                            # severity level is exposed as ``log_level`` and the
+                            # originating subsystem as ``subsystem`` so callers
+                            # can filter or alert on log severity and origin
+                            # (closes #3055 / #3013).
+                            for _field, _key in (
+                                ("channel", "channel"),
+                                ("hostname", "hostname"),
+                                ("level", "log_level"),
+                                ("subsystem", "subsystem"),
+                            ):
+                                _val = obj.get(_field)
+                                if _val:
+                                    extra[_key] = _val
+                            # Talk / realtime-voice / managed-room lifecycle
+                            # fields (#2957). sync.py stores these top-level in
+                            # the data blob for voice events (sync.py ~L4960);
+                            # surface them so callers see voice/Talk metadata.
+                            # String fields skip empties; numeric fields use an
+                            # explicit None check so a legitimate 0 (e.g. a
+                            # zero-byte payload) is preserved rather than dropped.
+                            for _field in ("mode", "transport", "provider"):
                                 _val = obj.get(_field)
                                 if _val:
                                     extra[_field] = _val
+                            for _field in ("duration_ms", "size_bytes"):
+                                _val = obj.get(_field)
+                                if _val is not None:
+                                    extra[_field] = _val
+                            # First-event latency + slow-reply diagnostic (#3016):
+                            # harness-emitted fields surface into Event.extra so
+                            # callers can filter/bucket without re-reading raw JSONL.
+                            _fe = (
+                                obj.get("firstEventLatencyMs")
+                                or obj.get("first_event_latency_ms")
+                            )
+                            if _fe is not None:
+                                try:
+                                    extra["firstEventLatencyMs"] = float(_fe)
+                                except (TypeError, ValueError):
+                                    pass
+                            _slow = obj.get("slowReply") or obj.get("slow_reply")
+                            if _slow:
+                                extra["slowReply"] = True
+                            # Talk/voice/managed-room lifecycle fields stored by
+                            # ingest_talk_lifecycle() under camelCase keys; map to
+                            # unprefixed names so callers don't need to know the
+                            # storage key.  talkFinal uses is-not-None because
+                            # False is a meaningful value (non-final segment).
+                            for _ekey, _bkey in (
+                                ("mode",        "talkMode"),
+                                ("transport",   "talkTransport"),
+                                ("provider",    "talkProvider"),
+                                ("brain",       "talkBrain"),
+                                ("duration_ms", "talkDurationMs"),
+                                ("byte_length", "talkByteLength"),
+                            ):
+                                _val = obj.get(_bkey)
+                                if _val is not None:
+                                    extra[_ekey] = _val
+                            _final = obj.get("talkFinal")
+                            if _final is not None:
+                                extra["final"] = _final
+                            # Normalized TTFR keys (#3054): also write ttfr_ms /
+                            # slow_reply so callers that read the normalized form
+                            # don't need to know the original key spellings.
+                            for _lf in ("latency_ms", "ttfr_ms", "firstEventLatencyMs", "first_event_latency_ms"):
+                                _lv = obj.get(_lf)
+                                if _lv is not None:
+                                    try:
+                                        extra["ttfr_ms"] = float(_lv)
+                                    except (TypeError, ValueError):
+                                        pass
+                                    break
+                            _sr = obj.get("slow_reply") or obj.get("slowReply") or obj.get("is_slow")
+                            if _sr:
+                                extra["slow_reply"] = True
                             msg = obj.get("message")
                             if isinstance(msg, str):
                                 content_text = msg
@@ -465,15 +650,33 @@ class OpenClawAdapter(AgentAdapter):
                                         if v is not None:
                                             extra[dst] = int(v)
                                             break
-                                # Extended-thinking / reasoning tokens (#2876):
-                                # Anthropic thinking sessions emit a reasoning
-                                # token share that input+output alone omit. Surface
-                                # it so per-turn cost is not under-reported.
+                                # Extended-thinking / reasoning tokens: prefer
+                                # an explicit key (e.g. thinking_input_tokens);
+                                # fall back to totalTokens residual for sessions
+                                # that report totalTokens without a separate key.
                                 _rt = _reasoning_tokens(usage)
                                 if _rt:
                                     extra["reasoningTokens"] = _rt
+                                else:
+                                    _tt = extra.get("totalTokens")
+                                    if _tt is not None:
+                                        _split = (
+                                            extra.get("inputTokens", 0)
+                                            + extra.get("outputTokens", 0)
+                                            + extra.get("cacheReadTokens", 0)
+                                            + extra.get("cacheWriteTokens", 0)
+                                        )
+                                        _res = max(0, int(_tt) - _split)
+                                        if _res:
+                                            extra["reasoningTokens"] = _res
                     except Exception:
                         pass
+                # #2794: DB token_count derives from input+output and under-counts
+                # reasoning turns; prefer totalTokens from the blob when larger.
+                _ev_tokens = int(r[4] or 0)
+                _tt = extra.get("totalTokens")
+                if _tt is not None and int(_tt) > _ev_tokens:
+                    _ev_tokens = int(_tt)
                 events.append(Event(
                     agent=self.name,
                     session_id=str(session_id),
@@ -481,7 +684,7 @@ class OpenClawAdapter(AgentAdapter):
                     type=str(r[1] or "event"),
                     ts=ts_f,
                     content=content_text,
-                    tokens=int(r[4] or 0),
+                    tokens=_ev_tokens,
                     extra=extra,
                 ))
         except Exception as exc:
@@ -525,6 +728,8 @@ class OpenClawAdapter(AgentAdapter):
           structured ``details`` payload + ``is_error`` flag + text content back
           onto the tool span identified by ``tool_use_id`` (#2733).
         - ``subagent_spawn``           → agent.spawn span (INTERNAL, link to child trace)
+        - ``commentary`` / ``progress`` → commentary/progress span (INTERNAL,
+          child of root) preserving the narration text + subtype (#3015).
 
         Span IDs are deterministic SHA-256 prefixes so re-ingesting is idempotent.
         """
@@ -537,6 +742,10 @@ class OpenClawAdapter(AgentAdapter):
         # are emitted; consumed when a later user tool_result block references
         # the same id (#2733).
         tool_span_by_id: dict = {}
+        # First-event latency tracking (#3016): capture session start time so
+        # we can record the wall-clock delta to the first assistant reply.
+        _session_start_ts: float | None = None
+        _first_assistant_done: bool = False
 
         for obj in events:
             if not isinstance(obj, dict):
@@ -549,6 +758,7 @@ class OpenClawAdapter(AgentAdapter):
                 ts = now
 
             if t == "session" and obj.get("version") is not None:
+                _session_start_ts = ts
                 spans.append({
                     "span_id": session_span_id,
                     "trace_id": trace_id,
@@ -660,6 +870,28 @@ class OpenClawAdapter(AgentAdapter):
                 # prefer it when present so spans are not under-counted (#2794).
                 tok_total = int(usage.get("totalTokens") or usage.get("total_tokens") or 0)
                 llm_sid = _sid("llm", session_id, str(raw_ts))
+                # First-event latency + slow-reply diagnostic (#3016): record
+                # on the FIRST assistant span only — subsequent turns are not
+                # the "initial reply delay" the harness tracks.
+                llm_attrs: dict = {}
+                if not _first_assistant_done:
+                    _first_assistant_done = True
+                    if _session_start_ts is not None and ts > _session_start_ts:
+                        llm_attrs["llm.first_event_latency_s"] = round(
+                            ts - _session_start_ts, 3
+                        )
+                    _fe_ms = (
+                        obj.get("firstEventLatencyMs")
+                        or obj.get("first_event_latency_ms")
+                    )
+                    if _fe_ms is not None:
+                        try:
+                            llm_attrs["llm.first_event_latency_ms"] = float(_fe_ms)
+                        except (TypeError, ValueError):
+                            pass
+                    _slow = obj.get("slowReply") or obj.get("slow_reply")
+                    if _slow:
+                        llm_attrs["llm.slow_reply"] = True
                 spans.append({
                     "span_id": llm_sid,
                     "trace_id": trace_id,
@@ -678,6 +910,7 @@ class OpenClawAdapter(AgentAdapter):
                     # reasoning share, so summing them would double-count, and
                     # either alone under-counts when the other key is present.
                     "token_count": max(tok_total, tok_in + tok_out + tok_reasoning) or None,
+                    "attributes": llm_attrs or None,
                 })
                 if isinstance(content, list):
                     for block in content:
@@ -745,6 +978,77 @@ class OpenClawAdapter(AgentAdapter):
                     "agent_type": "openclaw",
                     "links": [{"trace_id": child_trace, "span_id": "0" * 16}] if child_trace else None,
                     "attributes": {"subagent_id": sub_id} if sub_id else None,
+                })
+
+            elif t in ("commentary", "progress"):
+                # The Claude CLI emits inter-tool commentary and long-running
+                # progress updates as distinct JSONL event types (#89834,
+                # #90883). These fell through every branch above, so the span
+                # builder dropped them and their payload was silently discarded
+                # (#3015). Emit a lightweight INTERNAL span under the session
+                # root so the Tracing tab shows the narration/progress timeline
+                # and downstream Event.extra can render the original payload.
+                data = obj.get("data") if isinstance(obj.get("data"), dict) else {}
+                comment_attrs: dict = {"event.kind": t}
+                # The text lives under a handful of field-name variants
+                # depending on which CLI path emitted it; surface the first
+                # non-empty one as a quick-read string.
+                text = (
+                    obj.get("text") or obj.get("content") or obj.get("body")
+                    or data.get("text") or data.get("content") or data.get("message")
+                )
+                if isinstance(text, str) and text.strip():
+                    comment_attrs["commentary.text"] = text
+                # A subtype/label distinguishes streams (e.g. "tool_progress"
+                # vs "thinking" commentary); keep it when present.
+                subtype = (
+                    obj.get("subtype") or obj.get("label")
+                    or data.get("subtype") or data.get("label")
+                )
+                if isinstance(subtype, str) and subtype.strip():
+                    comment_attrs["commentary.subtype"] = subtype.strip()
+                spans.append({
+                    "span_id": _sid(t, session_id, str(raw_ts)),
+                    "trace_id": trace_id,
+                    "parent_span_id": session_span_id,
+                    "name": t,
+                    "kind": "INTERNAL",
+                    "start_ts": ts,
+                    "session_id": session_id,
+                    "agent_type": "openclaw",
+                    "attributes": comment_attrs,
+                })
+
+            elif t == "first_assistant_event":
+                latency_ms = (
+                    obj.get("latency_ms")
+                    or obj.get("ttfr_ms")
+                    or obj.get("firstEventLatencyMs")
+                    or obj.get("first_event_latency_ms")
+                )
+                slow_reply = bool(
+                    obj.get("slow_reply")
+                    or obj.get("slowReply")
+                    or obj.get("is_slow")
+                )
+                fa_attrs: dict = {}
+                if latency_ms is not None:
+                    try:
+                        fa_attrs["ttfr.latency_ms"] = float(latency_ms)
+                    except (TypeError, ValueError):
+                        pass
+                if slow_reply:
+                    fa_attrs["ttfr.slow_reply"] = True
+                spans.append({
+                    "span_id": _sid("ttfr", session_id, str(raw_ts)),
+                    "trace_id": trace_id,
+                    "parent_span_id": session_span_id,
+                    "name": "first_response",
+                    "kind": "INTERNAL",
+                    "start_ts": ts,
+                    "session_id": session_id,
+                    "agent_type": "openclaw",
+                    "attributes": fa_attrs or None,
                 })
 
         return spans

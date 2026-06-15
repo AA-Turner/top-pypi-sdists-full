@@ -616,6 +616,7 @@ def windowed(
     expression: Underscore | None = None,
     offline_expression: Underscore | None = None,
     materialization: MaterializationWindowConfig | Literal[True] | None = None,
+    typ: Type[Any] | None = None,
 ) -> Windowed[TRich]:
     """Create a windowed feature.
 
@@ -749,6 +750,10 @@ def windowed(
         ...     )
     encoder
     decoder
+    typ
+        The Python type of the windowed values. Usually inferred from the
+        `Windowed[...]` class annotation; required when there is no class body
+        to infer from, as with `add_features(...)`.
 
     Returns
     -------
@@ -803,7 +808,9 @@ def windowed(
         contains=None,
         strict=strict,
         dtype=dtype,
-        kind=None,
+        # Normally the kind comes from the `Windowed[...]` annotation; `typ=` lets
+        # class-free callers (`add_features(...)`) specify it directly.
+        kind=typ,
         validations=validations,
         offline_ttl=offline_ttl,
         expression=expression,

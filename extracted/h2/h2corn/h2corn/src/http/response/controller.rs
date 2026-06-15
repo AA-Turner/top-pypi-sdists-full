@@ -1,7 +1,5 @@
 use std::mem;
 
-use tokio::fs::File;
-
 use super::actions;
 use crate::error::{self, ErrorExt};
 use crate::{bridge, http};
@@ -16,6 +14,14 @@ enum ResponseState {
     },
     Complete,
     Aborted,
+}
+
+impl ResponseState {
+    const fn waiting_for_trailers() -> Self {
+        Self::WaitingForTrailers {
+            buffered: http::types::ResponseHeaders::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -159,9 +165,7 @@ impl ResponseController {
 
         self.state = if final_chunk {
             if started.expects_trailers {
-                ResponseState::WaitingForTrailers {
-                    buffered: http::types::ResponseHeaders::new(),
-                }
+                ResponseState::waiting_for_trailers()
             } else {
                 actions.push(actions::ResponseAction::Finish);
                 ResponseState::Complete
@@ -182,7 +186,6 @@ impl ResponseController {
             self.state = ResponseState::StartedStreaming(started);
             return error::HttpResponseError::PathsendMixedWithBody.err();
         }
-        drop(started);
         let start = actions::ResponseStart::new(status, http::types::ResponseHeaders::new());
         actions.push(actions::ResponseAction::Final {
             start,
@@ -195,7 +198,7 @@ impl ResponseController {
     pub(crate) fn handle_pathsend(
         &mut self,
         actions: &mut actions::ResponseActions,
-        file: File,
+        source: http::pathsend::PathSource,
         len: usize,
     ) -> Result<(), error::H2CornError> {
         let mut started = self.take_started(error::HttpResponseError::PathsendBeforeStart)?;
@@ -213,19 +216,39 @@ impl ResponseController {
             return Ok(());
         }
 
-        let file = Box::new(file);
-        if started.expects_trailers {
-            actions.push(started.take_start_action());
-            actions.push(actions::ResponseAction::File { file, len });
-            self.state = ResponseState::WaitingForTrailers {
-                buffered: http::types::ResponseHeaders::new(),
-            };
-        } else {
-            self.state =
-                complete_response(actions, &mut started, actions::FinalResponseBody::File {
-                    file,
-                    len,
-                });
+        match source {
+            // Preloaded files travel the ordinary body path (vectored
+            // chunk emission downstream); the file is already closed.
+            http::pathsend::PathSource::Buffered(data) => {
+                if started.expects_trailers {
+                    actions.push(started.take_start_action());
+                    if !data.is_empty() {
+                        actions.push(actions::ResponseAction::Body(data.into()));
+                    }
+                    self.state = ResponseState::waiting_for_trailers();
+                } else {
+                    let body = if data.is_empty() {
+                        actions::FinalResponseBody::Empty
+                    } else {
+                        actions::FinalResponseBody::Bytes(data.into())
+                    };
+                    self.state = complete_response(actions, &mut started, body);
+                }
+            },
+            http::pathsend::PathSource::File(file) => {
+                let file = Box::new(file);
+                if started.expects_trailers {
+                    actions.push(started.take_start_action());
+                    actions.push(actions::ResponseAction::File { file, len });
+                    self.state = ResponseState::waiting_for_trailers();
+                } else {
+                    self.state = complete_response(
+                        actions,
+                        &mut started,
+                        actions::FinalResponseBody::File { file, len },
+                    );
+                }
+            },
         }
         Ok(())
     }
@@ -321,9 +344,7 @@ fn wait_for_trailers(
     started: &mut StartedResponse,
 ) -> ResponseState {
     actions.push(started.take_start_action());
-    ResponseState::WaitingForTrailers {
-        buffered: http::types::ResponseHeaders::new(),
-    }
+    ResponseState::waiting_for_trailers()
 }
 
 fn complete_response(
@@ -549,8 +570,8 @@ mod tests {
             .expect_err("missing start is an app contract error");
 
         assert!(matches!(
-            err,
-            error::H2CornError::HttpResponse(
+            err.kind(),
+            error::ErrorKind::HttpResponse(
                 error::HttpResponseError::AppReturnedWithoutStartingResponse
             )
         ));
@@ -590,7 +611,9 @@ mod tests {
         controller
             .handle_pathsend(
                 &mut actions,
-                File::from_std(std::fs::File::open(&temp_path).expect("temp file opens")),
+                http::pathsend::PathSource::File(File::from_std(
+                    std::fs::File::open(&temp_path).expect("temp file opens"),
+                )),
                 4,
             )
             .expect("pathsend is accepted");
@@ -607,8 +630,8 @@ mod tests {
         };
 
         assert!(matches!(
-            err,
-            error::H2CornError::HttpResponse(
+            err.kind(),
+            error::ErrorKind::HttpResponse(
                 error::HttpResponseError::BodyBeforeStart
                     | error::HttpResponseError::PathsendMixedWithBody
             )
@@ -616,19 +639,18 @@ mod tests {
         let _ = std::fs::remove_file(temp_path);
     }
 
-    fn start_unary(controller: &mut ResponseController, actions: &mut http::response::ResponseActions) {
-        event_requests_pathsend(
-            controller,
-            actions,
-            bridge::HttpOutboundEvent::Start {
-                status: 200,
-                headers: vec![(
-                    Bytes::from_static(b"content-type").into(),
-                    Bytes::from_static(b"image/png").into(),
-                )],
-                trailers: false,
-            },
-        )
+    fn start_unary(
+        controller: &mut ResponseController,
+        actions: &mut http::response::ResponseActions,
+    ) {
+        event_requests_pathsend(controller, actions, bridge::HttpOutboundEvent::Start {
+            status: 200,
+            headers: vec![(
+                Bytes::from_static(b"content-type").into(),
+                Bytes::from_static(b"image/png").into(),
+            )],
+            trailers: false,
+        })
         .expect("response start is accepted");
         assert!(actions.is_empty());
     }
@@ -687,8 +709,8 @@ mod tests {
             .handle_pathsend_substitute(&mut actions, http::types::status_code::NOT_FOUND)
             .expect_err("pathsend before start is invalid");
         assert!(matches!(
-            err,
-            error::H2CornError::HttpResponse(error::HttpResponseError::PathsendBeforeStart)
+            err.kind(),
+            error::ErrorKind::HttpResponse(error::HttpResponseError::PathsendBeforeStart)
         ));
         assert!(actions.is_empty());
     }
@@ -723,8 +745,8 @@ mod tests {
             .handle_pathsend_substitute(&mut actions, http::types::status_code::NOT_FOUND)
             .expect_err("substituting after body is invalid");
         assert!(matches!(
-            err,
-            error::H2CornError::HttpResponse(error::HttpResponseError::PathsendMixedWithBody)
+            err.kind(),
+            error::ErrorKind::HttpResponse(error::HttpResponseError::PathsendMixedWithBody)
         ));
         assert!(actions.is_empty());
     }
@@ -778,8 +800,8 @@ mod tests {
             http::response::ResponseAction::AbortIncomplete,
         ));
         assert!(matches!(
-            err,
-            error::H2CornError::HttpResponse(
+            err.kind(),
+            error::ErrorKind::HttpResponse(
                 error::HttpResponseError::AppReturnedWithoutCompletingResponse
             ),
         ));

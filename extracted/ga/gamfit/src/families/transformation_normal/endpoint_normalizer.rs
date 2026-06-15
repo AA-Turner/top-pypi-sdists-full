@@ -20,7 +20,7 @@ use super::TransformationNormalError;
 /// Stable `log[Φ(upper) − Φ(lower)]` for `lower < upper`, evaluated via
 /// `normal_logcdf` and a `log1mexp` correction so the endpoint mass survives
 /// far-tail underflow.
-pub(super) fn log_normal_cdf_diff(upper: f64, lower: f64) -> Result<f64, String> {
+pub(crate) fn log_normal_cdf_diff(upper: f64, lower: f64) -> Result<f64, String> {
     if !(upper.is_finite() && lower.is_finite()) {
         return Err(TransformationNormalError::InvalidInput {
             reason: format!("finite support endpoints required, got lower={lower}, upper={upper}"),
@@ -56,7 +56,7 @@ pub(super) fn log_normal_cdf_diff(upper: f64, lower: f64) -> Result<f64, String>
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(super) struct LogNormalCdfDiffDerivatives {
+pub(crate) struct LogNormalCdfDiffDerivatives {
     pub(super) log_z: f64,
     pub(super) first: [f64; 2],
     pub(super) second: [[f64; 2]; 2],
@@ -64,11 +64,11 @@ pub(super) struct LogNormalCdfDiffDerivatives {
     pub(super) fourth: [[[[f64; 2]; 2]; 2]; 2],
 }
 
-pub(super) fn endpoint_chain_first(q: &LogNormalCdfDiffDerivatives, a: [f64; 2]) -> f64 {
+pub(crate) fn endpoint_chain_first(q: &LogNormalCdfDiffDerivatives, a: [f64; 2]) -> f64 {
     q.first[0] * a[0] + q.first[1] * a[1]
 }
 
-pub(super) fn endpoint_chain_second(
+pub(crate) fn endpoint_chain_second(
     q: &LogNormalCdfDiffDerivatives,
     a: [f64; 2],
     b: [f64; 2],
@@ -83,7 +83,7 @@ pub(super) fn endpoint_chain_second(
     out
 }
 
-pub(super) fn endpoint_chain_third(
+pub(crate) fn endpoint_chain_third(
     q: &LogNormalCdfDiffDerivatives,
     a: [f64; 2],
     b: [f64; 2],
@@ -105,7 +105,7 @@ pub(super) fn endpoint_chain_third(
     out
 }
 
-pub(super) fn endpoint_chain_fourth(
+pub(crate) fn endpoint_chain_fourth(
     q: &LogNormalCdfDiffDerivatives,
     a: [f64; 2],
     b: [f64; 2],
@@ -151,7 +151,7 @@ pub(super) fn endpoint_chain_fourth(
     out
 }
 
-pub(super) fn log_normal_cdf_diff_derivatives(
+pub(crate) fn log_normal_cdf_diff_derivatives(
     upper: f64,
     lower: f64,
 ) -> Result<LogNormalCdfDiffDerivatives, String> {
@@ -167,7 +167,7 @@ pub(super) fn log_normal_cdf_diff_derivatives(
     })
 }
 
-fn log_normal_cdf_diff_tower(
+pub(crate) fn log_normal_cdf_diff_tower(
     upper_var: Tower4<2>,
     lower_var: Tower4<2>,
     upper: f64,
@@ -217,7 +217,7 @@ fn log_normal_cdf_diff_tower(
     Ok(tower)
 }
 
-fn log_normal_cdf_diff_tower_ordered(
+pub(crate) fn log_normal_cdf_diff_tower_ordered(
     upper_var: Tower4<2>,
     lower_var: Tower4<2>,
     upper: f64,
@@ -247,7 +247,7 @@ fn log_normal_cdf_diff_tower_ordered(
 mod tests {
     use super::*;
 
-    fn hand_factorial(n: usize) -> f64 {
+    pub(crate) fn hand_factorial(n: usize) -> f64 {
         match n {
             0 | 1 => 1.0,
             2 => 2.0,
@@ -263,7 +263,7 @@ mod tests {
         }
     }
 
-    fn hand_poly_mul_truncated(a: &[[f64; 5]; 5], b: &[[f64; 5]; 5]) -> [[f64; 5]; 5] {
+    pub(crate) fn hand_poly_mul_truncated(a: &[[f64; 5]; 5], b: &[[f64; 5]; 5]) -> [[f64; 5]; 5] {
         let mut out = [[0.0; 5]; 5];
         for ia in 0..=4 {
             for ib in 0..=(4 - ia) {
@@ -284,7 +284,7 @@ mod tests {
         out
     }
 
-    fn hand_signed_normal_pdf_ratio(
+    pub(crate) fn hand_signed_normal_pdf_ratio(
         x: f64,
         polynomial_factor: f64,
         log_z: f64,
@@ -302,7 +302,7 @@ mod tests {
         polynomial_factor.signum() * log_abs.exp()
     }
 
-    fn hand_log_normal_cdf_diff_derivatives(
+    pub(crate) fn hand_log_normal_cdf_diff_derivatives(
         upper: f64,
         lower: f64,
     ) -> Result<LogNormalCdfDiffDerivatives, String> {
@@ -385,11 +385,11 @@ mod tests {
         })
     }
 
-    fn rel_error(actual: f64, expected: f64, floor: f64) -> f64 {
+    pub(crate) fn rel_error(actual: f64, expected: f64, floor: f64) -> f64 {
         (actual - expected).abs() / expected.abs().max(floor).max(1e-300)
     }
 
-    fn max_relative_error(
+    pub(crate) fn max_relative_error(
         actual: &LogNormalCdfDiffDerivatives,
         expected: &LogNormalCdfDiffDerivatives,
     ) -> f64 {
@@ -444,11 +444,11 @@ mod tests {
     }
 
     #[test]
-    fn tower_endpoint_normalizer_matches_hand_witness_across_ctn_regimes() {
+    pub(crate) fn tower_endpoint_normalizer_matches_hand_witness_across_ctn_regimes() {
         struct Regime {
-            name: &'static str,
-            cases: &'static [(f64, f64)],
-            rel_tol: f64,
+            pub(crate) name: &'static str,
+            pub(crate) cases: &'static [(f64, f64)],
+            pub(crate) rel_tol: f64,
         }
 
         const WIDE: &[(f64, f64)] = &[(-2.0, -7.5), (2.0, -3.0), (8.0, -8.0)];

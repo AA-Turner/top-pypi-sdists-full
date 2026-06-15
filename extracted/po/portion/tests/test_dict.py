@@ -16,6 +16,10 @@ class TestIntervalDict:
             d[3]
         assert d.get(3) is None
 
+        # Non hashable values
+        d = P.IntervalDict()
+        d[P.closed(0, 2)] = [0]
+
     def test_with_intervals(self):
         d = P.IntervalDict([(P.closed(0, 2), 0)])
         assert d[P.open(-P.inf, P.inf)].as_dict() == {P.closed(0, 2): 0}
@@ -351,6 +355,15 @@ class TestIntervalDict:
         assert d[2] == 'b'
         assert len(d) == 2
 
+    def test_update_with_non_hashable_values(self):
+        d = P.IntervalDict()
+        d2 = {1: [1], 2: [2]}
+
+        d.update(d2)
+        assert d[1] == [1]
+        assert d[2] == [2]
+        assert len(d) == 2
+
     def test_as_dict(self):
         content = {
             P.closed(1, 2) | P.closed(4, 5): 1,
@@ -366,3 +379,8 @@ class TestIntervalDict:
             P.open(7, 8): 2,
             P.closed(10, 12): 2,
         }
+
+    @pytest.mark.parametrize("size", [10, 100, 1000])
+    def test_init_repeating_values(self, benchmark, size):
+        tuples = [(P.closed(i, i+1), i%2) for i in range(size)]
+        benchmark(P.IntervalDict, tuples)

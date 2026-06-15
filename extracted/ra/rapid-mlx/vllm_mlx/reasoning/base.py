@@ -51,7 +51,7 @@ class ReasoningParser(ABC):
         Initialize parser with optional tokenizer.
 
         Args:
-            tokenizer: Optional tokenizer for token-based parsing. For vllm-mlx,
+            tokenizer: Optional tokenizer for token-based parsing. For rapid-mlx,
                       text-based parsing is sufficient, so this is optional.
         """
         self.tokenizer = tokenizer
@@ -60,12 +60,21 @@ class ReasoningParser(ABC):
     def extract_reasoning(
         self,
         model_output: str,
+        enable_thinking: bool | None = None,
     ) -> tuple[str | None, str | None]:
         """
         Extract reasoning content from complete model output.
 
         Args:
             model_output: Complete text output from the model.
+            enable_thinking: Whether the request set
+                ``chat_template_kwargs.enable_thinking=True``. ``None``
+                preserves pre-#575 behaviour — the load-bearing path is
+                ``BaseThinkingReasoningParser`` Case 4 / Qwen3 fallback
+                where ``True`` routes truncated bare-text to reasoning
+                instead of leaking the whole thought trace to content.
+                Channel-based parsers (Harmony / GPT-OSS / Gemma 4) can
+                accept and ignore the flag — their tags are unambiguous.
 
         Returns:
             Tuple of (reasoning_content, final_content).

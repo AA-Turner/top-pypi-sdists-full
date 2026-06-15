@@ -4,7 +4,7 @@
 
 [build-system]
 # We use hatchling as the engine, which is decoupled from the hatch CLI
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
@@ -31,12 +31,28 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-colorization = ["colorama"]
-diagrams = ["graphviz"]
-ideps = ["rich"]
-parproc = ["rich"]
-tasks = ["invoke"]
-full = ["colorama", "graphviz", "invoke", "rich"]
+diagrams = [
+    "graphviz>=0.21",
+]
+ideps = [
+    "rich>=15.0.0",
+]
+parproc = [
+    "rich>=15.0.0",
+]
+tasks = [
+    "invoke>=2.2.1",
+    ]
+cling = [
+    "rich>=15.0.0",
+    "pygments>=2.20.0",
+]
+full = [
+    "rich>=15.0.0",
+    "graphviz>=0.21",
+    "invoke>=2.2.1",
+    "pygments>=2.20.0",
+]
 
 [dependency-groups]
 dev = [
@@ -44,18 +60,21 @@ dev = [
     "build>=1.4.0",
     "colorama>=0.4.6",
     "diskcache>=5.6.3",
+    "esbonio>=2.0.0",
     "graphviz>=0.21",
     "invoke>=2.2.1",
     "progress>=1.6.1",
     "psutil>=7.2.2",
+    "pygments>=2.20.0",
     "pyrefly>=0.55.0",
     "pytest>=9.0.2",
     "pytest-dependency>=0.6.0",
-    "rich>=14.3.3",
+    "rich>=15.0.0",
     "rich-click>=1.9.7",
     "ruff>=0.15.6",
     "ty>=0.0.23",
     "uv>=0.11.11",
+    "uv-dynamic-versioning>=0.14.0",
 ]
 test = [
     "colorama>=0.4.6",
@@ -81,6 +100,7 @@ test = [
 ]
 doc = [
     "docutils>=0.22.4",
+    "esbonio>=2.0.0",
     "myst-docutils>=5.0.0",
     "myst-parser>=5.0.0",
     "pydata-sphinx-theme>=0.16.1",
@@ -103,7 +123,9 @@ mkdocs = [
 ]
 
 [project.scripts]
-tatsu = "tatsu:main"
+tatsu = "tatsu:cling_main"
+cling = "tatsu:cling_main"
+otatsu = "tatsu:tatsu_main"
 g2e = "tatsu.g2e:main"
 
 [project.urls]
@@ -111,9 +133,22 @@ Homepage = "https://github.com/neogeny/TatSu"
 Repository = "https://github.com/neogeny/TatSu"
 Documentation = "https://neogeny.github.io/TatSu"
 
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { git = { commit = true, tags = true } }
+]
+
+[tool.uv.workspace]
+members = [
+    ".",
+    ".",
+    ".",
+    ".",
+]
+
 [tool.hatch.version]
-# Telling Hatchling exactly where to find the version string
-path = "tatsu/_version.py"
+source = "uv-dynamic-versioning"
 
 [tool.hatch.build.targets.wheel]
 packages = ["tatsu"]
@@ -232,6 +267,7 @@ combine-as-imports = true
 force-single-line = false
 lines-after-imports = 2
 known-first-party = ["tatsu"]
+relative-imports-order = "furthest-to-closest"
 
 [tool.ruff.lint.pylint]
 max-branches = 21
@@ -268,7 +304,8 @@ ignore = [
     "E501", #    line-too-long
     "E402", #    module-import-not-at-top-of-file
     "I001", #    Import block is un-sorted or un-formatted
-    #    "FURB145".  # Prefer `copy` method over slicing"
+    "FURB145",  # Prefer `copy` method over slicing"
+    "FURB152", # 3.14 disallowed
     "FURB189", #  subclassing str
     "PERF203", #  try-except within loop
     "PGH003",
@@ -291,6 +328,7 @@ ignore = [
     "RUF001", #  string contains ambiguous `＄` (FULLWIDTH DOLLAR SIGN). Did you mean `$` (DOLLAR SIGN)?
     "RUF022", #  __all__ sorting
     "RUF027", #  possible f-string
+    "RUF069", # floating point equality comparison
     "RUF102", # Invalid rule code in `# noqa`: "
     "RUF100", #  Unused `noqa` directive (non-enabled: `RUF001`)
     "RUF075", # Context manager does not catch exceptions
@@ -360,11 +398,10 @@ reportUnusedParameter = false
 
 [tool.pyrefly]
 project-excludes = [
-    "**/parsers*",
-    "**/docs*",
-    "**/build*",
-    "**/tmp*",
-    "**/tatsu/bootstrap.py",
+    "docs*",
+    "build*",
+    "tmp*",
+    "tatsu/bootstrap.py",
     "tatsu/grammars/leftrec/",
     "tatsu/grammars/leftrec/*.py",
     "tatsu/grammars/leftrec/pegen_leftrec.py",

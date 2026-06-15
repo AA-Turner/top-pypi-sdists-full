@@ -30,6 +30,7 @@ from ..stable_digest import stable_digest_hex
 from ..store import GuardStore
 from ..store_evidence import EvidenceRecord
 from .js_semver import highest_js_version_for_selector, version_matches_js_selector
+from .manifest_dependency_targets import evaluation_targets as _manifest_evaluation_targets
 from .package_intent_common import split_python_extras
 from .package_manifest_diff import (
     _DeadlineExceededError,
@@ -59,6 +60,11 @@ from .supply_chain_bundle_models import (
 )
 from .supply_chain_bundle_runtime import _is_high_confidence_block
 from .supply_chain_support import ecosystem_support_metadata
+from .workspace_path_guard import (
+    read_bytes_within_workspace,
+    read_text_within_workspace,
+    resolve_path_within_workspace,
+)
 
 _DECISION_RANK = {"allow": 0, "monitor": 1, "warn": 2, "ask": 3, "block": 4}
 _SEVERITY_RANK = {"unknown": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
@@ -198,7 +204,7 @@ def evaluate_package_request_artifact(
 ) -> PackageRequestEvaluation:
     now_value = now or datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     now_timestamp = _parse_evaluation_timestamp(now_value)
-    targets = _targets_from_artifact(artifact)
+    targets = _evaluation_targets(artifact, workspace_dir)
     package_intent_hash = artifact.artifact_id.rsplit(":", 1)[-1]
     workspace_id = store.get_cloud_workspace_id()
     bundle_payload = store.get_cached_supply_chain_bundle(workspace_id) if workspace_id is not None else None
@@ -977,6 +983,20 @@ def _evaluate_with_bundle(
     packages: list[dict[str, object]] = []
     lockfile_versions = _lockfile_dependency_versions(workspace_dir, artifact, targets)
     for target in targets:
+        if target.get("manifest_unsynced") is True:
+            packages.append(
+                _heuristic_package_result(
+                    target=target,
+                    decision="ask",
+                    code="manifest_lockfile_unsynced",
+                    message=(
+                        f"{target['package_name']} is declared in the project manifest but is not pinned "
+                        "in the existing lockfile yet, so Guard requires review before install."
+                    ),
+                    severity="high",
+                )
+            )
+            continue
         resolved_version = _resolved_target_version(
             target=target,
             lockfile_versions=lockfile_versions,
@@ -1111,6 +1131,20 @@ def _heuristic_result(
 ) -> _EvaluationDraft | None:
     packages: list[dict[str, object]] = []
     for target in targets:
+        if target.get("manifest_unsynced") is True:
+            packages.append(
+                _heuristic_package_result(
+                    target=target,
+                    decision="ask",
+                    code="manifest_lockfile_unsynced",
+                    message=(
+                        f"{target['package_name']} is declared in the project manifest but is not pinned "
+                        "in the existing lockfile yet, so Guard requires review before install."
+                    ),
+                    severity="high",
+                )
+            )
+            continue
         lockfile_parse_warning = _lockfile_parse_warning_result(
             target=target,
             artifact=artifact,
@@ -1234,6 +1268,17 @@ def _persist_evidence(
         )
 
 
+def _evaluation_targets(
+    artifact: GuardArtifact,
+    workspace_dir: Path | None,
+) -> tuple[dict[str, object], ...]:
+    return _manifest_evaluation_targets(
+        artifact,
+        workspace_dir,
+        explicit_targets=_targets_from_artifact(artifact),
+    )
+
+
 def _targets_from_artifact(artifact: GuardArtifact) -> tuple[dict[str, object], ...]:
     raw_targets = artifact.metadata.get("targets")
     if not isinstance(raw_targets, list):
@@ -1352,12 +1397,11 @@ def _lockfile_context(workspace_dir: Path | None, artifact: GuardArtifact) -> di
     lockfile_paths = artifact.metadata.get("lockfile_paths")
     if not isinstance(lockfile_paths, list) or not lockfile_paths:
         return None
-    lockfile_path = workspace_dir / str(lockfile_paths[0])
-    if not lockfile_path.exists():
+    lockfile_path = resolve_path_within_workspace(workspace_dir, str(lockfile_paths[0]))
+    if lockfile_path is None or not lockfile_path.exists():
         return None
-    try:
-        lockfile_text = lockfile_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    lockfile_text = read_text_within_workspace(workspace_dir, str(lockfile_paths[0]))
+    if lockfile_text is None:
         return None
     dependencies = _safe_dependency_map_for_path(
         str(lockfile_path.name), lockfile_text, deadline=time.monotonic() + _LOCKFILE_PARSE_BUDGET_SECONDS
@@ -1389,15 +1433,15 @@ def _transitive_lockfile_results(
     bundle_index = _bundle_package_index(bundle_response)
     direct_target_names_by_ecosystem: dict[str, set[str]] = {}
     all_direct_target_names: set[str] = set()
-    direct_targets = _targets_from_artifact(artifact)
+    direct_targets = _evaluation_targets(artifact, workspace_dir)
     for target in direct_targets:
         ecosystem = _optional_string(target.get("ecosystem")) or "npm"
         candidate_names = {str(target["normalized_name"]), *_target_candidate_names(target)}
         direct_target_names_by_ecosystem.setdefault(ecosystem, set()).update(candidate_names)
         all_direct_target_names.update(candidate_names)
     for relative_path in lockfile_paths:
-        lockfile_path = workspace_dir / str(relative_path)
-        if not lockfile_path.exists():
+        lockfile_path = resolve_path_within_workspace(workspace_dir, str(relative_path))
+        if lockfile_path is None or not lockfile_path.exists():
             continue
         lockfile_ecosystem = _lockfile_ecosystem(lockfile_path.name)
         direct_target_names = (
@@ -1405,9 +1449,8 @@ def _transitive_lockfile_results(
             if lockfile_ecosystem is not None
             else all_direct_target_names
         )
-        try:
-            lockfile_text = lockfile_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        lockfile_text = read_text_within_workspace(workspace_dir, str(relative_path))
+        if lockfile_text is None:
             continue
         dependency_entries: list[tuple[str, str, str, bool]] = []
         parse_deadline = time.monotonic() + _LOCKFILE_PARSE_BUDGET_SECONDS
@@ -1795,9 +1838,11 @@ def _bun_lockfile_binary_fallback_packages(
         return []
     bun_lock_path = next(
         (
-            workspace_dir / str(relative_path)
+            resolved
             for relative_path in lockfile_paths
-            if Path(str(relative_path)).name == "bun.lockb" and (workspace_dir / str(relative_path)).exists()
+            if Path(str(relative_path)).name == "bun.lockb"
+            and (resolved := resolve_path_within_workspace(workspace_dir, str(relative_path))) is not None
+            and resolved.exists()
         ),
         None,
     )
@@ -2130,12 +2175,20 @@ def _go_replace_result(
     manifest_paths = artifact.metadata.get("manifest_paths")
     if not isinstance(manifest_paths, list):
         return None
-    go_mod_path = next((workspace_dir / str(path) for path in manifest_paths if Path(str(path)).name == "go.mod"), None)
-    if go_mod_path is None or not go_mod_path.exists():
+    go_mod_relative_path = next(
+        (
+            str(path)
+            for path in manifest_paths
+            if Path(str(path)).name == "go.mod"
+            and (resolved := resolve_path_within_workspace(workspace_dir, str(path))) is not None
+            and resolved.exists()
+        ),
+        None,
+    )
+    if go_mod_relative_path is None:
         return None
-    try:
-        go_mod_text = go_mod_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    go_mod_text = read_text_within_workspace(workspace_dir, go_mod_relative_path)
+    if go_mod_text is None:
         return None
     replacements = _go_mod_replace_map(go_mod_text)
     for candidate in _target_candidate_names(target):
@@ -2402,12 +2455,11 @@ def _lockfile_dependency_versions(
         ecosystem="pypi",
     )
     for relative_path in lockfile_paths:
-        lockfile_path = workspace_dir / str(relative_path)
-        if not lockfile_path.exists():
+        lockfile_path = resolve_path_within_workspace(workspace_dir, str(relative_path))
+        if lockfile_path is None or not lockfile_path.exists():
             continue
-        try:
-            lockfile_text = lockfile_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        lockfile_text = read_text_within_workspace(workspace_dir, str(relative_path))
+        if lockfile_text is None:
             continue
         if lockfile_path.name == "package-lock.json":
             versions.update(_package_lock_target_versions(lockfile_text, targets))
@@ -2458,12 +2510,11 @@ def _manifest_direct_dependency_names(
     package_manager = str(artifact.metadata.get("package_manager") or "npm")
     direct_names: set[str] = set()
     for relative_path in manifest_paths:
-        manifest_path = workspace_dir / str(relative_path)
-        if not manifest_path.exists():
+        manifest_path = resolve_path_within_workspace(workspace_dir, str(relative_path))
+        if manifest_path is None or not manifest_path.exists():
             continue
-        try:
-            manifest_text = manifest_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        manifest_text = read_text_within_workspace(workspace_dir, str(relative_path))
+        if manifest_text is None:
             continue
         dependency_map = _artifact_manifest_dependency_map(
             package_manager=package_manager,
@@ -2489,12 +2540,11 @@ def _manifest_dependency_versions(
     keyed_targets = {target_key: target for target in targets if (target_key := _lockfile_target_key(target))}
     versions: dict[tuple[str, str | None], str] = {}
     for relative_path in manifest_paths:
-        manifest_path = workspace_dir / str(relative_path)
-        if not manifest_path.exists():
+        manifest_path = resolve_path_within_workspace(workspace_dir, str(relative_path))
+        if manifest_path is None or not manifest_path.exists():
             continue
-        try:
-            manifest_text = manifest_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        manifest_text = read_text_within_workspace(workspace_dir, str(relative_path))
+        if manifest_text is None:
             continue
         dependency_map = _artifact_manifest_dependency_map(
             package_manager=package_manager,
@@ -3237,15 +3287,14 @@ def _lockfile_parse_warning_result(
         return None
     target_ecosystem = _optional_string(target.get("ecosystem")) or "npm"
     for relative_path in lockfile_paths:
-        lockfile_path = workspace_dir / str(relative_path)
-        if not lockfile_path.exists():
+        lockfile_path = resolve_path_within_workspace(workspace_dir, str(relative_path))
+        if lockfile_path is None or not lockfile_path.exists():
             continue
         lockfile_ecosystem = _lockfile_ecosystem(lockfile_path.name)
         if lockfile_ecosystem is not None and lockfile_ecosystem != target_ecosystem:
             continue
-        try:
-            lockfile_text = lockfile_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        lockfile_text = read_text_within_workspace(workspace_dir, str(relative_path))
+        if lockfile_text is None:
             continue
         _dependency_map, error = _safe_dependency_map_result_for_path(
             lockfile_path.name,
@@ -3432,13 +3481,10 @@ def _hash_paths(workspace_dir: Path | None, raw_paths: object) -> list[str]:
         return []
     hashes: list[str] = []
     for item in raw_paths:
-        path = workspace_dir / str(item)
-        if not path.exists():
+        payload = read_bytes_within_workspace(workspace_dir, str(item))
+        if payload is None:
             continue
-        try:
-            hashes.append(stable_digest_hex(path.read_bytes()))
-        except OSError:
-            continue
+        hashes.append(stable_digest_hex(payload))
     return hashes
 
 

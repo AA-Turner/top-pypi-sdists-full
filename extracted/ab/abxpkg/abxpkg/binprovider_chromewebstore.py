@@ -13,7 +13,7 @@ from typing import Any, Self
 from pydantic import Field, computed_field, model_validator
 
 from .base_types import (
-    DEFAULT_LIB_DIR,
+    DEFAULT_ABXPKG_LIB_DIR,
     BinName,
     BinProviderName,
     PATHStr,
@@ -34,8 +34,8 @@ logger = get_logger(__name__)
 
 # Ultimate fallback when neither the constructor arg nor
 # ``ABXPKG_CHROMEWEBSTORE_ROOT`` nor ``ABXPKG_LIB_DIR`` is set.
-DEFAULT_CHROMEWEBSTORE_ROOT = DEFAULT_LIB_DIR / "chromewebstore"
-CHROME_UTILS_PATH = Path(__file__).with_name("js") / "chrome" / "chrome_utils.js"
+DEFAULT_CHROMEWEBSTORE_ROOT = DEFAULT_ABXPKG_LIB_DIR / "chromewebstore"
+CHROMEWEBSTORE_UTILS_PATH = Path(__file__).with_name("chromewebstore_utils.js")
 
 
 class ChromeWebstoreProvider(BinProvider):
@@ -73,13 +73,20 @@ class ChromeWebstoreProvider(BinProvider):
 
     @computed_field
     @property
+    def ENV(self) -> "dict[str, str]":
+        if not self.bin_dir:
+            return {}
+        return {"CHROMEWEBSTORE_EXTENSIONS_DIR": str(self.bin_dir)}
+
+    @computed_field
+    @property
     def is_valid(self) -> bool:
         return bool(
             (
                 bin_abspath(self.INSTALLER_BIN, PATH=self.PATH)
                 or bin_abspath(self.INSTALLER_BIN)
             )
-            and CHROME_UTILS_PATH.exists(),
+            and CHROMEWEBSTORE_UTILS_PATH.exists(),
         )
 
     @model_validator(mode="after")
@@ -276,10 +283,20 @@ class ChromeWebstoreProvider(BinProvider):
         manifest_path = unpacked_path / "manifest.json"
         return webstore_id, extension_name, unpacked_path, crx_path, manifest_path
 
+    def _sanitize_unpacked_extension(self, unpacked_path: Path) -> None:
+        # Chrome Web Store CRX payloads include `_metadata` for signed store installs,
+        # but CDP Extensions.loadUnpacked rejects it. Keep this in the provider so
+        # every consumer gets one stable, loadable unpacked artifact instead of
+        # copying extensions into runtime-specific temp dirs.
+        signed_store_metadata = unpacked_path / "_metadata"
+        if signed_store_metadata.exists():
+            shutil.rmtree(signed_store_metadata, ignore_errors=True)
+
     def chromewebstore_abspath_handler(self, bin_name: str, **context) -> str | None:
         """Resolve an installed extension to its unpacked ``manifest.json`` path."""
-        _, _, _, _, manifest_path = self._extension_spec(bin_name)
+        _, _, unpacked_path, _, manifest_path = self._extension_spec(bin_name)
         if manifest_path.exists():
+            self._sanitize_unpacked_extension(unpacked_path)
             return str(manifest_path)
         return None
 
@@ -307,7 +324,7 @@ class ChromeWebstoreProvider(BinProvider):
         no_cache: bool = False,
         **context,
     ) -> str:
-        """Download, unpack, and cache a Chrome Web Store extension via chrome_utils.js."""
+        """Download, unpack, and cache a Chrome Web Store extension via the packaged JS helper."""
         install_args = list(install_args or self.get_install_args(bin_name))
         if self.dry_run:
             return f"DRY_RUN would install Chrome Web Store extension {bin_name}"
@@ -324,17 +341,17 @@ class ChromeWebstoreProvider(BinProvider):
         proc = self.exec(
             bin_name=installer_bin,
             cmd=[
-                str(CHROME_UTILS_PATH),
+                str(CHROMEWEBSTORE_UTILS_PATH),
                 "installExtensionWithCache",
                 webstore_id,
                 extension_name,
+                str(bin_dir),
                 *(["--no-cache"] if no_cache else []),
             ],
             cwd=install_root,
             timeout=timeout if timeout is not None else self.install_timeout,
             env={
                 **os.environ,
-                "CHROME_EXTENSIONS_DIR": str(bin_dir),
                 # Make node 22+ honor HTTP(S)_PROXY env vars when fetching
                 # extensions; ``undici``'s ``fetch`` does not consult them
                 # without this flag, which silently breaks downloads on any
@@ -350,6 +367,9 @@ class ChromeWebstoreProvider(BinProvider):
             raise FileNotFoundError(
                 f"{self.__class__.__name__} did not produce cache metadata at {cache_path}",
             )
+
+        _, _, unpacked_path, _, _ = self._extension_spec(bin_name)
+        self._sanitize_unpacked_extension(unpacked_path)
 
         return format_subprocess_output(proc.stdout, proc.stderr)
 

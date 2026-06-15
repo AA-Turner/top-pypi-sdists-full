@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx-weekly
-Version: 1.22.0.dev20260608
+Version: 1.22.0.dev20260615
 Summary: Open Neural Network Exchange
 Author-Email: ONNX Contributors <onnx-technical-discuss@lists.lfaidata.foundation>
 License-Expression: Apache-2.0

@@ -19,23 +19,6 @@ if TYPE_CHECKING:
     from praw.models.listing.generator import ListingGeneratorKwargs
 
 
-class SubListing(BaseListingMixin):
-    """Helper class for generating :class:`.ListingGenerator` objects."""
-
-    def __init__(self, reddit: praw.Reddit, base_path: str, subpath: str) -> None:
-        """Initialize a :class:`.SubListing` instance.
-
-        :param reddit: An instance of :class:`.Reddit`.
-        :param base_path: The path to the object up to this point.
-        :param subpath: The additional path to this sublisting.
-
-        """
-        super().__init__(reddit, _data=None)
-        self._listing_use_sort = True
-        self._reddit = reddit
-        self._path = urljoin(base_path, subpath)
-
-
 class RedditorListingMixin(BaseListingMixin):
     """Adds additional methods pertaining to :class:`.Redditor` instances."""
 
@@ -59,6 +42,14 @@ class RedditorListingMixin(BaseListingMixin):
 
         The overview combines a Redditor's comments and submissions, mirroring the user
         overview page on Reddit.
+
+        .. note::
+
+            This is the same listing produced by calling a sort method directly on the
+            :class:`.Redditor` instance, so ``reddit.redditor("spez").overview.new()``
+            and ``reddit.redditor("spez").new()`` yield the same items. Use
+            :attr:`.comments` or :attr:`.submissions` to restrict the listing to a
+            single type.
 
         For example, to output the first line of all top items by u/spez try:
 
@@ -202,3 +193,20 @@ class RedditorListingMixin(BaseListingMixin):
 
         """
         return ListingGenerator(self._reddit, urljoin(self._path, "upvoted"), **generator_kwargs)
+
+
+class SubListing(BaseListingMixin):
+    """Helper class for generating :class:`.ListingGenerator` objects."""
+
+    def __init__(self, reddit: praw.Reddit, base_path: str, subpath: str) -> None:
+        """Initialize a :class:`.SubListing` instance.
+
+        :param reddit: An instance of :class:`.Reddit`.
+        :param base_path: The path to the object up to this point.
+        :param subpath: The additional path to this sublisting.
+
+        """
+        super().__init__(reddit, _data=None)
+        self._listing_use_sort = True
+        self._reddit = reddit
+        self._path = urljoin(base_path, subpath)

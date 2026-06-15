@@ -5,9 +5,9 @@ use std::borrow::Cow;
 use http::Method;
 use memchr::memchr;
 pub use proxy::{ScopeOverrides, resolve_scope_overrides, scope_view_from_parts};
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString};
-use pyo3::{ffi, intern};
 
 use crate::ascii;
 use crate::hpack::BytesStr;
@@ -170,42 +170,18 @@ pub fn headers_to_python<'py>(
     py: Python<'py>,
     headers: &RequestHeaders,
 ) -> PyResult<Bound<'py, PyList>> {
-    // SAFETY: the GIL is held by `py`; the list and each tuple are allocated to
-    // their exact final length; each slot is written exactly once with a fresh
-    // owned reference; and ownership is transferred immediately to the
-    // containing Python object.
-    unsafe {
-        let list = Bound::from_owned_ptr_or_err(py, ffi::PyList_New(headers.len().cast_signed()))?
-            .cast_into_unchecked::<PyList>();
-
-        for (index, header) in headers.iter().enumerate() {
-            let tuple = Bound::from_owned_ptr_or_err(py, ffi::PyTuple_New(2))?;
-
-            let name = header_name_to_python(py, &header.0).unbind().into_ptr();
-            #[cfg(PyPy)]
-            if ffi::PyTuple_SetItem(tuple.as_ptr(), 0, name) != 0 {
-                return Err(PyErr::fetch(py));
-            }
-            #[cfg(not(PyPy))]
-            ffi::PyTuple_SET_ITEM(tuple.as_ptr(), 0, name);
-
-            let value = PyBytes::new(py, header.1.as_bytes()).unbind().into_ptr();
-            #[cfg(PyPy)]
-            if ffi::PyTuple_SetItem(tuple.as_ptr(), 1, value) != 0 {
-                return Err(PyErr::fetch(py));
-            }
-            #[cfg(not(PyPy))]
-            ffi::PyTuple_SET_ITEM(tuple.as_ptr(), 1, value);
-
-            ffi::PyList_SET_ITEM(
-                list.as_ptr(),
-                index.cast_signed(),
-                tuple.unbind().into_ptr(),
-            );
-        }
-
-        Ok(list)
-    }
+    // `PyList::new` over an exact-size iterator compiles to the same
+    // `PyList_New` + `PyList_SET_ITEM` / `PyTuple_New` + `PyTuple_SET_ITEM`
+    // sequence a hand-rolled fill would use.
+    PyList::new(
+        py,
+        headers.iter().map(|(name, value)| {
+            (
+                header_name_to_python(py, name),
+                PyBytes::new(py, value.as_bytes()),
+            )
+        }),
+    )
 }
 
 fn scope_type_to_python<const IS_HTTP: bool>(py: Python<'_>) -> Bound<'_, PyString> {
@@ -306,92 +282,26 @@ fn method_to_python<'py>(py: Python<'py>, method: &Method) -> Bound<'py, PyStrin
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    use std::num::NonZeroU32;
-    use std::sync::Arc;
-    use std::time::Duration;
 
     use http::Method;
     use pyo3::types::{PyAnyMethods, PyDictMethods};
     use pyo3::{PyResult, Python};
-    use pyo3_async_runtimes::TaskLocals;
-    use tokio::sync::watch;
 
     use super::{build_http_scope, decode_path};
-    use crate::config::{
-        BindTarget, Http1Config, Http2Config, ProxyConfig, ResponseHeaderConfig, ServerConfig,
-        WebSocketConfig,
-    };
-    use crate::frame::DEFAULT_MAX_FRAME_SIZE;
     use crate::hpack::BytesStr;
     use crate::http::header_meta::RequestHeaderMeta;
     use crate::http::types::{HttpVersion, RequestHead, RequestTarget};
-    use crate::proxy::{ClientAddr, ConnectionInfo, ConnectionPeer, ProxyProtocolMode, ServerAddr};
-    use crate::runtime::{ConnectionContext, RequestContext, SharedApp, ShutdownState};
+    use crate::proxy::{ClientAddr, ServerAddr};
+    use crate::runtime::{ConnectionContext, RequestContext};
 
     fn init_python() {
         Python::initialize();
     }
 
-    fn test_server_config() -> &'static ServerConfig {
-        Box::leak(Box::new(ServerConfig {
-            binds: Box::new([BindTarget::Tcp {
-                host: Box::from("127.0.0.1"),
-                port: 8000,
-            }]),
-            access_log: false,
-            root_path: Box::from(""),
-            limit_request_fields: None,
-            http1: Http1Config {
-                enabled: true,
-                ..Default::default()
-            },
-            http2: Http2Config {
-                max_concurrent_streams: 8,
-                max_header_list_size: None,
-                max_header_block_size: None,
-                max_inbound_frame_size: NonZeroU32::new(DEFAULT_MAX_FRAME_SIZE as u32)
-                    .expect("default HTTP/2 frame size is non-zero"),
-                timeout_response_stall: None,
-            },
-            max_request_body_size: None,
-            timeout_graceful_shutdown: Duration::from_secs(30),
-            timeout_keep_alive: None,
-            timeout_request_header: None,
-            timeout_request_body_idle: None,
-            limit_concurrency: None,
-            limit_connections: None,
-            max_requests: None,
-            runtime_threads: 2,
-            websocket: WebSocketConfig::default(),
-            proxy: ProxyConfig {
-                trust_headers: false,
-                trusted_peers: Box::new([]),
-                protocol: ProxyProtocolMode::Off,
-            },
-            tls: None,
-            timeout_handshake: Duration::from_secs(5),
-            response_headers: ResponseHeaderConfig::default(),
-        }))
-    }
-
     fn test_connection(py: Python<'_>) -> ConnectionContext {
-        let locals = TaskLocals::new(py.None().into_bound(py));
-        let app = Arc::new(SharedApp {
-            app: py.None(),
-            locals,
-            limits: None,
-        });
-        let info = Arc::new(ConnectionInfo::from_peer(
-            ConnectionPeer::Tcp(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 54321)),
-            Some(ServerAddr {
-                host: "127.0.0.1".into(),
-                port: Some(8000),
-            }),
-            false,
-        ));
-        let (_shutdown_tx, shutdown_rx) = watch::channel(ShutdownState::Running);
-        ConnectionContext::new(app, test_server_config(), info, shutdown_rx)
+        use crate::runtime::test_fixtures;
+
+        test_fixtures::connection_context(py)
     }
 
     fn test_request() -> RequestHead {

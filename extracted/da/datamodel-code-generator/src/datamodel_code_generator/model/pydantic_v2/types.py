@@ -261,8 +261,8 @@ class _PydanticDataTypeManager(_DataTypeManagerBase):
             "exclusiveMaximum": "lt",
             "maximum": "le",
             "multipleOf": "multiple_of",
-            "minItems": "min_items",
-            "maxItems": "max_items",
+            "minItems": "min_length",
+            "maxItems": "max_length",
             "minLength": "min_length",
             "maxLength": "max_length",
             "pattern": self.PATTERN_KEY,
@@ -461,7 +461,7 @@ class PydanticV2DataType(DataType):
         """Yield imports including SerializeAsAny when needed."""
         yield from super().imports
 
-        if "SerializeAsAny" in self.type_hint:
+        if self.use_serialize_as_any and "SerializeAsAny" in self.type_hint:
             yield IMPORT_SERIALIZE_AS_ANY
 
 

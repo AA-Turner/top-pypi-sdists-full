@@ -38,13 +38,13 @@ impl<'a> RemlState<'a> {
     /// Coefficient count below which a problem is considered "small" for the
     /// dense fast-path: at this width a dense p×p Gram/Hessian is at most a few
     /// hundred KB, so the sparse machinery's overhead is not worth paying.
-    const SMALL_P_DENSE_THRESHOLD: usize = 256;
+    pub(crate) const SMALL_P_DENSE_THRESHOLD: usize = 256;
 
     /// Upper-triangle density of the penalized Hessian above which the sparse
     /// exact-SPD backend loses its advantage and we fall back to dense: once
     /// >10% of entries are nonzero, sparse factorization fill-in and bookkeeping
     /// cost more than a dense Cholesky of the same dimension.
-    const SPARSE_HESSIAN_MAX_DENSITY: f64 = 0.10;
+    pub(crate) const SPARSE_HESSIAN_MAX_DENSITY: f64 = 0.10;
 
     pub(super) fn select_reml_geometry(&self, rho: &Array1<f64>) -> SparseRemlDecision {
         let p = self.p;

@@ -13,7 +13,7 @@ kanban_framework = ["dashboard/node_modules/**", "dashboard/package-lock.json"]
 
 [project]
 name = "kanban-framework"
-version = "0.191.1"
+version = "0.199.2"
 description = "Kanban multi-agent orchestration framework for Claude Code"
 requires-python = ">=3.10"
 dependencies = [
@@ -32,7 +32,7 @@ dependencies = [
 kanban = "kanban_framework.cli.main:main"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov"]
+dev = ["pytest", "pytest-cov", "mypy"]
 code-index = ["code-review-graph>=0.1.0"]
 chromadb = ["chromadb>=0.5.0"]
 
@@ -43,6 +43,17 @@ markers = [
     "perf: performance benchmarks (may take seconds per test)",
     "slow: stress tests that take >10s to complete",
 ]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+explicit_package_bases = true
+check_untyped_defs = true
+warn_return_any = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Exclude dashboard (node_modules, generated code)
+exclude = "kanban_framework/dashboard/"
 
 [tool.coverage.run]
 source = ["kanban_framework"]

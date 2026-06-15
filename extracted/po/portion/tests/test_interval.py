@@ -66,6 +66,11 @@ class TestInterval:
         # https://github.com/AlexandreDecan/python-intervals/issues/19
         assert P.Interval(P.empty(), P.empty()) == P.empty()
 
+    def test_merge_consecutive(self):
+        i = P.Interval(P.closed(0, 2), P.closed(1, 4), P.closed(3, 5))
+        assert i == P.closed(0, 5)
+        assert len(i._intervals) == 1
+
     def test_bounds(self):
         i = P.openclosed(1, 2)
         assert i.left == P.OPEN
@@ -317,6 +322,12 @@ class TestIntervalOverlaps():
     def test_overlaps_with_incompatible_types(self):
         with pytest.raises(TypeError):
             P.closed(0, 1).overlaps(1)
+
+    @pytest.mark.parametrize("size", [10, 100, 1000, 10000])
+    def test_overlaps_benchmark(self, benchmark, size):
+        domain = P.Interval(*(P.closed(2*i, 2*i+1) for i in range(size)))
+        other = P.closed(size / 3, 2 * size / 3)
+        benchmark(lambda: domain.overlaps(other))
 
 
 class TestIntervalComparison:
@@ -582,6 +593,12 @@ class TestIntervalIntersection:
     def test_with_invalid_type(self):
         with pytest.raises(TypeError):
             P.closed(0, 1) & 1
+
+    @pytest.mark.parametrize("size", [10, 100, 1000, 10000])
+    def test_intersect_benchmark(self, benchmark, size):
+        domain = P.Interval(*(P.closed(2*i, 2*i+1) for i in range(size)))
+        other = P.closed(size / 2, size / 2 + 8)
+        benchmark(lambda: domain & other)
 
 
 class TestIntervalUnion:

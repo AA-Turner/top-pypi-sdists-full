@@ -2056,9 +2056,12 @@ class MainW(QMainWindow):
             do_3D = False if stitch_threshold > 0. else do_3D
 
             if self.restore == "filter":
-                data = self.stack_filtered.copy().squeeze(axis=0)
+                data = self.stack_filtered.copy()
             else:
-                data = self.stack.copy().squeeze(axis=0)
+                data = self.stack.copy()
+
+            if self.NZ == 1:
+                data = data.squeeze(axis=0)
             
             flow_threshold = self.segmentation_settings.flow_threshold
             cellprob_threshold = self.segmentation_settings.cellprob_threshold

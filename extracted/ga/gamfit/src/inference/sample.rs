@@ -48,9 +48,7 @@ use crate::survival_construction::{
     resolved_survival_time_basis_config_from_build, survival_derivative_guard_for_likelihood,
 };
 use crate::term_builder::resolve_role_col;
-use crate::types::{
-    InverseLink, LikelihoodScaleMetadata, LikelihoodSpec, ResponseFamily, StandardLink,
-};
+use crate::types::{InverseLink, LikelihoodSpec, ResponseFamily, StandardLink};
 
 /// Reconstruct the `LinkWiggleFormulaSpec` from a saved model's
 /// baseline-time-wiggle runtime, returning `None` when the model has no
@@ -140,72 +138,20 @@ fn validate_explicit_link_wiggle_joint_hessian(
     Ok(())
 }
 
+/// Resolve the scalar generative dispersion for a fitted model.
+///
+/// Thin adapter over the single canonical
+/// [`crate::generative::family_noise_parameter`]: the replicate-sampling path
+/// here and the CLI `gam generate` path both route through that one helper, so
+/// the fitted dispersion (NB θ̂, Beta/Tweedie φ̂, Gamma k̂) can never be read
+/// inconsistently between them. A divergent second copy of this logic was the
+/// root cause of #1124.
 fn family_noise_parameter(fit: &UnifiedFitResult, likelihood: &LikelihoodSpec) -> Option<f64> {
-    family_noise_parameter_from_scale(fit.likelihood_scale, fit.standard_deviation, likelihood)
-}
-
-fn family_noise_parameter_from_scale(
-    likelihood_scale: LikelihoodScaleMetadata,
-    standard_deviation: f64,
-    likelihood: &LikelihoodSpec,
-) -> Option<f64> {
-    if let ResponseFamily::NegativeBinomial { theta, .. } = likelihood.response {
-        return Some(theta);
-    }
-    if let ResponseFamily::Tweedie { .. } = likelihood.response {
-        return likelihood_scale.fixed_phi().or(Some(1.0));
-    }
-    if let ResponseFamily::Beta { phi } = likelihood.response {
-        return likelihood_scale.fixed_phi().or(Some(phi));
-    }
-    if matches!(likelihood.response, ResponseFamily::Gamma) {
-        likelihood_scale.gamma_shape().or(Some(standard_deviation))
-    } else {
-        Some(standard_deviation)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn family_noise_parameter_uses_estimated_tweedie_phi_not_variance_power() {
-        let likelihood = LikelihoodSpec::new(
-            ResponseFamily::Tweedie { p: 1.5 },
-            InverseLink::Standard(StandardLink::Log),
-        );
-        let noise = family_noise_parameter_from_scale(
-            LikelihoodScaleMetadata::EstimatedTweediePhi { phi: 7.25 },
-            0.0,
-            &likelihood,
-        )
-        .expect("Tweedie sampling must expose a dispersion");
-
-        assert_eq!(
-            noise, 7.25,
-            "Tweedie sampler noise parameter is dispersion phi, not variance power p"
-        );
-    }
-
-    #[test]
-    fn family_noise_parameter_uses_estimated_beta_phi_not_family_seed() {
-        let likelihood = LikelihoodSpec::new(
-            ResponseFamily::Beta { phi: 1.0 },
-            InverseLink::Standard(StandardLink::Logit),
-        );
-        let noise = family_noise_parameter_from_scale(
-            LikelihoodScaleMetadata::EstimatedBetaPhi { phi: 12.0 },
-            0.0,
-            &likelihood,
-        )
-        .expect("Beta sampling must expose a precision");
-
-        assert_eq!(
-            noise, 12.0,
-            "Beta sampler noise parameter is estimated precision phi, not the family seed"
-        );
-    }
+    crate::generative::family_noise_parameter(
+        fit.likelihood_scale,
+        fit.standard_deviation,
+        likelihood,
+    )
 }
 
 /// Build a `LikelihoodSpec` for a saved model. Saved models already carry the
@@ -302,6 +248,9 @@ pub fn sample_saved_model(
         }
         PredictModelClass::BinomialLocationScale => {
             laplace_gaussian_fallback(model, cfg, "binomial location-scale posterior")
+        }
+        PredictModelClass::DispersionLocationScale => {
+            laplace_gaussian_fallback(model, cfg, "dispersion location-scale posterior")
         }
         PredictModelClass::BernoulliMarginalSlope => {
             laplace_gaussian_fallback(model, cfg, "bernoulli marginal-slope posterior")

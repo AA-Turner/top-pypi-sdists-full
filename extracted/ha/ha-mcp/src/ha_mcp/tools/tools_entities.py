@@ -22,7 +22,11 @@ from .helpers import (
     validate_identifier_not_empty,
 )
 from .tools_voice_assistant import KNOWN_ASSISTANTS
-from .util_helpers import parse_json_param, parse_string_list_param
+from .util_helpers import (
+    JSON_STRING_COERCION,
+    parse_json_param,
+    parse_string_list_param,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -555,6 +559,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
     async def ha_set_entity(
         entity_id: Annotated[
             str | list[str],
+            JSON_STRING_COERCION,
             Field(
                 description="Entity ID or list of entity IDs to update. Bulk operations (list) only support labels, expose_to, and categories parameters."
             ),
@@ -596,6 +601,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         options: Annotated[
             dict[str, dict[str, Any]] | None,
+            JSON_STRING_COERCION,
             Field(
                 description=(
                     "Per-domain entity registry options (e.g. sensor 'display_precision', "
@@ -634,6 +640,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         aliases: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="List of voice assistant aliases for the entity (replaces existing aliases). Single entity only.",
                 default=None,
@@ -641,6 +648,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         categories: Annotated[
             dict[str, str | None] | None,
+            JSON_STRING_COERCION,
             Field(
                 description=(
                     "Category assignment as a dict mapping scope to category_id. "
@@ -653,6 +661,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         labels: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 description="List of label IDs for the entity. Behavior depends on label_operation parameter. Supports bulk operations.",
                 default=None,
@@ -667,6 +676,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = "set",
         expose_to: Annotated[
             dict[str, bool] | None,
+            JSON_STRING_COERCION,
             Field(
                 description=(
                     "Control voice assistant exposure. Pass a dict mapping assistant IDs to booleans. "
@@ -1110,6 +1120,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
     async def ha_get_entity(
         entity_id: Annotated[
             str | list[str],
+            JSON_STRING_COERCION,
             Field(
                 description="Entity ID or list of entity IDs to retrieve (e.g., 'sensor.temperature' or ['light.living_room', 'switch.porch'])"
             ),

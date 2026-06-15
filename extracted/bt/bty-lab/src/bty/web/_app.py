@@ -961,10 +961,11 @@ def create_app(
 
         Plan shapes (mode is the dispatch token):
 
-        * ``{"mode": "flash", "image": URL, "target_disk_serial": S}``
-          -- boot_mode in (bty-flash-always, bty-flash-once) with a bindable ref
-          AND a target_disk_serial picked. ``bty`` runs the flash
-          without prompts.
+        * ``{"mode": "flash", "image": URL, "target_disk_serial": S,
+          "disk_image_sha": HEX}`` -- boot_mode in (bty-flash-always,
+          bty-flash-once) with a bindable ref AND a target_disk_serial
+          picked. ``bty`` runs the flash without prompts and verifies the
+          streamed bytes against ``disk_image_sha``.
         * ``{"mode": "interactive", "catalog": URL}`` -- boot_mode
           ``tui``, OR a flash policy that can't be auto-resolved
           (no target serial, orphan ref). ``bty`` drops the operator
@@ -1072,14 +1073,20 @@ def create_app(
             # path. is_cached's network HEAD stays OUTSIDE the connection.
             with _db.open_db(state_path) as conn:
                 _b = conn.execute(
-                    "SELECT name, format, src, resolved_src FROM catalog_entries "
-                    "WHERE bty_image_ref = ?",
+                    "SELECT name, format, src, resolved_src, disk_image_sha "
+                    "FROM catalog_entries WHERE bty_image_ref = ?",
                     (str(ref),),
                 ).fetchone()
                 image_name = str(_b["name"]) if _b and _b["name"] else None
                 fmt = str(_b["format"]) if _b and _b["format"] else None
                 src = str(_b["src"]) if _b and _b["src"] else None
                 resolved_src = str(_b["resolved_src"]) if _b and _b["resolved_src"] else None
+                # Content hash for on-wire verification. Distinct from
+                # ``ref`` (= bty_image_ref = sha256 of the canonical URL,
+                # an identifier, NOT the bytes). NULL when the entry was
+                # imported without a known sha -> omitted below so the
+                # live env flashes without verifying.
+                disk_image_sha = str(_b["disk_image_sha"]) if _b and _b["disk_image_sha"] else None
                 withcache_url = (
                     _settings_store.resolve_withcache_url(conn)
                     if image_name is not None and target_disk_serial and resolved_src
@@ -1157,6 +1164,12 @@ def create_app(
                     # on the flash screen. ``name`` carries the real title.
                     "name": image_name,
                 }
+                # Content sha so the live env verifies the bytes on the
+                # wire even when ``image`` is a withcache / direct-origin
+                # URL that doesn't embed the digest. Omitted when unknown
+                # (the live env then flashes without verification).
+                if disk_image_sha:
+                    plan["disk_image_sha"] = disk_image_sha
                 # Also pass it explicitly for newer clients.
                 if fmt:
                     plan["format"] = fmt
@@ -3188,7 +3201,7 @@ def _serve_safe_file(root: Path, name: str) -> FileResponse:
 # real OS images (decompressed Windows is the largest target at
 # ~50 GiB; everything Linux-y fits in single-digit GB) but caps
 # the worst case at "the disk fills up before bty-web does
-# anything useful". Operators can raise via ``BTY_MAX_UPLOAD_BYTES``
+# anything useful". Operators can raise via ``BTY_TUNING_MAX_UPLOAD_BYTES``
 # if they have a legitimate use case for bigger images.
 _DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024 * 1024
 
@@ -3229,7 +3242,7 @@ async def _stream_upload(request: Request, root: Path, name: str) -> dict[str, o
     -> final name.
 
     Caps the body at :data:`_DEFAULT_MAX_UPLOAD_BYTES` (200 GiB by
-    default; ``BTY_MAX_UPLOAD_BYTES`` overrides). A runaway script
+    default; ``BTY_TUNING_MAX_UPLOAD_BYTES`` overrides). A runaway script
     or hostile request that streams forever otherwise fills the
     image-root partition; the cap kills the upload + unlinks the
     partial well before that. The partial is also unlinked
@@ -3251,7 +3264,7 @@ async def _stream_upload(request: Request, root: Path, name: str) -> dict[str, o
                             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                             detail=(
                                 f"upload exceeded {max_bytes} bytes "
-                                f"(BTY_MAX_UPLOAD_BYTES). Aborted at {size} bytes."
+                                f"(BTY_TUNING_MAX_UPLOAD_BYTES). Aborted at {size} bytes."
                             ),
                         )
         partial.replace(candidate)

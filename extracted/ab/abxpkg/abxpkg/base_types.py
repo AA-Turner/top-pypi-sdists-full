@@ -3,14 +3,15 @@ __package__ = "abxpkg"
 import inspect
 import os
 import shutil
+import tempfile
 
 from pathlib import Path
 from typing import Any, Annotated
 from collections.abc import Callable
 
-from platformdirs import user_config_path
-
 from pydantic import TypeAdapter, AfterValidator, BeforeValidator, ValidationError
+
+from .config import default_abxpkg_lib_dir, is_forbidden_convenience_lib_bin
 
 
 # Read once at import time. When set, providers that opt into
@@ -19,7 +20,7 @@ from pydantic import TypeAdapter, AfterValidator, BeforeValidator, ValidationErr
 # ``<lib>/npm``, ``<lib>/pip``, ``<lib>/gem``). Per-provider
 # ``ABXPKG_<NAME>_ROOT`` env vars override this for their own
 # provider; explicit constructor kwargs override both.
-DEFAULT_LIB_DIR: Path = user_config_path("abx") / "lib"
+DEFAULT_ABXPKG_LIB_DIR: Path = default_abxpkg_lib_dir()
 
 
 def abxpkg_install_root_default(provider_name: str) -> Path | None:
@@ -54,6 +55,22 @@ def abxpkg_cache_dir_default(provider_name: str) -> Path | None:
     if lib_dir:
         return Path(lib_dir).expanduser().resolve() / "cache" / provider_name
     return None
+
+
+def abxpkg_ephemeral_cache_home_default() -> Path:
+    """Resolve the stable cache root used for explicit no-cache operations."""
+    base = os.environ.get("ABXPKG_TMP_CACHE_DIR", "").strip()
+    if base:
+        return Path(base).expanduser().resolve()
+    return Path(tempfile.gettempdir()) / f"abxpkg-cache-{os.getuid()}"
+
+
+def abxpkg_ephemeral_cache_dir_default(provider_name: str) -> Path:
+    """Resolve a stable per-process cache dir outside ``ABXPKG_LIB_DIR``."""
+    specific = os.environ.get(f"ABXPKG_{provider_name.upper()}_CACHE_DIR", "").strip()
+    if specific:
+        return Path(specific).expanduser().resolve()
+    return abxpkg_ephemeral_cache_home_default() / provider_name
 
 
 def validate_binprovider_name(name: str) -> str:
@@ -216,7 +233,11 @@ def bin_abspath(
     if PATH is None:
         PATH = os.environ.get("PATH", "/bin")
     if PATH:
-        PATH = str(PATH)
+        PATH = os.pathsep.join(
+            entry
+            for entry in str(PATH).split(os.pathsep)
+            if not is_forbidden_convenience_lib_bin(entry)
+        )
     else:
         return None
 
@@ -229,7 +250,9 @@ def bin_abspath(
         # print(bin_path_or_name, PATH.split(':'), binpath, 'GOPINGNGN')
         if not binpath:
             # some bins dont show up with shutil.which (e.g. django-admin.py)
-            for path in PATH.split(":"):
+            for path in PATH.split(os.pathsep):
+                if is_forbidden_convenience_lib_bin(path):
+                    continue
                 bin_dir = Path(path)
                 # print('BIN_DIR', bin_dir, bin_dir.is_dir())
                 if not (os.path.isdir(bin_dir) and os.access(bin_dir, os.R_OK)):
@@ -242,7 +265,10 @@ def bin_abspath(
 
             return None
         # print(binpath, PATH)
-        if str(Path(binpath).parent) not in PATH:
+        if (
+            is_forbidden_convenience_lib_bin(Path(binpath).parent)
+            or str(Path(binpath).parent) not in PATH
+        ):
             # print('WARNING, found bin but not in PATH', binpath, PATH)
             # found bin but it was outside our search $PATH
             return None
@@ -261,7 +287,11 @@ def bin_abspaths(
 ) -> list[HostBinPath]:
     assert bin_path_or_name
 
-    PATH = PATH or os.environ.get("PATH", "/bin")
+    PATH = os.pathsep.join(
+        entry
+        for entry in str(PATH or os.environ.get("PATH", "/bin")).split(os.pathsep)
+        if not is_forbidden_convenience_lib_bin(entry)
+    )
     abspaths = []
 
     if str(bin_path_or_name).startswith("/"):
@@ -269,7 +299,7 @@ def bin_abspaths(
         abspaths.append(Path(bin_path_or_name).expanduser().absolute())
     else:
         # not a path yet, get path using shutil.which
-        for path in PATH.split(":"):
+        for path in PATH.split(os.pathsep):
             binpath = shutil.which(bin_path_or_name, mode=os.X_OK, path=path)
             if binpath and str(Path(binpath).parent) in PATH:
                 abspaths.append(binpath)

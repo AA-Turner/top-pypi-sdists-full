@@ -18,7 +18,10 @@ from tests._support import (
 
 pytestmark = [
     pytest.mark.asyncio,
-    pytest.mark.skipif(sys.platform == 'win32', reason='unix-only runtime test'),
+    pytest.mark.skipif(
+        sys.platform == 'win32',
+        reason='POSIX worker supervisor (fork workers, signals, unix sockets)',
+    ),
 ]
 
 
@@ -66,6 +69,20 @@ async def _wait_for_h2_body(
                 f'timed out waiting for body {body!r}, got status={status} body={response_body!r}'
             )
         await asyncio.sleep(0.05)
+
+
+async def _wait_for_h2_body_any(
+    *, port: int, timeout: float = 5.0
+) -> tuple[int, bytes]:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while True:
+        try:
+            return await h2_request(port=port)
+        except Exception:
+            if loop.time() >= deadline:
+                raise
+            await asyncio.sleep(0.05)
 
 
 async def _wait_for_listening_port(
@@ -152,7 +169,7 @@ async def _wait_for_pid_change(
         await asyncio.sleep(0.05)
 
 
-async def test_unix_socket_serving(tmp_path: Path) -> None:
+async def test_unix_socket_serving(unix_socket_dir: Path) -> None:
     async def app(scope, receive, send):
         await send({
             'type': 'http.response.start',
@@ -161,7 +178,7 @@ async def test_unix_socket_serving(tmp_path: Path) -> None:
         })
         await send({'type': 'http.response.body', 'body': b'uds'})
 
-    socket_path = tmp_path / 'h2corn.sock'
+    socket_path = unix_socket_dir / 'h2corn.sock'
     config = Config(bind=(f'unix:{socket_path}',))
     async with running_server(app, config):
         status, body = await asyncio.wait_for(h2_request(uds=socket_path), timeout=5)
@@ -170,12 +187,14 @@ async def test_unix_socket_serving(tmp_path: Path) -> None:
     assert body == b'uds'
 
 
-async def test_unix_socket_cleanup_removes_owned_socket_path(tmp_path: Path) -> None:
+async def test_unix_socket_cleanup_removes_owned_socket_path(
+    unix_socket_dir: Path,
+) -> None:
     async def app(scope, receive, send):
         await send({'type': 'http.response.start', 'status': 204, 'headers': []})
         await send({'type': 'http.response.body', 'body': b''})
 
-    socket_path = tmp_path / 'cleanup.sock'
+    socket_path = unix_socket_dir / 'cleanup.sock'
     config = Config(bind=(f'unix:{socket_path}',))
     async with running_server(app, config):
         assert socket_path.exists()
@@ -183,12 +202,14 @@ async def test_unix_socket_cleanup_removes_owned_socket_path(tmp_path: Path) -> 
     assert not socket_path.exists()
 
 
-async def test_unix_socket_umask_limits_created_mode(tmp_path: Path) -> None:
+async def test_unix_socket_umask_limits_created_mode(
+    unix_socket_dir: Path,
+) -> None:
     async def app(scope, receive, send):
         await send({'type': 'http.response.start', 'status': 204, 'headers': []})
         await send({'type': 'http.response.body', 'body': b''})
 
-    socket_path = tmp_path / 'umask.sock'
+    socket_path = unix_socket_dir / 'umask.sock'
     config = Config(bind=(f'unix:{socket_path}',), umask=0o077)
     async with running_server(app, config):
         assert socket_path.stat().st_mode & 0o077 == 0
@@ -214,14 +235,17 @@ async def test_unix_socket_path_rejects_non_socket_files(tmp_path: Path) -> None
 
 async def test_multi_bind_reports_actual_server_port_per_listener() -> None:
     async def app(scope, receive, send):
-        server_port = scope['server'][1]
+        scope_port = scope['server'][1]
         await send({
             'type': 'http.response.start',
             'status': 200,
             'headers': [(b'content-type', b'text/plain')],
         })
-        await send({'type': 'http.response.body', 'body': str(server_port).encode()})
+        await send({'type': 'http.response.body', 'body': str(scope_port).encode()})
 
+    # Two listeners on one host need distinct ports; multiple port-0 binds
+    # deliberately share one ephemeral port (for 0.0.0.0 + [::] pairs), so
+    # this is one of the few in-process cases that must pre-allocate.
     ports = (find_free_port(), find_free_port())
     config = Config(bind=tuple(f'127.0.0.1:{port}' for port in ports))
     async with running_server(app, config):
@@ -612,3 +636,140 @@ async def test_reload_coalesces_bursty_writes_into_one_restart(
         sum(b'Reload change detected:' in line for line in stderr_lines)
         + sum(b'Reload changes detected:' in line for line in stderr_lines)
     ) == 1
+
+
+async def test_reuse_port_allows_overlapping_server_generations(tmp_path: Path) -> None:
+    """Two independent server processes share one port via SO_REUSEPORT and
+    requests keep succeeding after the first generation drains away.
+    """
+    module_source = """
+    import os
+
+    async def app(scope, receive, send):
+        await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+        await send({'type': 'http.response.body', 'body': str(os.getpid()).encode()})
+    """
+    port = find_free_port()
+    gen_a, _ = await _spawn_server_process(
+        tmp_path=tmp_path,
+        module_name='reuse_port_app',
+        module_source=module_source,
+        workers=1,
+        port=port,
+        extra_args=['--reuse-port'],
+    )
+    try:
+        status, pid_a = await _wait_for_h2_body_any(port=port)
+        assert status == 200
+        gen_b, _ = await _spawn_server_process(
+            tmp_path=tmp_path,
+            module_name='reuse_port_app',
+            module_source=module_source,
+            workers=1,
+            port=port,
+            extra_args=['--reuse-port'],
+        )
+        try:
+            # Generation B is up once a different worker pid answers — only
+            # then is draining A guaranteed not to empty the port.
+            await _wait_for_pid_change(port=port, previous_pid=pid_a, timeout=10)
+            await _terminate_process(gen_a)
+            deadline = asyncio.get_running_loop().time() + 5
+            served = 0
+            while served < 5:
+                try:
+                    status, body = await asyncio.wait_for(
+                        h2_request(port=port), timeout=5
+                    )
+                except OSError:
+                    # A connection may still hash to A's just-closed socket
+                    # for an instant; the kernel rebalances immediately.
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise
+                    await asyncio.sleep(0.05)
+                    continue
+                assert status == 200
+                assert body != pid_a
+                served += 1
+        finally:
+            await _terminate_process(gen_b)
+    finally:
+        await _terminate_process(gen_a)
+
+
+def _worker_pids(supervisor_pid: int) -> list[int]:
+    """PIDs of the supervisor's forked worker children (Linux /proc scan)."""
+    children = []
+    for entry in os.listdir('/proc'):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f'/proc/{entry}/status') as status:
+                ppid = next(
+                    int(line.split()[1])
+                    for line in status
+                    if line.startswith('PPid:')
+                )
+        except (OSError, StopIteration):
+            continue
+        if ppid == supervisor_pid:
+            children.append(int(entry))
+    return children
+
+
+def _all_dead(pids: list[int]) -> bool:
+    for pid in pids:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            continue
+        except PermissionError:
+            return False
+        else:
+            return False
+    return True
+
+
+@pytest.mark.skipif(
+    sys.platform != 'linux',
+    reason='orphan reaping relies on the /proc scan and PR_SET_PDEATHSIG',
+)
+@pytest.mark.parametrize('workers', [1, 2])
+async def test_sigkilled_supervisor_leaves_no_orphan_workers(
+    tmp_path: Path,
+    workers: int,
+) -> None:
+    process, port = await _spawn_server_process(
+        tmp_path=tmp_path,
+        module_name='orphan_app',
+        module_source="""
+        async def app(scope, receive, send):
+            await send({'type': 'http.response.start', 'status': 200, 'headers': [(b'content-type', b'text/plain')]})
+            await send({'type': 'http.response.body', 'body': b'alive'})
+        """,
+        workers=workers,
+    )
+    try:
+        await wait_for_port(port)
+        await _wait_for_h2_success(port=port, body=b'alive')
+        worker_pids = _worker_pids(process.pid)
+        assert len(worker_pids) == workers
+
+        # Hard-kill the supervisor (no graceful teardown): PR_SET_PDEATHSIG
+        # must make the kernel reap every worker regardless.
+        process.kill()
+        await asyncio.wait_for(process.wait(), timeout=5)
+
+        deadline = asyncio.get_running_loop().time() + 5
+        while not _all_dead(worker_pids):
+            assert asyncio.get_running_loop().time() < deadline, (
+                f'workers orphaned after supervisor SIGKILL: {worker_pids}'
+            )
+            await asyncio.sleep(0.05)
+    finally:
+        await _terminate_process(process)
+        for pid in _worker_pids(process.pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass

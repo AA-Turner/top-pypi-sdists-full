@@ -52,6 +52,13 @@ from .hf_writers import (
     upload_raw_activation_shard,
     flush_staging_dir,
 )
+from .migration import (
+    migrate_activation_table,
+    migrate_pair_texts,
+    migrate_raw_activation_table,
+)
+from .migration_verify import migrate_all, verify_migration
+
 __all__ = [
     "HF_REPO_ID",
     "HF_REPO_TYPE",
@@ -69,4 +76,9 @@ __all__ = [
     "upload_pair_texts",
     "upload_raw_activation_shard",
     "flush_staging_dir",
+    "migrate_activation_table",
+    "migrate_all",
+    "migrate_pair_texts",
+    "migrate_raw_activation_table",
+    "verify_migration",
 ]

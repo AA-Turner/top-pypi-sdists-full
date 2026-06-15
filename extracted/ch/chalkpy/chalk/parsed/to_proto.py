@@ -826,6 +826,7 @@ class ToProtoConverter:
                 unversioned_attribute_name=(
                     f.unversioned_attribute_name if hasattr(f, "unversioned_attribute_name") else None
                 ),
+                auxiliary_namespace=f.auxiliary_namespace,
             )
         )
 
@@ -866,6 +867,7 @@ class ToProtoConverter:
                 unversioned_attribute_name=(
                     f.unversioned_attribute_name if hasattr(f, "unversioned_attribute_name") else None
                 ),
+                auxiliary_namespace=f.auxiliary_namespace,
             )
         )
         return res
@@ -904,6 +906,7 @@ class ToProtoConverter:
                 unversioned_attribute_name=(
                     f.unversioned_attribute_name if hasattr(f, "unversioned_attribute_name") else None
                 ),
+                auxiliary_namespace=f.auxiliary_namespace,
             )
         )
 
@@ -1155,6 +1158,7 @@ class ToProtoConverter:
                 store_online=f.store_online,
                 store_offline=f.store_offline,
                 rich_type_info=rich_type_info,
+                auxiliary_namespace=f.auxiliary_namespace,
             )
         )
         return res

@@ -13,7 +13,7 @@ from ..config import ParserConfig
 from ..contexts.ctx import Ctx
 from ..exceptions import CodegenError
 from ..objectmodel import Node
-from ..util import Undefined, regexpp, safe_name
+from ..util import Undefined, regexpp, safe_name, typename
 from ..util.indent import IndentPrintMixin
 from ..walkers import NodeWalker
 from .boilerplt import FOOTER, HEADER, IMPORTS, PARSER_BODY
@@ -24,7 +24,7 @@ ANON = '_'
 
 
 def pythongen(model: Node, parser_name: str = '') -> str:
-    if isinstance(model, g.Grammar):
+    if isinstance(model, g.Model):
         model = model.optimized()
     generator = PythonParserGenerator(parser_name=parser_name)
     generator.walk(model)
@@ -85,7 +85,10 @@ class PythonParserGenerator(IndentPrintMixin, NodeWalker):
         self._choice_number = 0
 
     def walk_default(self, node: Any) -> Any:
-        return node
+        raise RuntimeError(f'Unknown node type: {typename(node)}')
+
+    def walk_NIL(self, node: g.NIL) -> Any:
+        return ""
 
     def walk_Grammar(self, grammar: g.Grammar):
         basename = self.parser_name or grammar.name
@@ -110,11 +113,11 @@ class PythonParserGenerator(IndentPrintMixin, NodeWalker):
         self.reset_counters()
         params = kwparams = ''
         if rule.params:
-            params = ', '.join(param_repr(self.walk(p)) for p in rule.params)
+            params = ', '.join(param_repr(p) for p in rule.params)
         if rule.kwparams:
             assert isinstance(rule.kwparams, dict)
             kwparams = ', '.join(
-                f'{k}={param_repr(self.walk(v))}' for k, v in rule.kwparams.items()
+                f'{k}={param_repr(v)}' for k, v in rule.kwparams.items()
             )
 
         if params and kwparams:
@@ -151,7 +154,8 @@ class PythonParserGenerator(IndentPrintMixin, NodeWalker):
         self.print(f'self.{name}({self.ctx})')
 
     def walk_RuleInclude(self, include: g.RuleInclude):
-        self.walk(include.rule.exp)
+        assert include.exp is not None
+        self.walk(include.exp)
 
     def walk_Void(self, _void: g.Void):
         self.print(f'{self.ctx}.void()')
@@ -286,6 +290,10 @@ class PythonParserGenerator(IndentPrintMixin, NodeWalker):
 
         self.print()
         self.print()
+
+    def walk_meta(self, meta: g.Meta):
+        name = meta.pretty()[1:]
+        self.print(f'{self.ctx}.match{name!s}()')
 
     def _gen_init(self, grammar: g.Grammar):
         assert isinstance(grammar.config, ParserConfig)

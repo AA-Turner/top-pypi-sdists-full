@@ -1,7 +1,9 @@
 use super::*;
+use dcc_mcp_gateway_core::capability::compute_fingerprint;
 use dcc_mcp_gateway_core::policy::GatewayPolicyOperation;
 
-use super::super::http_registration::entry_mcp_url;
+use super::super::capability::{CapabilityRecord, tool_slug};
+use super::super::http_registration::entry_discovery_mcp_url;
 
 /// Dispatch a skill-management tool across backends.
 ///
@@ -61,7 +63,7 @@ pub(crate) async fn skill_mgmt_dispatch(
                             obj.insert("group".to_string(), group_name);
                         }
                     }
-                    let url = entry_mcp_url(&entry);
+                    let url = entry_discovery_mcp_url(&entry);
                     let params = json!({"name": tool, "arguments": forward_args});
                     match call_backend(
                         &gs.http_client,
@@ -97,11 +99,64 @@ pub(crate) async fn skill_mgmt_dispatch(
                                 tool == "load_skill" && load_skill_payload_reports_failure(&text);
                             let is_error = is_error || payload_failed;
                             if !is_error {
+                                if tool == "load_skill" {
+                                    let tool_names = serde_json::from_str::<Value>(&text)
+                                        .ok()
+                                        .and_then(|payload| {
+                                            extract_tool_names_from_skill_payload(&payload)
+                                        });
+                                    let requested_skill = requested_skill_name(&forward_args);
+                                    inject_load_skill_tools_into_index(
+                                        gs,
+                                        &entry,
+                                        tool_names,
+                                        requested_skill.as_deref(),
+                                    );
+                                }
+
                                 crate::gateway::capability_service::refresh_all_live_backends(
                                     gs,
                                     crate::gateway::capability::RefreshReason::ToolsListChanged,
                                 )
                                 .await;
+
+                                // Layer 2: Retry refresh with backoff if tools
+                                // didn't appear in the index after the first
+                                // refresh (timing resilience, issue #1659).
+                                if !skill_names.is_empty() {
+                                    let discovery_url = entry_discovery_mcp_url(&entry);
+                                    let max_retries = 2;
+                                    for attempt in 0..max_retries {
+                                        let slugs = new_tool_slugs_for_skill(
+                                            gs,
+                                            entry.instance_id,
+                                            Some(&skill_names[0]),
+                                        );
+                                        if !slugs.is_empty() {
+                                            break;
+                                        }
+                                        tokio::time::sleep(std::time::Duration::from_millis(200))
+                                            .await;
+                                        crate::gateway::capability::refresh_instance(
+                                            &gs.capability_index,
+                                            &gs.http_client,
+                                            &discovery_url,
+                                            entry.instance_id,
+                                            &entry.dcc_type,
+                                            gs.backend_timeout,
+                                            crate::gateway::capability::RefreshReason::ToolsListChanged,
+                                            Some(&gs.instance_diagnostics),
+                                        )
+                                        .await;
+                                        tracing::info!(
+                                            instance = %entry.instance_id,
+                                            skill = %skill_names[0],
+                                            retry = attempt + 1,
+                                            "load_skill: retried refresh after backoff",
+                                        );
+                                    }
+                                }
+
                                 if gs.events_tx.receiver_count() > 0 {
                                     let notif = serde_json::to_string(&json!({
                                         "jsonrpc": "2.0",
@@ -172,7 +227,7 @@ Standalone `dcc-mcp-server` without `--app` registers as `dcc_type` from DCC_MCP
             let backend_timeout = gs.backend_timeout;
             let params = json!({"name": tool, "arguments": args});
             let futs = targets.iter().map(|entry| {
-                let url = entry_mcp_url(entry);
+                let url = entry_discovery_mcp_url(entry);
                 let params = params.clone();
                 async move {
                     let res = call_backend(
@@ -323,6 +378,18 @@ fn requested_skill_names(args: &Value) -> Vec<String> {
         names.extend(items.iter().filter_map(Value::as_str).map(str::to_string));
     }
     names
+}
+
+fn requested_skill_name(args: &Value) -> Option<String> {
+    args.get("skill_name")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| {
+            args.get("skill_names")
+                .and_then(Value::as_array)
+                .and_then(|items| items.iter().find_map(Value::as_str))
+                .map(str::to_string)
+        })
 }
 
 fn skill_allowed_by_policy(policy: &crate::gateway::GatewayPolicy, skill: &Value) -> bool {
@@ -479,6 +546,120 @@ pub(crate) fn skill_management_tool_defs() -> Vec<Value> {
     ]
 }
 
+/// Extract tool names from a load_skill response payload.
+/// Checks multiple field names for compatibility across backend versions.
+fn extract_tool_names_from_skill_payload(payload: &Value) -> Option<Vec<String>> {
+    let obj = payload.as_object()?;
+
+    // 1. "registered_tools" — MCP handler format (skills.rs)
+    if let Some(tools) = obj.get("registered_tools").and_then(Value::as_array) {
+        let names: Vec<String> = tools
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !names.is_empty() {
+            return Some(names);
+        }
+    }
+
+    // 2. "tools" — MCP handler's tool schema array (each has "name")
+    if let Some(tools) = obj.get("tools").and_then(Value::as_array) {
+        let names: Vec<String> = tools
+            .iter()
+            .filter_map(|v| v.get("name").and_then(Value::as_str))
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect();
+        if !names.is_empty() {
+            return Some(names);
+        }
+    }
+
+    // 3. "actions" — REST SkillLifecycleResponse format
+    if let Some(tools) = obj.get("actions").and_then(Value::as_array) {
+        let names: Vec<String> = tools
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .filter(|s| !s.is_empty())
+            .collect();
+        if !names.is_empty() {
+            return Some(names);
+        }
+    }
+
+    None
+}
+
+/// Inject tools from the load_skill response directly into the capability
+/// index, bypassing `/v1/search` refresh (Layer 1 fix for issue #1659).
+///
+/// Merges newly loaded tools with any existing records for this instance and
+/// deduplicates by `callable_id`.
+fn inject_load_skill_tools_into_index(
+    gs: &GatewayState,
+    entry: &ServiceEntry,
+    tool_names: Option<Vec<String>>,
+    default_skill_name: Option<&str>,
+) {
+    let Some(tool_names) = tool_names else {
+        return;
+    };
+    if tool_names.is_empty() {
+        return;
+    }
+
+    let new_records: Vec<CapabilityRecord> = tool_names
+        .into_iter()
+        .map(|tool_name| {
+            let slug = tool_slug(&entry.dcc_type, &entry.instance_id, &tool_name);
+            // Derive skill_name from the tool name format <skill>__<action>
+            // if not already known from the response context.
+            let skill_name = default_skill_name.map(str::to_string);
+            CapabilityRecord::new(
+                slug,
+                tool_name.clone(),
+                tool_name,
+                skill_name,
+                "",         // summary — unknown without /v1/describe
+                Vec::new(), // tags — unknown without /v1/describe
+                entry.dcc_type.clone(),
+                entry.instance_id,
+                false, // has_schema — unknown without /v1/describe
+                true,  // loaded — just loaded
+                None,  // tool_group — unknown without /v1/describe
+            )
+        })
+        .collect();
+
+    // Merge with existing records for this instance, deduplicating by
+    // callable_id so we don't double-count tools that the refresh path
+    // already picked up.
+    let mut merged: Vec<CapabilityRecord> = gs
+        .capability_index
+        .snapshot()
+        .records
+        .iter()
+        .filter(|r| r.instance_id == entry.instance_id)
+        .cloned()
+        .collect();
+
+    for rec in new_records {
+        if !merged.iter().any(|r| r.callable_id == rec.callable_id) {
+            merged.push(rec);
+        }
+    }
+
+    if merged.is_empty() {
+        return;
+    }
+
+    merged.sort_by(|a, b| a.tool_slug.cmp(&b.tool_slug));
+    let fingerprint = compute_fingerprint(&merged);
+    gs.capability_index
+        .upsert_instance(entry.instance_id, merged, fingerprint);
+}
+
 async fn decorate_load_skill_success(
     gs: &GatewayState,
     entry: &ServiceEntry,
@@ -497,26 +678,19 @@ async fn decorate_load_skill_success(
         payload = json!({ "result": payload });
     }
 
+    // === Layer 1: Pre-extract tool names before payload.as_object_mut() ===
+    // avoids borrow conflict with obj (mutable ref into payload).
+    let tool_names = extract_tool_names_from_skill_payload(&payload);
+
     let Some(obj) = payload.as_object_mut() else {
         return text.to_string();
     };
 
-    let requested_skill = forwarded_args
-        .get("skill_name")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .or_else(|| {
-            forwarded_args
-                .get("skill_names")
-                .and_then(Value::as_array)
-                .and_then(|items| items.iter().find_map(Value::as_str))
-                .map(str::to_string)
-        })
-        .or_else(|| {
-            obj.get("skill_name")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        });
+    let requested_skill = requested_skill_name(forwarded_args).or_else(|| {
+        obj.get("skill_name")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    });
 
     obj.entry("loaded".to_string()).or_insert(Value::Bool(true));
     if let Some(skill_name) = &requested_skill {
@@ -535,6 +709,11 @@ async fn decorate_load_skill_success(
         "instance_short".to_string(),
         Value::String(instance_short(&entry.instance_id)),
     );
+
+    // === Layer 1: Direct inject from load_skill response payload ===
+    // Bypass /v1/search by extracting tool names from the backend response
+    // and injecting them into the capability index directly.
+    inject_load_skill_tools_into_index(gs, entry, tool_names, requested_skill.as_deref());
 
     let tool_slugs = new_tool_slugs_for_skill(gs, entry.instance_id, requested_skill.as_deref());
     let target_tool_slug = request_args

@@ -71,6 +71,7 @@ pub mod identifiability_diagnostics;
 pub mod inference;
 pub mod kernels;
 pub mod linalg;
+pub(crate) mod parallel_strategy;
 pub mod report;
 pub mod resource;
 pub mod sae_identifiability;
@@ -144,11 +145,12 @@ pub use solver::workflow::{
     CtnStage1Recipe, DispersionLocationScaleFitRequest, DispersionLocationScaleFitResult,
     FitConfig, FitRequest, FitResult, GaussianLocationScaleFitRequest, LatentBinaryFitRequest,
     LatentSurvivalFitRequest, LinkWiggleConfig, MaterializedModel, PreparedSurvivalTimeStack,
-    SplineScanInputs, StandardBinomialWiggleConfig, StandardFitRequest, StandardFitResult,
-    SurvivalLocationScaleFitRequest, SurvivalLocationScaleFitResult,
+    ResidualCascadeInputs, SplineScanInputs, StandardBinomialWiggleConfig, StandardFitRequest,
+    StandardFitResult, SurvivalLocationScaleFitRequest, SurvivalLocationScaleFitResult,
     SurvivalMarginalSlopeFitRequest, SurvivalTransformationFitRequest,
     SurvivalTransformationFitResult, SurvivalTransformationTermSpec,
     TransformationNormalFitRequest, WorkflowError, fit_from_formula, fit_model,
-    fit_spline_scan_from_formula, is_binary_response, materialize, prepare_survival_time_stack,
-    resolve_family, resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
+    fit_residual_cascade_from_formula, fit_spline_scan_from_formula, is_binary_response,
+    materialize, prepare_survival_time_stack, residual_cascade_fast_path, resolve_family,
+    resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
 };

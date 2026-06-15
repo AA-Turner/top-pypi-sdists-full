@@ -16,6 +16,10 @@ Owns the 12 routes registered on bp_usage:
   GET  /api/usage/export                  — CSV export of usage
   GET  /api/model-attribution             — per-model turn/session split
   GET  /api/skill-attribution             — per-skill cost attribution
+  GET  /api/usage/by-team                 — per-agent / per-team cost attribution
+  GET  /api/usage/team-mappings           — list runtime→team label mappings
+  POST /api/usage/team-mappings           — create/update a mapping
+  DELETE /api/usage/team-mappings/<k>/<v> — delete a mapping
   GET  /api/token-velocity                — runaway-loop detection
   GET  /api/usage/cache-trends            — prompt-cache hit-rate analytics
   GET  /api/skills/fidelity              — dead-skill detector + body/linked-file stats
@@ -991,6 +995,67 @@ def _try_local_store_model_attribution(runtime=None):
         "switch_count": len(switches),
         "_source": "local_store",
     }
+
+
+def _try_rollup_usage_by_model(runtime=None):
+    """P3 (query-spine #2989): read /api/usage/by-model from rollup_model_daily.
+
+    Reads the per-(day, model, runtime) materialized table written at ingest by
+    the daemon (P2, #2988) and sums across days to produce per-model totals.
+    Returns the same shape as _try_local_store_usage_by_model so the endpoint
+    needs no change.  Falls back to None when the rollup is empty (fresh install
+    before the first ingest cycle) so the caller can fall through to the legacy
+    event-scan path.
+    """
+    rows = _ls_call("query_rollup_model_daily", runtime=runtime or None)
+    if not rows:
+        return None
+
+    model_stats: dict = {}
+    for r in rows:
+        m = (r.get("model") or "").strip()
+        if not m:
+            continue
+        if m not in model_stats:
+            model_stats[m] = {"tokens_in": 0, "tokens_out": 0,
+                              "cost_usd": 0.0, "calls": 0}
+        model_stats[m]["tokens_in"] += int(r.get("tokens_in") or 0)
+        model_stats[m]["tokens_out"] += int(r.get("tokens_out") or 0)
+        model_stats[m]["cost_usd"] += float(r.get("cost_usd") or 0.0)
+        model_stats[m]["calls"] += int(r.get("calls") or 0)
+
+    if not model_stats:
+        return None
+
+    try:
+        import dashboard as _d
+        provider_fn = getattr(_d, "_provider_from_model", None)
+    except Exception:
+        provider_fn = None
+
+    total_cost = sum(s["cost_usd"] for s in model_stats.values()) or 1.0
+    result_rows = []
+    for m, st in model_stats.items():
+        calls = st["calls"]
+        cost = st["cost_usd"]
+        tokens = st["tokens_in"] + st["tokens_out"]
+        provider = ""
+        if provider_fn:
+            try:
+                provider = provider_fn(m) or ""
+            except Exception:
+                pass
+        result_rows.append({
+            "model": m,
+            "provider": provider,
+            "total_tokens": tokens,
+            "cost_usd": round(cost, 6),
+            "call_count": calls,
+            "cost_per_call": round(cost / calls, 8) if calls else 0.0,
+            "pct_of_total_cost": round(cost / total_cost * 100.0, 2),
+        })
+    result_rows.sort(key=lambda r: r["cost_usd"], reverse=True)
+    return {"models": result_rows, "_source": "rollup"}
 
 
 def _try_local_store_usage_by_model(runtime=None):
@@ -3033,7 +3098,9 @@ def api_usage_by_model():
     """
     runtime = (request.args.get("runtime") or "").strip() or None
     if is_local_store_read_enabled():
-        fast = _try_local_store_usage_by_model(runtime=runtime)
+        fast = _try_rollup_usage_by_model(runtime=runtime)
+        if fast is None:
+            fast = _try_local_store_usage_by_model(runtime=runtime)
         if fast is not None:
             return jsonify(fast)
     # Cost data lives exclusively in DuckDB; return empty-but-valid fallback.
@@ -3183,6 +3250,96 @@ def api_skill_attribution():
         'note': note,
         'clawhub': {'enabled': False, 'url': None},
     })
+
+
+# ── Per-agent / per-team cost attribution (issue #3000) ──────────────────────
+
+def _ls_call_team(method: str, **kwargs):
+    """Thin wrapper: daemon HTTP proxy first, direct DuckDB fallback."""
+    try:
+        from routes.local_query import local_store_via_daemon
+        result = local_store_via_daemon(method, **kwargs)
+        if result is not None:
+            return result
+    except Exception:
+        pass
+    try:
+        from clawmetry import local_store
+        store = local_store.get_store(read_only=True)
+        return getattr(store, method)(**kwargs)
+    except Exception:
+        return None
+
+
+@bp_usage.route('/api/usage/by-team')
+def api_usage_by_team():
+    """Per-team / per-agent cost attribution over the rollup_session table.
+
+    Groups sessions by runtime, applying any user-defined team_mapping entries
+    (key_type='runtime') so 'claude_code' can be labelled 'Eng Team' etc.
+    Falls back to raw runtime names when no mapping exists.
+
+    Query params:
+      window  — int, number of days to look back (default 7)
+
+    Returns:
+      {
+        "teams": [{"label": str, "cost_usd": float, "tokens": int,
+                   "sessions": int, "runtimes": [str]}],
+        "window_days": int
+      }
+    """
+    try:
+        window_days = max(1, min(int(request.args.get('window', 7)), 365))
+    except (TypeError, ValueError):
+        window_days = 7
+
+    rows = _ls_call_team('query_usage_by_team', window_days=window_days)
+    if rows is None:
+        rows = []
+    return jsonify({'teams': rows, 'window_days': window_days})
+
+
+@bp_usage.route('/api/usage/team-mappings', methods=['GET'])
+def api_usage_team_mappings_list():
+    """List all team_mapping rows."""
+    rows = _ls_call_team('list_team_mappings')
+    return jsonify({'mappings': rows or []})
+
+
+@bp_usage.route('/api/usage/team-mappings', methods=['POST'])
+def api_usage_team_mappings_upsert():
+    """Create or update a team mapping.
+
+    Body: {"key_type": "runtime", "key_value": "claude_code", "team_label": "Eng Team"}
+    """
+    body = request.get_json(silent=True) or {}
+    key_type = str(body.get('key_type', '')).strip()
+    key_value = str(body.get('key_value', '')).strip()
+    team_label = str(body.get('team_label', '')).strip()
+    if not key_type or not key_value or not team_label:
+        return jsonify({'error': 'key_type, key_value, and team_label are required'}), 400
+    if key_type not in ('runtime', 'node'):
+        return jsonify({'error': "key_type must be 'runtime' or 'node'"}), 400
+    try:
+        from clawmetry import local_store
+        store = local_store.get_store()
+        store.upsert_team_mapping(key_type, key_value, team_label)
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+    return jsonify({'ok': True})
+
+
+@bp_usage.route('/api/usage/team-mappings/<key_type>/<key_value>', methods=['DELETE'])
+def api_usage_team_mappings_delete(key_type: str, key_value: str):
+    """Delete a team mapping by key_type + key_value."""
+    try:
+        from clawmetry import local_store
+        store = local_store.get_store()
+        deleted = store.delete_team_mapping(key_type, key_value)
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+    return jsonify({'ok': True, 'deleted': deleted})
 
 
 @bp_usage.route('/api/token-velocity')
@@ -3716,6 +3873,61 @@ def api_usage_cache_trends():
         "by_model": by_model_out,
         "totals": totals_out,
         "recommendations": _cache_recommendations(totals_out, by_model_out),
+    })
+
+
+# ── Cache Risk: per-session idle-gap re-write tax (issue #2839 Part 1) ──
+
+
+@bp_usage.route("/api/usage/cache-risk")
+def api_usage_cache_risk():
+    """Fleet roll-up of the prompt-cache re-read tax.
+
+    For every session where `cacheExpiryCount > 0` or `cacheWriteCostUsd > 0`,
+    aggregate:
+      - total_expiry_count   — sum of idle gaps that crossed the 5-min TTL
+      - total_write_cost_usd — total $ paid to rebuild the prompt cache
+      - total_saved_usd      — $ actually saved via cache reads in those sessions
+      - affected_sessions    — count of sessions that tripped at least one expiry
+      - max_idle_gap_sec     — worst single idle gap across all affected sessions
+
+    Data comes entirely from metadata already stored in DuckDB by the sync
+    daemon — no JSONL scanning, no proxy required.
+    """
+    try:
+        from routes.sessions import _try_local_store_cost_breakdown
+        cb = _try_local_store_cost_breakdown() or {}
+    except Exception:
+        cb = {}
+
+    sessions = cb.get("sessions") or []
+    total_expiries = 0
+    total_write_cost = 0.0
+    total_saved = 0.0
+    affected = 0
+    max_idle_gap = 0.0
+
+    for s in sessions:
+        expiries = int(s.get("cache_expiry_count") or 0)
+        wc = float(s.get("cache_write_cost_usd") or 0.0)
+        sv = float(s.get("cache_saved_usd") or 0.0)
+        gap = float(s.get("max_idle_gap_sec") or 0.0)
+        if expiries > 0 or wc > 0:
+            affected += 1
+            total_expiries += expiries
+            total_write_cost += wc
+            total_saved += sv
+            if gap > max_idle_gap:
+                max_idle_gap = gap
+
+    return jsonify({
+        "affected_sessions": affected,
+        "total_sessions": len(sessions),
+        "total_expiry_count": total_expiries,
+        "total_write_cost_usd": round(total_write_cost, 4),
+        "total_saved_usd": round(total_saved, 4),
+        "max_idle_gap_sec": round(max_idle_gap, 1),
+        "_source": "local_store" if cb.get("_source") else "none",
     })
 
 

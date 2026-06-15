@@ -8,11 +8,12 @@ import sys
 from pathlib import Path
 
 from .. import railroads
-from .._version import __version__
+from .._version import __toolname__, __version__
 from ..config import ParserConfig
-from ..exceptions import ParseException
+from ..exceptions import FailedParse, ParseException
 from ..ngcodegen import modelgen, parsergen, pythongen
 from ..util import eval_escapes
+from ..util.colorize.style import Color
 from . import api
 
 
@@ -94,7 +95,7 @@ def parse_args():
     ebnf_opts.add_argument(
         '--color',
         '-c',
-        help='use color in traces (requires the colorama library)',
+        help='use ANSI colour in output',
         action='store_true',
     )
     ebnf_opts.add_argument(
@@ -149,6 +150,12 @@ def parse_args():
         help='generate object model and save to FILE',
     )
     generation_opts.add_argument(
+        '--optimize',
+        '-z',
+        help='optimize grammar model before generating output',
+        action='store_true',
+    )
+    generation_opts.add_argument(
         '--whitespace',
         '-w',
         metavar='CHARACTERS',
@@ -183,7 +190,7 @@ def parse_args():
         '-V',
         help='provide version information and exit',
         action='version',
-        version=f'TatSu {__version__}',
+        version=f'{__toolname__} {__version__}',
     )
 
     args = argparser.parse_args()
@@ -238,6 +245,9 @@ def tatsu_main():
         )
         model = api.compile(grammar, args.name, asmodel=True, config=config)
 
+        if args.optimize:
+            model = model.optimized()
+
         if args.draw:
             from .. import diagrams
 
@@ -279,5 +289,9 @@ def tatsu_main():
         print(f'{len(model.rules):12,d}  rules in grammar', file=sys.stderr)
         print(f'{model.nodecount():12,d}  nodes in AST', file=sys.stderr)
     except ParseException as e:
-        print(e, file=sys.stderr)
+        if isinstance(e, FailedParse):
+            color = Color.always() if args.color else Color.stderr()
+            print(e.render(color=color), file=sys.stderr)
+        else:
+            print(e, file=sys.stderr)
         sys.exit(1)

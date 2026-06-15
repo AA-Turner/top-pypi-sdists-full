@@ -12,6 +12,8 @@ Covers:
 """
 import json
 import os
+import sys
+import types
 
 import pytest
 
@@ -123,6 +125,94 @@ def test_model_router_fingerprint_parses_git_sha(tmp_path, monkeypatch):
 def test_model_router_fingerprint_absent_returns_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("NEMOCLAW_MODEL_ROUTER_VENV", str(tmp_path / "nope"))
     assert _model_router_fingerprint() == {}
+
+
+# -- #2795 model-router proxy liveness ---------------------------------------
+
+def test_model_router_port_parsed_from_cmdline(monkeypatch):
+    # No need to spawn a real process — feed a fake /proc-style cmdline scan.
+    import clawmetry.adapters.openclaw as oc
+
+    class _FakeProc:
+        def __init__(self, cmd):
+            self.info = {"cmdline": cmd}
+
+    fake = [
+        _FakeProc(["node", "server.js"]),
+        _FakeProc(["model-router", "proxy", "--port", "48123"]),
+    ]
+    fake_psutil = types.SimpleNamespace(process_iter=lambda fields: fake)
+    monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+    assert oc._discover_model_router_port() == 48123
+
+
+def test_model_router_port_supports_equals_form(monkeypatch):
+    import clawmetry.adapters.openclaw as oc
+
+    class _FakeProc:
+        def __init__(self, cmd):
+            self.info = {"cmdline": cmd}
+
+    fake = [_FakeProc(["model-router", "proxy", "--port=44550"])]
+    fake_psutil = types.SimpleNamespace(process_iter=lambda fields: fake)
+    monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+    assert oc._discover_model_router_port() == 44550
+
+
+def test_model_router_live_running_when_health_ok(monkeypatch):
+    import clawmetry.adapters.openclaw as oc
+    monkeypatch.setattr(oc, "_discover_model_router_port", lambda: 49000)
+    monkeypatch.setattr(oc, "_model_router_health_ok", lambda port: True)
+    out = oc._model_router_live()
+    assert out == {"modelRouterPort": 49000, "modelRouterRunning": True}
+
+
+def test_model_router_live_crashed_router_is_distinguishable(monkeypatch):
+    # Process discoverable (port known) but /health and TCP both fail → a
+    # crashed/wedged router reads as NOT running, the whole point of #2795.
+    import clawmetry.adapters.openclaw as oc
+    monkeypatch.setattr(oc, "_discover_model_router_port", lambda: 49001)
+    monkeypatch.setattr(oc, "_model_router_health_ok", lambda port: False)
+    out = oc._model_router_live()
+    assert out == {"modelRouterPort": 49001, "modelRouterRunning": False}
+
+
+def test_model_router_live_absent_returns_not_running(monkeypatch):
+    import clawmetry.adapters.openclaw as oc
+    monkeypatch.setattr(oc, "_discover_model_router_port", lambda: None)
+    assert oc._model_router_live() == {"modelRouterRunning": False}
+
+
+def test_model_router_health_ok_probes_real_localhost_server():
+    # Spin up a tiny HTTP server that answers 200 on /health and assert the
+    # probe (and its TCP fallback) report it as up.
+    import http.server
+    import threading
+    from clawmetry.adapters.openclaw import _model_router_health_ok
+
+    class _H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            code = 200 if self.path == "/health" else 404
+            self.send_response(code)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), _H)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        assert _model_router_health_ok(port) is True
+    finally:
+        srv.shutdown()
+
+
+def test_model_router_health_ok_false_when_nothing_listening():
+    from clawmetry.adapters.openclaw import _model_router_health_ok
+    # Port 0 is never a live listener; probe must fail closed, not raise.
+    assert _model_router_health_ok(0) is False
 
 
 # -- #2682 nemoclaw catalog dispatch span unwrap -----------------------------
@@ -373,3 +463,143 @@ def test_tool_result_string_content_does_not_emit_content_types():
     assert "tool.result_content_types" not in attrs
     assert "tool.result_coercions" not in attrs
     assert attrs["tool.result_text"] == "file1\nfile2\n"
+
+
+# -- #3113 session parent_id mapping ----------------------------------------
+
+def test_list_sessions_maps_parent_id(monkeypatch):
+    """list_sessions() must populate Session.parent_id from the parentId key
+    returned by _get_sessions() (which in turn passes it through from the
+    gateway sessions.list RPC response)."""
+    from clawmetry.adapters.openclaw import OpenClawAdapter
+    import clawmetry.adapters.openclaw as _oc_mod
+
+    fake_sessions = [
+        {
+            "sessionId": "child-session-abc",
+            "displayName": "child session",
+            "model": "claude-opus-4-8",
+            "channel": "direct",
+            "updatedAt": 1_700_000_000_000,
+            "totalTokens": 100,
+            "inputTokens": 60,
+            "outputTokens": 40,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "costUsd": 0.001,
+            "parentId": "parent-session-xyz",
+        },
+        {
+            "sessionId": "root-session-def",
+            "displayName": "root session",
+            "model": "claude-opus-4-8",
+            "channel": "direct",
+            "updatedAt": 1_700_000_000_000,
+            "totalTokens": 200,
+            "inputTokens": 120,
+            "outputTokens": 80,
+            "cacheReadTokens": 0,
+            "cacheWriteTokens": 0,
+            "costUsd": 0.002,
+            # no parentId — root session
+        },
+    ]
+
+    import dashboard as _dash
+    monkeypatch.setattr(_dash, "_get_sessions", lambda: fake_sessions)
+
+    adapter = OpenClawAdapter()
+    sessions = adapter.list_sessions()
+
+    child = next(s for s in sessions if s.id == "child-session-abc")
+    root = next(s for s in sessions if s.id == "root-session-def")
+
+    assert child.parent_id == "parent-session-xyz", (
+        "child session must carry parent_id from gateway parentId field"
+    )
+    assert root.parent_id is None, "root session without parentId must have parent_id=None"
+    assert child.to_dict()["parentId"] == "parent-session-xyz"
+
+
+# -- #3115 list_events() talk/voice blob extraction -------------------------
+
+def test_list_events_surfaces_talk_lifecycle_fields():
+    """list_events() must surface talkMode/talkTransport/etc. from the stored
+    DuckDB blob into Event.extra (gap filed as #3115).  We exercise the
+    blob-decoding path directly by patching the DuckDB query to return a
+    synthetic row with a talk.lifecycle data blob."""
+    import unittest.mock as mock
+    from clawmetry.adapters.openclaw import OpenClawAdapter
+
+    talk_blob = json.dumps({
+        "talkEventType": "session.start",
+        "talkMode":      "voice",
+        "talkTransport": "webrtc",
+        "talkProvider":  "openai",
+        "talkBrain":     "gpt-realtime",
+        "talkDurationMs": 1500,
+        "talkByteLength": 8192,
+        "talkFinal":     True,
+    }).encode("utf-8")
+
+    fake_row = (
+        "ev-1",           # id
+        "talk.lifecycle", # type
+        "2026-06-14T00:00:00Z",  # ts
+        None,             # model
+        0,                # token_count
+        talk_blob,        # data
+        None,             # agent_id
+        None,             # node_id
+    )
+
+    adapter = OpenClawAdapter.__new__(OpenClawAdapter)
+    adapter.name = "openclaw"
+
+    mock_store = mock.MagicMock()
+    mock_store._fetch.return_value = [fake_row]
+    mock_ls = mock.MagicMock()
+    mock_ls.get_store.return_value = mock_store
+    with mock.patch.dict("sys.modules", {"clawmetry.local_store": mock_ls}):
+        events = adapter.list_events("session-abc")
+
+    assert len(events) == 1
+    ex = events[0].extra
+    assert ex.get("mode") == "voice"
+    assert ex.get("transport") == "webrtc"
+    assert ex.get("provider") == "openai"
+    assert ex.get("brain") == "gpt-realtime"
+    assert ex.get("duration_ms") == 1500
+    assert ex.get("byte_length") == 8192
+    assert ex.get("final") is True
+
+
+def test_list_events_talk_final_false_is_surfaced():
+    """talkFinal=False must not be dropped by a falsy guard (#3115)."""
+    import unittest.mock as mock
+    from clawmetry.adapters.openclaw import OpenClawAdapter
+
+    talk_blob = json.dumps({
+        "talkEventType": "segment",
+        "talkMode": "voice",
+        "talkFinal": False,
+    }).encode("utf-8")
+
+    fake_row = (
+        "ev-2", "talk.lifecycle", "2026-06-14T00:01:00Z",
+        None, 0, talk_blob, None, None,
+    )
+
+    adapter = OpenClawAdapter.__new__(OpenClawAdapter)
+    adapter.name = "openclaw"
+
+    mock_store = mock.MagicMock()
+    mock_store._fetch.return_value = [fake_row]
+    mock_ls = mock.MagicMock()
+    mock_ls.get_store.return_value = mock_store
+    with mock.patch.dict("sys.modules", {"clawmetry.local_store": mock_ls}):
+        events = adapter.list_events("session-abc")
+
+    assert len(events) == 1
+    assert events[0].extra.get("final") is False
+    assert events[0].extra.get("mode") == "voice"

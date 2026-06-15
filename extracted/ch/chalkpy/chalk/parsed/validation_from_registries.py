@@ -70,6 +70,22 @@ def validate_all_from_registries(
     # FEATURE VALIDATION
     # ========================================================================
 
+    # --------------------------------------------------------------------
+    # Error[164]: part_of / add_features against a never-defined feature class
+    # --------------------------------------------------------------------
+    # Auxiliary classes are merged into their target when the target class is
+    # decorated; an entry still pending here means the target namespace was
+    # never defined and the auxiliary's fields silently never made it into the
+    # graph. Report it before the rest of validation: it is the root cause of
+    # any downstream "unknown feature" errors.
+    from chalk.features.feature_set_decorator import validate_no_unmerged_auxiliary_classes
+
+    try:
+        validate_no_unmerged_auxiliary_classes(features_registry)
+    except Exception as e:
+        if not LSPErrorBuilder.promote_exception(e):
+            raise
+
     ast_index = get_project_ast_context()
 
     for _, features_cls in features_registry.items():

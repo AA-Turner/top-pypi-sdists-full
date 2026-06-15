@@ -5,7 +5,7 @@
 
 import sys
 
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from ._markers import MISSING, MissingType
 
@@ -19,26 +19,51 @@ if sys.version_info >= (3, 10):  # PEP 612
 else:  # typing-extensions>=3.10.0
     from typing_extensions import ParamSpec
 
-if sys.version_info >= (3, 11):  # runtime introspection support
+if sys.version_info >= (3, 12):  # various bug fixes and improvements
+    from typing import Protocol
+else:  # typing-extensions>=4.10.0
+    from typing_extensions import Protocol
+
+if sys.version_info >= (3, 11):  # python/cpython#31716: introspectable
     from typing import overload
 else:  # typing-extensions>=4.2.0
     from typing_extensions import overload
 
 _T = TypeVar("_T")
+_NamedCallableT = TypeVar("_NamedCallableT", bound=_NamedCallable)
 _P = ParamSpec("_P")
+
+class _NamedCallable(Protocol):
+    def __call__(self, /, *args: Any, **kwargs: Any) -> Any: ...
+    @property
+    def __name__(self, /) -> str: ...
 
 @overload
 def replaces(
-    namespace: MutableMapping[str, object],
+    namespace: MutableMapping[str, Any],
     replacer: MissingType = MISSING,
     /,
-) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
+) -> Callable[[_NamedCallableT], _NamedCallableT]: ...
 @overload
 def replaces(
-    namespace: MutableMapping[str, object],
-    replacer: Callable[_P, _T],
+    namespace: MutableMapping[str, Any],
+    replacer: _NamedCallableT,
     /,
-) -> Callable[_P, _T]: ...
+) -> _NamedCallableT: ...
+@overload
+def replaces_when_imported(
+    namespace: MutableMapping[str, Any],
+    module_name: str,
+    replacer: MissingType = MISSING,
+    /,
+) -> Callable[[_NamedCallableT], _NamedCallableT]: ...
+@overload
+def replaces_when_imported(
+    namespace: MutableMapping[str, Any],
+    module_name: str,
+    replacer: _NamedCallableT,
+    /,
+) -> _NamedCallableT: ...
 @overload
 def copies(
     original: Callable[_P, _T],

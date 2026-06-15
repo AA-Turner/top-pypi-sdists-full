@@ -48,9 +48,9 @@ def to_hashable(item: Any) -> HashableComparable:
                 for k, v in item.items()
             )
         )
-    if isinstance(item, set):  # pragma: no cover
+    if isinstance(item, set):
         return frozenset(to_hashable(i) for i in item)  # type: ignore[return-value]
-    if isinstance(item, BaseModel):  # pragma: no cover
+    if isinstance(item, BaseModel):
         return to_hashable(item.model_dump())
     return item  # type: ignore[return-value]
 
@@ -66,12 +66,16 @@ class Child(Protocol):
 
 
 T = TypeVar("T")
+_NO_PARENT = object()
 
 
 def get_most_of_parent(value: Any, type_: type[T] | None = None) -> T | None:
     """Traverse parent chain to find the outermost matching parent."""
-    if isinstance(value, Child) and (type_ is None or not isinstance(value, type_)):
-        return get_most_of_parent(value.parent, type_)
-    if type_ is not None and not isinstance(value, type_):
-        return None
-    return value
+    parent = getattr(value, "parent", _NO_PARENT)
+    match (parent is not _NO_PARENT, type_ is None, type_ is not None and isinstance(value, type_)):
+        case (True, True, _) | (True, False, False):
+            return get_most_of_parent(parent, type_)
+        case (_, False, False):
+            return None
+        case _:
+            return value

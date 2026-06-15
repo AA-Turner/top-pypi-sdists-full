@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GitHubKit
-Version: 0.15.5
+Version: 0.16.0
 Summary: GitHub SDK for Python
 Keywords: github,octokit
 Author: yanyongyu
@@ -8,19 +8,23 @@ Author-email: yanyongyu <yyy@yyydl.top>
 License-Expression: MIT
 Requires-Dist: anyio>=3.6.1,<5.0.0
 Requires-Dist: httpx>=0.23.0,<1.0.0
-Requires-Dist: hishel>=0.0.21,<=0.2.0
+Requires-Dist: hishel[async,httpx]>=1.3.0,<=2.0.0
 Requires-Dist: typing-extensions>=4.11.0,<5.0.0
 Requires-Dist: pydantic>=1.9.1,!=2.5.0,!=2.5.1,<3.0.0
+Requires-Dist: githubkit-schemas>=26.5.7
 Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'all'
+Requires-Dist: githubkit-schemas[all]>=26.5.7 ; extra == 'all'
+Requires-Dist: githubkit-schemas[all]>=26.5.7 ; extra == 'all-schemas'
 Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'auth'
 Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'auth-app'
 Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'jwt'
-Requires-Python: >=3.9, <4.0
+Requires-Python: >=3.10, <4.0
 Project-URL: Homepage, https://github.com/yanyongyu/githubkit
 Project-URL: Repository, https://github.com/yanyongyu/githubkit
 Project-URL: Documentation, https://github.com/yanyongyu/githubkit
 Project-URL: Bug Tracker, https://github.com/yanyongyu/githubkit/issues
 Provides-Extra: all
+Provides-Extra: all-schemas
 Provides-Extra: auth
 Provides-Extra: auth-app
 Provides-Extra: auth-oauth-device
@@ -41,7 +45,7 @@ Description-Content-Type: text/markdown
   <a href="https://pypi.python.org/pypi/githubkit">
     <img src="https://img.shields.io/pypi/v/githubkit?logo=python&logoColor=edb641" alt="pypi">
   </a>
-  <img src="https://img.shields.io/badge/python-3.9+-blue?logo=python&logoColor=edb641" alt="python">
+  <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=edb641" alt="python">
   <a href="https://github.com/psf/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg?logo=python&logoColor=edb641" alt="black">
   </a>
@@ -123,7 +127,7 @@ Then, enjoy githubkit now!
 
 ```python
 from githubkit import Response
-from githubkit.versions.latest.models import FullRepository
+from githubkit_schemas.latest.models import FullRepository
 
 resp: Response[FullRepository] = github.rest.repos.get("owner", "repo")
 repo: FullRepository = resp.parsed_data

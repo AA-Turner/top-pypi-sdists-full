@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// ///
 /**
  * Launch or adopt a snapshot-scoped Chrome session when CHROME_ISOLATION=snapshot.
  *

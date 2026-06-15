@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import warnings
 import weakref
 
-from types import FunctionType, ModuleType
+from inspect import isclass, isfunction, ismodule
 from typing import TYPE_CHECKING
 
 from ._imports import import_from
@@ -17,6 +18,9 @@ from ._markers import DEFAULT
 from ._modules import resolve_name
 
 if TYPE_CHECKING:
+    from types import ModuleType
+    from typing import Any, Final
+
     from ._markers import DefaultType
 
     if sys.version_info >= (3, 9):  # PEP 585
@@ -24,10 +28,35 @@ if TYPE_CHECKING:
     else:
         from typing import MutableMapping
 
+    if sys.version_info >= (3, 13):  # PEP 742
+        from typing import TypeIs
+    else:  # typing-extensions>=4.10.0
+        from typing_extensions import TypeIs
+
 if sys.version_info >= (3, 11):  # runtime introspection support
     from typing import get_overloads, overload
 else:  # typing-extensions>=4.2.0
     from typing_extensions import get_overloads, overload
+
+# python/cpython#82711
+_ATTRIBUTE_SUGGESTIONS_OFFERED: Final[bool] = sys.version_info >= (3, 10)
+_SPHINX_AUTODOC_RELOAD_MODULES: Final[bool] = bool(
+    os.getenv(
+        "SPHINX_AUTODOC_RELOAD_MODULES",
+        "",
+    )
+)
+
+
+def _isbuiltindescriptor(
+    value: object,
+    /,
+) -> TypeIs[classmethod[Any, Any, Any] | staticmethod[Any, Any]]:
+    return isinstance(value, (classmethod, staticmethod))
+
+
+def _isproperty(value: object, /) -> TypeIs[property]:
+    return isinstance(value, property)
 
 
 def _issubmodule(module_name: str | None, package_name: str, /) -> bool:
@@ -51,7 +80,7 @@ def _export_one(
     # other problematic objects that provide a read-only `__module__`
     # attribute.
 
-    if isinstance(value, type):
+    if isclass(value):
         # When we encounter a class, we apply the function not only to it, but
         # also recursively to its members. This allows the user to safely
         # reference class functions during pickling.
@@ -100,7 +129,7 @@ def _export_one(
         value.__name__ = name
         value.__qualname__ = qualname
         value.__module__ = package_name
-    elif isinstance(value, FunctionType):
+    elif isfunction(value):
         # To avoid changing attributes of objects that are not under our
         # control, we explicitly check whether the function belongs to our
         # package. However, keep in mind that this does not eliminate
@@ -122,7 +151,7 @@ def _export_one(
         value.__name__ = name
         value.__qualname__ = qualname
         value.__module__ = package_name
-    elif isinstance(value, (classmethod, staticmethod)):
+    elif _isbuiltindescriptor(value):
         # We cannot reliably check whether the `classmethod`/`staticmethod`
         # instance belongs to the package, so we always assume that it does.
 
@@ -132,7 +161,7 @@ def _export_one(
             value.__name__ = name
             value.__qualname__ = qualname
             value.__module__ = package_name
-    elif isinstance(value, property):
+    elif _isproperty(value):
         # We cannot reliably check whether the `property` instance belongs to
         # the package, so we always assume that it does.
 
@@ -184,14 +213,14 @@ def export(
       ways.
     """
 
-    if TYPE_CHECKING:
-        # `sphinx.ext.autodoc` does not support the `__module__` hacks. In
-        # particular, 'bysource' ordering will not work, nor will some
-        # cross-references. So we skip all on type checking (implied by
-        # `SPHINX_AUTODOC_RELOAD_MODULES=1`).
+    # `sphinx.ext.autodoc` does not support the `__module__` hacks. In
+    # particular, 'bysource' ordering will not work, nor will some
+    # cross-references. So we skip all on type checking (implied by
+    # `SPHINX_AUTODOC_RELOAD_MODULES=1`).
+    if TYPE_CHECKING or _SPHINX_AUTODOC_RELOAD_MODULES:
         return
 
-    if isinstance(package_namespace, ModuleType):
+    if ismodule(package_namespace):
         package_name = package_namespace.__name__
         package_namespace = vars(package_namespace)
     else:
@@ -200,11 +229,19 @@ def export(
     public_names = []
 
     # copy the namespace so that it works in case of parallel calls
-    for name, value in {**package_namespace}.items():
+    copied_namespace = {**package_namespace}
+
+    if copied_namespace.get("TYPE_CHECKING") is TYPE_CHECKING:
+        del copied_namespace["TYPE_CHECKING"]  # skip `typing.TYPE_CHECKING`
+
+    if copied_namespace.get("annotations") is annotations:
+        del copied_namespace["annotations"]  # skip `__future__.annotations`
+
+    for name, value in copied_namespace.items():
         if name.startswith("_"):
             continue  # skip non-public ones
 
-        if isinstance(value, ModuleType):
+        if ismodule(value):
             # When we encounter another public package (we require all modules
             # to be non-public to avoid redundant operations), we apply the
             # function recursively to it. This allows us to avoid manually
@@ -234,7 +271,7 @@ def _register(
     *,
     deprecated: bool,
 ) -> None:
-    if isinstance(module_namespace, ModuleType):
+    if ismodule(module_namespace):
         module = module_namespace
         module_name = module_namespace.__name__
         module_namespace = vars(module_namespace)
@@ -315,7 +352,7 @@ def _register(
                         )
                     elif not name.startswith("_"):
                         # see the `export()` function
-                        if not isinstance(value, ModuleType):
+                        if not ismodule(value):
                             _export_one(module_name, name, name, value)
                         elif value.__name__.rpartition(".")[0] == module_name:
                             export(value)
@@ -328,8 +365,9 @@ def _register(
             try:
                 msg = f"module {module_name!r} has not attribute {name!r}"
                 exc = AttributeError(msg)
-                exc.name = name
-                exc.obj = module
+                if _ATTRIBUTE_SUGGESTIONS_OFFERED:
+                    exc.name = name
+                    exc.obj = module
 
                 try:
                     raise exc from import_exc
@@ -369,7 +407,7 @@ def _register(
 
     record = (target_path, deprecated)
 
-    if registry.setdefault(link_name, record) is not record:
+    if registry.setdefault(link_name, record) != record:
         msg = f"{link_name!r} is already registered"
         raise RuntimeError(msg)
 

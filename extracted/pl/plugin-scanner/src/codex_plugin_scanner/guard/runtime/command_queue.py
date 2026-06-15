@@ -51,7 +51,16 @@ def _now() -> str:
 
 def command_queue_enabled(environ: dict[str, str] | None = None) -> bool:
     source = os.environ if environ is None else environ
-    return source.get(COMMAND_QUEUE_ENABLED_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+    value = source.get(COMMAND_QUEUE_ENABLED_ENV)
+    if value is None:
+        return True
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"", "0", "false", "no", "off", "disabled"}:
+        return False
+    _LOGGER.warning("Ignoring unrecognized %s value; command queue disabled.", COMMAND_QUEUE_ENABLED_ENV)
+    return False
 
 
 def _env_float(name: str, default: float) -> float:
@@ -235,6 +244,15 @@ def _heartbeat(auth_context: dict[str, object], job: dict[str, object]) -> None:
 
 
 def _result_payload(job: dict[str, object], execution: dict[str, object]) -> dict[str, object]:
+    if execution.get("waitingLocalConfirm") is True:
+        sanitized_execution = dict(execution)
+        sanitized_execution.pop("waitingLocalConfirm", None)
+        return {
+            "leaseId": _lease_id(job),
+            "idempotencyKey": f"{_job_id(job)}:{_lease_id(job)}:waiting_local_confirm",
+            "status": "waiting_local_confirm",
+            "result": sanitized_execution,
+        }
     failure_code = execution.get("failureCode")
     if isinstance(failure_code, str) and failure_code:
         payload: dict[str, object] = {

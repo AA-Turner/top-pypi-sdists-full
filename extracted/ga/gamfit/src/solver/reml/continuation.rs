@@ -175,14 +175,14 @@ pub(crate) struct ContinuationState {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum FailureAction {
+pub(crate) enum FailureAction {
     ShrinkStep,
     ShrinkOrExpand,
     Propagate,
     ExpandRhoZero,
 }
 
-fn classify_action(failure: &InnerFailure) -> FailureAction {
+pub(crate) fn classify_action(failure: &InnerFailure) -> FailureAction {
     match failure {
         InnerFailure::CertRefused { diagnosis, .. } => match diagnosis {
             KktRefusalDiagnosis::RankDeficientHPen => FailureAction::ExpandRhoZero,
@@ -205,7 +205,11 @@ fn classify_action(failure: &InnerFailure) -> FailureAction {
     }
 }
 
-fn build_rho_zero(target: &Array1<f64>, upper: &Array1<f64>, offset: f64) -> Array1<f64> {
+pub(crate) fn build_rho_zero(
+    target: &Array1<f64>,
+    upper: &Array1<f64>,
+    offset: f64,
+) -> Array1<f64> {
     assert_eq!(target.len(), upper.len());
     let mut rho0 = target.clone();
     for i in 0..rho0.len() {
@@ -215,14 +219,14 @@ fn build_rho_zero(target: &Array1<f64>, upper: &Array1<f64>, offset: f64) -> Arr
     rho0
 }
 
-fn rho_zero_is_target(rho0: &Array1<f64>, target: &Array1<f64>) -> bool {
+pub(crate) fn rho_zero_is_target(rho0: &Array1<f64>, target: &Array1<f64>) -> bool {
     assert_eq!(rho0.len(), target.len());
     rho0.iter()
         .zip(target.iter())
         .all(|(a, b)| (a - b).abs() <= RHO_EQUAL_TOL)
 }
 
-fn step_toward(rho_k: &Array1<f64>, target: &Array1<f64>, alpha: f64) -> Array1<f64> {
+pub(crate) fn step_toward(rho_k: &Array1<f64>, target: &Array1<f64>, alpha: f64) -> Array1<f64> {
     assert_eq!(rho_k.len(), target.len());
     let mut out = Array1::<f64>::zeros(rho_k.len());
     for i in 0..rho_k.len() {
@@ -235,23 +239,23 @@ fn step_toward(rho_k: &Array1<f64>, target: &Array1<f64>, alpha: f64) -> Array1<
 /// `RHO_EQUAL_TOL` start-collapse band. Reaching the target must be a stricter
 /// statement than ρ₀≈ρ*, so the path does not declare success one full collapse
 /// band away from the seed.
-const REACHED_TARGET_TIGHTEN: f64 = 8.0;
+pub(crate) const REACHED_TARGET_TIGHTEN: f64 = 8.0;
 
-fn reached_target(rho: &Array1<f64>, target: &Array1<f64>) -> bool {
+pub(crate) fn reached_target(rho: &Array1<f64>, target: &Array1<f64>) -> bool {
     let tol = RHO_EQUAL_TOL / REACHED_TARGET_TIGHTEN;
     rho.iter()
         .zip(target.iter())
         .all(|(a, b)| (a - b).abs() <= tol)
 }
 
-fn inner_failure_from(err: EstimationError) -> InnerFailure {
+pub(crate) fn inner_failure_from(err: EstimationError) -> InnerFailure {
     match err {
         EstimationError::RemlOptimizationFailed(msg) => classify_inner_error(msg),
         other => InnerFailure::Other(other.to_string()),
     }
 }
 
-fn eval_step(
+pub(crate) fn eval_step(
     obj: &mut dyn OuterObjective,
     rho: &Array1<f64>,
     beta_seed: &Array1<f64>,
@@ -288,7 +292,7 @@ fn eval_step(
 
 pub(crate) type ContinuationResult = Result<ContinuationState, ContinuationFailure>;
 
-/// Telemetry returned by a successful `prime_outer_seed` call.
+/// Telemetry returned by successful continuation seed priming.
 /// Surfaced so the outer-loop call site can emit a single structured
 /// log line distinguishing the no-op collapse path from a real anneal.
 #[derive(Debug, Clone, Copy)]
@@ -320,10 +324,15 @@ pub(crate) struct PrimingSummary {
 ///
 /// `seed` is the per-iteration ρ candidate (the loop variable in
 /// `run_outer_with_plan`). `bounds_upper` is the legal upper bound on ρ.
-pub(crate) fn prime_outer_seed(
+/// Prime the outer seed with an explicit continuation path budget. The pre-warm
+/// is an optimization, so callers may cap the rho-walk more tightly on
+/// expensive multi-seed problems and let the ordinary cold seed evaluation
+/// judge the candidate when the cap is reached.
+pub(crate) fn prime_outer_seed_with_budget(
     obj: &mut dyn OuterObjective,
     seed: &Array1<f64>,
     bounds_upper: &Array1<f64>,
+    path_budget: usize,
 ) -> Result<PrimingSummary, ContinuationFailure> {
     // Pre-screen: if ρ₀ would clamp to ρ*, skip entirely. No inner
     // call, no allocation, no log line — continuation is invisible on
@@ -342,12 +351,23 @@ pub(crate) fn prime_outer_seed(
     // via `OuterEval::inner_beta_hint` from each accepted eval.
     let empty_beta: Array1<f64> = Array1::zeros(0);
 
-    match fit_with_continuation(
+    // Value-only walk (#979). The pre-warm's ONLY product is a warm inner β at
+    // (or near) the seed ρ — it never consumes the outer gradient it used to
+    // request. Each `ValueAndGradient` step paid a full k²·n·p² LAML gradient
+    // assembly purely to carry `inner_beta_hint` forward; `Value` skips that
+    // assembly (see `compute_outer_eval_with_order`'s value-only branch) while
+    // still running the inner solve and surfacing the warmed β, so the walk
+    // forwards the same hint at a fraction of the per-step cost. This is the
+    // dominant lever on the ~35s/seed marginal-slope pre-warm and the
+    // centers=20 non-finish: the cold eval that follows the pre-warm asks for
+    // the gradient once, at the seed, instead of once per continuation step.
+    match fit_with_continuation_with_budget(
         obj,
         seed,
         bounds_upper,
         &empty_beta,
-        OuterEvalOrder::ValueAndGradient,
+        OuterEvalOrder::Value,
+        path_budget,
     ) {
         Ok(state) => Ok(PrimingSummary {
             collapsed: false,
@@ -367,21 +387,33 @@ pub(crate) fn prime_outer_seed(
 /// This is the **ρ-anneal spine entry**: the single callable that walks the
 /// oversmoothing→target ρ homotopy with the full retry/ρ₀-expansion decision
 /// tree (`run_path` is the per-offset inner pass). It was historically a
-/// private helper reachable only through `prime_outer_seed` (the warm-start
+/// private helper reachable only through `prime_outer_seed_with_budget` (the warm-start
 /// pre-screen fallback). It is now `pub(crate)` so the coupled
 /// [`crate::solver::continuation_path::ContinuationPath`] can drive the ρ leg
 /// of the joint K≥2 SAE homotopy through the SAME spine rather than cloning a
 /// parallel ρ-anneal — there is no second implementation of the schedule.
 ///
 /// Callers that only want the warm-start pre-screen keep using
-/// [`prime_outer_seed`]; callers that own the coupled τ / isometry legs call
-/// this directly so the three schedules advance against one shared ρ walk.
+/// [`prime_outer_seed_with_budget`]; callers that own the coupled τ / isometry
+/// legs call this directly so the three schedules advance against one shared ρ
+/// walk.
 pub(crate) fn fit_with_continuation(
     obj: &mut dyn OuterObjective,
     target: &Array1<f64>,
     bounds_upper: &Array1<f64>,
     initial_beta: &Array1<f64>,
     order: OuterEvalOrder,
+) -> ContinuationResult {
+    fit_with_continuation_with_budget(obj, target, bounds_upper, initial_beta, order, PATH_BUDGET)
+}
+
+pub(crate) fn fit_with_continuation_with_budget(
+    obj: &mut dyn OuterObjective,
+    target: &Array1<f64>,
+    bounds_upper: &Array1<f64>,
+    initial_beta: &Array1<f64>,
+    order: OuterEvalOrder,
+    path_budget: usize,
 ) -> ContinuationResult {
     if target.len() != bounds_upper.len() {
         return Err(ContinuationFailure::StructuralPropagate(
@@ -394,9 +426,18 @@ pub(crate) fn fit_with_continuation(
     }
 
     let mut offset = OVERSMOOTH_OFFSET_INIT;
+    let path_budget = path_budget.max(1);
 
     for retry in 0..=OVERSMOOTH_RETRY_MAX {
-        match run_path(obj, target, bounds_upper, initial_beta, order, offset) {
+        match run_path(
+            obj,
+            target,
+            bounds_upper,
+            initial_beta,
+            order,
+            offset,
+            path_budget,
+        ) {
             Ok(state) => return Ok(state),
             Err(PathOutcome::ExpandRhoZero(last)) | Err(PathOutcome::Stuck(last)) => {
                 if retry == OVERSMOOTH_RETRY_MAX {
@@ -442,7 +483,7 @@ pub(crate) fn fit_with_continuation(
     })
 }
 
-enum PathOutcome {
+pub(crate) enum PathOutcome {
     ExpandRhoZero(InnerFailure),
     Stuck(InnerFailure),
     DomainAtStart(InnerFailure),
@@ -454,13 +495,14 @@ enum PathOutcome {
     },
 }
 
-fn run_path(
+pub(crate) fn run_path(
     obj: &mut dyn OuterObjective,
     target: &Array1<f64>,
     bounds_upper: &Array1<f64>,
     initial_beta: &Array1<f64>,
     order: OuterEvalOrder,
     offset: f64,
+    path_budget: usize,
 ) -> Result<ContinuationState, PathOutcome> {
     let rho0 = build_rho_zero(target, bounds_upper, offset);
     let collapsed = rho_zero_is_target(&rho0, target);
@@ -506,7 +548,7 @@ fn run_path(
         return Ok(state);
     }
 
-    walk_state_toward(obj, state, target, order, PATH_BUDGET, 1)
+    walk_state_toward(obj, state, target, order, path_budget, 1)
 }
 
 /// One **warm** continuation leg (the ContinuationPath waypoint primitive):
@@ -556,7 +598,7 @@ pub(crate) fn continue_path_from(
 /// ρ₀ spine and the warm per-waypoint leg ([`continue_path_from`]) share ONE
 /// descent loop — the step/shrink/expand semantics cannot fork between the two
 /// entries (the objective↔gradient-desync lesson applied to control flow).
-fn walk_state_toward(
+pub(crate) fn walk_state_toward(
     obj: &mut dyn OuterObjective,
     mut state: ContinuationState,
     target: &Array1<f64>,
@@ -641,7 +683,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rho_zero_collapses_when_target_at_upper_bound() {
+    pub(crate) fn rho_zero_collapses_when_target_at_upper_bound() {
         let target = Array1::from_vec(vec![5.0, 5.0]);
         let upper = Array1::from_vec(vec![5.0, 5.0]);
         let rho0 = build_rho_zero(&target, &upper, OVERSMOOTH_OFFSET_INIT);
@@ -650,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn rho_zero_offsets_above_target_when_room() {
+    pub(crate) fn rho_zero_offsets_above_target_when_room() {
         let target = Array1::from_vec(vec![0.0, -2.0]);
         let upper = Array1::from_vec(vec![10.0, 10.0]);
         let rho0 = build_rho_zero(&target, &upper, OVERSMOOTH_OFFSET_INIT);
@@ -660,7 +702,7 @@ mod tests {
     }
 
     #[test]
-    fn step_toward_is_convex_combination() {
+    pub(crate) fn step_toward_is_convex_combination() {
         let a = Array1::from_vec(vec![0.0, 0.0]);
         let b = Array1::from_vec(vec![4.0, -8.0]);
         let mid = step_toward(&a, &b, 0.5);
@@ -672,7 +714,7 @@ mod tests {
     }
 
     #[test]
-    fn classify_action_routes_diagnoses_correctly() {
+    pub(crate) fn classify_action_routes_diagnoses_correctly() {
         let rank_def = InnerFailure::CertRefused {
             diagnosis: KktRefusalDiagnosis::RankDeficientHPen,
             carrying_block: None,
@@ -743,22 +785,22 @@ mod tests {
 
     /// A response scripted for the next `eval_with_order` call.
     #[derive(Clone)]
-    enum ScriptedResponse {
+    pub(crate) enum ScriptedResponse {
         Ok,
         Fail(&'static str),
     }
 
-    struct ScriptedObjective {
-        n_params: usize,
-        queue: Vec<ScriptedResponse>,
-        idx: usize,
-        rho_history: Vec<Array1<f64>>,
-        seed_calls: usize,
-        last_seeded_beta_len: Option<usize>,
+    pub(crate) struct ScriptedObjective {
+        pub(crate) n_params: usize,
+        pub(crate) queue: Vec<ScriptedResponse>,
+        pub(crate) idx: usize,
+        pub(crate) rho_history: Vec<Array1<f64>>,
+        pub(crate) seed_calls: usize,
+        pub(crate) last_seeded_beta_len: Option<usize>,
     }
 
     impl ScriptedObjective {
-        fn new(n_params: usize, queue: Vec<ScriptedResponse>) -> Self {
+        pub(crate) fn new(n_params: usize, queue: Vec<ScriptedResponse>) -> Self {
             Self {
                 n_params,
                 queue,
@@ -769,7 +811,7 @@ mod tests {
             }
         }
 
-        fn next_response(&mut self) -> ScriptedResponse {
+        pub(crate) fn next_response(&mut self) -> ScriptedResponse {
             let r = self
                 .queue
                 .get(self.idx)
@@ -825,7 +867,7 @@ mod tests {
             &mut self,
             beta: &Array1<f64>,
         ) -> Result<crate::solver::outer_strategy::SeedOutcome, EstimationError> {
-            // Contract (see `prime_outer_seed` / `eval_step` docstrings):
+            // Contract (see `prime_outer_seed_with_budget` / `eval_step` docstrings):
             // an empty-β seed means "no warm-start available, use your
             // own cold default" and must be accepted as a no-op. Only
             // a populated β is required to match `n_params`.
@@ -838,19 +880,20 @@ mod tests {
         }
     }
 
-    fn rho(values: &[f64]) -> Array1<f64> {
+    pub(crate) fn rho(values: &[f64]) -> Array1<f64> {
         Array1::from_vec(values.to_vec())
     }
 
     #[test]
-    fn degenerates_to_cold_start_on_easy_fits() {
+    pub(crate) fn degenerates_to_cold_start_on_easy_fits() {
         // ρ₀ would clamp to ρ* because the bounds-upper is *at* the
-        // target. prime_outer_seed must return Ok with ZERO inner
+        // target. prime_outer_seed_with_budget must return Ok with ZERO inner
         // calls — that's the no-overhead promise.
         let target = rho(&[5.0, 5.0]);
         let upper = rho(&[5.0, 5.0]);
         let mut obj = ScriptedObjective::new(2, Vec::new());
-        let summary = prime_outer_seed(&mut obj, &target, &upper).expect("collapse path");
+        let summary = prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET)
+            .expect("collapse path");
         assert!(summary.collapsed, "must report collapsed=true on easy fits");
         assert_eq!(summary.steps_accepted, 0);
         assert_eq!(obj.rho_history.len(), 0, "no inner calls on collapse");
@@ -858,7 +901,35 @@ mod tests {
     }
 
     #[test]
-    fn budget_exhausted_warmstart_completes_path() {
+    pub(crate) fn budgeted_prime_outer_seed_stops_before_full_path() {
+        let target = rho(&[0.0]);
+        let upper = rho(&[10.0]);
+        let mut obj = ScriptedObjective::new(
+            1,
+            vec![
+                ScriptedResponse::Ok,
+                ScriptedResponse::Ok,
+                ScriptedResponse::Ok,
+                ScriptedResponse::Ok,
+            ],
+        );
+        let err = prime_outer_seed_with_budget(&mut obj, &target, &upper, 3)
+            .expect_err("budgeted pre-warm must stop before reaching target");
+        match err {
+            ContinuationFailure::PathBudgetExhausted { steps_taken, .. } => {
+                assert_eq!(steps_taken, 3);
+            }
+            other => panic!("expected PathBudgetExhausted, got {other:?}"),
+        }
+        assert_eq!(
+            obj.rho_history.len(),
+            3,
+            "budget must cap the number of inner evals"
+        );
+    }
+
+    #[test]
+    pub(crate) fn budget_exhausted_warmstart_completes_path() {
         // Hard fit at target: cold-start refuses with BudgetExhausted at
         // every intermediate ρ until α shrinks enough that the step
         // lands inside the strongly-convex basin. Scenario simulates
@@ -888,7 +959,8 @@ mod tests {
                 ScriptedResponse::Ok,
             ],
         );
-        prime_outer_seed(&mut obj, &target, &upper).expect("path completes via shrink-on-budget");
+        prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET)
+            .expect("path completes via shrink-on-budget");
         // Confirm we did execute ρ₀ (the oversmoothed start) before
         // any of the failed attempts — direct evidence that the
         // continuation actually walked a path.
@@ -901,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    fn trust_region_floor_alpha_shrink_then_recovers() {
+    pub(crate) fn trust_region_floor_alpha_shrink_then_recovers() {
         // TrustRegionFloor → ShrinkOrExpand. First occurrence shrinks
         // (consecutive_trust_floor=1, still under threshold). If a
         // SECOND consecutive TR-floor fires, the schedule escalates to
@@ -925,13 +997,13 @@ mod tests {
                 ScriptedResponse::Ok,
             ],
         );
-        prime_outer_seed(&mut obj, &target, &upper)
+        prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET)
             .expect("path completes after single TR-floor shrink");
         assert!(obj.rho_history.len() >= 3);
     }
 
     #[test]
-    fn likelihood_failure_alpha_shrink_then_recovers() {
+    pub(crate) fn likelihood_failure_alpha_shrink_then_recovers() {
         // LikelihoodFailure (NaN / domain miss) → ShrinkStep. The β at
         // ρ_k was just accepted, so the family domain is reachable;
         // only the over-shoot landed outside. Halving α restores
@@ -953,7 +1025,7 @@ mod tests {
                 ScriptedResponse::Ok,
             ],
         );
-        let outcome = prime_outer_seed(&mut obj, &target, &upper);
+        let outcome = prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET);
         assert!(
             outcome.is_ok(),
             "path completes after likelihood shrink, got {:?}",
@@ -963,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    fn active_set_incomplete_propagates_structurally() {
+    pub(crate) fn active_set_incomplete_propagates_structurally() {
         // ActiveSetIncomplete is a real KKT bug — continuation must
         // NOT shrink and retry, it must surface the failure.
         let target = rho(&[0.0]);
@@ -979,7 +1051,7 @@ mod tests {
                 ),
             ],
         );
-        let err = prime_outer_seed(&mut obj, &target, &upper)
+        let err = prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET)
             .expect_err("structural failure must propagate");
         assert!(
             matches!(err, ContinuationFailure::StructuralPropagate(_)),
@@ -995,7 +1067,7 @@ mod tests {
     }
 
     #[test]
-    fn path_budget_exhausted_surfaces_last_inner_failure() {
+    pub(crate) fn path_budget_exhausted_surfaces_last_inner_failure() {
         // Queue is short on Oks but long on phantom-multiplier
         // refusals. ShrinkStep underflows α before the path completes,
         // producing PathStuck. After OVERSMOOTH_RETRY_MAX retries, the
@@ -1035,7 +1107,8 @@ mod tests {
             }
         }
         let mut obj = ScriptedObjective::new(1, responses);
-        let err = prime_outer_seed(&mut obj, &target, &upper).expect_err("schedule must fail");
+        let err = prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET)
+            .expect_err("schedule must fail");
         // PhantomMultiplier classifies as ShrinkStep → α-floor →
         // Stuck → ExpandRhoZero (outer) → retries doubled offset →
         // PathStuck after OVERSMOOTH_RETRY_MAX.
@@ -1075,13 +1148,13 @@ mod tests {
     use crate::solver::outer_strategy::ClosureObjective;
 
     #[test]
-    fn closure_objective_publishing_inner_beta_hint_without_seed_hook_is_acceptable() {
+    pub(crate) fn closure_objective_publishing_inner_beta_hint_without_seed_hook_is_acceptable() {
         // ClosureObjective wired exactly like the standard REML closure:
         //   - eval_with_order returns inner_beta_hint = Some(non-empty β)
         //   - no with_seed_inner_state(...) installed
         // continuation walks ρ from oversmoothed rho_zero to target, so
         // step 2 forwards the published hint into seed_inner_state.
-        // Today that path raises Invalid input and prime_outer_seed
+        // Today that path raises Invalid input and prime_outer_seed_with_budget
         // returns Err — but it should not.
         let target = Array1::from_vec(vec![0.0]);
         let upper = Array1::from_vec(vec![10.0]);
@@ -1129,11 +1202,11 @@ mod tests {
         // No `.with_seed_inner_state(...)` — mirrors standard REML's
         // build_objective wiring at src/solver/estimate.rs:3202.
         let mut obj = obj;
-        let result = prime_outer_seed(&mut obj, &target, &upper);
+        let result = prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET);
 
         assert!(
             result.is_ok(),
-            "prime_outer_seed must not reject a seed just because the \
+            "prime_outer_seed_with_budget must not reject a seed just because the \
              objective publishes inner_beta_hint without installing a \
              seed hook (issue #236). got: {:?}",
             result.err().map(|e| e.message().to_string()),
@@ -1141,13 +1214,13 @@ mod tests {
     }
 
     #[test]
-    fn pre_warm_does_not_forward_hint_into_objective_lacking_seed_hook() {
+    pub(crate) fn pre_warm_does_not_forward_hint_into_objective_lacking_seed_hook() {
         // A weaker, more targeted check: the continuation layer must
         // not blindly forward `inner_beta_hint` to an objective that
         // would reject it. Today the error message
         //   "cached inner beta has length N, but this objective does
         //    not expose an inner-state seeding hook"
-        // is surfaced verbatim through `prime_outer_seed`. Pin that
+        // is surfaced verbatim through `prime_outer_seed_with_budget`. Pin that
         // this message no longer reaches users (issue #236).
         let target = Array1::from_vec(vec![0.0]);
         let upper = Array1::from_vec(vec![10.0]);
@@ -1194,7 +1267,7 @@ mod tests {
         };
 
         let mut obj = obj;
-        match prime_outer_seed(&mut obj, &target, &upper) {
+        match prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET) {
             Ok(_) => {}
             Err(cf) => {
                 let msg = cf.message();
@@ -1208,7 +1281,7 @@ mod tests {
     }
 
     #[test]
-    fn pre_warm_failure_carries_underlying_message_for_seed_rejection() {
+    pub(crate) fn pre_warm_failure_carries_underlying_message_for_seed_rejection() {
         // The outer wiring in run_outer_with_plan formats
         // `cf.message()` into the SeedRejection. Pin that
         // the message is preserved through the failure chain so the
@@ -1222,7 +1295,8 @@ mod tests {
                  diagnosis: active_set_incomplete",
             )],
         );
-        let err = prime_outer_seed(&mut obj, &target, &upper).expect_err("propagation expected");
+        let err = prime_outer_seed_with_budget(&mut obj, &target, &upper, PATH_BUDGET)
+            .expect_err("propagation expected");
         let msg = err.message();
         assert!(msg.contains("active_set_incomplete"), "msg='{msg}'");
     }
@@ -1233,7 +1307,7 @@ mod tests {
     //  falls back to a cold seed eval (numerical). #500.
     // ─────────────────────────────────────────────────────────────────
 
-    fn cert_refused(diagnosis: KktRefusalDiagnosis) -> InnerFailure {
+    pub(crate) fn cert_refused(diagnosis: KktRefusalDiagnosis) -> InnerFailure {
         InnerFailure::CertRefused {
             diagnosis,
             carrying_block: None,
@@ -1242,7 +1316,7 @@ mod tests {
     }
 
     #[test]
-    fn is_structural_true_only_for_genuine_joint_design_defects() {
+    pub(crate) fn is_structural_true_only_for_genuine_joint_design_defects() {
         // Identifiability / aliasing / active-set-incomplete: a cold solve
         // at the seed ρ* hits these identically — retrying cold is futile,
         // so the seed must be disqualified. The wrapping variant must NOT
@@ -1272,7 +1346,7 @@ mod tests {
     }
 
     #[test]
-    fn is_structural_false_for_numerical_prewarm_failures() {
+    pub(crate) fn is_structural_false_for_numerical_prewarm_failures() {
         // The #500 case: an ill-conditioned constraint-KKT residual at the
         // oversmoothed ρ₀ classifies as InnerFailure::Other. The scheduler
         // routes the first-step variant to PathStuck and the mid-walk

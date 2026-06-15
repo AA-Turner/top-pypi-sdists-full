@@ -29,18 +29,18 @@ pub(crate) mod runtime;
 mod trace;
 pub(crate) mod unified;
 
-const EXACT_TAU_TAU_HESSIAN_DENSE_CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
-const FIRTH_MAX_OBSERVATIONS: usize = 20_000;
-const FIRTH_MAX_COEFFICIENTS: usize = 256;
-const FIRTH_MAX_LINEAR_WORK: usize = 2_000_000;
-const FIRTH_MAX_QUADRATIC_WORK: usize = 100_000_000;
-const PERSISTENT_LATENT_VALUES_CACHE_CAPACITY: usize = 8;
+pub(crate) const EXACT_TAU_TAU_HESSIAN_DENSE_CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
+pub(crate) const FIRTH_MAX_OBSERVATIONS: usize = 20_000;
+pub(crate) const FIRTH_MAX_COEFFICIENTS: usize = 256;
+pub(crate) const FIRTH_MAX_LINEAR_WORK: usize = 2_000_000;
+pub(crate) const FIRTH_MAX_QUADRATIC_WORK: usize = 100_000_000;
+pub(crate) const PERSISTENT_LATENT_VALUES_CACHE_CAPACITY: usize = 8;
 
 #[derive(Debug)]
 pub(crate) struct PersistentLatentValuesCache {
-    entries: HashMap<String, Array2<f64>>,
-    lru: VecDeque<String>,
-    capacity: usize,
+    pub(crate) entries: HashMap<String, Array2<f64>>,
+    pub(crate) lru: VecDeque<String>,
+    pub(crate) capacity: usize,
 }
 
 impl Default for PersistentLatentValuesCache {
@@ -83,7 +83,7 @@ impl PersistentLatentValuesCache {
         }
     }
 
-    fn touch(&mut self, key: String) {
+    pub(crate) fn touch(&mut self, key: String) {
         if let Some(index) = self.lru.iter().position(|queued| queued == &key) {
             self.lru.remove(index);
         }
@@ -346,7 +346,7 @@ mod tests {
 
     /// Shorthand for the canonical Binomial-Logit `GlmLikelihoodSpec` used by
     /// the REML test fixtures.
-    fn binomial_logit_glm_spec() -> GlmLikelihoodSpec {
+    pub(crate) fn binomial_logit_glm_spec() -> GlmLikelihoodSpec {
         GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
             ResponseFamily::Binomial,
             InverseLink::Standard(StandardLink::Logit),
@@ -355,7 +355,7 @@ mod tests {
 
     /// Shorthand for the canonical Gaussian-Identity `GlmLikelihoodSpec` used
     /// by the REML test fixtures.
-    fn gaussian_identity_glm_spec() -> GlmLikelihoodSpec {
+    pub(crate) fn gaussian_identity_glm_spec() -> GlmLikelihoodSpec {
         GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
             ResponseFamily::Gaussian,
             InverseLink::Standard(StandardLink::Identity),
@@ -420,14 +420,14 @@ mod tests {
     }
 
     #[test]
-    fn firth_problem_scale_gate_blocks_large_quadratic_work() {
+    pub(crate) fn firth_problem_scale_gate_blocks_large_quadratic_work() {
         assert!(super::firth_problem_scale_allows(2_000, 200));
         assert!(!super::firth_problem_scale_allows(4_800, 241));
         assert!(!super::firth_problem_scale_allows(4_800, 433));
     }
 
     #[test]
-    fn tau_tau_hessian_policy_prefers_gradient_only_for_implicit_tau() {
+    pub(crate) fn tau_tau_hessian_policy_prefers_gradient_only_for_implicit_tau() {
         let operator = ImplicitDesignPsiDerivative::new(
             array![1.0, 2.0, 3.0, 4.0],
             array![0.5, -1.0, 1.5, 2.0],
@@ -462,7 +462,8 @@ mod tests {
     }
 
     #[test]
-    fn tau_tau_hessian_policy_does_not_force_gradient_only_for_implicit_multidim_duchon() {
+    pub(crate) fn tau_tau_hessian_policy_does_not_force_gradient_only_for_implicit_multidim_duchon()
+    {
         // Multi-dim Duchon implicit storage used to force gradient-only,
         // because the τ-cache materialization plan was infeasible.  The
         // unified evaluator now elects the matrix-free
@@ -503,7 +504,8 @@ mod tests {
     }
 
     #[test]
-    fn tau_tau_hessian_policy_does_not_force_gradient_only_when_cache_budget_is_exceeded() {
+    pub(crate) fn tau_tau_hessian_policy_does_not_force_gradient_only_when_cache_budget_is_exceeded()
+     {
         // The dense τ-cache plan exceeds the budget, but cost is no longer a
         // capability gate: the eval-side selects the matrix-free operator
         // representation in exactly this regime, and the planner routes
@@ -528,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn tau_tau_hessian_policy_prefers_gradient_only_for_firth_pair_gap() {
+    pub(crate) fn tau_tau_hessian_policy_prefers_gradient_only_for_firth_pair_gap() {
         let dir = DirectionalHyperParam::new_compact(
             HyperDesignDerivative::from(Array2::<f64>::zeros((2, 2))),
             Vec::new(),
@@ -586,7 +588,7 @@ mod tests {
         }
     }
 
-    fn build_logit_state<'a>(
+    pub(crate) fn build_logit_state<'a>(
         y: &'a Array1<f64>,
         w: &'a Array1<f64>,
         x: &Array2<f64>,
@@ -615,7 +617,7 @@ mod tests {
         .expect("state")
     }
 
-    fn poisson_log_glm_spec() -> GlmLikelihoodSpec {
+    pub(crate) fn poisson_log_glm_spec() -> GlmLikelihoodSpec {
         GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
             ResponseFamily::Poisson,
             InverseLink::Standard(StandardLink::Log),
@@ -636,7 +638,7 @@ mod tests {
     /// row-count-vs-weight-sum asymmetry into the inner solve or the cost would
     /// break this directly, independent of the optimiser tolerance.
     #[test]
-    fn fixed_dispersion_laml_surface_is_replication_invariant() {
+    pub(crate) fn fixed_dispersion_laml_surface_is_replication_invariant() {
         let n = 200usize;
         let p = 8usize;
         let c = 3usize;
@@ -718,7 +720,7 @@ mod tests {
     /// equivalence #893 requires. The anchor must therefore be exactly `0` for a
     /// fixed-dispersion family and the geometric mean for Gaussian-identity.
     #[test]
-    fn rho_weight_anchor_is_zero_for_fixed_dispersion() {
+    pub(crate) fn rho_weight_anchor_is_zero_for_fixed_dispersion() {
         let n = 50usize;
         let p = 3usize;
         let mut x = Array2::<f64>::zeros((n, p));
@@ -754,7 +756,7 @@ mod tests {
         );
     }
 
-    fn beta_original_from_bundle(bundle: &EvalShared) -> Array1<f64> {
+    pub(crate) fn beta_original_from_bundle(bundle: &EvalShared) -> Array1<f64> {
         let pr = bundle.pirls_result.as_ref();
         match pr.coordinate_frame {
             PirlsCoordinateFrame::OriginalSparseNative => pr.beta_transformed.as_ref().clone(),
@@ -764,7 +766,7 @@ mod tests {
         }
     }
 
-    fn compute_joint_hypercostgradienthessian(
+    pub(crate) fn compute_joint_hypercostgradienthessian(
         state: &RemlState<'_>,
         theta: &Array1<f64>,
         rho_dim: usize,
@@ -790,7 +792,7 @@ mod tests {
         ))
     }
 
-    fn h_original_from_bundle(bundle: &EvalShared) -> Array2<f64> {
+    pub(crate) fn h_original_from_bundle(bundle: &EvalShared) -> Array2<f64> {
         let pr = bundle.pirls_result.as_ref();
         match pr.coordinate_frame {
             PirlsCoordinateFrame::OriginalSparseNative => bundle.h_total.as_ref().clone(),
@@ -802,7 +804,7 @@ mod tests {
         }
     }
 
-    fn single_directional_tau_gradient(
+    pub(crate) fn single_directional_tau_gradient(
         state: &RemlState<'_>,
         rho: &Array1<f64>,
         hyper: DirectionalHyperParam,
@@ -818,7 +820,7 @@ mod tests {
         Ok(gradient[rho.len()])
     }
 
-    fn fd_directional_tau_cost_gradient(
+    pub(crate) fn fd_directional_tau_cost_gradient(
         y: &Array1<f64>,
         w: &Array1<f64>,
         x: &Array2<f64>,
@@ -840,7 +842,7 @@ mod tests {
         (v_plus - v_minus) / (2.0 * h)
     }
 
-    fn directional_tau_hessian_fd_reference(
+    pub(crate) fn directional_tau_hessian_fd_reference(
         y: &Array1<f64>,
         w: &Array1<f64>,
         x: &Array2<f64>,
@@ -891,7 +893,7 @@ mod tests {
     }
 
     #[test]
-    fn eval_cache_manager_stores_first_order_outer_eval() {
+    pub(crate) fn eval_cache_manager_stores_first_order_outer_eval() {
         let cache = EvalCacheManager::new();
         let rho = array![0.25, -0.0];
         let rho_key = EvalCacheManager::sanitized_rhokey(&rho);
@@ -919,7 +921,7 @@ mod tests {
     }
 
     #[test]
-    fn reset_outer_seed_state_clears_pirls_cache() {
+    pub(crate) fn reset_outer_seed_state_clears_pirls_cache() {
         // Build a minimal logit RemlState, populate the cross-call PIRLS LRU
         // by evaluating the outer objective at one rho, then verify that
         // reset_outer_seed_state wipes that LRU (alongside the eval bundle
@@ -965,7 +967,7 @@ mod tests {
     }
 
     #[test]
-    fn implicit_hyper_design_derivative_respects_full_model_embedding() {
+    pub(crate) fn implicit_hyper_design_derivative_respects_full_model_embedding() {
         let operator = ImplicitDesignPsiDerivative::new(
             array![1.0, 2.0, 3.0, 4.0],
             array![0.5, -1.0, 1.5, 2.0],
@@ -1049,7 +1051,7 @@ mod tests {
     }
 
     #[test]
-    fn directional_hyper_identities_match_finite_differences_logit() {
+    pub(crate) fn directional_hyper_identities_match_finite_differences_logit() {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1209,7 +1211,7 @@ mod tests {
     }
 
     #[test]
-    fn firth_exacthessian_includes_analytic_tk_second_derivatives() {
+    pub(crate) fn firth_exacthessian_includes_analytic_tk_second_derivatives() {
         // Rank-deficient X: the 4th column is 2x the 2nd column.
         let y = array![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
@@ -1288,7 +1290,7 @@ mod tests {
     }
 
     #[test]
-    fn firth_outer_hessian_matches_gradient_finite_difference_with_tk_terms() {
+    pub(crate) fn firth_outer_hessian_matches_gradient_finite_difference_with_tk_terms() {
         let y = array![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1367,7 +1369,7 @@ mod tests {
     }
 
     #[test]
-    fn firthgradient_lives_in_design_column_space_under_rank_deficiency() {
+    pub(crate) fn firthgradient_lives_in_design_column_space_under_rank_deficiency() {
         // Rank-deficient design: col4 = 2*col2.
         let x = array![
             [1.0, -1.2, 0.4, -2.4],
@@ -1406,7 +1408,8 @@ mod tests {
     }
 
     #[test]
-    fn firth_logit_directional_hypergradient_accepts_penalty_only_with_full_tk_gradient() {
+    pub(crate) fn firth_logit_directional_hypergradient_accepts_penalty_only_with_full_tk_gradient()
+    {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1463,7 +1466,8 @@ mod tests {
     }
 
     #[test]
-    fn firth_logit_directional_hypergradient_accepts_design_moving_with_full_tk_gradient() {
+    pub(crate) fn firth_logit_directional_hypergradient_accepts_design_moving_with_full_tk_gradient()
+     {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1500,7 +1504,7 @@ mod tests {
     }
 
     #[test]
-    fn firth_logit_hybrid_efs_accepts_full_tk_psi_gradient() {
+    pub(crate) fn firth_logit_hybrid_efs_accepts_full_tk_psi_gradient() {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1550,7 +1554,7 @@ mod tests {
     }
 
     #[test]
-    fn joint_hyperhessianwires_mixed_blocks() {
+    pub(crate) fn joint_hyperhessianwires_mixed_blocks() {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1613,7 +1617,7 @@ mod tests {
     }
 
     #[test]
-    fn joint_tau_tau_linear_dirs_matchfd_reference_away_fromzero_psi() {
+    pub(crate) fn joint_tau_tau_linear_dirs_matchfd_reference_away_fromzero_psi() {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1696,7 +1700,7 @@ mod tests {
     }
 
     #[test]
-    fn joint_hypervalidation_rejects_out_of_boundssecond_order_penalty_index() {
+    pub(crate) fn joint_hypervalidation_rejects_out_of_boundssecond_order_penalty_index() {
         // The hyper direction declares a second-order penalty derivative
         // against base penalty index 1, but the configured ρ vector has
         // dimension 1 (so only index 0 is valid).  The pair-callback
@@ -1746,7 +1750,7 @@ mod tests {
     }
 
     #[test]
-    fn joint_tau_tau_analytic_matchesfd_reference() {
+    pub(crate) fn joint_tau_tau_analytic_matchesfd_reference() {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -1844,21 +1848,21 @@ mod tests {
     // and the envelope-theorem rescaling by (n−M)/D_p must be correct.
 
     /// Shared test fixture for profiled Gaussian REML tests.
-    struct GaussianRemlFixture {
-        y: Array1<f64>,
-        w: Array1<f64>,
-        x: Array2<f64>,
-        s0: Array2<f64>,
-        cfg: RemlConfig,
-        rho: Array1<f64>,
+    pub(crate) struct GaussianRemlFixture {
+        pub(crate) y: Array1<f64>,
+        pub(crate) w: Array1<f64>,
+        pub(crate) x: Array2<f64>,
+        pub(crate) s0: Array2<f64>,
+        pub(crate) cfg: RemlConfig,
+        pub(crate) rho: Array1<f64>,
         /// Design-moving τ-direction (non-zero X_τ, zero S_τ).
-        x_tau_design: Array2<f64>,
+        pub(crate) x_tau_design: Array2<f64>,
         /// Penalty-only τ-direction (zero X_τ, non-zero S_τ).
-        s_tau_penalty: Array2<f64>,
+        pub(crate) s_tau_penalty: Array2<f64>,
     }
 
     impl GaussianRemlFixture {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             let y = array![0.5, 1.2, -0.3, 0.8, 1.1, -0.6, 0.9, 0.1, -0.2, 0.7];
             let x = array![
                 [1.0, -1.2, 0.3],
@@ -1918,7 +1922,7 @@ mod tests {
     }
 
     #[test]
-    fn profiled_gaussian_design_moving_gradient_matches_fd() {
+    pub(crate) fn profiled_gaussian_design_moving_gradient_matches_fd() {
         let f = GaussianRemlFixture::new();
         let state = f.state();
         let s_tau = Array2::<f64>::zeros((3, 3));
@@ -1944,7 +1948,7 @@ mod tests {
     }
 
     #[test]
-    fn profiled_gaussian_penalty_only_gradient_matches_fd() {
+    pub(crate) fn profiled_gaussian_penalty_only_gradient_matches_fd() {
         let f = GaussianRemlFixture::new();
         let state = f.state();
         let x_tau = Array2::<f64>::zeros(f.x.raw_dim());
@@ -1970,7 +1974,7 @@ mod tests {
     }
 
     #[test]
-    fn profiled_gaussian_joint_hessian_matches_fd() {
+    pub(crate) fn profiled_gaussian_joint_hessian_matches_fd() {
         // Validate the ττ Hessian block under profiled Gaussian REML with
         // both a penalty-only and a design-moving direction.
         let f = GaussianRemlFixture::new();
@@ -2038,7 +2042,7 @@ mod tests {
     // the IFT correction were missing.
 
     #[test]
-    fn logit_design_moving_gradient_matches_fd() {
+    pub(crate) fn logit_design_moving_gradient_matches_fd() {
         let y = array![0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0];
         let w = Array1::<f64>::ones(y.len());
         let x = array![
@@ -2097,7 +2101,7 @@ mod tests {
     }
 
     #[test]
-    fn logit_design_moving_hessian_matches_fd() {
+    pub(crate) fn logit_design_moving_hessian_matches_fd() {
         // Hessian-level validation for logit + design-motion.
         // The IFT correction enters the trace term through
         // hessian_derivative_correction(v_i), so the Hessian is the most
@@ -2189,21 +2193,21 @@ mod tests {
 
     /// Shared test fixture for binomial-logit REML with design-moving
     /// ψ-coordinates, n=30, p=5.
-    struct BinomialLogitDesignMotionFixture {
-        y: Array1<f64>,
-        w: Array1<f64>,
-        x: Array2<f64>,
-        s0: Array2<f64>,
-        cfg: RemlConfig,
-        rho: Array1<f64>,
+    pub(crate) struct BinomialLogitDesignMotionFixture {
+        pub(crate) y: Array1<f64>,
+        pub(crate) w: Array1<f64>,
+        pub(crate) x: Array2<f64>,
+        pub(crate) s0: Array2<f64>,
+        pub(crate) cfg: RemlConfig,
+        pub(crate) rho: Array1<f64>,
         /// Design-moving τ-direction: non-zero X_τ, zero S_τ.
-        x_tau_design: Array2<f64>,
+        pub(crate) x_tau_design: Array2<f64>,
         /// Penalty-only τ-direction: zero X_τ, non-zero S_τ.
-        s_tau_penalty: Array2<f64>,
+        pub(crate) s_tau_penalty: Array2<f64>,
     }
 
     impl BinomialLogitDesignMotionFixture {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             // Binary response with roughly balanced classes.
             let y = array![
                 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0,
@@ -2330,7 +2334,7 @@ mod tests {
     // ── n=30, p=5 binomial-logit design-motion gradient tests ────────
 
     #[test]
-    fn binomial_logit_n30_design_moving_gradient_matches_fd() {
+    pub(crate) fn binomial_logit_n30_design_moving_gradient_matches_fd() {
         // Pure design-motion: X_τ ≠ 0, S_τ = 0.
         // The IFT correction is essential here: because the family is
         // binomial-logit, the working weights W(η) depend on β̂, so
@@ -2362,7 +2366,7 @@ mod tests {
     }
 
     #[test]
-    fn binomial_logit_n30_penalty_only_gradient_matches_fd() {
+    pub(crate) fn binomial_logit_n30_penalty_only_gradient_matches_fd() {
         // Penalty-only direction: X_τ = 0, S_τ ≠ 0.
         // Serves as a baseline: the IFT correction should still be
         // present (since H depends on β̂ through W(η)), but the
@@ -2392,7 +2396,7 @@ mod tests {
     }
 
     #[test]
-    fn binomial_logit_n30_joint_design_penalty_gradient_matches_fd() {
+    pub(crate) fn binomial_logit_n30_joint_design_penalty_gradient_matches_fd() {
         // Joint direction: both X_τ ≠ 0 and S_τ ≠ 0 simultaneously.
         // This is the hardest case: the analytic gradient must correctly
         // combine the explicit penalty drift, the explicit design drift,
@@ -2421,7 +2425,7 @@ mod tests {
     }
 
     #[test]
-    fn binomial_logit_n30_design_moving_hessian_matches_fd() {
+    pub(crate) fn binomial_logit_n30_design_moving_hessian_matches_fd() {
         // Hessian-level validation with two τ-directions: one
         // penalty-only and one design-moving.  The ττ Hessian block is
         // the most sensitive test of the IFT correction because errors
@@ -2476,7 +2480,7 @@ mod tests {
     }
 
     #[test]
-    fn binomial_logit_n30_nonzero_rho_design_moving_gradient_matches_fd() {
+    pub(crate) fn binomial_logit_n30_nonzero_rho_design_moving_gradient_matches_fd() {
         // Validate at a non-trivial smoothing parameter ρ = log(λ) = 1.5,
         // so the penalty term λS is scaled up and the balance between
         // likelihood and penalty is different from ρ=0.
@@ -2513,7 +2517,7 @@ mod tests {
     }
 
     #[test]
-    fn binomial_logit_n30_rank_deficient_hessian_matches_cost_fd() {
+    pub(crate) fn binomial_logit_n30_rank_deficient_hessian_matches_cost_fd() {
         // Regression lock for the `PenaltySubspaceTrace` pseudo-logdet
         // kernel installed by the rank-deficient LAML fix (see
         // `PenaltySubspaceTrace` and `intrinsic_hessian_pseudo_logdet_parts`;
@@ -2637,7 +2641,7 @@ mod tests {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum RemlGeometry {
+pub(crate) enum RemlGeometry {
     DenseSpectral,
     SparseExactSpd,
 }
@@ -2647,7 +2651,7 @@ trait PenalizedGeometry {
 }
 
 #[derive(Clone)]
-enum DerivativeMatrixStorage {
+pub(crate) enum DerivativeMatrixStorage {
     Dense(Array2<f64>),
     Embedded(EmbeddedDerivativeMatrix),
     Implicit(ImplicitDerivativeOp),
@@ -2753,11 +2757,11 @@ pub(crate) enum ImplicitDerivLevel {
 /// Lazy implicit operator storage: delegates matvecs to the
 /// `ImplicitDesignPsiDerivative` and materializes dense form only on demand.
 #[derive(Clone)]
-struct ImplicitDerivativeOp {
-    operator: std::sync::Arc<crate::terms::basis::ImplicitDesignPsiDerivative>,
-    level: ImplicitDerivLevel,
-    global_range: Range<usize>,
-    total_dim: usize,
+pub(crate) struct ImplicitDerivativeOp {
+    pub(crate) operator: std::sync::Arc<crate::terms::basis::ImplicitDesignPsiDerivative>,
+    pub(crate) level: ImplicitDerivLevel,
+    pub(crate) global_range: Range<usize>,
+    pub(crate) total_dim: usize,
     /// Cached dense materialization (lazy, populated on first call to ops that need the full matrix).
     ///
     /// Rayon-safe: `materialize_local` calls `materialize_first` / `_second_diag`
@@ -2767,26 +2771,26 @@ struct ImplicitDerivativeOp {
     /// called concurrently from inside another rayon par_iter — racing workers
     /// would park on the OnceLock's OS condvar, leaving the leader's nested
     /// par_iter without workers. `RayonSafeOnce` runs init lock-free.
-    cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 #[derive(Clone)]
-struct LatentCoordDerivativeOp {
-    operator: std::sync::Arc<crate::terms::basis::LatentCoordDesignDerivative>,
-    flat_axis: usize,
-    global_range: Range<usize>,
-    total_dim: usize,
-    cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
+pub(crate) struct LatentCoordDerivativeOp {
+    pub(crate) operator: std::sync::Arc<crate::terms::basis::LatentCoordDesignDerivative>,
+    pub(crate) flat_axis: usize,
+    pub(crate) global_range: Range<usize>,
+    pub(crate) total_dim: usize,
+    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 impl LatentCoordDerivativeOp {
-    fn materialize_local(&self) -> Array2<f64> {
+    pub(crate) fn materialize_local(&self) -> Array2<f64> {
         self.operator.materialize_axis(self.flat_axis).expect(
             "radial scalar evaluation failed during latent-coordinate derivative materialization",
         )
     }
 
-    fn materialize_dense(&self) -> &Array2<f64> {
+    pub(crate) fn materialize_dense(&self) -> &Array2<f64> {
         self.cached_dense.get_or_compute(|| {
             let local = self.materialize_local();
             let mut out = Array2::<f64>::zeros((local.nrows(), self.total_dim));
@@ -2796,15 +2800,15 @@ impl LatentCoordDerivativeOp {
         })
     }
 
-    fn nrows(&self) -> usize {
+    pub(crate) fn nrows(&self) -> usize {
         self.operator.n_data()
     }
 
-    fn ncols(&self) -> usize {
+    pub(crate) fn ncols(&self) -> usize {
         self.total_dim
     }
 
-    fn transpose_mul(&self, v: &Array1<f64>) -> Array1<f64> {
+    pub(crate) fn transpose_mul(&self, v: &Array1<f64>) -> Array1<f64> {
         let local = self
             .operator
             .transpose_mul_axis(self.flat_axis, &v.view())
@@ -2816,7 +2820,7 @@ impl LatentCoordDerivativeOp {
         out
     }
 
-    fn forward_mul(&self, u: &Array1<f64>) -> Array1<f64> {
+    pub(crate) fn forward_mul(&self, u: &Array1<f64>) -> Array1<f64> {
         let u_local = u.slice(s![self.global_range.clone()]).to_owned();
         self.operator
             .forward_mul_axis(self.flat_axis, &u_local.view())
@@ -2827,7 +2831,7 @@ impl LatentCoordDerivativeOp {
 }
 
 impl ImplicitDerivativeOp {
-    fn materialize_local(&self) -> Array2<f64> {
+    pub(crate) fn materialize_local(&self) -> Array2<f64> {
         match self.level {
             ImplicitDerivLevel::First(axis) => self.operator.materialize_first(axis).expect(
                 "radial scalar evaluation failed during implicit derivative materialization",
@@ -2845,7 +2849,7 @@ impl ImplicitDerivativeOp {
         }
     }
 
-    fn materialize_dense(&self) -> &Array2<f64> {
+    pub(crate) fn materialize_dense(&self) -> &Array2<f64> {
         self.cached_dense.get_or_compute(|| {
             let local = self.materialize_local();
             let mut out = Array2::<f64>::zeros((local.nrows(), self.total_dim));
@@ -2855,15 +2859,15 @@ impl ImplicitDerivativeOp {
         })
     }
 
-    fn nrows(&self) -> usize {
+    pub(crate) fn nrows(&self) -> usize {
         self.operator.n_data()
     }
 
-    fn ncols(&self) -> usize {
+    pub(crate) fn ncols(&self) -> usize {
         self.total_dim
     }
 
-    fn transpose_mul(&self, v: &Array1<f64>) -> Array1<f64> {
+    pub(crate) fn transpose_mul(&self, v: &Array1<f64>) -> Array1<f64> {
         let local = match self.level {
             ImplicitDerivLevel::First(axis) => self
                 .operator
@@ -2883,7 +2887,7 @@ impl ImplicitDerivativeOp {
         out
     }
 
-    fn forward_mul(&self, u: &Array1<f64>) -> Array1<f64> {
+    pub(crate) fn forward_mul(&self, u: &Array1<f64>) -> Array1<f64> {
         let u_local = u.slice(s![self.global_range.clone()]).to_owned();
         match self.level {
             ImplicitDerivLevel::First(axis) => self
@@ -2903,14 +2907,14 @@ impl ImplicitDerivativeOp {
 }
 
 #[derive(Clone)]
-struct EmbeddedDerivativeMatrix {
-    local: Array2<f64>,
-    global_range: Range<usize>,
-    total_dim: usize,
+pub(crate) struct EmbeddedDerivativeMatrix {
+    pub(crate) local: Array2<f64>,
+    pub(crate) global_range: Range<usize>,
+    pub(crate) total_dim: usize,
 }
 
 impl EmbeddedDerivativeMatrix {
-    fn new(local: Array2<f64>, global_range: Range<usize>, total_dim: usize) -> Self {
+    pub(crate) fn new(local: Array2<f64>, global_range: Range<usize>, total_dim: usize) -> Self {
         Self {
             local,
             global_range,
@@ -3419,7 +3423,7 @@ impl DerivativeStorageBackend for LatentCoordDerivativeOp {
 
 #[derive(Clone)]
 pub(crate) struct HyperDesignDerivative {
-    storage: DerivativeMatrixStorage,
+    pub(crate) storage: DerivativeMatrixStorage,
 }
 
 impl HyperDesignDerivative {
@@ -3563,7 +3567,7 @@ impl From<Array2<f64>> for HyperDesignDerivative {
 
 #[derive(Clone)]
 pub(crate) struct HyperPenaltyDerivative {
-    storage: DerivativeMatrixStorage,
+    pub(crate) storage: DerivativeMatrixStorage,
 }
 
 impl HyperPenaltyDerivative {
@@ -3636,15 +3640,15 @@ pub(crate) struct DirectionalHyperParam {
     pub(crate) x_tau_original: HyperDesignDerivative,
     // Canonical penalty representation: every tau direction is decomposed into
     // base-penalty derivatives. There is no separate "assembled total" path.
-    penalty_first_components: Vec<PenaltyDerivativeComponent>,
+    pub(crate) penalty_first_components: Vec<PenaltyDerivativeComponent>,
     // Optional pairwise second hyper-derivatives against all tau directions.
     // If provided, each vector must have length psi_dim and hold an optional
     // X_{tau_i,tau_j} entry in original coordinates.
     pub(crate) x_tau_tau_original: Option<Vec<Option<HyperDesignDerivative>>>,
     // Pairwise second derivatives are stored in the same canonical base-penalty
     // decomposition as the first derivatives.
-    penaltysecond_components: Option<Vec<Option<Vec<PenaltyDerivativeComponent>>>>,
-    penaltysecond_component_provider: Option<
+    pub(crate) penaltysecond_components: Option<Vec<Option<Vec<PenaltyDerivativeComponent>>>>,
+    pub(crate) penaltysecond_component_provider: Option<
         std::sync::Arc<
             dyn Fn(usize) -> Result<Option<Vec<PenaltyDerivativeComponent>>, EstimationError>
                 + Send
@@ -3652,7 +3656,7 @@ pub(crate) struct DirectionalHyperParam {
                 + 'static,
         >,
     >,
-    penaltysecond_partner_indices: Option<std::sync::Arc<[usize]>>,
+    pub(crate) penaltysecond_partner_indices: Option<std::sync::Arc<[usize]>>,
     /// Whether this coordinate is penalty-like (B_i = ∂H/∂τ_i is PSD).
     /// True for τ (penalty scaling) coordinates; false for ψ (design-moving,
     /// anisotropic length-scale) coordinates. Controls EFS eligibility.
@@ -3680,7 +3684,7 @@ impl DirectionalHyperParam {
         bytes
     }
 
-    fn canonicalize_penalty_components(
+    pub(crate) fn canonicalize_penalty_components(
         components: Vec<(usize, HyperPenaltyDerivative)>,
     ) -> Result<Vec<PenaltyDerivativeComponent>, EstimationError> {
         let mut out: Vec<PenaltyDerivativeComponent> = Vec::with_capacity(components.len());
@@ -3879,23 +3883,23 @@ impl DirectionalHyperParam {
 }
 
 #[derive(Clone, Debug)]
-struct SparseRemlDecision {
-    geometry: RemlGeometry,
-    reason: &'static str,
-    p: usize,
-    nnz_x: usize,
-    nnz_h_upper_est: Option<usize>,
-    density_h_upper_est: Option<f64>,
+pub(crate) struct SparseRemlDecision {
+    pub(crate) geometry: RemlGeometry,
+    pub(crate) reason: &'static str,
+    pub(crate) p: usize,
+    pub(crate) nnz_x: usize,
+    pub(crate) nnz_h_upper_est: Option<usize>,
+    pub(crate) density_h_upper_est: Option<f64>,
 }
 
 #[derive(Clone)]
-struct SparseExactEvalData {
-    factor: Arc<SparseExactFactor>,
-    takahashi: Option<Arc<crate::linalg::sparse_exact::TakahashiInverse>>,
-    logdet_h: f64,
-    logdet_s_pos: f64,
-    penalty_rank: usize,
-    det1_values: Arc<Array1<f64>>,
+pub(crate) struct SparseExactEvalData {
+    pub(crate) factor: Arc<SparseExactFactor>,
+    pub(crate) takahashi: Option<Arc<crate::linalg::sparse_exact::TakahashiInverse>>,
+    pub(crate) logdet_h: f64,
+    pub(crate) logdet_s_pos: f64,
+    pub(crate) penalty_rank: usize,
+    pub(crate) det1_values: Arc<Array1<f64>>,
 }
 
 #[derive(Clone)]
@@ -3926,75 +3930,75 @@ pub(crate) struct FirthDenseOperator {
     //
     // We store reduced-space factors so all derivatives can be evaluated exactly
     // without materializing dense n×n matrices M = X K Xᵀ or P = M⊙M.
-    x_dense: Array2<f64>,
-    x_dense_t: Array2<f64>,
+    pub(crate) x_dense: Array2<f64>,
+    pub(crate) x_dense_t: Array2<f64>,
     // Orthonormal coefficient-space basis for the identifiable subspace,
     // built from the retained eigenspace of (A^{1/2} X)ᵀ(A^{1/2} X).
-    q_basis: Array2<f64>,
+    pub(crate) q_basis: Array2<f64>,
     // Reduced identifiable design. With fixed observation weights a_i this is
     // diag(sqrt(a_i)) X Q; otherwise it is X Q.
-    x_reduced: Array2<f64>,
+    pub(crate) x_reduced: Array2<f64>,
     // Optional fixed case-weight square roots used when the Jeffreys/Firth
     // operator is formed from Xᵀ diag(case_weight ⊙ w(η)) X rather than
     // Xᵀ diag(w(η)) X. The exact directional tau derivatives must project and
     // row-scale with the same weights so the reduced Fisher, hat diagonals,
     // and tau kernels all live on one consistent identifiable subspace.
-    observation_weight_sqrt: Option<Array1<f64>>,
+    pub(crate) observation_weight_sqrt: Option<Array1<f64>>,
     // I_r^{-1}
-    k_reduced: Array2<f64>,
+    pub(crate) k_reduced: Array2<f64>,
     // diag(S_r^{-1}) with S_r = X_rᵀ X_r. In the current canonical reduced
     // basis this completely characterizes the metric inverse, because Q
     // diagonalizes the design Gram. It is used to remove the reduced-coordinate
     // basis term from Phi_tau when the design moves.
-    x_metric_reduced_inv_diag: Array1<f64>,
+    pub(crate) x_metric_reduced_inv_diag: Array1<f64>,
     // 0.5 (log|I_r| - log|S_r|) at the current eta.
-    half_log_det: f64,
+    pub(crate) half_log_det: f64,
     // h = diag(M), M = X_r K_r X_r'
-    h_diag: Array1<f64>,
+    pub(crate) h_diag: Array1<f64>,
     // Logistic Fisher-weight eta-derivatives: w', w'', w''', w'''' as n-vectors.
-    w: Array1<f64>,
-    w1: Array1<f64>,
-    w2: Array1<f64>,
-    w3: Array1<f64>,
-    w4: Array1<f64>,
+    pub(crate) w: Array1<f64>,
+    pub(crate) w1: Array1<f64>,
+    pub(crate) w2: Array1<f64>,
+    pub(crate) w3: Array1<f64>,
+    pub(crate) w4: Array1<f64>,
     // B = diag(w') X used in D Hphi and D^2 Hphi contractions.
-    b_base: Array2<f64>,
+    pub(crate) b_base: Array2<f64>,
     // Cached invariant contraction P*B where P = (X_r K_r X_r') ⊙ (X_r K_r X_r').
     // This avoids recomputing the same O(n r^2 p) block in every directional call.
-    p_b_base: Array2<f64>,
+    pub(crate) p_b_base: Array2<f64>,
 }
 
 #[derive(Clone)]
 pub(crate) struct FirthDirection {
-    deta: Array1<f64>,
-    g_u_reduced: Array2<f64>,
-    a_u_reduced: Array2<f64>,
-    dh: Array1<f64>,
+    pub(crate) deta: Array1<f64>,
+    pub(crate) g_u_reduced: Array2<f64>,
+    pub(crate) a_u_reduced: Array2<f64>,
+    pub(crate) dh: Array1<f64>,
     // B_u = diag(w'' ⊙ δη_u) X is represented by the row-scaling vector only.
-    b_uvec: Array1<f64>,
+    pub(crate) b_uvec: Array1<f64>,
 }
 
 #[derive(Clone)]
 pub(crate) struct FirthTauPartialKernel {
     pub(super) deta_partial: Array1<f64>,
-    dotw1: Array1<f64>,
-    dotw2: Array1<f64>,
-    dot_h_partial: Array1<f64>,
+    pub(crate) dotw1: Array1<f64>,
+    pub(crate) dotw2: Array1<f64>,
+    pub(crate) dot_h_partial: Array1<f64>,
     // Reduced design drift X_{tau,r} = X_tau Q used in exact design-moving
     // Hadamard-Gram contractions.
-    x_tau_reduced: Array2<f64>,
+    pub(crate) x_tau_reduced: Array2<f64>,
     pub(super) dot_i_partial: Array2<f64>,
     // Reduced Fisher inverse drift:
     //   dot(K_r) = -K_r dot(I_r) K_r
     // where dot(I_r) includes explicit X_tau and weight drift at beta-fixed.
-    dot_k_reduced: Array2<f64>,
+    pub(crate) dot_k_reduced: Array2<f64>,
 }
 
 #[derive(Clone)]
 pub(crate) struct FirthTauExactKernel {
-    gphi_tau: Array1<f64>,
-    phi_tau_partial: f64,
-    tau_kernel: Option<FirthTauPartialKernel>,
+    pub(crate) gphi_tau: Array1<f64>,
+    pub(crate) phi_tau_partial: f64,
+    pub(crate) tau_kernel: Option<FirthTauPartialKernel>,
 }
 
 /// Pair-level (τ_i × τ_j) exact Firth bundle at fixed β.
@@ -4078,19 +4082,19 @@ pub(crate) struct FirthTauBetaPartialKernel {
 /// making this optimization possible while adhering to the optimizer's API.
 #[derive(Clone)]
 pub(crate) struct EvalShared {
-    key: Option<Vec<u64>>,
+    pub(crate) key: Option<Vec<u64>>,
     pub(crate) pirls_result: Arc<PirlsResult>,
-    ridge_passport: RidgePassport,
-    geometry: RemlGeometry,
+    pub(crate) ridge_passport: RidgePassport,
+    pub(crate) geometry: RemlGeometry,
     /// The exact H_total matrix used for LAML cost computation.
     /// For Firth: effective Hessian minus hphi (plus any barrier curvature).
     /// For non-Firth: the effective Hessian itself (plus any barrier curvature).
-    h_total: Arc<Array2<f64>>,
-    sparse_exact: Option<Arc<SparseExactEvalData>>,
-    firth_dense_operator: Option<Arc<FirthDenseOperator>>,
+    pub(crate) h_total: Arc<Array2<f64>>,
+    pub(crate) sparse_exact: Option<Arc<SparseExactEvalData>>,
+    pub(crate) firth_dense_operator: Option<Arc<FirthDenseOperator>>,
     /// Cached FirthDenseOperator built from the original (non-reparameterized)
     /// design matrix, for use by the sparse evaluation path.
-    firth_dense_operator_original: Option<Arc<FirthDenseOperator>>,
+    pub(crate) firth_dense_operator_original: Option<Arc<FirthDenseOperator>>,
     /// The ONE original-frame penalty pseudo-logdet factorization for this
     /// evaluation point (#931 atom discipline). `log|Σ λ_k S_k|₊`'s VALUE,
     /// ρ-derivatives, τ/ψ components, and ρ×τ cross blocks are all
@@ -4104,7 +4108,7 @@ pub(crate) struct EvalShared {
     /// (The transformed-frame pair-callback path builds its own object — it
     /// factorizes the canonical-TRANSFORMED, possibly constraint-projected
     /// penalties, a genuinely different matrix, not a duplicate of this one.)
-    penalty_pseudologdet: std::sync::OnceLock<Arc<penalty_logdet::PenaltyPseudologdet>>,
+    pub(crate) penalty_pseudologdet: std::sync::OnceLock<Arc<penalty_logdet::PenaltyPseudologdet>>,
     /// Per-evaluation-point cache of the canonical penalty score vectors
     /// `S_k β̂` evaluated at this bundle's inner mode `β̂ =
     /// pirls_result.beta_transformed` (unscaled by λ_k). These depend ONLY
@@ -4117,11 +4121,11 @@ pub(crate) struct EvalShared {
     /// literally the same vectors it previously recomputed. Initialized via
     /// plain ndarray matvecs (no rayon inside the `OnceLock` closure — the
     /// `get_or_init`+`into_par_iter` deadlock trap does not apply).
-    penalty_scores_at_mode: std::sync::OnceLock<Arc<Vec<Array1<f64>>>>,
+    pub(crate) penalty_scores_at_mode: std::sync::OnceLock<Arc<Vec<Array1<f64>>>>,
 }
 
 impl EvalShared {
-    fn matches(&self, key: &Option<Vec<u64>>) -> bool {
+    pub(crate) fn matches(&self, key: &Option<Vec<u64>>) -> bool {
         match (&self.key, key) {
             (None, None) => true,
             (Some(a), Some(b)) => a == b,
@@ -4200,16 +4204,16 @@ impl PenalizedGeometry for EvalShared {
 /// LRU order until the running total fits under the budget. An entry that
 /// individually exceeds the budget is rejected silently rather than poisoning
 /// the cache.
-struct PirlsLruCache {
+pub(crate) struct PirlsLruCache {
     // Stored tuple: (compacted result, last-touched clock, estimated bytes).
-    map: HashMap<Vec<u64>, (Arc<PirlsResult>, u64, usize)>,
-    byte_budget: usize,
-    current_bytes: usize,
-    clock: u64,
+    pub(crate) map: HashMap<Vec<u64>, (Arc<PirlsResult>, u64, usize)>,
+    pub(crate) byte_budget: usize,
+    pub(crate) current_bytes: usize,
+    pub(crate) clock: u64,
 }
 
 impl PirlsLruCache {
-    fn new(byte_budget: usize) -> Self {
+    pub(crate) fn new(byte_budget: usize) -> Self {
         Self {
             map: HashMap::new(),
             byte_budget: byte_budget.max(1),
@@ -4218,7 +4222,7 @@ impl PirlsLruCache {
         }
     }
 
-    fn get(&mut self, key: &Vec<u64>) -> Option<Arc<PirlsResult>> {
+    pub(crate) fn get(&mut self, key: &Vec<u64>) -> Option<Arc<PirlsResult>> {
         if let Some(entry) = self.map.get_mut(key) {
             self.clock += 1;
             entry.1 = self.clock;
@@ -4228,7 +4232,7 @@ impl PirlsLruCache {
         }
     }
 
-    fn insert(&mut self, key: Vec<u64>, value: Arc<PirlsResult>) {
+    pub(crate) fn insert(&mut self, key: Vec<u64>, value: Arc<PirlsResult>) {
         self.clock += 1;
         let bytes = pirls_result_cache_bytes(&value);
         // Refuse entries that on their own already exceed the entire budget;
@@ -4262,39 +4266,46 @@ impl PirlsLruCache {
         self.map.insert(key, (value, self.clock, bytes));
     }
 
-    fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.map.clear();
         self.current_bytes = 0;
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct PenaltySubspaceCacheKey {
-    penalty_matrix_fingerprint: u64,
-    ridge_passport_signature: u64,
+pub(crate) struct PenaltySubspaceCacheKey {
+    pub(crate) penalty_matrix_fingerprint: u64,
+    pub(crate) ridge_passport_signature: u64,
 }
 
-struct PenaltySubspaceCache {
-    entry: Option<(PenaltySubspaceCacheKey, Arc<runtime::PenaltySubspace>)>,
+pub(crate) struct PenaltySubspaceCache {
+    pub(crate) entry: Option<(PenaltySubspaceCacheKey, Arc<runtime::PenaltySubspace>)>,
 }
 
 impl PenaltySubspaceCache {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { entry: None }
     }
 
-    fn get(&self, key: &PenaltySubspaceCacheKey) -> Option<Arc<runtime::PenaltySubspace>> {
+    pub(crate) fn get(
+        &self,
+        key: &PenaltySubspaceCacheKey,
+    ) -> Option<Arc<runtime::PenaltySubspace>> {
         self.entry
             .as_ref()
             .filter(|(cached_key, _)| cached_key == key)
             .map(|(_, value)| value.clone())
     }
 
-    fn insert(&mut self, key: PenaltySubspaceCacheKey, value: Arc<runtime::PenaltySubspace>) {
+    pub(crate) fn insert(
+        &mut self,
+        key: PenaltySubspaceCacheKey,
+        value: Arc<runtime::PenaltySubspace>,
+    ) {
         self.entry = Some((key, value));
     }
 
-    fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.entry = None;
     }
 }
@@ -4304,7 +4315,7 @@ impl PenaltySubspaceCacheKey {
     /// `E` is hashed by exact f64 bits (column-major), so the key is bit-exact
     /// and avoids float-Hash issues; the ridge passport is hashed via its
     /// `Hash` impl. Two calls at the same `(E, ridge)` yield equal keys.
-    fn from_inputs(
+    pub(crate) fn from_inputs(
         e_transformed: &ndarray::Array2<f64>,
         ridge_passport: &crate::types::RidgePassport,
     ) -> Self {
@@ -4350,7 +4361,7 @@ impl PenaltySubspaceCacheKey {
 /// the HashMap entry. This errs on the conservative side: overestimation
 /// causes earlier eviction, never under-counting that would let the cache
 /// silently exceed the byte budget.
-fn pirls_result_cache_bytes(result: &PirlsResult) -> usize {
+pub(crate) fn pirls_result_cache_bytes(result: &PirlsResult) -> usize {
     use std::mem::size_of;
     let n_array_elems = result.final_eta.len()
         + result.solveweights.len()
@@ -4369,7 +4380,7 @@ fn pirls_result_cache_bytes(result: &PirlsResult) -> usize {
     n_array_elems * size_of::<f64>() + p * size_of::<f64>() + pen_h + stab_h + reparam + 1024
 }
 
-fn symmetric_matrix_cache_bytes(m: &crate::linalg::matrix::SymmetricMatrix) -> usize {
+pub(crate) fn symmetric_matrix_cache_bytes(m: &crate::linalg::matrix::SymmetricMatrix) -> usize {
     use crate::linalg::matrix::SymmetricMatrix;
     use std::mem::size_of;
     match m {
@@ -4387,16 +4398,16 @@ fn symmetric_matrix_cache_bytes(m: &crate::linalg::matrix::SymmetricMatrix) -> u
 ///
 /// This keeps cache-key identity, bundle reuse, and invalidation policy out of
 /// the math kernels so objective/derivative routines can stay algebra-focused.
-struct EvalCacheManager {
-    pirls_cache: RwLock<PirlsLruCache>,
-    penalty_subspace_cache: RwLock<PenaltySubspaceCache>,
-    current_eval_bundle: RwLock<Option<EvalShared>>,
-    current_outer_eval: RwLock<Option<(Vec<u64>, OuterEval)>>,
-    pirls_cache_enabled: AtomicBool,
+pub(crate) struct EvalCacheManager {
+    pub(crate) pirls_cache: RwLock<PirlsLruCache>,
+    pub(crate) penalty_subspace_cache: RwLock<PenaltySubspaceCache>,
+    pub(crate) current_eval_bundle: RwLock<Option<EvalShared>>,
+    pub(crate) current_outer_eval: RwLock<Option<(Vec<u64>, OuterEval)>>,
+    pub(crate) pirls_cache_enabled: AtomicBool,
 }
 
 impl EvalCacheManager {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             pirls_cache: RwLock::new(PirlsLruCache::new(PIRLS_CACHE_BYTE_BUDGET)),
             penalty_subspace_cache: RwLock::new(PenaltySubspaceCache::new()),
@@ -4409,7 +4420,7 @@ impl EvalCacheManager {
     /// Creates a sanitized cache key from rho values.
     /// Returns None if any component is NaN, in which case caching is skipped.
     /// Maps -0.0 to 0.0 to ensure key stability.
-    fn sanitized_rhokey(rho: &Array1<f64>) -> Option<Vec<u64>> {
+    pub(crate) fn sanitized_rhokey(rho: &Array1<f64>) -> Option<Vec<u64>> {
         self::cache::sanitized_rhokey(rho)
     }
 
@@ -4440,7 +4451,7 @@ impl EvalCacheManager {
         Ok(value)
     }
 
-    fn cached_eval_bundle(&self, key: &Option<Vec<u64>>) -> Option<EvalShared> {
+    pub(crate) fn cached_eval_bundle(&self, key: &Option<Vec<u64>>) -> Option<EvalShared> {
         self.current_eval_bundle
             .read()
             .unwrap()
@@ -4449,11 +4460,11 @@ impl EvalCacheManager {
             .cloned()
     }
 
-    fn store_eval_bundle(&self, bundle: EvalShared) {
+    pub(crate) fn store_eval_bundle(&self, bundle: EvalShared) {
         *self.current_eval_bundle.write().unwrap() = Some(bundle);
     }
 
-    fn cached_outer_eval(&self, key: &Option<Vec<u64>>) -> Option<OuterEval> {
+    pub(crate) fn cached_outer_eval(&self, key: &Option<Vec<u64>>) -> Option<OuterEval> {
         let key = key.as_ref()?;
         self.current_outer_eval
             .read()
@@ -4463,18 +4474,18 @@ impl EvalCacheManager {
             .map(|(_, eval)| eval.clone())
     }
 
-    fn store_outer_eval(&self, key: &Option<Vec<u64>>, eval: &OuterEval) {
+    pub(crate) fn store_outer_eval(&self, key: &Option<Vec<u64>>, eval: &OuterEval) {
         if let Some(key) = key.clone() {
             *self.current_outer_eval.write().unwrap() = Some((key, eval.clone()));
         }
     }
 
-    fn invalidate_eval_bundle(&self) {
+    pub(crate) fn invalidate_eval_bundle(&self) {
         self.current_eval_bundle.write().unwrap().take();
         self.current_outer_eval.write().unwrap().take();
     }
 
-    fn clear_eval_and_factor_caches(&self) {
+    pub(crate) fn clear_eval_and_factor_caches(&self) {
         self.invalidate_eval_bundle();
         self.penalty_subspace_cache.write().unwrap().clear();
     }
@@ -4482,13 +4493,13 @@ impl EvalCacheManager {
 
 /// Reusable scratch/runtime memory that should not be part of mathematical
 /// state invariants.
-struct RemlArena {
-    cost_eval_count: RwLock<u64>,
-    lastgradient_used_stochastic_fallback: AtomicBool,
+pub(crate) struct RemlArena {
+    pub(crate) cost_eval_count: RwLock<u64>,
+    pub(crate) lastgradient_used_stochastic_fallback: AtomicBool,
 }
 
 impl RemlArena {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             cost_eval_count: RwLock::new(0),
             lastgradient_used_stochastic_fallback: AtomicBool::new(false),
@@ -4496,38 +4507,38 @@ impl RemlArena {
     }
 }
 
-struct AloFrozenNuisance {
-    n_obs: usize,
-    influence_scale: Vec<f64>,
-    phi: f64,
+pub(crate) struct AloFrozenNuisance {
+    pub(crate) n_obs: usize,
+    pub(crate) influence_scale: Vec<f64>,
+    pub(crate) phi: f64,
 }
 
 pub(crate) struct RemlState<'a> {
-    y: ArrayView1<'a, f64>,
-    x: DesignMatrix,
-    weights: ArrayView1<'a, f64>,
-    offset: Array1<f64>,
+    pub(crate) y: ArrayView1<'a, f64>,
+    pub(crate) x: DesignMatrix,
+    pub(crate) weights: ArrayView1<'a, f64>,
+    pub(crate) offset: Array1<f64>,
     /// Canonicalized block-local penalties with pre-computed roots.
     /// This is the single canonical penalty representation — no full-width
     /// `rank × p` roots are stored separately.
-    canonical_penalties: Arc<Vec<crate::construction::CanonicalPenalty>>,
-    balanced_penalty_root: Array2<f64>,
-    reparam_invariant: ReparamInvariant,
-    sparse_penalty_blocks: Option<Arc<Vec<SparsePenaltyBlock>>>,
-    p: usize,
-    config: Arc<RemlConfig>,
-    runtime_mixture_link_state: Option<crate::types::MixtureLinkState>,
-    runtime_sas_link_state: Option<SasLinkState>,
-    nullspace_dims: Vec<usize>,
-    coefficient_lower_bounds: Option<Array1<f64>>,
-    linear_constraints: Option<crate::pirls::LinearInequalityConstraints>,
+    pub(crate) canonical_penalties: Arc<Vec<crate::construction::CanonicalPenalty>>,
+    pub(crate) balanced_penalty_root: Array2<f64>,
+    pub(crate) reparam_invariant: ReparamInvariant,
+    pub(crate) sparse_penalty_blocks: Option<Arc<Vec<SparsePenaltyBlock>>>,
+    pub(crate) p: usize,
+    pub(crate) config: Arc<RemlConfig>,
+    pub(crate) runtime_mixture_link_state: Option<crate::types::MixtureLinkState>,
+    pub(crate) runtime_sas_link_state: Option<SasLinkState>,
+    pub(crate) nullspace_dims: Vec<usize>,
+    pub(crate) coefficient_lower_bounds: Option<Array1<f64>>,
+    pub(crate) linear_constraints: Option<crate::pirls::LinearInequalityConstraints>,
     /// Relative shrinkage floor for penalized block eigenvalues (rho-independent).
-    penalty_shrinkage_floor: Option<f64>,
+    pub(crate) penalty_shrinkage_floor: Option<f64>,
     /// Explicit prior on log smoothing parameters used by the REML/LAML objective.
-    rho_prior: crate::types::RhoPrior,
+    pub(crate) rho_prior: crate::types::RhoPrior,
 
-    cache_manager: EvalCacheManager,
-    arena: RemlArena,
+    pub(crate) cache_manager: EvalCacheManager,
+    pub(crate) arena: RemlArena,
     pub(crate) warm_start_beta: RwLock<Option<Coefficients>>,
     /// Two-point ρ-trajectory used for second-order warm-start
     /// extrapolation: when the outer optimizer asks for a fit at a new
@@ -4541,7 +4552,7 @@ pub(crate) struct RemlState<'a> {
     pub(crate) warm_start_rho: RwLock<Option<Array1<f64>>>,
     pub(crate) prev_warm_start_beta: RwLock<Option<Coefficients>>,
     pub(crate) prev_warm_start_rho: RwLock<Option<Array1<f64>>>,
-    warm_start_enabled: AtomicBool,
+    pub(crate) warm_start_enabled: AtomicBool,
     pub(crate) screening_max_inner_iterations: Arc<AtomicUsize>,
     /// Outer-aware inner-PIRLS iteration cap for the main descent loop.
     ///
@@ -4685,13 +4696,51 @@ pub(crate) struct RemlState<'a> {
     /// same way it transforms the streamed Gram. Invalidated with the design.
     pub(crate) gaussian_psi_gram_deriv:
         RwLock<Option<Arc<(ndarray::Array2<f64>, ndarray::Array1<f64>)>>>,
+    /// Conditioned-frame exact ψ-derivative pair `(∂XᵀWX/∂ψ, ∂XᵀW(y−offset)/∂ψ)`
+    /// for the SINGLE design-moving spatial hyperparameter in the GLM (frozen-W)
+    /// lane (#1033 / #1111), assembled n-free from
+    /// [`crate::solver::glm_sufficient_lane::FrozenWeightGramTensor::gradient_pair_if_sound`]
+    /// and installed beside `glm_first_step_gram` at the same in-window
+    /// drift-OK trial. When present, the GLM ψ-gradient HyperCoord serves its
+    /// envelope `a_j` and score `g_j` from these k×k objects instead of
+    /// realizing and contracting the n×k ∂X/∂ψ slab — the second per-trial
+    /// n-pass. Unlike the Gaussian lane the Hessian curvature `B_j` is NOT
+    /// served from the tensor: for a GLM the per-trial `B_j` term
+    /// `X_τᵀWX + XᵀWX_τ` is irreducibly n-dependent (the moving working weight
+    /// `W` does not factor out of a frozen-W k×k object), so `B_j` keeps the
+    /// exact streamed slab (#1033). Lives in the SAME conditioned column frame
+    /// as `glm_first_step_gram` / `gaussian_fixed_cache.xtwx_orig`, so the
+    /// hyper-coord builder transforms it by the per-eval Qs/free-basis the same
+    /// way. NOT family-gated (the GLM lane's own slot). Invalidated with the
+    /// design.
+    pub(crate) glm_psi_gram_deriv:
+        RwLock<Option<Arc<(ndarray::Array2<f64>, ndarray::Array1<f64>)>>>,
+    /// Frozen-weight first-Fisher-step data-fit Gram `XᵀWX` for the GLM
+    /// design-moving ψ-sweep (#1111 / #1033 mechanism (c)), in the conditioned
+    /// (original / `x_fit`) column frame — the SAME frame as
+    /// `gaussian_fixed_cache.xtwx_orig`.
+    ///
+    /// Assembled n-free per in-window ψ-trial from the certified frozen-weight
+    /// Chebyshev tensor ([`crate::solver::glm_sufficient_lane::FrozenWeightGramTensor`])
+    /// and installed only when the trial's converged working weight has not
+    /// drifted past tolerance from the frozen snapshot. When present, the GLM
+    /// inner P-IRLS serves its FIRST Fisher-scoring iteration's `XᵀWX` from this
+    /// cache instead of restreaming the O(N·p²) weighted cross-product — the
+    /// dominant per-trial n-term in a large-n Poisson/Binomial κ-sweep. The
+    /// penalty `Sλ` is still added per-λ on top, and every subsequent inner
+    /// iteration restreams the true (moving) `W`, so the converged β̂ is
+    /// unchanged; only the first-iteration Gram build is elided. Unlike
+    /// `gaussian_fixed_cache` this is NOT family-gated — it is the GLM lane's
+    /// own slot, consumed once per inner solve. Invalidated with the design in
+    /// `reset_surface`.
+    pub(crate) glm_first_step_gram: RwLock<Option<Arc<ndarray::Array2<f64>>>>,
     /// Frozen ALO robustness weights for this REML surface.
     ///
     /// The PSIS influence scale is a non-smooth function of the current hat
     /// diagonals. Once the high-leverage ALO objective activates, it is frozen
     /// for the current surface so the analytic gradient differentiates the
     /// same fixed-weight objective the cost evaluates.
-    alo_frozen_nuisance: RwLock<Option<AloFrozenNuisance>>,
+    pub(crate) alo_frozen_nuisance: RwLock<Option<AloFrozenNuisance>>,
 
     /// Stable disk-cache key for the current realized REML surface. Computed
     /// lazily because it hashes the row-chunked design and data vectors.
@@ -4705,4 +4754,19 @@ pub(crate) struct RemlState<'a> {
     /// evaluations. In-memory warm starts still update; only JSON/bin
     /// persistence and eviction sweeps are suppressed.
     pub(crate) persistent_warm_start_store_suppression: AtomicUsize,
+    /// Whether the cross-process ON-DISK warm-start layer is engaged at all.
+    ///
+    /// Default `false`: the optimizer's IN-MEMORY warm start (the actual
+    /// speed lever) is always on, but the disk checkpoint — `load_record`
+    /// at fit start and `store_record` at finalize, each of which opens the
+    /// shared `WarmStartStore` and pays an eviction/dir scan that is O(cache
+    /// entries) on a network filesystem — is skipped. Disk persistence has
+    /// reuse value only ACROSS processes or across repeated identical fits;
+    /// a single in-process fit (and a fortiori a loop of distinct throwaway
+    /// fits, e.g. CI-coverage replicates each on different data, #1082/#1114)
+    /// gets zero benefit from it and pays the per-fit open/scan/save in full.
+    /// The workflow dispatcher flips this to `true` only when the caller has
+    /// signalled cross-process intent by attaching a cache session — magic by
+    /// default, no flag: opt-in is the presence of a session.
+    pub(crate) persistent_warm_start_disk_enabled: AtomicBool,
 }

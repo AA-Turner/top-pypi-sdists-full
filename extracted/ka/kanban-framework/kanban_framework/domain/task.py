@@ -161,14 +161,14 @@ class TaskManager:
     def _file_lock(lock_path: str) -> object | None:
         try:
             import fcntl
-            f = open(lock_path, "w")
+            f = open(lock_path, "w", encoding="utf-8")
             fcntl.flock(f, fcntl.LOCK_EX)
             return f
         except Exception:
             pass
         try:
             import msvcrt
-            f = open(lock_path, "w")
+            f = open(lock_path, "w", encoding="utf-8")
             msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
             return f
         except Exception:

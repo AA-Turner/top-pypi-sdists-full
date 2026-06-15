@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator.imports import Import
     from datamodel_code_generator.reference import Reference
+    from datamodel_code_generator.types import DataType
 
 
 class Constraints(ConstraintsBase):
@@ -50,6 +51,11 @@ class Constraints(ConstraintsBase):
     min_length: Optional[int] = Field(None, alias="minLength")  # noqa: UP045
     max_length: Optional[int] = Field(None, alias="maxLength")  # noqa: UP045
     regex: Optional[str] = Field(None, alias="pattern")  # noqa: UP045
+
+
+class PatternConstraints(Constraints):  # noqa: D101
+    regex: Optional[str] = Field(None, alias="regex")  # noqa: UP045
+    pattern: Optional[str] = Field(None, alias="pattern")  # noqa: UP045
 
 
 class DataModelField(DataModelFieldBase):
@@ -96,6 +102,9 @@ class DataModelField(DataModelFieldBase):
         if self.is_class_var:
             return None
         result = str(self)
+        return self._field_from_rendered(result)
+
+    def _field_from_rendered(self, result: str) -> str | None:
         if (
             self.use_default_kwarg
             and not result.startswith("Field(...")
@@ -108,6 +117,16 @@ class DataModelField(DataModelFieldBase):
         if not result:
             return None
         return result
+
+    def _rendered_field_values(self) -> tuple[str | None, str | None]:
+        """Render field and annotated values from one Field() string for built-in templates."""
+        if self.is_class_var:
+            return None, None
+        result = str(self)
+        field = self._field_from_rendered(result)
+        if not self.use_annotated or not result:
+            return field, None
+        return field, f"Annotated[{self.type_hint}, {result}]"
 
     def _has_field_statement(self) -> bool:
         """Return whether rendering this field will require a Field() call."""
@@ -179,6 +198,25 @@ class DataModelField(DataModelFieldBase):
                 merge_normalized_constraint(constraint_data, normalized[0], normalized[1])
         return constraint_data
 
+    def _has_anyurl_outside_container(self) -> bool:
+        def has_anyurl(data_type: DataType, *, inside_container: bool) -> bool:
+            is_container = inside_container or (
+                data_type.is_dict
+                or data_type.is_list
+                or data_type.is_set
+                or data_type.is_frozen_set
+                or data_type.is_mapping
+                or data_type.is_sequence
+                or data_type.is_tuple
+            )
+            if data_type.import_ == IMPORT_ANYURL:
+                return not is_container
+            return any(has_anyurl(child, inside_container=is_container) for child in data_type.data_types) or (
+                data_type.dict_key is not None and has_anyurl(data_type.dict_key, inside_container=is_container)
+            )
+
+        return has_anyurl(self.data_type, inside_container=False)
+
     def _get_default_factory_for_optional_nested_model(self) -> str | None:
         """Get default_factory for optional nested Pydantic model fields.
 
@@ -208,7 +246,7 @@ class DataModelField(DataModelFieldBase):
             and not self.self_reference()
             and not (self.data_type.strict and has_type_constraints)
         ):
-            if any(d.import_ == IMPORT_ANYURL for d in self.data_type.all_data_types):
+            if self._has_anyurl_outside_container():
                 constraint_data: dict[str, Any] = {}
             else:
                 constraint_data = self._get_normalized_constraint_data()

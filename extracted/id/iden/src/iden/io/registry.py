@@ -46,7 +46,7 @@ class LoaderRegistry(BaseLoader[Any]):
         >>> registry
         LoaderRegistry(
           (json): JsonLoader()
-          (txt): TextLoader()
+          (txt): TextLoader(encoding=utf-8)
         )
         >>> with tempfile.TemporaryDirectory() as tmpdir:
         ...     path = Path(tmpdir).joinpath("data.json")
@@ -142,7 +142,7 @@ class LoaderRegistry(BaseLoader[Any]):
             >>> registry
             LoaderRegistry(
               (json): JsonLoader()
-              (txt): TextLoader()
+              (txt): TextLoader(encoding=utf-8)
             )
 
             ```

@@ -193,10 +193,10 @@ from ._penalty_descriptors import (
 # `gamfit._penalties.ARDPenalty`, `gamfit._penalties.BlockOrthogonalityPenalty`,
 # etc., and continue to drive the REML core.
 ARDPenalty = _ARDPenaltyDescriptor
-from . import recipes, topology
-from .recipes import (
+from . import examples, topology
+from .examples import (
+    PartialSupervisionExample,
     PartialSupervisionFit,
-    PartialSupervisionRecipe,
     SaeSupervisedFit,
     partial_supervision,
     sae_supervised,
@@ -266,6 +266,7 @@ from ._model import (
     CompetingRisksPrediction,
     Model,
     MultinomialModel,
+    MultinomialPrediction,
     SurvivalPrediction,
     TermBlock,
     competing_risks_cif,
@@ -310,6 +311,19 @@ from .distill import DistilledEncoder, EncoderFallbackStats
 from ._schema import SchemaCheck, SchemaIssue
 from ._summary import Summary
 from ._validation import FormulaValidation
+from .structure_discovery import (
+    atom_birth_gate,
+    e_bh_dictionary_certificate,
+    expected_resolution_budget,
+    log_e_from_p_value,
+    plan_probe_for_contested_claim,
+    select_probe_by_expected_evidence,
+    split_likelihood_log_e,
+)
+from .bartlett import lawley_bartlett_factor
+from .full_conformal import glm_full_conformal
+from .layer_transport import layer_transport_fit, layer_transport_ladder
+from .checkpoint_dynamics import sae_checkpoint_dynamics
 from .geometry import (
     CircleManifold,
     EuclideanManifold,
@@ -407,7 +421,7 @@ def _build_public_api() -> list[str]:
          module is actually importable on this install* — torch-less
          installs skip them automatically, so star-import never crashes;
       3. an explicit allowlist of submodule attributes (``diagnostics``,
-         ``recipes``, ``topology``, ``identifiability``, ``manifolds``,
+         ``examples``, ``topology``, ``identifiability``, ``manifolds``,
          ``kernels``) that are part of the public API even though they are
          module objects.
     """
@@ -416,7 +430,7 @@ def _build_public_api() -> list[str]:
 
     public_submodules = {
         "diagnostics",
-        "recipes",
+        "examples",
         "topology",
         "identifiability",
         "manifolds",

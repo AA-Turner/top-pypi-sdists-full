@@ -98,8 +98,47 @@ impl DispersionFamilyKind {
     }
 
     /// The mean link is logit for Beta (a probability mean) and log otherwise.
-    const fn mean_is_logit(self) -> bool {
+    pub(crate) const fn mean_is_logit(self) -> bool {
         matches!(self, DispersionFamilyKind::Beta)
+    }
+
+    /// The mean inverse link this dispersion family fits on: log for
+    /// NegativeBinomial / Gamma / Tweedie, logit for Beta. Single source of
+    /// truth shared by the CLI and FFI save paths so the persisted
+    /// `base_link` never diverges from the fitted channel.
+    pub fn base_link(self) -> crate::types::InverseLink {
+        use crate::types::{InverseLink, StandardLink};
+        if self.mean_is_logit() {
+            InverseLink::Standard(StandardLink::Logit)
+        } else {
+            InverseLink::Standard(StandardLink::Log)
+        }
+    }
+
+    /// The family's canonical [`LikelihoodSpec`] (mean response × mean link).
+    /// The overdispersion parameter is estimated by the log-precision channel,
+    /// so the response-family placeholder parameters (`phi`, `theta`) mirror
+    /// the [`resolve_family`](crate::solver::workflow::resolve_family) defaults
+    /// and are not consumed as fixed values at predict time. This is the single
+    /// source of truth for the persisted location-scale likelihood so the CLI
+    /// and FFI save paths cannot diverge.
+    pub fn likelihood_spec(self) -> crate::types::LikelihoodSpec {
+        use crate::types::{InverseLink, LikelihoodSpec, ResponseFamily, StandardLink};
+        let response = match self {
+            DispersionFamilyKind::NegativeBinomial => ResponseFamily::NegativeBinomial {
+                theta: 1.0,
+                theta_fixed: false,
+            },
+            DispersionFamilyKind::Gamma => ResponseFamily::Gamma,
+            DispersionFamilyKind::Beta => ResponseFamily::Beta { phi: 1.0 },
+            DispersionFamilyKind::Tweedie { p } => ResponseFamily::Tweedie { p },
+        };
+        let link = if self.mean_is_logit() {
+            InverseLink::Standard(StandardLink::Logit)
+        } else {
+            InverseLink::Standard(StandardLink::Log)
+        };
+        LikelihoodSpec::new(response, link)
     }
 }
 
@@ -128,7 +167,7 @@ pub(super) struct DispersionRowKernel {
 }
 
 #[inline]
-fn dispersion_nb_nll_tower(
+pub(crate) fn dispersion_nb_nll_tower(
     yi: f64,
     mu_value: f64,
     theta_value: f64,
@@ -147,7 +186,7 @@ fn dispersion_nb_nll_tower(
 }
 
 #[inline]
-fn dispersion_gamma_nll_tower(
+pub(crate) fn dispersion_gamma_nll_tower(
     yi: f64,
     y_pos: f64,
     mu_value: f64,
@@ -163,7 +202,7 @@ fn dispersion_gamma_nll_tower(
 }
 
 #[inline]
-fn dispersion_beta_nll_tower(
+pub(crate) fn dispersion_beta_nll_tower(
     yi: f64,
     mu_value: f64,
     phi_value: f64,
@@ -183,14 +222,14 @@ fn dispersion_beta_nll_tower(
 }
 
 #[inline]
-fn beta_observed_cross_weight_eta(yi: f64, mu: f64, phi: f64, wi: f64) -> f64 {
+pub(crate) fn beta_observed_cross_weight_eta(yi: f64, mu: f64, phi: f64, wi: f64) -> f64 {
     let q = (mu * (1.0 - mu)).max(1e-12);
     let tower = dispersion_beta_nll_tower(yi, mu, phi, wi);
     q * phi * tower.h[0][1]
 }
 
 #[inline]
-fn dispersion_row_cross_weight(
+pub(crate) fn dispersion_row_cross_weight(
     kind: DispersionFamilyKind,
     yi: f64,
     eta_mu: f64,
@@ -216,7 +255,7 @@ fn dispersion_row_cross_weight(
 }
 
 #[inline]
-fn tower_score_info(
+pub(crate) fn tower_score_info(
     tower: &crate::families::jet_tower::Tower4<2>,
     idx: usize,
     wi: f64,
@@ -355,14 +394,20 @@ pub(super) fn dispersion_row_kernel(
                 // Exact point mass P(Y=0) = exp(−μ^{2−p}/(φ(2−p))) (1 < p < 2).
                 let c = mu.powf(two_minus_p) / two_minus_p;
                 let loglik = wi * (-c / phi);
-                // ∂ℓ/∂φ = c/φ²; chain to η_d = −log φ.
+                // ∂ℓ/∂φ = c/φ²; chain to η_d = −log φ (so φ = exp(−η_d)).
                 let s_phi = c / (phi * phi);
                 let s_eta = -phi * s_phi;
-                // −∂²ℓ/∂φ² = 2c/φ³ ⇒ Fisher information wrt η_d is 2c/φ. The
-                // working response divides by this per-row curvature so the
-                // prior weight cancels (and a zero-prior-weight row stays
-                // excluded via `disp_weight = 0`).
-                let curvature_eta = (2.0 * c / phi).max(DISPERSION_MIN_CURVATURE);
+                // NLL(η_d) = c·exp(η_d) at y=0, so ∂²NLL/∂η_d² = c·exp(η_d) = c/φ.
+                // Equivalently, the full chain rule gives
+                //   ∂²NLL/∂η_d² = φ²·(2c/φ³) + φ·(−c/φ²) = 2c/φ − c/φ = c/φ,
+                // where the second term is the ∂²φ/∂η_d²·(∂NLL/∂φ) correction
+                // that the Fisher-information shortcut (which drops the first-order
+                // score term via E[score]=0) would have absorbed but which is
+                // non-zero in the observed-information computation. The working
+                // response divides by this per-row curvature so the prior weight
+                // cancels (and a zero-prior-weight row stays excluded via
+                // `disp_weight = 0`).
+                let curvature_eta = (c / phi).max(DISPERSION_MIN_CURVATURE);
                 let disp_weight = wi * curvature_eta;
                 let disp_response = ed + s_eta / curvature_eta;
                 DispersionRowKernel {
@@ -380,14 +425,14 @@ pub(super) fn dispersion_row_kernel(
 /// Two-block GAMLSS family for the genuine-dispersion mean families (#913).
 #[derive(Clone)]
 pub(crate) struct DispersionGlmLocationScaleFamily {
-    kind: DispersionFamilyKind,
-    y: Array1<f64>,
-    weights: Array1<f64>,
+    pub(crate) kind: DispersionFamilyKind,
+    pub(crate) y: Array1<f64>,
+    pub(crate) weights: Array1<f64>,
 }
 
 impl DispersionGlmLocationScaleFamily {
-    const BLOCK_MEAN: usize = 0;
-    const BLOCK_DISP: usize = 1;
+    pub(crate) const BLOCK_MEAN: usize = 0;
+    pub(crate) const BLOCK_DISP: usize = 1;
 }
 
 impl CustomFamily for DispersionGlmLocationScaleFamily {
@@ -464,14 +509,29 @@ impl CustomFamily for DispersionGlmLocationScaleFamily {
         )
     }
 
+    /// Exact joint coefficient-space Hessian `H_L = -∇²log L` in flattened
+    /// `[mean | log-precision]` block order.
+    ///
+    /// All four members assemble the same `Xᵀ diag(W) X` blocks; the cross
+    /// block is the per-row mixed weight `dispersion_row_cross_weight`. Beta
+    /// carries a genuinely nonzero (η_μ, η_φ) cross weight; the Fisher-
+    /// orthogonal members (NegativeBinomial / Gamma / Tweedie) report a zero
+    /// cross weight, so this returns their exact *block-diagonal* joint
+    /// Hessian. Returning that block-diagonal `H_L` — rather than `None` —
+    /// is what lets the multi-block outer-REML path (`build_joint_hessian_
+    /// closures` → `joint_outer_evaluate`) and the joint posterior covariance
+    /// (`compute_joint_covariance`) run for these families instead of failing
+    /// the "multi-block families must provide a joint outer path" gate and
+    /// silently escalating to a degraded ρ-seed fit with no covariance/EDF
+    /// (gam#1119). The orthogonal members additionally declare
+    /// `likelihood_blocks_uncoupled() = true` so the directional-derivative
+    /// and Jeffreys dispatch route through the block-diagonal-exact fallback
+    /// rather than rejecting the structurally-uncoupled Hessian.
     fn exact_newton_joint_hessian_with_specs(
         &self,
         block_states: &[ParameterBlockState],
         specs: &[ParameterBlockSpec],
     ) -> Result<Option<Array2<f64>>, String> {
-        if !matches!(self.kind, DispersionFamilyKind::Beta) {
-            return Ok(None);
-        }
         if block_states.len() != 2 || specs.len() != 2 {
             return Err(format!(
                 "{} exact joint Hessian expects 2 blocks/specs, got states={} specs={}",
@@ -499,16 +559,20 @@ impl CustomFamily for DispersionGlmLocationScaleFamily {
             ..
         } = &eval.blockworking_sets[Self::BLOCK_MEAN]
         else {
-            return Err("Beta dispersion mean block did not return diagonal weights".to_string());
+            return Err(format!(
+                "{} dispersion mean block did not return diagonal weights",
+                self.kind.family_tag()
+            ));
         };
         let BlockWorkingSet::Diagonal {
             working_weights: disp_weights,
             ..
         } = &eval.blockworking_sets[Self::BLOCK_DISP]
         else {
-            return Err(
-                "Beta dispersion precision block did not return diagonal weights".to_string(),
-            );
+            return Err(format!(
+                "{} dispersion precision block did not return diagonal weights",
+                self.kind.family_tag()
+            ));
         };
 
         let cross_weights = Array1::from_shape_fn(n, |i| {
@@ -552,6 +616,23 @@ impl CustomFamily for DispersionGlmLocationScaleFamily {
         Ok(Some(h))
     }
 
+    /// Whether the joint likelihood Hessian is block-diagonal in the
+    /// `[mean | log-precision]` coefficient vector.
+    ///
+    /// `Beta(μφ, (1−μ)φ)` carries a genuinely nonzero `(η_μ, η_φ)` Fisher
+    /// cross block (see the module header), so its blocks are coupled. The
+    /// remaining members are Fisher-orthogonal in their mean/precision
+    /// parameterizations — NB2 `(μ, θ)`, Gamma shape `ν = 1/φ`, Tweedie
+    /// `log(1/φ)` — so `∂²L/∂β_μ∂β_d = 0` and the joint Hessian is exactly
+    /// block-diagonal. Declaring that here lets the trait's directional-
+    /// derivative / Jeffreys dispatch accept the block-diagonal joint Hessian
+    /// via the working-set-exact fallback instead of rejecting it as an
+    /// untrusted structurally-uncoupled override (which would strand the
+    /// outer-REML gradient with a "dH unavailable" error, gam#1119).
+    fn likelihood_blocks_uncoupled(&self) -> bool {
+        !matches!(self.kind, DispersionFamilyKind::Beta)
+    }
+
     /// The mean and precision working weights couple across both blocks, which
     /// the block-local diagonal drift hook cannot represent, so decline the
     /// dense outer Hessian capability whenever the actual two-block (or
@@ -585,20 +666,20 @@ pub struct DispersionGlmLocationScaleTermSpec {
     pub log_disp_offset: Array1<f64>,
 }
 
-struct DispersionGlmLocationScaleTermBuilder {
-    kind: DispersionFamilyKind,
-    y: Array1<f64>,
-    weights: Array1<f64>,
-    meanspec: TermCollectionSpec,
-    noisespec: TermCollectionSpec,
-    mean_offset: Array1<f64>,
-    noise_offset: Array1<f64>,
+pub(crate) struct DispersionGlmLocationScaleTermBuilder {
+    pub(crate) kind: DispersionFamilyKind,
+    pub(crate) y: Array1<f64>,
+    pub(crate) weights: Array1<f64>,
+    pub(crate) meanspec: TermCollectionSpec,
+    pub(crate) noisespec: TermCollectionSpec,
+    pub(crate) mean_offset: Array1<f64>,
+    pub(crate) noise_offset: Array1<f64>,
 }
 
 /// Warm start for a dispersion location-scale fit: project a link-transformed
 /// response onto the mean block and seed the log-precision block at a constant
 /// (precision ≈ 1) baseline. The block-cyclic IRLS then refines both jointly.
-fn dispersion_location_scale_warm_start(
+pub(crate) fn dispersion_location_scale_warm_start(
     kind: DispersionFamilyKind,
     y: &Array1<f64>,
     weights: &Array1<f64>,
@@ -839,6 +920,25 @@ pub fn fit_dispersion_glm_location_scale_terms(
     // penalties λ are still REML-selected).
     let mut kappa = kappa_options.clone();
     kappa.enabled = false;
+    // A dispersion location-scale model is an inherently *predictable* model:
+    // posterior-mean prediction (the response-scale predict path the CLI/FFI
+    // drive) needs the joint `(β_μ, β_d)` posterior covariance, and so does the
+    // reported total EDF / coefficient SEs. The block-diagonal joint Hessian is
+    // always assembled here (`exact_newton_joint_hessian_with_specs` →
+    // `compute_joint_covariance`, which for this family's `RidgedQuadraticReml`
+    // outer objective uses the never-erroring SPD-retry → positive-part
+    // pseudo-inverse), so we can — and must — request the covariance
+    // unconditionally rather than leaving `covariance_conditional = None`
+    // whenever the outer optimizer happens to *converge* (the only family-
+    // independent reason NB sometimes populated covariance was that it escalated
+    // into the never-fail posterior-sampling rung, while a cleanly-converged
+    // Gamma/Tweedie fit took the `!options.compute_covariance ⇒ None` early
+    // return and stranded its covariance/EDF — gam#1119). Forcing the flag here
+    // makes all four genuine-dispersion mean families assemble the joint
+    // covariance + EDF deterministically, exactly as a predictable model
+    // requires.
+    let mut options = options.clone();
+    options.compute_covariance = true;
     fit_location_scale_terms(
         data,
         DispersionGlmLocationScaleTermBuilder {
@@ -850,7 +950,7 @@ pub fn fit_dispersion_glm_location_scale_terms(
             mean_offset: spec.mean_offset,
             noise_offset: spec.log_disp_offset,
         },
-        options,
+        &options,
         &kappa,
     )
 }
@@ -859,14 +959,14 @@ pub fn fit_dispersion_glm_location_scale_terms(
 mod tests {
     use super::*;
 
-    fn beta_fisher_cross_info_mu_phi(mu: f64, phi: f64) -> f64 {
+    pub(crate) fn beta_fisher_cross_info_mu_phi(mu: f64, phi: f64) -> f64 {
         let a = mu * phi;
         let b = (1.0 - mu) * phi;
         phi * (mu * crate::families::jet_tower::trigamma_derivative_stack(a)[0]
             - (1.0 - mu) * crate::families::jet_tower::trigamma_derivative_stack(b)[0])
     }
 
-    fn assert_close(label: &str, got: f64, want: f64, tol: f64) {
+    pub(crate) fn assert_close(label: &str, got: f64, want: f64, tol: f64) {
         assert!(
             (got - want).abs() <= tol,
             "{label}: got {got:.12e}, want {want:.12e}, |diff|={:.3e}",
@@ -875,7 +975,7 @@ mod tests {
     }
 
     #[test]
-    fn beta_tower_mixed_channel_matches_cross_information_formula() {
+    pub(crate) fn beta_tower_mixed_channel_matches_cross_information_formula() {
         let mu = 0.1;
         let phi = 10.0;
         let a = mu * phi;
@@ -908,7 +1008,7 @@ mod tests {
     }
 
     #[test]
-    fn orthogonal_dispersion_families_report_zero_cross_weight() {
+    pub(crate) fn orthogonal_dispersion_families_report_zero_cross_weight() {
         let cases = [
             DispersionFamilyKind::NegativeBinomial,
             DispersionFamilyKind::Gamma,

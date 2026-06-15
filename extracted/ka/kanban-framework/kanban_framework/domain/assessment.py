@@ -33,6 +33,9 @@ _QUICK_SIGNALS = [
     "regression test", "回归测试",
     "type hint", "类型注解",
     "log", "日志", "logging",
+    # v0.196: KB accumulation signals
+    "追加知识库", "添加知识", "知识库积累", "入库", "沉淀知识",
+    "记录经验", "add knowledge",
 ]
 
 # Keywords that signal "this needs full FSM with multi-role review"

@@ -278,6 +278,49 @@ def _headless_safe_failure_reasons() -> dict[str, str]:
     }
 
 
+def _supply_chain_package_action_error_response(
+    *,
+    operation: str,
+    error: Exception,
+) -> tuple[int, dict[str, object]]:
+    if isinstance(error, GuardSyncAuthorizationExpiredError):
+        return (
+            403,
+            {
+                "error": "guard_cloud_reconnect_required",
+                "message": str(error).strip() or "Guard Cloud authorization expired.",
+                "operation": operation,
+            },
+        )
+    if isinstance(error, GuardSyncNotConfiguredError):
+        return (
+            403,
+            {
+                "error": "guard_cloud_connect_required",
+                "message": str(error).strip() or "Guard Cloud workspace is not connected.",
+                "operation": operation,
+            },
+        )
+    if isinstance(error, GuardSyncNotAvailableError):
+        payload: dict[str, object] = {
+            "error": "supply_chain_sync_unavailable",
+            "message": str(error).strip() or "Supply-chain sync is not available on this device.",
+            "operation": operation,
+        }
+        if error.retryable:
+            payload["retryable"] = True
+        return (503, payload)
+    message = str(error).strip() or "Guard supply-chain bundle sync failed."
+    return (
+        502,
+        {
+            "error": "supply_chain_sync_failed",
+            "message": message,
+            "operation": operation,
+        },
+    )
+
+
 def _cloud_app_dashboard_session_actions(action_path: str) -> frozenset[str]:
     return _CLOUD_APP_DASHBOARD_SESSION_ACTIONS.get(action_path, frozenset({action_path}))
 
@@ -663,6 +706,8 @@ def _resolve_package_firewall_connect_flow(
     if reason not in {"guard_cloud_connect_required", "guard_cloud_reconnect_required"}:
         return None
     current = _copy_package_firewall_connect_state(server)
+    if current is None:
+        current = _copy_guard_cloud_connect_state(server)
     if current is None:
         return _default_package_firewall_connect_flow(store=server.store, reason=reason)
     state = str(current.get("state") or "idle")
@@ -1387,8 +1432,20 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._handle_guard_cloud_connect_start()
             return
         if parsed.path == "/v1/update":
+            force_pypi_reinstall = bool(payload.get("force_pypi_reinstall"))
             status_payload = build_guard_update_status_payload()
-            if status_payload.get("auto_updatable") is not True:
+            recovery_reinstall_available = bool(status_payload.get("recovery_reinstall_available"))
+            if force_pypi_reinstall and not recovery_reinstall_available:
+                self._write_json(
+                    {
+                        "error": "update_not_supported",
+                        "message": status_payload.get("blocked_reason")
+                        or "Reinstall is not available for this install.",
+                    },
+                    status=400,
+                )
+                return
+            if status_payload.get("auto_updatable") is not True and not force_pypi_reinstall:
                 self._write_json(
                     {
                         "error": "update_not_supported",
@@ -1398,7 +1455,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     status=400,
                 )
                 return
-            if status_payload.get("update_available") is not True:
+            if status_payload.get("update_available") is not True and not force_pypi_reinstall:
                 self._write_json(
                     {
                         "error": "update_not_available",
@@ -1415,6 +1472,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     guard_home,
                     daemon_pid=daemon_pid,
                     daemon_port=daemon_port,
+                    force_pypi_reinstall=force_pypi_reinstall,
                 )
             )
             return
@@ -1605,28 +1663,12 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     "platform": platform.system().lower() or "unknown",
                 },
                 "headless_api": {
+                    "execution_mode": "guard_cloud_command_queue",
                     "operations": list(_HEADLESS_OPERATIONS),
-                    "routes": {
-                        "install": "/v1/apps/connect",
-                        "repair": "/v1/apps/repair",
-                        "remove": "/v1/apps/disconnect",
-                        "status": "/v1/apps/status",
-                        "scan": "/v1/apps/test",
-                        "policy_sync": "/v1/policy/sync",
-                    },
                 },
                 "package_firewall_api": {
+                    "execution_mode": "guard_cloud_command_queue",
                     "operations": ["status", "connect", "install", "repair", "test", "audit", "sync", "remove"],
-                    "routes": {
-                        "audit": "/v1/supply-chain/audit",
-                        "connect": "/v1/supply-chain/package-shims/connect",
-                        "install": "/v1/supply-chain/package-shims/install",
-                        "remove": "/v1/supply-chain/package-shims/remove",
-                        "repair": "/v1/supply-chain/package-shims/repair",
-                        "status": "/v1/supply-chain/package-shims",
-                        "sync": "/v1/supply-chain/sync",
-                        "test": "/v1/supply-chain/package-shims/test",
-                    },
                 },
                 "safe_failure_reasons": _headless_safe_failure_reasons(),
                 "supported_harnesses": sorted(item["harness"] for item in supported),
@@ -2256,6 +2298,13 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     "workspace_dir in the audit request."
                 )
             self._write_json(error_payload, status=400)
+            return
+        except Exception as error:
+            status, error_payload = _supply_chain_package_action_error_response(
+                operation=operation,
+                error=error,
+            )
+            self._write_json(error_payload, status=status)
             return
         receipt_overrides = package_firewall_receipt_metadata(
             operation=operation,
@@ -3928,6 +3977,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/sessions/start",
             "/v1/operations/start",
             "/v1/operations/block",
+            "/v1/policy/sync",
             "/v1/requests/clear",
             "/v1/requests/remote-once",
             "/v1/settings/import",
@@ -3941,6 +3991,11 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/notifications/setup",
             "/v1/update/status",
         }:
+            return True
+        # Hosted dashboard access is blocked for these routes, but local
+        # loopback/dashboard sessions still use them until the route deletion
+        # slice lands.
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "apps"] and path_parts[2] in _HEADLESS_APP_ACTIONS:
             return True
         if len(path_parts) >= 2 and path_parts[:2] == ["v1", "supply-chain"]:
             return True
@@ -4196,15 +4251,11 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/policy/cloud-exceptions",
             "/v1/policy/cloud-exception-requests",
             "/v1/policy/clear",
-            "/v1/policy/sync",
             "/v1/receipts",
             "/v1/receipts/analytics",
             "/v1/insights/share",
             "/v1/cloud/connect",
             "/v1/receipts/latest",
-            "/v1/requests",
-            "/v1/requests/clear",
-            "/v1/requests/remote-once",
             "/v1/runtime",
             "/v1/settings",
             "/v1/settings/export",
@@ -4214,17 +4265,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/update/status",
         }:
             return True
-        if len(path_parts) == 3 and path_parts[:2] in (["v1", "requests"], ["v1", "receipts"]):
-            return True
-        if len(path_parts) >= 2 and path_parts[:2] == ["v1", "supply-chain"]:
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "receipts"]:
             return True
         if len(path_parts) == 4 and path_parts[:3] == ["v1", "audit", "remediations"]:
-            return True
-        if (
-            len(path_parts) == 4
-            and path_parts[:2] == ["v1", "requests"]
-            and path_parts[3] in {"approve", "block", "resume"}
-        ):
             return True
         if len(path_parts) == 4 and path_parts[:2] == ["v1", "approvals"] and path_parts[3] == "decision":
             return True
@@ -4246,8 +4289,6 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 "uninstall",
             }
         ):
-            return True
-        if len(path_parts) == 3 and path_parts[:2] == ["v1", "apps"] and path_parts[2] in _HEADLESS_APP_ACTIONS:
             return True
         return len(path_parts) == 4 and path_parts[:2] == ["v1", "artifacts"] and path_parts[3] == "diff"
 

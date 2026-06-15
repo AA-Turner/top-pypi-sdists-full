@@ -29,7 +29,11 @@ def parse_gitignore(
         for line in ignore_file:
             counter += 1
             line = line.rstrip("\n")
-            rule = _rule_from_pattern(line, base_path=Path(base_dir).resolve(), source=(str(full_path), counter))
+            # Absolute but NOT symlink-resolved: matching in ``IgnoreRule.match`` is lexical, so
+            # ``base_path`` and the paths it is matched against must share the same namespace.
+            # Resolving here (a syscall) would also diverge from the lexical ``abs_path`` the
+            # importer supplies (e.g. macOS firmlinks: ``/home`` -> ``/System/Volumes/Data/home``).
+            rule = _rule_from_pattern(line, base_path=Path(os.path.abspath(base_dir)), source=(str(full_path), counter))
             if rule:
                 rules.append(rule)
 
@@ -51,7 +55,7 @@ def _rule_from_pattern(pattern: str, base_path: Optional[Path] = None, source: O
     Because git allows for nested .gitignore files, a base_path value
     is required for correct behavior. The base path should be absolute.
     """
-    if base_path and base_path != Path(base_path).resolve():
+    if base_path is not None and not os.path.isabs(base_path):
         raise ValueError("base_path must be absolute")
     # Store the exact pattern for our repr and string functions
     orig_pattern = pattern
@@ -151,7 +155,17 @@ class IgnoreRule(NamedTuple):
     def match(self, abs_path: str):
         matched = False
         if self.base_path:
-            rel_path = str(Path(abs_path).resolve().relative_to(self.base_path))
+            # Matching is purely lexical: ``base_path`` is stored as an absolute (but
+            # un-symlink-resolved) path at rule creation, and the importer feeds ``match`` absolute
+            # paths, so both operands live in the same namespace and ``os.path.relpath`` yields the
+            # in-tree relative path with pure string math. The previous
+            # ``Path(abs_path).resolve()`` did a filesystem syscall (stat/readlink) per call -- i.e.
+            # per (file x rule) -- which dominated import-time file discovery, and (because it
+            # resolved symlinks while ``base_path`` might or might not be resolved) could even push
+            # ``abs_path`` outside ``base_path`` and raise in ``relative_to``. Staying lexical
+            # everywhere is both faster and matches git, which does not dereference symlinks when
+            # evaluating ignore rules.
+            rel_path = os.path.relpath(abs_path, self.base_path)
         else:
             rel_path = str(Path(abs_path))
         if rel_path.startswith("./"):

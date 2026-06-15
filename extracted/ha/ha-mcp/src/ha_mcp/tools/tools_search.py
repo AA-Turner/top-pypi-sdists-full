@@ -18,6 +18,7 @@ from ..transforms.categorized_search import DEFAULT_PINNED_TOOLS
 from ..utils.fuzzy_search import apply_hidden_penalty
 from .helpers import exception_to_structured_error, log_tool_usage, raise_tool_error
 from .util_helpers import (
+    JSON_STRING_COERCION,
     add_timezone_metadata,
     build_pagination_metadata,
     filter_active_repairs,
@@ -581,6 +582,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         search_types: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(
@@ -672,6 +674,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         result_fields: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(
@@ -682,6 +685,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         fields: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(
@@ -1810,6 +1814,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = "minimal",
         domains: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(
@@ -1878,6 +1883,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = False,
         fields: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(
@@ -1889,10 +1895,13 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                     "device_types, service_availability, system_info, "
                     "notification_count, notifications, repair_count, "
                     "dismissed_repair_count, repairs, repairs_error, "
-                    "tool_discovery, settings_url, settings_url_hint. Note: "
-                    "``settings_url`` (stdio mode) and ``settings_url_hint`` "
-                    "(HTTP/Docker/OAuth mode) are emitted regardless of "
-                    "``fields=`` projection so the settings page stays "
+                    "tool_discovery, settings_url, settings_url_hint, "
+                    "read_only_mode, read_only_mode_hint. Note: "
+                    "``settings_url`` (stdio mode), ``settings_url_hint`` "
+                    "(HTTP/Docker/OAuth mode), and the ``read_only_mode`` / "
+                    "``read_only_mode_hint`` pair (only while Read Only Mode "
+                    "is on) are emitted regardless of ``fields=`` projection "
+                    "so the settings page and the active mode stay "
                     "discoverable; see the tool description."
                 ),
             ),
@@ -2147,6 +2156,22 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                     "base URL your client connects to."
                 )
 
+        # Surface Read Only Mode after projection (like settings_url) so
+        # the flag survives any fields= filter — the model must learn the
+        # mode is on even from a minimal overview call. Re-read the live
+        # settings: standalone-mode toggles flip without a restart and the
+        # `settings` local above may predate the flip.
+        if get_global_settings().read_only_mode:
+            projected["read_only_mode"] = True
+            projected["read_only_mode_hint"] = (
+                "Read Only Mode is ON: write-capable tools are disabled and "
+                "all write or destructive operations are blocked "
+                "server-side. You can search, read, and analyze freely. To "
+                "allow changes, the user must turn off Read Only Mode in "
+                "the ha-mcp settings UI (Tools tab) or the add-on "
+                "configuration."
+            )
+
         return projected
 
     async def ha_deep_search(
@@ -2307,6 +2332,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
     async def ha_get_state(
         entity_id: Annotated[
             str | list[str],
+            JSON_STRING_COERCION,
             Field(
                 description="Entity ID or list of entity IDs to retrieve state for "
                 "(e.g., 'light.kitchen' or ['light.kitchen', 'sensor.temperature'])"
@@ -2314,6 +2340,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ],
         fields: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(
@@ -2327,6 +2354,7 @@ def register_search_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ] = None,
         attribute_keys: Annotated[
             str | list[str] | None,
+            JSON_STRING_COERCION,
             Field(
                 default=None,
                 description=(

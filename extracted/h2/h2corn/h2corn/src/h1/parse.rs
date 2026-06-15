@@ -14,7 +14,7 @@ use super::{ConnectionPersistence, ParsedRequest, RequestBodyKind, UpgradeReques
 use crate::ascii;
 use crate::async_util::send_if_open;
 use crate::config::ServerConfig;
-use crate::error::{ErrorExt, H2CornError, Http1Error};
+use crate::error::{ErrorExt, ErrorKind, H2CornError, Http1Error};
 use crate::frame::{PeerSettings, SETTING_ENTRY_LEN, parse_settings_payload};
 use crate::hpack::BytesStr;
 use crate::http::body::{RequestBodyFinish, RequestBodyProgress, RequestBodyState};
@@ -379,7 +379,12 @@ where
         header_state.host_header_index,
     ) {
         Ok(request_target) => request_target,
-        Err(H2CornError::Http1(Http1Error::ConflictingAbsoluteFormAuthority)) => {
+        Err(err)
+            if matches!(
+                err.kind(),
+                ErrorKind::Http1(Http1Error::ConflictingAbsoluteFormAuthority)
+            ) =>
+        {
             write_empty_response(writer, config, status_code::BAD_REQUEST, true).await?;
             return Ok(None);
         },
@@ -422,26 +427,26 @@ where
     let upgrade = if websocket_requested {
         let websocket = &request.header_meta.websocket;
         if !websocket.version_supported {
-            UpgradeRequest::WebSocketUnsupportedVersion
+            Some(UpgradeRequest::WebSocketUnsupportedVersion)
         } else if line.websocket_method_supported
             && !websocket.key_duplicate
             && let Some(key) = websocket.key
         {
-            UpgradeRequest::WebSocket {
+            Some(UpgradeRequest::WebSocket {
                 key,
                 meta: websocket.request.clone(),
-            }
+            })
         } else {
-            UpgradeRequest::WebSocketBadRequest
+            Some(UpgradeRequest::WebSocketBadRequest)
         }
     } else if let Some(settings) = http2_settings
         && upgrade.h2c
         && connection.upgrade
         && connection.http2_settings
     {
-        UpgradeRequest::H2c { settings }
+        Some(UpgradeRequest::H2c { settings })
     } else {
-        UpgradeRequest::None
+        None
     };
 
     Ok(Some(ParsedRequest {
@@ -901,7 +906,7 @@ mod tests {
         read_request,
     };
     use crate::config::{BindTarget, Http1Config, Http2Config, ProxyConfig, ServerConfig};
-    use crate::error::{H2CornError, Http1Error};
+    use crate::error::{ErrorKind, H2CornError, Http1Error};
     use crate::frame;
     use crate::h1::{ConnectionPersistence, RequestBodyKind, UpgradeRequest};
     use crate::http::body::RequestBodyState;
@@ -927,6 +932,8 @@ mod tests {
                 max_header_block_size: None,
                 max_inbound_frame_size: NonZeroU32::new(frame::DEFAULT_MAX_FRAME_SIZE as u32)
                     .expect("default HTTP/2 frame size is non-zero"),
+                initial_stream_window_size: NonZeroU32::new(1 << 20).expect("non-zero"),
+                initial_connection_window_size: NonZeroU32::new(2 << 20).expect("non-zero"),
                 timeout_response_stall: None,
             },
             max_request_body_size: None,
@@ -938,6 +945,7 @@ mod tests {
             limit_connections: None,
             max_requests: None,
             runtime_threads: 2,
+            loop_threads: 1,
             websocket: crate::config::WebSocketConfig::default(),
             proxy: ProxyConfig {
                 trust_headers: false,
@@ -1044,7 +1052,7 @@ mod tests {
             RequestBodyKind::ContentLength(7.try_into().unwrap())
         );
         assert_eq!(parsed.persistence, ConnectionPersistence::KeepAlive);
-        assert!(matches!(parsed.upgrade, UpgradeRequest::None));
+        assert!(parsed.upgrade.is_none());
     }
 
     #[tokio::test]
@@ -1056,7 +1064,7 @@ mod tests {
 
         assert_eq!(parsed.body_kind, RequestBodyKind::Chunked);
         assert_eq!(parsed.persistence, ConnectionPersistence::KeepAlive);
-        assert!(matches!(parsed.upgrade, UpgradeRequest::None));
+        assert!(parsed.upgrade.is_none());
     }
 
     #[tokio::test]
@@ -1067,7 +1075,7 @@ mod tests {
 
         assert_eq!(parsed.body_kind, RequestBodyKind::None);
         assert_eq!(parsed.persistence, ConnectionPersistence::Close);
-        assert!(matches!(parsed.upgrade, UpgradeRequest::None));
+        assert!(parsed.upgrade.is_none());
     }
 
     #[tokio::test]
@@ -1086,7 +1094,10 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(parsed.upgrade, UpgradeRequest::WebSocket { .. }));
+        assert!(matches!(
+            parsed.upgrade,
+            Some(UpgradeRequest::WebSocket { .. })
+        ));
     }
 
     #[tokio::test]
@@ -1107,7 +1118,7 @@ mod tests {
 
         assert!(matches!(
             parsed.upgrade,
-            UpgradeRequest::WebSocketUnsupportedVersion
+            Some(UpgradeRequest::WebSocketUnsupportedVersion)
         ));
     }
 
@@ -1128,7 +1139,7 @@ mod tests {
 
         assert!(matches!(
             parsed.upgrade,
-            UpgradeRequest::WebSocketBadRequest
+            Some(UpgradeRequest::WebSocketBadRequest)
         ));
     }
 
@@ -1177,7 +1188,7 @@ mod tests {
 
         assert!(matches!(
             parsed.upgrade,
-            UpgradeRequest::WebSocketBadRequest
+            Some(UpgradeRequest::WebSocketBadRequest)
         ));
     }
 
@@ -1196,7 +1207,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(parsed.upgrade, UpgradeRequest::H2c { .. }));
+        assert!(matches!(parsed.upgrade, Some(UpgradeRequest::H2c { .. })));
     }
 
     #[tokio::test]
@@ -1264,8 +1275,8 @@ mod tests {
             .expect_err("overlong buffered chunk size line is rejected");
 
         assert!(matches!(
-            err,
-            H2CornError::Http1(Http1Error::InvalidChunkSize)
+            err.kind(),
+            ErrorKind::Http1(Http1Error::InvalidChunkSize)
         ));
     }
 
@@ -1284,8 +1295,8 @@ mod tests {
             .expect_err("oversized trailer section is rejected");
 
         assert!(matches!(
-            err,
-            H2CornError::Http1(Http1Error::MalformedHeaderLine)
+            err.kind(),
+            ErrorKind::Http1(Http1Error::MalformedHeaderLine)
         ));
     }
 
@@ -1308,8 +1319,8 @@ mod tests {
         writer.await.expect("writer task finishes");
 
         assert!(matches!(
-            err,
-            H2CornError::Http1(Http1Error::RequestBodyLimitExceeded)
+            err.kind(),
+            ErrorKind::Http1(Http1Error::RequestBodyLimitExceeded)
         ));
         rx.try_recv().unwrap_err();
         assert_eq!(&buffer[..], b"hello\r\n");
@@ -1325,16 +1336,16 @@ mod tests {
     #[test]
     fn parse_chunk_size_rejects_empty_and_invalid_values() {
         assert!(matches!(
-            parse_chunk_size(b""),
-            Err(H2CornError::Http1(Http1Error::InvalidChunkSize))
+            parse_chunk_size(b"").unwrap_err().kind(),
+            ErrorKind::Http1(Http1Error::InvalidChunkSize)
         ));
         assert!(matches!(
-            parse_chunk_size(b";foo=bar"),
-            Err(H2CornError::Http1(Http1Error::InvalidChunkSize))
+            parse_chunk_size(b";foo=bar").unwrap_err().kind(),
+            ErrorKind::Http1(Http1Error::InvalidChunkSize)
         ));
         assert!(matches!(
-            parse_chunk_size(b"1 g"),
-            Err(H2CornError::Http1(Http1Error::InvalidChunkSize))
+            parse_chunk_size(b"1 g").unwrap_err().kind(),
+            ErrorKind::Http1(Http1Error::InvalidChunkSize)
         ));
     }
 }

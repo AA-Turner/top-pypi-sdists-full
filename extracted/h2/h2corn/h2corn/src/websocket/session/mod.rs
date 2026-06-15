@@ -10,7 +10,7 @@ use tokio::time::timeout;
 
 use self::accepted::run_accepted_session;
 use self::handshake::{
-    HandshakeEvent, drive_denial_response, fail_handshake, receive_handshake_event, settle_app_task,
+    HandshakeEvent, drive_denial_response, fail_handshake, receive_handshake_event,
 };
 use super::app::start_websocket_app;
 use super::codec::{
@@ -69,28 +69,21 @@ impl AcceptedWebSocketState {
         self.close_code.map_or(fallback, NonZeroU16::get)
     }
 
-    pub(super) fn queue_close(
-        &mut self,
-        code: WebSocketCloseCode,
-        reason: &str,
-    ) -> Result<(), H2CornError> {
-        self.pending_close = Some(PendingClose::new(code, reason)?);
-        self.close_state = CloseState::CloseQueued;
-        self.set_close_code(code);
-        Ok(())
-    }
-
     pub(super) fn queue_close_if_open(
         &mut self,
         code: WebSocketCloseCode,
         reason: &str,
     ) -> Result<(), H2CornError> {
-        validate_close_code(code)?;
         if self.close_started() {
+            validate_close_code(code)?;
             self.set_close_code(code);
             return Ok(());
         }
-        self.queue_close(code, reason)
+        // `PendingClose::new` validates both the code and the reason.
+        self.pending_close = Some(PendingClose::new(code, reason)?);
+        self.close_state = CloseState::CloseQueued;
+        self.set_close_code(code);
+        Ok(())
     }
 
     pub(crate) const fn take_pending_close(&mut self) -> Option<PendingClose> {
@@ -203,7 +196,7 @@ pub trait AcceptedWebSocketTransport {
 }
 
 pub struct WebSocketContext {
-    pub(crate) request: RequestContext,
+    pub(crate) request: Box<RequestContext>,
     pub(crate) admission: RequestAdmission,
     pub(crate) meta: WebSocketRequestMeta,
 }
@@ -275,7 +268,7 @@ where
     let ping_timeout = config.websocket.ping_timeout;
     let shutdown = connection.shutdown.clone();
 
-    let mut running_app = start_websocket_app(context)?;
+    let mut running_app = start_websocket_app(context);
 
     let first = match timeout(timeout_handshake, receive_handshake_event(&mut running_app)).await {
         Ok(result) => match result {
@@ -314,14 +307,14 @@ where
         HandshakeEvent::Close => {
             transport.send_forbidden_response().await?;
             access_log.emit_http_response(status_code::FORBIDDEN, 0);
-            settle_app_task(&mut running_app, false, timeout_graceful_shutdown).await?;
+            running_app.app.settle(timeout_graceful_shutdown).await?;
             return Ok(());
         },
         HandshakeEvent::DenialStart { status, headers } => {
-            let (tx_bytes, app_finished) =
+            let (tx_bytes, _) =
                 drive_denial_response(transport, status, headers, &mut running_app).await?;
             access_log.emit_http_response(status, tx_bytes);
-            settle_app_task(&mut running_app, app_finished, timeout_graceful_shutdown).await?;
+            running_app.app.settle(timeout_graceful_shutdown).await?;
             return Ok(());
         },
     }
@@ -337,12 +330,7 @@ where
     .await?;
 
     transport.finish_session(&mut outcome.state).await?;
-    settle_app_task(
-        &mut running_app,
-        outcome.app_finished,
-        timeout_graceful_shutdown,
-    )
-    .await?;
+    running_app.app.settle(timeout_graceful_shutdown).await?;
     access_log.emit_session(
         outcome
             .state
@@ -387,7 +375,9 @@ mod tests {
         let mut state = AcceptedWebSocketState::default();
         let mut frame_buf = BytesMut::new();
 
-        state.queue_close(1000, "bye").expect("close is queued");
+        state
+            .queue_close_if_open(1000, "bye")
+            .expect("close is queued");
 
         let frame = take_pending_close_frame(&mut state, &mut frame_buf)
             .expect("close frame encodes")
@@ -402,7 +392,9 @@ mod tests {
     fn queue_close_if_open_rejects_invalid_code_after_close_started() {
         let mut state = AcceptedWebSocketState::default();
 
-        state.queue_close(1000, "bye").expect("close is queued");
+        state
+            .queue_close_if_open(1000, "bye")
+            .expect("close is queued");
 
         assert!(state.queue_close_if_open(0, "").is_err());
         assert_eq!(state.close_code_or(1001), 1000);

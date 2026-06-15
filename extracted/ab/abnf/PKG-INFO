@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abnf
-Version: 2.5.0
+Version: 2.5.1
 Summary: Parsers for ABNF grammars.
 Author-email: Charles Yeomans <charles@declaresub.com>
 Keywords: abnf,generator,parser
@@ -21,13 +21,13 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
 Requires-Dist: check-manifest==0.51; extra == "dev"
-Requires-Dist: pre-commit==4.5.1; extra == "dev"
-Requires-Dist: pyright[nodejs]==1.1.408; extra == "dev"
-Requires-Dist: pytest==9.0.2; extra == "dev"
-Requires-Dist: pytest-cov==7.0.0; extra == "dev"
-Requires-Dist: ruff==0.15.4; extra == "dev"
+Requires-Dist: pre-commit==4.6.0; extra == "dev"
+Requires-Dist: pyright[nodejs]==1.1.410; extra == "dev"
+Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: pytest-cov==7.1.0; extra == "dev"
+Requires-Dist: ruff==0.15.17; extra == "dev"
 Requires-Dist: setuptools==82.0.1; extra == "dev"
-Requires-Dist: tox==4.46.3; extra == "dev"
+Requires-Dist: tox==4.55.1; extra == "dev"
 Requires-Dist: setuptools_scm==10.0.5; extra == "dev"
 Provides-Extra: rust
 Requires-Dist: abnf-rust<3,>=2.5; extra == "rust"

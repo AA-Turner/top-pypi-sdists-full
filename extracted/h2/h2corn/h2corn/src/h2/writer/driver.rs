@@ -13,30 +13,31 @@ use tokio::sync::futures::Notified;
 use tokio::time::Instant as TokioInstant;
 
 use super::flush::{
-    FlushPassResult, flush_pending_data, outbound_data_frame_size, send_limit, write_data_chunk,
+    FlushPassResult, flush_pending_data, outbound_data_frame_size, send_limit, write_frame,
     write_frame_buf,
 };
 use super::header_encode::{HeaderEncodeState, write_header_block};
 use super::ingress::{QueuedStreamCommands, WriterIngress};
 use super::stream_state::{StreamWriteState, notify_response_close, writer_stream};
 use super::{
-    FRAME_BUFFER_CAPACITY, H2_WRITER_BUFFER_CAPACITY, H2WriteTarget, ResponseCloseBatch,
-    WindowTarget, WriterCommand, WriterCommandBatch,
+    FRAME_BUFFER_CAPACITY, H2_WRITER_BUFFER_CAPACITY, ResponseCloseBatch, WindowTarget,
+    WriterCommand, WriterCommandBatch,
 };
 use crate::bridge::PayloadBytes;
+use crate::config::ServerConfig;
 #[cfg(test)]
 use crate::config::{
     BindTarget, Http1Config, Http2Config, ProxyConfig, ResponseHeaderConfig, WebSocketConfig,
 };
-use crate::config::{INITIAL_CONNECTION_WINDOW_SIZE, INITIAL_STREAM_WINDOW_SIZE, ServerConfig};
 use crate::error::H2CornError;
 use crate::frame::{self, ErrorCode, PeerSettings, Settings, StreamId, WindowIncrement};
-use crate::h2::{StreamMap, new_stream_map};
+use crate::h2::{LAZY_STREAM_CAPACITY, StreamMap, new_stream_map};
 use crate::http::header::apply_default_response_headers;
 use crate::http::pathsend::PathStreamer;
 use crate::http::types::{HttpStatusCode, ResponseHeaders};
 #[cfg(test)]
 use crate::proxy::ProxyProtocolMode;
+use crate::sendfile::WriteTarget;
 
 #[derive(Clone)]
 pub struct ConnectionHandle {
@@ -176,7 +177,7 @@ impl<W> WriterSendParts<'_, W> {
 
 impl<W> WriterState<W>
 where
-    W: H2WriteTarget,
+    W: WriteTarget,
 {
     #[cfg(test)]
     pub(crate) fn new_test(writer: W) -> Self {
@@ -200,6 +201,8 @@ where
                     max_header_block_size: None,
                     max_inbound_frame_size: NonZeroU32::new(frame::DEFAULT_MAX_FRAME_SIZE as u32)
                         .expect("default HTTP/2 frame size is non-zero"),
+                    initial_stream_window_size: NonZeroU32::new(1 << 20).expect("non-zero"),
+                    initial_connection_window_size: NonZeroU32::new(2 << 20).expect("non-zero"),
                     timeout_response_stall: None,
                 },
                 max_request_body_size: None,
@@ -211,6 +214,7 @@ where
                 limit_connections: None,
                 max_requests: None,
                 runtime_threads: 2,
+                loop_threads: 1,
                 websocket: WebSocketConfig::default(),
                 proxy: ProxyConfig {
                     trust_headers: false,
@@ -328,6 +332,12 @@ where
     pub(crate) async fn flush(&mut self) -> Result<(), H2CornError> {
         self.writer.flush().await?;
         Ok(())
+    }
+
+    /// Flush and half-close the write side (TCP FIN / TLS `close_notify`),
+    /// prompting the peer to read pending output and close.
+    pub(crate) async fn shutdown_write(&mut self) {
+        let _ = self.writer.shutdown().await;
     }
 
     pub(crate) async fn close_ingress(&self) {
@@ -456,12 +466,13 @@ async fn force_reset_stream<W>(
     streams: &mut StreamMap<StreamWriteState>,
     response_closes: &mut ResponseCloseBatch,
     stream_id: StreamId,
+    error_code: ErrorCode,
 ) -> Result<(), H2CornError>
 where
     W: AsyncWrite + Unpin,
 {
     streams.remove(&stream_id.get());
-    frame::append_rst_stream(frame_buf, stream_id, ErrorCode::INTERNAL_ERROR);
+    frame::append_rst_stream(frame_buf, stream_id, error_code);
     write_frame_buf(writer, frame_buf).await?;
     notify_response_close(response_closes, stream_id);
     Ok(())
@@ -506,6 +517,7 @@ where
             context.streams,
             context.response_closes,
             stream_id,
+            ErrorCode::INTERNAL_ERROR,
         )
         .await;
         return Ok(());
@@ -538,6 +550,7 @@ where
             context.streams,
             context.response_closes,
             stream_id,
+            ErrorCode::INTERNAL_ERROR,
         )
         .await;
         return Ok(());
@@ -569,6 +582,7 @@ where
             context.streams,
             context.response_closes,
             stream_id,
+            ErrorCode::INTERNAL_ERROR,
         )
         .await;
         return Ok(());
@@ -598,6 +612,7 @@ where
             context.streams,
             context.response_closes,
             stream_id,
+            ErrorCode::INTERNAL_ERROR,
         )
         .await;
         return Ok(());
@@ -645,16 +660,20 @@ where
             return Ok(());
         }
 
-        let mut stream_send_window = context.initial_stream_send_window;
-        write_data_chunk(
+        // Single-shot DATA frame into the BufWriter: small responses
+        // coalesce with the HEADERS frame into one sendto on flush.
+        write_frame(
             context.writer,
-            stream_id,
+            frame::FrameHeader {
+                len: data.len(),
+                frame_type: frame::FrameType::DATA,
+                flags: frame::FrameFlags::END_STREAM,
+                stream_id: Some(stream_id),
+            },
             data.as_ref(),
-            true,
-            context.connection_send_window,
-            &mut stream_send_window,
         )
         .await?;
+        *context.connection_send_window -= data.len() as i64;
 
         notify_response_close(context.response_closes, stream_id);
         return Ok(());
@@ -687,6 +706,7 @@ where
             context.streams,
             context.response_closes,
             stream_id,
+            ErrorCode::INTERNAL_ERROR,
         )
         .await;
         return Ok(());
@@ -703,11 +723,15 @@ async fn handle_send_reset<W>(
 where
     W: AsyncWrite + Unpin,
 {
-    context.streams.remove(&stream_id.get());
-    frame::append_rst_stream(context.frame_buf, stream_id, error_code);
-    write_frame_buf(context.writer, context.frame_buf).await?;
-    notify_response_close(context.response_closes, stream_id);
-    Ok(())
+    force_reset_stream(
+        context.writer,
+        context.frame_buf,
+        context.streams,
+        context.response_closes,
+        stream_id,
+        error_code,
+    )
+    .await
 }
 
 async fn handle_grant_stream_window<W>(
@@ -795,7 +819,7 @@ async fn flush_buffered_writer_output<W>(
     context: &mut WriterLoopParts<'_, W>,
 ) -> Result<(), H2CornError>
 where
-    W: H2WriteTarget,
+    W: WriteTarget,
 {
     let _ = flush_pending_data(
         context.writer,
@@ -835,7 +859,7 @@ async fn process_writer_command<W>(
     command: WriterCommand,
 ) -> Result<bool, H2CornError>
 where
-    W: H2WriteTarget,
+    W: WriteTarget,
 {
     match command {
         WriterCommand::SendSettingsAck => {
@@ -941,7 +965,7 @@ pub async fn init_writer<W>(
     initial_peer_settings: Option<PeerSettings>,
 ) -> Result<(WriterState<W>, ConnectionHandle), H2CornError>
 where
-    W: H2WriteTarget,
+    W: WriteTarget,
 {
     let ingress = WriterIngress::new(config.http2.max_concurrent_streams as usize);
     let mut writer = BufWriter::with_capacity(H2_WRITER_BUFFER_CAPACITY, writer);
@@ -950,7 +974,7 @@ where
         header_table_size: Some(frame::DEFAULT_HEADER_TABLE_SIZE as u32),
         enable_push: Some(false),
         max_concurrent_streams: Some(config.http2.max_concurrent_streams),
-        initial_window_size: Some(INITIAL_STREAM_WINDOW_SIZE),
+        initial_window_size: Some(config.http2.initial_stream_window_size.get()),
         max_frame_size: Some(config.http2.max_inbound_frame_size),
         max_header_list_size: config
             .http2
@@ -961,11 +985,12 @@ where
     };
     frame::append_settings(&mut frame_buf, initial_settings);
     write_frame_buf(&mut writer, &mut frame_buf).await?;
-    if INITIAL_CONNECTION_WINDOW_SIZE > frame::DEFAULT_WINDOW_SIZE {
+    let initial_connection_window = config.http2.initial_connection_window_size.get();
+    if initial_connection_window > frame::DEFAULT_WINDOW_SIZE {
         frame::append_window_update(
             &mut frame_buf,
             None,
-            WindowIncrement::new(INITIAL_CONNECTION_WINDOW_SIZE - frame::DEFAULT_WINDOW_SIZE)
+            WindowIncrement::new(initial_connection_window - frame::DEFAULT_WINDOW_SIZE)
                 .expect("increment is positive"),
         );
         write_frame_buf(&mut writer, &mut frame_buf).await?;
@@ -978,8 +1003,12 @@ where
         frame_buf,
         config,
         streams: new_stream_map(config.http2.max_concurrent_streams as usize),
-        ready_streams: VecDeque::with_capacity(config.http2.max_concurrent_streams as usize),
-        drained_app_writes: Vec::with_capacity(config.http2.max_concurrent_streams as usize),
+        ready_streams: VecDeque::with_capacity(
+            (config.http2.max_concurrent_streams as usize).min(LAZY_STREAM_CAPACITY),
+        ),
+        drained_app_writes: Vec::with_capacity(
+            (config.http2.max_concurrent_streams as usize).min(LAZY_STREAM_CAPACITY),
+        ),
         response_closes: ResponseCloseBatch::new(),
         connection_send_window: i64::from(frame::DEFAULT_WINDOW_SIZE),
         initial_stream_send_window: i64::from(frame::DEFAULT_WINDOW_SIZE),

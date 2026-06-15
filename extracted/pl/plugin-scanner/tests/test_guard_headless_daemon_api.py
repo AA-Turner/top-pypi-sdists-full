@@ -27,6 +27,10 @@ from codex_plugin_scanner.guard.daemon.server import _headless_action_error_payl
 from codex_plugin_scanner.guard.local_dashboard_session import LOCAL_DASHBOARD_SESSION_AUDIENCE
 from codex_plugin_scanner.guard.models import GuardApprovalRequest
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
+from codex_plugin_scanner.guard.runtime.runner import (
+    GuardSyncAuthorizationExpiredError,
+    GuardSyncNotAvailableError,
+)
 from codex_plugin_scanner.guard.shims import install_package_shims
 from codex_plugin_scanner.guard.store import GuardStore
 from tests.test_guard_supply_chain_evaluator import WORKSPACE_ID, _bundle_response, _package
@@ -57,6 +61,17 @@ def _read_json_response_with_headers(
     return _read_json_response_details(request)
 
 
+def _default_origin_for_path(path: str) -> str:
+    if (
+        path.startswith("/v1/apps/")
+        or path.startswith("/v1/supply-chain/")
+        or path == "/v1/policy/sync"
+        or path.startswith("/v1/requests")
+    ):
+        return "http://127.0.0.1:6174"
+    return "https://hol.org"
+
+
 def _request(
     port: int,
     path: str,
@@ -66,7 +81,7 @@ def _request(
     token: str | None = None,
     authorization_token: str | None = None,
     dashboard_session_token: str | None = None,
-    origin: str | None = "https://hol.org",
+    origin: str | None = None,
     referer: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> urllib.request.Request:
@@ -74,13 +89,17 @@ def _request(
     headers = {
         "Content-Type": "application/json",
     }
+    if origin is None:
+        origin = _default_origin_for_path(path)
     if origin is not None:
         headers["Origin"] = origin
     if referer is not None:
         headers["Referer"] = referer
     if token is not None:
-        headers["Authorization"] = f"Bearer {token}"
-        headers["X-Guard-Dashboard-Session"] = token
+        if token.startswith("gld1."):
+            headers["X-Guard-Dashboard-Session"] = token
+        else:
+            headers["Authorization"] = f"Bearer {token}"
     if authorization_token is not None:
         headers["Authorization"] = f"Bearer {authorization_token}"
     if dashboard_session_token is not None:
@@ -197,6 +216,8 @@ def test_headless_capabilities_endpoint_reports_safe_action_contract(tmp_path: P
         "scan",
         "policy_sync",
     ]
+    assert payload["headless_api"]["execution_mode"] == "guard_cloud_command_queue"
+    assert "routes" not in payload["headless_api"]
     assert payload["package_firewall_api"]["operations"] == [
         "status",
         "connect",
@@ -207,8 +228,8 @@ def test_headless_capabilities_endpoint_reports_safe_action_contract(tmp_path: P
         "sync",
         "remove",
     ]
-    assert payload["package_firewall_api"]["routes"]["connect"] == "/v1/supply-chain/package-shims/connect"
-    assert payload["package_firewall_api"]["routes"]["status"] == "/v1/supply-chain/package-shims"
+    assert payload["package_firewall_api"]["execution_mode"] == "guard_cloud_command_queue"
+    assert "routes" not in payload["package_firewall_api"]
     assert "codex" in payload["supported_harnesses"]
     assert payload["safe_failure_reasons"]["unsupported"] == "Harness is not supported by this daemon."
     codex_item = next(item for item in payload["items"] if item["harness"] == "codex")
@@ -354,14 +375,26 @@ def test_supply_chain_package_firewall_connect_repairs_local_auth_and_unlocks_pa
         status, payload = _read_json_response(
             _request(
                 daemon.port,
-                "/v1/supply-chain/package-shims/connect",
+                "/v1/cloud/connect",
                 token=token,
                 payload={},
             ),
         )
         assert status == 202
-        assert payload["state"] == "running"
-        assert payload["authorize_url"] == "https://hol.org/mock-authorize"
+        assert payload["connect_required"] is True
+        assert payload["connect_flow"]["state"] == "running"
+        assert payload["connect_flow"]["authorize_url"] == "https://hol.org/mock-authorize"
+        status, running = _read_json_response(
+            _request(
+                daemon.port,
+                "/v1/supply-chain/package-shims",
+                method="GET",
+                token=token,
+            ),
+        )
+        assert status == 200
+        assert running["connect_flow"]["state"] == "running"
+        assert running["connect_flow"]["authorize_url"] == "https://hol.org/mock-authorize"
         for _ in range(20):
             status, refreshed = _read_json_response(
                 _request(
@@ -603,6 +636,151 @@ def test_supply_chain_package_firewall_install_requires_reconnect_when_cloud_aut
     assert status == 403
     assert payload["error"] == "guard_cloud_reconnect_required"
     assert payload["entitlement"]["tier"] == "unknown"
+
+
+def test_supply_chain_sync_returns_json_when_bundle_sync_fails_after_approval(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    store.set_sync_payload(
+        "supply_chain_bundle_entitlement",
+        {"tier": "premium", "workspace_id": "workspace-1"},
+        "2026-06-09T12:00:00.000Z",
+    )
+    update_approval_gate_settings(
+        store.guard_home,
+        {
+            "enabled": True,
+            "new_password": "phase07-password",
+            "confirm_password": "phase07-password",
+        },
+    )
+
+    def _fail_sync(_store: GuardStore) -> dict[str, object]:
+        raise RuntimeError("Guard supply-chain bundle sync failed: simulated network failure")
+
+    monkeypatch.setattr(daemon_server, "sync_supply_chain_bundle", _fail_sync)
+    daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon.start()
+    try:
+        token = _dashboard_token_for(store)
+        status, payload = _read_json_response(
+            _request(
+                daemon.port,
+                "/v1/supply-chain/sync",
+                token=token,
+                payload={
+                    "workspace_id": "workspace-1",
+                    "approval_password": "phase07-password",
+                },
+            ),
+        )
+    finally:
+        daemon.stop()
+
+    assert status == 502
+    assert payload["error"] == "supply_chain_sync_failed"
+    assert payload["operation"] == "sync"
+    assert "simulated network failure" in str(payload["message"])
+
+
+def test_supply_chain_sync_returns_retryable_unavailable_when_cloud_outage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    store.set_sync_payload(
+        "supply_chain_bundle_entitlement",
+        {"tier": "premium", "workspace_id": "workspace-1"},
+        "2026-06-09T12:00:00.000Z",
+    )
+    update_approval_gate_settings(
+        store.guard_home,
+        {
+            "enabled": True,
+            "new_password": "phase07-password",
+            "confirm_password": "phase07-password",
+        },
+    )
+
+    def _fail_sync(_store: GuardStore) -> dict[str, object]:
+        raise GuardSyncNotAvailableError(
+            "Guard Cloud is unavailable. Local Guard keeps protecting this machine.",
+            retryable=True,
+        )
+
+    monkeypatch.setattr(daemon_server, "sync_supply_chain_bundle", _fail_sync)
+    daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon.start()
+    try:
+        token = _dashboard_token_for(store)
+        status, payload = _read_json_response(
+            _request(
+                daemon.port,
+                "/v1/supply-chain/sync",
+                token=token,
+                payload={
+                    "workspace_id": "workspace-1",
+                    "approval_password": "phase07-password",
+                },
+            ),
+        )
+    finally:
+        daemon.stop()
+
+    assert status == 503
+    assert payload["error"] == "supply_chain_sync_unavailable"
+    assert payload["retryable"] is True
+    assert payload["operation"] == "sync"
+
+
+def test_supply_chain_sync_returns_reconnect_error_when_auth_expired(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    store.set_sync_payload(
+        "supply_chain_bundle_entitlement",
+        {"tier": "premium", "workspace_id": "workspace-1"},
+        "2026-06-09T12:00:00.000Z",
+    )
+    update_approval_gate_settings(
+        store.guard_home,
+        {
+            "enabled": True,
+            "new_password": "phase07-password",
+            "confirm_password": "phase07-password",
+        },
+    )
+
+    def _fail_sync(_store: GuardStore) -> dict[str, object]:
+        raise GuardSyncAuthorizationExpiredError(
+            "Guard authorization expired. Run `hol-guard connect` to sign in again."
+        )
+
+    monkeypatch.setattr(daemon_server, "sync_supply_chain_bundle", _fail_sync)
+    daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon.start()
+    try:
+        token = _dashboard_token_for(store)
+        status, payload = _read_json_response(
+            _request(
+                daemon.port,
+                "/v1/supply-chain/sync",
+                token=token,
+                payload={
+                    "workspace_id": "workspace-1",
+                    "approval_password": "phase07-password",
+                },
+            ),
+        )
+    finally:
+        daemon.stop()
+
+    assert status == 403
+    assert payload["error"] == "guard_cloud_reconnect_required"
+    assert payload["operation"] == "sync"
 
 
 def test_supply_chain_package_firewall_status_self_heals_connected_cloud_auth_without_cached_entitlement(
@@ -1511,7 +1689,7 @@ def test_headless_app_operations_write_receipts_without_cli_copy(
                     },
                 ),
             )
-            assert status == 200
+            assert status == 200, payload
             assert payload["receipt"]["status"] == "completed"
             assert payload["receipt"]["operation"] == operation
             assert payload["state"]["receipt_summary"]["id"] == payload["receipt"]["id"]
@@ -1599,7 +1777,7 @@ def test_headless_app_scan_syncs_receipt_to_cloud_when_connected(
     finally:
         daemon.stop()
 
-    assert status == 200
+    assert status == 200, payload
     assert payload["receipt"]["operation"] == "scan"
     assert payload["cloud_sync"] == {
         "status": "queued",

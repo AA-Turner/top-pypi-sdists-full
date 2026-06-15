@@ -21,6 +21,7 @@
 #include <dr_wav/dr_wav.h>
 #include <format>
 #include <limits>
+#include <memory>
 #include <mmreg.h>
 #include <mutex>
 #include <optional>
@@ -34,6 +35,7 @@
 #include <tchar.h>
 #include <thread>
 #include <vector>
+#include <version>
 #include <windows.h>
 #include <xmllite.h>
 
@@ -116,6 +118,18 @@ struct GlobalLockGuard {
   GlobalLockGuard(const GlobalLockGuard &) = delete;
   GlobalLockGuard &operator=(const GlobalLockGuard &) = delete;
 };
+
+template <class T>
+const T *lifetime_as_array(const void *p,
+                           [[maybe_unused]] std::size_t n) noexcept {
+#ifdef __cpp_lib_start_lifetime_as
+  static_assert(__cpp_lib_start_lifetime_as >= 202207L,
+                "__cpp_lib_start_lifetime_as must be >= 202207L");
+  return std::start_lifetime_as_array<T>(p, n);
+#else
+  return reinterpret_cast<const T *>(p);
+#endif
+}
 } // namespace
 
 class SapiBackend final : public TextToSpeechBackend {
@@ -510,7 +524,7 @@ public:
         break;
       case 16:
         drwav_s16_to_f32(samples.data(),
-                         reinterpret_cast<const drwav_int16 *>(data),
+                         lifetime_as_array<drwav_int16>(data, total_samples),
                          total_samples);
         break;
       case 24:
@@ -518,7 +532,7 @@ public:
         break;
       case 32:
         drwav_s32_to_f32(samples.data(),
-                         reinterpret_cast<const drwav_int32 *>(data),
+                         lifetime_as_array<drwav_int32>(data, total_samples),
                          total_samples);
         break;
       default:
@@ -531,7 +545,8 @@ public:
         std::memcpy(samples.data(), data, total_samples * sizeof(float));
         break;
       case 64:
-        drwav_f64_to_f32(samples.data(), reinterpret_cast<const double *>(data),
+        drwav_f64_to_f32(samples.data(),
+                         lifetime_as_array<double>(data, total_samples),
                          total_samples);
         break;
       default:

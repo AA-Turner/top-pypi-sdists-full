@@ -23933,6 +23933,7 @@ class Connection(sgqlc.types.Type):
         "integration_gateway_credentials_key",
         "data",
         "identifiers",
+        "connection_attributes",
         "created_on",
         "updated_on",
         "is_active",
@@ -24003,6 +24004,8 @@ class Connection(sgqlc.types.Type):
     data = sgqlc.types.Field(JSONString, graphql_name="data")
 
     identifiers = sgqlc.types.Field(JSONString, graphql_name="identifiers")
+
+    connection_attributes = sgqlc.types.Field(JSONString, graphql_name="connectionAttributes")
 
     created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
 
@@ -99039,6 +99042,7 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
         "integration_gateway_credentials_key",
         "data",
         "identifiers",
+        "connection_attributes",
         "created_on",
         "updated_on",
         "is_active",
@@ -99092,6 +99096,8 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
     data = sgqlc.types.Field(JSONString, graphql_name="data")
 
     identifiers = sgqlc.types.Field(JSONString, graphql_name="identifiers")
+
+    connection_attributes = sgqlc.types.Field(JSONString, graphql_name="connectionAttributes")
 
     created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
 

@@ -1,7 +1,7 @@
+use std::fmt;
 use std::mem::size_of;
 use std::num::NonZeroU32;
 use std::ops::{BitOr, BitOrAssign};
-use std::{fmt, slice};
 
 use bytes::{Buf, Bytes, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -13,6 +13,8 @@ use crate::error::{ErrorExt, H2CornError, H2Error};
 pub const DEFAULT_HEADER_TABLE_SIZE: usize = 4096;
 pub const DEFAULT_WINDOW_SIZE: u32 = 0xFFFF;
 pub const DEFAULT_MAX_FRAME_SIZE: usize = 0x4000;
+/// Initial (and shrink-target) capacity of the connection read buffer.
+pub const READ_BUFFER_INITIAL_CAPACITY: usize = 4096;
 pub const MAX_FRAME_SIZE_UPPER_BOUND: usize = 0x00FF_FFFF;
 pub const MAX_FLOW_CONTROL_WINDOW: u32 = (1 << 31) - 1;
 pub const CONNECTION_PREFACE: &[u8; 24] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
@@ -105,6 +107,7 @@ impl ErrorCode {
     pub const REFUSED_STREAM: Self = Self(0x7);
     pub const CANCEL: Self = Self(0x8);
     pub const COMPRESSION_ERROR: Self = Self(0x9);
+    pub const ENHANCE_YOUR_CALM: Self = Self(0xB);
 
     pub const fn new(value: u32) -> Self {
         Self(value)
@@ -270,9 +273,11 @@ where
     R: AsyncRead + Unpin,
 {
     pub(crate) fn new(reader: R) -> Self {
+        // Small initial capacity; `read_at_least`/`read_more` reserve on
+        // demand, so large frames grow the buffer only when they occur.
         Self {
             reader,
-            buffer: BytesMut::with_capacity(DEFAULT_MAX_FRAME_SIZE + FRAME_HEADER_LEN),
+            buffer: BytesMut::with_capacity(READ_BUFFER_INITIAL_CAPACITY),
         }
     }
 
@@ -481,19 +486,10 @@ pub fn append_goaway(
 }
 
 pub fn parse_settings_payload(payload: &[u8]) -> Result<PeerSettings, H2CornError> {
-    if !payload.len().is_multiple_of(SETTING_ENTRY_LEN) {
+    // `WireSetting` is `Unaligned + FromBytes`, so this is a zero-copy view;
+    // it fails exactly when the payload is not a whole number of entries.
+    let Ok(entries) = <[WireSetting]>::ref_from_bytes(payload) else {
         return H2Error::SettingsPayloadLengthInvalid.err();
-    }
-
-    // SAFETY: the length check above guarantees `payload` is an exact multiple of
-    // `size_of::<WireSetting>()`, `WireSetting` is `Unaligned`, and its zerocopy
-    // traits guarantee the byte representation can be viewed as `WireSetting`
-    // values.
-    let entries = unsafe {
-        slice::from_raw_parts(
-            payload.as_ptr().cast::<WireSetting>(),
-            payload.len() / SETTING_ENTRY_LEN,
-        )
     };
     let mut settings = Settings::default();
     for entry in entries {

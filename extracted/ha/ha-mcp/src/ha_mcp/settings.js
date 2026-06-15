@@ -40,11 +40,28 @@ const policyState = {
   gatedTools: new Set(),
 };
 
+// Read Only Mode (read_only_mode feature flag) — same tri-state shape
+// as policyState. Mirrors the toggle above the Tools-tab search box and
+// the Server Settings row. While enabled, render() forces write-capable
+// tools off (visually, without rewriting toolStates — same
+// non-destructive semantics as the beta master gate) except the
+// server-provided READ_ONLY_EXEMPT mixed read/write tools.
+const readOnlyState = {
+  enabled: false,
+  enabledKnown: false,
+};
+
+// Mixed read/write tools that stay enabled in Read Only Mode (their
+// write operations are blocked server-side at call time). Populated
+// from data.read_only_exempt in loadTools().
+let READ_ONLY_EXEMPT = new Set();
+
 async function loadPolicyState() {
   // policyState.enabled mirrors the addon-config flag
   // (enable_tool_security_policies) — the single source of truth for
   // whether the middleware is active. Read it from /api/settings/features
-  // where it appears via FEATURE_FLAG_FIELDS.
+  // where it appears via FEATURE_FLAG_FIELDS. readOnlyState piggybacks
+  // on the same fetch (read_only_mode is in the same flags payload).
   try {
     const fresp = await fetch('./api/settings/features');
     if (fresp.ok) {
@@ -52,13 +69,20 @@ async function loadPolicyState() {
       const flag = (fdata.flags || {})['enable_tool_security_policies'];
       policyState.enabled = !!(flag && flag.value);
       policyState.enabledKnown = true;
+      const roFlag = (fdata.flags || {})['read_only_mode'];
+      readOnlyState.enabled = !!(roFlag && roFlag.value);
+      readOnlyState.enabledKnown = true;
     } else {
       policyState.enabled = false;
       policyState.enabledKnown = false;
+      readOnlyState.enabled = false;
+      readOnlyState.enabledKnown = false;
     }
   } catch (_e) {
     policyState.enabled = false;
     policyState.enabledKnown = false;
+    readOnlyState.enabled = false;
+    readOnlyState.enabledKnown = false;
   }
   try {
     const r = await fetch('./api/policy/config');
@@ -128,10 +152,12 @@ async function loadTools() {
   toolData = data.tools || [];
   toolStates = data.states || {};
   toolEnvPinned = data.env_pinned || {};
+  READ_ONLY_EXEMPT = new Set(data.read_only_exempt || []);
   // Load policy state before the first render so the "security gated"
   // toggle reflects current policy.rules. loadPolicyState() never throws
   // — it leaves gatedTools empty on failure.
   await loadPolicyState();
+  syncReadOnlyToggle();
   // /api/settings/info drives the restart-button mode, restart-notice
   // copy, and the version footer. Fetch it BEFORE the empty-tools
   // early return so a sidecar misconfig (toolData=[]) still gets the
@@ -434,6 +460,38 @@ function getState(name) {
   return DEFAULT_PINNED.includes(name) ? 'pinned' : 'enabled';
 }
 
+// True when Read Only Mode forces this tool's row off: write-capable
+// (readOnlyHint !== true, the same fail-closed rule the server applies),
+// not an exempt mixed read/write tool, not mandatory. Saved toolStates
+// are deliberately NOT rewritten — turning the mode off restores the
+// user's prior selections (beta-master semantics).
+function isReadOnlyForcedOff(t) {
+  if (!readOnlyState.enabled) return false;
+  const ann = t.annotations || {};
+  if (ann.readOnlyHint === true) return false;
+  if (READ_ONLY_EXEMPT.has(t.name)) return false;
+  if (MANDATORY.includes(t.name)) return false;
+  return true;
+}
+
+function syncReadOnlyToggle() {
+  const cb = document.getElementById('read-only-mode-toggle');
+  if (cb) {
+    cb.checked = !!readOnlyState.enabled;
+  } else {
+    // The toggle is part of the Tools-tab template; a missing element
+    // means template drift (or this surface lacks the row). Warn once so
+    // the desync is debuggable instead of silently no-op.
+    console.warn('syncReadOnlyToggle: #read-only-mode-toggle not found');
+  }
+  // When the features fetch failed, readOnlyState.enabledKnown is false
+  // and render() paints write tools as enabled even though the server may
+  // still block them. Surface that uncertainty. Function-scope lookup
+  // (guarded) so this id need not be a top-level handler binding.
+  const notice = document.getElementById('roUnknownNotice');
+  if (notice) notice.classList.toggle('show', !readOnlyState.enabledKnown);
+}
+
 // Escape HTML special characters before interpolating into innerHTML.
 // All interpolated values come from the server (tool docstrings, names,
 // FEATURE_GATED_TOOLS metadata) so this is defense-in-depth — but a
@@ -467,11 +525,15 @@ function render() {
     const group = document.createElement('div');
     group.className = 'group';
 
-    // Per-group toggle state: enabled if ANY non-mandatory/non-gated/non-env-pinned tool is enabled
+    // Per-group toggle state: enabled if ANY non-mandatory/non-gated/non-env-pinned
+    // tool is enabled. Tools forced off by Read Only Mode are excluded so the
+    // group master switch can't fight the mode.
     const toggleable = tools.filter(t =>
-      !MANDATORY.includes(t.name) && !t.disabled_by && !toolEnvPinned[t.name]);
+      !MANDATORY.includes(t.name) && !t.disabled_by && !toolEnvPinned[t.name] &&
+      !isReadOnlyForcedOff(t));
     const anyEnabled = toggleable.some(t => getState(t.name) !== 'disabled');
     const groupEnabled = tools.filter(t => {
+      if (isReadOnlyForcedOff(t)) return false;
       if (toolEnvPinned[t.name]) return toolEnvPinned[t.name] !== 'disabled';
       const s = getState(t.name);
       return MANDATORY.includes(t.name) || (!t.disabled_by && s !== 'disabled');
@@ -542,9 +604,15 @@ function render() {
       const ann = t.annotations || {};
       const isReadOnly = ann.readOnlyHint === true;
       const isDestructive = ann.destructiveHint === true;
+      // Read Only Mode force-off wins over every other state source —
+      // the server hides these tools from the catalog regardless of
+      // saved state or env pins while the mode is on.
+      const roForcedOff = isReadOnlyForcedOff(t);
+      const roExemptActive = readOnlyState.enabled && READ_ONLY_EXEMPT.has(t.name);
 
       total++;
-      if (isEnvPinned) {
+      if (roForcedOff) disabledCount++;
+      else if (isEnvPinned) {
         if (envPinKind === 'disabled') disabledCount++;
         else { enabledCount++; pinnedCount++; }
       } else if (isFeatureGated) disabledCount++;
@@ -552,14 +620,14 @@ function render() {
       else if (state === 'pinned') { enabledCount++; pinnedCount++; }
       else enabledCount++;
 
-      const isEnabled = isEnvPinned
+      const isEnabled = roForcedOff ? false : (isEnvPinned
         ? (envPinKind !== 'disabled')
-        : (isFeatureGated ? false : (isMandatory || state !== 'disabled'));
-      const isPinned = isEnvPinned
+        : (isFeatureGated ? false : (isMandatory || state !== 'disabled')));
+      const isPinned = roForcedOff ? false : (isEnvPinned
         ? (envPinKind === 'pinned')
-        : (isFeatureGated ? false : (isMandatory || state === 'pinned' || DEFAULT_PINNED.includes(t.name)));
-      const lockEnabled = isEnvPinned || isMandatory || isFeatureGated;
-      const lockPinned = isEnvPinned || isMandatory || isFeatureGated || !isEnabled;
+        : (isFeatureGated ? false : (isMandatory || state === 'pinned' || DEFAULT_PINNED.includes(t.name))));
+      const lockEnabled = roForcedOff || isEnvPinned || isMandatory || isFeatureGated;
+      const lockPinned = roForcedOff || isEnvPinned || isMandatory || isFeatureGated || !isEnabled;
 
       const div = document.createElement('div');
       div.className = isEnvPinned ? 'tool env-pinned' : 'tool';
@@ -579,6 +647,11 @@ function render() {
       const envPinnedNote = isEnvPinned
         ? `<div class="feature-locked-note">env-pinned via <code>${envPinVar}</code> — unset the env var to edit here.</div>`
         : '';
+      const readOnlyNote = roForcedOff
+        ? '<div class="disabled-by-note">Off — Read Only Mode is on; write tools are disabled.</div>'
+        : (roExemptActive
+          ? '<div class="feature-locked-note">Read Only Mode: write operations of this tool are blocked; read operations stay available.</div>'
+          : '');
 
       div.innerHTML = `<div class="tool-info">` +
         `<div class="tool-name">${escapeHtml(title)}${badges}</div>` +
@@ -586,6 +659,7 @@ function render() {
         (desc ? `<div class="tool-desc">${escapeHtml(desc)}</div>` : '') +
         gatedNote +
         envPinnedNote +
+        readOnlyNote +
         `</div>` +
         `<div class="tool-toggles">` +
           `<div class="toggle-group">` +
@@ -1188,6 +1262,10 @@ const FEATURE_META = {
     label: "Enable Tool Security Policies",
     help: "Opt-in middleware that gates high-stakes MCP tool calls behind user approval. When enabled, tools that match a rule in the Tool Security Policies tab require you to click Approve in the web UI before they run. Off by default. Per-tool rules with optional argument conditions are configured in the Tool Security Policies tab. Requires restart to take effect.",
   },
+  read_only_mode: {
+    label: "Read Only Mode",
+    help: "Toggles all write tools off, and removes ability for tools to make any write or destructive calls. Mixed read/write tools (backups, add-ons, energy preferences, voice pipelines, and code mode when enabled) stay listed with their write operations blocked server-side — the AI gets a clear READ_ONLY_MODE error if it tries. Mirrors the toggle at the top of the Tools tab. Off by default. Requires restart to take effect (applies live in standalone HTTP mode).",
+  },
   enable_mandatory_bps: {
     label: "Attach best-practice skills on writes",
     help: "Master switch for the write-tool skill content delivery feature (issue #1182). When enabled (default), the six config write tools (automations, scripts, scenes, helpers, dashboards, raw YAML) attach the canonical Home Assistant best-practice reference files under skill_content on every successful write, plus auto-embed any reference sections cited by best-practice warnings. Each tool also exposes a per-call MandatoryBPS parameter the agent can set to false on subsequent calls once it has the content. When this master switch is off, NO skill_content goes out regardless of the per-call parameter or BP warnings. Leave on if your LLM benefits from inline guidance; turn off to minimise tokens when using an LLM that has the best-practice files indexed via skills or another retrieval path. Requires restart to take effect.",
@@ -1663,6 +1741,10 @@ function renderCodeModeSubRows(parentEl, masterOn, codeModeOn) {
   });
 }
 
+// Returns true only when the server confirmed the save (HTTP ok), false
+// on any network/HTTP failure. Callers that need to revert UI state on a
+// failed save (the toggle handlers) branch on this; the additive return
+// doesn't affect callers that ignore it.
 async function saveFeatureFlag(fieldName, value) {
   updateStatus('Saving server setting...');
   let resp;
@@ -1674,7 +1756,7 @@ async function saveFeatureFlag(fieldName, value) {
     });
   } catch (e) {
     updateStatus('Save failed: ' + e.message);
-    return;
+    return false;
   }
   let data = null;
   try { data = await resp.json(); } catch (_e) {
@@ -1689,7 +1771,7 @@ async function saveFeatureFlag(fieldName, value) {
     let msg = `Save failed (HTTP ${resp.status})`;
     if (data?.error?.message) msg = 'Save failed: ' + data.error.message;
     updateStatus(msg);
-    return;
+    return false;
   }
   // Unified restart flow — save persists the change but does NOT fire
   // the addon restart. The user picks when to restart by clicking the
@@ -1702,6 +1784,7 @@ async function saveFeatureFlag(fieldName, value) {
     document.getElementById('restartNotice').classList.add('show');
     if (restartChannel) restartChannel.postMessage({type: 'restart-required'});
   }
+  return true;
 }
 
 // ===== Tool Security Policies tab =====
@@ -2485,19 +2568,53 @@ document.getElementById('policy-save-global-btn').addEventListener('click', save
 // shows up in Server Settings (and the addon's config.yaml) on reload.
 document.getElementById('policy-master-toggle').addEventListener('change', async (e) => {
   const previous = !e.target.checked;  // user just flipped; previous is the OPPOSITE.
-  await saveFeatureFlag('enable_tool_security_policies', e.target.checked);
+  const ok = await saveFeatureFlag('enable_tool_security_policies', e.target.checked);
+  if (!ok) {
+    // Save definitely failed — the server still has the old value.
+    // Revert the checkbox and surface the failure (set the status AFTER
+    // the revert so it isn't clobbered).
+    e.target.checked = previous;
+    updateStatus('Tool Security Policies change did not save — the server still has the previous value');
+    return;
+  }
   // Re-read the truth from the server and sync the checkbox back to
-  // it. If saveFeatureFlag silently failed (network drop / 5xx) the
-  // server still has the old value and we need to revert the
-  // checkbox so the UI doesn't lie about persisted state.
+  // it. If the follow-up read can't confirm what the server has, revert
+  // to the pre-flip value so the UI doesn't lie about persisted state.
   await loadPolicyState();
   if (policyState.enabledKnown) {
     e.target.checked = !!policyState.enabled;
   } else {
-    // Can't confirm what the server has — revert to the pre-flip
-    // value and let the status message tell the user save failed.
     e.target.checked = previous;
   }
+});
+
+// Read Only Mode toggle (Tools tab, above the search box) — same flag
+// plumbing as the policy master toggle: persist via
+// /api/settings/features, re-read server truth, revert on failure.
+document.getElementById('read-only-mode-toggle').addEventListener('change', async (e) => {
+  const previous = !e.target.checked;  // user just flipped; previous is the OPPOSITE.
+  const ok = await saveFeatureFlag('read_only_mode', e.target.checked);
+  if (!ok) {
+    // Save definitely failed — the server still has the previous value.
+    // Revert the checkbox and leave readOnlyState.enabled untouched (do
+    // NOT write an unconfirmed value). Set the status AFTER the revert
+    // so the revert's render/sync can't clobber the message.
+    e.target.checked = previous;
+    render();
+    updateStatus('Read Only Mode change did not save — the server still has the previous value');
+    return;
+  }
+  // Re-read the truth from the server and sync the checkbox back to it.
+  await loadPolicyState();
+  if (readOnlyState.enabledKnown) {
+    e.target.checked = !!readOnlyState.enabled;
+  } else {
+    // Save reported OK but the follow-up read couldn't confirm — revert
+    // to the pre-flip value rather than assert an unconfirmed state.
+    e.target.checked = previous;
+  }
+  // Re-render so write-tool rows reflect the forced-off state instantly.
+  render();
 });
 
 // Poll for pending approvals every 3s when Tool Security Policies tab is visible.
@@ -2522,9 +2639,9 @@ function activateTab(target) {
   if (target === 'backups') { loadBackupConfig(); loadBackups(); }
   if (target === 'tool-security-policies') { policyLoadConfig(); policyLoadPending(); }
   if (target === 'tools') {
-    // Refresh gated-toggle state in case the user changed rules from
-    // the Tool Security Policies tab while it was active.
-    loadPolicyState().then(render).catch(() => {});
+    // Refresh gated-toggle + read-only state in case the user changed
+    // them from another tab while it was active.
+    loadPolicyState().then(() => { syncReadOnlyToggle(); render(); }).catch(() => {});
   }
 }
 
@@ -2895,4 +3012,280 @@ loadFsCustomPaths();
       }, 500);
     }
   } catch (_) { /* best-effort */ }
+})();
+
+// #1572 accessibility prefs — bidirectional binding between the header
+// theme toggle, the Accessibility tab controls, and the underlying
+// localStorage / <html> attributes. The anti-FOUC head script already set
+// the initial attributes; this module keeps them in sync for the rest of
+// the session and persists user changes. The block from `const PREFS` to
+// `const APPLY` must stay logically identical to the copy in
+// site/src/layouts/Layout.astro (comments and formatting may differ) —
+// enforced by tests/src/unit/test_anti_fouc_parity.py.
+(function bindAccessibilityPrefs() {
+  const root = document.documentElement;
+  const mql = window.matchMedia('(prefers-color-scheme: light)');
+  const PREFS = {
+    theme:    { key: 'ha-mcp-theme',         default: 'auto'      },
+    fontSize: { key: 'ha-mcp-font-size',     default: '100'       },
+    contrast: { key: 'ha-mcp-contrast',      default: 'normal'    },
+    shade:    { key: 'ha-mcp-shade',         default: 'off-white' },
+    custom:   { key: 'ha-mcp-custom-colors', default: ''          },
+  };
+  // One-click presets (Firefox Reader View shape, #1574 review): each sets
+  // the full (theme, shade, contrast) triple; the checked chip is derived
+  // back from the stored triple, so hand-edited combos simply match none.
+  const PRESETS = {
+    dark:     { theme: 'dark',  shade: 'off-white', contrast: 'normal' },
+    light:    { theme: 'light', shade: 'off-white', contrast: 'normal' },
+    auto:     { theme: 'auto',  shade: 'off-white', contrast: 'normal' },
+    paper:    { theme: 'light', shade: 'paper',     contrast: 'normal' },
+    gray:     { theme: 'light', shade: 'gray',      contrast: 'normal' },
+    contrast: { theme: 'light', shade: 'pure',      contrast: 'high'   },
+  };
+  const read = (p) => {
+    try { return localStorage.getItem(PREFS[p].key) || PREFS[p].default; }
+    catch (_) { return PREFS[p].default; }
+  };
+  const write = (p, v) => {
+    let stored = true;
+    try { localStorage.setItem(PREFS[p].key, v); } catch (_) { stored = false; }
+    // Surface-specific follow-up (server sync on the settings UI,
+    // blocked-storage note on both) lives outside this mirrored core.
+    if (window.__haMcpPrefsHook) window.__haMcpPrefsHook(p, v, stored);
+  };
+
+  // Apply functions mirror what the anti-FOUC head script does, so the
+  // runtime path and the pre-paint path stay observably identical.
+  const applyTheme = (pref) => {
+    const resolved = pref === 'auto' ? (mql.matches ? 'light' : 'dark') : pref;
+    root.setAttribute('data-theme', resolved);
+  };
+  const applyFontSize = (pct) => {
+    const n = parseInt(pct, 10);
+    if (isNaN(n) || n <= 100 || n > 150) root.style.fontSize = '';
+    else root.style.fontSize = (16 * n / 100) + 'px';
+  };
+  const applyContrast = (tier) => {
+    if (tier === 'high') root.setAttribute('data-contrast', 'high');
+    else root.removeAttribute('data-contrast');
+  };
+  const applyShade = (shade) => {
+    if (shade && shade !== 'off-white') root.setAttribute('data-shade', shade);
+    else root.removeAttribute('data-shade');
+  };
+  const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+  const channels = (hex) =>
+    parseInt(hex.slice(1, 3), 16) + ' ' + parseInt(hex.slice(3, 5), 16) + ' ' + parseInt(hex.slice(5, 7), 16);
+  // Custom colors layer on top of any preset as inline styles (inline beats
+  // stylesheet rules, so the cascade is: preset CSS -> user custom). Both
+  // surfaces' variable names are written; names a surface does not use are
+  // inert. Returns the parsed object so callers can reuse it.
+  const CUSTOM_VARS = {
+    bg:     { hex: ['--bg'], chan: ['--surface-0'] },
+    text:   { hex: ['--text', '--text-primary'], chan: [] },
+    accent: { hex: ['--accent', '--accent-text'], chan: ['--brand'] },
+  };
+  const applyCustom = (raw) => {
+    for (const part in CUSTOM_VARS) {
+      CUSTOM_VARS[part].hex.concat(CUSTOM_VARS[part].chan).forEach((name) => root.style.removeProperty(name));
+    }
+    let custom = {};
+    try { custom = JSON.parse(raw || '{}') || {}; } catch (_) { return {}; }
+    for (const part in CUSTOM_VARS) {
+      const v = custom[part];
+      if (typeof v !== 'string' || !HEX_RE.test(v)) continue;
+      CUSTOM_VARS[part].hex.forEach((name) => root.style.setProperty(name, v));
+      CUSTOM_VARS[part].chan.forEach((name) => root.style.setProperty(name, channels(v)));
+    }
+    return custom;
+  };
+  const APPLY = { theme: applyTheme, fontSize: applyFontSize, contrast: applyContrast, shade: applyShade, custom: applyCustom };
+
+  // #1574 review: localStorage is the synchronous store the anti-FOUC
+  // script reads at paint time, but it is origin-scoped and the stdio
+  // sidecar binds a fresh random port (= fresh empty origin) per session.
+  // This hook therefore (a) mirrors every change to the server
+  // (./api/settings/theme -> theme_prefs.json), which seeds the next
+  // fresh origin via the server-prefs head script, and (b) surfaces a
+  // blocked localStorage (private mode) once instead of silently losing
+  // the choices on reload. Debounced so color-picker drags don't flood
+  // the endpoint; best-effort because the browser copy already applied.
+  const storageNote = document.getElementById('a11y-storage-note');
+  const pendingPrefs = {};
+  let prefsSyncTimer = null;
+  window.__haMcpPrefsHook = (pref, value, stored) => {
+    if (!stored && storageNote) storageNote.hidden = false;
+    pendingPrefs[pref] = value;
+    clearTimeout(prefsSyncTimer);
+    prefsSyncTimer = setTimeout(() => {
+      const body = JSON.stringify(pendingPrefs);
+      for (const k in pendingPrefs) delete pendingPrefs[k];
+      fetch('./api/settings/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }).then((resp) => {
+        // A non-2xx means client and server disagree about valid values —
+        // an implementation bug worth a console trail, not a user error.
+        if (!resp.ok) console.warn('ha-mcp: theme prefs not persisted:', resp.status);
+      }).catch(() => { /* offline / sidecar gone — localStorage still has it */ });
+    }, 400);
+  };
+
+  const setPref = (pref, value) => {
+    write(pref, value);
+    APPLY[pref](value);
+  };
+  const applyPreset = (name) => {
+    const p = PRESETS[name];
+    if (!p) return;
+    setPref('theme', p.theme);
+    setPref('shade', p.shade);
+    setPref('contrast', p.contrast);
+  };
+  const reflectPreset = () => {
+    const theme = read('theme'), shade = read('shade'), contrast = read('contrast');
+    let active = '';
+    for (const name in PRESETS) {
+      const p = PRESETS[name];
+      if (p.theme === theme && p.shade === shade && p.contrast === contrast) { active = name; break; }
+    }
+    document.querySelectorAll('input[type="radio"][name="a11y-preset"]').forEach((r) => {
+      r.checked = (r.value === active);
+    });
+  };
+  const reflectRadio = (name, value) => {
+    document.querySelectorAll('input[type="radio"][name="' + name + '"]').forEach((r) => {
+      r.checked = (r.value === value);
+    });
+  };
+  // WCAG 2.x relative-luminance contrast for the custom-color warning.
+  const luminance = (hex) => {
+    const f = (i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(1) + 0.7152 * f(3) + 0.0722 * f(5);
+  };
+  const updateContrastWarning = (custom) => {
+    const warn = document.getElementById('a11y-contrast-warning');
+    if (!warn) return;
+    const comparable = HEX_RE.test(custom.bg || '') && HEX_RE.test(custom.text || '');
+    if (!comparable) { warn.hidden = true; return; }
+    const l1 = luminance(custom.bg), l2 = luminance(custom.text);
+    warn.hidden = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05) >= 4.5;
+  };
+
+  // Header <select> for theme — quick Dark/Light/Auto access.
+  const headerToggle = document.getElementById('themeToggle');
+  if (headerToggle) {
+    headerToggle.value = read('theme');
+    headerToggle.addEventListener('change', () => {
+      setPref('theme', headerToggle.value);
+      reflectPreset();
+      refreshSwatches();
+    });
+  }
+
+  // Re-apply when the OS preference flips while in Auto.
+  mql.addEventListener('change', () => {
+    if (read('theme') === 'auto') {
+      applyTheme('auto');
+      refreshSwatches();
+    }
+  });
+
+  reflectRadio('a11y-font-size', read('fontSize'));
+  reflectPreset();
+  // Initialize each swatch from the saved custom value, falling back to
+  // the theme's current computed color so the wells show reality instead
+  // of an arbitrary black default.
+  const cssColorToHex = (value) => {
+    const v = (value || '').trim();
+    if (HEX_RE.test(v)) return v;
+    let m = v.match(/^rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/);
+    if (!m) m = v.match(/^(\d+) (\d+) (\d+)$/);
+    if (!m) return '';
+    return '#' + [m[1], m[2], m[3]].map((n) => (+n).toString(16).padStart(2, '0')).join('');
+  };
+  const currentColorFor = (part) => {
+    const body = getComputedStyle(document.body);
+    const rootStyle = getComputedStyle(root);
+    if (part === 'bg') return cssColorToHex(body.backgroundColor);
+    if (part === 'text') return cssColorToHex(body.color);
+    return cssColorToHex(rootStyle.getPropertyValue('--accent')) ||
+      cssColorToHex(rootStyle.getPropertyValue('--brand'));
+  };
+  const customInputs = document.querySelectorAll('input[type="color"][data-custom]');
+  // Sync the swatch wells with reality: a stored custom value wins,
+  // otherwise the active theme's computed color. Re-run after anything
+  // that changes the active palette (preset click, header toggle, OS
+  // auto-flip, clear, reset) so the wells never keep showing a previous
+  // theme's colors.
+  const refreshSwatches = () => {
+    let custom = {};
+    try { custom = JSON.parse(read('custom') || '{}') || {}; } catch (_) { /* ignore */ }
+    customInputs.forEach((inp) => {
+      const v = custom[inp.dataset.custom];
+      const fallback = currentColorFor(inp.dataset.custom);
+      if (HEX_RE.test(v || '')) inp.value = v;
+      else if (fallback) inp.value = fallback;
+    });
+  };
+  updateContrastWarning(applyCustom(read('custom')));
+  refreshSwatches();
+  customInputs.forEach((inp) => {
+    inp.addEventListener('input', () => {
+      let custom = {};
+      try { custom = JSON.parse(read('custom') || '{}') || {}; } catch (_) { /* start fresh */ }
+      custom[inp.dataset.custom] = inp.value;
+      write('custom', JSON.stringify(custom));
+      applyCustom(read('custom'));
+      updateContrastWarning(custom);
+    });
+  });
+  const clearBtn = document.getElementById('a11y-custom-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      write('custom', '');
+      updateContrastWarning(applyCustom(''));
+      refreshSwatches();
+    });
+  }
+
+  // Scope the change listener to the Accessibility panel rather than the
+  // document: the settings page carries dozens of unrelated inputs (tool
+  // toggles, server fields, backup forms) and a document-level listener
+  // would fire on every one of them just to bail the filter.
+  const a11yPanel = document.getElementById('panel-accessibility');
+  if (a11yPanel) {
+    a11yPanel.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== 'radio') return;
+      if (t.name === 'a11y-preset') {
+        applyPreset(t.value);
+        if (headerToggle) headerToggle.value = read('theme');
+        refreshSwatches();
+      } else if (t.name === 'a11y-font-size') {
+        setPref('fontSize', t.value);
+      }
+    });
+  }
+
+  const resetBtn = document.getElementById('a11y-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      setPref('theme', PREFS.theme.default);
+      setPref('shade', PREFS.shade.default);
+      setPref('contrast', PREFS.contrast.default);
+      setPref('fontSize', PREFS.fontSize.default);
+      write('custom', '');
+      updateContrastWarning(applyCustom(''));
+      reflectRadio('a11y-font-size', PREFS.fontSize.default);
+      reflectPreset();
+      if (headerToggle) headerToggle.value = PREFS.theme.default;
+      refreshSwatches();
+    });
+  }
 })();

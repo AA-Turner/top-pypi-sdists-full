@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loro
-Version: 1.10.3
+Version: 1.13.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -8,6 +8,7 @@ License-File: LICENSE
 Summary: Python bindings for [Loro](https://loro.dev)
 Keywords: local-first,CRDT,loro
 Author-email: leon7hao <lz@loro.dev>
+License-Expression: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://loro.dev

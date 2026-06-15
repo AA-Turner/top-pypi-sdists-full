@@ -94,7 +94,7 @@ pub(super) fn madsen_lm_accept_factor(rho: f64) -> f64 {
 /// (issue #989). Returns `true` for an unconstrained fit (no constraint-KKT
 /// gate to honour) and when no constraint rows can be derived (no bound is
 /// finite).
-fn constraint_kkt_admits_soft_accept(
+pub(crate) fn constraint_kkt_admits_soft_accept(
     options: &WorkingModelPirlsOptions,
     beta: &Array1<f64>,
     gradient: &Array1<f64>,
@@ -161,7 +161,7 @@ fn constraint_kkt_admits_soft_accept(
 /// non-degenerate" — which is precisely the set of states for which a
 /// 20-iteration monotone sub-tolerance plateau with a sub-tolerance model
 /// prediction is an honest "no useful progress is available" certificate.
-fn constraint_kkt_admits_progress_exhausted_stall(
+pub(crate) fn constraint_kkt_admits_progress_exhausted_stall(
     options: &WorkingModelPirlsOptions,
     beta: &Array1<f64>,
     gradient: &Array1<f64>,
@@ -214,20 +214,20 @@ where
     const AA1_DISABLE_REJECT_THRESHOLD: usize = 3;
 
     struct AndersonOneState {
-        prev_beta: Option<Array1<f64>>,
-        prev_residual: Option<Array1<f64>>,
-        r_k: Array1<f64>,
-        dr: Array1<f64>,
-        dx: Array1<f64>,
-        beta_accel: Array1<f64>,
-        consecutive_accepts: usize,
-        consecutive_rejects: usize,
-        disabled: bool,
-        engaged_logged: bool,
+        pub(crate) prev_beta: Option<Array1<f64>>,
+        pub(crate) prev_residual: Option<Array1<f64>>,
+        pub(crate) r_k: Array1<f64>,
+        pub(crate) dr: Array1<f64>,
+        pub(crate) dx: Array1<f64>,
+        pub(crate) beta_accel: Array1<f64>,
+        pub(crate) consecutive_accepts: usize,
+        pub(crate) consecutive_rejects: usize,
+        pub(crate) disabled: bool,
+        pub(crate) engaged_logged: bool,
     }
 
     impl AndersonOneState {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             Self {
                 prev_beta: None,
                 prev_residual: None,
@@ -242,7 +242,7 @@ where
             }
         }
 
-        fn ensure_len(buf: &mut Array1<f64>, len: usize) {
+        pub(crate) fn ensure_len(buf: &mut Array1<f64>, len: usize) {
             if buf.len() != len {
                 *buf = Array1::zeros(len);
             }
@@ -255,7 +255,7 @@ where
         /// Returns `Some(beta_accel)` when a finite acceleration is available,
         /// `None` when AA should be skipped (no history yet, disabled, or
         /// numerical floor hit).
-        fn aa1_mix(
+        pub(crate) fn aa1_mix(
             &mut self,
             beta_old: &Array1<f64>,
             beta_new: &Array1<f64>,
@@ -304,7 +304,7 @@ where
             Some(&self.beta_accel)
         }
 
-        fn note_accept(&mut self, iter: usize) {
+        pub(crate) fn note_accept(&mut self, iter: usize) {
             self.consecutive_accepts = self.consecutive_accepts.saturating_add(1);
             self.consecutive_rejects = 0;
             if !self.engaged_logged {
@@ -313,7 +313,7 @@ where
             }
         }
 
-        fn note_reject(&mut self, iter: usize) {
+        pub(crate) fn note_reject(&mut self, iter: usize) {
             self.consecutive_rejects = self.consecutive_rejects.saturating_add(1);
             self.consecutive_accepts = 0;
             if !self.disabled
@@ -328,7 +328,7 @@ where
             }
         }
 
-        fn update_history(&mut self, beta_old: &Array1<f64>, residual: &Array1<f64>) {
+        pub(crate) fn update_history(&mut self, beta_old: &Array1<f64>, residual: &Array1<f64>) {
             // AA history must outlive this LM attempt; assign into retained
             // buffers so accepted Fisher steps do not allocate two O(p) clones.
             match self.prev_beta.as_mut() {
@@ -2249,7 +2249,7 @@ pub(super) mod test_support {
     //! production. The capture entry point lives next to the test that uses
     //! it.
     thread_local! {
-        pub static PIRLS_PENALIZED_DEVIANCE_TRACE: std::cell::RefCell<Option<Vec<f64>>> =
+        pub(crate) static PIRLS_PENALIZED_DEVIANCE_TRACE: std::cell::RefCell<Option<Vec<f64>>> =
             const { std::cell::RefCell::new(None) };
     }
 

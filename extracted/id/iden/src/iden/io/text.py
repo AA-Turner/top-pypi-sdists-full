@@ -11,9 +11,15 @@ from iden.io.base import BaseFileSaver, BaseLoader
 
 T = TypeVar("T")
 
+DEFAULT_ENCODING = "utf-8"
+
 
 class TextLoader(BaseLoader[str]):
-    r"""Implement a data loader to load data in a text file.
+    r"""Implement a data loader to load data from a text file.
+
+    Args:
+        encoding: The file encoding to use when reading the file.
+            Defaults to ``"utf-8"``.
 
     Example:
         ```pycon
@@ -31,23 +37,32 @@ class TextLoader(BaseLoader[str]):
         ```
     """
 
+    def __init__(self, encoding: str = DEFAULT_ENCODING) -> None:
+        self._encoding = encoding
+
     def __repr__(self) -> str:
-        return f"{self.__class__.__qualname__}()"
+        return f"{self.__class__.__qualname__}(encoding={self._encoding})"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
-        return type(other) is type(self)
+        if type(other) is not type(self):
+            return False
+        return self._encoding == other._encoding
 
     def load(self, path: Path) -> str:
-        with Path.open(path) as file:
+        with Path.open(path, encoding=self._encoding) as file:
             return file.read()
 
 
 class TextSaver(BaseFileSaver[str]):
-    r"""Implement a file saver to save data with a text file.
+    r"""Implement a file saver to save data to a text file.
+
+    Args:
+        encoding: The file encoding to use when writing the file.
+            Defaults to ``"utf-8"``.
 
     Note:
         If the data to save is not a string, it is converted to
-            a string before to be saved by using ``str``.
+            a string before being saved by using ``str``.
 
     Example:
         ```pycon
@@ -65,25 +80,32 @@ class TextSaver(BaseFileSaver[str]):
         ```
     """
 
+    def __init__(self, encoding: str = DEFAULT_ENCODING) -> None:
+        self._encoding = encoding
+
     def __repr__(self) -> str:
-        return f"{self.__class__.__qualname__}()"
+        return f"{self.__class__.__qualname__}(encoding={self._encoding})"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
-        return type(other) is type(self)
+        if type(other) is not type(self):
+            return False
+        return self._encoding == other._encoding
 
     def _save_file(self, to_save: str, path: Path) -> None:
-        with Path.open(path, mode="w") as file:
+        with Path.open(path, mode="w", encoding=self._encoding) as file:
             file.write(str(to_save))
 
 
-def load_text(path: Path) -> str:
+def load_text(path: Path, encoding: str = DEFAULT_ENCODING) -> str:
     r"""Load the data from a given text file.
 
     Args:
-        path: The path where to the text file.
+        path: The path to the text file.
+        encoding: The file encoding to use when reading the file.
+            Defaults to ``"utf-8"``.
 
     Returns:
-        The data from the text file.
+        The text content of the file as a string.
 
     Example:
         ```pycon
@@ -100,28 +122,35 @@ def load_text(path: Path) -> str:
 
         ```
     """
-    return TextLoader().load(path)
+    return TextLoader(encoding=encoding).load(path)
 
 
-def save_text(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
-    r"""Save the given data in a text file.
+def save_text(
+    to_save: Any,
+    path: Path,
+    *,
+    encoding: str = DEFAULT_ENCODING,
+    exist_ok: bool = False,
+) -> None:
+    r"""Save the given data to a text file.
 
     Args:
-        to_save: The data to write in a text file.
+        to_save: The data to write to the text file.
         path: The path where to write the text file.
-        exist_ok: If ``exist_ok`` is ``False`` (the default),
-            ``FileExistsError`` is raised if the target file
-            already exists. If ``exist_ok`` is ``True``,
-            ``FileExistsError`` will not be raised unless the
-            given path already exists in the file system and is
-            not a file.
+        encoding: The file encoding to use when writing the file.
+            Defaults to ``"utf-8"``.
+        exist_ok: If ``False`` (the default), :exc:`FileExistsError`
+            is raised if the target file already exists. If ``True``,
+            :exc:`FileExistsError` will not be raised unless the given
+            path already exists in the file system and is not a file.
 
     Raises:
-        FileExistsError: if the file already exists.
+        FileExistsError: If the file already exists and ``exist_ok``
+            is ``False``.
 
     Note:
         If the data to save is not a string, it is converted to
-            a string before to be saved by using ``str``.
+            a string before being saved by using ``str``.
 
     Example:
         ```pycon
@@ -138,4 +167,4 @@ def save_text(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
 
         ```
     """
-    TextSaver().save(to_save, path, exist_ok=exist_ok)
+    TextSaver(encoding=encoding).save(to_save, path, exist_ok=exist_ok)

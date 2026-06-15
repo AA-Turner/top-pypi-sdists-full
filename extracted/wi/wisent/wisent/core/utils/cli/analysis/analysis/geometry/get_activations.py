@@ -49,104 +49,6 @@ def _tokenizer_has_tokens(tokenizer, text: str) -> bool:
     return False
 
 
-def _token_id_count(ids) -> int:
-    if ids is None:
-        return 0
-    if hasattr(ids, "numel"):
-        try:
-            return int(ids.numel())
-        except Exception:
-            return 0
-    if isinstance(ids, (list, tuple)):
-        if not ids:
-            return 0
-        if isinstance(ids[0], (list, tuple)):
-            return max((_token_id_count(x) for x in ids), default=0)
-        return len(ids)
-    try:
-        return len(ids)
-    except Exception:
-        return 0
-
-
-def _tokenizer_token_count(tokenizer, text: str) -> int:
-    value = str(text or "")
-    counts = []
-    for add_special in (False, True):
-        try:
-            enc = tokenizer(
-                value, add_special_tokens=add_special, truncation=False,
-            )
-            ids = enc.get("input_ids") if hasattr(enc, "get") else enc["input_ids"]
-            counts.append(_token_id_count(ids))
-        except Exception:
-            pass
-        try:
-            counts.append(_token_id_count(
-                tokenizer.encode(
-                    value, add_special_tokens=add_special, truncation=False,
-                )
-            ))
-        except Exception:
-            pass
-    return max(counts, default=0)
-
-
-def _sane_context_limit(value):
-    try:
-        limit = int(value)
-    except Exception:
-        return None
-    if limit <= 0 or limit > 10_000_000:
-        return None
-    return limit
-
-
-def _model_context_limit(model):
-    candidates = []
-    config = getattr(getattr(model, "hf_model", None), "config", None)
-    tokenizer = getattr(model, "tokenizer", None)
-    for obj in (config, tokenizer):
-        if obj is None:
-            continue
-        for attr in (
-            "max_position_embeddings", "max_sequence_length", "seq_length",
-            "n_positions", "sliding_window", "model_max_length",
-        ):
-            limit = _sane_context_limit(getattr(obj, attr, None))
-            if limit is not None:
-                candidates.append(limit)
-    return min(candidates) if candidates else None
-
-
-def _strategy_value(strategy) -> str:
-    return str(getattr(strategy, "value", strategy))
-
-
-def _pair_input_status(pair, strategies, model, build_extraction_texts, context_limit):
-    tokenizer = model.tokenizer
-    is_qwen = "qwen" in str(getattr(tokenizer, "name_or_path", "")).lower()
-    pos_text = pair.positive_response.model_response
-    neg_text = pair.negative_response.model_response
-    for strategy in strategies:
-        needs_other = _strategy_value(strategy) in ("mc_balanced", "mc_completion")
-        checks = (
-            (pos_text, neg_text if needs_other else None, True),
-            (neg_text, pos_text if needs_other else None, False),
-        )
-        for response_text, other_text, is_pos in checks:
-            full_text, _, _ = build_extraction_texts(
-                strategy, pair.prompt, response_text, tokenizer,
-                other_response=other_text, is_positive=is_pos,
-            )
-            token_count = _tokenizer_token_count(tokenizer, full_text)
-            if context_limit is not None and token_count > context_limit:
-                return "too_long", token_count
-            if (not is_qwen) and token_count == 0:
-                return "empty", token_count
-    return "ok", 0
-
-
 def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTURE_MODULE_LIMIT_DEFAULT):
     """Execute the get-activations command - load pairs and collect activations."""
     from wisent.core.primitives.models.core.wisent_model import WisentModel
@@ -251,29 +153,9 @@ def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTU
             text_family = get_strategy_text_family(extraction_strategy)
             
             raw_pairs_data = []
-            skipped_empty = 0
-            skipped_too_long = 0
-            context_limit = _model_context_limit(model)
             for i, pair in enumerate(pair_set.pairs):
                 if args.verbose or (i + 1) % PROGRESS_LOG_INTERVAL_10 == 0:
                     print(f"   Processing pair {i+1}/{len(pair_set.pairs)}...", end='\r', flush=True)
-
-                status, token_count = _pair_input_status(
-                    pair, (extraction_strategy,), model, build_extraction_texts,
-                    context_limit,
-                )
-                if status == "empty":
-                    skipped_empty += 1
-                    continue
-                if status == "too_long":
-                    skipped_too_long += 1
-                    if skipped_too_long <= 20:
-                        print(
-                            f"   skipping over-context pair {i+1}/{len(pair_set.pairs)} "
-                            f"tokens={token_count} limit={context_limit}",
-                            flush=True,
-                        )
-                    continue
 
                 # Collect RAW hidden states (full sequences)
                 raw_data = collector.collect_raw(
@@ -285,10 +167,6 @@ def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTU
                     'raw_data': raw_data,
                 })
 
-            if skipped_empty:
-                print(f"   skipped {skipped_empty} zero-token pairs before forward")
-            if skipped_too_long:
-                print(f"   skipped {skipped_too_long} over-context pairs before forward")
             print(f"   ✓ Collected raw hidden states for {len(raw_pairs_data)} pairs")
 
             # Convert to JSON format (raw mode)
@@ -344,31 +222,34 @@ def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTU
             qk_data_per_pair = []
             layer_norms = {l: [] for l in layer_strs}
             skipped_empty = 0
-            skipped_too_long = 0
-            context_limit = _model_context_limit(model)
             for i, pair in enumerate(pair_set.pairs):
                 if args.verbose:
                     print(f"   Processing pair {i+1}/{len(pair_set.pairs)}...")
-                status, token_count = _pair_input_status(
-                    pair, (extraction_strategy,), model, build_extraction_texts,
-                    context_limit,
+                needs_other = extraction_strategy in (
+                    ExtractionStrategy.MC_BALANCED, ExtractionStrategy.MC_COMPLETION,
                 )
-                if status == "empty":
+                pos_text = pair.positive_response.model_response
+                neg_text = pair.negative_response.model_response
+                empty_input = False
+                for response_text, other_text, is_pos in (
+                    (pos_text, neg_text if needs_other else None, True),
+                    (neg_text, pos_text if needs_other else None, False),
+                ):
+                    full_text, _, _ = build_extraction_texts(
+                        extraction_strategy, pair.prompt, response_text, model.tokenizer,
+                        other_response=other_text, is_positive=is_pos,
+                    )
+                    is_qwen = "qwen" in str(getattr(model.tokenizer, "name_or_path", "")).lower()
+                    if (not is_qwen) and not _tokenizer_has_tokens(model.tokenizer, full_text):
+                        empty_input = True
+                        break
+                if empty_input:
                     skipped_empty += 1
-                    continue
-                if status == "too_long":
-                    skipped_too_long += 1
-                    if skipped_too_long <= 20:
-                        print(
-                            f"   skipping over-context pair {i+1}/{len(pair_set.pairs)} "
-                            f"tokens={token_count} limit={context_limit}",
-                            flush=True,
-                        )
                     continue
                 updated_pair = collector.collect(
                     pair, strategy=extraction_strategy,
                     layers=layer_strs, component=extraction_component,
-                    capture_qk=getattr(args, "capture_qk", True),
+                    capture_qk=True,
                 )
                 enriched_pairs.append(updated_pair)
                 qk_data_per_pair.append(dict(collector._last_qk))
@@ -386,8 +267,6 @@ def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTU
 
             if skipped_empty:
                 print(f"   skipped {skipped_empty} zero-token pairs before forward")
-            if skipped_too_long:
-                print(f"   skipped {skipped_too_long} over-context pairs before forward")
             print(f"   ✓ Collected activations for {len(enriched_pairs)} pairs")
             
             # Compute calibration norms (average per layer)
@@ -560,26 +439,34 @@ def execute_get_activations_multi(
     enriched_per_strategy: dict[str, list] = {s: [] for s in strategies}
     qk_per_strategy: dict[str, list] = {s: [] for s in strategies}
     skipped_empty = 0
-    skipped_too_long = 0
-    context_limit = _model_context_limit(model)
 
     for i, pair in enumerate(pair_set.pairs):
         if verbose or (i + 1) % PROGRESS_LOG_INTERVAL_10 == 0:
             print(f"   pair {i+1}/{len(pair_set.pairs)}...", end="\r", flush=True)
-        status, token_count = _pair_input_status(
-            pair, strategy_objs, model, build_extraction_texts, context_limit,
-        )
-        if status == "empty":
-            skipped_empty += 1
-            continue
-        if status == "too_long":
-            skipped_too_long += 1
-            if skipped_too_long <= 20:
-                print(
-                    f"   skipping over-context pair {i+1}/{len(pair_set.pairs)} "
-                    f"tokens={token_count} limit={context_limit}",
-                    flush=True,
+        empty_input = False
+        pos_text = pair.positive_response.model_response
+        neg_text = pair.negative_response.model_response
+        for s_obj in strategy_objs:
+            needs_other = s_obj in (
+                ExtractionStrategy.MC_BALANCED, ExtractionStrategy.MC_COMPLETION,
+            )
+            checks = (
+                (pos_text, neg_text if needs_other else None, True),
+                (neg_text, pos_text if needs_other else None, False),
+            )
+            for response_text, other_text, is_pos in checks:
+                full_text, _, _ = build_extraction_texts(
+                    s_obj, pair.prompt, response_text, model.tokenizer,
+                    other_response=other_text, is_positive=is_pos,
                 )
+                is_qwen = "qwen" in str(getattr(model.tokenizer, "name_or_path", "")).lower()
+                if (not is_qwen) and not _tokenizer_has_tokens(model.tokenizer, full_text):
+                    empty_input = True
+                    break
+            if empty_input:
+                break
+        if empty_input:
+            skipped_empty += 1
             continue
         per_strat = collector.collect_multi_strategy(
             pair, strategy_objs, layers=layer_strs,
@@ -590,8 +477,6 @@ def execute_get_activations_multi(
             qk_per_strategy[s_obj.value].append(per_strat[s_obj]["qk"])
     if skipped_empty:
         print(f"[multi] skipped {skipped_empty} zero-token pairs before forward", flush=True)
-    if skipped_too_long:
-        print(f"[multi] skipped {skipped_too_long} over-context pairs before forward", flush=True)
 
     os.makedirs(output_dir, exist_ok=True)
     written: dict[str, str] = {}

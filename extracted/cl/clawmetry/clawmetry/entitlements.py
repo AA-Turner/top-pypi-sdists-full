@@ -111,6 +111,92 @@ RUNTIME_LABELS = {
     "nanoclaw": "NanoClaw",
 }
 
+# Common alternative spellings that callers (custom ingest, OTLP service.name,
+# CLI flags) sometimes use. Mapped to the canonical snake_case identifier so the
+# gate and the labels lookup don't reject a runtime over a stray hyphen. The
+# canonical id is always the value; only the keys differ.
+RUNTIME_ALIASES = {
+    "claude-code": "claude_code",
+    "claudecode": "claude_code",
+    "qwen-code": "qwen_code",
+    "qwencode": "qwen_code",
+    "open-code": "opencode",
+    "open_code": "opencode",
+    "open-claw": "openclaw",
+    "open_claw": "openclaw",
+    "nemo-claw": "nemoclaw",
+    "nemo_claw": "nemoclaw",
+    "pico-claw": "picoclaw",
+    "pico_claw": "picoclaw",
+    "nano-claw": "nanoclaw",
+    "nano_claw": "nanoclaw",
+}
+
+# Display labels for every known feature. Mirrors the runtime label map and is
+# the source of truth the dashboard reads via ``/api/features`` so the locked-
+# but-visible affordance on paid features renders human-readable copy. Adding a
+# feature to one of the ``*_FEATURES`` sets without a label here is safe — the
+# helper falls back to the id — but a missing label trips the catalogue
+# conformance test in ``tests/test_entitlements_feature_catalog.py``.
+FEATURE_LABELS = {
+    # Free / core observability
+    "sessions": "Sessions",
+    "transcripts": "Transcripts",
+    "usage": "Usage",
+    "brain": "Brain",
+    "flow": "Flow",
+    "tracing": "Tracing",
+    "health": "Health",
+    "logs": "Logs",
+    "crons": "Crons",
+    "channels": "Channels",
+    "nemo_governance": "NeMo Governance",
+    "overview": "Overview",
+    # Starter
+    "multi_runtime": "Multi-runtime",
+    "fleet": "Multi-node fleet",
+    "cloud_sync": "Cloud sync",
+    "all_channels": "All channels",
+    "approval_queue": "Approval queue",
+    "budget_limits": "Budget limits",
+    "per_runtime_health_timeline": "Per-runtime health timeline",
+    # Pro-only
+    "per_run_waste_flags": "Per-run waste flags",
+    "per_run_compare": "Per-run compare",
+    "error_triage": "Error triage",
+    "self_evolve": "Self-Evolve",
+    "asset_registry": "Asset registry",
+    "eval_suite": "Eval suite",
+    "tool_policy": "Tool policy",
+    "otel_export": "OTel export",
+    "custom_webhooks": "Custom webhooks",
+    "custom_runtime_ingest": "Custom runtime ingest",
+    "custom_alerts": "Custom alerts",
+    "alert_webhooks": "Alert webhooks",
+    "anomaly_detection": "Anomaly detection",
+    "cost_optimizer": "Cost optimizer",
+    # Enterprise
+    "siem_export": "SIEM export",
+    "sso": "SSO",
+    "audit_logs": "Audit logs",
+    "rbac": "RBAC",
+    "air_gapped_license": "Air-gapped license",
+    "custom_data_residency": "Custom data residency",
+}
+
+# Backwards-compat alias keys living inside ``PRO_ONLY_FEATURES`` that older
+# callers may still import. They satisfy ``allows_feature(...)`` for the
+# canonical feature they alias, but the user-facing catalog (and so the
+# upgrade copy) should hide them — listing them alongside the canonical
+# keys advertises feature names that aren't on /pricing anymore. The catalog
+# row carries ``alias=True`` so the UI can filter them out without
+# hard-coding the four ids on the frontend (a duplicate that would drift the
+# next time we shuffle the PRO_ONLY set).
+_ALIAS_FEATURES = frozenset(
+    {"custom_alerts", "alert_webhooks", "anomaly_detection", "cost_optimizer"}
+)
+
+
 # ── Feature catalogue ───────────────────────────────────────────────────────
 # Core observability — always free. Keys are stable identifiers the route /
 # UI layer checks via Entitlement.allows_feature(...).
@@ -279,6 +365,44 @@ class Entitlement:
             return False
         return feature in self.features
 
+    def locked_runtimes(self) -> tuple[str, ...]:
+        """Sorted tuple of PAID runtime ids the install currently can NOT
+        observe — the inverse view of :meth:`allows_runtime` restricted to
+        ``PAID_RUNTIMES``. Mirrors the ``locked`` flag in
+        :func:`runtime_catalog` exactly: a runtime is "locked" iff
+        ``allows_runtime`` returns ``False``.
+
+        In grace mode the gate passes everything, so the result is ``()``;
+        once enforcement is on (``CLAWMETRY_ENFORCE=1``) it returns the paid
+        runtimes the current tier (and non-expired state) does not unlock,
+        giving the UI a one-call source for a "N runtimes locked — upgrade"
+        badge without iterating ``PAID_RUNTIMES`` or re-deriving the gate.
+        Free runtimes are never reported (they can never be locked).
+        Never raises.
+        """
+        try:
+            return tuple(sorted(rt for rt in PAID_RUNTIMES if not self.allows_runtime(rt)))
+        except Exception:  # belt-and-suspenders: a flaky gate read must never crash a render
+            return ()
+
+    def locked_features(self) -> tuple[str, ...]:
+        """Sorted tuple of PAID feature keys the install does NOT unlock —
+        the inverse view of :meth:`allows_feature` restricted to
+        ``PAID_FEATURES ∪ ENTERPRISE_FEATURES``.
+
+        In grace mode every gate passes, so the result is ``()``; once
+        enforcement is on it returns the paid keys the current tier (and
+        non-expired state) does not grant, giving the UI a single source
+        for a paywall summary off ``/api/entitlement`` without re-deriving
+        feature-set membership on the frontend. Free features are never
+        reported (they can never be locked). Never raises.
+        """
+        try:
+            paid_universe = PAID_FEATURES | ENTERPRISE_FEATURES
+            return tuple(sorted(f for f in paid_universe if not self.allows_feature(f)))
+        except Exception:
+            return ()
+
     def event_retention_days(self) -> int | None:
         """Days of event history this tier may keep. ``None`` means unlimited
         / custom (Enterprise). The daemon's prune loop in ``clawmetry/sync.py``
@@ -295,6 +419,12 @@ class Entitlement:
         return _TIER_RETENTION_DAYS.get(self.tier, 7)
 
     def to_dict(self) -> dict:
+        # ``retention_days`` mirrors :meth:`event_retention_days` so the
+        # dashboard can render a tier-aware "we are keeping N days of history"
+        # banner (and an Enterprise "unlimited / custom" pill when ``None``)
+        # without re-deriving the per-tier table client-side. The daemon's
+        # prune loop in ``clawmetry/sync.py`` still reads the method directly;
+        # this is just the read-only API surface.
         return {
             "tier": self.tier,
             "source": self.source,
@@ -304,11 +434,14 @@ class Entitlement:
             "is_paid": self.is_paid,
             "grace": self.grace,
             "enforced": not self.grace,
+            "retention_days": self.event_retention_days(),
             "runtimes": sorted(self.runtimes),
             "features": sorted(self.features),
             "free_runtimes": sorted(FREE_RUNTIMES),
             "paid_runtimes": sorted(PAID_RUNTIMES),
             "all_runtimes": sorted(ALL_RUNTIMES),
+            "locked_runtimes": list(self.locked_runtimes()),
+            "locked_features": list(self.locked_features()),
         }
 
 
@@ -378,12 +511,69 @@ def _read_cloud_plan() -> Entitlement | None:
 _lock = threading.Lock()
 _cache: dict = {"ent": None, "ts": 0.0, "enforce": None}
 
+# Memo of the tier we last announced on the extension bus. Drives
+# :func:`_maybe_emit_change` so ``entitlement.changed`` fires on a genuine
+# transition (OSS -> cloud_pro after the daemon writes a plan cache, pro ->
+# oss after ``clawmetry license deactivate``) and stays quiet on the every-
+# minute cache refresh that resolves to the same tier. Lock-guarded so two
+# concurrent fresh resolves never double-emit the initial tier.
+_last_emitted_tier: str | None = None
+
+
+def _maybe_emit_change(ent: Entitlement) -> None:
+    """Emit ``entitlement.changed`` to the extension bus on a tier transition.
+
+    The first successful resolution emits with ``previous_tier=None`` so a
+    listener registered before startup hears the initial tier exactly once.
+    Subsequent resolutions to the same tier are no-ops, so the every-minute
+    cache refresh does not spam the bus. Best-effort end-to-end: a missing
+    ``clawmetry.extensions`` import or a misbehaving listener is logged at
+    debug and swallowed — the resolver must never crash a request path.
+
+    Payload::
+
+        {"previous_tier": "<old>"|None, "tier": "<new>",
+         "source": "license"|"cloud"|"oss", "is_paid": bool, "grace": bool}
+    """
+    global _last_emitted_tier
+    try:
+        with _lock:
+            if _last_emitted_tier == ent.tier:
+                return
+            previous = _last_emitted_tier
+            _last_emitted_tier = ent.tier
+        try:
+            from clawmetry import extensions as _ext
+        except Exception:
+            return
+        try:
+            _ext.emit(
+                "entitlement.changed",
+                {
+                    "previous_tier": previous,
+                    "tier": ent.tier,
+                    "source": ent.source,
+                    "is_paid": ent.is_paid,
+                    "grace": ent.grace,
+                },
+            )
+        except Exception as exc:
+            logger.debug("entitlements: emit failed: %s", exc)
+    except Exception as exc:
+        logger.debug("entitlements: change-emit skipped: %s", exc)
+
 
 def get_entitlement(force: bool = False) -> Entitlement:
     """Resolve (and cache) the current entitlement. Cheap by design — the
     FLYWHEEL performance budget forbids a per-request network call, so the
     result is cached for ``_CACHE_TTL_SECS``. The cache also busts when the
-    enforce flag flips. Never raises: any failure returns OSS-free."""
+    enforce flag flips. Never raises: any failure returns OSS-free.
+
+    On every fresh resolution (cache miss) the resolved entitlement is fed
+    through :func:`_maybe_emit_change`, which fires ``entitlement.changed``
+    on the extension bus iff the tier changed since the previous emit. Cache
+    hits skip the emit so the bus stays quiet on steady-state reads.
+    """
     try:
         enforce = is_enforced()
         with _lock:
@@ -398,6 +588,7 @@ def get_entitlement(force: bool = False) -> Entitlement:
         ent = _read_local_license() or _read_cloud_plan() or _oss_free()
         with _lock:
             _cache.update(ent=ent, ts=time.time(), enforce=enforce)
+        _maybe_emit_change(ent)
         return ent
     except Exception as exc:
         logger.warning("entitlements: resolution failed, defaulting to OSS free: %s", exc)
@@ -410,6 +601,81 @@ def invalidate() -> None:
         _cache.update(ent=None, ts=0.0, enforce=None)
 
 
+def resolution_diagnostic() -> dict:
+    """Snapshot of the *inputs* that determine entitlement resolution.
+
+    Where :func:`get_entitlement` (and ``/api/entitlement``) report the
+    resolved *outputs* (tier, runtimes, features, expiry), this helper
+    reports the *inputs* the resolver consulted to produce them:
+
+    * presence (not contents) of ``~/.clawmetry/license.key``
+    * presence (not contents) of ``~/.clawmetry/cloud_plan.json``
+    * the raw ``CLAWMETRY_ENFORCE`` env value + the boolean it resolves to
+    * cache liveness (age vs TTL, hit/miss for the next call)
+
+    Existing operator-triage flow for "why does this install think it's on
+    tier X?" required reading dashboard logs, ``ls``-ing ``~/.clawmetry``,
+    and ``echo``-ing the env var by hand. This rolls those checks into one
+    blob the dashboard / CLI / a tail-only operator can read uniformly.
+
+    Side-effect-free; never reads file contents; never raises (a failed
+    ``os.stat`` becomes ``present=False`` with the error string). No secrets
+    are surfaced — only paths, sizes, and the resolver's view of them.
+    """
+    out: dict = {
+        "license_path": _LICENSE_PATH,
+        "license_present": False,
+        "license_size_bytes": 0,
+        "cloud_plan_path": _CLOUD_PLAN_CACHE,
+        "cloud_plan_present": False,
+        "cloud_plan_size_bytes": 0,
+        "enforce_env": os.environ.get("CLAWMETRY_ENFORCE"),
+        "is_enforced": False,
+        "cache_age_seconds": None,
+        "cache_ttl_seconds": _CACHE_TTL_SECS,
+        "cache_hit_next_call": False,
+        "cache_cached_tier": None,
+    }
+    try:
+        out["is_enforced"] = is_enforced()
+    except Exception as exc:  # pragma: no cover - is_enforced is a string check
+        logger.warning("resolution_diagnostic: is_enforced failed: %s", exc)
+    try:
+        st = os.stat(_LICENSE_PATH)
+        out["license_present"] = True
+        out["license_size_bytes"] = int(st.st_size)
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        out["license_error"] = str(exc)
+    try:
+        st = os.stat(_CLOUD_PLAN_CACHE)
+        out["cloud_plan_present"] = True
+        out["cloud_plan_size_bytes"] = int(st.st_size)
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        out["cloud_plan_error"] = str(exc)
+    try:
+        with _lock:
+            ts = float(_cache.get("ts") or 0.0)
+            cached_ent = _cache.get("ent")
+            cached_enforce = _cache.get("enforce")
+        if ts > 0.0:
+            age = max(0.0, time.time() - ts)
+            out["cache_age_seconds"] = round(age, 3)
+            out["cache_hit_next_call"] = (
+                cached_ent is not None
+                and cached_enforce == out["is_enforced"]
+                and age < _CACHE_TTL_SECS
+            )
+            if cached_ent is not None:
+                out["cache_cached_tier"] = getattr(cached_ent, "tier", None)
+    except Exception as exc:
+        out["cache_error"] = str(exc)
+    return out
+
+
 def available_runtimes() -> list[str]:
     """Runtimes the UI should expose. In grace mode that's every known
     runtime (so nothing disappears before enforcement); once enforced it's the
@@ -420,11 +686,134 @@ def available_runtimes() -> list[str]:
     return sorted(ent.runtimes)
 
 
+def canonical_runtime(runtime: str) -> str:
+    """Normalize a runtime identifier to its canonical snake_case key.
+
+    Accepts the common alternative spellings (hyphenated, no-separator, mixed
+    case) callers sometimes pass — OTLP ``service.name``, custom ingest, CLI
+    flags — and resolves them to the id used in :data:`ALL_RUNTIMES`. Unknown
+    identifiers are returned lower-cased unchanged so plugin runtimes still
+    pass through. Empty / non-string inputs return an empty string.
+
+    Never raises.
+    """
+    try:
+        rt = (runtime or "").strip().lower()
+    except Exception:
+        return ""
+    if not rt:
+        return ""
+    if rt in ALL_RUNTIMES:
+        return rt
+    return RUNTIME_ALIASES.get(rt, rt)
+
+
 def runtime_label(runtime: str) -> str:
-    """Human-readable label for ``runtime``. Falls back to the id when unknown
-    so unknown plugin runtimes still render with *something*."""
-    rt = (runtime or "").strip().lower()
+    """Human-readable label for ``runtime``. Aliases (``claude-code``,
+    ``qwencode``, …) resolve to the canonical id first so they render with the
+    same label as the snake_case form. Falls back to the (canonicalised) id
+    when unknown so unknown plugin runtimes still render with *something*."""
+    rt = canonical_runtime(runtime)
     return RUNTIME_LABELS.get(rt, rt)
+
+
+def feature_label(feature: str) -> str:
+    """Human-readable label for ``feature``. Falls back to the id when unknown
+    so plugin/extension features still render with *something*."""
+    fid = (feature or "").strip().lower()
+    return FEATURE_LABELS.get(fid, fid)
+
+
+# Ordered tier ladder used to resolve "minimum tier that unlocks X" — the lower
+# the index the cheaper the tier. Free first, then Starter, Pro, Enterprise.
+_FEATURE_TIER_ORDER = (
+    (TIER_OSS, FREE_FEATURES),
+    (TIER_CLOUD_STARTER, STARTER_FEATURES),
+    (TIER_CLOUD_PRO, PRO_ONLY_FEATURES),
+    (TIER_ENTERPRISE, ENTERPRISE_FEATURES),
+)
+
+
+def feature_tier(feature: str) -> str:
+    """The lowest tier code that unlocks ``feature``. Returns ``TIER_OSS`` for
+    free features (and unknown ids — same fallback as the runtime helper, so an
+    extension feature never appears mysteriously locked). Used by the UI to
+    label the upgrade CTA ("Requires Starter", "Requires Pro", "Requires
+    Enterprise") without hard-coding the bucket on the frontend."""
+    fid = (feature or "").strip().lower()
+    for tier, bucket in _FEATURE_TIER_ORDER:
+        if fid in bucket:
+            return tier
+    return TIER_OSS
+
+
+# Stable ordering rank used to sort the catalogue: free first, then by tier.
+_FEATURE_TIER_RANK = {
+    TIER_OSS: 0,
+    TIER_CLOUD_STARTER: 1,
+    TIER_CLOUD_PRO: 2,
+    TIER_ENTERPRISE: 3,
+}
+
+
+def feature_catalog() -> list[dict]:
+    """The full feature catalog with the entitlement-derived availability for
+    each entry. Single source of truth the UI uses to render *every* known
+    feature — including paid ones the local install does not have — so the
+    locked-but-visible upgrade affordance has data to render against and the
+    upgrade CTA knows which tier to advertise.
+
+    Each entry::
+
+        {
+          "id":       "<feature>",         # canonical key
+          "label":    "<Display Name>",    # falls back to id
+          "tier":     "oss" | "cloud_starter" | "cloud_pro" | "enterprise",
+          "free":     True | False,        # FREE_FEATURES membership
+          "allowed":  True | False,        # entitlement allows using it
+          "locked":   True | False,        # paid + not allowed (UI shows the lock)
+          "entitled": True | False,        # grace-INDEPENDENT plan fact
+        }
+
+    Ordering: free first, then by tier rank (Starter -> Pro -> Enterprise), then
+    alphabetical inside each bucket — stable so the UI list is deterministic.
+
+    Never raises; on any resolution error every paid feature is reported as
+    ``locked=False`` (grace) to match the OSS-free fallback in
+    :func:`get_entitlement`.
+    """
+    try:
+        ent = get_entitlement()
+    except Exception as exc:  # never crash a catalog read
+        logger.warning("entitlements: feature_catalog falling back to grace: %s", exc)
+        ent = _oss_free()
+    out: list[dict] = []
+    for fid in sorted(ALL_FEATURES, key=lambda f: (_FEATURE_TIER_RANK.get(feature_tier(f), 9), f)):
+        tier = feature_tier(fid)
+        is_free = fid in FREE_FEATURES
+        allowed = ent.allows_feature(fid)
+        # Grace-independent plan fact — does the resolved tier itself grant
+        # this feature, ignoring grace bypass? Free features are always
+        # entitled; expired plans don't entitle paid features.
+        if is_free:
+            entitled = True
+        elif ent.expired:
+            entitled = False
+        else:
+            entitled = fid in ent.features
+        out.append(
+            {
+                "id": fid,
+                "label": feature_label(fid),
+                "tier": tier,
+                "free": is_free,
+                "allowed": allowed,
+                "locked": (not is_free) and (not allowed),
+                "entitled": entitled,
+                "alias": fid in _ALIAS_FEATURES,
+            }
+        )
+    return out
 
 
 def runtime_catalog() -> list[dict]:

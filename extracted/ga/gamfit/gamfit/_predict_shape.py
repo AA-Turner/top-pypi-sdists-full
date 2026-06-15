@@ -166,7 +166,14 @@ def _point_payload_spec(
     * **transformation-normal** — the per-row z-score (``transformation_normal_z``);
       table form is the single ``z`` column.
     * **Bernoulli marginal-slope** — ``mean`` clipped back to ``(0, 1)`` as a
-      probability; table form is the single ``mean`` (probability) column.
+      probability; table form is the ``mean`` (probability) column, plus
+      ``linear_predictor`` (the η-scale point) and the probability-scale
+      ``std_error`` / ``mean_lower`` / ``mean_upper`` (and
+      ``observation_lower`` / ``observation_upper``) when the Rust core emitted
+      them for an ``interval=`` request (#1049). The credible bounds
+      are response-scale (probability) quantiles from the marginal-slope
+      coefficient covariance, so they are clipped to ``(0, 1)`` exactly like
+      the point ``mean``; ``std_error`` is the η-scale SE and is left untouched.
     * **standard GAM / GLM** — ``mean`` as emitted; table form is the *full*
       Rust column payload (``linear_predictor`` + ``mean`` always, plus
       ``std_error`` / ``mean_lower`` / ``mean_upper`` when an interval was set).
@@ -187,7 +194,39 @@ def _point_payload_spec(
             [float(value) for value in columns.get("mean", [])]
         )
         probs = rust_module().vec_to_array1_f64(prob_values)
-        return probs, {"mean": probs.tolist()}
+        # #1049: when an interval was requested the Rust posterior-mean path
+        # emits std_error + response-scale (probability) credible bounds from
+        # the marginal-slope coefficient covariance. They were silently dropped
+        # here, making predict(interval=) a no-op for this family. Carry them
+        # into the table when present, clipping the probability-scale bounds to
+        # (0, 1) with the same map as the point mean (std_error is the η-scale
+        # SE — left as emitted), and surface linear_predictor (the η-scale
+        # point) alongside so the band can be reconstructed downstream as the
+        # TransformEta construction link^{-1}(η ± z·std_error). Without an
+        # interval the table form stays the single `mean` (probability) column.
+        # The 1-D point vector is always the clipped probability.
+        has_interval = "std_error" in columns
+        table_columns: dict[str, list[Any]] = {}
+        if has_interval and "linear_predictor" in columns:
+            table_columns["linear_predictor"] = [
+                float(value) for value in columns["linear_predictor"]
+            ]
+        table_columns["mean"] = probs.tolist()
+        if has_interval:
+            table_columns["std_error"] = [
+                float(value) for value in columns["std_error"]
+            ]
+            for bound_key in (
+                "mean_lower",
+                "mean_upper",
+                "observation_lower",
+                "observation_upper",
+            ):
+                if bound_key in columns:
+                    table_columns[bound_key] = rust_module().marginal_slope_clip_probabilities(
+                        [float(value) for value in columns[bound_key]]
+                    )
+        return probs, table_columns
 
     mean = rust_module().vec_to_array1_f64(
         [float(value) for value in columns["mean"]]

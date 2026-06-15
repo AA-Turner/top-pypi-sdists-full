@@ -13,6 +13,7 @@ const {
   loadConfig,
   parseArgs,
 } = require("../base/utils.js");
+const chromeUtils = require("../chrome/chrome_utils.js");
 
 // Match the rest of the JS hook lifecycle: ArchiveBox resolves provider-owned
 // node_modules once and passes NODE_MODULES_DIR to hook subprocesses. Helper
@@ -29,17 +30,13 @@ const EXTENSION = {
 const SNAPSHOT_OUTPUT_DIR = process.cwd();
 const CHROME_SESSION_DIR = path.resolve(SNAPSHOT_OUTPUT_DIR, "..", "chrome");
 const hookConfig = loadConfig();
+const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
 const CRAWL_DIR = hookConfig.CRAWL_DIR
   ? path.resolve(String(hookConfig.CRAWL_DIR).trim())
   : null;
-const DOWNLOADS_DIR =
-  hookConfig.CHROME_DOWNLOADS_DIR ||
-  path.join(
-    hookConfig.PERSONAS_DIR,
-    hookConfig.ACTIVE_PERSONA,
-    "chrome_downloads"
-  );
-const CHROME_EXTENSIONS_DIR = hookConfig.CHROME_EXTENSIONS_DIR || "";
+const DOWNLOADS_DIR = chromeLaunchOptions.CHROME_DOWNLOADS_DIR;
+const CHROMEWEBSTORE_EXTENSIONS_DIR =
+  chromeLaunchOptions.CHROMEWEBSTORE_EXTENSIONS_DIR;
 
 const DOWNLOAD_POLL_INTERVAL_MS = 3000;
 const DOWNLOAD_WAIT_RESERVE_MS = 10000;
@@ -283,13 +280,14 @@ async function main() {
 
   console.error(`[singlefile] helper start url=${url}`);
   console.error(`[singlefile] downloads_dir=${DOWNLOADS_DIR}`);
-  if (CHROME_EXTENSIONS_DIR) {
-    console.error(`[singlefile] extensions_dir=${CHROME_EXTENSIONS_DIR}`);
+  if (CHROMEWEBSTORE_EXTENSIONS_DIR) {
+    console.error(
+      `[singlefile] extensions_dir=${CHROMEWEBSTORE_EXTENSIONS_DIR}`
+    );
   }
 
   try {
     console.error("[singlefile] loading dependencies...");
-    const chromeUtils = require("../chrome/chrome_utils.js");
     if (process.cwd() !== SNAPSHOT_OUTPUT_DIR) {
       process.chdir(SNAPSHOT_OUTPUT_DIR);
     }

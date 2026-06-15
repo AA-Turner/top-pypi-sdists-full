@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=../chrome/config.json:required_binaries,./config.json:required_binaries node
+// /// script
+// ///
 /**
  * Stop the ArchiveWeb.page recording and save the resulting WACZ.
  *
@@ -62,6 +64,24 @@ const {
 } = resolveChromeDirs(process.cwd(), hookConfig.CRAWL_DIR);
 process.chdir(outputDir);
 const SNAP_DIR = path.resolve(outputDir, "..");
+
+async function moveAcrossMounts(src, dest) {
+  try {
+    await fs.promises.rename(src, dest);
+  } catch (err) {
+    // Chrome may download into the shared persona dir while abx-dl writes
+    // snapshot output under /out. Docker users routinely mount those as
+    // different filesystems, where rename(2) fails with EXDEV even though a
+    // normal user-facing "move this downloaded artifact into the snapshot"
+    // operation should still succeed.
+    if (err && err.code === "EXDEV") {
+      await fs.promises.copyFile(src, dest);
+      await fs.promises.unlink(src);
+      return;
+    }
+    throw err;
+  }
+}
 
 async function stopAndCollectCollId(helperPage, targetTabId) {
   return helperPage.evaluate(
@@ -206,8 +226,9 @@ async function sendStopAndDownload(
       };
     }
 
-    const downloadDir = hookConfig.CHROME_DOWNLOADS_DIR
-      ? path.resolve(String(hookConfig.CHROME_DOWNLOADS_DIR).trim())
+    const chromeLaunchOptions = chromeUtils.resolveChromeLaunchOptions(hookConfig);
+    const downloadDir = chromeLaunchOptions.CHROME_DOWNLOADS_DIR
+      ? path.resolve(chromeLaunchOptions.CHROME_DOWNLOADS_DIR)
       : path.dirname(destPath);
     fs.mkdirSync(downloadDir, { recursive: true });
     const downloadFilename = `archivewebpage-${process.pid}-${Date.now()}`;
@@ -289,7 +310,7 @@ async function sendStopAndDownload(
     }
 
     if (path.resolve(waczPath) !== path.resolve(destPath)) {
-      fs.renameSync(waczPath, destPath);
+      await moveAcrossMounts(waczPath, destPath);
     }
     const stat = fs.statSync(destPath);
     return {

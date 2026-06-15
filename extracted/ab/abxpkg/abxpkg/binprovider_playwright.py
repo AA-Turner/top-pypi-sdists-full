@@ -22,7 +22,6 @@ from .base_types import (
     abxpkg_install_root_default,
     bin_abspath,
 )
-from .binary import Binary
 from .binprovider import (
     BinProvider,
     BinProviderUnavailableError,
@@ -30,7 +29,6 @@ from .binprovider import (
     log_method_call,
     remap_kwargs,
 )
-from .binprovider_pnpm import PnpmProvider
 from .logging import format_command, format_subprocess_output, get_logger
 from .semver import SemVer
 
@@ -135,6 +133,8 @@ class PlaywrightProvider(BinProvider):
         return False
 
     def INSTALLER_BINARY(self, no_cache: bool = False):
+        from .binary import Binary
+
         lib_dir = os.environ.get("ABXPKG_LIB_DIR")
         if (
             self.install_root is not None
@@ -195,6 +195,7 @@ class PlaywrightProvider(BinProvider):
                             if loaded.loaded_binprovider is not None
                             else self.name
                         ),
+                        resolved_provider=loaded.loaded_binprovider,
                         cache_kind="dependency",
                     )
                 node_loaded = Binary(
@@ -217,6 +218,7 @@ class PlaywrightProvider(BinProvider):
                             if node_loaded.loaded_binprovider is not None
                             else self.name
                         ),
+                        resolved_provider=node_loaded.loaded_binprovider,
                         cache_kind="dependency",
                     )
                 self._INSTALLER_BINARY = loaded
@@ -243,6 +245,7 @@ class PlaywrightProvider(BinProvider):
                             if loaded.loaded_binprovider is not None
                             else self.name
                         ),
+                        resolved_provider=loaded.loaded_binprovider,
                         cache_kind="dependency",
                     )
                 self._INSTALLER_BINARY = loaded
@@ -267,6 +270,7 @@ class PlaywrightProvider(BinProvider):
                     if node_loaded.loaded_binprovider is not None
                     else self.name
                 ),
+                resolved_provider=node_loaded.loaded_binprovider,
                 cache_kind="dependency",
             )
         raise BinProviderUnavailableError(
@@ -281,7 +285,7 @@ class PlaywrightProvider(BinProvider):
         path_entries: list[Path] = []
         if self.bin_dir is not None:
             path_entries.append(self.bin_dir)
-        # In hermetic mode (install_root outside LIB_DIR), add our own
+        # In hermetic mode (install_root outside ABXPKG_LIB_DIR), add our own
         # pnpm bin dir. When install_root lives outside ABXPKG_LIB_DIR, this provider adds it directly.
         lib_dir = os.environ.get("ABXPKG_LIB_DIR")
         hermetic = self.install_root is not None and (
@@ -322,7 +326,10 @@ class PlaywrightProvider(BinProvider):
         # (root host or already-elevated). The first command token
         # must be an absolute path because sudo's secure_path may not
         # contain our bin_dir.
-        env = self.build_exec_env(base_env=(kwargs.pop("env", None) or os.environ))
+        env = self.build_exec_env(
+            providers=self.exec_env_providers(),
+            base_env=(kwargs.pop("env", None) or os.environ),
+        )
         env_assignments: list[str] = []
         if self.install_root is not None:
             cache_dir = self.install_root / "cache"
@@ -377,6 +384,9 @@ class PlaywrightProvider(BinProvider):
         min_version: SemVer | None = None,
         no_cache: bool = False,
     ) -> None:
+        from .binary import Binary
+        from .binprovider_pnpm import PnpmProvider
+
         if self.install_root is not None:
             self.install_root.mkdir(parents=True, exist_ok=True)
         if self.bin_dir is not None:
@@ -453,7 +463,7 @@ class PlaywrightProvider(BinProvider):
 
         # Determine where to install the playwright package.
         # Hermetic: install_root/pnpm
-        # Managed LIB_DIR: LIB_DIR/pnpm/packages/playwright
+        # Managed ABXPKG_LIB_DIR: ABXPKG_LIB_DIR/pnpm/packages/playwright
         # Global: no install_root (PnpmProvider picks global mode)
         if (
             self.install_root is not None
@@ -473,7 +483,6 @@ class PlaywrightProvider(BinProvider):
         cli = Binary(
             name="playwright",
             binproviders=[cli_provider],
-            overrides={"pnpm": {"install_args": ["playwright@next"]}},
             postinstall_scripts=effective_postinstall,
             min_release_age=effective_min_release_age,
         ).install(no_cache=no_cache)
@@ -508,9 +517,11 @@ class PlaywrightProvider(BinProvider):
         path so the install_root copy wins; otherwise we let node's own
         module resolution find whichever ``playwright`` the host ships.
         """
+        from .binary import Binary
+
         # Find the playwright module to call executablePath().
         # Hermetic: install_root/pnpm/node_modules/playwright
-        # Managed LIB_DIR: LIB_DIR/pnpm/packages/playwright/node_modules/playwright
+        # Managed ABXPKG_LIB_DIR: ABXPKG_LIB_DIR/pnpm/packages/playwright/node_modules/playwright
         # Global: let node's require() find it
         lib_dir = os.environ.get("ABXPKG_LIB_DIR")
         hermetic = self.install_root is not None and (
@@ -828,6 +839,8 @@ class PlaywrightProvider(BinProvider):
         no_cache: bool = False,
         **context,
     ) -> str:
+        from .binprovider_pnpm import PnpmProvider
+
         # Browser versions are pinned by the ``playwright`` npm package,
         # so a real upgrade means bumping that package first and then
         # re-running ``playwright install`` to pull the new browser

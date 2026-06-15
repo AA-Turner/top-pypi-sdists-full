@@ -4,12 +4,7 @@ use http::StatusCode as StandardStatusCode;
 use itoa::Buffer as ItoaBuffer;
 use smallvec::SmallVec;
 use tokio::fs::File;
-#[cfg(unix)]
-use tokio::io::copy;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
-use tokio::net::tcp::OwnedWriteHalf as TcpOwnedWriteHalf;
-#[cfg(unix)]
-use tokio::net::unix::OwnedWriteHalf as UnixOwnedWriteHalf;
 
 use crate::bridge::PayloadBytes;
 use crate::config::ServerConfig;
@@ -17,49 +12,14 @@ use crate::console::ResponseLogState;
 use crate::error::H2CornError;
 use crate::http::digits;
 use crate::http::header::apply_default_response_headers;
-use crate::http::pathsend::PathStreamer;
+use crate::http::pathsend::{PATHSEND_SENDFILE_MIN, PathStreamer};
 use crate::http::response::{FinalResponseBody, HttpResponseTransport, ResponseStart};
 use crate::http::types::{HttpStatusCode, ResponseHeaders, status_code};
-use crate::sendfile::sendfile_all_tcp;
+use crate::sendfile::WriteTarget;
 
 const RESPONSE_BUF_CAPACITY: usize = 512;
 
 type ResponseBuf = SmallVec<[u8; RESPONSE_BUF_CAPACITY]>;
-
-pub trait H1WriteTarget: AsyncWrite + Unpin + Send + Sync + 'static {
-    async fn send_file_body(
-        writer: &mut BufWriter<Self>,
-        file: &mut File,
-        len: usize,
-    ) -> io::Result<()>
-    where
-        Self: Sized;
-}
-
-impl H1WriteTarget for TcpOwnedWriteHalf {
-    async fn send_file_body(
-        writer: &mut BufWriter<Self>,
-        file: &mut File,
-        len: usize,
-    ) -> io::Result<()> {
-        writer.flush().await?;
-        let mut offset = 0_u64;
-        sendfile_all_tcp(writer, file, &mut offset, len).await
-    }
-}
-
-#[cfg(unix)]
-impl H1WriteTarget for UnixOwnedWriteHalf {
-    async fn send_file_body(
-        writer: &mut BufWriter<Self>,
-        file: &mut File,
-        _len: usize,
-    ) -> io::Result<()> {
-        writer.flush().await?;
-        copy(file, writer.get_mut()).await?;
-        Ok(())
-    }
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum BodyFraming {
@@ -102,7 +62,7 @@ where
 
 impl<W> HttpResponseTransport for H1HttpTransport<'_, W>
 where
-    W: H1WriteTarget,
+    W: WriteTarget,
 {
     async fn send_final_response(
         &mut self,
@@ -229,7 +189,7 @@ pub(super) async fn write_final_response<W>(
     close_after: bool,
 ) -> Result<(), H2CornError>
 where
-    W: H1WriteTarget,
+    W: WriteTarget,
 {
     match body {
         FinalResponseBody::Empty => {
@@ -269,7 +229,27 @@ where
             )
             .await?;
             let mut file = *file;
-            W::send_file_body(writer, &mut file, len).await?;
+            if len < PATHSEND_SENDFILE_MIN {
+                // Small files: one buffered read + ordinary writes beat a
+                // per-response sendfile setup (measured: sendfile's loopback
+                // skb handling is the hot path at this size).
+                let mut streamer = PathStreamer::new(file, len, true);
+                while !streamer.is_drained() {
+                    streamer.fill().await?;
+                    let chunk = streamer.remaining();
+                    if chunk.is_empty() {
+                        break;
+                    }
+                    let chunk_len = chunk.len();
+                    writer.write_all(chunk).await?;
+                    streamer.consume(chunk_len);
+                }
+                writer.flush().await?;
+            } else {
+                writer.flush().await?;
+                let mut offset = 0_u64;
+                W::send_file(writer, &mut file, &mut offset, len).await?;
+            }
             Ok(())
         },
         FinalResponseBody::Suppressed { len } => {
@@ -325,11 +305,50 @@ where
     W: AsyncWrite + Unpin,
 {
     let mut prefix = [0_u8; 18];
-    writer
-        .write_all(chunk_prefix(chunk.len(), &mut prefix))
-        .await?;
-    writer.write_all(chunk).await?;
-    writer.write_all(b"\r\n").await?;
+    let prefix = chunk_prefix(chunk.len(), &mut prefix);
+    // Small chunks coalesce in the BufWriter (one syscall per flushed batch).
+    // A chunk at/over the buffer capacity would bypass the buffer anyway, so
+    // emit `prefix + chunk + CRLF` as a single `writev` instead of a
+    // buffer-flush plus a direct write — halving write syscalls for
+    // large-chunk streaming.
+    if chunk.len() < super::H1_WRITER_BUFFER_CAPACITY {
+        writer.write_all(prefix).await?;
+        writer.write_all(chunk).await?;
+        writer.write_all(b"\r\n").await?;
+        return Ok(());
+    }
+    writer.flush().await?;
+    let mut slices = [
+        io::IoSlice::new(prefix),
+        io::IoSlice::new(chunk),
+        io::IoSlice::new(b"\r\n"),
+    ];
+    write_all_vectored(writer.get_mut(), &mut slices).await
+}
+
+/// Drive `write_vectored` to completion over `slices`, advancing past partial
+/// writes. The caller must have flushed any buffered writer first so output
+/// order is preserved.
+async fn write_all_vectored<W>(
+    writer: &mut W,
+    slices: &mut [io::IoSlice<'_>],
+) -> Result<(), H2CornError>
+where
+    W: AsyncWrite + Unpin,
+{
+    let mut remaining: usize = slices.iter().map(|slice| slice.len()).sum();
+    let mut bufs = slices;
+    while remaining > 0 {
+        let written = writer.write_vectored(bufs).await?;
+        if written == 0 {
+            return Err(H2CornError::from(io::Error::from(io::ErrorKind::WriteZero)));
+        }
+        remaining -= written;
+        if remaining == 0 {
+            break;
+        }
+        io::IoSlice::advance_slices(&mut bufs, written);
+    }
     Ok(())
 }
 

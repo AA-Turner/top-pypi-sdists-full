@@ -15,6 +15,7 @@ from datamodel_code_generator.format import Formatter
 from tests.conftest import (
     _infer_expected_file,
     assert_exact_directory_content,
+    assert_inputs_not_mutated,
     assert_parser_modules,
     assert_parser_results,
 )
@@ -94,6 +95,139 @@ def test_assert_parser_modules_rejects_unexpected_module(tmp_path: Path) -> None
         assert_parser_modules({("sample.py",): "value = 1\n"}, expected_dir)
 
 
+def test_assert_inputs_not_mutated_allows_unchanged_nested_values() -> None:
+    """Mutation guard accepts unchanged dict/list inputs and ignores immutable labels."""
+    schema = {"properties": {"name": {"type": "string"}}, "required": ["name"]}
+
+    with assert_inputs_not_mutated({"schema": schema, "description": "ignored"}):
+        assert schema["properties"]["name"]["type"] == "string"
+
+
+def test_assert_inputs_not_mutated_reports_nested_mutation() -> None:
+    """Mutation guard reports the label for nested dict/list mutations."""
+    schema = {"properties": {"name": {"type": "string"}}, "required": ["name"]}
+
+    with (
+        pytest.raises(pytest.fail.Exception, match="schema was mutated"),
+        assert_inputs_not_mutated({"schema": schema}),
+    ):
+        schema["required"].append("age")
+
+
+def test_path_cache_value_at_path_handles_sequences() -> None:
+    """Path cache helper can traverse mapping and sequence values."""
+    value = {"items": [{"name": "first"}]}
+
+    assert main_conftest._value_at_path(value, ("items", 0, "name")) == "first"
+
+
+def test_path_cache_value_at_path_reports_invalid_path() -> None:
+    """Path cache helper reports paths that cannot be traversed."""
+    with pytest.raises(pytest.fail.Exception, match="Expected cached value to contain path"):
+        main_conftest._value_at_path({"items": []}, ("items", "name"))
+
+
+def test_assert_path_cache_reuses_value_reports_cache_miss(tmp_path: Path) -> None:
+    """Path cache reuse helper fails when the loader returns a new object."""
+    path = tmp_path / "schema.json"
+    path.write_text("{}", encoding="utf-8")
+
+    def load_new_value(path: Path, encoding: str) -> object:  # noqa: ARG001
+        return {}
+
+    with pytest.raises(pytest.fail.Exception, match=r"Expected cached value .* to be reused"):
+        main_conftest.assert_path_cache_reuses_value(load_new_value, path)
+
+
+def test_assert_path_cache_evicts_lru_entries_reports_first_mismatch(tmp_path: Path) -> None:
+    """LRU helper fails when the first path value is unstable."""
+    first_path = tmp_path / "first.json"
+    second_path = tmp_path / "second.json"
+    first_path.write_text("first", encoding="utf-8")
+    second_path.write_text("second", encoding="utf-8")
+    calls = 0
+
+    def load_unstable_first(path: Path, encoding: str) -> object:  # noqa: ARG001
+        nonlocal calls
+        if path == first_path:
+            calls += 1
+            return calls
+        return "stable"
+
+    assert load_unstable_first(second_path, "utf-8") == "stable"
+    with pytest.raises(pytest.fail.Exception, match=r"Expected cached value .* to stay stable"):
+        main_conftest.assert_path_cache_evicts_lru_entries(load_unstable_first, first_path, second_path)
+
+
+def test_assert_path_cache_evicts_lru_entries_reports_second_mismatch(tmp_path: Path) -> None:
+    """LRU helper fails when the second path value is unstable."""
+    first_path = tmp_path / "first.json"
+    second_path = tmp_path / "second.json"
+    first_path.write_text("first", encoding="utf-8")
+    second_path.write_text("second", encoding="utf-8")
+    calls = 0
+
+    def load_unstable_second(path: Path, encoding: str) -> object:  # noqa: ARG001
+        nonlocal calls
+        if path == second_path:
+            calls += 1
+            return calls
+        return "stable"
+
+    with pytest.raises(pytest.fail.Exception, match=r"Expected cached value .* to stay stable"):
+        main_conftest.assert_path_cache_evicts_lru_entries(load_unstable_second, first_path, second_path)
+
+
+def test_assert_path_cache_invalidates_after_write_reports_stale_identity(tmp_path: Path) -> None:
+    """Path cache invalidation helper fails when a loader returns the stale object."""
+    path = tmp_path / "schema.json"
+    path.write_text("old", encoding="utf-8")
+    cached_value: dict[str, str] = {}
+
+    def load_stale_value(path: Path, encoding: str) -> object:  # noqa: ARG001
+        return cached_value
+
+    with pytest.raises(pytest.fail.Exception, match=r"Expected cached value .* to be invalidated after write"):
+        main_conftest.assert_path_cache_invalidates_after_write(load_stale_value, path, "new", "new")
+
+
+def test_assert_path_cache_invalidates_after_write_reports_unexpected_value(tmp_path: Path) -> None:
+    """Path cache invalidation helper fails when the updated value is unexpected."""
+    path = tmp_path / "schema.json"
+    path.write_text("old", encoding="utf-8")
+
+    def load_text_value(path: Path, encoding: str) -> object:
+        return {"value": path.read_text(encoding=encoding)}
+
+    with pytest.raises(pytest.fail.Exception, match="Expected cached value 'expected', got 'actual'"):
+        main_conftest.assert_path_cache_invalidates_after_write(
+            load_text_value,
+            path,
+            "actual",
+            "expected",
+            expected_value_path=("value",),
+        )
+
+
+def test_assert_path_cache_invalidates_after_write_reports_updated_cache_miss(tmp_path: Path) -> None:
+    """Path cache invalidation helper fails when the updated value is not reused."""
+    path = tmp_path / "schema.json"
+    path.write_text("old", encoding="utf-8")
+
+    def load_text_value(path: Path, encoding: str) -> object:
+        return {"value": path.read_text(encoding=encoding)}
+
+    with pytest.raises(pytest.fail.Exception, match=r"Expected updated cached value .* to be reused"):
+        main_conftest.assert_path_cache_invalidates_after_write(
+            load_text_value,
+            path,
+            "new",
+            "new",
+            expected_value_path=("value",),
+            warmups=1,
+        )
+
+
 def test_builtin_parity_mock_call_preservation(mocker: MockerFixture) -> None:
     """Mock call history is restored after parity-only calls."""
     mocked_callable = mocker.Mock()
@@ -162,6 +296,100 @@ def test_builtin_parity_clear_output_path(tmp_path: Path) -> None:
     (stale_dir / "output.py").write_text("stale\n", encoding="utf-8")
     _builtin_parity._clear_builtin_formatter_parity_output(stale_dir)
     assert not stale_dir.exists()
+
+
+def test_default_formatter_cli_args(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Builtin formatter defaults apply only to generation commands without formatter settings."""
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_TEST_DEFAULT_FORMATTER", raising=False)
+    assert main_conftest._default_formatter_cli_args(["--input", "schema.json"]) == ["--input", "schema.json"]
+
+    monkeypatch.setenv("DATAMODEL_CODE_GENERATOR_TEST_DEFAULT_FORMATTER", "builtin")
+    assert main_conftest._default_formatter_cli_args(["--input", "schema.json"]) == [
+        "--input",
+        "schema.json",
+        "--formatters",
+        "builtin",
+    ]
+    assert main_conftest._default_formatter_cli_args(
+        ["--input", "schema.json"],
+        output_path=tmp_path / "output.py",
+    ) == [
+        "--input",
+        "schema.json",
+        "--formatters",
+        "builtin",
+    ]
+    assert not (tmp_path / "pyproject.toml").exists()
+    assert main_conftest._default_formatter_cli_args(["--input", "schema.json", "--formatters=isort"]) == [
+        "--input",
+        "schema.json",
+        "--formatters=isort",
+    ]
+    assert main_conftest._default_formatter_cli_args(["--input", "schema.json"], is_generation_command=False) == [
+        "--input",
+        "schema.json",
+    ]
+    assert main_conftest._default_formatter_cli_args(
+        ["--input", "schema.json"],
+        copy_files=[(tmp_path / "source.toml", tmp_path / "pyproject.toml")],
+        output_path=tmp_path / "output.py",
+    ) == ["--input", "schema.json"]
+    (tmp_path / "pyproject.toml").write_text("[tool.black]\nline-length = 60\n", encoding="utf-8")
+    assert main_conftest._default_formatter_cli_args(
+        ["--input", "schema.json"],
+        output_path=tmp_path / "output.py",
+    ) == ["--input", "schema.json"]
+
+
+def test_builtin_default_formatter_config(tmp_path: Path) -> None:
+    """Builtin formatter config is present only while the generation helper runs."""
+    output_file = tmp_path / "output.py"
+    with main_conftest._builtin_default_formatter_config(output_file, enabled=True):
+        assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == (
+            "[tool.datamodel-codegen]\nbuiltin-format-line-length = 88\n"
+        )
+    assert not (tmp_path / "pyproject.toml").exists()
+
+    with main_conftest._builtin_default_formatter_config(tmp_path, enabled=True):
+        assert (tmp_path / "pyproject.toml").is_file()
+    assert not (tmp_path / "pyproject.toml").exists()
+
+    existing_config = "[tool.black]\nline-length = 60\n"
+    (tmp_path / "pyproject.toml").write_text(existing_config, encoding="utf-8")
+    with main_conftest._builtin_default_formatter_config(output_file, enabled=True):
+        assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == existing_config
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == existing_config
+
+
+def test_default_formatter_main_generation_detection() -> None:
+    """Raw main helpers identify only generation commands for builtin defaults."""
+    assert main_conftest._is_main_generation_command(["--input", "schema.json"])
+    assert main_conftest._is_main_generation_command(["--url=https://example.com/schema.json"])
+    assert not main_conftest._is_main_generation_command(["--input", "schema.json", "--generate-prompt"])
+    assert not main_conftest._is_main_generation_command(["--input", "schema.json", "--output-format=json"])
+    assert not main_conftest._is_main_generation_command(["--version"])
+    assert main_conftest._get_cli_output_path(["--output", "model.py"]) == Path("model.py")
+    assert main_conftest._get_cli_output_path(["--output=model.py"]) == Path("model.py")
+    assert main_conftest._get_cli_output_path(["--input", "schema.json"]) is None
+
+
+def test_default_formatter_generate_options(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """API generation helpers add builtin only when formatter settings are absent."""
+    generate_kwargs: dict[str, object] = {}
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_TEST_DEFAULT_FORMATTER", raising=False)
+    assert main_conftest._default_formatter_generate_options(generate_kwargs) == generate_kwargs
+
+    monkeypatch.setenv("DATAMODEL_CODE_GENERATOR_TEST_DEFAULT_FORMATTER", "builtin")
+    assert main_conftest._default_formatter_generate_options(generate_kwargs) == {
+        "formatters": [Formatter.BUILTIN],
+        "builtin_format_line_length": 88,
+    }
+
+    explicit_kwargs = {"formatters": [Formatter.BLACK]}
+    assert main_conftest._default_formatter_generate_options(explicit_kwargs) == explicit_kwargs
+
+    (tmp_path / "pyproject.toml").write_text("[tool.black]\nline-length = 60\n", encoding="utf-8")
+    assert main_conftest._default_formatter_generate_options({}, output_path=tmp_path / "output.py") == {}
 
 
 def test_builtin_parity_generated_python_comparison(tmp_path: Path) -> None:

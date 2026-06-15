@@ -216,6 +216,221 @@ pub struct SurvivalPredictResult {
     pub eta_se: Option<Array1<f64>>,
 }
 
+/// Trapezoidal integral of a per-row survival curve `s(t)` sampled at the shared
+/// increasing `times` grid, restricted to `[0, tau]` — the restricted mean
+/// survival time (RMST) at horizon `tau`.
+///
+/// `RMST_i(tau) = \int_0^{tau} S_i(t) dt`. This is the standard clinical-trial
+/// survival summary (`survRM2`, lifelines `restricted_mean_survival_time`,
+/// flexsurv `rmst_*`): the area under the survival curve up to `tau`, equal to
+/// the mean of `min(T_i, tau)`. The curve is integrated with the trapezoid rule
+/// over the prediction grid; the head segment `[0, times[0]]` uses `S(0) = 1`
+/// (every subject is alive at the time origin), and when `tau` falls strictly
+/// inside a grid cell the survival value at `tau` is linearly interpolated so the
+/// partial cell contributes exactly. Grid points beyond `tau` are dropped.
+///
+/// Returns `None` when the grid is empty or `tau <= 0` (no area to accumulate),
+/// or when any sampled survival value on the integrated span is non-finite.
+fn restricted_mean_survival_time_from_curve(
+    times: &[f64],
+    survival_row: ndarray::ArrayView1<'_, f64>,
+    tau: f64,
+) -> Option<f64> {
+    if times.is_empty() || !(tau > 0.0) || !tau.is_finite() {
+        return None;
+    }
+    if times.len() != survival_row.len() {
+        return None;
+    }
+
+    // Survival at the cell boundaries we sweep through, starting from S(0) = 1.
+    let mut prev_t = 0.0_f64;
+    let mut prev_s = 1.0_f64;
+    let mut area = 0.0_f64;
+
+    for (idx, &t) in times.iter().enumerate() {
+        if !t.is_finite() || t < prev_t {
+            return None;
+        }
+        let s = survival_row[idx];
+        if !s.is_finite() {
+            return None;
+        }
+        if t >= tau {
+            // tau lands in (prev_t, t]; interpolate S(tau) and add the partial cell.
+            let span = t - prev_t;
+            let s_tau = if span > 0.0 {
+                let w = (tau - prev_t) / span;
+                prev_s + w * (s - prev_s)
+            } else {
+                prev_s
+            };
+            area += 0.5 * (prev_s + s_tau) * (tau - prev_t);
+            return Some(area);
+        }
+        area += 0.5 * (prev_s + s) * (t - prev_t);
+        prev_t = t;
+        prev_s = s;
+    }
+
+    // tau is beyond the last grid point: extend the last survival value flat to
+    // tau (conservative, matches survRM2's tau-at-or-before-last-event contract;
+    // callers wanting a strict horizon pass a tau within the grid).
+    area += prev_s * (tau - prev_t);
+    Some(area)
+}
+
+impl SurvivalPredictResult {
+    /// Per-row restricted mean survival time `\int_0^{tau} S_i(t) dt` from the
+    /// predicted survival surface. `tau` is the restriction horizon (e.g. the
+    /// study follow-up bound). Length-`n` vector, one RMST per predicted row.
+    ///
+    /// Returns `None` if the prediction grid is empty, `tau <= 0`, or any row's
+    /// survival curve carries a non-finite value on `[0, tau]`.
+    pub fn restricted_mean_survival_time(&self, tau: f64) -> Option<Array1<f64>> {
+        let n = self.survival.nrows();
+        let mut out = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let rmst =
+                restricted_mean_survival_time_from_curve(&self.times, self.survival.row(i), tau)?;
+            out[i] = rmst;
+        }
+        Some(out)
+    }
+}
+
+impl CompetingRisksPredictResult {
+    /// Per-row restricted mean survival time of the OVERALL (all-cause) survival
+    /// curve, `\int_0^{tau} S_overall_i(t) dt`. For competing risks the relevant
+    /// restricted-mean summary is taken on the all-cause survival
+    /// `exp(-sum_k H_k(t))`; cause-specific restricted-mean-time-lost is
+    /// `tau - RMST` partitioned by CIF and is left to the CIF surface directly.
+    pub fn restricted_mean_overall_survival_time(&self, tau: f64) -> Option<Array1<f64>> {
+        let n = self.overall_survival.nrows();
+        let mut out = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let rmst = restricted_mean_survival_time_from_curve(
+                &self.times,
+                self.overall_survival.row(i),
+                tau,
+            )?;
+            out[i] = rmst;
+        }
+        Some(out)
+    }
+}
+
+/// Harrell's concordance index (C-index) of a survival risk score against
+/// held-out outcomes. A larger `risk[i]` must predict a SHORTER survival time
+/// (higher hazard). Over every orderable pair — pairs whose earlier observed
+/// time is a genuine event, so the failure ordering is observed — a pair is
+/// concordant when the earlier-failing subject carries the larger risk; equal
+/// risks score half credit. `C = (concordant + 0.5·tied) / comparable`.
+/// `C = 0.5` is random ranking, `C = 1.0` a perfect ordering.
+///
+/// This is the standard discrimination metric (`survival::concordance`,
+/// `lifelines.utils.concordance_index`, scikit-survival `concordance_index_censored`).
+/// `time`, `event` (1 = event, 0 = censored), and `risk` must share length `n`.
+/// Returns `None` if there are no comparable pairs (e.g. all rows censored).
+pub fn harrell_concordance(time: &[f64], event: &[f64], risk: &[f64]) -> Option<f64> {
+    let n = time.len();
+    if n != event.len() || n != risk.len() {
+        return None;
+    }
+    let mut comparable = 0.0_f64;
+    let mut concordant = 0.0_f64;
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let (early, late) = if time[i] < time[j] {
+                (i, j)
+            } else if time[j] < time[i] {
+                (j, i)
+            } else {
+                // Tied times are comparable only if both failed; such a pair is a
+                // pure tie (no strict outcome ordering).
+                if event[i] > 0.5 && event[j] > 0.5 {
+                    comparable += 1.0;
+                    concordant += 0.5;
+                }
+                continue;
+            };
+            if event[early] < 0.5 {
+                // The earlier subject was censored: the true ordering is unknown.
+                continue;
+            }
+            comparable += 1.0;
+            if risk[early] > risk[late] {
+                concordant += 1.0;
+            } else if risk[early] == risk[late] {
+                concordant += 0.5;
+            }
+        }
+    }
+    if comparable == 0.0 {
+        return None;
+    }
+    Some(concordant / comparable)
+}
+
+/// IPCW (inverse-probability-of-censoring-weighted) Brier score of a predicted
+/// survival probability at a fixed horizon `tau` against held-out outcomes — the
+/// Graf et al. estimator used by scikit-survival `brier_score`, `pec`, and
+/// `survival::brier`.
+///
+/// `s_pred[i]` is the model's predicted survival probability `S(tau | x_i)`.
+/// `time`/`event` are the held-out observed time and event indicator. `g_cens`
+/// is the censoring survival distribution `G(t) = P(C > t)` evaluated at the two
+/// weighting times the estimator needs per subject — supplied as a callable so
+/// the caller can pass a Kaplan–Meier fit of the censoring process. Each
+/// subject contributes:
+///   * event before `tau`        →  weight `1/G(T_i⁻)`,   target `0`  (dead);
+///   * still alive at `tau`       →  weight `1/G(tau)`,    target `1`  (alive);
+///   * censored before `tau`      →  weight `0`            (uninformative).
+/// The score is the weighted mean squared error `mean_i w_i·(target_i − s_pred_i)²`.
+/// Lower is better; `0` is perfect. Returns `None` on length mismatch or when no
+/// subject carries positive weight.
+pub fn ipcw_brier_score(
+    s_pred: &[f64],
+    time: &[f64],
+    event: &[f64],
+    tau: f64,
+    g_cens: impl Fn(f64) -> f64,
+) -> Option<f64> {
+    let n = s_pred.len();
+    if n != time.len() || n != event.len() {
+        return None;
+    }
+    let mut wsum = 0.0_f64;
+    let mut acc = 0.0_f64;
+    for i in 0..n {
+        let (target, weight) = if time[i] <= tau && event[i] > 0.5 {
+            // Failed at or before the horizon: contributes via 1/G(T_i⁻).
+            let g = g_cens(time[i]);
+            if !(g > 0.0) {
+                continue;
+            }
+            (0.0, 1.0 / g)
+        } else if time[i] > tau {
+            // Survived past the horizon: contributes via 1/G(tau).
+            let g = g_cens(tau);
+            if !(g > 0.0) {
+                continue;
+            }
+            (1.0, 1.0 / g)
+        } else {
+            // Censored at or before tau (and not an event past tau): no info.
+            continue;
+        };
+        let resid = target - s_pred[i];
+        acc += weight * resid * resid;
+        wsum += weight;
+    }
+    if wsum == 0.0 {
+        return None;
+    }
+    Some(acc / wsum)
+}
+
 /// Joint cause-specific competing-risks prediction result.
 pub struct CompetingRisksPredictResult {
     pub times: Vec<f64>,
@@ -1298,9 +1513,50 @@ fn evaluate_marginal_slope_row(
         .predict_eta_and_q_chain(&pred_input)
         .map_err(|e| format!("saved survival marginal-slope predictor eta failed: {e}"))?;
     let eta = eta_arr[0];
-    let eta_derivative = deta_dq_arr[0] * qd_with_wiggle;
+    // `qd_with_wiggle` is the base survival-index time derivative q'(t), built
+    // identically to fit-time `qd1 = dq_dq0·d_raw` (the wiggle chain and the
+    // `+derivative_guard` offset are both already folded into `qd_exit_base`),
+    // so there is no predict-vs-fit desync in the derivative reconstruction.
+    //
+    // Fit enforces the monotonicity floor `q'(t) >= derivative_guard` ONLY at
+    // each training row's own exit time (one `t` per row), via the active-set
+    // guard constraints. A prediction horizon is an arbitrary `t` — typically a
+    // single CIF horizon evaluated for every row — which generally is NOT one of
+    // the constrained training exit times. Where that horizon lands in a region
+    // of sparse/no training exits, the penalized baseline spline can extrapolate
+    // to a locally decreasing survival index, so `q'(t) < 0` is a legitimate
+    // model statement ("no instantaneous hazard accrues here"), not a numerical
+    // bug. The instantaneous hazard rate is physically non-negative, so the
+    // truthful response is to clamp the index time-derivative at its floor 0
+    // (flat hazard, survival locally constant) rather than reject the whole
+    // prediction — clamping keeps the CIF well-posed and monotone. Only a
+    // non-finite derivative (a real numerical failure) is surfaced to the strict
+    // validator below.
+    let eta_derivative = marginal_slope_index_derivative_at_horizon(deta_dq_arr[0], qd_with_wiggle);
     let (cum, haz) = probit_survival_hazard_components(eta, eta_derivative)?;
     Ok((eta, cum, haz))
+}
+
+/// Reconstruct the marginal-slope survival index time-derivative `eta'(t)` at a
+/// prediction horizon and clamp it to its physical floor.
+///
+/// `deta_dq = ∂eta/∂q ≥ 1` is the rigid probit-frailty chain factor and
+/// `qd_with_wiggle = q'(t)` is the base survival-index time derivative built
+/// identically to fit-time `qd1`. The instantaneous hazard rate `h(t) = mills ·
+/// eta'(t)` is physically non-negative, so a finite negative `eta'(t)` — which a
+/// penalized baseline spline can legitimately produce when the prediction
+/// horizon lands outside the training exit times the monotonicity guard
+/// constrains — is clamped to its floor 0 (flat hazard, locally constant
+/// survival), keeping the CIF well-posed. Non-finite values pass through
+/// unchanged so the strict validator rejects them as genuine numerical failures.
+#[inline]
+fn marginal_slope_index_derivative_at_horizon(deta_dq: f64, qd_with_wiggle: f64) -> f64 {
+    let eta_derivative = deta_dq * qd_with_wiggle;
+    if eta_derivative.is_finite() {
+        eta_derivative.max(0.0)
+    } else {
+        eta_derivative
+    }
 }
 
 #[inline]
@@ -2886,6 +3142,55 @@ mod tests {
             probit_survival_hazard_components(1.0, 0.0).expect("zero derivative is flat hazard");
         assert!(cum > 0.0);
         assert_eq!(hazard, 0.0);
+    }
+
+    #[test]
+    fn marginal_slope_index_derivative_clamps_extrapolation_negative_to_flat_hazard() {
+        // The #1040 end-to-end blocker: at a prediction horizon outside the
+        // training exit times, the penalized baseline derivative q'(t) can dip
+        // negative (e.g. the reported eta_t=-0.00135), producing a negative
+        // index time-derivative the strict validator used to reject. The
+        // physical hazard floor is 0, so the clamp must turn it into a flat
+        // hazard the validator accepts — keeping predict/CIF runnable.
+        let deta_dq = (1.0_f64 + 0.4 * 0.4).sqrt(); // rigid c = sqrt(1+sb^2) >= 1
+        let qd_with_wiggle = -1.35e-3;
+        let eta_t = marginal_slope_index_derivative_at_horizon(deta_dq, qd_with_wiggle);
+        assert_eq!(
+            eta_t, 0.0,
+            "negative extrapolation derivative must clamp to 0"
+        );
+        // Downstream validator now accepts it as a flat-hazard point.
+        let (cum, hazard) = probit_survival_hazard_components(-0.563, eta_t)
+            .expect("clamped flat-hazard prediction must validate");
+        assert!(
+            cum >= 0.0,
+            "cumulative hazard must be well-posed, got {cum}"
+        );
+        assert_eq!(
+            hazard, 0.0,
+            "clamped derivative gives zero instantaneous hazard"
+        );
+    }
+
+    #[test]
+    fn marginal_slope_index_derivative_preserves_positive_and_nonfinite() {
+        // A genuinely positive derivative passes through unchanged (scaled by
+        // the chain factor), and a non-finite value is left for the strict
+        // validator to reject as a real numerical failure rather than masked.
+        let positive = marginal_slope_index_derivative_at_horizon(1.25, 0.8);
+        assert!(
+            (positive - 1.0).abs() <= 1e-15,
+            "positive derivative scaled by chain factor"
+        );
+        let nonfinite = marginal_slope_index_derivative_at_horizon(1.25, f64::NAN);
+        assert!(
+            nonfinite.is_nan(),
+            "non-finite derivative passes through unclamped"
+        );
+        assert!(
+            probit_survival_hazard_components(0.5, nonfinite).is_err(),
+            "non-finite derivative must still be rejected by the validator"
+        );
     }
 
     #[test]

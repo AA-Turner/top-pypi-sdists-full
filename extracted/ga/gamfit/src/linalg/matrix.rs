@@ -1,6 +1,7 @@
 use crate::faer_ndarray::{
-    CrossprodAccum, CrossprodStructure, FaerArrayView, array2_to_matmut, fast_ab, fast_atb,
-    fast_atv, fast_atv_into, fast_av, fast_av_into, fast_xt_diag_x, stream_weighted_crossprod_into,
+    CrossprodAccum, CrossprodStructure, FaerArrayView, array2_to_matmut,
+    effective_global_parallelism, fast_ab, fast_atb, fast_atv, fast_atv_into, fast_av,
+    fast_av_into, fast_xt_diag_x, stream_weighted_crossprod_into,
 };
 use crate::resource::{
     MaterializationPolicy, MatrixMaterializationError, ResourcePolicy, rows_for_target_bytes,
@@ -191,8 +192,15 @@ fn weighted_crossprod_dense_view(
         return weighted_crossprod_dense_rows(left, weights, right, 0..n);
     }
 
-    let n_threads = rayon::current_num_threads();
-    let chunk_rows = n.div_ceil(n_threads * 4).max(1);
+    let min_parallel_work = WEIGHTED_CROSSPROD_PARALLEL_MIN_FLOPS.min(usize::MAX as u64) as usize;
+    let Some(chunk_rows) = crate::parallel_strategy::row_reduction_chunk_rows(
+        n,
+        p_left.saturating_mul(p_right),
+        p_left.saturating_mul(p_right),
+        min_parallel_work,
+    ) else {
+        return weighted_crossprod_dense_rows(left, weights, right, 0..n);
+    };
     let starts: Vec<usize> = (0..n).step_by(chunk_rows).collect();
     let partials: Vec<Array2<f64>> = starts
         .into_par_iter()
@@ -502,9 +510,15 @@ fn sparse_csr_weighted_xtwx(
         return sparse_csr_weighted_xtwx_rows(row_ptr, col_idx, vals, p, weights, 0..n);
     }
 
-    let n_threads = rayon::current_num_threads();
-    let target_chunks = (n_threads * 8).max(1);
-    let chunk_rows = n.div_ceil(target_chunks).max(1);
+    let min_parallel_work = SPARSE_ROW_PARALLEL_MIN_FLOPS.min(usize::MAX as u64) as usize;
+    let Some(chunk_rows) = crate::parallel_strategy::row_reduction_chunk_rows(
+        n,
+        avg.min(usize::MAX as u64) as usize,
+        p.saturating_mul(p),
+        min_parallel_work,
+    ) else {
+        return sparse_csr_weighted_xtwx_rows(row_ptr, col_idx, vals, p, weights, 0..n);
+    };
     let starts: Vec<usize> = (0..n).step_by(chunk_rows).collect();
     let partials: Vec<Array2<f64>> = starts
         .into_par_iter()
@@ -578,7 +592,7 @@ fn streaming_sparse_csc_xt_diag_x(
     }
 
     let chunk_rows = dense_materialization_chunk_rows(n, p);
-    let par = faer::get_global_parallelism();
+    let par = effective_global_parallelism();
     let mut x_chunk = Array2::<f64>::zeros((chunk_rows, p).f());
     let mut wx_chunk = Array2::<f64>::zeros((chunk_rows, p).f());
 
@@ -638,8 +652,12 @@ fn sparse_csr_diag_gram(
     if rayon::current_num_threads() <= 1 || work < SPARSE_ROW_PARALLEL_MIN_FLOPS {
         return sparse_csr_diag_gram_rows(row_ptr, col_idx, vals, p, weights, 0..n);
     }
-    let n_threads = rayon::current_num_threads();
-    let chunk_rows = n.div_ceil(n_threads * 8).max(1);
+    let min_parallel_work = SPARSE_ROW_PARALLEL_MIN_FLOPS.min(usize::MAX as u64) as usize;
+    let Some(chunk_rows) =
+        crate::parallel_strategy::row_reduction_chunk_rows(n, 1, p, min_parallel_work)
+    else {
+        return sparse_csr_diag_gram_rows(row_ptr, col_idx, vals, p, weights, 0..n);
+    };
     let starts: Vec<usize> = (0..n).step_by(chunk_rows).collect();
     let partials: Vec<Array1<f64>> = starts
         .into_par_iter()
@@ -1286,7 +1304,7 @@ impl LinearOperator for DenseDesignMatrix {
                     &mut xtwx,
                     CrossprodStructure::Full,
                     CrossprodAccum::Replace,
-                    faer::get_global_parallelism(),
+                    effective_global_parallelism(),
                 );
                 Ok(xtwx)
             }
@@ -3260,7 +3278,7 @@ impl LinearOperator for TensorProductDesignOperator {
                     &mut block,
                     CrossprodStructure::Full,
                     CrossprodAccum::Replace,
-                    faer::get_global_parallelism(),
+                    effective_global_parallelism(),
                 );
                 (a_flat, b_flat, block)
             })
@@ -3648,7 +3666,7 @@ impl<K: SpatialKernelEvaluator> LinearOperator for ChunkedKernelDesignOperator<K
                 &mut xtwx,
                 CrossprodStructure::Full,
                 CrossprodAccum::Replace,
-                faer::get_global_parallelism(),
+                effective_global_parallelism(),
             );
             return Ok(xtwx);
         }
@@ -3904,7 +3922,7 @@ impl LinearOperator for CoefficientTransformOperator {
                 &mut xtwx,
                 CrossprodStructure::Full,
                 CrossprodAccum::Replace,
-                faer::get_global_parallelism(),
+                effective_global_parallelism(),
             );
             return Ok(xtwx);
         }
@@ -4151,7 +4169,7 @@ impl LinearOperator for ResidualisedDesignOperator {
                 &mut xtwx,
                 CrossprodStructure::Full,
                 CrossprodAccum::Replace,
-                faer::get_global_parallelism(),
+                effective_global_parallelism(),
             );
             return Ok(xtwx);
         }
@@ -4181,7 +4199,7 @@ impl LinearOperator for ResidualisedDesignOperator {
                 &mut local,
                 CrossprodStructure::Full,
                 CrossprodAccum::Replace,
-                faer::get_global_parallelism(),
+                effective_global_parallelism(),
             );
             xtwx += &local;
             start = end;
@@ -5157,7 +5175,7 @@ pub fn xt_diag_x_symmetric(
                         &mut xtwx,
                         CrossprodStructure::Full,
                         CrossprodAccum::Replace,
-                        faer::get_global_parallelism(),
+                        effective_global_parallelism(),
                     );
                 } else {
                     let (symbolic, values) = xs.parts();
@@ -5713,7 +5731,7 @@ impl LinearOperator for DesignMatrix {
                             &mut xtwx,
                             CrossprodStructure::Full,
                             CrossprodAccum::Replace,
-                            faer::get_global_parallelism(),
+                            effective_global_parallelism(),
                         );
                     } else {
                         let (symbolic, values) = xs.parts();

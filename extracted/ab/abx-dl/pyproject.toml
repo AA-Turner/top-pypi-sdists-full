@@ -1,6 +1,6 @@
 [project]
 name = "abx-dl"
-version = "1.11.214"
+version = "1.11.230"
 requires-python = ">=3.12"
 description = "All-in-one CLI tool to download and extract content from URLs"
 authors = [
@@ -57,8 +57,8 @@ dependencies = [
     "rich-click>=1.8.0",
     "rich>=13.0.0",
     "abxbus==2.5.10",
-    "abxpkg>=1.11.211",
-    "abx-plugins>=1.11.214",
+    "abxpkg>=1.11.224",
+    "abx-plugins>=1.11.224",
     "jambo>=0.1.7",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
@@ -85,14 +85,16 @@ Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 [dependency-groups]
 dev = [
     "flask>=3.0",
-    "pytest>=8.0.0",
-    "pytest-github-actions-annotate-failures>=0.3.0",
+    "pytest>=8.3.3,<9",
+    "pytest-codeblocks>=0.17.0",
+    "pytest-github-actions-annotate-failures>=0.4.0",
     "pytest-httpserver>=1.1.0",
     "pytest-sugar>=1.0.0",
     "pytest-timeout>=2.3.1",
     "pytest-xdist>=3.5.0",
     "flake8>=7.1.1",
     "mypy>=1.11.2",
+    "pdm-backend>=2.4.0",
     "prek>=0.3.6",
     "pyright>=1.1.408",
     "ruff>=0.15.7",
@@ -108,11 +110,17 @@ build-backend = "pdm.backend"
 [tool.pdm.build]
 includes = [
     "abx_dl/",
+    ".git/HEAD",
+    ".git/refs/heads/main",
 ]
-source-includes = []
+source-includes = [
+    ".git/HEAD",
+    ".git/refs/heads/main",
+]
 excludes = [
     ".DS_Store",
     "**/.DS_Store",
+    ".gitignore",
     "tests/",
     "tests/**",
 ]
@@ -143,6 +151,12 @@ ignore = [
 testpaths = [
     "tests",
     "server/tests",
+    "README.md",
+    "AGENTS.md",
+    "skills",
+]
+addopts = [
+    "--codeblocks",
 ]
 timeout = 600
 timeout_method = "thread"

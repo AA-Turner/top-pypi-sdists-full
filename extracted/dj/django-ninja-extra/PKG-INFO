@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ninja-extra
-Version: 0.31.4
+Version: 0.31.5
 Summary: Django Ninja Extra - Class Based Utility and more for Django Ninja(Fast Django REST framework)
 Home-page: https://github.com/eadwinCode/django-ninja-extra
 Author: Ezeudoh Tochukwu
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 3.1
@@ -33,6 +34,7 @@ Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: AsyncIO
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -54,7 +56,7 @@ Project-URL: Documentation, https://eadwincode.github.io/django-ninja-extra/
 
 # Django Ninja Extra
 
-Django Ninja Extra is a powerful extension for [Django Ninja](https://django-ninja.rest-framework.com) that enhances your Django REST API development experience. It introduces class-based views and advanced features while maintaining the high performance and simplicity of Django Ninja. Whether you're building a small API or a large-scale application, Django Ninja Extra provides the tools you need for clean, maintainable, and efficient API development.
+Django Ninja Extra is a powerful extension for [Django Ninja](https://django-ninja.dev) that enhances your Django REST API development experience. It introduces class-based views and advanced features while maintaining the high performance and simplicity of Django Ninja. Whether you're building a small API or a large-scale application, Django Ninja Extra provides the tools you need for clean, maintainable, and efficient API development.
 
 ## Features
 

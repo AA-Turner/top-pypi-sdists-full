@@ -186,6 +186,9 @@ class StubGenerator:
         self._add_import("chalk.features.primary.Primary", "Primary")
         self._add_import("chalk.utils.duration.Duration", "Duration")
         self._add_import("chalk.features.Tags", "Tags")
+        self._add_import("typing.Union", "Union")
+        self._add_import("typing.Mapping", "Mapping")
+        self._add_import("chalk.streams.Windowed", "Windowed")
         lines = [
             "# AUTO-GENERATED FILE. Do not edit. Run `chalk stubgen` to generate.",
             "# fmt: off",
@@ -413,18 +416,16 @@ class __stubgen__features_proto(Protocol):"""
             """\
 def add_features(
     namespace: str,
-    *fields: Feature,
+    *fields: Union[Feature, Windowed],
     owner: Optional[str] = ...,
     tags: Optional[Tags] = ...,
-    etl_offline_to_online: bool = ...,
+    etl_offline_to_online: Optional[bool] = ...,
     max_staleness: Optional[Duration] = ...,
-    singleton: bool = ...,
-    online_store_config: Any = ...,
-    cache_nulls: Any = ...,
-    cache_defaults: Any = ...,
     class_name: Optional[str] = None,
-    description: Optional[str] = None,
-) -> Type[Features]: ...
+) -> Type[Any]: ...
+def validate_no_unmerged_auxiliary_classes(
+    features_registry: Optional[Mapping[str, Any]] = None,
+) -> None: ...
 """
         )
         return lines

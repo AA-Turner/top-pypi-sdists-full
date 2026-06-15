@@ -130,6 +130,7 @@ from routes.turn_anatomy import bp_turn_anatomy
 from routes.tool_catalog import bp_tool_catalog
 from routes.context_economics import bp_context_economics
 from routes.entitlement import bp_entitlement
+from routes.extensions import bp_extensions
 from routes.otel_export import bp_otel_export
 from routes.device import bp_device
 from routes.runtime_ingest import bp_runtime_ingest
@@ -256,7 +257,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.521"
+__version__ = "0.12.525"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -9659,6 +9660,21 @@ def _fire_alert(rule_id, alert_type, message, channels=None, severity="warning")
         elif ch == "webhook":
             pass  # legacy: webhook dispatch now handled below via _dispatch_alert
 
+    # LLM-narrated enrichment (issue #1412, Feature C).  Replaces the raw
+    # threshold string with a 1-3 sentence human explanation when the LLM is
+    # available and the event hasn't been coalesced.  Falls back silently.
+    try:
+        from clawmetry import narrator as _narrator
+        _narrated = _narrator.narrate(
+            alert_type or "threshold",
+            {"message": message, "rule_id": rule_id, "alert_type": alert_type,
+             "severity": severity},
+        )
+        if _narrated:
+            message = _narrated
+    except Exception:
+        pass
+
     # Always dispatch to configured alert channels (Slack / Discord / generic webhook)
     _dispatch_alert(
         title=f"ClawMetry Alert [{alert_type}]",
@@ -11570,6 +11586,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_tool_catalog)
     app.register_blueprint(bp_context_economics)
     app.register_blueprint(bp_entitlement)
+    app.register_blueprint(bp_extensions)
     app.register_blueprint(bp_audit)
     app.register_blueprint(bp_device)
 
@@ -11726,40 +11743,6 @@ def detect_config(args=None):
             "env_optout": bool(os.environ.get("CLAWMETRY_NO_CLOUD", "").strip()),
         })
 
-    # Local SQLite event store (epic #964 / phase 1) — proves the daemon is
-    # writing through to ~/.clawmetry/events.db. The dashboard's main read
-    # paths are migrating to this store progressively; in the meantime this
-    # endpoint exposes the store's own metrics so we can verify the
-    # write-through is working in prod and start the cutover safely.
-    @app.route("/api/local-store/health", endpoint="local_store_health")
-    def _local_store_health():
-        from flask import jsonify as _jsonify
-        try:
-            from clawmetry import local_store
-            # read_only=True: this health endpoint runs in the dashboard
-            # process, which must NEVER open the DuckDB writer (it would steal
-            # the lock from the sync daemon during a restart window and blank
-            # every snapshot read). health() is a read; RO is sufficient.
-            return _jsonify(local_store.get_store(read_only=True).health())
-        except Exception as _e:
-            return _jsonify({"error": str(_e)[:300]}), 503
-
-    @app.route("/api/local-store/events", endpoint="local_store_events")
-    def _local_store_events():
-        from flask import jsonify as _jsonify, request as _req
-        try:
-            from clawmetry import local_store
-            store = local_store.get_store()
-            rows = store.query_events(
-                session_id=_req.args.get("session_id"),
-                event_type=_req.args.get("event_type"),
-                since=_req.args.get("since"),
-                until=_req.args.get("until"),
-                limit=int(_req.args.get("limit", "200")),
-            )
-            return _jsonify({"events": rows, "count": len(rows)})
-        except Exception as _e:
-            return _jsonify({"error": str(_e)[:300]}), 500
     # ────────────────────────────────────────────────────────────────────────
 
 
@@ -16481,6 +16464,7 @@ def _get_sessions():
                     ),
                     "kind": s.get("kind", "direct"),
                     "agent": s.get("agentId", "main"),
+                    "parentId": s.get("parentId") or s.get("spawnedBy") or s.get("parentKey") or None,
                 }
             )
         _sessions_cache["data"] = sessions

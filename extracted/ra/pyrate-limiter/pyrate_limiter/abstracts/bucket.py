@@ -12,6 +12,7 @@ from typing import Any, Awaitable, Dict, List, Optional, Type, Union
 
 from ..clocks import AbstractClock, MonotonicClock
 from ..utils import enforce_rate_list
+from .algorithm import Algorithm, SlidingWindowLog
 from .rate import Rate, RateItem
 
 logger = logging.getLogger("pyrate_limiter")
@@ -26,6 +27,17 @@ class AbstractBucket(ABC):
     _rates: List[Rate]
     failing_rate: Optional[Rate] = None
     _clock: AbstractClock = MonotonicClock()
+    # The rate-limiting policy this bucket enforces. Internal in v4 (every
+    # bucket uses the sliding-window-log default and delegates its per-rate
+    # admit decision + leak bound to it); v5 makes this a constructor argument
+    # so algorithms (GCRA, sliding-window-counter) become pluggable.
+    _algorithm: Algorithm = SlidingWindowLog()
+    # Whether this bucket's operations return awaitables. ``None`` means
+    # "unknown" - the Leaker then probes once by calling ``leak(0)`` and
+    # checking for a coroutine. Built-in sync/async buckets declare this so no
+    # side-effecting probe is needed; ``RedisBucket`` leaves it ``None`` because
+    # it may wrap either a sync or an async client (issue #305).
+    is_async: Optional[bool] = None
 
     @property
     def rates(self) -> List[Rate]:
@@ -151,37 +163,54 @@ class AbstractBucket(ABC):
         self.close()
 
 
-class Leaker(Thread):
+class Leaker:
     """Responsible for scheduling buckets' leaking at the background either
-    through a daemon task(for sync buckets) or a task using asyncio.Task
+    through a daemon thread (for sync buckets) or a task using asyncio.Task.
+
+    The sync worker is an *encapsulated* daemon thread rather than ``self``
+    (this class used to subclass ``Thread``). A ``Thread`` can only be started
+    once, so when the worker exits after every sync bucket has been disposed,
+    re-registering a bucket and calling ``start()`` again would raise
+    ``RuntimeError: threads can only be started once`` (issue #301). Holding the
+    thread as an attribute lets ``start()`` spin up a fresh one on demand.
     """
 
-    daemon = True
     name = "PyrateLimiter's Leaker"
     sync_buckets: Dict[int, AbstractBucket]
     async_buckets: Dict[int, AbstractBucket]
     leak_interval: int = 10_000
     aio_leak_task: Optional[asyncio.Task] = None
     _stop_event: Any
+    _thread: Optional[Thread] = None
 
     def __init__(self, leak_interval: int):
         self.sync_buckets = defaultdict()
         self.async_buckets = defaultdict()
         self.leak_interval = leak_interval
         self._stop_event = Event()  # <--- add here
-
-        super().__init__()
+        self._thread = None
 
     def register(self, bucket: AbstractBucket):
-        """Register a new bucket with its associated clock"""
+        """Register a new bucket, routing it to the sync or async leak loop.
+
+        Prefers the bucket's declared ``is_async``; only falls back to the
+        side-effecting ``leak(0)`` probe when that is ``None`` (issue #305).
+        """
         assert self.sync_buckets is not None
         assert self.async_buckets is not None
 
-        try_leak = bucket.leak(0)
         bucket_id = id(bucket)
+        is_async = bucket.is_async
 
-        if iscoroutine(try_leak):
-            try_leak.close()
+        if is_async is None:
+            try_leak = bucket.leak(0)
+            if iscoroutine(try_leak):
+                try_leak.close()
+                is_async = True
+            else:
+                is_async = False
+
+        if is_async:
             self.async_buckets[bucket_id] = bucket
         else:
             self.sync_buckets[bucket_id] = bucket
@@ -229,19 +258,26 @@ class Leaker(Thread):
         if self.async_buckets and not self.aio_leak_task:
             self.aio_leak_task = asyncio.create_task(self._leak(self.async_buckets))
 
-    def run(self) -> None:
-        """Override the original method of Thread
-        Not meant to be called directly
-        """
+    def is_alive(self) -> bool:
+        """Whether the sync-leak worker thread is currently running."""
+        return self._thread is not None and self._thread.is_alive()
+
+    def _run(self) -> None:
+        """Worker-thread target; not meant to be called directly."""
         assert self.sync_buckets
         asyncio.run(self._leak(self.sync_buckets))
 
     def start(self) -> None:
-        """Override the original method of Thread
-        Call to run leaking sync buckets
+        """Start (or restart) the daemon thread that leaks sync buckets.
+
+        The worker exits once every sync bucket is disposed; a finished
+        ``Thread`` cannot be restarted, so we create a fresh one here instead of
+        re-starting the dead one (which would raise ``RuntimeError``).
         """
         if self.sync_buckets and not self.is_alive():
-            super().start()
+            self._stop_event.clear()
+            self._thread = Thread(target=self._run, name=self.name, daemon=True)
+            self._thread.start()
 
     def close(self):
         self._stop_event.set()

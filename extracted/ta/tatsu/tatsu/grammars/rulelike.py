@@ -12,54 +12,55 @@ from functools import cached_property
 from typing import Any
 
 from ..contexts import Ctx
+from ..exceptions import FailedUnlinkedRule
 from ..objectmodel import nodedataclass
 from ..util import typename
-from .model import Grammar, Model, NamedBox, Rule
+from .model import Grammar, Model, Rule
 from .syntax import Sequence
 
 
 @nodedataclass
-class RuleInclude(NamedBox):
-    rule: Rule = field(default_factory=Rule)
+class RuleInclude(Model):
+    name: str = field(default='')  # type: ignore
+    _exp: Model | None = None
 
     def __post_init__(self):
+        if not self.name and self.ast:
+            assert isinstance(self.ast, str)
+            self.name = self.ast
         super().__post_init__()
-        if not self.name:
-            self.name = self.rule.name
+        assert self.name, f'{self!s}'
 
-    def link(self, grammar: Grammar):
+    def _parse(self, ctx: Ctx) -> Any:
+        if self._exp is None:
+            raise ctx.newexcept(f'Unlinked rule {self.name!r}', FailedUnlinkedRule)
+        return self._exp._parse(ctx)
+
+    @property
+    def exp(self) -> Model | None:
+        return self._exp
+
+    def link(self, grammar: Grammar) -> None:
         super().link(grammar)
-        if isinstance(self.exp, Model):
-            return
-        name = self.name or self.rule.name or self.exp
+        name = self.name
         assert name and isinstance(name, str), f'{self!r} {self.name!r}'
-        self.exp = grammar.rulemap[name].exp
-        assert isinstance(self.exp, Model), f'{self!r} {self.name!r}'
-
-    def __pub__(self, sunderok: bool = False):
-        assert self.name or self.rule, f'{self!r} {self.name!r}'
-        pub = super().__pub__(sunderok=sunderok)
-        pub['name'] = self.name
-        if sunderok:
-            return pub  # we're being called from __getstate__ not __repr__
-        pub.pop('rule', None)
-        pub.pop('exp', None)
-        return pub
+        self._exp = grammar.rulemap[name].exp
+        assert isinstance(self._exp, Model), f'{self!r}\n{self.name!r}\n{self._exp!r}'
 
     def missing_rules(self, rulenames: set[str]) -> set[str]:
-        assert self.name or self.rule, f'{self!r} {self.name!r}'
-        # if self.name not in rulenames:
-        #     return {self.name}
+        assert self.name, f'{self!r} {self.name!r}'
+        if self.name not in rulenames:
+            return {self.name}
         return set()
 
     def _pretty(self, lean=False):
-        return f'>{self.rule.name}'
+        return f'>{self.name}'
 
     def optimized(self) -> Model:
         if not self.exp:
             return super().optimized()
         new = copy(self)  # noqa: F821
-        new.exp = self.exp.optimized()
+        new._exp = self.exp.optimized()
         return new
 
 

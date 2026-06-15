@@ -196,6 +196,66 @@ def geometry_exp_map(
     )
 
 
+def fit_response_curvature(values: Any, *, geometry: str, level: float = 0.95) -> dict[str, Any]:
+    """Estimate curvature κ̂ on a constant-curvature response geometry.
+
+    κ is NOT supplied by the user: the geometry label is ``constant_curvature(
+    dim=d)`` and κ̂ is fitted from the manifold-valued responses by the REML /
+    evidence outer loop (the profiled Fréchet-dispersion criterion, owned in
+    Rust). Returns the fit summary: the point estimate ``kappa_hat``, the
+    profile-likelihood 95% CI (``ci_lo``/``ci_hi`` with open-at-bound flags), the
+    geometry ``verdict`` (spherical / hyperbolic / flat from the CI sign), and the
+    interior-point Wilks flatness test of κ = 0 (``flatness_lr`` /
+    ``flatness_pvalue``).
+
+    Scale-awareness (#1104): κ has units 1/length², so ``kappa_hat`` is
+    *scale-dependent*. ``railed_at_resolution_limit`` is ``True`` when the cloud
+    is curved beyond what its spread can resolve (it fills the sphere) and κ̂
+    railed to the chart conjugate cap — κ̂ / ``ci_hi`` are then a LOWER BOUND on
+    |κ| ("curvature exceeds chart-resolvable range at this scale"), NOT a resolved
+    point estimate. ``kappa_r2`` = κ̂·r² is the scale-FREE invariant the cloud
+    actually determines (invariant under ``y → α·y``); ``characteristic_radius``
+    = r is the κ=0 spread it is dimensionless to. For arbitrarily-rescaled data
+    (e.g. unit-normalised activations) read ``kappa_r2`` / the rail flag, NOT the
+    scale-dependent ``kappa_hat`` alone.
+    """
+    np = _np()
+    (
+        kappa_hat,
+        ci_lo,
+        ci_hi,
+        lo_at_bound,
+        hi_at_bound,
+        verdict,
+        lr_stat,
+        p_value,
+        railed,
+        kappa_r2,
+        characteristic_radius,
+        base_point,
+    ) = _ffi(
+        "response_geometry_fit_curvature",
+        np.asarray(values, dtype=float),
+        str(geometry),
+        float(level),
+    )
+    return {
+        "kappa_hat": float(kappa_hat),
+        "ci_level": float(level),
+        "ci_lo": float(ci_lo),
+        "ci_hi": float(ci_hi),
+        "ci_lo_at_bound": bool(lo_at_bound),
+        "ci_hi_at_bound": bool(hi_at_bound),
+        "verdict": str(verdict),
+        "flatness_lr": float(lr_stat),
+        "flatness_pvalue": float(p_value),
+        "railed_at_resolution_limit": bool(railed),
+        "kappa_r2": float(kappa_r2),
+        "characteristic_radius": float(characteristic_radius),
+        "base_point": list(map(float, base_point)),
+    }
+
+
 @dataclass(slots=True)
 class SharedGaussianRemlTangentFit:
     template_model: Any
@@ -249,6 +309,10 @@ class ResponseGeometryModel:
     reference: int = -1
     training_table_kind: str | None = None
     shared_tangent_fit: SharedGaussianRemlTangentFit | None = None
+    # Curvature-as-estimand summary (only populated for constant_curvature
+    # geometries): κ̂, its profile-likelihood CI, geometry verdict, and the Wilks
+    # flatness test of κ = 0. ``None`` for fixed-geometry response manifolds.
+    curvature: dict[str, Any] | None = None
 
     @property
     def tangent_dimension(self) -> int:
@@ -295,7 +359,7 @@ class ResponseGeometryModel:
         )
 
     def summary(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "model_class": "response-geometry",
             "response_geometry": self.response_geometry,
             "response_columns": list(self.response_columns),
@@ -308,6 +372,11 @@ class ResponseGeometryModel:
             if self.shared_tangent_fit is None
             else self.shared_tangent_fit.summary(),
         }
+        if self.curvature is not None:
+            # κ̂ with profile CI, geometry verdict, and Wilks flatness test —
+            # the curvature-as-estimand report for constant_curvature fits.
+            out["curvature"] = dict(self.curvature)
+        return out
 
 
 def fit_response_geometry(
@@ -325,9 +394,24 @@ def fit_response_geometry(
 ) -> ResponseGeometryModel:
     columns, table_kind = table_columns(data)
     y = response_matrix_from_table(data, response_columns)
+
+    # Curvature-as-estimand (#944 / #1104): for a constant-curvature response
+    # geometry κ is fitted from the responses (NOT user-supplied). Estimate κ̂
+    # first, then build the tangent coordinates AT κ̂ so the whole fit is on the
+    # evidence-optimal geometry. κ̂ + its profile CI + the Wilks flatness test are
+    # carried into the model summary.
+    curvature_summary: dict[str, Any] | None = None
+    geometry_for_maps = response_geometry
+    if response_geometry.strip().lower().split("(", 1)[0] == "constant_curvature":
+        curvature_summary = fit_response_curvature(y, geometry=response_geometry)
+        kappa_hat = curvature_summary["kappa_hat"]
+        # Re-express the geometry at κ̂ for the log/exp maps (dim is inferred from
+        # the response column count exactly as the estimand inferred it).
+        geometry_for_maps = f"constant_curvature(dim={int(y.shape[1])},kappa={kappa_hat!r})"
+
     tangent, base, resolved_coordinates = geometry_log_map(
         y,
-        geometry=response_geometry,
+        geometry=geometry_for_maps,
         coordinates=coordinates,
         reference=reference,
     )
@@ -376,7 +460,10 @@ def fit_response_geometry(
     )
     return ResponseGeometryModel(
         models=(),
-        response_geometry=response_geometry.lower(),
+        # The geometry used for the log/exp maps carries the fitted κ̂ for a
+        # constant-curvature fit (so predict() round-trips on the SAME geometry
+        # the tangent was built on); for fixed geometries it is just the label.
+        response_geometry=geometry_for_maps.lower(),
         response_columns=tuple(response_columns),
         base_point=base,
         coordinates=resolved_coordinates,
@@ -387,6 +474,7 @@ def fit_response_geometry(
             coefficients=shared_fit["coefficients"],
             fit=shared_fit,
         ),
+        curvature=curvature_summary,
     )
 
 

@@ -6,12 +6,18 @@ Tests for error handling, malformed data, and edge cases.
 import json
 import re
 
+import httpx
 import pytest
 
 from bcb import sgs
 from bcb.exceptions import SGSError
+from tests.conftest import SGS_JSON_5
 
 SGS_CODE_URL = re.compile(r".*bcdata\.sgs\..*")
+
+
+def _disable_sgs_retry_sleep(monkeypatch):
+    monkeypatch.setattr(sgs._get_sgs_response.retry, "sleep", lambda _: None)
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +55,58 @@ def test_get_json_500_raises(httpx_mock):
     )
     with pytest.raises(SGSError):
         sgs.get_json(1)
+
+
+def test_get_json_connection_error_raises(httpx_mock, monkeypatch):
+    _disable_sgs_retry_sleep(monkeypatch)
+    for _ in range(4):
+        httpx_mock.add_exception(
+            httpx.ConnectError("network down"),
+            url=SGS_CODE_URL,
+        )
+
+    with pytest.raises(SGSError, match="SGS time series"):
+        sgs.get_json(1)
+
+
+def test_get_json_timeout_error_raises(httpx_mock, monkeypatch):
+    _disable_sgs_retry_sleep(monkeypatch)
+    for _ in range(4):
+        httpx_mock.add_exception(
+            httpx.TimeoutException("request timed out"),
+            url=SGS_CODE_URL,
+        )
+
+    with pytest.raises(SGSError, match="SGS time series"):
+        sgs.get_json(1)
+
+
+def test_get_json_retries_timeout_then_succeeds(httpx_mock, monkeypatch):
+    _disable_sgs_retry_sleep(monkeypatch)
+    httpx_mock.add_exception(
+        httpx.TimeoutException("request timed out"),
+        url=SGS_CODE_URL,
+    )
+    httpx_mock.add_response(
+        url=SGS_CODE_URL,
+        text=SGS_JSON_5,
+        status_code=200,
+    )
+
+    assert sgs.get_json(1) == SGS_JSON_5
+
+
+def test_get_json_does_not_retry_http_status_errors(httpx_mock, monkeypatch):
+    _disable_sgs_retry_sleep(monkeypatch)
+    httpx_mock.add_response(
+        url=SGS_CODE_URL,
+        status_code=500,
+    )
+
+    with pytest.raises(SGSError):
+        sgs.get_json(1)
+
+    assert len(httpx_mock.get_requests()) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -130,9 +188,32 @@ def test_sgs_code_string_non_numeric_raises(httpx_mock):
 
 def test_get_empty_code_list():
     """Test that empty code list raises ValueError."""
-    # Empty list results in no DataFrames to concat, which raises ValueError
-    with pytest.raises(ValueError, match="No objects to concatenate"):
+    with pytest.raises(ValueError, match="At least one SGS code"):
         sgs.get([])
+
+
+def test_get_empty_code_mapping():
+    """Test that empty code mappings raise ValueError."""
+    with pytest.raises(ValueError, match="At least one SGS code"):
+        sgs.get({})
+
+
+def test_get_invalid_output_raises():
+    """Unsupported output values fail before HTTP requests."""
+    with pytest.raises(ValueError, match="output"):
+        sgs.get(1, output="xml")  # type: ignore[arg-type]
+
+
+def test_get_negative_last_raises():
+    """Negative last values fail before HTTP requests."""
+    with pytest.raises(ValueError, match="last"):
+        sgs.get(1, last=-1)
+
+
+def test_get_json_negative_code_raises():
+    """get_json validates single public code inputs."""
+    with pytest.raises(ValueError, match="positive"):
+        sgs.get_json(-1)
 
 
 # ---------------------------------------------------------------------------

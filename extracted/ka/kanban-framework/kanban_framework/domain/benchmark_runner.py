@@ -72,7 +72,7 @@ def parse_suite(suite_path: Path) -> BenchmarkSuite:
     if not suite_path.exists():
         raise FileNotFoundError(f"Suite file not found: {suite_path}")
 
-    with open(suite_path) as f:
+    with open(suite_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     if not data:
@@ -280,12 +280,17 @@ class BenchmarkRunner:
         try:
             from kanban_framework.domain.llm_stats import LLMStatsReader
             reader = LLMStatsReader(root)
+            # v0.192: Use hybrid algorithm (assistant-only region + API filter).
+            # Fixes #652: previous two-step counted user/tool_result mentions of
+            # task_id, which caused quick/lightweight windows to overlap in
+            # benchmark sessions. Now only assistant tool_use commands define
+            # the region → per-task precise + broad coverage.
             llm_stats = reader.get_task_api_calls(task_id)
-            # get_task_api_calls returns dict (not TaskLLMStats object)
             _calls = llm_stats.get("total_calls", 0)
-            _inp = llm_stats.get("tokens", {}).get("input", 0)
-            _out = llm_stats.get("tokens", {}).get("output", 0)
-            _cache = llm_stats.get("tokens", {}).get("cache_read", 0)
+            _tokens = llm_stats.get("tokens", {})
+            _inp = _tokens.get("input", 0)
+            _out = _tokens.get("output", 0)
+            _cache = _tokens.get("cache_read", 0)
             verdict.llm_calls = _calls
             verdict.llm_tokens_input = _inp
             verdict.llm_tokens_output = _out

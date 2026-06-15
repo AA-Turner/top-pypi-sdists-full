@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.11.214
+Version: 1.11.230
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -42,8 +42,8 @@ Requires-Python: >=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.10
-Requires-Dist: abxpkg>=1.11.211
-Requires-Dist: abx-plugins>=1.11.214
+Requires-Dist: abxpkg>=1.11.224
+Requires-Dist: abx-plugins>=1.11.224
 Requires-Dist: jambo>=0.1.7
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
@@ -56,11 +56,28 @@ Description-Content-Type: text/markdown
 
 > A simple all-in-one CLI tool to auto-detect and download *everything* available from a URL.
 
+<!--
 ```bash
-uvx abx-dl 'https://example.com'
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
+```bash
+uvx abx-dl --plugins=title,wget 'https://example.com'
+```
 
-# OR
+<!--pytest-codeblocks:cont-->
+<!--
+```bash
+test -s index.jsonl
+test -s title/title.txt
+test -s wget/example.com/index.html
+```
+-->
 
+<!--pytest.mark.skip(reason="requires interactive TTY")-->
+```bash
 docker run -it -v "$PWD:/out" archivebox/abxdl 'https://example.com'
 ```
 ---
@@ -81,9 +98,36 @@ It's useful for scraping, downloading, OSINT, digital preservation, and more.
 
 #### 🍜 What does it save?
 
+<!--
 ```bash
-abx-dl --plugins=wget,title,screenshot,pdf,readability,git 'https://example.com'
+cd "$(mktemp -d)"
+exec >stdout.log
 ```
+-->
+<!--pytest-codeblocks:cont-->
+```bash
+abx-dl --plugins=wget,title,screenshot,pdf,readability 'https://example.com'
+```
+
+<!--pytest-codeblocks:cont-->
+<!--
+```bash
+test -s index.jsonl
+test -s title/title.txt
+test -s wget/example.com/index.html
+test -s screenshot/screenshot.png
+test -s pdf/output.pdf
+test -s readability/content.html
+grep -q 'Example Domain' title/title.txt
+grep -q 'Example Domain' wget/example.com/index.html
+grep -q 'Example Domain' readability/content.txt
+grep -q '"plugin": "wget".*"status": "succeeded"' index.jsonl
+grep -q '"plugin": "screenshot".*"status": "succeeded"' index.jsonl
+grep -q '"plugin": "pdf".*"status": "succeeded"' index.jsonl
+grep -q '"plugin": "title".*"status": "succeeded"' index.jsonl
+grep -q '"plugin": "readability".*"status": "succeeded"' index.jsonl
+```
+-->
 
 `abx-dl` runs all plugins by default (and auto installs dependencies). You can specify `--plugins=wget,favicon,title` or filters like `--output=html,pdf,ico,text/` to limit plugin selection.
 - HTML, JS, CSS, images, etc. rendered with a headless browser
@@ -111,6 +155,13 @@ Plugins are loaded from the installed [`abx-plugins`](https://pypi.org/project/a
 
 Configuration is handled via environment variables plus a user config file under the platformdirs user config path (`<user-config>/abx/config.env`). Runtime-derived cache entries such as resolved binary paths are stored separately in `<user-config>/abx/derived.env`:
 
+<!--
+```bash
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```bash
 abx-dl config                        # show all config (global + per-plugin)
 abx-dl config --get WGET_TIMEOUT     # get a specific value
@@ -118,7 +169,7 @@ abx-dl config --set TIMEOUT=120      # set persistently (resolves aliases)
 ```
 
 Output is grouped by section:
-```bash
+```text
 # GLOBAL
 TIMEOUT=60
 USER_AGENT="Mozilla/5.0 ..."
@@ -145,20 +196,35 @@ Aliases are automatically resolved (e.g. `--set USE_WGET=false` saves as `WGET_E
 
 One-off config is easy via env vars or CLI args:
 
+<!--
+```bash
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```bash
 env \
-  CHROME_BINARY=/usr/bin/chromium \
   TIMEOUT=120 \
-  abx-dl 'https://example.com'
-
-# CLI args
-abx-dl \
-  --dir=/tmp/test \
-  --plugins=wget,title,favicon \
-  --output=html,txt,css,js,ico,png,pdf \
-  --timeout=90 \
-  'https://example.com'
+  WGET_TIMEOUT=120 \
+  abx-dl \
+    --dir=./config-example \
+    --plugins=title,wget \
+    --timeout=90 \
+    'https://example.com'
 ```
+
+<!--pytest-codeblocks:cont-->
+<!--
+```bash
+test -s config-example/index.jsonl
+test -s config-example/title/title.txt
+test -s config-example/wget/example.com/index.html
+grep -q 'Example Domain' config-example/title/title.txt
+grep -q '"plugin": "wget".*"status": "succeeded"' config-example/index.jsonl
+grep -q '"plugin": "title".*"status": "succeeded"' config-example/index.jsonl
+```
+-->
 
 <br/>
 
@@ -168,23 +234,58 @@ abx-dl \
 
 ### 📦 Install
 
+<!--
 ```bash
-pip install abx-dl
-abx-dl 'https://example.com'
-
-# Or run the published CLI without installing it globally
-uvx abx-dl 'https://example.com'
-
-# Check / Install any missing plugin dependencies
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
+```bash
+uv tool install abx-dl
 abx-dl version
-abx-dl install
+```
+
+<!--
+```bash
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
+```bash
+uvx abx-dl version
+```
+
+```bash
+abx-dl install wget title
 ```
 
 <br/>
 
 ### 🔠 Usage
 
+<!--
 ```bash
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
+```bash
+abx-dl --plugins=title,wget --dir=./downloads --timeout=120 'https://example.com'
+```
+
+<!--pytest-codeblocks:cont-->
+<!--
+```bash
+test -s downloads/index.jsonl
+test -s downloads/title/title.txt
+test -s downloads/wget/example.com/index.html
+```
+-->
+
+```text
 # Default command - a bare URL archives with all enabled plugins:
 abx-dl 'https://example.com'
 
@@ -207,7 +308,7 @@ abx-dl --timeout=120 'https://example.com'
 
 #### Commands
 
-```bash
+```text
 abx-dl <url>                              # Download URL (default shorthand)
 abx-dl plugins                            # Check + show info for all plugins
 abx-dl plugins wget ytdlp git             # Check + show info for specific plugins
@@ -224,18 +325,23 @@ Many plugins require external binaries (e.g., `wget`, `chrome`, `yt-dlp`, `singl
 By default, `abx-dl` lazily installs missing dependencies as needed when you download a URL.
 Use `--no-install` to skip plugins with missing dependencies instead. `install` runs only the pre-run dependency pipeline (`required_binaries` → `BinaryRequestEvent` → `BinaryEvent`) without starting crawl setup or snapshot extraction:
 
+<!--
 ```bash
-# Auto-installs missing deps on-the-fly (default behavior)
-abx-dl 'https://example.com'
+cd "$(mktemp -d)"
+exec >stdout.log
+```
+-->
+<!--pytest-codeblocks:cont-->
+```bash
+abx-dl install wget title
+abx-dl plugins wget title
+```
 
-# Skip plugins with missing deps, emit warnings instead
-abx-dl --no-install 'https://example.com'
-
-# Install dependencies for specific plugins only
-abx-dl install wget singlefile ytdlp
-
-# Check which dependencies are available/missing
-abx-dl plugins
+```text
+abx-dl 'https://example.com'              # auto-installs missing deps on-the-fly
+abx-dl --no-install 'https://example.com' # skips plugins with missing deps and emits warnings
+abx-dl install wget singlefile ytdlp      # installs dependencies for specific plugins only
+abx-dl plugins                            # checks which dependencies are available/missing
 ```
 
 Successful preflight installs are cached for 24 hours in `derived.env` under `ABX_INSTALL_CACHE`, keyed by binary name. If a binary was installed successfully recently, `abx-dl` skips re-running the install preflight for that binary. Cached abspaths are still validated at use time, and stale cache entries fall back to `abxpkg` provider resolution.
@@ -258,7 +364,7 @@ Dependencies are installed to `<user-config>/abx/lib/{arch}/` using the appropri
 - **npm packages** → `<user-config>/abx/lib/{arch}/npm/`
 - **brew/apt packages** → system locations
 
-You can override the install location with `LIB_DIR=/path/to/lib abx-dl install wget`.
+You can override the install location with `ABXPKG_LIB_DIR=/path/to/lib abx-dl install wget`.
 
 <br/>
 

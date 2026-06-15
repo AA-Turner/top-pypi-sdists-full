@@ -6,6 +6,7 @@ pub mod estimate;
 pub mod evidence;
 pub mod gauge;
 pub mod gaussian_reml;
+pub mod glm_sufficient_lane;
 pub mod gpu;
 pub mod grid_spline_2d;
 pub mod identifiability_audit;
@@ -28,7 +29,6 @@ pub mod psi_gram_tensor;
 pub mod residual_cascade;
 pub(crate) mod riemannian_retraction;
 pub mod row_measure;
-pub mod scan_backfit;
 pub mod seeding;
 pub mod sensitivity;
 pub mod spline_scan;
@@ -39,7 +39,9 @@ pub mod structure_search;
 pub mod topology_formula;
 pub mod topology_selector;
 pub mod visualizer;
-pub(crate) mod workflow;
+pub(crate) mod warm_start_artifact;
+pub(crate) mod warm_start_transfer;
+pub mod workflow;
 
 pub use evidence::{
     EvidenceHvpLogDet, EvidenceIftGradientTerms, EvidenceLogDetSource, GaussianMixtureConfig,

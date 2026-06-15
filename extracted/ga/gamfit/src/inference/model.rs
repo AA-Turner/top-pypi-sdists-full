@@ -13,11 +13,12 @@ use crate::families::wiggle::{
 };
 use crate::inference::formula_dsl::{
     inverse_link_supports_joint_wiggle, joint_wiggle_unsupported_link_message, parse_formula,
-    parse_surv_response, parsed_term_column_names,
+    parse_surv_interval_response, parse_surv_response, parsed_term_column_names,
 };
 use crate::inference::predict::{
     BernoulliMarginalSlopePredictor, BinomialLocationScalePredictor,
-    GaussianLocationScalePredictor, PredictableModel, StandardPredictor, SurvivalPredictor,
+    DispersionLocationScalePredictor, GaussianLocationScalePredictor, PredictableModel,
+    StandardPredictor, SurvivalPredictor,
 };
 use crate::mixture_link::{state_from_beta_logisticspec, state_from_sasspec};
 use crate::smooth::{AdaptiveRegularizationDiagnostics, TermCollectionSpec};
@@ -75,6 +76,17 @@ pub struct SavedSplineScan {
     /// Training column name feeding the single 1-D smooth at predict time.
     pub feature_column: String,
     pub state: crate::solver::spline_scan::SplineScanState,
+}
+
+/// Saved multiresolution residual-cascade fit (#1032): the predict-time feature
+/// columns (d ∈ {2, 3}) plus the serializable cascade state that `from_state`
+/// rebuilds a predict-capable `ResidualCascadeFit` from. The cascade is a
+/// DIFFERENT posterior from the dense Duchon/Matérn term — never a silent swap.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SavedResidualCascade {
+    /// Training column names for the d ∈ {2, 3} scattered-smooth coordinates.
+    pub feature_columns: Vec<String>,
+    pub state: crate::solver::residual_cascade::ResidualCascadeState,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -267,6 +279,13 @@ pub struct FittedModelPayload {
     /// payloads read as: not a scan model.
     #[serde(default)]
     pub spline_scan: Option<SavedSplineScan>,
+    /// O(n log n) multiresolution residual-cascade fit (#1032): the persisted
+    /// multilevel Wendland-frame state for a single scattered 2–3D Gaussian
+    /// smooth past the dense-kernel cliff. When `Some`, predictions replay the
+    /// cascade posterior; mutually exclusive with `spline_scan`/`fit_result`.
+    /// `#[serde(default)]` keeps forward-compatibility with older payloads.
+    #[serde(default)]
+    pub residual_cascade: Option<SavedResidualCascade>,
     #[serde(default)]
     pub data_schema: Option<DataSchema>,
     pub link: Option<InverseLink>,
@@ -487,6 +506,35 @@ pub struct FittedModelPayload {
     pub resolved_termspec_logslopes: Option<Vec<TermCollectionSpec>>,
     #[serde(default)]
     pub adaptive_regularization_diagnostics: Option<AdaptiveRegularizationDiagnostics>,
+    /// Precomputed exact Gaussian-identity jackknife+ statistics (#942).
+    ///
+    /// Populated *only* for a standard Gaussian-identity model fit with unit
+    /// prior weights, where the closed-form Sherman–Morrison leave-one-out
+    /// substrate gives a distribution-free finite-sample (≥ level) prediction
+    /// interval with no held-out fold. When `Some`, `predict(interval=level)`
+    /// auto-routes through it (the MAGIC default); when `None` — any other
+    /// family/link, reweighted rows, or an older payload — predict falls back
+    /// to the model-based posterior band and labels the provenance honestly.
+    /// `#[serde(default)]` so pre-existing models deserialize as: no jackknife+
+    /// substrate available.
+    #[serde(default)]
+    pub gaussian_jackknife_plus:
+        Option<crate::inference::full_conformal::GaussianJackknifePlusStats>,
+    /// Precomputed substrate for the EXACT Gaussian-identity full-conformal set
+    /// (#942 Layer 1 + the frozen-ρ self-diagnostic).
+    ///
+    /// Populated under the SAME eligibility as `gaussian_jackknife_plus`
+    /// (Gaussian-identity, unit prior weights, offset-free, no link wiggle). It
+    /// persists the training design + response + frozen penalty `Sλ` so the
+    /// distribution-free EXACT prediction set (a union of intervals, valid for
+    /// any penalized smooth) can be replayed per test point — one Cholesky each,
+    /// zero refits — and surfaces the frozen-ρ certificate flag. `None` for any
+    /// ineligible model or an older payload, in which case the exact-set predict
+    /// path errors with a clear message and the caller uses jackknife+ or the
+    /// posterior band. `#[serde(default)]` so pre-existing models deserialize as
+    /// no exact substrate available.
+    #[serde(default)]
+    pub full_conformal: Option<crate::inference::full_conformal::ExactFullConformalSubstrate>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -637,6 +685,7 @@ impl FittedModelPayload {
             fit_result: None,
             unified: None,
             spline_scan: None,
+            residual_cascade: None,
             data_schema: None,
             link: None,
             mixture_link_param_covariance: None,
@@ -718,6 +767,8 @@ impl FittedModelPayload {
             resolved_termspec_logslope: None,
             resolved_termspec_logslopes: None,
             adaptive_regularization_diagnostics: None,
+            gaussian_jackknife_plus: None,
+            full_conformal: None,
         }
     }
 
@@ -834,6 +885,11 @@ pub enum PredictModelClass {
     Standard,
     GaussianLocationScale,
     BinomialLocationScale,
+    /// Genuine-dispersion location-scale (#913): NegativeBinomial / Gamma / Beta
+    /// / Tweedie mean families fitted with a `noise_formula` overdispersion
+    /// channel. Predicted through the GLM mean inverse link (not the binomial
+    /// threshold-scale predictor).
+    DispersionLocationScale,
     BernoulliMarginalSlope,
     Survival,
     TransformationNormal,
@@ -846,6 +902,7 @@ impl PredictModelClass {
             Self::Standard => "standard",
             Self::GaussianLocationScale => "gaussian location-scale",
             Self::BinomialLocationScale => "binomial location-scale",
+            Self::DispersionLocationScale => "dispersion location-scale",
             Self::BernoulliMarginalSlope => "bernoulli marginal-slope",
             Self::Survival => "survival",
             Self::TransformationNormal => "transformation-normal",
@@ -963,13 +1020,37 @@ fn location_scale_noise_beta(fit: &UnifiedFitResult) -> Option<Array1<f64>> {
         .map(|block| block.beta.clone())
 }
 
+/// Whether a `ModelKind::LocationScale` likelihood's response is one of the
+/// genuine-dispersion mean families (#913) — NegativeBinomial, Gamma, Beta or
+/// Tweedie. These carry a `noise_formula` overdispersion channel and must be
+/// predicted through the GLM mean inverse link (the
+/// [`PredictModelClass::DispersionLocationScale`] path), NOT the binomial
+/// threshold-scale predictor. The binomial location-scale (BMS ordinal) path is
+/// the only other non-Gaussian location-scale family, with a `Binomial`
+/// response.
+fn is_dispersion_location_scale_response(response: &crate::types::ResponseFamily) -> bool {
+    use crate::types::ResponseFamily;
+    matches!(
+        response,
+        ResponseFamily::NegativeBinomial { .. }
+            | ResponseFamily::Gamma
+            | ResponseFamily::Beta { .. }
+            | ResponseFamily::Tweedie { .. }
+    )
+}
+
 fn validate_location_scale_saved_fit(
     fit: &UnifiedFitResult,
     model_class: PredictModelClass,
     link_wiggle: Option<&SavedLinkWiggleRuntime>,
 ) -> Result<(), FittedModelError> {
     let primary = match model_class {
-        PredictModelClass::GaussianLocationScale => gaussian_location_scale_mean_beta(fit),
+        // Gaussian and dispersion (#913) location-scale both predict the mean
+        // through the Location block; the binomial threshold-scale class reads
+        // the Threshold block instead.
+        PredictModelClass::GaussianLocationScale | PredictModelClass::DispersionLocationScale => {
+            gaussian_location_scale_mean_beta(fit)
+        }
         PredictModelClass::BinomialLocationScale => binomial_location_scale_threshold_beta(fit),
         _ => None,
     }
@@ -977,6 +1058,9 @@ fn validate_location_scale_saved_fit(
         reason: match model_class {
             PredictModelClass::GaussianLocationScale => {
                 "gaussian-location-scale saved fit is missing mean/location block".to_string()
+            }
+            PredictModelClass::DispersionLocationScale => {
+                "dispersion-location-scale saved fit is missing mean/location block".to_string()
             }
             PredictModelClass::BinomialLocationScale => {
                 "binomial-location-scale saved fit is missing threshold/location block".to_string()
@@ -2379,6 +2463,8 @@ impl FittedModel {
             ModelKind::LocationScale => {
                 if likelihood == LikelihoodSpec::gaussian_identity() {
                     PredictModelClass::GaussianLocationScale
+                } else if is_dispersion_location_scale_response(&likelihood.response) {
+                    PredictModelClass::DispersionLocationScale
                 } else {
                     PredictModelClass::BinomialLocationScale
                 }
@@ -2398,7 +2484,9 @@ impl FittedModel {
                 payload.model_kind = ModelKind::TransformationNormal;
                 Self::TransformationNormal { payload }
             }
-            PredictModelClass::GaussianLocationScale | PredictModelClass::BinomialLocationScale => {
+            PredictModelClass::GaussianLocationScale
+            | PredictModelClass::BinomialLocationScale
+            | PredictModelClass::DispersionLocationScale => {
                 payload.model_kind = ModelKind::LocationScale;
                 Self::LocationScale { payload }
             }
@@ -2528,6 +2616,11 @@ impl FittedModel {
                 required.insert(entry);
             }
             required.insert(exit);
+        } else if let Some((left, right, _event)) =
+            parse_surv_interval_response(parsed.response.as_str()).map_err(|e| e.to_string())?
+        {
+            required.insert(left);
+            required.insert(right);
         } else if matches!(
             self.predict_model_class(),
             PredictModelClass::TransformationNormal
@@ -2596,6 +2689,9 @@ impl FittedModel {
         if parse_surv_response(parsed.response.as_str())
             .map_err(|e| e.to_string())?
             .is_some()
+            || parse_surv_interval_response(parsed.response.as_str())
+                .map_err(|e| e.to_string())?
+                .is_some()
         {
             return Ok(Vec::new());
         }
@@ -2645,6 +2741,11 @@ impl FittedModel {
             FittedFamily::TransformationNormal { .. } => PredictModelClass::TransformationNormal,
             FittedFamily::LocationScale { likelihood, .. } if likelihood.is_gaussian_identity() => {
                 PredictModelClass::GaussianLocationScale
+            }
+            FittedFamily::LocationScale { likelihood, .. }
+                if is_dispersion_location_scale_response(&likelihood.response) =>
+            {
+                PredictModelClass::DispersionLocationScale
             }
             FittedFamily::LocationScale { .. } => PredictModelClass::BinomialLocationScale,
             FittedFamily::Standard { .. } => PredictModelClass::Standard,
@@ -2891,7 +2992,9 @@ impl FittedModel {
         };
         if matches!(
             runtime.model_class,
-            PredictModelClass::GaussianLocationScale | PredictModelClass::BinomialLocationScale
+            PredictModelClass::GaussianLocationScale
+                | PredictModelClass::BinomialLocationScale
+                | PredictModelClass::DispersionLocationScale
         ) {
             let fit = self.payload().fit_result.as_ref().ok_or_else(|| {
                 FittedModelError::MissingField {
@@ -3200,6 +3303,24 @@ impl FittedModel {
                     link_wiggle: runtime.link_wiggle,
                 }) as Box<dyn PredictableModel>)
             }
+            PredictModelClass::DispersionLocationScale => {
+                let fit = self.fit_result.as_ref()?;
+                // The mean prediction routes through the family's GLM inverse
+                // link (log for NB/Gamma/Tweedie, logit for Beta); the
+                // log-precision block feeds the overdispersion / predictive-SD
+                // channel — never the binomial threshold-scale predictor.
+                let beta_mu = gaussian_location_scale_mean_beta(fit)?;
+                let beta_noise = location_scale_noise_beta(fit)
+                    .or_else(|| self.payload().beta_noise.clone().map(Array1::from_vec))?;
+                let inverse_link = self.resolved_inverse_link().ok().flatten();
+                Some(Box::new(DispersionLocationScalePredictor {
+                    beta_mu,
+                    beta_noise,
+                    likelihood: self.family_state.likelihood(),
+                    inverse_link,
+                    covariance: fit.beta_covariance().cloned(),
+                }) as Box<dyn PredictableModel>)
+            }
             PredictModelClass::BernoulliMarginalSlope => {
                 let unified = self.unified()?;
                 let payload = self.payload();
@@ -3234,6 +3355,66 @@ impl FittedModel {
                 }) as Box<dyn PredictableModel>)
             }
         }
+    }
+
+    /// Concrete bernoulli marginal-slope predictor with explicit error
+    /// surfacing. `predictor()` boxes the same object behind the
+    /// `PredictableModel` trait and swallows construction failures into
+    /// `None`; the posterior predictive path (#1049) needs the concrete type
+    /// (for `final_eta_from_theta` / `theta_len`) and propagatable error
+    /// messages, so it builds the predictor here instead.
+    pub fn bernoulli_marginal_slope_predictor(
+        &self,
+    ) -> Result<BernoulliMarginalSlopePredictor, String> {
+        if !matches!(
+            self.predict_model_class(),
+            PredictModelClass::BernoulliMarginalSlope
+        ) {
+            return Err(format!(
+                "bernoulli_marginal_slope_predictor: model is not a bernoulli marginal-slope \
+                 model (class {:?})",
+                self.predict_model_class()
+            ));
+        }
+        let runtime = self
+            .saved_prediction_runtime()
+            .map_err(|err| format!("bernoulli marginal-slope predictor runtime: {err}"))?;
+        let unified = self.unified().ok_or_else(|| {
+            "bernoulli marginal-slope predictor requires a unified fit".to_string()
+        })?;
+        let payload = self.payload();
+        let z_column = payload.z_column.clone().ok_or_else(|| {
+            "bernoulli marginal-slope predictor requires a saved z column".to_string()
+        })?;
+        BernoulliMarginalSlopePredictor::from_unified(
+            unified,
+            z_column,
+            payload.latent_z_normalization.ok_or_else(|| {
+                "marginal-slope predictor requires saved latent-z normalization".to_string()
+            })?,
+            payload.latent_measure.clone().ok_or_else(|| {
+                "marginal-slope predictor requires a saved latent measure".to_string()
+            })?,
+            payload.marginal_baseline.ok_or_else(|| {
+                "marginal-slope predictor requires a saved marginal baseline".to_string()
+            })?,
+            payload.logslope_baseline.ok_or_else(|| {
+                "marginal-slope predictor requires a saved logslope baseline".to_string()
+            })?,
+            self.resolved_inverse_link()
+                .map_err(|err| format!("marginal-slope predictor inverse link: {err}"))?
+                .unwrap_or(InverseLink::Standard(StandardLink::Probit)),
+            self.family_state
+                .frailty()
+                .ok_or_else(|| {
+                    "marginal-slope predictor requires a saved frailty spec".to_string()
+                })?
+                .clone(),
+            runtime.score_warp,
+            runtime.link_deviation,
+            runtime.latent_z_rank_int_calibration,
+            runtime.latent_z_conditional_calibration,
+        )
     }
 
     /// V∞ §5 coverage floor for the measure-jet extrapolation variance: a
@@ -3625,6 +3806,27 @@ impl FittedModel {
         Ok(Some((saved.feature_column.as_str(), fit)))
     }
 
+    /// Restore the in-memory residual-cascade fit from a cascade-bearing
+    /// payload (#1032). `Ok(None)` for non-cascade models; the returned fit
+    /// replays the multilevel Wendland-frame posterior for the d ∈ {2, 3}
+    /// feature columns at each predict point.
+    pub fn saved_residual_cascade(
+        &self,
+    ) -> Result<
+        Option<(
+            &[String],
+            crate::solver::residual_cascade::ResidualCascadeFit,
+        )>,
+        FittedModelError,
+    > {
+        let Some(saved) = self.residual_cascade.as_ref() else {
+            return Ok(None);
+        };
+        let fit = crate::solver::residual_cascade::ResidualCascadeFit::from_state(&saved.state)
+            .map_err(|reason| FittedModelError::PayloadCorrupt { reason })?;
+        Ok(Some((saved.feature_columns.as_slice(), fit)))
+    }
+
     pub fn random_effect_group_columns(&self) -> HashSet<String> {
         let Some(training_headers) = self.training_headers.as_ref() else {
             return HashSet::new();
@@ -3700,6 +3902,53 @@ impl FittedModel {
             if self.training_headers.is_none() {
                 return Err(FittedModelError::MissingField {
                     reason: "spline-scan model is missing training_headers; refit".to_string(),
+                });
+            }
+            return Ok(());
+        } else if let Some(cascade) = self.residual_cascade.as_ref() {
+            // Residual-cascade representation (#1032): a multilevel
+            // Wendland-frame model for a scattered d ∈ {2,3} Gaussian smooth.
+            // Exclusive with the dense representation and with the scan.
+            if self.spline_scan.is_some() || self.fit_result.is_some() || self.unified.is_some() {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: "residual-cascade model must not also carry spline_scan / \
+                             fit_result / unified payloads; the representations are \
+                             mutually exclusive"
+                        .to_string(),
+                });
+            }
+            if self.model_kind != ModelKind::Standard
+                || self.family_state.likelihood() != LikelihoodSpec::gaussian_identity()
+            {
+                return Err(FittedModelError::SchemaMismatch {
+                    reason: format!(
+                        "residual-cascade representation requires a standard Gaussian-identity \
+                         model; got model_kind={:?}, likelihood={:?}",
+                        self.model_kind,
+                        self.family_state.likelihood()
+                    ),
+                });
+            }
+            if cascade.feature_columns.is_empty()
+                || !(2..=3).contains(&cascade.feature_columns.len())
+            {
+                return Err(FittedModelError::MissingField {
+                    reason: format!(
+                        "residual-cascade model needs 2 or 3 feature columns; got {}; refit",
+                        cascade.feature_columns.len()
+                    ),
+                });
+            }
+            crate::solver::residual_cascade::ResidualCascadeFit::from_state(&cascade.state)
+                .map_err(|reason| FittedModelError::PayloadCorrupt { reason })?;
+            if self.data_schema.is_none() {
+                return Err(FittedModelError::MissingField {
+                    reason: "residual-cascade model is missing data_schema; refit".to_string(),
+                });
+            }
+            if self.training_headers.is_none() {
+                return Err(FittedModelError::MissingField {
+                    reason: "residual-cascade model is missing training_headers; refit".to_string(),
                 });
             }
             return Ok(());
@@ -4652,6 +4901,102 @@ mod tests {
         payload.logslope_baseline = Some(0.0);
         payload.link = Some(InverseLink::Standard(StandardLink::Probit));
         payload
+    }
+
+    fn gamma_dispersion_location_scale_payload() -> FittedModelPayload {
+        // A #913 genuine-dispersion location-scale model: Gamma mean family with
+        // a log-precision `noise_formula` channel. Its likelihood response is
+        // non-Gaussian and non-Binomial, so the predict-path classifier must
+        // route it to `DispersionLocationScale`, NOT the binomial threshold-scale
+        // class (issue #1064).
+        let mut payload = FittedModelPayload::new(
+            MODEL_PAYLOAD_VERSION,
+            "y ~ x".to_string(),
+            ModelKind::LocationScale,
+            FittedFamily::LocationScale {
+                likelihood: LikelihoodSpec::gamma_log(),
+                base_link: Some(InverseLink::Standard(StandardLink::Log)),
+            },
+            "gamma-location-scale".to_string(),
+        );
+        payload.data_schema = Some(DataSchema {
+            columns: vec![
+                SchemaColumn {
+                    name: "y".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+                SchemaColumn {
+                    name: "x".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+            ],
+        });
+        payload.set_training_feature_metadata(vec!["x".to_string()], vec![(-1.0, 1.0)]);
+        payload.resolved_termspec = Some(empty_termspec());
+        payload.resolved_termspec_noise = Some(empty_termspec());
+        payload.formula_noise = Some("x".to_string());
+        payload.beta_noise = Some(vec![0.0]);
+        payload.link = Some(InverseLink::Standard(StandardLink::Log));
+        payload
+    }
+
+    /// #1064 regression: a dispersion location-scale (#913) payload must be
+    /// classified as `DispersionLocationScale` at every predict-path entry —
+    /// both `from_payload` (load) and `predict_model_class` (runtime) — and never
+    /// fall through to the binomial threshold-scale class. Before the fix the
+    /// non-Gaussian `else` arm mis-routed every dispersion model to
+    /// `BinomialLocationScale`, predicting the wrong family/link.
+    #[test]
+    fn dispersion_location_scale_payload_is_not_classified_binomial() {
+        let model = FittedModel::from_payload(gamma_dispersion_location_scale_payload());
+        assert_eq!(
+            model.predict_model_class(),
+            PredictModelClass::DispersionLocationScale,
+            "Gamma dispersion location-scale must route through the dispersion \
+             predictor, not the binomial threshold-scale class",
+        );
+        assert!(
+            !matches!(
+                model.predict_model_class(),
+                PredictModelClass::BinomialLocationScale
+            ),
+            "dispersion location-scale must never be classified as binomial",
+        );
+
+        // Each of the four #913 dispersion mean families classifies the same way.
+        for likelihood in [
+            LikelihoodSpec::gamma_log(),
+            LikelihoodSpec::new(
+                ResponseFamily::NegativeBinomial {
+                    theta: 1.0,
+                    theta_fixed: false,
+                },
+                InverseLink::Standard(StandardLink::Log),
+            ),
+            LikelihoodSpec::new(
+                ResponseFamily::Beta { phi: 1.0 },
+                InverseLink::Standard(StandardLink::Logit),
+            ),
+            LikelihoodSpec::new(
+                ResponseFamily::Tweedie { p: 1.5 },
+                InverseLink::Standard(StandardLink::Log),
+            ),
+        ] {
+            let mut payload = gamma_dispersion_location_scale_payload();
+            payload.family_state = FittedFamily::LocationScale {
+                base_link: Some(likelihood.link.clone()),
+                likelihood: likelihood.clone(),
+            };
+            let model = FittedModel::from_payload(payload);
+            assert_eq!(
+                model.predict_model_class(),
+                PredictModelClass::DispersionLocationScale,
+                "dispersion family {:?} mis-classified",
+                likelihood.response,
+            );
+        }
     }
 
     #[test]

@@ -470,6 +470,7 @@ export type GuardArtifactDiff = {
 };
 
 export type GuardPolicyDecision = {
+  decision_id?: number;
   harness: string;
   scope: DecisionScope;
   artifact_id: string | null;
@@ -480,6 +481,11 @@ export type GuardPolicyDecision = {
   reason: string | null;
   source: string;
   updated_at: string;
+  source_receipt_id?: string | null;
+  remembered_command?: string | null;
+  remembered_context?: string | null;
+  workspace_label?: string | null;
+  source_scope_path?: string | null;
 };
 
 export const GUARD_CLOUD_EXCEPTION_ACK_STATUSES = [
@@ -587,6 +593,7 @@ export type GuardHarnessActionErrorPayload = {
   harness?: string;
   confirmation_phrase?: string;
   confirm_command?: string;
+  retryable?: boolean;
 };
 
 export type GuardInventoryItem = {
@@ -826,6 +833,8 @@ export type GuardUpdateStatus = {
   auto_updatable: boolean;
   update_available: boolean;
   blocked_reason: string | null;
+  recovery_reinstall_available?: boolean;
+  recovery_reinstall_command?: string;
   update_in_progress?: boolean;
 };
 

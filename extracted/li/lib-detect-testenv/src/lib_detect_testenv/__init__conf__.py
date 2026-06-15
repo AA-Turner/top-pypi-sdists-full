@@ -24,7 +24,7 @@ name = "lib_detect_testenv"
 #: Human-readable summary shown in CLI help output.
 title = "Detect test environment - pytest, doctest, unittest, or regular execution"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "3.0.1"
+version = "3.0.2"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/lib_detect_testenv"
 #: Author attribution surfaced in CLI output.

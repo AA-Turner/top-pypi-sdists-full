@@ -9,11 +9,13 @@ from __future__ import annotations
 import contextlib
 import os
 import sys
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime, timezone
 from functools import lru_cache as _lru_cache
+from hashlib import sha256
 from pathlib import Path
+from threading import RLock
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -55,19 +57,6 @@ from datamodel_code_generator.enums import (
     VersionMode,
     XMLSchemaVersion,
 )
-from datamodel_code_generator.enums import (
-    UnionMode as UnionMode,
-)
-from datamodel_code_generator.format import (
-    DEFAULT_FORMATTERS,
-    CodeFormatter,
-    DateClassType,
-    DatetimeClassType,
-    Formatter,
-    PythonVersion,
-    PythonVersionMin,
-    resolve_use_type_checking_imports,
-)
 from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 
 if TYPE_CHECKING:
@@ -83,6 +72,13 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._types.generate_config_dict import GenerateConfigDict
     from datamodel_code_generator.config import GenerateConfig, ParserConfig
+    from datamodel_code_generator.format import (
+        DEFAULT_FORMATTERS,
+        DateClassType,
+        DatetimeClassType,
+        PythonVersion,
+        PythonVersionMin,
+    )
 
 T = TypeVar("T")
 _ConfigT = TypeVar("_ConfigT", bound="ParserConfig")
@@ -99,6 +95,33 @@ Returned by generate() when output=None and multiple modules are generated.
 """
 
 DEFAULT_BASE_CLASS: str = "pydantic.BaseModel"
+_IGNORED_TEXT_PREFIX_CHARS: frozenset[str] = frozenset({"\ufeff", " ", "\t", "\r", "\n"})
+_PARSER_SOURCE_DATA_CACHE_MAX_SIZE = 128
+_ParserSourceDataCacheKey: TypeAlias = tuple[Path, str, str, str]
+_ParserSourceDataSeenKey: TypeAlias = tuple[Path, str]
+_parser_source_data_cache: OrderedDict[_ParserSourceDataCacheKey, YamlValue] = OrderedDict()
+_parser_source_data_seen_keys: OrderedDict[_ParserSourceDataSeenKey, None] = OrderedDict()
+_parser_source_data_cache_lock = RLock()
+_enable_parsed_source_cache = False
+
+
+def enable_parsed_source_cache() -> Callable[[], None]:
+    """Enable the process-local parsed source cache and return a restore callback."""
+    global _enable_parsed_source_cache  # noqa: PLW0603
+
+    previous = _enable_parsed_source_cache
+    _enable_parsed_source_cache = True
+
+    def restore() -> None:
+        global _enable_parsed_source_cache  # noqa: PLW0603
+
+        _enable_parsed_source_cache = previous
+
+    return restore
+
+
+def _is_parsed_source_cache_enabled() -> bool:
+    return _enable_parsed_source_cache
 
 
 def load_yaml(stream: str | TextIO) -> YamlValue:
@@ -150,26 +173,25 @@ def _load_yaml_dict_from_path_cached(
         return load_yaml_dict(f)
 
 
+def _first_significant_text_char(text: str) -> str | None:
+    for ch in text:
+        if ch not in _IGNORED_TEXT_PREFIX_CHARS:
+            return ch
+    return None
+
+
 def _is_json_text(text: str) -> bool:
     """Check if text likely contains JSON by examining the first non-whitespace character.
 
     Skips BOM, spaces, tabs, carriage returns, and newlines.
     Returns True if the first significant character is '{' or '['.
     """
-    for ch in text:
-        if ch in {"\ufeff", " ", "\t", "\r", "\n"}:
-            continue
-        return ch in {"{", "["}
-    return False
+    return _first_significant_text_char(text) in {"{", "["}
 
 
 def _is_xml_text(text: str) -> bool:
     """Check if text likely contains XML by examining the first non-whitespace character."""
-    for ch in text:
-        if ch in {"\ufeff", " ", "\t", "\r", "\n"}:
-            continue
-        return ch == "<"
-    return False
+    return _first_significant_text_char(text) == "<"
 
 
 def _is_protobuf_text(text: str) -> bool:
@@ -208,16 +230,104 @@ def load_data_from_path(path: Path, encoding: str) -> dict[str, YamlValue]:
 
     For file input: tries json.load() for .json files (more efficient than
     read_text + json.loads), falls back to YAML if JSON parsing fails
-    (e.g., trailing commas) or if content is not a dict. Uses YAML for all other extensions.
+    (e.g., trailing commas), and requires the parsed content to be a dict.
+    Uses YAML for all other extensions.
     """
+    result = _load_parser_source_data_from_path(path, encoding)
+    if not isinstance(result, dict):
+        msg = f"Expected dict, got {type(result).__name__}"
+        raise TypeError(msg)
+    return result
+
+
+def _load_parser_source_data_from_path(
+    path: Path,
+    encoding: str,
+) -> YamlValue:
+    return _read_parser_source_data_from_path(path, encoding)[1]
+
+
+def _read_parser_source_data_from_path(path: Path, encoding: str) -> tuple[bytes, YamlValue]:
+    resolved_path = path.resolve()
+    data = resolved_path.read_bytes()
+    return data, _load_parser_source_data_from_path_bytes(resolved_path, data, encoding)
+
+
+def _load_parser_source_data_from_path_bytes(resolved_path: Path, data: bytes, encoding: str) -> YamlValue:
+    seen_key = (resolved_path, encoding)
+    with _parser_source_data_cache_lock:
+        use_cache = seen_key in _parser_source_data_seen_keys
+        _parser_source_data_seen_keys[seen_key] = None
+        _parser_source_data_seen_keys.move_to_end(seen_key)
+        while len(_parser_source_data_seen_keys) > _PARSER_SOURCE_DATA_CACHE_MAX_SIZE:
+            _parser_source_data_seen_keys.popitem(last=False)
+
+    if not use_cache:
+        return _load_parser_source_data_from_bytes(resolved_path, data, encoding)
+
+    digest = sha256(data).hexdigest()
+    return _load_parser_source_data_from_bytes_with_cache(resolved_path, data, digest, encoding)
+
+
+def _load_cached_parser_source_data(cache_key: _ParserSourceDataCacheKey) -> YamlValue | None:
+    with _parser_source_data_cache_lock:
+        if cache_key in _parser_source_data_cache:
+            _parser_source_data_cache.move_to_end(cache_key)
+            return _parser_source_data_cache[cache_key]
+    return None
+
+
+def _store_parser_source_data(cache_key: _ParserSourceDataCacheKey, parsed_data: YamlValue) -> YamlValue:
+    with _parser_source_data_cache_lock:
+        _parser_source_data_cache[cache_key] = parsed_data
+        _parser_source_data_cache.move_to_end(cache_key)
+        while len(_parser_source_data_cache) > _PARSER_SOURCE_DATA_CACHE_MAX_SIZE:
+            _parser_source_data_cache.popitem(last=False)
+    return parsed_data
+
+
+def _load_parser_source_data_from_bytes_with_cache(
+    path: Path,
+    data: bytes,
+    digest: str,
+    encoding: str,
+) -> YamlValue:
     import json  # noqa: PLC0415
 
+    text = data.decode(encoding)
     if path.suffix.lower() == ".json":
-        with contextlib.suppress(json.JSONDecodeError), path.open(encoding=encoding) as f:
-            result = json.load(f)
-            if isinstance(result, dict):
-                return result
-    return load_yaml_dict_from_path(path, encoding)
+        cache_key = (path, digest, encoding, "json")
+        if (cached_data := _load_cached_parser_source_data(cache_key)) is not None:
+            return cached_data
+
+        with contextlib.suppress(json.JSONDecodeError):
+            return _store_parser_source_data(cache_key, json.loads(text))
+
+    from datamodel_code_generator.util import get_yaml_backend  # noqa: PLC0415
+
+    parser_backend = f"yaml:{get_yaml_backend()}"
+    cache_key = (path, digest, encoding, parser_backend)
+    if (cached_data := _load_cached_parser_source_data(cache_key)) is not None:
+        return cached_data
+
+    return _store_parser_source_data(cache_key, load_yaml(text))
+
+
+def _load_parser_source_data_from_bytes(path: Path, data: bytes, encoding: str) -> YamlValue:
+    import json  # noqa: PLC0415
+
+    text = data.decode(encoding)
+    if path.suffix.lower() == ".json":
+        with contextlib.suppress(json.JSONDecodeError):
+            return json.loads(text)
+
+    return load_yaml(text)
+
+
+def _clear_parser_source_data_cache() -> None:
+    with _parser_source_data_cache_lock:
+        _parser_source_data_cache.clear()
+        _parser_source_data_seen_keys.clear()
 
 
 @_lru_cache(maxsize=256)
@@ -369,7 +479,12 @@ class InvalidClassNameError(Error):
 def _validate_output_datetime_class(
     output_model_type: DataModelType, output_datetime_class: DatetimeClassType | None
 ) -> None:
-    if output_datetime_class is None or output_datetime_class is DatetimeClassType.Datetime:
+    if output_datetime_class is None:
+        return
+
+    from datamodel_code_generator.format import DatetimeClassType  # noqa: PLC0415
+
+    if output_datetime_class is DatetimeClassType.Datetime:
         return
     if output_model_type in {DataModelType.DataclassesDataclass, DataModelType.TypingTypedDict}:
         msg = f'`--output-datetime-class` only allows "datetime" for `--output-model-type` {output_model_type.value}'
@@ -474,6 +589,8 @@ def _build_module_content(
     body: str,
     header: str,
     custom_file_header: str | None,
+    *,
+    future_imports: str = "",
 ) -> str:
     """Build module content by combining header and body.
 
@@ -484,11 +601,12 @@ def _build_module_content(
     if custom_file_header and body:
         # Extract future imports from body for correct placement after custom_file_header
         body_without_future = body
-        extracted_future = ""
+        extracted_future = future_imports
         body_lines = body.split("\n")
         future_indices = [i for i, line in enumerate(body_lines) if line.strip().startswith("from __future__")]
         if future_indices:
-            extracted_future = "\n".join(body_lines[i] for i in future_indices)
+            if not extracted_future:
+                extracted_future = "\n".join(body_lines[i] for i in future_indices)
             remaining_lines = [line for i, line in enumerate(body_lines) if i not in future_indices]
             body_without_future = "\n".join(remaining_lines).lstrip("\n")
 
@@ -757,6 +875,18 @@ def _prepare_parser_common_options(  # noqa: PLR0913, PLR0917
 
     defer_formatting = config.output is not None and not config.output.suffix
 
+    target_datetime_class = config.output_datetime_class
+    if target_datetime_class is None:
+        from datamodel_code_generator.format import DatetimeClassType  # noqa: PLC0415
+
+        match input_file_type:
+            case InputFileType.GraphQL:
+                target_datetime_class = DatetimeClassType.Datetime
+            case InputFileType.XMLSchema:
+                target_datetime_class = None
+            case _:
+                target_datetime_class = DatetimeClassType.Awaredatetime
+
     additional_options: ParserConfigDict = {
         "data_model_type": data_model_types.data_model,
         "data_model_root_type": data_model_types.root_model,
@@ -769,17 +899,7 @@ def _prepare_parser_common_options(  # noqa: PLR0913, PLR0917
         "remote_text_cache": remote_text_cache,
         "known_third_party": data_model_types.known_third_party,
         "default_field_extras": default_field_extras,
-        "target_datetime_class": (
-            config.output_datetime_class
-            if config.output_datetime_class is not None
-            else (
-                DatetimeClassType.Datetime
-                if input_file_type == InputFileType.GraphQL
-                else None
-                if input_file_type == InputFileType.XMLSchema
-                else DatetimeClassType.Awaredatetime
-            )
-        ),
+        "target_datetime_class": target_datetime_class,
         "target_date_class": config.output_date_class,
         "dataclass_arguments": dataclass_arguments,
         "defer_formatting": defer_formatting,
@@ -812,15 +932,9 @@ def _build_parser(  # noqa: PLR0911, PLR0913
     xmlschema_version: XMLSchemaVersion | None,
     protobuf_version: ProtobufVersion | None,
 ) -> Any:
-    from datamodel_code_generator.config import (  # noqa: PLC0415
-        AsyncAPIParserConfig,
-        GraphQLParserConfig,
-        JSONSchemaParserConfig,
-        OpenAPIParserConfig,
-    )
-
     match input_file_type:
         case InputFileType.OpenAPI:
+            from datamodel_code_generator.config import OpenAPIParserConfig  # noqa: PLC0415
             from datamodel_code_generator.parser.openapi import OpenAPIParser  # noqa: PLC0415
 
             openapi_additional_options: OpenAPIParserConfigDict = {
@@ -831,6 +945,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
             parser_config = _create_parser_config(OpenAPIParserConfig, config, openapi_additional_options)
             return OpenAPIParser(source=source, config=parser_config)  # ty: ignore
         case InputFileType.AsyncAPI:
+            from datamodel_code_generator.config import AsyncAPIParserConfig  # noqa: PLC0415
             from datamodel_code_generator.parser.asyncapi import AsyncAPIParser  # noqa: PLC0415
 
             asyncapi_additional_options: AsyncAPIParserConfigDict = {
@@ -869,6 +984,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
             parser_config = _create_parser_config(AvroParserConfig, config, avro_additional_options)
             return AvroParser(source=source, config=parser_config)  # ty: ignore
         case InputFileType.GraphQL:
+            from datamodel_code_generator.config import GraphQLParserConfig  # noqa: PLC0415
             from datamodel_code_generator.parser.graphql import GraphQLParser  # noqa: PLC0415
 
             graphql_additional_options: GraphQLParserConfigDict = {
@@ -879,6 +995,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
             parser_config = _create_parser_config(GraphQLParserConfig, config, graphql_additional_options)
             return GraphQLParser(source=source, config=parser_config)  # ty: ignore
         case _:
+            from datamodel_code_generator.config import JSONSchemaParserConfig  # noqa: PLC0415
             from datamodel_code_generator.parser.jsonschema import JsonSchemaParser  # noqa: PLC0415
 
             jsonschema_additional_options: JSONSchemaParserConfigDict = {
@@ -972,53 +1089,32 @@ def _emit_results(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
     for path, (body, future_imports, filename) in modules.items():
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
-        file = path.open("wt", encoding=config.encoding)
 
         safe_filename = filename.replace("\n", " ").replace("\r", " ") if filename else ""
         effective_header = custom_file_header or header.format(safe_filename)
-
+        file = path.open("wt", encoding=config.encoding)
         if custom_file_header and body:
-            # Extract future imports from body for correct placement after custom_file_header
-            body_without_future = body
-            extracted_future = future_imports  # Use pre-extracted if available
-            lines = body.split("\n")
-            future_indices = [i for i, line in enumerate(lines) if line.strip().startswith("from __future__")]
-            if future_indices:
-                if not extracted_future:
-                    # Extract future imports from body
-                    extracted_future = "\n".join(lines[i] for i in future_indices)
-                remaining_lines = [line for i, line in enumerate(lines) if i not in future_indices]
-                body_without_future = "\n".join(remaining_lines).lstrip("\n")
-
-            if extracted_future:
-                insertion_point = _find_future_import_insertion_point(custom_file_header)
-                header_before = custom_file_header[:insertion_point].rstrip()
-                header_after = custom_file_header[insertion_point:].strip()
-                if header_after:
-                    content = header_before + "\n" + extracted_future + "\n\n" + header_after
-                else:
-                    content = header_before + "\n\n" + extracted_future
-                print(content, file=file)
-                print(file=file)
-                print(body_without_future.rstrip(), file=file)
-            else:
-                print(effective_header, file=file)
-                print(file=file)
-                print(body.rstrip(), file=file)
+            file.write(
+                _build_module_content(body, effective_header, custom_file_header, future_imports=future_imports) + "\n"
+            )
         else:
-            # Body already contains future imports, just print as-is
-            print(effective_header, file=file)
+            file.write(effective_header)
             if body:
-                print(file=file)
-                print(body.rstrip(), file=file)
-
+                file.write("\n\n")
+                file.write(body.rstrip())
+            file.write("\n")
         file.close()
 
-    if (
-        defer_formatting
-        and config.formatters
-        and (Formatter.RUFF_CHECK in config.formatters or Formatter.RUFF_FORMAT in config.formatters)
-    ):
+    if defer_formatting and config.formatters:
+        from datamodel_code_generator.format import (  # noqa: PLC0415
+            CodeFormatter,
+            Formatter,
+            resolve_use_type_checking_imports,
+        )
+
+        if Formatter.RUFF_CHECK not in config.formatters and Formatter.RUFF_FORMAT not in config.formatters:
+            return None
+
         effective_use_type_checking_imports = resolve_use_type_checking_imports(
             config.use_type_checking_imports,
             is_multi_module_output=True,
@@ -1239,13 +1335,18 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
     )
 
     with chdir(config.output):
-        results = parser.parse(
-            settings_path=config.settings_path,
-            disable_future_imports=config.disable_future_imports,
-            all_exports_scope=config.all_exports_scope,
-            all_exports_collision_strategy=config.all_exports_collision_strategy,
-            module_split_mode=config.module_split_mode,
-        )
+        try:
+            results = parser.parse(
+                settings_path=config.settings_path,
+                disable_future_imports=config.disable_future_imports,
+                all_exports_scope=config.all_exports_scope,
+                all_exports_collision_strategy=config.all_exports_collision_strategy,
+                module_split_mode=config.module_split_mode,
+            )
+        except BaseException:
+            with contextlib.suppress(BaseException):
+                parser._dispose()  # noqa: SLF001
+            raise
     parser._dispose()  # noqa: SLF001
     return _emit_results(
         results,
@@ -1263,7 +1364,7 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
     from datamodel_code_generator.util import get_yaml_parse_errors  # noqa: PLC0415
 
     if _is_xml_text(text):
-        from datamodel_code_generator.parser.xmlschema import is_xml_schema_text  # noqa: PLC0415
+        from datamodel_code_generator.parser._xmlschema_detection import is_xml_schema_text  # noqa: PLC0415
 
         if is_xml_schema_text(text):
             return InputFileType.XMLSchema
@@ -1277,7 +1378,7 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
             return InputFileType.AsyncAPI
         if is_openapi(data):
             return InputFileType.OpenAPI
-        from datamodel_code_generator.parser.avro import is_avro_schema_data  # noqa: PLC0415
+        from datamodel_code_generator.parser._avro_detection import is_avro_schema_data  # noqa: PLC0415
 
         if is_avro_schema_data(data):
             return InputFileType.Avro
@@ -1287,12 +1388,12 @@ def infer_input_type(text: str) -> InputFileType:  # noqa: PLR0911, PLR0912
     if _is_protobuf_text(text):
         return InputFileType.Protobuf
     if isinstance(data, list):
-        from datamodel_code_generator.parser.avro import is_avro_schema_data  # noqa: PLC0415
+        from datamodel_code_generator.parser._avro_detection import is_avro_schema_data  # noqa: PLC0415
 
         if is_avro_schema_data(data):
             return InputFileType.Avro
     if isinstance(data, str):
-        from datamodel_code_generator.parser.avro import is_avro_schema_data  # noqa: PLC0415
+        from datamodel_code_generator.parser._avro_detection import is_avro_schema_data  # noqa: PLC0415
 
         if is_avro_schema_data(data):
             return InputFileType.Avro
@@ -1324,6 +1425,15 @@ _LAZY_IMPORTS = {
     "detect_openapi_version": "datamodel_code_generator.parser.schema_version",
     "generate_dynamic_models": "datamodel_code_generator.dynamic",
     "GenerateConfig": "datamodel_code_generator.config",
+    "UnionMode": "datamodel_code_generator.enums",
+    "CodeFormatter": "datamodel_code_generator.format",
+    "DateClassType": "datamodel_code_generator.format",
+    "DatetimeClassType": "datamodel_code_generator.format",
+    "DEFAULT_FORMATTERS": "datamodel_code_generator.format",
+    "Formatter": "datamodel_code_generator.format",
+    "PythonVersion": "datamodel_code_generator.format",
+    "PythonVersionMin": "datamodel_code_generator.format",
+    "resolve_use_type_checking_imports": "datamodel_code_generator.format",
 }
 
 
@@ -1332,7 +1442,9 @@ def __getattr__(name: str) -> Any:
         import importlib  # noqa: PLC0415
 
         module = importlib.import_module(_LAZY_IMPORTS[name])
-        return getattr(module, name)
+        value = getattr(module, name)
+        globals()[name] = value
+        return value
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
 
@@ -1379,6 +1491,7 @@ __all__ = [
     "detect_jsonschema_version",  # noqa: F822
     "detect_openapi_version",  # noqa: F822
     "detect_xmlschema_version",
+    "enable_parsed_source_cache",
     "generate",
     "generate_dynamic_models",  # noqa: F822
 ]

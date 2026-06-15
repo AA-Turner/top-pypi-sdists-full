@@ -1,6 +1,6 @@
 [project]
 name = "abxpkg"
-version = "1.11.211"
+version = "1.11.228"
 description = "System package manager interfaces with Python type hints"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
@@ -47,8 +47,8 @@ dependencies = [
 ]
 
 [project.scripts]
-abxpkg = "abxpkg.fastcli:main"
-abx = "abxpkg.fastcli:abx_main"
+abxpkg = "abxpkg.cli:main"
+abx = "abxpkg.cli:abx_main"
 
 [project.optional-dependencies]
 rich = [
@@ -79,10 +79,6 @@ packages = ["abxpkg"]
 [tool.hatch.build.targets.sdist]
 include = [
     "abxpkg/**",
-    "abxpkg/js/base/config.json",
-    "abxpkg/js/base/utils.js",
-    "abxpkg/js/chrome/config.json",
-    "abxpkg/js/chrome/chrome_utils.js",
     "README.md",
     "LICENSE",
     "pyproject.toml",
@@ -98,7 +94,9 @@ dev = [
     "django-pydantic-field>=0.3.9",
     "django-jsonform>=2.22.0",
     "abxbus>=2.5.9",
-    "pytest>=9.0.2",
+    "pytest>=8.3.3,<9",  # pytest-codeblocks 0.17.0 still uses the pre-pytest-9 collect hook signature.
+    "pytest-codeblocks>=0.17.0",
+    "pytest-github-actions-annotate-failures>=0.4.0",
     "rich>=14.0.0",
     "prek>=0.3.6",
     "ruff>=0.15.7",
@@ -135,7 +133,8 @@ pythonVersion = "3.12"
 pythonPlatform = "Linux"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "README.md", "AGENTS.md", "skills", "docs"]
+addopts = ["--codeblocks"]
 markers = [
     "root_required: tests that require root privileges and run in the privileged live-integration job",
     "docker_required: tests that require a working Docker daemon and run in the Linux live-integration job",

@@ -202,27 +202,27 @@ WITHCACHE_ADMIN_PASSWORD=change-me
 # off a fork or a private mirror.
 # BTY_BOOT_RELEASE_REPO=your-fork/bty
 
-# Trust the X-Forwarded-* headers from this CIDR or single address
-# (set when bty-web sits behind nginx / traefik / Caddy so it can
-# recover the original client's address + scheme for audit logs and
-# absolute-URL generation). Default: unset (no header trust).
-# BTY_TRUSTED_PROXY=10.0.0.0/8
+# Trust X-Forwarded-For from the reverse proxy (nginx / traefik / Caddy)
+# so audit logs + absolute URLs reflect the real client rather than the
+# proxy loopback. Set to any value to enable; only safe when the proxy
+# strips inbound X-Forwarded-For. Default: unset (no header trust).
+# BTY_SERVER_TRUSTED_PROXY=1
 
 # Pin a stable bty-web session-cookie secret. Default: a fresh random
 # secret generated and persisted in state.db on first start (re-used
 # across container restarts). Override only if you need the secret to
 # be reproducible (multi-instance, blue/green) or rotated on a
 # schedule.
-# BTY_SESSION_SECRET=<32-byte hex>
+# BTY_SERVER_SESSION_SECRET=<32-byte hex>
 
 # Per-request upload cap for the operator UI's image-upload form.
 # Default: 200 GiB. Bump for very large images, drop for small
 # fleets or untrusted networks.
-# BTY_MAX_UPLOAD_BYTES=214748364800
+# BTY_TUNING_MAX_UPLOAD_BYTES=214748364800
 
 # Concurrent-worker cap for the backup scheduler. Default is sane
 # for most fleets; raise if the host has the CPU + disk bandwidth.
-# BTY_BACKUP_MAX_PARALLEL=1
+# BTY_TUNING_BACKUP_MAX_PARALLEL=1
 """
 
 
@@ -659,7 +659,7 @@ WITHCACHE_ADMIN_PASSWORD={withcache_pw}
 BTY_ADMIN_PASSWORD={admin_pw}
 
 # Pinned session secret so cookies survive container restarts.
-BTY_SESSION_SECRET={session_secret}
+BTY_SERVER_SESSION_SECRET={session_secret}
 
 # ==== COMMON CUSTOMISATIONS ====
 
@@ -683,19 +683,19 @@ BTY_SESSION_SECRET={session_secret}
 # HOST_ADDR (the bty-tftp sidecar binds host networking, so udp/69
 # sits on the host's LAN address). Override if TFTP runs elsewhere,
 # e.g. on the LAN router or a dedicated PXE host.
-# BTY_TFTP_PROBE_HOST=192.168.1.1
+# BTY_NETBOOT_TFTP_PROBE_HOST=192.168.1.1
 
 # Override which GitHub repo bty fetches netboot artifacts from.
 # BTY_BOOT_RELEASE_REPO=your-fork/bty
 
 # Trust X-Forwarded-* from this CIDR (set when behind a reverse proxy).
-# BTY_TRUSTED_PROXY=10.0.0.0/8
+# BTY_SERVER_TRUSTED_PROXY=10.0.0.0/8
 
 # Per-request upload cap for the operator UI's image-upload form.
-# BTY_MAX_UPLOAD_BYTES=214748364800
+# BTY_TUNING_MAX_UPLOAD_BYTES=214748364800
 
 # Concurrent-worker cap for the backup scheduler.
-# BTY_BACKUP_MAX_PARALLEL=1
+# BTY_TUNING_BACKUP_MAX_PARALLEL=1
 """
 
 
@@ -1190,7 +1190,7 @@ def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") 
     _step("install mode", detail=mode_label)
 
     # Detect host_addr BEFORE emitting Quadlets so the bty-web unit can
-    # bake the LAN IP into BTY_WITHCACHE_URL + BTY_TFTP_PROBE_HOST.
+    # bake the LAN IP into BTY_WITHCACHE_URL + BTY_NETBOOT_TFTP_PROBE_HOST.
     # Quadlets don't expand env-file references the way Compose does, so
     # without this baked value the unit lands with a literal hostname
     # placeholder and bty-web's withcache + TFTP probe targets fail to

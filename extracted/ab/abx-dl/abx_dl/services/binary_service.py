@@ -232,10 +232,12 @@ class PluginBinariesService(BaseService):
                     request_payload["overrides"] = native_overrides
                 else:
                     request_payload.pop("overrides", None)
+                if current_user_config.ABXPKG_NO_CACHE:
+                    request_payload["no_cache"] = True
                 request_event = BinaryRequestEvent(
                     **request_payload,
                     auto_install=self.auto_install,
-                    lib_dir=current_user_config.LIB_DIR,
+                    lib_dir=current_user_config.ABXPKG_LIB_DIR,
                     dry_run=current_user_config.DRY_RUN,
                     extra_context={
                         "plugin_name": plugin.name,
@@ -456,9 +458,9 @@ class AbxDlEnvConfigFileBinaryCacheBackend:
         if is_path_like_env_value(binary_name):
             return
         current_user_config = (config or await get_config(self.bus)).user
-        if current_user_config.LIB_DIR is None:
+        if current_user_config.ABXPKG_LIB_DIR is None:
             return
-        lib_bin_dir = current_user_config.LIB_DIR / "bin"
+        lib_bin_dir = current_user_config.ABXPKG_LIB_DIR / "bin"
         lib_bin_dir.mkdir(parents=True, exist_ok=True)
 
         target = Path(binary_abspath).expanduser().resolve(strict=False)

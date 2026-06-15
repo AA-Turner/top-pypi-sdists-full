@@ -109,7 +109,6 @@ async fn aggregate_tools_list_returns_only_minimal_gateway_surface() {
             .unwrap();
     });
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
     let dir = tempfile::tempdir().unwrap();
     let registry = std::sync::Arc::new(tokio::sync::RwLock::new(
         dcc_mcp_transport::discovery::file_registry::FileRegistry::new(dir.path()).unwrap(),
@@ -592,6 +591,222 @@ async fn load_skill_backend_payload_failure_is_not_decorated_as_loaded() {
     );
 
     let _ = shutdown_tx.send(());
+}
+
+#[tokio::test]
+async fn load_skill_for_sidecar_row_uses_discovery_endpoint() {
+    let loaded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let discovery_load_calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let loaded_for_search = loaded.clone();
+    let loaded_for_call = loaded.clone();
+    let discovery_calls_for_route = discovery_load_calls.clone();
+    let discovery_app = axum::Router::new()
+        .route(
+            "/health",
+            axum::routing::get(|| async { axum::Json(json!({"ok": true})) }),
+        )
+        .route(
+            "/v1/search",
+            axum::routing::post(move || {
+                let loaded = loaded_for_search.load(std::sync::atomic::Ordering::SeqCst);
+                async move {
+                    axum::Json(json!({
+                        "total": 1,
+                        "hits": [{
+                            "skill": "maya-primitives",
+                            "action": "maya_primitives__create_sphere",
+                            "summary": "Create a sphere",
+                            "loaded": loaded,
+                            "has_schema": true
+                        }]
+                    }))
+                }
+            }),
+        )
+        .route(
+            "/mcp",
+            axum::routing::post(move |axum::Json(body): axum::Json<Value>| {
+                let loaded = loaded_for_call.clone();
+                let calls = discovery_calls_for_route.clone();
+                async move {
+                    let id = body.get("id").cloned().unwrap_or(Value::Null);
+                    let name = body
+                        .pointer("/params/name")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    if name == "load_skill" {
+                        calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        loaded.store(true, std::sync::atomic::Ordering::SeqCst);
+                        axum::Json(json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "result": {
+                                "content": [{
+                                    "type": "text",
+                                    "text": serde_json::to_string(&json!({
+                                        "loaded": true,
+                                        "skill_name": "maya-primitives",
+                                        "dcc_type": "maya",
+                                        "registered_tools": ["maya_primitives__create_sphere"]
+                                    })).unwrap()
+                                }],
+                                "isError": false
+                            }
+                        }))
+                    } else {
+                        axum::Json(json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "result": {
+                                "content": [{"type": "text", "text": format!("unexpected discovery tool: {name}")}],
+                                "isError": true
+                            }
+                        }))
+                    }
+                }
+            }),
+        );
+    let discovery_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let discovery_port = discovery_listener.local_addr().unwrap().port();
+    let (stop_discovery_tx, stop_discovery_rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(async move {
+        axum::serve(discovery_listener, discovery_app)
+            .with_graceful_shutdown(async {
+                let _ = stop_discovery_rx.await;
+            })
+            .await
+            .ok();
+    });
+    let sidecar_calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let sidecar_calls_for_route = sidecar_calls.clone();
+    let sidecar_app = axum::Router::new()
+        .route(
+            "/health",
+            axum::routing::get(|| async { axum::Json(json!({"ok": true})) }),
+        )
+        .route(
+            "/mcp",
+            axum::routing::post(move |axum::Json(body): axum::Json<Value>| {
+                let calls = sidecar_calls_for_route.clone();
+                async move {
+                    calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let id = body.get("id").cloned().unwrap_or(Value::Null);
+                    let name = body
+                        .pointer("/params/name")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    axum::Json(json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "result": {
+                            "content": [{
+                                "type": "text",
+                                "text": serde_json::to_string(&json!({
+                                    "success": false,
+                                    "message": format!("Unknown sidecar action: {name}"),
+                                    "error": "unknown-action"
+                                })).unwrap()
+                            }],
+                            "isError": false
+                        }
+                    }))
+                }
+            }),
+        );
+    let sidecar_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let sidecar_port = sidecar_listener.local_addr().unwrap().port();
+    let (stop_sidecar_tx, stop_sidecar_rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(async move {
+        axum::serve(sidecar_listener, sidecar_app)
+            .with_graceful_shutdown(async {
+                let _ = stop_sidecar_rx.await;
+            })
+            .await
+            .ok();
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let registry = std::sync::Arc::new(tokio::sync::RwLock::new(
+        dcc_mcp_transport::discovery::file_registry::FileRegistry::new(dir.path()).unwrap(),
+    ));
+    let instance_id = {
+        let r = registry.read().await;
+        let mut entry = dcc_mcp_transport::discovery::types::ServiceEntry::new(
+            "maya",
+            "127.0.0.1",
+            sidecar_port,
+        );
+        entry.metadata.insert(
+            crate::gateway::http_registration::MCP_URL_METADATA_KEY.to_string(),
+            format!("http://127.0.0.1:{sidecar_port}/mcp"),
+        );
+        entry.metadata.insert(
+            crate::gateway::http_registration::DISCOVERY_MCP_URL_METADATA_KEY.to_string(),
+            format!("http://127.0.0.1:{discovery_port}/mcp"),
+        );
+        entry.metadata.insert(
+            crate::gateway::http_registration::ROLE_METADATA_KEY.to_string(),
+            crate::gateway::http_registration::ROLE_PER_DCC_SIDECAR.to_string(),
+        );
+        let id = entry.instance_id;
+        r.register(entry).unwrap();
+        id
+    };
+    let gs = make_gateway_state(registry).await;
+    crate::gateway::capability_service::refresh_all_live_backends(
+        &gs,
+        crate::gateway::capability::RefreshReason::Periodic,
+    )
+    .await;
+    let unloaded_query = crate::gateway::capability_service::parse_search_payload(&json!({
+        "query": "sphere",
+        "dcc_type": "maya",
+        "instance_id": instance_id.to_string(),
+    }));
+    let unloaded_hits =
+        crate::gateway::capability_service::search_service(&gs.capability_index, &unloaded_query);
+    assert_eq!(unloaded_hits.len(), 1);
+    assert!(
+        !unloaded_hits[0].record.loaded,
+        "pre-load search must surface the unloaded skill hint"
+    );
+    let (text, is_error) = skill_mgmt_dispatch(
+        &gs,
+        "load_skill",
+        &json!({
+            "skill_name": "maya-primitives",
+            "dcc_type": "maya",
+            "instance_id": instance_id.to_string(),
+        }),
+    )
+    .await;
+    assert!(!is_error, "load_skill must use discovery endpoint: {text}");
+    assert_eq!(
+        discovery_load_calls.load(std::sync::atomic::Ordering::SeqCst),
+        1
+    );
+    assert_eq!(
+        sidecar_calls.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "skill lifecycle calls must not hit the sidecar dispatch endpoint"
+    );
+    let loaded_query = crate::gateway::capability_service::parse_search_payload(&json!({
+        "query": "sphere",
+        "dcc_type": "maya",
+        "instance_id": instance_id.to_string(),
+        "loaded_only": true,
+    }));
+    let loaded_hits =
+        crate::gateway::capability_service::search_service(&gs.capability_index, &loaded_query);
+    assert!(
+        loaded_hits.iter().any(|hit| {
+            hit.record.loaded && hit.record.backend_tool == "maya_primitives__create_sphere"
+        }),
+        "post-load refresh must surface the callable skill tool"
+    );
+    let _ = stop_discovery_tx.send(());
+    let _ = stop_sidecar_tx.send(());
 }
 
 #[tokio::test]
@@ -1567,4 +1782,216 @@ async fn aggregate_resources_list_fail_soft_when_one_backend_is_dead() {
     );
 
     let _ = stop_live.send(());
+}
+
+#[tokio::test]
+async fn load_skill_preserves_existing_index_when_v1_search_fails() {
+    // Regression test for issue #1659:
+    // refresh_instance must preserve the existing capability index when
+    // POST /v1/search returns an error, instead of upserting empty
+    // records which would delete the instance's entire tool slice.
+    // Layer 1 (direct injection) must still inject new tool names from
+    // the load_skill response into the index.
+
+    // Use an axum app that only serves /health and /mcp (for load_skill
+    // forwarding). Any POST to /v1/search gets axum's default 404,
+    // which refresh_instance interprets as an error.
+    let app = axum::Router::new()
+        .route(
+            "/health",
+            axum::routing::get(|| async { axum::Json(json!({"ok": true})) }),
+        )
+        .route(
+            "/mcp",
+            axum::routing::post(|axum::Json(body): axum::Json<Value>| async move {
+                let id = body.get("id").cloned().unwrap_or(Value::Null);
+                axum::Json(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "content": [{
+                            "type": "text",
+                            "text": serde_json::to_string_pretty(&json!({
+                                "loaded": true,
+                                "skill_name": "maya-mgear",
+                                "dcc_type": "maya",
+                                "registered_tools": [
+                                    "maya_mgear__inspect",
+                                    "maya_mgear__list_joints",
+                                ],
+                            })).unwrap()
+                        }],
+                        "isError": false
+                    }
+                }))
+            }),
+        )
+        .route(
+            "/v1/call",
+            axum::routing::post(|axum::Json(body): axum::Json<Value>| async move {
+                axum::Json(json!({
+                    "success": true,
+                    "called": body.get("tool_slug").cloned().unwrap_or(Value::Null),
+                    "arguments": body.get("arguments").cloned().unwrap_or_else(|| json!({})),
+                }))
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
+            .ok();
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    let (gs, _dir, ids) = gateway_state_with_instances(&[("maya", port)]).await;
+    let iid = ids[0];
+
+    // Pre-populate the capability index with "old" tools for this instance.
+    use crate::gateway::capability::{CapabilityRecord, tool_slug};
+    use dcc_mcp_gateway_core::capability::compute_fingerprint;
+    use dcc_mcp_gateway_core::capability::index::InstanceFingerprint;
+
+    let old_records = vec![
+        CapabilityRecord::new(
+            tool_slug("maya", &iid, "project_save"),
+            "project_save".into(),
+            "project_save".into(),
+            Some("maya-scene".into()),
+            "save the current Maya scene",
+            vec![],
+            "maya".into(),
+            iid,
+            true,
+            true,
+            None,
+        ),
+        CapabilityRecord::new(
+            tool_slug("maya", &iid, "scene_open"),
+            "scene_open".into(),
+            "scene_open".into(),
+            Some("maya-scene".into()),
+            "open a Maya scene",
+            vec![],
+            "maya".into(),
+            iid,
+            true,
+            true,
+            None,
+        ),
+    ];
+    let fp = compute_fingerprint(&old_records);
+    gs.capability_index
+        .upsert_instance(iid, old_records, InstanceFingerprint(fp.0));
+
+    // Sanity: pre-existing tools are in the index before load_skill.
+    let snap_before = gs.capability_index.snapshot();
+    assert!(
+        snap_before
+            .records
+            .iter()
+            .any(|r| r.backend_tool == "project_save"),
+        "pre-existing project_save must be in index before load_skill"
+    );
+    assert_eq!(
+        snap_before.records.len(),
+        2,
+        "only 2 pre-existing tools before load_skill"
+    );
+
+    // Execute load_skill — /v1/search will return 404 (error), but the
+    // MCP load_skill to /mcp must succeed.
+    let (text, is_error) = skill_mgmt_dispatch(
+        &gs,
+        "load_skill",
+        &json!({"skill_name": "maya-mgear", "dcc_type": "maya"}),
+    )
+    .await;
+
+    assert!(!is_error, "load_skill must succeed: {text}");
+    let payload: Value = serde_json::from_str(&text).unwrap();
+
+    // ASSERTION 1: Old tools survived the refresh_instance error path.
+    let snap = gs.capability_index.snapshot();
+    assert!(
+        snap.records
+            .iter()
+            .any(|r| r.backend_tool == "project_save"),
+        "project_save must survive after /v1/search 404 during load_skill"
+    );
+    assert!(
+        snap.records.iter().any(|r| r.backend_tool == "scene_open"),
+        "scene_open must survive after /v1/search 404"
+    );
+
+    // ASSERTION 2: New tools from load_skill payload are injected
+    // (Layer 1 direct injection).
+    assert!(
+        snap.records
+            .iter()
+            .any(|r| r.backend_tool == "maya_mgear__inspect"),
+        "new tool maya_mgear__inspect must be injected via Layer 1"
+    );
+    assert!(
+        snap.records
+            .iter()
+            .any(|r| r.backend_tool == "maya_mgear__list_joints"),
+        "new tool maya_mgear__list_joints must be injected"
+    );
+
+    // ASSERTION 3: Total includes old + new (2 + 2 = 4, no duplicates).
+    assert_eq!(
+        snap.records.len(),
+        4,
+        "index must contain old tools (2) + new tools (2) = 4 records; got {}",
+        snap.records.len()
+    );
+
+    let query = crate::gateway::capability_service::parse_search_payload(&json!({
+        "query": "mgear",
+        "dcc_type": "maya",
+        "instance_id": iid.to_string(),
+        "loaded_only": true,
+    }));
+    let hits = crate::gateway::capability_service::search_service(&gs.capability_index, &query);
+    let injected_slug = hits
+        .iter()
+        .find(|hit| hit.record.backend_tool == "maya_mgear__inspect")
+        .map(|hit| hit.record.tool_slug.clone())
+        .expect("gateway search must find the injected mGear tool");
+
+    let call_result = crate::gateway::capability_service::call_service(
+        &gs,
+        &injected_slug,
+        json!({"detail": true}),
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("gateway call must route the injected slug");
+    assert_eq!(call_result["success"], true);
+    assert_eq!(call_result["called"], "maya_mgear__inspect");
+
+    // ASSERTION 4: new_tool_slugs in the response payload.
+    let slugs = payload["new_tool_slugs"].as_array().unwrap();
+    assert!(
+        slugs.iter().any(|s| s
+            .as_str()
+            .is_some_and(|s| s.contains("maya_mgear__inspect"))),
+        "new_tool_slugs must include maya_mgear__inspect: {slugs:?}"
+    );
+    assert!(
+        slugs.iter().any(|s| s
+            .as_str()
+            .is_some_and(|s| s.contains("maya_mgear__list_joints"))),
+        "new_tool_slugs must include maya_mgear__list_joints: {slugs:?}"
+    );
+
+    let _ = shutdown_tx.send(());
 }

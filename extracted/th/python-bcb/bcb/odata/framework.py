@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+import json
 import logging
+import math
 import threading
 from io import BytesIO
 from typing import Any, Optional, Union
-
-from lxml import etree
-import json
 from urllib.parse import quote
+
+import httpx
+from lxml import etree
 from typing_extensions import Self
 
-from bcb.http import _CLIENT, _ASYNC_CLIENT
+from bcb.http import (
+    RequestTimeout,
+    get_async_client,
+    get_client,
+    raise_for_request_error,
+    raise_for_status,
+    timeout_kwargs,
+)
 from bcb.exceptions import ODataError
 
 logger = logging.getLogger(__name__)
@@ -19,6 +28,77 @@ logger = logging.getLogger(__name__)
 # Maps service URL → ODataMetadata instance
 _METADATA_CACHE: dict[str, "ODataMetadata"] = {}
 _METADATA_CACHE_LOCK = threading.RLock()
+
+
+def _load_json_object(text: str, *, context: str) -> dict[str, Any]:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as ex:
+        raise ODataError(f"{context} returned invalid JSON: {ex}") from ex
+    if not isinstance(data, dict):
+        raise ODataError(f"{context} returned invalid JSON payload: expected object")
+    return data
+
+
+def _required_field(data: dict[str, Any], field: str, *, context: str) -> Any:
+    try:
+        return data[field]
+    except KeyError as ex:
+        raise ODataError(f"{context} response missing required field {field!r}") from ex
+
+
+def _load_xml_document(content: bytes, *, context: str) -> Any:
+    try:
+        return etree.parse(BytesIO(content))
+    except etree.XMLSyntaxError as ex:
+        raise ODataError(f"{context} returned invalid XML: {ex}") from ex
+
+
+def _format_odata_string_literal(value: Any) -> str:
+    if value is None:
+        raise ODataError("Edm.String filter values cannot be None")
+    escaped = str(value).replace("'", "''")
+    return f"'{escaped}'"
+
+
+def _format_odata_literal(edm_type: Optional[str], value: Any) -> str:
+    if value is None:
+        raise ODataError(f"{edm_type or 'Unknown'} filter values cannot be None")
+
+    if edm_type == "Edm.Decimal":
+        try:
+            decimal_value = float(value)
+        except (TypeError, ValueError) as ex:
+            raise ODataError(f"Invalid Edm.Decimal filter value: {value!r}") from ex
+        if not math.isfinite(decimal_value):
+            raise ODataError(f"Invalid Edm.Decimal filter value: {value!r}")
+        return f"{decimal_value}"
+
+    if edm_type in ("Edm.Int16", "Edm.Int32", "Edm.Int64"):
+        try:
+            return f"{int(value)}"
+        except (TypeError, ValueError) as ex:
+            raise ODataError(f"Invalid {edm_type} filter value: {value!r}") from ex
+
+    if edm_type == "Edm.String":
+        return _format_odata_string_literal(value)
+
+    if edm_type == "Edm.Date":
+        try:
+            formatted = value.strftime("%Y-%m-%d")
+        except AttributeError as ex:
+            raise ODataError(f"Invalid Edm.Date filter value: {value!r}") from ex
+        if not isinstance(formatted, str):
+            raise ODataError(f"Invalid Edm.Date filter value: {value!r}")
+        return formatted
+
+    if edm_type == "Edm.Boolean":
+        if not isinstance(value, bool):
+            raise ODataError(f"Invalid Edm.Boolean filter value: {value!r}")
+        return str(value).lower()
+
+    raise ODataError(f"Unsupported OData filter literal type: {edm_type or 'Unknown'}")
+
 
 # Edm.Boolean
 # Edm.Byte
@@ -174,29 +254,57 @@ class ODataPropertyOrderBy:
         return f"<{str(self)}>"
 
 
-class ODataPropertyFilter:
-    def __init__(self, obj: "ODataProperty", oth: Any, operator: str) -> None:
-        self.obj = obj
-        self.other = oth
-        self.operator = operator
-
+class ODataFilterExpression:
     def statement(self) -> str:
-        if self.obj.type == "Edm.Decimal":
-            return f"{self.obj.name} {self.operator} {float(self.other)}"
-        elif self.obj.type == "Edm.Int32":
-            return f"{self.obj.name} {self.operator} {int(self.other)}"
-        elif self.obj.type == "Edm.String":
-            return f"{self.obj.name} {self.operator} '{str(self.other)}'"
-        elif self.obj.type == "Edm.Date":
-            return f"{self.obj.name} {self.operator} {self.other.strftime('%Y-%m-%d')}"
-        else:
-            return f"{self.obj.name} {self.operator} '{self.other}'"
+        raise NotImplementedError
+
+    def __and__(self, other: object) -> Any:
+        if not isinstance(other, ODataFilterExpression):
+            return NotImplemented
+        return ODataCombinedFilter(self, other, "and")
+
+    def __or__(self, other: object) -> Any:
+        if not isinstance(other, ODataFilterExpression):
+            return NotImplemented
+        return ODataCombinedFilter(self, other, "or")
+
+    def __bool__(self) -> bool:
+        raise TypeError(
+            "OData filters cannot be evaluated as booleans. "
+            "Use & for AND and | for OR, with parentheses around comparisons."
+        )
 
     def __str__(self) -> str:
         return self.statement()
 
     def __repr__(self) -> str:
         return f"<filter: {str(self)}>"
+
+
+class ODataCombinedFilter(ODataFilterExpression):
+    def __init__(
+        self,
+        left: ODataFilterExpression,
+        right: ODataFilterExpression,
+        operator: str,
+    ) -> None:
+        self.left = left
+        self.right = right
+        self.operator = operator
+
+    def statement(self) -> str:
+        return f"({self.left.statement()} {self.operator} {self.right.statement()})"
+
+
+class ODataPropertyFilter(ODataFilterExpression):
+    def __init__(self, obj: "ODataProperty", oth: Any, operator: str) -> None:
+        self.obj = obj
+        self.other = oth
+        self.operator = operator
+
+    def statement(self) -> str:
+        literal = _format_odata_literal(self.obj.type, self.other)
+        return f"{self.obj.name} {self.operator} {literal}"
 
 
 class ODataProperty:
@@ -269,25 +377,49 @@ class ODataMetadata:
         "edmx": "http://docs.oasis-open.org/odata/ns/edmx",
     }
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, *, timeout: RequestTimeout = None) -> None:
         self.url = url
-        self._load_document()
-        _xpath = "edmx:DataServices/edm:Schema"
-        schema = self.doc.xpath(_xpath, namespaces=self.namespaces)[0]
-        self.namespace: str = schema.attrib["Namespace"]
-        self._used_elements: list[str] = []
-        self._parse_entities(schema)
-        self._parse_entity_sets(schema)
-        self._parse_functions(schema)
-        self._parse_function_imports(schema)
+        self._timeout = timeout
+        self._load_document(timeout=timeout)
+        try:
+            _xpath = "edmx:DataServices/edm:Schema"
+            schemas = self.doc.xpath(_xpath, namespaces=self.namespaces)
+            if not schemas:
+                raise ODataError(f"OData metadata {self.url} missing schema")
+            schema = schemas[0]
+            self.namespace = schema.attrib["Namespace"]
+            self._used_elements: list[str] = []
+            self._parse_entities(schema)
+            self._parse_entity_sets(schema)
+            self._parse_functions(schema)
+            self._parse_function_imports(schema)
+        except ODataError:
+            raise
+        except (KeyError, IndexError, TypeError) as ex:
+            raise ODataError(
+                f"OData metadata {self.url} has invalid structure: {ex}"
+            ) from ex
 
-    def _load_document(self) -> None:
+    def _load_document(self, *, timeout: RequestTimeout = None) -> None:
         logger.debug(f"Fetching OData metadata from {self.url}")
-        res = _CLIENT.get(self.url)
+        try:
+            res = get_client().get(self.url, **timeout_kwargs(timeout))
+        except httpx.HTTPError as ex:
+            raise_for_request_error(
+                ex, context=f"OData metadata {self.url}", error_cls=ODataError
+            )
         logger.debug(
             f"OData metadata response: status={res.status_code}, length={len(res.content)}"
         )
-        self.doc = etree.parse(BytesIO(res.content))
+        raise_for_status(
+            res,
+            context=f"OData metadata {self.url}",
+            error_cls=ODataError,
+            not_found_cls=ODataError,
+            rate_limit_cls=ODataError,
+            server_error_cls=ODataError,
+        )
+        self.doc = _load_xml_document(res.content, context=f"OData metadata {self.url}")
 
     def _parse_entity(self, entity_element: Any, namespace: str) -> ODataEntity:
         name = entity_element.attrib["Name"]
@@ -376,21 +508,51 @@ class ODataService:
         OData service root URL
     """
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, *, timeout: RequestTimeout = None) -> None:
         self.url = url
-        res = _CLIENT.get(self.url)
-        self.api_data: dict[str, Any] = json.loads(res.text)
-        self.endpoints: list[ODataEndPoint] = [
-            ODataEndPoint(**x) for x in self.api_data["value"]
-        ]
-        self._odata_context_url: str = self.api_data["@odata.context"]
+        self._timeout = timeout
+        try:
+            res = get_client().get(self.url, **timeout_kwargs(timeout))
+        except httpx.HTTPError as ex:
+            raise_for_request_error(
+                ex, context=f"OData service {self.url}", error_cls=ODataError
+            )
+        raise_for_status(
+            res,
+            context=f"OData service {self.url}",
+            error_cls=ODataError,
+            not_found_cls=ODataError,
+            rate_limit_cls=ODataError,
+            server_error_cls=ODataError,
+        )
+        context = f"OData service {self.url}"
+        self.api_data = _load_json_object(res.text, context=context)
+        value = _required_field(self.api_data, "value", context=context)
+        if not isinstance(value, list):
+            raise ODataError("OData service response field 'value' must be a list")
+        endpoints = []
+        for endpoint in value:
+            if not isinstance(endpoint, dict):
+                raise ODataError(
+                    "OData service response field 'value' must contain objects"
+                )
+            endpoints.append(ODataEndPoint(**endpoint))
+        self.endpoints = endpoints
+        odata_context = _required_field(
+            self.api_data, "@odata.context", context=context
+        )
+        if not isinstance(odata_context, str):
+            raise ODataError(
+                "OData service response field '@odata.context' must be a string"
+            )
+        self._odata_context_url = odata_context
 
         # Use cached metadata if available, otherwise create and cache new one
         with _METADATA_CACHE_LOCK:
             if self._odata_context_url in _METADATA_CACHE:
                 self.metadata = _METADATA_CACHE[self._odata_context_url]
             else:
-                self.metadata = ODataMetadata(self._odata_context_url)
+                self.metadata = ODataMetadata(self._odata_context_url, timeout=timeout)
                 _METADATA_CACHE[self._odata_context_url] = self.metadata
 
     def __getitem__(self, item: str) -> Union[ODataEntitySet, ODataFunctionImport]:
@@ -416,36 +578,57 @@ class ODataService:
     def entity_sets(self) -> dict[str, ODataEntitySet]:
         return self.metadata.entity_sets
 
-    def describe(self) -> None:
-        es_names = []
-        for es in self.entity_sets.keys():
-            k = f"{self.metadata.namespace}.{es}"
-            if k not in self.metadata._used_elements:
-                es_names.append(es)
-        if len(es_names):
+    def _standalone_entity_sets(self) -> list[ODataEntitySet]:
+        return [
+            entity_set
+            for name, entity_set in self.entity_sets.items()
+            if f"{self.metadata.namespace}.{name}" not in self.metadata._used_elements
+        ]
+
+    def describe(self, *, full: bool = False) -> None:
+        entity_sets = self._standalone_entity_sets()
+        function_imports = list(self.function_imports.values())
+
+        if full:
+            if entity_sets:
+                print("EntitySets:")
+                for entity_set in entity_sets:
+                    entity_set.describe()
+            if function_imports:
+                print("FunctionImports:")
+                for function_import in function_imports:
+                    function_import.describe()
+            return
+
+        if entity_sets:
             print("EntitySets:")
-            for es in es_names:
-                print(" ", es)
-        if len(self.function_imports):
+            for entity_set in entity_sets:
+                print(" ", entity_set.name)
+        if function_imports:
             print("FunctionImports:")
-            for es in self.function_imports.keys():
-                print(" ", es)
+            for function_import in function_imports:
+                print(" ", function_import.name)
 
     def query(
         self, entity_set: Union[ODataEntitySet, ODataFunctionImport]
     ) -> "ODataQuery":
-        return ODataQuery(entity_set, self.url)
+        return ODataQuery(entity_set, self.url, timeout=self._timeout)
 
 
 class ODataQuery:
     def __init__(
-        self, entity: Union[ODataEntitySet, ODataFunctionImport], url: str
+        self,
+        entity: Union[ODataEntitySet, ODataFunctionImport],
+        url: str,
+        *,
+        timeout: RequestTimeout = None,
     ) -> None:
         self.entity = entity
         self.base_url = url
+        self._timeout = timeout
         self._params: dict[str, Any] = {}
         self.function_parameters: dict[str, Any] = {}
-        self._filter: list[ODataPropertyFilter] = []
+        self._filter: list[ODataFilterExpression] = []
         self._select: list[ODataProperty] = []
         self._orderby: list[ODataPropertyOrderBy] = []
         self._raw = False
@@ -477,7 +660,10 @@ class ODataQuery:
                 raise ODataError(f"Unknown parameter: {arg}")
         return self
 
-    def filter(self, *args: ODataPropertyFilter) -> Self:
+    def _format_parameter(self, parameter: ODataParameter, value: Any) -> str:
+        return parameter.format(value)
+
+    def filter(self, *args: ODataFilterExpression) -> Self:
         if len(args):
             self._filter.extend(args)
         return self
@@ -527,42 +713,92 @@ class ODataQuery:
         self._orderby = []
         self._params = {}
 
-    def collect(self) -> Any:
-        return json.loads(self.text())
+    def _resolve_timeout(self, timeout: RequestTimeout) -> RequestTimeout:
+        if timeout is None:
+            return self._timeout
+        return timeout
 
-    async def async_text(self) -> str:
-        """Async version of text(). Fetches OData response using _ASYNC_CLIENT."""
+    def collect(self, *, timeout: RequestTimeout = None) -> Any:
+        url = self.odata_url()
+        data = _load_json_object(
+            self.text(timeout=timeout), context=f"OData query {url}"
+        )
+        _required_field(data, "value", context=f"OData query {url}")
+        return data
+
+    async def async_text(self, *, timeout: RequestTimeout = None) -> str:
+        """Async version of text(). Fetches OData response using shared client."""
         params = self._build_parameters()
         if self.is_function and len(self.function_parameters):
             for p in self.entity.function.parameters:  # type: ignore[union-attr]
                 val = self.function_parameters[p.name or ""]
                 if p.required and val is None:
                     raise ODataError("Parameter not set: " + (p.name or ""))
-                params["@" + (p.name or "")] = p.format(val)
+                params["@" + (p.name or "")] = self._format_parameter(p, val)
         qs = "&".join([f"{quote(k)}={quote(str(v))}" for k, v in params.items()])
         headers = {"OData-Version": "4.0", "OData-MaxVersion": "4.0"}
-        res = await _ASYNC_CLIENT.get(self.odata_url() + "?" + qs, headers=headers)
+        url = self.odata_url()
+        try:
+            res = await get_async_client().get(
+                url + "?" + qs,
+                headers=headers,
+                **timeout_kwargs(self._resolve_timeout(timeout)),
+            )
+        except httpx.HTTPError as ex:
+            raise_for_request_error(
+                ex, context=f"OData query {url}", error_cls=ODataError
+            )
+        raise_for_status(
+            res,
+            context=f"OData query {url}",
+            error_cls=ODataError,
+            not_found_cls=ODataError,
+            rate_limit_cls=ODataError,
+            server_error_cls=ODataError,
+        )
         return res.text
 
-    async def async_collect(self) -> Any:
+    async def async_collect(self, *, timeout: RequestTimeout = None) -> Any:
         """Async version of collect(). Awaits async_text() and parses JSON."""
-        return json.loads(await self.async_text())
+        url = self.odata_url()
+        data = _load_json_object(
+            await self.async_text(timeout=timeout), context=f"OData query {url}"
+        )
+        _required_field(data, "value", context=f"OData query {url}")
+        return data
 
-    def text(self) -> str:
+    def text(self, *, timeout: RequestTimeout = None) -> str:
         params = self._build_parameters()
         if self.is_function and len(self.function_parameters):
             for p in self.entity.function.parameters:  # type: ignore[union-attr]
                 val = self.function_parameters[p.name or ""]
                 if p.required and val is None:
                     raise ODataError("Parameter not set: " + (p.name or ""))
-                params["@" + (p.name or "")] = p.format(val)
+                params["@" + (p.name or "")] = self._format_parameter(p, val)
         qs = "&".join([f"{quote(k)}={quote(str(v))}" for k, v in params.items()])
         headers = {"OData-Version": "4.0", "OData-MaxVersion": "4.0"}
         url = self.odata_url()
         logger.debug(f"Fetching OData query from {url}")
-        res = _CLIENT.get(url + "?" + qs, headers=headers)
+        try:
+            res = get_client().get(
+                url + "?" + qs,
+                headers=headers,
+                **timeout_kwargs(self._resolve_timeout(timeout)),
+            )
+        except httpx.HTTPError as ex:
+            raise_for_request_error(
+                ex, context=f"OData query {url}", error_cls=ODataError
+            )
         logger.debug(
             f"OData query response: status={res.status_code}, length={len(res.text)}"
+        )
+        raise_for_status(
+            res,
+            context=f"OData query {url}",
+            error_cls=ODataError,
+            not_found_cls=ODataError,
+            rate_limit_cls=ODataError,
+            server_error_cls=ODataError,
         )
         return res.text
 

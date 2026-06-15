@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S abxpkg run --script --deps-from=./config.json:required_binaries node
+// /// script
+// ///
 /**
  * Wait for Chrome session files to exist (cdp_url.txt + target_id.txt).
  *

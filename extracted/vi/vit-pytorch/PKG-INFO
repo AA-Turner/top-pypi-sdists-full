@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.23.6
+Version: 1.23.8
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
@@ -1633,6 +1633,8 @@ embeddings # ((1, 257, 192), (1, 17, 384)) - (batch x patches x dimension) <- la
 <img src="./images/jet_vit.png" width="400px"></img>
 
 Efficient high-resolution ViT that converts a pretrained full-attention ViT into a hybrid of ReLU-based linear attention with squeeze dynamic convolution, window attention, and a small number of full softmax attention layers via a three-stage Post-Training Attention Search.
+
+Credit goes to [Pranoy](https://github.com/pranoyr) for the implementation!
 
 Stage 1 — Each layer randomly picks between window and linear attention every forward pass.
 

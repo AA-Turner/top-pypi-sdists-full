@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-garmin
-Version: 0.1.26
+Version: 0.1.27
 Summary: Python client for Garmin Connect API
 Author-email: Ron Klinkien <ron@cyberjunky.nl>
 License: MIT

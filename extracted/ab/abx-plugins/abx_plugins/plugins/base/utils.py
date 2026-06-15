@@ -473,7 +473,7 @@ def _abxpkg_provider_kwargs(
     provider_name: str,
     payload: Mapping[str, Any],
 ) -> dict[str, Any]:
-    lib_dir_value = str(payload.get("LIB_DIR") or "").strip()
+    lib_dir_value = str(payload.get("ABXPKG_LIB_DIR") or "").strip()
     lib_dir = Path(lib_dir_value).expanduser() if lib_dir_value else None
     if provider_name == "env":
         kwargs: dict[str, Any] = {
@@ -481,16 +481,6 @@ def _abxpkg_provider_kwargs(
         }
         if lib_dir is not None:
             kwargs["install_root"] = lib_dir / "env"
-        return kwargs
-    if provider_name == "chromewebstore":
-        extensions_dir_value = str(payload.get("CHROME_EXTENSIONS_DIR") or "").strip()
-        kwargs: dict[str, Any] = {}
-        if lib_dir is not None:
-            kwargs["install_root"] = lib_dir / "chromewebstore"
-        elif extensions_dir_value:
-            extensions_dir = Path(extensions_dir_value).expanduser()
-            if extensions_dir.name == "extensions":
-                kwargs["install_root"] = extensions_dir.parent
         return kwargs
     if lib_dir is not None and provider_name != "env":
         return {"install_root": lib_dir / provider_name}
@@ -608,6 +598,8 @@ def _hydrate_config_payload(
         env = os.environ if environ is None else environ
         if key in env and Path(str(env[key])).expanduser().exists():
             continue
+        if payload.get(key) and Path(str(payload[key])).expanduser().exists():
+            continue
         loaded_path = _load_required_binary_path(record, payload)
         if loaded_path:
             payload[key] = loaded_path
@@ -618,14 +610,15 @@ def _schema_model(schema_json: str):
     from jambo import SchemaConverter
     from pydantic import ConfigDict
 
-    model = SchemaConverter.build(json.loads(schema_json))
+    schema = json.loads(schema_json)
+    model = SchemaConverter.build(schema)
     model.model_config = ConfigDict(
         validate_assignment=True,
         use_enum_values=True,
         validate_default=True,
     )
     model.model_rebuild(force=True)
-    return model
+    return _patch_open_object_fields(model, _schema_properties(schema))
 
 
 def _open_object_annotation(prop: Mapping[str, Any]) -> type[Any] | None:
@@ -698,7 +691,7 @@ def build_config_model(
     properties: Mapping[str, Any],
 ):
     """Build the typed pydantic config model for JSONSchema properties."""
-    model = _schema_model(
+    return _schema_model(
         json.dumps(
             {
                 "title": title,
@@ -708,7 +701,6 @@ def build_config_model(
             sort_keys=True,
         ),
     )
-    return _patch_open_object_fields(model, properties)
 
 
 def resolve_plugin_configs(
@@ -981,10 +973,10 @@ def _resolve_path(path_value: str) -> Path:
 def get_lib_dir() -> Path:
     """Return library directory.
 
-    Priority: LIB_DIR env var, otherwise the platform user-config abx/lib dir.
+    Priority: ABXPKG_LIB_DIR env var, otherwise the platform user-config abx/lib dir.
     """
     config = load_config(BASE_CONFIG_PATH)
-    return _resolve_path(str(config.LIB_DIR))
+    return _resolve_path(str(config.ABXPKG_LIB_DIR))
 
 
 def get_personas_dir() -> Path:

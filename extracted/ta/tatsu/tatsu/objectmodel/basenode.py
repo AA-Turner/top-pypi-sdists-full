@@ -5,13 +5,14 @@ from __future__ import annotations
 import dataclasses as dc
 import inspect
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from functools import cache
 from typing import Any, Self, overload
 
 from ..contexts.infos import ParseInfo
 from ..util import rowselect, typename
 from ..util.asjson import AsJSONMixin, asjson, asjsons
+from ..util.fromjson import JSONBase
 from ..util.indent import fold
 
 
@@ -35,7 +36,7 @@ def nodedataclass[T: type](cls: T) -> T: ...
 def nodedataclass[T: type](**params: Any) -> Callable[[T], T]: ...
 
 
-def nodedataclass[T: type](cls: T | None = None, **params) -> T | Callable[[T], T]:  # type: ignore
+def nodedataclass[T: type](cls: T | None = None, **params: Any) -> T | Callable[[T], T]:
     # by Gemini (2026-02-07)
     # by [apalala@gmail.com](https://github.com/apalala)
 
@@ -51,7 +52,7 @@ def nodedataclass[T: type](cls: T | None = None, **params) -> T | Callable[[T], 
 
 
 @nodedataclass
-class BaseNode(AsJSONMixin):
+class BaseNode(JSONBase, AsJSONMixin):
     ast: Any = dc.field(kw_only=False, default=None)
     ctx: Any = None
     parseinfo: ParseInfo | None = None
@@ -198,3 +199,7 @@ class BaseNode(AsJSONMixin):
     def __setstate__(self, state: dict[str, Any]) -> None:
         for name, value in state.items():
             setattr(self, name, value)
+
+    @classmethod
+    def __from_json__(cls, data: Mapping[str, Any]) -> Self:
+        return super().__from_json__(data)

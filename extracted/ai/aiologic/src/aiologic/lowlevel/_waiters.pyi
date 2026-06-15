@@ -3,14 +3,9 @@
 # SPDX-FileCopyrightText: 2025 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
-import sys
+from typing import Protocol
 
-from typing import Any, Protocol
-
-if sys.version_info >= (3, 9):
-    from collections.abc import Generator
-else:
-    from typing import Generator
+from aiologic.meta import generator
 
 class Waiter(Protocol):
     __slots__ = ()
@@ -20,7 +15,6 @@ class Waiter(Protocol):
 class GreenWaiter(Waiter, Protocol):
     __slots__ = ()
 
-    def __init__(self, /, *, shield: bool = False) -> None: ...
     def wait(self, /, timeout: float | None = None) -> bool: ...
     @property
     def shield(self, /) -> bool: ...
@@ -30,8 +24,9 @@ class GreenWaiter(Waiter, Protocol):
 class AsyncWaiter(Waiter, Protocol):
     __slots__ = ()
 
-    def __init__(self, /, *, shield: bool = False) -> None: ...
-    def __await__(self, /) -> Generator[Any, Any, bool]: ...
+    @generator
+    async def __await__(self, /, timeout: float | None = None) -> bool: ...
+    async def with_(self, /, timeout: float | None = None) -> bool: ...
     @property
     def shield(self, /) -> bool: ...
     @shield.setter

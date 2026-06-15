@@ -59,22 +59,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -6049,6 +6035,62 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     AMAZON_EKS_BLOCK_STORAGE_POLICY_V2 = "AMAZON_EKS_BLOCK_STORAGE_POLICY_V2"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_MODEL_CUSTOMIZATION_CORE_ACCESS = "AMAZON_SAGE_MAKER_MODEL_CUSTOMIZATION_CORE_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSRESILIENCE_HUB_SERVICE_ROLE_POLICY = "AWSRESILIENCE_HUB_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSAPPLICATION_MIGRATION_F_SX_PROXY_POLICY = "AWSAPPLICATION_MIGRATION_F_SX_PROXY_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSAPPLICATION_MIGRATION_F_SX_PROXY_VPC_POLICY = "AWSAPPLICATION_MIGRATION_F_SX_PROXY_VPC_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_JOB_RUNTIME_ACCESS = "AMAZON_SAGE_MAKER_JOB_RUNTIME_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_JOB_FULL_ACCESS = "AMAZON_SAGE_MAKER_JOB_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSQUICK_SETUP_PATCH_POLICY_TAG_MANAGEMENT_EXECUTION_POLICY = "AWSQUICK_SETUP_PATCH_POLICY_TAG_MANAGEMENT_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSQUICK_SETUP_PATCH_POLICY_LAMBDA_EXECUTION_POLICY = "AWSQUICK_SETUP_PATCH_POLICY_LAMBDA_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    FIN_OPS_AGENT_OPERATOR_POLICY = "FIN_OPS_AGENT_OPERATOR_POLICY"
+    '''
+    :stability: experimental
+    '''
+    FIN_OPS_AGENT_AGENT_POLICY = "FIN_OPS_AGENT_AGENT_POLICY"
+    '''
+    :stability: experimental
+    '''
+    EC2_IMAGE_BUILDER_EXECUTION_POLICY = "EC2_IMAGE_BUILDER_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    RE_INVENT_TICKET_APPROVAL_ACCESS = "RE_INVENT_TICKET_APPROVAL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSSECURITY_AGENT_SERVICE_ROLE_POLICY = "AWSSECURITY_AGENT_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    ANTHROPIC_SELF_HOSTED_ENVIRONMENT_ACCESS = "ANTHROPIC_SELF_HOSTED_ENVIRONMENT_ACCESS"
     '''
     :stability: experimental
     '''
